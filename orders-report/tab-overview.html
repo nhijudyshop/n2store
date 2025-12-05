@@ -17,7 +17,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -43,12 +43,36 @@
             font-size: 32px;
         }
 
+        .campaign-name {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            font-size: 18px;
+            font-weight: 600;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .campaign-name i {
+            margin-right: 10px;
+        }
+
         .stats-summary {
             background: white;
             border-radius: 15px;
             padding: 25px;
             margin-bottom: 25px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .stats-summary h2 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 20px;
+            font-weight: 600;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
         }
 
         .stats-grid {
@@ -80,20 +104,56 @@
             font-weight: 700;
         }
 
-        .table-container {
+        .employee-section {
             background: white;
             border-radius: 15px;
             padding: 25px;
+            margin-bottom: 25px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
-        .table-container h2 {
-            margin: 0 0 20px 0;
-            color: #333;
-            font-size: 22px;
-            font-weight: 600;
+        .employee-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
             border-bottom: 3px solid #667eea;
-            padding-bottom: 10px;
+        }
+
+        .employee-name {
+            font-size: 22px;
+            font-weight: 700;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .employee-name i {
+            font-size: 24px;
+        }
+
+        .employee-info {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .employee-info-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .employee-info-item i {
+            color: #764ba2;
+        }
+
+        .employee-info-item strong {
+            color: #333;
+            margin-left: 3px;
         }
 
         table {
@@ -198,6 +258,13 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+
+        .no-tags-message {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-style: italic;
+        }
     </style>
 </head>
 
@@ -207,57 +274,64 @@
         <div class="header">
             <h1>
                 <i class="fas fa-chart-pie"></i>
-                Tổng Quan - Thống Kê Tag
+                Tổng Quan - Thống Kê Tag Theo Nhân Viên
                 <button class="refresh-btn ms-auto" onclick="requestDataFromTab1()">
                     <i class="fas fa-sync-alt"></i> Làm mới
                 </button>
             </h1>
         </div>
 
-        <!-- Stats Summary -->
-        <div class="stats-summary" id="statsSummary" style="display: none;">
-            <h2 style="margin: 0 0 15px 0; color: #333; font-size: 18px;">
-                <i class="fas fa-info-circle"></i> Tóm Tắt
-            </h2>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="label">Tổng Đơn Hàng</div>
-                    <div class="value" id="totalOrders">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Số Loại Tag</div>
-                    <div class="value" id="totalTagTypes">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Tổng Số Tag</div>
-                    <div class="value" id="totalTags">0</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Table -->
-        <div class="table-container">
-            <h2><i class="fas fa-tags"></i> Chi Tiết Thống Kê Tag</h2>
-            <div id="contentArea">
-                <div class="empty-state">
-                    <i class="fas fa-inbox"></i>
-                    <h3>Chưa có dữ liệu</h3>
-                    <p>Vui lòng load dữ liệu từ tab "Quản Lý Đơn Hàng" trước</p>
-                </div>
+        <div id="contentArea">
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <h3>Chưa có dữ liệu</h3>
+                <p>Vui lòng load dữ liệu từ tab "Quản Lý Đơn Hàng" trước</p>
             </div>
         </div>
     </div>
 
+    <!-- Firebase SDK v8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- Core Dependencies -->
+    <script src="config.js"></script>
+
     <script>
         let allOrders = [];
-        let tagStats = [];
+        let employeeDivisions = null;
+        let currentCampaignName = null;
+        let database = null;
+
+        // Initialize Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        database = firebase.database();
 
         // Setup message listener
         window.addEventListener('message', function(event) {
             if (event.data.type === 'ORDERS_DATA_RESPONSE') {
                 console.log('[OVERVIEW] Received orders data:', event.data.orders.length);
                 allOrders = event.data.orders || [];
-                processAndDisplay();
+
+                if (allOrders.length > 0) {
+                    // Detect campaign name from first order
+                    currentCampaignName = allOrders[0].LiveCampaignName
+                        || allOrders[0].liveCampaignName
+                        || allOrders[0].CampaignName
+                        || allOrders[0].campaignName;
+
+                    console.log('[OVERVIEW] Detected campaign:', currentCampaignName);
+
+                    if (currentCampaignName) {
+                        loadEmployeeDivisions();
+                    } else {
+                        showError('Không tìm thấy tên chiến dịch trong dữ liệu');
+                    }
+                } else {
+                    showEmptyState('Không có đơn hàng. Vui lòng load dữ liệu ở tab Quản Lý Đơn Hàng trước.');
+                }
             }
         });
 
@@ -277,18 +351,74 @@
             `;
         }
 
+        // Load employee divisions from Firebase
+        async function loadEmployeeDivisions() {
+            try {
+                console.log('[OVERVIEW] Loading employee divisions from Firebase...');
+                showLoading('Đang tải phân chia nhân viên...');
+
+                const snapshot = await database.ref('employeeDivisions').once('value');
+                employeeDivisions = snapshot.val();
+
+                console.log('[OVERVIEW] Employee divisions loaded:', employeeDivisions);
+
+                if (!employeeDivisions) {
+                    showError('Chưa có dữ liệu phân chia nhân viên trong Firebase');
+                    return;
+                }
+
+                if (!employeeDivisions[currentCampaignName]) {
+                    showError(`Chiến dịch "${currentCampaignName}" chưa có phân chia nhân viên`);
+                    return;
+                }
+
+                processAndDisplay();
+            } catch (error) {
+                console.error('[OVERVIEW] Error loading employee divisions:', error);
+                showError('Lỗi khi tải phân chia nhân viên: ' + error.message);
+            }
+        }
+
         // Process and display data
         function processAndDisplay() {
             if (allOrders.length === 0) {
-                showEmptyState();
+                showEmptyState('Không có đơn hàng');
                 return;
             }
 
-            // Aggregate tags
+            if (!employeeDivisions || !employeeDivisions[currentCampaignName]) {
+                showError('Không có dữ liệu phân chia nhân viên');
+                return;
+            }
+
+            const employees = employeeDivisions[currentCampaignName];
+
+            // Calculate overall stats
+            const overallStats = calculateOverallStats(allOrders);
+
+            // Calculate per-employee stats
+            const employeeStats = employees.map(emp => {
+                const empOrders = allOrders.filter(order => {
+                    const stt = parseInt(order.STT);
+                    return stt >= emp.start && stt <= emp.end;
+                });
+
+                return {
+                    ...emp,
+                    orders: empOrders,
+                    tagStats: calculateTagStats(empOrders)
+                };
+            });
+
+            renderOverview(overallStats, employeeStats);
+        }
+
+        // Calculate overall statistics
+        function calculateOverallStats(orders) {
             const tagCounts = {};
             let totalTagsCount = 0;
 
-            allOrders.forEach(order => {
+            orders.forEach(order => {
                 if (order.Tags) {
                     try {
                         const tags = JSON.parse(order.Tags);
@@ -305,78 +435,193 @@
                 }
             });
 
-            // Convert to array and sort by count (descending)
-            tagStats = Object.entries(tagCounts)
+            const tagStats = Object.entries(tagCounts)
                 .map(([name, count]) => ({
                     name: name,
                     count: count,
-                    percentage: ((count / totalTagsCount) * 100).toFixed(1)
+                    percentage: totalTagsCount > 0 ? ((count / totalTagsCount) * 100).toFixed(1) : 0
                 }))
                 .sort((a, b) => b.count - a.count);
 
-            // Update stats summary
-            document.getElementById('totalOrders').textContent = allOrders.length.toLocaleString();
-            document.getElementById('totalTagTypes').textContent = tagStats.length;
-            document.getElementById('totalTags').textContent = totalTagsCount.toLocaleString();
-            document.getElementById('statsSummary').style.display = 'block';
-
-            // Render table
-            renderTable();
+            return {
+                totalOrders: orders.length,
+                totalTagTypes: tagStats.length,
+                totalTags: totalTagsCount,
+                tagStats: tagStats
+            };
         }
 
-        // Render table
-        function renderTable() {
-            if (tagStats.length === 0) {
-                document.getElementById('contentArea').innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-tags"></i>
-                        <h3>Không có tag nào</h3>
-                        <p>Các đơn hàng chưa được gắn tag</p>
-                    </div>
-                `;
-                return;
-            }
+        // Calculate tag statistics for orders
+        function calculateTagStats(orders) {
+            const tagCounts = {};
+            let totalTagsCount = 0;
 
-            let html = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 60px;">STT</th>
-                            <th>Tên Tag</th>
-                            <th style="width: 150px; text-align: center;">Số Lượng</th>
-                            <th style="width: 150px; text-align: center;">Tỷ Lệ (%)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            tagStats.forEach((tag, index) => {
-                html += `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td class="tag-name">${tag.name}</td>
-                        <td class="tag-count" style="text-align: center;">${tag.count.toLocaleString()}</td>
-                        <td class="tag-percentage" style="text-align: center;">${tag.percentage}%</td>
-                    </tr>
-                `;
+            orders.forEach(order => {
+                if (order.Tags) {
+                    try {
+                        const tags = JSON.parse(order.Tags);
+                        if (Array.isArray(tags) && tags.length > 0) {
+                            tags.forEach(tag => {
+                                const tagName = tag.Name || `Tag #${tag.Id}`;
+                                tagCounts[tagName] = (tagCounts[tagName] || 0) + 1;
+                                totalTagsCount++;
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('[OVERVIEW] Failed to parse tags:', e);
+                    }
+                }
             });
 
+            const tagStats = Object.entries(tagCounts)
+                .map(([name, count]) => ({
+                    name: name,
+                    count: count,
+                    percentage: totalTagsCount > 0 ? ((count / totalTagsCount) * 100).toFixed(1) : 0
+                }))
+                .sort((a, b) => b.count - a.count);
+
+            return {
+                totalTags: totalTagsCount,
+                tagList: tagStats
+            };
+        }
+
+        // Render overview
+        function renderOverview(overallStats, employeeStats) {
+            let html = '';
+
+            // Campaign name
             html += `
-                    </tbody>
-                </table>
+                <div class="campaign-name">
+                    <i class="fas fa-bullhorn"></i>
+                    Chiến dịch: ${currentCampaignName}
+                </div>
             `;
+
+            // Overall stats summary
+            html += `
+                <div class="stats-summary">
+                    <h2><i class="fas fa-chart-bar"></i> Tổng Quan Chung</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="label">Tổng Đơn Hàng</div>
+                            <div class="value">${overallStats.totalOrders.toLocaleString()}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">Số Loại Tag</div>
+                            <div class="value">${overallStats.totalTagTypes}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">Tổng Số Tag</div>
+                            <div class="value">${overallStats.totalTags.toLocaleString()}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Employee sections
+            employeeStats.forEach(emp => {
+                html += `
+                    <div class="employee-section">
+                        <div class="employee-header">
+                            <div class="employee-name">
+                                <i class="fas fa-user-circle"></i>
+                                ${emp.name}
+                            </div>
+                            <div class="employee-info">
+                                <div class="employee-info-item">
+                                    <i class="fas fa-play"></i>
+                                    Bắt đầu: <strong>${emp.start}</strong>
+                                </div>
+                                <div class="employee-info-item">
+                                    <i class="fas fa-stop"></i>
+                                    Kết thúc: <strong>${emp.end}</strong>
+                                </div>
+                                <div class="employee-info-item">
+                                    <i class="fas fa-shopping-cart"></i>
+                                    Tổng đơn: <strong>${emp.orders.length}</strong>
+                                </div>
+                                <div class="employee-info-item">
+                                    <i class="fas fa-tags"></i>
+                                    Tổng tag: <strong>${emp.tagStats.totalTags}</strong>
+                                </div>
+                            </div>
+                        </div>
+                `;
+
+                if (emp.tagStats.tagList.length === 0) {
+                    html += `
+                        <div class="no-tags-message">
+                            <i class="fas fa-info-circle"></i>
+                            Nhân viên này chưa có tag nào
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">STT</th>
+                                    <th>Tên Tag</th>
+                                    <th style="width: 150px; text-align: center;">Số Lượng</th>
+                                    <th style="width: 150px; text-align: center;">Tỷ Lệ (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    emp.tagStats.tagList.forEach((tag, index) => {
+                        html += `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td class="tag-name">${tag.name}</td>
+                                <td class="tag-count" style="text-align: center;">${tag.count.toLocaleString()}</td>
+                                <td class="tag-percentage" style="text-align: center;">${tag.percentage}%</td>
+                            </tr>
+                        `;
+                    });
+
+                    html += `
+                            </tbody>
+                        </table>
+                    `;
+                }
+
+                html += `</div>`;
+            });
 
             document.getElementById('contentArea').innerHTML = html;
         }
 
+        // Show loading
+        function showLoading(message) {
+            document.getElementById('contentArea').innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+
         // Show empty state
-        function showEmptyState() {
-            document.getElementById('statsSummary').style.display = 'none';
+        function showEmptyState(message) {
             document.getElementById('contentArea').innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-inbox"></i>
                     <h3>Chưa có dữ liệu</h3>
-                    <p>Vui lòng load dữ liệu từ tab "Quản Lý Đơn Hàng" trước</p>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+
+        // Show error
+        function showError(message) {
+            document.getElementById('contentArea').innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i>
+                    <h3 style="color: #ff6b6b;">Lỗi</h3>
+                    <p>${message}</p>
                 </div>
             `;
         }
