@@ -779,7 +779,7 @@ function checkAdminPermission() {
 function loadEmployeeRangesForCampaign(campaignName = null) {
     if (!database) {
         console.log('[EMPLOYEE] Database not initialized');
-        return;
+        return Promise.resolve();
     }
 
     if (campaignName) {
@@ -787,28 +787,23 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
         const sanitizedName = sanitizeCampaignName(campaignName);
         console.log(`[EMPLOYEE] Loading ranges for campaign: ${campaignName} (key: ${sanitizedName})`);
 
-        database.ref('settings/employee_ranges_by_campaign').once('value')
+        return database.ref('settings/employee_ranges_by_campaign').once('value')
             .then((snapshot) => {
                 const allCampaignRanges = snapshot.val() || {};
                 const data = allCampaignRanges[sanitizedName];
 
                 if (data && data.length > 0) {
                     employeeRanges = data;
-                    console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`);
+                    console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`);
                 } else {
                     // If no campaign-specific ranges found, fall back to general config
                     console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
-                    database.ref('settings/employee_ranges').once('value')
+                    return database.ref('settings/employee_ranges').once('value')
                         .then((snapshot) => {
                             employeeRanges = snapshot.val() || [];
-                            console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges from general config (fallback)`);
-                            performTableSearch();
+                            console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`);
                         });
-                    return;
                 }
-
-                // Re-apply filter to current view
-                performTableSearch();
 
                 // Update employee table if drawer is open
                 const drawer = document.getElementById('employeeDrawer');
@@ -823,13 +818,10 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
         // Load general config
         console.log('[EMPLOYEE] Loading general employee ranges');
 
-        database.ref('settings/employee_ranges').once('value')
+        return database.ref('settings/employee_ranges').once('value')
             .then((snapshot) => {
                 employeeRanges = snapshot.val() || [];
-                console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges from general config`);
-
-                // Re-apply filter to current view
-                performTableSearch();
+                console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config`);
 
                 // Update employee table if drawer is open
                 const drawer = document.getElementById('employeeDrawer');
@@ -2708,10 +2700,10 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             ? JSON.parse(selectedOption.dataset.campaign)
             : null;
 
-        // Load employee ranges for the selected campaign
+        // ⭐ Load employee ranges for the selected campaign TRƯỚC KHI load dữ liệu
         if (selectedCampaign?.displayName) {
             console.log(`[EMPLOYEE] Auto-loading employee ranges for: ${selectedCampaign.displayName}`);
-            loadEmployeeRangesForCampaign(selectedCampaign.displayName);
+            await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
         }
 
         if (autoLoad) {
@@ -2751,13 +2743,14 @@ async function handleCampaignChange() {
     // 🔥 Cleanup old Firebase TAG listeners
     cleanupTagRealtimeListeners();
 
-    // Load employee ranges for the selected campaign
+    // ⭐ QUAN TRỌNG: Load employee ranges TRƯỚC KHI load dữ liệu
+    // để đảm bảo bảng được phân chia đúng ngay từ đầu
     if (selectedCampaign?.displayName) {
         console.log(`[EMPLOYEE] Loading employee ranges for campaign: ${selectedCampaign.displayName}`);
-        loadEmployeeRangesForCampaign(selectedCampaign.displayName);
+        await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
     } else {
         console.log('[EMPLOYEE] Loading general employee ranges (no campaign selected)');
-        loadEmployeeRangesForCampaign(null);
+        await loadEmployeeRangesForCampaign(null);
     }
 
     // Tự động load dữ liệu khi chọn chiến dịch
