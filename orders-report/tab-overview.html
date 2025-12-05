@@ -351,100 +351,6 @@
             `;
         }
 
-        // Smart campaign name matching
-        function findMatchingCampaign(currentName, availableCampaigns) {
-            console.log('[OVERVIEW] 🔍 Smart matching for:', currentName);
-
-            // Try exact match first
-            if (availableCampaigns.includes(currentName)) {
-                console.log('[OVERVIEW] ✅ Exact match found');
-                return currentName;
-            }
-
-            // Normalize current campaign name for comparison
-            const normalizedCurrent = normalizeCampaignName(currentName);
-            console.log('[OVERVIEW] Normalized current:', normalizedCurrent);
-
-            // Try to find a match
-            for (const campaign of availableCampaigns) {
-                const normalizedCandidate = normalizeCampaignName(campaign);
-                console.log('[OVERVIEW] Comparing with:', campaign, '→', normalizedCandidate);
-
-                // Check if normalized versions match
-                if (normalizedCurrent === normalizedCandidate) {
-                    console.log('[OVERVIEW] ✅ Normalized match found:', campaign);
-                    return campaign;
-                }
-
-                // Check if dates match (for cases like "STORE 1/12/2025" vs "01_12_2025 - STORE + HOUSE")
-                const currentDate = extractDate(currentName);
-                const candidateDate = extractDate(campaign);
-
-                if (currentDate && candidateDate && datesMatch(currentDate, candidateDate)) {
-                    // Also check if both contain "STORE" or "HOUSE"
-                    const currentUpper = currentName.toUpperCase();
-                    const candidateUpper = campaign.toUpperCase();
-
-                    if ((currentUpper.includes('STORE') && candidateUpper.includes('STORE')) ||
-                        (currentUpper.includes('HOUSE') && candidateUpper.includes('HOUSE'))) {
-                        console.log('[OVERVIEW] ✅ Date + keyword match found:', campaign);
-                        return campaign;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        // Normalize campaign name for comparison
-        function normalizeCampaignName(name) {
-            return name
-                .toLowerCase()
-                .replace(/[_\-\s]+/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-        }
-
-        // Extract date from campaign name
-        function extractDate(name) {
-            // Match patterns like: 1/12/2025, 01/12/2025, 1-12-2025, 01_12_2025
-            const patterns = [
-                /(\d{1,2})[\/\-_](\d{1,2})[\/\-_](\d{4})/,  // 1/12/2025 or 01_12_2025
-                /(\d{4})[\/\-_](\d{1,2})[\/\-_](\d{1,2})/   // 2025/12/01
-            ];
-
-            for (const pattern of patterns) {
-                const match = name.match(pattern);
-                if (match) {
-                    // Return normalized format: YYYY-MM-DD
-                    if (match[3] && match[3].length === 4) {
-                        // Pattern 1: DD/MM/YYYY
-                        return {
-                            day: parseInt(match[1]),
-                            month: parseInt(match[2]),
-                            year: parseInt(match[3])
-                        };
-                    } else if (match[1] && match[1].length === 4) {
-                        // Pattern 2: YYYY/MM/DD
-                        return {
-                            day: parseInt(match[3]),
-                            month: parseInt(match[2]),
-                            year: parseInt(match[1])
-                        };
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        // Check if two dates match
-        function datesMatch(date1, date2) {
-            return date1.day === date2.day &&
-                   date1.month === date2.month &&
-                   date1.year === date2.year;
-        }
-
         // Load employee ranges from Firebase
         async function loadEmployeeRanges() {
             try {
@@ -466,11 +372,20 @@
                 const availableCampaigns = Object.keys(employeeRanges);
                 console.log('[OVERVIEW] Available campaigns in Firebase:', availableCampaigns);
 
-                // Use smart matching
-                const matchedCampaign = findMatchingCampaign(currentCampaignName, availableCampaigns);
+                // Try exact match first
+                if (employeeRanges[currentCampaignName]) {
+                    console.log('[OVERVIEW] ✅ Found exact match');
+                    processAndDisplay();
+                    return;
+                }
+
+                // Try to find partial match
+                const matchedCampaign = availableCampaigns.find(campaign =>
+                    campaign.includes(currentCampaignName) || currentCampaignName.includes(campaign)
+                );
 
                 if (matchedCampaign) {
-                    console.log('[OVERVIEW] ✅ Using matched campaign:', matchedCampaign);
+                    console.log('[OVERVIEW] ✅ Found partial match:', matchedCampaign);
                     currentCampaignName = matchedCampaign;
                     processAndDisplay();
                     return;
