@@ -17,6 +17,121 @@ const TPOS_API_URL = `${CLOUDFLARE_PROXY}/api/odata/Partner/ODataService.GetView
 let isSyncing = false;
 let tposAccessToken = null;
 
+// ============================================
+// INDEXEDDB CACHE LAYER
+// ============================================
+const DB_NAME = 'CustomerDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'customers';
+const CACHE_KEY = 'customers_cache';
+const STATS_CACHE_KEY = 'stats_cache';
+let indexedDB_instance = null;
+
+// Initialize IndexedDB
+async function initIndexedDB() {
+    if (indexedDB_instance) return indexedDB_instance;
+
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            indexedDB_instance = request.result;
+            console.log('✅ IndexedDB initialized');
+            resolve(indexedDB_instance);
+        };
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+
+            // Create object store for cache
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                const objectStore = db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+                objectStore.createIndex('timestamp', 'timestamp', { unique: false });
+                console.log('📦 IndexedDB store created');
+            }
+        };
+    });
+}
+
+// Save to cache
+async function saveToCache(key, data) {
+    try {
+        const db = await initIndexedDB();
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+
+        const cacheData = {
+            key: key,
+            data: data,
+            timestamp: Date.now()
+        };
+
+        await store.put(cacheData);
+        console.log(`💾 Cached: ${key} (${JSON.stringify(data).length} bytes)`);
+    } catch (error) {
+        console.error('Error saving to cache:', error);
+    }
+}
+
+// Load from cache
+async function loadFromCache(key, maxAge = 5 * 60 * 1000) { // Default 5 minutes
+    try {
+        const db = await initIndexedDB();
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+
+        return new Promise((resolve, reject) => {
+            const request = store.get(key);
+
+            request.onsuccess = () => {
+                const cached = request.result;
+
+                if (!cached) {
+                    console.log(`⚠️ Cache miss: ${key}`);
+                    resolve(null);
+                    return;
+                }
+
+                const age = Date.now() - cached.timestamp;
+
+                if (age > maxAge) {
+                    console.log(`⏰ Cache expired: ${key} (${Math.round(age / 1000)}s old)`);
+                    resolve(null);
+                    return;
+                }
+
+                console.log(`✅ Cache hit: ${key} (${Math.round(age / 1000)}s old)`);
+                resolve(cached.data);
+            };
+
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error('Error loading from cache:', error);
+        return null;
+    }
+}
+
+// Clear cache
+async function clearCache(key = null) {
+    try {
+        const db = await initIndexedDB();
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+
+        if (key) {
+            await store.delete(key);
+            console.log(`🗑️ Cleared cache: ${key}`);
+        } else {
+            await store.clear();
+            console.log('🗑️ Cleared all cache');
+        }
+    } catch (error) {
+        console.error('Error clearing cache:', error);
+    }
+}
+
 // Check authentication - Admin only
 if (typeof authManager !== 'undefined') {
     if (!authManager.requireAuth()) {
@@ -86,10 +201,31 @@ function initializeEventListeners() {
     uploadArea.addEventListener('drop', handleDrop);
 }
 
-// Load total customer count and statistics (runs in background)
-async function loadTotalCountAndStats() {
+// Load total customer count and statistics (with cache)
+async function loadTotalCountAndStats(forceRefresh = false) {
     try {
-        // Show loading state
+        // Try cache first
+        if (!forceRefresh) {
+            const cached = await loadFromCache(STATS_CACHE_KEY, 10 * 60 * 1000); // 10 min cache
+
+            if (cached) {
+                console.log('⚡ Loading stats from cache');
+                totalCustomers = cached.total;
+                document.getElementById('totalCount').textContent = formatNumber(cached.total);
+                document.getElementById('normalCount').textContent = formatNumber(cached.normal);
+                document.getElementById('dangerCount').textContent = formatNumber(cached.danger);
+                document.getElementById('warningCount').textContent = formatNumber(cached.warning);
+                document.getElementById('criticalCount').textContent = formatNumber(cached.critical);
+                document.getElementById('vipCount').textContent = formatNumber(cached.vip);
+                updatePaginationUI();
+
+                // Refresh in background
+                loadStatsFromFirestore();
+                return;
+            }
+        }
+
+        // Cache miss - show loading
         document.getElementById('totalCount').textContent = '...';
         document.getElementById('normalCount').textContent = '...';
         document.getElementById('dangerCount').textContent = '...';
@@ -97,7 +233,17 @@ async function loadTotalCountAndStats() {
         document.getElementById('criticalCount').textContent = '...';
         document.getElementById('vipCount').textContent = '...';
 
-        // Load counts (this is slow for 80K records but doesn't block UI)
+        await loadStatsFromFirestore();
+    } catch (error) {
+        console.error('Error loading statistics:', error);
+        document.getElementById('totalCount').textContent = '?';
+    }
+}
+
+// Load stats from Firestore (internal)
+async function loadStatsFromFirestore() {
+    try {
+        // Load counts (this is slow for 80K records but cached after first load)
         const [totalSnap, normalSnap, dangerSnap, warningSnap, criticalSnap, vipSnap] = await Promise.all([
             customersCollection.get(),
             customersCollection.where('status', '==', 'Bình thường').get(),
@@ -109,23 +255,69 @@ async function loadTotalCountAndStats() {
 
         totalCustomers = totalSnap.size;
 
-        document.getElementById('totalCount').textContent = formatNumber(totalSnap.size);
-        document.getElementById('normalCount').textContent = formatNumber(normalSnap.size);
-        document.getElementById('dangerCount').textContent = formatNumber(dangerSnap.size);
-        document.getElementById('warningCount').textContent = formatNumber(warningSnap.size);
-        document.getElementById('criticalCount').textContent = formatNumber(criticalSnap.size);
-        document.getElementById('vipCount').textContent = formatNumber(vipSnap.size);
+        const stats = {
+            total: totalSnap.size,
+            normal: normalSnap.size,
+            danger: dangerSnap.size,
+            warning: warningSnap.size,
+            critical: criticalSnap.size,
+            vip: vipSnap.size
+        };
+
+        // Save to cache
+        await saveToCache(STATS_CACHE_KEY, stats);
+
+        document.getElementById('totalCount').textContent = formatNumber(stats.total);
+        document.getElementById('normalCount').textContent = formatNumber(stats.normal);
+        document.getElementById('dangerCount').textContent = formatNumber(stats.danger);
+        document.getElementById('warningCount').textContent = formatNumber(stats.warning);
+        document.getElementById('criticalCount').textContent = formatNumber(stats.critical);
+        document.getElementById('vipCount').textContent = formatNumber(stats.vip);
 
         updatePaginationUI();
     } catch (error) {
-        console.error('Error loading statistics:', error);
-        document.getElementById('totalCount').textContent = '?';
+        console.error('Error loading stats from Firestore:', error);
+        throw error;
     }
 }
 
-// Load customers from Firebase with pagination
-async function loadCustomers(direction = 'next') {
-    showLoading(true);
+// Load customers from Firebase with pagination (with IndexedDB cache)
+async function loadCustomers(direction = 'next', forceRefresh = false) {
+    try {
+        // Try cache first (only for initial load, not pagination)
+        if (direction === 'next' && !lastVisible && !forceRefresh) {
+            const cacheKey = `${CACHE_KEY}_page${currentPage}_size${pageSize}`;
+            const cached = await loadFromCache(cacheKey, 5 * 60 * 1000); // 5 min cache
+
+            if (cached) {
+                console.log('⚡ Loading from cache (instant)');
+                customers = cached.customers || [];
+                filteredCustomers = [...customers];
+                firstVisible = cached.firstVisible;
+                lastVisible = cached.lastVisible;
+                renderCustomers();
+                updatePaginationUI();
+                showEmptyState(customers.length === 0);
+
+                // Refresh in background
+                loadCustomersFromFirestore(direction, cacheKey);
+                return;
+            }
+        }
+
+        // Cache miss or force refresh - show loading
+        showLoading(true);
+        const cacheKey = `${CACHE_KEY}_page${currentPage}_size${pageSize}`;
+        await loadCustomersFromFirestore(direction, cacheKey);
+    } catch (error) {
+        console.error('Error loading customers:', error);
+        showNotification('Lỗi khi tải dữ liệu khách hàng', 'error');
+        showLoading(false);
+    }
+}
+
+// Load customers from Firestore (internal)
+async function loadCustomersFromFirestore(direction = 'next', cacheKey = null) {
     try {
         let query = customersCollection.orderBy('createdAt', 'desc').limit(pageSize);
 
@@ -146,6 +338,7 @@ async function loadCustomers(direction = 'next') {
             renderCustomers();
             updatePaginationUI();
             showEmptyState(true);
+            showLoading(false);
             return;
         }
 
@@ -162,12 +355,22 @@ async function loadCustomers(direction = 'next') {
         });
 
         filteredCustomers = [...customers];
+
+        // Cache the data
+        if (cacheKey) {
+            await saveToCache(cacheKey, {
+                customers: customers,
+                firstVisible: firstVisible,
+                lastVisible: lastVisible
+            });
+        }
+
         renderCustomers();
         updatePaginationUI();
         showEmptyState(false);
     } catch (error) {
-        console.error('Error loading customers:', error);
-        showNotification('Lỗi khi tải dữ liệu khách hàng', 'error');
+        console.error('Error loading from Firestore:', error);
+        throw error;
     } finally {
         showLoading(false);
     }
@@ -421,11 +624,16 @@ async function handleCustomerSubmit(e) {
         }
 
         closeCustomerModal();
+
+        // Clear cache
+        await clearCache(CACHE_KEY);
+        await clearCache(STATS_CACHE_KEY);
+
         // Update statistics in background if adding new customer
         if (!editingCustomerId) {
             updateStatistics();
         }
-        await loadCustomers();
+        await loadCustomers('next', true);
     } catch (error) {
         console.error('Error saving customer:', error);
         showNotification('Lỗi khi lưu khách hàng', 'error');
@@ -443,8 +651,13 @@ async function deleteCustomer(customerId) {
     try {
         await customersCollection.doc(customerId).delete();
         showNotification('Xóa khách hàng thành công', 'success');
+
+        // Clear cache
+        await clearCache(CACHE_KEY);
+        await clearCache(STATS_CACHE_KEY);
+
         updateStatistics(); // Update in background
-        await loadCustomers();
+        await loadCustomers('next', true);
     } catch (error) {
         console.error('Error deleting customer:', error);
         showNotification('Lỗi khi xóa khách hàng', 'error');
@@ -635,8 +848,13 @@ async function handleImportConfirm() {
 
         showNotification(`Import thành công ${importData.length} khách hàng`, 'success');
         closeImportModal();
+
+        // Clear cache
+        await clearCache(CACHE_KEY);
+        await clearCache(STATS_CACHE_KEY);
+
         updateStatistics(); // Update in background
-        await loadCustomers();
+        await loadCustomers('next', true);
     } catch (error) {
         console.error('Error importing customers:', error);
         showNotification('Lỗi khi import khách hàng', 'error');
@@ -914,12 +1132,16 @@ async function syncFromTPOS() {
         if (newCustomersCount > 0) {
             showNotification(`Đồng bộ thành công ${newCustomersCount} khách hàng mới từ TPOS`, 'success');
 
+            // Clear cache
+            await clearCache(CACHE_KEY);
+            await clearCache(STATS_CACHE_KEY);
+
             // Reload data
             updateStatistics(); // Update in background
             currentPage = 1;
             lastVisible = null;
             firstVisible = null;
-            await loadCustomers();
+            await loadCustomers('next', true);
         } else {
             showNotification('Không có khách hàng mới để đồng bộ', 'info');
         }
