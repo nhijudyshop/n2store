@@ -2,12 +2,11 @@
    ORDER LOG PAGE STYLES
    ===================================================== */
 
-/* Scale entire page by 1.3x */
 .page-content {
-    padding: 1.5rem;
-    max-width: 1820px; /* 1400 * 1.3 */
+    padding: 2rem;
+    max-width: 1600px;
     margin: 0 auto;
-    font-size: 1.3em;
+    font-size: 15px;
 }
 
 /* Date Navigator */
@@ -344,13 +343,14 @@ textarea.form-control {
 }
 
 .order-table th {
-    padding: 1rem;
+    padding: 0.875rem 1rem;
     text-align: left;
     font-weight: 600;
     color: #555;
-    font-size: 0.875rem;
+    font-size: 13px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
+    border-bottom: 2px solid #e5e7eb;
 }
 
 .order-table tbody tr {
@@ -363,59 +363,88 @@ textarea.form-control {
 }
 
 .order-table td {
-    padding: 1rem;
+    padding: 0.875rem 1rem;
     color: #333;
+    font-size: 14px;
+    vertical-align: middle;
 }
 
+/* STT column */
 .order-table td:first-child {
     color: #999;
+    font-weight: 600;
+    text-align: center;
+    width: 50px;
+}
+
+/* NCC column */
+.order-table td:nth-child(2) {
+    font-weight: 600;
+    color: #1976d2;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Thành tiền column */
+.order-table td:nth-child(3) {
+    font-weight: 600;
+    min-width: 160px;
+}
+
+/* Chênh lệch column */
+.order-table td:nth-child(4) {
+    font-weight: 600;
+    text-align: right;
+    min-width: 120px;
+}
+
+/* Ghi chú column */
+.order-table td:nth-child(5) {
+    color: #666;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Người thực hiện column (holiday) */
+.order-table td:nth-child(6) {
+    color: #666;
     font-weight: 500;
 }
 
-/* NCC column - truncate if longer than 15 characters */
-.order-table td:nth-child(2) {
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+/* Đối soát column (holiday) */
+.order-table td:nth-child(7) {
+    text-align: center;
 }
 
-/* Ghi chú column - truncate if too long */
-.order-table td:nth-child(5) {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+/* Thao tác column */
+.order-table td:last-child {
+    text-align: center;
+    width: 100px;
 }
 
-/* Reconciled checkbox - larger size */
+/* Checkboxes */
+.paid-checkbox,
 .holiday-col input[type="checkbox"] {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
+    margin: 0;
+    vertical-align: middle;
 }
 
-/* NCC Badge */
-.ncc-badge {
-    display: inline-block;
-    padding: 0.35rem 0.75rem;
-    background: #e3f2fd;
-    color: #1976d2;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 0.875rem;
-}
-
-/* Amount Cell */
+/* Amount Cell - checkbox + text */
 .paid-checkbox {
-    margin-right: 0.5rem;
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
+    margin-right: 0.625rem;
 }
 
 .amount-text {
     font-weight: 600;
-    color: #333;
+    color: #1a1a1a;
+    font-size: 14px;
 }
 
 /* Difference */
@@ -445,26 +474,25 @@ textarea.form-control {
 
 /* Action Buttons */
 .btn-icon-sm {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 32px;
     height: 32px;
     border: none;
-    background: #f5f5f5;
+    background: transparent;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s;
-    padding: 0.375rem;
+    transition: all 0.15s;
+    padding: 0;
+    margin: 0 2px;
+    color: #666;
 }
 
 .btn-icon-sm:hover {
-    background: #e0e0e0;
-}
-
-.btn-icon-sm.edit:hover {
     background: #e3f2fd;
     color: #1976d2;
+    transform: scale(1.1);
 }
 
 .btn-icon-sm.delete:hover {
@@ -473,8 +501,8 @@ textarea.form-control {
 }
 
 .btn-icon-sm i {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
 }
 
 /* Empty State */
@@ -505,9 +533,9 @@ textarea.form-control {
 .footer-summary {
     display: none;
     justify-content: flex-end;
-    gap: 2rem;
-    padding: 1rem 1.5rem;
-    background: #f8f9fa;
+    gap: 3rem;
+    padding: 1.125rem 1.5rem;
+    background: linear-gradient(to right, #f8f9fa, #ffffff);
     border-top: 2px solid #e5e7eb;
     border-radius: 0 0 12px 12px;
 }
@@ -515,19 +543,21 @@ textarea.form-control {
 .summary-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.625rem;
 }
 
 .summary-label {
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 600;
     color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
 .summary-value {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 700;
-    color: #333;
+    color: #1a1a1a;
 }
 
 /* Modal Styles */
