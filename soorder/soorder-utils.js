@@ -122,6 +122,13 @@ window.SoOrderUtils = {
             elements.dateDisplay.textContent = this.formatDateDisplay(date);
         }
 
+        // Update dropdown to "today" when in single day mode
+        if (elements.dateRangeSelect) {
+            const today = new Date();
+            const isToday = this.formatDate(date) === this.formatDate(today);
+            elements.dateRangeSelect.value = isToday ? "today" : "today";
+        }
+
         // Load data for this date
         window.SoOrderCRUD.loadDayData(state.currentDateString);
     },
