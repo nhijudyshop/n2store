@@ -3,6 +3,14 @@ let customers = [];
 let filteredCustomers = [];
 let editingCustomerId = null;
 
+// Pagination state
+let currentPage = 1;
+let pageSize = 100;
+let totalCustomers = 0;
+let lastVisible = null;
+let firstVisible = null;
+let isSearching = false;
+
 // Check authentication - Admin only
 if (typeof authManager !== 'undefined') {
     if (!authManager.requireAuth()) {
@@ -26,6 +34,10 @@ const customersCollection = db.collection('customers');
 
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
+    await Promise.all([
+        loadTotalCount(),
+        updateStatistics()
+    ]);
     await loadCustomers();
     initializeEventListeners();
     lucide.createIcons();
@@ -38,6 +50,11 @@ function initializeEventListeners() {
     document.getElementById('importExcelBtn').addEventListener('click', openImportModal);
     document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
     document.getElementById('selectAll').addEventListener('click', handleSelectAll);
+
+    // Pagination
+    document.getElementById('prevPageBtn').addEventListener('click', goToPreviousPage);
+    document.getElementById('nextPageBtn').addEventListener('click', goToNextPage);
+    document.getElementById('pageSizeSelect').addEventListener('change', handlePageSizeChange);
 
     // Search and filter
     document.getElementById('searchInput').addEventListener('input', handleSearch);
@@ -59,11 +76,47 @@ function initializeEventListeners() {
     uploadArea.addEventListener('drop', handleDrop);
 }
 
-// Load customers from Firebase
-async function loadCustomers() {
-    showLoading(true);
+// Load total customer count
+async function loadTotalCount() {
     try {
         const snapshot = await customersCollection.get();
+        totalCustomers = snapshot.size;
+    } catch (error) {
+        console.error('Error loading total count:', error);
+        totalCustomers = 0;
+    }
+}
+
+// Load customers from Firebase with pagination
+async function loadCustomers(direction = 'next') {
+    showLoading(true);
+    try {
+        let query = customersCollection.orderBy('createdAt', 'desc').limit(pageSize);
+
+        if (direction === 'next' && lastVisible) {
+            query = query.startAfter(lastVisible);
+        } else if (direction === 'prev' && firstVisible) {
+            query = customersCollection
+                .orderBy('createdAt', 'desc')
+                .endBefore(firstVisible)
+                .limitToLast(pageSize);
+        }
+
+        const snapshot = await query.get();
+
+        if (snapshot.empty) {
+            customers = [];
+            filteredCustomers = [];
+            renderCustomers();
+            updatePaginationUI();
+            showEmptyState(true);
+            return;
+        }
+
+        // Store pagination cursors
+        firstVisible = snapshot.docs[0];
+        lastVisible = snapshot.docs[snapshot.docs.length - 1];
+
         customers = [];
         snapshot.forEach(doc => {
             customers.push({
@@ -74,14 +127,48 @@ async function loadCustomers() {
 
         filteredCustomers = [...customers];
         renderCustomers();
-        updateStatistics();
-        showEmptyState(customers.length === 0);
+        updatePaginationUI();
+        showEmptyState(false);
     } catch (error) {
         console.error('Error loading customers:', error);
         showNotification('Lỗi khi tải dữ liệu khách hàng', 'error');
     } finally {
         showLoading(false);
     }
+}
+
+// Update pagination UI
+function updatePaginationUI() {
+    const totalPages = Math.ceil(totalCustomers / pageSize);
+    document.getElementById('pageInfo').textContent = `Trang ${currentPage} / ${totalPages} (${totalCustomers} khách hàng)`;
+    document.getElementById('prevPageBtn').disabled = currentPage === 1;
+    document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
+}
+
+// Go to previous page
+async function goToPreviousPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        await loadCustomers('prev');
+    }
+}
+
+// Go to next page
+async function goToNextPage() {
+    const totalPages = Math.ceil(totalCustomers / pageSize);
+    if (currentPage < totalPages) {
+        currentPage++;
+        await loadCustomers('next');
+    }
+}
+
+// Handle page size change
+async function handlePageSizeChange(e) {
+    pageSize = parseInt(e.target.value);
+    currentPage = 1;
+    lastVisible = null;
+    firstVisible = null;
+    await loadCustomers();
 }
 
 // Render customers in table
@@ -164,32 +251,38 @@ function getStatusClass(status) {
     return statusMap[status] || 'normal';
 }
 
-// Update statistics
-function updateStatistics() {
-    const stats = {
-        total: customers.length,
-        normal: customers.filter(c => c.status === 'Bình thường' || !c.status).length,
-        danger: customers.filter(c => c.status === 'Bom hàng').length,
-        warning: customers.filter(c => c.status === 'Cảnh báo').length,
-        critical: customers.filter(c => c.status === 'Nguy hiểm').length,
-        vip: customers.filter(c => c.status === 'VIP').length
-    };
+// Update statistics - load from entire database
+async function updateStatistics() {
+    try {
+        // Get counts for each status
+        const [totalSnap, normalSnap, dangerSnap, warningSnap, criticalSnap, vipSnap] = await Promise.all([
+            customersCollection.get(),
+            customersCollection.where('status', '==', 'Bình thường').get(),
+            customersCollection.where('status', '==', 'Bom hàng').get(),
+            customersCollection.where('status', '==', 'Cảnh báo').get(),
+            customersCollection.where('status', '==', 'Nguy hiểm').get(),
+            customersCollection.where('status', '==', 'VIP').get()
+        ]);
 
-    document.getElementById('totalCount').textContent = stats.total;
-    document.getElementById('normalCount').textContent = stats.normal;
-    document.getElementById('dangerCount').textContent = stats.danger;
-    document.getElementById('warningCount').textContent = stats.warning;
-    document.getElementById('criticalCount').textContent = stats.critical;
-    document.getElementById('vipCount').textContent = stats.vip;
+        document.getElementById('totalCount').textContent = formatNumber(totalSnap.size);
+        document.getElementById('normalCount').textContent = formatNumber(normalSnap.size);
+        document.getElementById('dangerCount').textContent = formatNumber(dangerSnap.size);
+        document.getElementById('warningCount').textContent = formatNumber(warningSnap.size);
+        document.getElementById('criticalCount').textContent = formatNumber(criticalSnap.size);
+        document.getElementById('vipCount').textContent = formatNumber(vipSnap.size);
+    } catch (error) {
+        console.error('Error updating statistics:', error);
+    }
 }
 
-// Search handler
+// Search handler - only searches current page
 function handleSearch(e) {
     const searchTerm = e.target.value.toLowerCase().trim();
 
     if (searchTerm === '') {
         filteredCustomers = [...customers];
     } else {
+        // Search only in current page
         filteredCustomers = customers.filter(customer => {
             return (
                 (customer.name || '').toLowerCase().includes(searchTerm) ||
@@ -308,6 +401,11 @@ async function handleCustomerSubmit(e) {
         }
 
         closeCustomerModal();
+        if (!editingCustomerId) {
+            // Only update counts when adding new customer
+            await loadTotalCount();
+            await updateStatistics();
+        }
         await loadCustomers();
     } catch (error) {
         console.error('Error saving customer:', error);
@@ -326,6 +424,8 @@ async function deleteCustomer(customerId) {
     try {
         await customersCollection.doc(customerId).delete();
         showNotification('Xóa khách hàng thành công', 'success');
+        await loadTotalCount();
+        await updateStatistics();
         await loadCustomers();
     } catch (error) {
         console.error('Error deleting customer:', error);
@@ -517,6 +617,8 @@ async function handleImportConfirm() {
 
         showNotification(`Import thành công ${importData.length} khách hàng`, 'success');
         closeImportModal();
+        await loadTotalCount();
+        await updateStatistics();
         await loadCustomers();
     } catch (error) {
         console.error('Error importing customers:', error);

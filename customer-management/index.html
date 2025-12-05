@@ -113,7 +113,7 @@
             <div class="search-container">
                 <div class="search-box">
                     <i data-lucide="search"></i>
-                    <input type="text" id="searchInput" placeholder="Tìm kiếm khách hàng (tên, số điện thoại, địa chỉ...)">
+                    <input type="text" id="searchInput" placeholder="Tìm kiếm trong trang hiện tại (tên, số điện thoại, địa chỉ...)">
                 </div>
                 <div class="filter-box">
                     <select id="statusFilter">
@@ -125,6 +125,10 @@
                         <option value="VIP">VIP</option>
                     </select>
                 </div>
+            </div>
+            <div class="info-message">
+                <i data-lucide="info"></i>
+                <span>Lưu ý: Tìm kiếm và lọc chỉ áp dụng cho khách hàng trong trang hiện tại. Dùng phân trang để xem thêm.</span>
             </div>
 
             <!-- Customer Table -->
@@ -149,6 +153,29 @@
                         <!-- Customer rows will be inserted here -->
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    <span id="pageInfo">Trang 1 / 1 (0 khách hàng)</span>
+                    <select id="pageSizeSelect" class="page-size-select">
+                        <option value="50">50 / trang</option>
+                        <option value="100" selected>100 / trang</option>
+                        <option value="200">200 / trang</option>
+                        <option value="500">500 / trang</option>
+                    </select>
+                </div>
+                <div class="pagination-controls">
+                    <button class="btn btn-secondary" id="prevPageBtn" disabled>
+                        <i data-lucide="chevron-left"></i>
+                        Trước
+                    </button>
+                    <button class="btn btn-secondary" id="nextPageBtn">
+                        Sau
+                        <i data-lucide="chevron-right"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Loading indicator -->
