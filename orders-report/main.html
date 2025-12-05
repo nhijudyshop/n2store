@@ -216,6 +216,10 @@
                     <i data-lucide="bar-chart-3" class="tab-icon"></i>
                     Thống Kê
                 </button>
+                <button class="tab-button" onclick="switchTab('overview')" data-tab="overview">
+                    <i data-lucide="pie-chart" class="tab-icon"></i>
+                    Tổng Quan
+                </button>
             </div>
         </div>
 
@@ -234,6 +238,10 @@
 
         <div id="productAssignmentTab" class="tab-content">
             <iframe id="productAssignmentFrame" src="tab3-product-assignment.html"></iframe>
+        </div>
+
+        <div id="overviewTab" class="tab-content">
+            <iframe id="overviewFrame" src="tab-overview.html"></iframe>
         </div>
 
         <div id="reportOnlineTab" class="tab-content">
@@ -304,6 +312,10 @@
                         "*"
                     );
                 }
+            } else if (tabName === "overview") {
+                document
+                    .getElementById("overviewTab")
+                    .classList.add("active");
             } else if (tabName === "report-online") {
                 document
                     .getElementById("reportOnlineTab")
@@ -417,7 +429,7 @@
         window.addEventListener("DOMContentLoaded", function () {
             // Restore last active tab or default to orders
             const savedTab = localStorage.getItem("currentTab");
-            if (savedTab && ["orders", "statistics", "upload", "product-assignment", "report-online"].includes(savedTab)) {
+            if (savedTab && ["orders", "statistics", "upload", "product-assignment", "overview", "report-online"].includes(savedTab)) {
                 switchTab(savedTab);
             } else {
                 switchTab("orders");
