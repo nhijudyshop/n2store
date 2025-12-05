@@ -856,7 +856,7 @@ textarea.form-control {
 
 /* Holiday columns (hidden by default) */
 .holiday-col {
-    display: none !important;
+    display: none;
 }
 
 .holiday-field {
