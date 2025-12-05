@@ -28,6 +28,10 @@ window.SoOrderState = {
     currentDayData: null, // { date, isHoliday, orders }
     editingOrderId: null,
     deleteOrderId: null,
+
+    // Calendar state
+    calendarViewDate: new Date(), // Current month being viewed in calendar
+    holidays: new Map(), // Map of date strings to holiday status
 };
 
 // DOM elements (will be set after DOM ready)
@@ -85,6 +89,12 @@ window.SoOrderElements = {
     btnSaveHoliday: null,
     holidayDate: null,
     isHolidayCheck: null,
+
+    // Calendar elements
+    calendarMonthYear: null,
+    calendarGrid: null,
+    btnPrevMonth: null,
+    btnNextMonth: null,
 
     // Delete modal
     deleteConfirmModal: null,

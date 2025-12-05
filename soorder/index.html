@@ -270,7 +270,7 @@
         <!-- Holiday Management Modal -->
         <div class="modal" id="holidayModal" style="display: none;">
             <div class="modal-overlay" id="holidayModalOverlay"></div>
-            <div class="modal-content modal-small">
+            <div class="modal-content modal-large">
                 <div class="modal-header">
                     <h3>
                         <i data-lucide="calendar"></i>
@@ -281,23 +281,31 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label>Chọn ngày</label>
-                        <input type="date" id="holidayDate" class="date-input-full" />
+                    <div class="calendar-controls">
+                        <button class="btn-icon" id="btnPrevMonth">
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        <h4 id="calendarMonthYear">Tháng 12, 2025</h4>
+                        <button class="btn-icon" id="btnNextMonth">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
                     </div>
-                    <div class="form-group">
-                        <label class="checkbox-label checkbox-large">
-                            <input type="checkbox" id="isHolidayCheck" />
-                            <span>Đánh dấu là ngày nghỉ</span>
-                        </label>
+                    <div class="calendar-grid" id="calendarGrid">
+                        <!-- Calendar will be generated here -->
+                    </div>
+                    <div class="calendar-legend">
+                        <span class="legend-item">
+                            <span class="legend-box today"></span>
+                            Hôm nay
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-box holiday"></span>
+                            Ngày nghỉ
+                        </span>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn-secondary" id="btnCancelHoliday">Hủy</button>
-                    <button class="btn-primary" id="btnSaveHoliday">
-                        <i data-lucide="save"></i>
-                        Lưu
-                    </button>
+                    <button class="btn-secondary" id="btnCancelHoliday">Đóng</button>
                 </div>
             </div>
         </div>
