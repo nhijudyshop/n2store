@@ -1,5 +1,5 @@
 // =====================================================
-// AUTHENTICATION SYSTEM FOR CUSTOMER MANAGEMENT
+// AUTHENTICATION SYSTEM WITH AUTHMANAGER CLASS
 // =====================================================
 
 class AuthManager {
@@ -48,32 +48,36 @@ class AuthManager {
         // Define session timeout based on source and remember preference
         const SESSION_TIMEOUT = isFromSession
             ? 8 * 60 * 60 * 1000 // 8 hours for session storage
-            : auth.isRemembered
-              ? 30 * 24 * 60 * 60 * 1000 // 30 days for "remember me"
-              : 8 * 60 * 60 * 1000; // 8 hours for localStorage without remember
+            : 30 * 24 * 60 * 60 * 1000; // 30 days for remembered login
 
-        const now = Date.now();
-        const loginTime = auth.timestamp || 0;
+        // Check if session has expired
+        if (auth.timestamp && Date.now() - auth.timestamp > SESSION_TIMEOUT) {
+            console.log("Session expired");
+            return false;
+        }
 
-        if (now - loginTime > SESSION_TIMEOUT) {
+        // Check explicit expiry if exists
+        if (auth.expiresAt && Date.now() > auth.expiresAt) {
+            console.log("Session expired (explicit expiry)");
             return false;
         }
 
         return true;
     }
 
-    clearAuth() {
-        localStorage.removeItem("loginindex_auth");
-        sessionStorage.removeItem("loginindex_auth");
-        this.currentUser = null;
+    isAuthenticated() {
+        const auth = this.getAuthState();
+        return auth && auth.isLoggedIn === "true";
     }
 
-    isAuthenticated() {
-        return (
-            this.currentUser !== null &&
-            this.currentUser.isLoggedIn &&
-            this.isValidSession(this.currentUser, false)
-        );
+    hasPermission(requiredLevel) {
+        const auth = this.getAuthState();
+        if (!auth) return false;
+        return parseInt(auth.checkLogin) <= requiredLevel;
+    }
+
+    isAdmin() {
+        return this.hasPermission(0);
     }
 
     requireAuth() {
@@ -86,35 +90,62 @@ class AuthManager {
         return true;
     }
 
-    hasPermission(requiredLevel = 0) {
-        if (!this.isAuthenticated()) return false;
+    getAuthState() {
+        try {
+            // Check sessionStorage first
+            let stored = sessionStorage.getItem("loginindex_auth");
 
-        const userLevel = parseInt(this.currentUser.checkLogin);
-        return userLevel <= requiredLevel;
+            // If not in sessionStorage, check localStorage
+            if (!stored) {
+                stored = localStorage.getItem("loginindex_auth");
+            }
+
+            if (stored) {
+                this.currentUser = JSON.parse(stored);
+                return this.currentUser;
+            }
+        } catch (error) {
+            console.error("Error reading auth:", error);
+        }
+        return null;
     }
 
-    isAdmin() {
-        return this.hasPermission(0);
+    getUserInfo() {
+        return this.getAuthState();
     }
 
     getUserName() {
-        if (!this.currentUser || !this.currentUser.userType) {
+        const auth = this.getAuthState();
+        if (!auth || !auth.userType) {
             return "Admin";
         }
-        return this.currentUser.userType.split("-")[0] || "Admin";
+        return auth.userType.split("-")[0] || "Admin";
     }
 
     getUserType() {
-        return this.currentUser?.userType || "admin-0";
+        const auth = this.getAuthState();
+        return auth?.userType || "admin-0";
     }
 
     getCheckLogin() {
-        return this.currentUser?.checkLogin ?? 0;
+        const auth = this.getAuthState();
+        return auth?.checkLogin ?? 0;
+    }
+
+    clearAuth() {
+        this.currentUser = null;
+        // Clear from both storage locations
+        sessionStorage.removeItem("loginindex_auth");
+        localStorage.removeItem("loginindex_auth");
+        localStorage.removeItem("remember_login_preference");
+        // Clear legacy data
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("userType");
+        localStorage.removeItem("checkLogin");
     }
 
     logout() {
-        const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
-        if (confirmLogout) {
+        if (confirm("Bạn có chắc muốn đăng xuất?")) {
             this.clearAuth();
             localStorage.clear();
             sessionStorage.clear();
@@ -123,13 +154,65 @@ class AuthManager {
     }
 }
 
-// Create global instance
+// =====================================================
+// INITIALIZE AUTHMANAGER IMMEDIATELY
+// =====================================================
+
+// Initialize authManager IMMEDIATELY
 const authManager = new AuthManager();
 window.authManager = authManager;
 
-// Helper functions
+console.log("[AUTH] AuthManager initialized:", authManager.isAuthenticated());
+
+// =====================================================
+// LEGACY FUNCTIONS (for backward compatibility)
+// =====================================================
+
+let authState = null;
+
 function getAuthState() {
-    return authManager.currentUser;
+    return authManager ? authManager.getAuthState() : null;
+}
+
+function setAuthState(isLoggedIn, userType, checkLogin) {
+    authState = {
+        isLoggedIn: isLoggedIn,
+        userType: userType,
+        checkLogin: checkLogin,
+        timestamp: Date.now(),
+    };
+
+    try {
+        localStorage.setItem("loginindex_auth", JSON.stringify(authState));
+        if (authManager) {
+            authManager.currentUser = authState;
+        }
+    } catch (error) {
+        console.error("Error saving auth state:", error);
+    }
+}
+
+function clearAuthState() {
+    authState = null;
+    try {
+        localStorage.removeItem("loginindex_auth");
+        sessionStorage.removeItem("loginindex_auth");
+        clearLegacyAuth();
+    } catch (error) {
+        console.error("Error clearing auth state:", error);
+    }
+}
+
+function clearLegacyAuth() {
+    try {
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("userType");
+        localStorage.removeItem("checkLogin");
+        localStorage.removeItem("remember_login_preference");
+        sessionStorage.clear();
+    } catch (error) {
+        console.error("Error clearing legacy auth:", error);
+    }
 }
 
 function isAuthenticated() {
@@ -149,4 +232,4 @@ function handleLogout() {
     authManager.logout();
 }
 
-console.log("[AUTH] Authentication system loaded");
+console.log("Authentication system loaded");
