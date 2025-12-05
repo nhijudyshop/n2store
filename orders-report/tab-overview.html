@@ -299,7 +299,7 @@
 
     <script>
         let allOrders = [];
-        let employeeDivisions = null;
+        let employeeRanges = null;
         let currentCampaignName = null;
         let database = null;
 
@@ -325,7 +325,7 @@
                     console.log('[OVERVIEW] Detected campaign:', currentCampaignName);
 
                     if (currentCampaignName) {
-                        loadEmployeeDivisions();
+                        loadEmployeeRanges();
                     } else {
                         showError('Không tìm thấy tên chiến dịch trong dữ liệu');
                     }
@@ -351,30 +351,30 @@
             `;
         }
 
-        // Load employee divisions from Firebase
-        async function loadEmployeeDivisions() {
+        // Load employee ranges from Firebase
+        async function loadEmployeeRanges() {
             try {
-                console.log('[OVERVIEW] Loading employee divisions from Firebase...');
+                console.log('[OVERVIEW] Loading employee ranges from Firebase...');
                 showLoading('Đang tải phân chia nhân viên...');
 
-                const snapshot = await database.ref('employeeDivisions').once('value');
-                employeeDivisions = snapshot.val();
+                const snapshot = await database.ref('employee_ranges_by_campaign').once('value');
+                employeeRanges = snapshot.val();
 
-                console.log('[OVERVIEW] Employee divisions loaded:', employeeDivisions);
+                console.log('[OVERVIEW] Employee ranges loaded:', employeeRanges);
 
-                if (!employeeDivisions) {
+                if (!employeeRanges) {
                     showError('Chưa có dữ liệu phân chia nhân viên trong Firebase');
                     return;
                 }
 
-                if (!employeeDivisions[currentCampaignName]) {
+                if (!employeeRanges[currentCampaignName]) {
                     showError(`Chiến dịch "${currentCampaignName}" chưa có phân chia nhân viên`);
                     return;
                 }
 
                 processAndDisplay();
             } catch (error) {
-                console.error('[OVERVIEW] Error loading employee divisions:', error);
+                console.error('[OVERVIEW] Error loading employee ranges:', error);
                 showError('Lỗi khi tải phân chia nhân viên: ' + error.message);
             }
         }
@@ -386,12 +386,12 @@
                 return;
             }
 
-            if (!employeeDivisions || !employeeDivisions[currentCampaignName]) {
+            if (!employeeRanges || !employeeRanges[currentCampaignName]) {
                 showError('Không có dữ liệu phân chia nhân viên');
                 return;
             }
 
-            const employees = employeeDivisions[currentCampaignName];
+            const employees = employeeRanges[currentCampaignName];
 
             // Calculate overall stats
             const overallStats = calculateOverallStats(allOrders);
