@@ -512,7 +512,14 @@ function handleSearch(e) {
         clearTimeout(searchDebounceTimer);
     }
 
-    // Debounce search - wait 500ms after user stops typing
+    // Show instant feedback that search is pending
+    if (searchTerm !== '') {
+        // Show subtle loading indicator immediately
+        const searchInput = document.getElementById('searchInput');
+        searchInput.style.borderColor = '#3b82f6'; // Blue border to indicate processing
+    }
+
+    // Debounce search - reduced to 200ms for faster response
     searchDebounceTimer = setTimeout(async () => {
         currentSearchTerm = searchTerm;
 
@@ -527,7 +534,11 @@ function handleSearch(e) {
             currentPage = 1;
             await searchCustomers(searchTerm);
         }
-    }, 500); // Wait 500ms after user stops typing
+
+        // Reset border color
+        const searchInput = document.getElementById('searchInput');
+        searchInput.style.borderColor = '';
+    }, 200); // Reduced from 500ms to 200ms for faster search
 }
 
 /**
