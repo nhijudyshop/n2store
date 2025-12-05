@@ -409,7 +409,7 @@ function renderTable(data) {
             </td>
             <td class="text-center">
                 ${uniqueCode ? `
-                    <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', ${row.transfer_amount})" title="Xem QR Code">
+                    <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
                         <i data-lucide="qr-code"></i>
                     </button>
                     <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
