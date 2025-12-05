@@ -1232,6 +1232,12 @@
     let currentHistoryPage = 1;
     const HISTORY_PAGE_SIZE = 20;
 
+    // Global state for history viewer V2 (COMPLETELY SEPARATE)
+    let uploadHistoryRecordsV2 = [];
+    let filteredHistoryRecordsV2 = [];
+    let currentHistoryPageV2 = 1;
+    const HISTORY_PAGE_SIZE_V2 = 20;
+
     /**
      * Open Upload History Modal
      */
@@ -2953,6 +2959,9 @@
             };
             await database.ref(getUserFirebasePath('productAssignments_history')).child(uploadId).set(historyRecord);
             console.log('[HISTORY] Saved:', uploadId);
+
+            // Also save to V2 database (separate function, separate path)
+            await saveToUploadHistoryV2(uploadId, results, status);
         } catch (error) {
             console.error('[HISTORY] Error:', error);
         }
@@ -3007,5 +3016,595 @@
             showNotification('Lỗi: ' + error.message, 'error');
         }
     };
+
+    // =====================================================
+    // UPLOAD HISTORY V2 VIEWER (COMPLETELY SEPARATE FROM TAB 2)
+    // =====================================================
+
+    /**
+     * Open Upload History V2 Modal
+     */
+    window.openUploadHistoryV2Modal = async function () {
+        console.log('[HISTORY-V2] 📜 Opening upload history v2 modal...');
+
+        try {
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('uploadHistoryV2Modal'));
+            modal.show();
+
+            // Show loading state
+            const container = document.getElementById('historyV2ListContainer');
+            container.innerHTML = `
+                <div class="history-loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visibly-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-3">Đang tải lịch sử upload v2...</p>
+                </div>
+            `;
+
+            // Load history from Firebase
+            await loadUploadHistoryV2();
+
+            // Render history list
+            renderUploadHistoryListV2();
+
+        } catch (error) {
+            console.error('[HISTORY-V2] ❌ Error opening history modal:', error);
+            showNotification('❌ Lỗi khi tải lịch sử upload v2', 'error');
+
+            const container = document.getElementById('historyV2ListContainer');
+            container.innerHTML = `
+                <div class="history-empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Lỗi khi tải lịch sử upload v2</p>
+                    <p class="small text-danger">${error.message}</p>
+                    <button class="btn btn-sm btn-primary mt-2" onclick="openUploadHistoryV2Modal()">
+                        <i class="fas fa-redo"></i> Thử lại
+                    </button>
+                </div>
+            `;
+        }
+    };
+
+    /**
+     * Load upload history V2 from Firebase
+     * Uses SEPARATE database path: productAssignments_v2_history
+     */
+    async function loadUploadHistoryV2() {
+        try {
+            console.log('[HISTORY-V2] 📥 Loading history v2 from Firebase...');
+
+            // Query Firebase with V2 path - orderByChild timestamp, limit to last 100 records
+            const historyPath = userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments_v2_history') : 'productAssignments_v2_history/guest';
+            console.log('[HISTORY-V2] Loading from path:', historyPath);
+
+            const snapshot = await database.ref(historyPath)
+                .orderByChild('timestamp')
+                .limitToLast(100)
+                .once('value');
+
+            const data = snapshot.val();
+
+            if (!data) {
+                console.log('[HISTORY-V2] ℹ️ No history records found');
+                uploadHistoryRecordsV2 = [];
+                filteredHistoryRecordsV2 = [];
+                return;
+            }
+
+            // Convert to array and extract ONLY summary fields (not beforeSnapshot/afterSnapshot)
+            uploadHistoryRecordsV2 = Object.keys(data).map(key => {
+                const record = data[key];
+                return {
+                    uploadId: record.uploadId || key,
+                    timestamp: record.timestamp || 0,
+                    userId: record.userId || 'unknown',
+                    uploadStatus: record.uploadStatus || 'unknown',
+                    totalSTTs: record.totalSTTs || 0,
+                    successCount: record.successCount || 0,
+                    failCount: record.failCount || 0,
+                    uploadedSTTs: record.uploadedSTTs || [],
+                    note: record.note || '',
+                    committedAt: record.committedAt || null,
+                    restoredAt: record.restoredAt || null
+                    // DO NOT load beforeSnapshot/afterSnapshot here (lazy load when needed)
+                };
+            });
+
+            // Sort by timestamp descending (newest first)
+            uploadHistoryRecordsV2.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Initialize filtered records (no filter yet)
+            filteredHistoryRecordsV2 = [...uploadHistoryRecordsV2];
+
+            console.log(`[HISTORY-V2] ✅ Loaded ${uploadHistoryRecordsV2.length} history v2 records`);
+
+        } catch (error) {
+            console.error('[HISTORY-V2] ❌ Error loading history:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Filter upload history V2 based on user input
+     */
+    window.filterUploadHistoryV2 = function () {
+        const userFilter = document.getElementById('historyV2UserFilter').value;
+        const status = document.getElementById('historyV2StatusFilter').value;
+        const dateFrom = document.getElementById('historyV2DateFrom').value;
+        const dateTo = document.getElementById('historyV2DateTo').value;
+        const searchSTT = document.getElementById('historyV2SearchSTT').value.trim();
+
+        console.log('[HISTORY-V2] 🔍 Filtering history:', { userFilter, status, dateFrom, dateTo, searchSTT });
+
+        // Get current user ID for filtering
+        const currentUserId = userStorageManager ? userStorageManager.getUserIdentifier() : 'guest';
+
+        // Start with all records
+        filteredHistoryRecordsV2 = [...uploadHistoryRecordsV2];
+
+        // Filter by user
+        if (userFilter === 'current') {
+            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.userId === currentUserId);
+        }
+        // 'all' means no user filtering
+
+        // Filter by status
+        if (status && status !== 'all') {
+            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.uploadStatus === status);
+        }
+
+        // Filter by date range
+        if (dateFrom) {
+            const fromTimestamp = new Date(dateFrom).getTime();
+            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.timestamp >= fromTimestamp);
+        }
+
+        if (dateTo) {
+            const toTimestamp = new Date(dateTo).setHours(23, 59, 59, 999); // End of day
+            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.timestamp <= toTimestamp);
+        }
+
+        // Filter by STT search
+        if (searchSTT) {
+            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
+                return record.uploadedSTTs.some(stt => stt.toString().includes(searchSTT));
+            });
+        }
+
+        // Reset to page 1
+        currentHistoryPageV2 = 1;
+
+        // Re-render list
+        renderUploadHistoryListV2();
+
+        console.log(`[HISTORY-V2] ✅ Filtered to ${filteredHistoryRecordsV2.length} records`);
+    };
+
+    /**
+     * Render upload history V2 list with pagination
+     */
+    function renderUploadHistoryListV2() {
+        const container = document.getElementById('historyV2ListContainer');
+
+        // Empty state
+        if (filteredHistoryRecordsV2.length === 0) {
+            container.innerHTML = `
+                <div class="history-empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>Không tìm thấy lịch sử upload v2 nào</p>
+                    <p class="small">Lịch sử v2 sẽ được lưu tự động sau mỗi lần upload</p>
+                </div>
+            `;
+            document.getElementById('historyV2Pagination').innerHTML = '';
+            return;
+        }
+
+        // Calculate pagination
+        const totalPages = Math.ceil(filteredHistoryRecordsV2.length / HISTORY_PAGE_SIZE_V2);
+        const startIndex = (currentHistoryPageV2 - 1) * HISTORY_PAGE_SIZE_V2;
+        const endIndex = Math.min(startIndex + HISTORY_PAGE_SIZE_V2, filteredHistoryRecordsV2.length);
+        const pageRecords = filteredHistoryRecordsV2.slice(startIndex, endIndex);
+
+        // Render history cards
+        container.innerHTML = pageRecords.map(record => formatHistoryCardV2(record)).join('');
+
+        // Render pagination
+        renderHistoryPaginationV2(totalPages);
+    }
+
+    /**
+     * Format a single history V2 card HTML
+     */
+    function formatHistoryCardV2(record) {
+        // Status config
+        const statusConfig = {
+            'completed': { icon: '✅', text: 'Thành công', class: 'completed' },
+            'partial': { icon: '⚠️', text: 'Thành công một phần', class: 'partial' },
+            'failed': { icon: '❌', text: 'Thất bại', class: 'failed' },
+            'deletion_failed': { icon: '⚠️', text: 'Upload OK - Xóa failed', class: 'deletion_failed' }
+        };
+
+        const config = statusConfig[record.uploadStatus] || { icon: '❓', text: 'Unknown', class: 'unknown' };
+
+        // Format date
+        const date = new Date(record.timestamp);
+        const dateStr = date.toLocaleString('vi-VN');
+
+        // Format uploadId (show last 8 chars)
+        const shortId = record.uploadId.slice(-8);
+
+        // Format STTs list (limit to first 20, then "...")
+        const sttList = record.uploadedSTTs.slice(0, 20).join(', ');
+        const moreStt = record.uploadedSTTs.length > 20 ? ` và ${record.uploadedSTTs.length - 20} STT khác` : '';
+
+        // User badge
+        const userBadge = record.userId ? `<span class="badge bg-secondary ms-2">👤 ${record.userId}</span>` : '';
+
+        return `
+            <div class="history-card ${config.class}">
+                <div class="history-card-header">
+                    <div>
+                        <h6 class="history-card-title">
+                            ${config.icon} Upload v2 #${shortId}
+                            <span class="history-card-date">${dateStr}</span>
+                            ${userBadge}
+                        </h6>
+                    </div>
+                    <span class="history-status-badge ${config.class}">${config.text}</span>
+                </div>
+
+                <div class="history-stats">
+                    <div class="history-stat-item history-stat-success">
+                        <i class="fas fa-check-circle"></i>
+                        <span><strong>${record.successCount}</strong> thành công</span>
+                    </div>
+                    <div class="history-stat-item history-stat-failed">
+                        <i class="fas fa-times-circle"></i>
+                        <span><strong>${record.failCount}</strong> thất bại</span>
+                    </div>
+                    <div class="history-stat-item history-stat-total">
+                        <i class="fas fa-list"></i>
+                        <span><strong>${record.totalSTTs}</strong> tổng STT</span>
+                    </div>
+                </div>
+
+                <div class="history-stts">
+                    <strong>STT:</strong> ${sttList}${moreStt}
+                </div>
+
+                <div class="history-actions">
+                    <button class="btn btn-sm btn-warning" onclick="compareCartHistoryV2('${record.uploadId}')">
+                        <i class="fas fa-balance-scale"></i> So Sánh Giỏ v2
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="viewUploadHistoryDetailV2('${record.uploadId}')">
+                        <i class="fas fa-eye"></i> Xem Chi Tiết v2
+                    </button>
+                </div>
+
+                ${record.note ? `
+                    <div class="history-note">
+                        <i class="fas fa-sticky-note"></i>
+                        ${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(record.note) : record.note}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Render pagination controls for V2
+     */
+    function renderHistoryPaginationV2(totalPages) {
+        const pagination = document.getElementById('historyV2Pagination');
+
+        if (totalPages <= 1) {
+            pagination.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+
+        // Previous button
+        html += `
+            <button class="btn btn-sm btn-outline-secondary"
+                    onclick="changeHistoryPageV2(${currentHistoryPageV2 - 1})"
+                    ${currentHistoryPageV2 === 1 ? 'disabled' : ''}>
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        `;
+
+        // Page numbers (show max 7 pages)
+        const maxPageButtons = 7;
+        let startPage = Math.max(1, currentHistoryPageV2 - Math.floor(maxPageButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
+
+        // Adjust startPage if endPage is at max
+        if (endPage - startPage < maxPageButtons - 1) {
+            startPage = Math.max(1, endPage - maxPageButtons + 1);
+        }
+
+        // First page button
+        if (startPage > 1) {
+            html += `
+                <button class="btn btn-sm btn-outline-secondary" onclick="changeHistoryPageV2(1)">1</button>
+                ${startPage > 2 ? '<span>...</span>' : ''}
+            `;
+        }
+
+        // Page buttons
+        for (let i = startPage; i <= endPage; i++) {
+            html += `
+                <button class="btn btn-sm ${i === currentHistoryPageV2 ? 'btn-primary active' : 'btn-outline-secondary'}"
+                        onclick="changeHistoryPageV2(${i})">
+                    ${i}
+                </button>
+            `;
+        }
+
+        // Last page button
+        if (endPage < totalPages) {
+            html += `
+                ${endPage < totalPages - 1 ? '<span>...</span>' : ''}
+                <button class="btn btn-sm btn-outline-secondary" onclick="changeHistoryPageV2(${totalPages})">${totalPages}</button>
+            `;
+        }
+
+        // Next button
+        html += `
+            <button class="btn btn-sm btn-outline-secondary"
+                    onclick="changeHistoryPageV2(${currentHistoryPageV2 + 1})"
+                    ${currentHistoryPageV2 === totalPages ? 'disabled' : ''}>
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        `;
+
+        pagination.innerHTML = html;
+    }
+
+    /**
+     * Change history page V2
+     */
+    window.changeHistoryPageV2 = function (page) {
+        currentHistoryPageV2 = page;
+        renderUploadHistoryListV2();
+
+        // Scroll to top of list
+        document.getElementById('historyV2ListContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    /**
+     * View upload history detail V2
+     * Lazy load uploadResults from Firebase
+     */
+    window.viewUploadHistoryDetailV2 = async function (uploadId) {
+        console.log('[HISTORY-V2] 👁️ Viewing detail for:', uploadId);
+
+        try {
+            // Show detail modal with loading state
+            const detailModal = new bootstrap.Modal(document.getElementById('uploadHistoryV2DetailModal'));
+            detailModal.show();
+
+            const titleEl = document.getElementById('historyV2DetailModalTitle');
+            const bodyEl = document.getElementById('historyV2DetailModalBody');
+
+            titleEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+            bodyEl.innerHTML = `
+                <div class="history-loading">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visibly-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-3">Đang tải chi tiết upload v2...</p>
+                </div>
+            `;
+
+            // Load full record from Firebase V2 path (with uploadResults)
+            const historyPath = userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments_v2_history') : 'productAssignments_v2_history/guest';
+            const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
+            const record = snapshot.val();
+
+            if (!record) {
+                throw new Error('Không tìm thấy record v2');
+            }
+
+            // Update title
+            const shortId = uploadId.slice(-8);
+            const date = new Date(record.timestamp).toLocaleString('vi-VN');
+            titleEl.innerHTML = `<i class="fas fa-info-circle"></i> Chi Tiết Upload v2 #${shortId}`;
+
+            // Render detail content
+            bodyEl.innerHTML = renderUploadHistoryDetailV2(record);
+
+        } catch (error) {
+            console.error('[HISTORY-V2] ❌ Error viewing detail:', error);
+            showNotification('❌ Lỗi khi tải chi tiết upload v2', 'error');
+
+            const bodyEl = document.getElementById('historyV2DetailModalBody');
+            bodyEl.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Lỗi: ${error.message}
+                </div>
+            `;
+        }
+    };
+
+    /**
+     * Render upload history detail V2 HTML
+     */
+    function renderUploadHistoryDetailV2(record) {
+        // Status config
+        const statusConfig = {
+            'completed': { icon: '✅', text: 'Thành công hoàn toàn', class: 'success' },
+            'partial': { icon: '⚠️', text: 'Thành công một phần', class: 'warning' },
+            'failed': { icon: '❌', text: 'Thất bại hoàn toàn', class: 'danger' },
+            'deletion_failed': { icon: '⚠️', text: 'Upload OK - Không xóa được', class: 'warning' }
+        };
+
+        const config = statusConfig[record.uploadStatus] || { icon: '❓', text: 'Unknown', class: 'secondary' };
+
+        // Format date
+        const date = new Date(record.timestamp);
+        const dateStr = date.toLocaleString('vi-VN');
+
+        let html = `
+            <div class="alert alert-${config.class}" role="alert">
+                <h6 class="mb-2">${config.icon} ${config.text}</h6>
+                <p class="mb-0 small"><strong>Thời gian:</strong> ${dateStr}</p>
+                ${record.userId ? `<p class="mb-0 small"><strong>User:</strong> ${record.userId}</p>` : ''}
+            </div>
+
+            <div class="history-summary mb-3">
+                <h6><i class="fas fa-chart-bar"></i> Tổng quan:</h6>
+                <ul>
+                    <li>Tổng STT: <strong>${record.totalSTTs}</strong></li>
+                    <li>Thành công: <strong class="text-success">${record.successCount}</strong></li>
+                    <li>Thất bại: <strong class="text-danger">${record.failCount}</strong></li>
+                </ul>
+            </div>
+        `;
+
+        // Upload results breakdown
+        if (record.uploadResults && record.uploadResults.length > 0) {
+            html += `
+                <div class="history-details">
+                    <h6><i class="fas fa-list"></i> Chi tiết từng STT (${record.uploadResults.length}):</h6>
+            `;
+
+            // Group by success/failure
+            const successResults = record.uploadResults.filter(r => r.success);
+            const failResults = record.uploadResults.filter(r => !r.success);
+
+            // Success section
+            if (successResults.length > 0) {
+                html += `
+                    <div class="alert alert-success mb-2">
+                        <strong><i class="fas fa-check-circle"></i> Thành công (${successResults.length}):</strong>
+                        <div class="mt-2 small">
+                            ${successResults.map(r => `STT ${r.stt} (Order: ${r.orderId || 'N/A'})`).join(', ')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Failure section
+            if (failResults.length > 0) {
+                html += `
+                    <div class="alert alert-danger mb-2">
+                        <strong><i class="fas fa-times-circle"></i> Thất bại (${failResults.length}):</strong>
+                `;
+
+                failResults.forEach(result => {
+                    html += `
+                        <div class="border-top mt-2 pt-2">
+                            <div><strong>STT ${result.stt}</strong></div>
+                            ${result.error ? `
+                                <div class="alert alert-danger mt-1 mb-0 small" role="alert">
+                                    <strong><i class="fas fa-exclamation-circle"></i> Lỗi:</strong> ${result.error}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+
+                html += `</div>`;
+            }
+
+            html += `</div>`;
+        }
+
+        // Note section
+        if (record.note) {
+            html += `
+                <div class="history-note mt-3">
+                    <i class="fas fa-sticky-note"></i>
+                    <strong>Ghi chú:</strong> ${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(record.note) : record.note}
+                </div>
+            `;
+        }
+
+        return html;
+    }
+
+    /**
+     * Compare Cart History V2 - Show preview comparison modal
+     */
+    window.compareCartHistoryV2 = async function (uploadId) {
+        console.log('[HISTORY-V2-COMPARE] 🔍 Comparing cart for uploadId:', uploadId);
+
+        try {
+            // Show comparison modal with loading state
+            const compareModal = new bootstrap.Modal(document.getElementById('compareCartHistoryV2Modal'));
+            compareModal.show();
+
+            const modalBody = document.getElementById('compareCartHistoryV2ModalBody');
+            modalBody.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-2">Đang tải dữ liệu so sánh v2...</p>
+                </div>
+            `;
+
+            // Load full record from Firebase V2 path (with beforeSnapshot)
+            const historyPath = userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments_v2_history') : 'productAssignments_v2_history/guest';
+            const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
+            const record = snapshot.val();
+
+            if (!record || !record.beforeSnapshot) {
+                throw new Error('Không tìm thấy dữ liệu snapshot v2');
+            }
+
+            console.log('[HISTORY-V2-COMPARE] ✅ Loaded record:', record);
+
+            // Render comparison content (reuse existing function)
+            modalBody.innerHTML = renderComparisonContent(record);
+
+        } catch (error) {
+            console.error('[HISTORY-V2-COMPARE] ❌ Error:', error);
+            showNotification('❌ Lỗi khi tải dữ liệu so sánh v2', 'error');
+
+            const modalBody = document.getElementById('compareCartHistoryV2ModalBody');
+            modalBody.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Lỗi:</strong> ${error.message}
+                </div>
+            `;
+        }
+    };
+
+    /**
+     * Save to upload history V2 (SEPARATE database path)
+     * This function is called after upload completes
+     */
+    async function saveToUploadHistoryV2(uploadId, results, status) {
+        try {
+            const userId = userStorageManager ? userStorageManager.getUserIdentifier() : 'guest';
+
+            const historyRecord = {
+                uploadId: uploadId,
+                timestamp: Date.now(),
+                userId: userId,
+                uploadStatus: status,
+                totalSTTs: results.length,
+                successCount: results.filter(r => r.success).length,
+                failCount: results.filter(r => !r.success).length,
+                uploadedSTTs: results.map(r => r.stt),
+                uploadResults: results,
+                beforeSnapshot: { assignments: JSON.parse(JSON.stringify(assignments)) }
+            };
+
+            // Save to V2 database path
+            const historyPath = userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments_v2_history') : 'productAssignments_v2_history/guest';
+            await database.ref(historyPath).child(uploadId).set(historyRecord);
+
+            console.log('[HISTORY-V2] ✅ Saved to v2 database:', uploadId);
+        } catch (error) {
+            console.error('[HISTORY-V2] ❌ Error saving:', error);
+        }
+    }
 
 })();
