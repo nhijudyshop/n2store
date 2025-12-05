@@ -466,6 +466,9 @@ function createCustomerRow(customer) {
         </td>
         <td>
             <div class="action-buttons">
+                <button class="icon-btn view" onclick="openTransactionHistory('${customer.id}', '${escapeHtml(customer.phone || '')}', '${escapeHtml(customer.name || '')}')" title="Lịch sử giao dịch">
+                    <i data-lucide="receipt"></i>
+                </button>
                 <button class="icon-btn edit" onclick="openEditCustomerModal('${customer.id}')" title="Sửa">
                     <i data-lucide="edit"></i>
                 </button>
@@ -1211,8 +1214,183 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// =====================================================
+// 🆕 TRANSACTION HISTORY INTEGRATION (Phase 2)
+// =====================================================
+
+const BALANCE_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+/**
+ * Open transaction history modal for a customer
+ */
+async function openTransactionHistory(customerId, phone, name) {
+    if (!phone) {
+        showNotification('Khách hàng chưa có số điện thoại', 'error');
+        return;
+    }
+
+    // Show modal
+    const modal = document.getElementById('transactionHistoryModal');
+    modal.classList.add('active');
+
+    // Set customer name
+    document.getElementById('txHistoryCustomerName').textContent = name || phone;
+
+    // Show loading state
+    document.getElementById('txLoadingState').style.display = 'block';
+    document.getElementById('txEmptyState').style.display = 'none';
+    document.getElementById('txTableContainer').style.display = 'none';
+
+    // Load transaction history
+    await loadTransactionHistory(phone);
+
+    // Re-init icons
+    lucide.createIcons();
+}
+
+/**
+ * Close transaction history modal
+ */
+function closeTransactionHistoryModal() {
+    const modal = document.getElementById('transactionHistoryModal');
+    modal.classList.remove('active');
+}
+
+/**
+ * Load transaction history from API
+ */
+async function loadTransactionHistory(phone) {
+    try {
+        const response = await fetch(`${BALANCE_API_URL}/api/sepay/transactions-by-phone?phone=${encodeURIComponent(phone)}&limit=100`);
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch transaction history');
+        }
+
+        const result = await response.json();
+
+        // Hide loading state
+        document.getElementById('txLoadingState').style.display = 'none';
+
+        if (!result.success || result.data.length === 0) {
+            // Show empty state
+            document.getElementById('txEmptyState').style.display = 'block';
+            return;
+        }
+
+        // Update statistics
+        updateTransactionStats(result.statistics);
+
+        // Render transactions table
+        renderTransactionTable(result.data);
+
+        // Show table
+        document.getElementById('txTableContainer').style.display = 'block';
+
+    } catch (error) {
+        console.error('[TRANSACTION-HISTORY] Error loading:', error);
+
+        // Hide loading state
+        document.getElementById('txLoadingState').style.display = 'none';
+
+        // Show error message
+        showNotification('Không thể tải lịch sử giao dịch', 'error');
+
+        // Close modal
+        setTimeout(() => closeTransactionHistoryModal(), 2000);
+    }
+}
+
+/**
+ * Update transaction statistics
+ */
+function updateTransactionStats(stats) {
+    document.getElementById('txTotalIn').textContent = formatCurrency(stats.total_in);
+    document.getElementById('txTotalInCount').textContent = `${stats.total_in_count} giao dịch`;
+
+    document.getElementById('txTotalOut').textContent = formatCurrency(stats.total_out);
+    document.getElementById('txTotalOutCount').textContent = `${stats.total_out_count} giao dịch`;
+
+    document.getElementById('txNetChange').textContent = formatCurrency(stats.net_change);
+    document.getElementById('txTotalCount').textContent = `${stats.total_transactions} giao dịch`;
+}
+
+/**
+ * Render transactions table
+ */
+function renderTransactionTable(transactions) {
+    const tbody = document.getElementById('txTableBody');
+    tbody.innerHTML = '';
+
+    transactions.forEach(tx => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${formatTransactionDate(tx.transaction_date)}</td>
+            <td><code>${tx.code || tx.reference_code || '-'}</code></td>
+            <td>
+                <span class="status-badge ${tx.transfer_type === 'in' ? 'normal' : 'danger'}">
+                    ${tx.transfer_type === 'in' ? 'Tiền vào' : 'Tiền ra'}
+                </span>
+            </td>
+            <td>
+                <div class="debt-amount ${tx.transfer_type === 'in' ? 'positive' : 'negative'}">
+                    ${formatCurrency(tx.transfer_amount)}
+                </div>
+            </td>
+            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(tx.content || '')}">
+                ${escapeHtml(tx.content || '-')}
+            </td>
+            <td>${escapeHtml(tx.gateway || '-')}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * Format transaction date
+ */
+function formatTransactionDate(dateString) {
+    if (!dateString) return '-';
+
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+    // If within 24 hours, show relative time
+    if (diffHours < 24) {
+        if (diffHours < 1) {
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
+            return diffMinutes < 1 ? 'Vừa xong' : `${diffMinutes} phút trước`;
+        }
+        return `${diffHours} giờ trước`;
+    }
+
+    // Otherwise show formatted date
+    return date.toLocaleString('vi-VN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+/**
+ * Format currency (VND)
+ */
+function formatCurrency(amount) {
+    if (!amount && amount !== 0) return '0 ₫';
+    return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND'
+    }).format(amount);
+}
+
 // Make functions globally available
 window.openEditCustomerModal = openEditCustomerModal;
 window.closeCustomerModal = closeCustomerModal;
 window.closeImportModal = closeImportModal;
 window.deleteCustomer = deleteCustomer;
+window.openTransactionHistory = openTransactionHistory;
+window.closeTransactionHistoryModal = closeTransactionHistoryModal;
