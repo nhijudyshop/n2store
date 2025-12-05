@@ -652,9 +652,8 @@ async function searchCustomers(searchTerm) {
         showEmptyState(false);
         showLoading(false);
 
-        // Show results count
-        showNotification(`Tìm thấy ${customers.length} khách hàng`, 'success');
-
+        // Don't show success notification - user can see results in table
+        // Only log to console
         console.log('[SEARCH] ✅ Found customers:', {
             searchTerm,
             count: customers.length,
