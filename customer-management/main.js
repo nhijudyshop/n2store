@@ -3,6 +3,11 @@ let customers = [];
 let filteredCustomers = [];
 let editingCustomerId = null;
 
+// Initialize Firebase
+if (!firebase.apps.length) {
+    firebase.initializeApp(window.FIREBASE_CONFIG);
+}
+
 // Firebase references
 const db = firebase.firestore();
 const customersCollection = db.collection('customers');
