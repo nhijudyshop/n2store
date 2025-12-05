@@ -3015,11 +3015,131 @@
             console.error('[FINALIZE] Error:', error);
             showNotification('Lỗi: ' + error.message, 'error');
         }
-    };
+    }
 
+})();
     // =====================================================
-    // UPLOAD HISTORY V2 VIEWER (COMPLETELY SEPARATE FROM TAB 2)
+    // UPLOAD HISTORY V2 VIEWER (GIỐNG 100% TAB 2)
     // =====================================================
+
+    // Global state for history viewer V2
+    let uploadHistoryRecordsV2 = [];
+    let filteredHistoryRecordsV2 = [];
+    let currentHistoryPageV2 = 1;
+    const HISTORY_PAGE_SIZE_V2 = 20;
+
+    /**
+     * Get user display name from userId (V2)
+     * @param {string} userId - User identifier
+     * @returns {string} Display name
+     */
+    function getUserDisplayNameV2(userId) {
+        if (!userId) return 'Unknown';
+
+        // Extract username from userId (format: username-shop or just username)
+        if (userId.includes('-')) {
+            return userId.split('-')[0];
+        }
+        return userId;
+    }
+
+    /**
+     * Load all users who have upload history V2
+     * @returns {Promise<Array>} Array of user IDs
+     */
+    async function loadAllUsersForFilterV2() {
+        try {
+            console.log('[HISTORY-V2] 📥 Loading all users for filter...');
+
+            // Query Firebase root path to get all users
+            const historyRef = database.ref('productAssignments_v2_history');
+            const snapshot = await historyRef.once('value');
+
+            const userIds = [];
+            if (snapshot.exists()) {
+                snapshot.forEach(childSnapshot => {
+                    userIds.push(childSnapshot.key);
+                });
+            }
+
+            // Sort alphabetically
+            userIds.sort();
+
+            console.log(`[HISTORY-V2] ✅ Found ${userIds.length} users with upload history v2`);
+            return userIds;
+        } catch (error) {
+            console.error('[HISTORY-V2] ❌ Error loading users for filter:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Populate user filter dropdown with all users V2
+     */
+    async function populateUserFilterV2() {
+        try {
+            const userFilterSelect = document.getElementById('historyV2UserFilter');
+            if (!userFilterSelect) {
+                console.warn('[HISTORY-V2] User filter select not found');
+                return;
+            }
+
+            // Preserve currently selected value before rebuilding
+            const previousSelection = userFilterSelect.value;
+            console.log('[HISTORY-V2] Preserving selection:', previousSelection);
+
+            // Get current logged-in user
+            const currentUser = userStorageManager ? userStorageManager.getUserIdentifier() : null;
+            console.log('[HISTORY-V2] Current user:', currentUser);
+
+            // Load all users who have history
+            const allUsers = await loadAllUsersForFilterV2();
+
+            // Clear existing options and rebuild
+            userFilterSelect.innerHTML = `
+                <option value="current">👤 Lịch sử của tôi</option>
+                <option value="all">👥 Tất cả người dùng</option>
+            `;
+
+            // Add separator if there are users
+            if (allUsers.length > 0) {
+                const separator = document.createElement('option');
+                separator.disabled = true;
+                separator.textContent = '───────────────';
+                userFilterSelect.appendChild(separator);
+            }
+
+            // Add option for each user
+            allUsers.forEach(userId => {
+                const option = document.createElement('option');
+                option.value = userId;
+                option.textContent = `👤 ${getUserDisplayNameV2(userId)}`;
+
+                // Mark current user's option
+                if (userId === currentUser) {
+                    option.textContent += ' (bạn)';
+                }
+
+                userFilterSelect.appendChild(option);
+            });
+
+            // Restore previously selected value if it still exists
+            if (previousSelection) {
+                // Check if the previous selection exists in the new options
+                const optionExists = Array.from(userFilterSelect.options).some(opt => opt.value === previousSelection);
+                if (optionExists) {
+                    userFilterSelect.value = previousSelection;
+                    console.log('[HISTORY-V2] Restored selection to:', previousSelection);
+                } else {
+                    console.log('[HISTORY-V2] Previous selection no longer exists, keeping default');
+                }
+            }
+
+            console.log('[HISTORY-V2] ✅ User filter populated with', allUsers.length, 'users');
+        } catch (error) {
+            console.error('[HISTORY-V2] ❌ Error populating user filter:', error);
+        }
+    }
 
     /**
      * Open Upload History V2 Modal
@@ -3036,18 +3156,18 @@
             const container = document.getElementById('historyV2ListContainer');
             container.innerHTML = `
                 <div class="history-loading">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visibly-hidden">Loading...</span>
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Loading...</span>
                     </div>
                     <p class="text-muted mt-3">Đang tải lịch sử upload v2...</p>
                 </div>
             `;
 
-            // Load history from Firebase
-            await loadUploadHistoryV2();
+            // Populate user filter dropdown
+            await populateUserFilterV2();
 
-            // Render history list
-            renderUploadHistoryListV2();
+            // Load history from Firebase (will auto-render via filterUploadHistoryV2)
+            await loadUploadHistoryV2();
 
         } catch (error) {
             console.error('[HISTORY-V2] ❌ Error opening history modal:', error);
@@ -3069,20 +3189,44 @@
 
     /**
      * Load upload history V2 from Firebase
-     * Uses SEPARATE database path: productAssignments_v2_history
+     * Only loads summary fields for performance
+     * Supports loading by user filter: current, all, or specific userId
      */
     async function loadUploadHistoryV2() {
         try {
-            console.log('[HISTORY-V2] 📥 Loading history v2 from Firebase...');
+            console.log('[HISTORY-V2] 📥 Loading history from Firebase...');
 
-            // Query Firebase with V2 path - orderByChild timestamp, limit to last 100 records
-            const historyPath = userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments_v2_history') : 'productAssignments_v2_history/guest';
-            console.log('[HISTORY-V2] Loading from path:', historyPath);
+            // Get selected user filter
+            const userFilterSelect = document.getElementById('historyV2UserFilter');
+            const selectedUser = userFilterSelect ? userFilterSelect.value : 'current';
+            console.log('[HISTORY-V2] Selected user filter:', selectedUser);
 
-            const snapshot = await database.ref(historyPath)
-                .orderByChild('timestamp')
-                .limitToLast(100)
-                .once('value');
+            let historyPath;
+            let snapshot;
+
+            // Determine query path based on user filter
+            if (selectedUser === 'current') {
+                // Load current user's history (default behavior)
+                historyPath = getUserFirebasePath('productAssignments_v2_history');
+                console.log('[HISTORY-V2] Loading current user history from path:', historyPath);
+                snapshot = await database.ref(historyPath)
+                    .orderByChild('timestamp')
+                    .limitToLast(100)
+                    .once('value');
+            } else if (selectedUser === 'all') {
+                // Load ALL users' history from root path
+                historyPath = 'productAssignments_v2_history';
+                console.log('[HISTORY-V2] Loading ALL users history from path:', historyPath);
+                snapshot = await database.ref(historyPath).once('value');
+            } else {
+                // Load specific user's history
+                historyPath = `productAssignments_v2_history/${selectedUser}`;
+                console.log('[HISTORY-V2] Loading specific user history from path:', historyPath);
+                snapshot = await database.ref(historyPath)
+                    .orderByChild('timestamp')
+                    .limitToLast(100)
+                    .once('value');
+            }
 
             const data = snapshot.val();
 
@@ -3090,35 +3234,104 @@
                 console.log('[HISTORY-V2] ℹ️ No history records found');
                 uploadHistoryRecordsV2 = [];
                 filteredHistoryRecordsV2 = [];
+                // Still need to render empty state
+                filterUploadHistoryV2();
                 return;
             }
 
-            // Convert to array and extract ONLY summary fields (not beforeSnapshot/afterSnapshot)
-            uploadHistoryRecordsV2 = Object.keys(data).map(key => {
-                const record = data[key];
-                return {
-                    uploadId: record.uploadId || key,
-                    timestamp: record.timestamp || 0,
-                    userId: record.userId || 'unknown',
-                    uploadStatus: record.uploadStatus || 'unknown',
-                    totalSTTs: record.totalSTTs || 0,
-                    successCount: record.successCount || 0,
-                    failCount: record.failCount || 0,
-                    uploadedSTTs: record.uploadedSTTs || [],
-                    note: record.note || '',
-                    committedAt: record.committedAt || null,
-                    restoredAt: record.restoredAt || null
-                    // DO NOT load beforeSnapshot/afterSnapshot here (lazy load when needed)
-                };
-            });
+            // Convert to array based on data structure
+            uploadHistoryRecordsV2 = [];
+
+            if (selectedUser === 'all') {
+                // Flatten data from all users
+                console.log('[HISTORY-V2] 🔍 Flattening data from all users...');
+                console.log('[HISTORY-V2] Total users found:', Object.keys(data).length);
+                console.log('[HISTORY-V2] User keys:', Object.keys(data));
+
+                Object.keys(data).forEach(userId => {
+                    const userHistory = data[userId];
+                    console.log(`[HISTORY-V2]   User: "${userId}"`);
+                    console.log(`[HISTORY-V2]     Type: ${typeof userHistory}`);
+                    console.log(`[HISTORY-V2]     Is null: ${userHistory === null}`);
+                    console.log(`[HISTORY-V2]     Keys count:`, userHistory ? Object.keys(userHistory).length : 0);
+
+                    if (userHistory && typeof userHistory === 'object') {
+                        const uploadKeys = Object.keys(userHistory);
+                        console.log(`[HISTORY-V2]     Upload keys:`, uploadKeys);
+
+                        uploadKeys.forEach(uploadKey => {
+                            const record = userHistory[uploadKey];
+                            console.log(`[HISTORY-V2]       Record: "${uploadKey}"`);
+                            console.log(`[HISTORY-V2]         Type: ${typeof record}`);
+                            console.log(`[HISTORY-V2]         Has timestamp: ${!!record?.timestamp}`);
+                            console.log(`[HISTORY-V2]         Has uploadId: ${!!record?.uploadId}`);
+
+                            // Skip if record is not an object or is null
+                            if (!record || typeof record !== 'object') {
+                                console.warn('[HISTORY-V2]         ❌ Skipping invalid record (not object):', uploadKey);
+                                return;
+                            }
+
+                            // RELAXED validation: Only skip if it's clearly not upload history
+                            // Accept record if it has EITHER timestamp OR uploadId OR uploadStatus
+                            if (!record.timestamp && !record.uploadId && !record.uploadStatus) {
+                                console.warn('[HISTORY-V2]         ❌ Skipping non-history record (no identifying fields):', uploadKey);
+                                return;
+                            }
+
+                            console.log(`[HISTORY-V2]         ✅ Adding record to list`);
+                            uploadHistoryRecordsV2.push({
+                                uploadId: record.uploadId || uploadKey,
+                                timestamp: record.timestamp || 0,
+                                uploadStatus: record.uploadStatus || 'unknown',
+                                totalSTTs: record.totalSTTs || 0,
+                                successCount: record.successCount || 0,
+                                failCount: record.failCount || 0,
+                                uploadedSTTs: record.uploadedSTTs || [],
+                                note: record.note || '',
+                                committedAt: record.committedAt || null,
+                                restoredAt: record.restoredAt || null,
+                                userId: record.userId || userId // Use record's userId or path userId
+                            });
+                        });
+                    }
+                });
+                console.log('[HISTORY-V2] ✅ Flattened to', uploadHistoryRecordsV2.length, 'total records');
+            } else {
+                // Single user data (current or specific user)
+                uploadHistoryRecordsV2 = Object.keys(data).map(key => {
+                    const record = data[key];
+                    return {
+                        uploadId: record.uploadId || key,
+                        timestamp: record.timestamp || 0,
+                        uploadStatus: record.uploadStatus || 'unknown',
+                        totalSTTs: record.totalSTTs || 0,
+                        successCount: record.successCount || 0,
+                        failCount: record.failCount || 0,
+                        uploadedSTTs: record.uploadedSTTs || [],
+                        note: record.note || '',
+                        committedAt: record.committedAt || null,
+                        restoredAt: record.restoredAt || null,
+                        userId: record.userId || (selectedUser !== 'current' ? selectedUser : undefined) // Use record's userId first
+                    };
+                });
+            }
 
             // Sort by timestamp descending (newest first)
             uploadHistoryRecordsV2.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Limit to 100 most recent records when loading all users
+            if (selectedUser === 'all' && uploadHistoryRecordsV2.length > 100) {
+                uploadHistoryRecordsV2 = uploadHistoryRecordsV2.slice(0, 100);
+            }
 
             // Initialize filtered records (no filter yet)
             filteredHistoryRecordsV2 = [...uploadHistoryRecordsV2];
 
             console.log(`[HISTORY-V2] ✅ Loaded ${uploadHistoryRecordsV2.length} history v2 records`);
+
+            // Re-apply filters and render
+            filterUploadHistoryV2();
 
         } catch (error) {
             console.error('[HISTORY-V2] ❌ Error loading history:', error);
@@ -3130,25 +3343,15 @@
      * Filter upload history V2 based on user input
      */
     window.filterUploadHistoryV2 = function () {
-        const userFilter = document.getElementById('historyV2UserFilter').value;
         const status = document.getElementById('historyV2StatusFilter').value;
         const dateFrom = document.getElementById('historyV2DateFrom').value;
         const dateTo = document.getElementById('historyV2DateTo').value;
         const searchSTT = document.getElementById('historyV2SearchSTT').value.trim();
 
-        console.log('[HISTORY-V2] 🔍 Filtering history:', { userFilter, status, dateFrom, dateTo, searchSTT });
-
-        // Get current user ID for filtering
-        const currentUserId = userStorageManager ? userStorageManager.getUserIdentifier() : 'guest';
+        console.log('[HISTORY-V2] 🔍 Filtering history:', { status, dateFrom, dateTo, searchSTT });
 
         // Start with all records
         filteredHistoryRecordsV2 = [...uploadHistoryRecordsV2];
-
-        // Filter by user
-        if (userFilter === 'current') {
-            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.userId === currentUserId);
-        }
-        // 'all' means no user filtering
 
         // Filter by status
         if (status && status !== 'all') {
@@ -3235,21 +3438,20 @@
         // Format uploadId (show last 8 chars)
         const shortId = record.uploadId.slice(-8);
 
+        // Format user badge (show if userId is present)
+        const userBadge = record.userId ? `<span class="user-badge">👤 ${getUserDisplayNameV2(record.userId)}</span>` : '';
+
         // Format STTs list (limit to first 20, then "...")
         const sttList = record.uploadedSTTs.slice(0, 20).join(', ');
         const moreStt = record.uploadedSTTs.length > 20 ? ` và ${record.uploadedSTTs.length - 20} STT khác` : '';
-
-        // User badge
-        const userBadge = record.userId ? `<span class="badge bg-secondary ms-2">👤 ${record.userId}</span>` : '';
 
         return `
             <div class="history-card ${config.class}">
                 <div class="history-card-header">
                     <div>
                         <h6 class="history-card-title">
-                            ${config.icon} Upload v2 #${shortId}
+                            ${config.icon} Upload v2 #${shortId} ${userBadge}
                             <span class="history-card-date">${dateStr}</span>
-                            ${userBadge}
                         </h6>
                     </div>
                     <span class="history-status-badge ${config.class}">${config.text}</span>
@@ -3275,18 +3477,18 @@
                 </div>
 
                 <div class="history-actions">
-                    <button class="btn btn-sm btn-warning" onclick="compareCartHistoryV2('${record.uploadId}')">
-                        <i class="fas fa-balance-scale"></i> So Sánh Giỏ v2
+                    <button class="btn btn-sm btn-info" onclick="compareCartHistoryV2('${record.uploadId}', '${record.userId || ''}')">
+                        <i class="fas fa-balance-scale"></i> So Sánh Giỏ
                     </button>
-                    <button class="btn btn-sm btn-success" onclick="viewUploadHistoryDetailV2('${record.uploadId}')">
-                        <i class="fas fa-eye"></i> Xem Chi Tiết v2
+                    <button class="btn btn-sm btn-primary" onclick="viewUploadHistoryDetailV2('${record.uploadId}', '${record.userId || ''}')">
+                        <i class="fas fa-eye"></i> Xem Chi Tiết
                     </button>
                 </div>
 
                 ${record.note ? `
                     <div class="history-note">
                         <i class="fas fa-sticky-note"></i>
-                        ${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(record.note) : record.note}
+                        ${record.note}
                     </div>
                 ` : ''}
             </div>
@@ -3294,7 +3496,7 @@
     }
 
     /**
-     * Render pagination controls for V2
+     * Render pagination controls V2
      */
     function renderHistoryPaginationV2(totalPages) {
         const pagination = document.getElementById('historyV2Pagination');
@@ -3336,7 +3538,7 @@
         // Page buttons
         for (let i = startPage; i <= endPage; i++) {
             html += `
-                <button class="btn btn-sm ${i === currentHistoryPageV2 ? 'btn-primary active' : 'btn-outline-secondary'}"
+                <button class="btn btn-sm ${i === currentHistoryPageV2 ? 'btn-info active' : 'btn-outline-secondary'}"
                         onclick="changeHistoryPageV2(${i})">
                     ${i}
                 </button>
@@ -3378,8 +3580,8 @@
      * View upload history detail V2
      * Lazy load uploadResults from Firebase
      */
-    window.viewUploadHistoryDetailV2 = async function (uploadId) {
-        console.log('[HISTORY-V2] 👁️ Viewing detail for:', uploadId);
+    window.viewUploadHistoryDetailV2 = async function (uploadId, userId = '') {
+        console.log('[HISTORY-V2] 👁️ Viewing detail for:', uploadId, 'userId:', userId);
 
         try {
             // Show detail modal with loading state
@@ -3392,15 +3594,22 @@
             titleEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
             bodyEl.innerHTML = `
                 <div class="history-loading">
-                    <div class="spinner-border text-success" role="status">
-                        <span class="visibly-hidden">Loading...</span>
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
                     </div>
                     <p class="text-muted mt-3">Đang tải chi tiết upload v2...</p>
                 </div>
             `;
 
-            // Load full record from Firebase V2 path (with uploadResults)
-            const historyPath = userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments_v2_history') : 'productAssignments_v2_history/guest';
+            // Load full record from Firebase V2 (with uploadResults)
+            // If userId is provided, use that path; otherwise use current user's path
+            let historyPath;
+            if (userId && userId !== '') {
+                historyPath = `productAssignments_v2_history/${userId}`;
+            } else {
+                historyPath = getUserFirebasePath('productAssignments_v2_history');
+            }
+            console.log('[HISTORY-V2] Loading detail from path:', historyPath);
             const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
             const record = snapshot.val();
 
@@ -3445,14 +3654,13 @@
         const config = statusConfig[record.uploadStatus] || { icon: '❓', text: 'Unknown', class: 'secondary' };
 
         // Format date
-        const date = new Date(record.timestamp);
-        const dateStr = date.toLocaleString('vi-VN');
+        const date = new Date(record.timestamp).toLocaleString('vi-VN');
 
         let html = `
             <div class="alert alert-${config.class}" role="alert">
                 <h6 class="mb-2">${config.icon} ${config.text}</h6>
-                <p class="mb-0 small"><strong>Thời gian:</strong> ${dateStr}</p>
-                ${record.userId ? `<p class="mb-0 small"><strong>User:</strong> ${record.userId}</p>` : ''}
+                <p class="mb-0 small"><strong>Thời gian:</strong> ${date}</p>
+                ${record.userId ? `<p class="mb-0 small"><strong>User:</strong> ${getUserDisplayNameV2(record.userId)}</p>` : ''}
             </div>
 
             <div class="history-summary mb-3">
@@ -3519,7 +3727,7 @@
             html += `
                 <div class="history-note mt-3">
                     <i class="fas fa-sticky-note"></i>
-                    <strong>Ghi chú:</strong> ${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(record.note) : record.note}
+                    <strong>Ghi chú:</strong> ${record.note}
                 </div>
             `;
         }
@@ -3530,8 +3738,8 @@
     /**
      * Compare Cart History V2 - Show preview comparison modal
      */
-    window.compareCartHistoryV2 = async function (uploadId) {
-        console.log('[HISTORY-V2-COMPARE] 🔍 Comparing cart for uploadId:', uploadId);
+    window.compareCartHistoryV2 = async function (uploadId, userId = '') {
+        console.log('[HISTORY-V2-COMPARE] 🔍 Comparing cart for uploadId:', uploadId, 'userId:', userId);
 
         try {
             // Show comparison modal with loading state
@@ -3541,7 +3749,7 @@
             const modalBody = document.getElementById('compareCartHistoryV2ModalBody');
             modalBody.innerHTML = `
                 <div class="text-center py-5">
-                    <div class="spinner-border text-warning" role="status">
+                    <div class="spinner-border text-info" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
                     <p class="text-muted mt-2">Đang tải dữ liệu so sánh v2...</p>
@@ -3549,7 +3757,13 @@
             `;
 
             // Load full record from Firebase V2 path (with beforeSnapshot)
-            const historyPath = userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments_v2_history') : 'productAssignments_v2_history/guest';
+            let historyPath;
+            if (userId && userId !== '') {
+                historyPath = `productAssignments_v2_history/${userId}`;
+            } else {
+                historyPath = getUserFirebasePath('productAssignments_v2_history');
+            }
+            console.log('[HISTORY-V2-COMPARE] Loading from path:', historyPath);
             const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
             const record = snapshot.val();
 

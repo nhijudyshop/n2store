@@ -394,14 +394,15 @@
                     <!-- Filters -->
                     <div class="history-filters mb-3">
                         <div class="row g-2">
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <select class="form-select form-select-sm" id="historyV2UserFilter"
-                                    onchange="filterUploadHistoryV2()">
-                                    <option value="current">🙋 Của tôi</option>
+                                    onchange="loadUploadHistoryV2()">
+                                    <option value="current">👤 Lịch sử của tôi</option>
                                     <option value="all">👥 Tất cả người dùng</option>
+                                    <!-- User options will be populated by JS -->
                                 </select>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <select class="form-select form-select-sm" id="historyV2StatusFilter"
                                     onchange="filterUploadHistoryV2()">
                                     <option value="all">Tất cả trạng thái</option>
@@ -410,11 +411,11 @@
                                     <option value="failed">❌ Thất bại</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <input type="date" class="form-control form-control-sm" id="historyV2DateFrom"
                                     onchange="filterUploadHistoryV2()" placeholder="Từ ngày">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <input type="date" class="form-control form-control-sm" id="historyV2DateTo"
                                     onchange="filterUploadHistoryV2()" placeholder="Đến ngày">
                             </div>
