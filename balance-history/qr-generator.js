@@ -14,7 +14,7 @@ const QRGenerator = {
             bin: '970416',
             name: 'ACB',
             accountNo: '93616',
-            accountName: 'N2SHOP'
+            accountName: 'LAI THUY YEN NHI'
         }
     },
 
