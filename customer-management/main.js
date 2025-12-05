@@ -3,6 +3,18 @@ let customers = [];
 let filteredCustomers = [];
 let editingCustomerId = null;
 
+// Check authentication - Admin only
+if (typeof authManager !== 'undefined') {
+    if (!authManager.requireAuth()) {
+        throw new Error('Authentication required');
+    }
+    if (!authManager.isAdmin()) {
+        alert('Chỉ Admin mới có quyền truy cập trang này');
+        window.location.href = '../index.html';
+        throw new Error('Admin permission required');
+    }
+}
+
 // Initialize Firebase
 if (!firebase.apps.length) {
     firebase.initializeApp(window.FIREBASE_CONFIG);
