@@ -100,6 +100,7 @@
                             <option value="today">Hôm nay</option>
                             <option value="3days">3 ngày trước</option>
                             <option value="7days">7 ngày trước</option>
+                            <option value="custom">Tùy chỉnh...</option>
                         </select>
                     </div>
                     <div class="date-nav-right" id="holidayBadge" style="display: none;">
@@ -336,6 +337,39 @@
                     <button class="btn-danger" id="btnConfirmDelete">
                         <i data-lucide="trash-2"></i>
                         Xóa
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Date Range Picker Modal -->
+        <div class="modal" id="dateRangeModal" style="display: none;">
+            <div class="modal-overlay" id="dateRangeModalOverlay"></div>
+            <div class="modal-content modal-small">
+                <div class="modal-header">
+                    <h3>
+                        <i data-lucide="calendar-range"></i>
+                        Chọn khoảng thời gian
+                    </h3>
+                    <button class="btn-icon" id="btnCloseDateRangeModal">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Từ ngày</label>
+                        <input type="date" id="startDateInput" class="date-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Đến ngày</label>
+                        <input type="date" id="endDateInput" class="date-input" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" id="btnCancelDateRange">Hủy</button>
+                    <button class="btn-primary" id="btnApplyDateRange">
+                        <i data-lucide="check"></i>
+                        Áp dụng
                     </button>
                 </div>
             </div>
