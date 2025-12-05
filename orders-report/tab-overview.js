@@ -44,6 +44,12 @@ function setupMessageListener() {
                 return;
             }
 
+            // Debug: Log first order structure
+            console.log('[OVERVIEW] First order structure:', allOrders[0]);
+            console.log('[OVERVIEW] First order Tags:', allOrders[0].Tags);
+            console.log('[OVERVIEW] First order LiveCampaignName:', allOrders[0].LiveCampaignName);
+            console.log('[OVERVIEW] Order fields:', Object.keys(allOrders[0]));
+
             // Auto-detect campaign from first order
             currentCampaignName = allOrders[0].LiveCampaignName;
             console.log('[OVERVIEW] Auto-detected campaign:', currentCampaignName);
