@@ -44,9 +44,23 @@ function setupMessageListener() {
                 return;
             }
 
+            // Debug: Log first order to see structure
+            console.log('[OVERVIEW] First order structure:', allOrders[0]);
+
             // Auto-detect campaign from first order
-            currentCampaignName = allOrders[0].LiveCampaignName;
+            // Try different field names
+            currentCampaignName = allOrders[0].LiveCampaignName
+                || allOrders[0].liveCampaignName
+                || allOrders[0].CampaignName
+                || allOrders[0].campaignName;
+
             console.log('[OVERVIEW] Auto-detected campaign:', currentCampaignName);
+
+            if (!currentCampaignName) {
+                showError('Không tìm thấy tên chiến dịch trong dữ liệu. Vui lòng kiểm tra lại.');
+                console.error('[OVERVIEW] Order fields:', Object.keys(allOrders[0]));
+                return;
+            }
 
             // Load employee ranges for this campaign
             loadEmployeeRangesAndRender();
