@@ -186,17 +186,8 @@ async function loadData() {
             return;
         }
 
-        // Extract date range from campaign name
-        const dateRange = extractDateRangeFromCampaignName(currentCampaignData.name);
-        console.log('[OVERVIEW] Date range:', dateRange);
-
-        if (!dateRange || dateRange.dates.length === 0) {
-            showError('Không thể trích xuất ngày từ tên chiến dịch');
-            return;
-        }
-
-        // Load orders for this campaign
-        await loadOrdersForCampaign(dateRange.dates);
+        // Load orders directly by campaign name (no date filtering)
+        await loadOrdersByCampaignName(currentCampaignData.name);
 
         // Aggregate data
         const aggregatedData = aggregateTagsByEmployee();
@@ -213,100 +204,33 @@ async function loadData() {
     }
 }
 
-// Extract Date Range from Campaign Name
-function extractDateRangeFromCampaignName(campaignName) {
-    console.log('[OVERVIEW] Extracting dates from:', campaignName);
-
-    // Extract dates like "2025-12-04, 2025-12-03, 2025-12-02, 2025-12-01"
-    const datePattern = /(\d{4}-\d{2}-\d{2})/g;
-    const matches = campaignName.match(datePattern);
-
-    if (matches && matches.length > 0) {
-        return {
-            dates: matches,
-            startDate: matches[matches.length - 1], // oldest
-            endDate: matches[0] // newest
-        };
-    }
-
-    // Try another pattern: DD/MM/YY or DD_MM_YYYY
-    const altPattern = /(\d{2}[/_]\d{2}[/_]\d{2,4})/g;
-    const altMatches = campaignName.match(altPattern);
-
-    if (altMatches && altMatches.length > 0) {
-        // Convert to YYYY-MM-DD format
-        const dates = altMatches.map(dateStr => {
-            const parts = dateStr.split(/[/_]/);
-            const day = parts[0];
-            const month = parts[1];
-            let year = parts[2];
-
-            // Convert 2-digit year to 4-digit
-            if (year.length === 2) {
-                year = '20' + year;
-            }
-
-            return `${year}-${month}-${day}`;
-        });
-
-        return {
-            dates: dates,
-            startDate: dates[dates.length - 1],
-            endDate: dates[0]
-        };
-    }
-
-    return null;
-}
-
-// Load Orders for Campaign
-async function loadOrdersForCampaign(dates) {
-    console.log('[OVERVIEW] Loading orders for dates:', dates);
+// Load Orders by Campaign Name (Simple - No Date Filter)
+async function loadOrdersByCampaignName(campaignName) {
+    console.log('[OVERVIEW] Loading orders for campaign:', campaignName);
 
     allOrders = [];
 
     try {
-        // Convert dates to UTC ranges
-        // Use proper UTC date formatting to avoid timezone issues
-        const dateRanges = dates.map(dateStr => {
-            // Parse YYYY-MM-DD format and create UTC dates
-            const [year, month, day] = dateStr.split('-').map(Number);
+        // Simple filter by LiveCampaignName - load all orders from this campaign
+        const filter = `substringof('${campaignName}',LiveCampaignName)`;
+        const url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=5000&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$select=Id,STT,Tag,TagSecondary,DateCreated,OrderStatus,LiveCampaignName`;
 
-            // Create UTC dates (month is 0-indexed)
-            const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-            const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59));
+        console.log('[OVERVIEW] Fetching orders with filter:', filter);
 
-            return {
-                start: startOfDay.toISOString(),
-                end: endOfDay.toISOString()
-            };
+        const headers = await window.tokenManager.getAuthHeader();
+        const response = await API_CONFIG.smartFetch(url, {
+            headers: {
+                ...headers,
+                'accept': 'application/json'
+            }
         });
 
-        // Load orders for each date range
-        for (const range of dateRanges) {
-            const filter = `(DateCreated ge ${range.start} and DateCreated le ${range.end})`;
-            const url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=5000&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$select=Id,STT,Tag,TagSecondary,DateCreated,OrderStatus`;
-
-            console.log('[OVERVIEW] Fetching orders for range:', range);
-
-            const headers = await window.tokenManager.getAuthHeader();
-            const response = await API_CONFIG.smartFetch(url, {
-                headers: {
-                    ...headers,
-                    'accept': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            const orders = data.value || [];
-
-            console.log(`[OVERVIEW] Loaded ${orders.length} orders for range`);
-            allOrders = allOrders.concat(orders);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
+
+        const data = await response.json();
+        allOrders = data.value || [];
 
         console.log(`[OVERVIEW] Total orders loaded: ${allOrders.length}`);
 
