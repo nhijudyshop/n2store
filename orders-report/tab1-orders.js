@@ -570,9 +570,10 @@ function renderEmployeeTable(users) {
 // Sanitize campaign name for Firebase path (remove invalid chars: . $ # [ ] /)
 function sanitizeCampaignName(campaignName) {
     if (!campaignName) return null;
-    // Replace invalid Firebase path characters with underscore
+    // Replace invalid Firebase key characters with underscore
+    // Note: Forward slash (/) is allowed in Firebase keys
     return campaignName
-        .replace(/[.$#\[\]\/]/g, '_')
+        .replace(/[.$#\[\]]/g, '_')
         .trim();
 }
 

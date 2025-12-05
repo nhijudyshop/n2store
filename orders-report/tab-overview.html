@@ -317,12 +317,18 @@
 
                 if (allOrders.length > 0) {
                     // Detect campaign name from first order
-                    currentCampaignName = allOrders[0].LiveCampaignName
+                    const rawCampaignName = allOrders[0].LiveCampaignName
                         || allOrders[0].liveCampaignName
                         || allOrders[0].CampaignName
                         || allOrders[0].campaignName;
 
-                    console.log('[OVERVIEW] Detected campaign:', currentCampaignName);
+                    // Sanitize campaign name to match Firebase key format (same as tab1-orders.js)
+                    // Only replace invalid Firebase key characters: . $ # [ ]
+                    // Forward slash (/) is allowed in Firebase keys
+                    currentCampaignName = rawCampaignName ? rawCampaignName.replace(/[.$#\[\]]/g, '_').trim() : null;
+
+                    console.log('[OVERVIEW] Detected campaign (raw):', rawCampaignName);
+                    console.log('[OVERVIEW] Sanitized campaign:', currentCampaignName);
 
                     if (currentCampaignName) {
                         loadEmployeeRanges();
@@ -357,14 +363,14 @@
                 console.log('[OVERVIEW] Loading employee ranges from Firebase...');
                 showLoading('Đang tải phân chia nhân viên...');
 
-                const snapshot = await database.ref('employee_ranges_by_campaign').once('value');
+                const snapshot = await database.ref('settings/employee_ranges_by_campaign').once('value');
                 employeeRanges = snapshot.val();
 
                 console.log('[OVERVIEW] Employee ranges loaded:', employeeRanges);
                 console.log('[OVERVIEW] Current campaign name:', currentCampaignName);
 
                 if (!employeeRanges) {
-                    showError('Chưa có dữ liệu phân chia nhân viên trong Firebase.<br>Vui lòng kiểm tra node: <code>employee_ranges_by_campaign</code>');
+                    showError('Chưa có dữ liệu phân chia nhân viên trong Firebase.<br>Vui lòng kiểm tra node: <code>settings/employee_ranges_by_campaign</code>');
                     return;
                 }
 
