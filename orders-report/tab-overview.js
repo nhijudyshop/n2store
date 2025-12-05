@@ -4,11 +4,10 @@
 
 // Global Variables
 let database = null;
-let currentCampaignData = null;
+let currentCampaignName = null;
 let employeeRanges = [];
 let allOrders = [];
 let allTags = [];
-let campaignsList = [];
 
 // Initialize Firebase
 document.addEventListener('DOMContentLoaded', function () {
@@ -24,8 +23,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // Setup listener for messages from tab1
     setupMessageListener();
 
-    // Load initial data
-    initializeData();
+    // Load available tags from cache
+    loadAvailableTags();
+
+    // Request initial data from tab1
+    requestOrdersDataFromTab1();
 });
 
 // Setup Message Listener to receive data from tab1-orders
@@ -37,69 +39,78 @@ function setupMessageListener() {
             // Update allOrders with data from tab1
             allOrders = event.data.orders || [];
 
-            // If we have a selected campaign, aggregate and display
-            if (currentCampaignData && employeeRanges.length > 0) {
-                const aggregatedData = aggregateTagsByEmployee();
-                renderOverview(aggregatedData);
-                document.getElementById('exportBtn').disabled = false;
+            if (allOrders.length === 0) {
+                showEmptyState('Không có đơn hàng. Vui lòng load dữ liệu ở tab Quản Lý Đơn Hàng trước.');
+                return;
             }
+
+            // Auto-detect campaign from first order
+            currentCampaignName = allOrders[0].LiveCampaignName;
+            console.log('[OVERVIEW] Auto-detected campaign:', currentCampaignName);
+
+            // Load employee ranges for this campaign
+            loadEmployeeRangesAndRender();
         }
     });
 
     console.log('[OVERVIEW] Message listener setup complete');
 }
 
-// Initialize Data
-async function initializeData() {
-    try {
-        // Load campaigns
-        await loadCampaigns();
-
-        // Load available tags from cache
-        await loadAvailableTags();
-
-    } catch (error) {
-        console.error('[OVERVIEW] Error initializing:', error);
-        showError('Lỗi khởi tạo: ' + error.message);
+// Load employee ranges and render overview
+async function loadEmployeeRangesAndRender() {
+    if (!currentCampaignName) {
+        showError('Không xác định được chiến dịch');
+        return;
     }
-}
 
-// Load Campaigns from Firebase
-async function loadCampaigns() {
-    console.log('[OVERVIEW] Loading campaigns from Firebase...');
-
-    const campaignFilter = document.getElementById('campaignFilter');
-    campaignFilter.innerHTML = '<option value="">-- Đang tải chiến dịch --</option>';
+    showLoading('Đang tải cài đặt nhân viên...');
 
     try {
-        const snapshot = await database.ref('settings/employee_ranges_by_campaign').once('value');
-        const campaignData = snapshot.val();
+        // Load employee ranges from Firebase
+        await loadEmployeeRangesForCampaign(currentCampaignName);
 
-        if (!campaignData) {
-            campaignFilter.innerHTML = '<option value="">-- Không có chiến dịch nào --</option>';
-            console.log('[OVERVIEW] No campaigns found');
+        if (employeeRanges.length === 0) {
+            showEmptyState(`Chiến dịch "${currentCampaignName}" chưa có cài đặt phân chia nhân viên`);
             return;
         }
 
-        // Convert to array and sort
-        campaignsList = Object.keys(campaignData).map(key => ({
-            key: key,
-            name: key,
-            employees: campaignData[key]
-        }));
-
-        console.log(`[OVERVIEW] Loaded ${campaignsList.length} campaigns`);
-
-        // Populate select
-        let html = '<option value="">-- Chọn chiến dịch --</option>';
-        campaignsList.forEach(campaign => {
-            html += `<option value="${campaign.key}">${campaign.name}</option>`;
-        });
-        campaignFilter.innerHTML = html;
+        // Aggregate and render
+        const aggregatedData = aggregateTagsByEmployee();
+        renderOverview(aggregatedData);
+        document.getElementById('exportBtn').disabled = false;
 
     } catch (error) {
-        console.error('[OVERVIEW] Error loading campaigns:', error);
-        campaignFilter.innerHTML = '<option value="">-- Lỗi tải chiến dịch --</option>';
+        console.error('[OVERVIEW] Error loading employee ranges:', error);
+        showError('Lỗi tải cài đặt nhân viên: ' + error.message);
+    }
+}
+
+// Load Employee Ranges for Campaign
+async function loadEmployeeRangesForCampaign(campaignName) {
+    console.log('[OVERVIEW] Loading employee ranges for campaign:', campaignName);
+
+    try {
+        // Sanitize campaign name for Firebase key
+        const sanitizedName = campaignName.replace(/[.#$[\]]/g, '_');
+
+        const snapshot = await database.ref('settings/employee_ranges_by_campaign').once('value');
+        const allCampaignRanges = snapshot.val() || {};
+        const data = allCampaignRanges[sanitizedName];
+
+        if (data && data.length > 0) {
+            employeeRanges = data;
+            console.log(`[OVERVIEW] ✅ Loaded ${employeeRanges.length} employee ranges for campaign`);
+        } else {
+            // Fallback to general config
+            console.log('[OVERVIEW] No campaign-specific ranges found, trying general config');
+            const generalSnapshot = await database.ref('settings/employee_ranges').once('value');
+            employeeRanges = generalSnapshot.val() || [];
+            console.log(`[OVERVIEW] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`);
+        }
+
+    } catch (error) {
+        console.error('[OVERVIEW] Error loading employee ranges:', error);
+        employeeRanges = [];
         throw error;
     }
 }
@@ -161,64 +172,6 @@ function getTagName(tagId) {
 function getTagColor(tagId) {
     const tag = allTags.find(t => t.Id === tagId);
     return tag ? tag.Color : '#6b7280';
-}
-
-// Campaign Change Handler
-async function onCampaignChange() {
-    const campaignFilter = document.getElementById('campaignFilter');
-    const selectedKey = campaignFilter.value;
-
-    if (!selectedKey) {
-        showEmptyState('Vui lòng chọn chiến dịch để xem tổng quan');
-        document.getElementById('exportBtn').disabled = true;
-        return;
-    }
-
-    console.log('[OVERVIEW] Campaign selected:', selectedKey);
-
-    // Find campaign data
-    currentCampaignData = campaignsList.find(c => c.key === selectedKey);
-
-    if (!currentCampaignData) {
-        showError('Không tìm thấy dữ liệu chiến dịch');
-        return;
-    }
-
-    // Load data for this campaign
-    await loadData();
-}
-
-// Load Data for Selected Campaign
-async function loadData() {
-    if (!currentCampaignData) {
-        showEmptyState('Vui lòng chọn chiến dịch để xem tổng quan');
-        return;
-    }
-
-    console.log('[OVERVIEW] Loading data for campaign:', currentCampaignData.name);
-
-    showLoading('Đang tải dữ liệu từ tab Quản Lý Đơn Hàng...');
-    document.getElementById('exportBtn').disabled = true;
-
-    try {
-        // Get employee ranges
-        employeeRanges = currentCampaignData.employees || [];
-        console.log(`[OVERVIEW] Loaded ${employeeRanges.length} employee ranges`);
-
-        if (employeeRanges.length === 0) {
-            showEmptyState('Chiến dịch này chưa có cài đặt phân chia nhân viên');
-            return;
-        }
-
-        // Request orders data from tab1-orders via parent window
-        requestOrdersDataFromTab1();
-
-        console.log('[OVERVIEW] Waiting for orders data from tab1...');
-
-    } catch (error) {
-        console.error('[OVERVIEW] Error loading data:', error);
-        showError('Lỗi tải dữ liệu: ' + error.message);
-    }
 }
 
 // Request orders data from tab1-orders
@@ -416,7 +369,7 @@ function renderOverview(employeeData) {
 
 // Export to Excel
 function exportToExcel() {
-    if (!currentCampaignData || employeeRanges.length === 0) {
+    if (!currentCampaignName || employeeRanges.length === 0 || allOrders.length === 0) {
         alert('Không có dữ liệu để export');
         return;
     }
@@ -431,7 +384,7 @@ function exportToExcel() {
         const data = [];
 
         // Header
-        data.push(['TỔNG QUAN - ' + currentCampaignData.name]);
+        data.push(['TỔNG QUAN - ' + currentCampaignName]);
         data.push(['Xuất ngày:', new Date().toLocaleString('vi-VN')]);
         data.push([]);
 
@@ -493,7 +446,8 @@ function exportToExcel() {
         XLSX.utils.book_append_sheet(wb, ws, 'Tổng Quan');
 
         // Save file
-        const fileName = `TongQuan_${currentCampaignData.key}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        const sanitizedName = currentCampaignName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const fileName = `TongQuan_${sanitizedName}_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, fileName);
 
         console.log('[OVERVIEW] Export completed:', fileName);
