@@ -16,6 +16,9 @@ const CONFIG = {
     // Auto-refresh interval (milliseconds) - Set to 0 to disable
     AUTO_REFRESH_INTERVAL: 0, // 30000 = 30 seconds
 
+    // Cache expiry (milliseconds) - 5 minutes
+    CACHE_EXPIRY: 5 * 60 * 1000,
+
     // Date format
     DATE_FORMAT: 'vi-VN',
 
