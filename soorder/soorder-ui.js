@@ -36,7 +36,7 @@ window.SoOrderUI = {
                 <th style="width: 50px;">STT</th>
                 <th style="width: 150px;">NCC</th>
                 <th style="width: 200px;">Thành Tiền</th>
-                <th style="width: 130px; text-align: right;">Chênh Lệch</th>
+                <th style="width: 130px;">Chênh Lệch</th>
                 <th>Ghi Chú</th>
                 <th style="width: 150px;" class="holiday-col">Người thực hiện</th>
                 <th style="width: 100px; text-align: center;" class="holiday-col">Đối soát</th>
@@ -87,7 +87,7 @@ window.SoOrderUI = {
                 <th style="width: 50px;">STT</th>
                 <th style="width: 150px;">NCC</th>
                 <th style="width: 200px;">Thành Tiền</th>
-                <th style="width: 130px; text-align: right;">Chênh Lệch</th>
+                <th style="width: 130px;">Chênh Lệch</th>
                 <th>Ghi Chú</th>
                 <th style="width: 150px;" class="holiday-col">Người thực hiện</th>
                 <th style="width: 100px; text-align: center;" class="holiday-col">Đối soát</th>
@@ -205,7 +205,6 @@ window.SoOrderUI = {
         // Chênh Lệch
         const tdDifference = document.createElement("td");
         tdDifference.textContent = utils.formatCurrency(order.difference);
-        tdDifference.style.textAlign = "right";
         // Color based on positive/negative
         if (order.difference > 0) {
             tdDifference.style.color = "#10b981"; // Green for profit
