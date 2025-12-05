@@ -662,24 +662,14 @@ function handleFilter() {
     applyStatusFilter();
 }
 
-// Apply status filter
+// Apply status filter (works with both search and pagination)
 function applyStatusFilter() {
     const statusFilter = document.getElementById('statusFilter').value;
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
 
-    // Start with all customers or search results
+    // IMPORTANT: Do NOT do search here - search is handled by searchCustomers()
+    // This function ONLY filters by status
+
     let result = customers;
-
-    if (searchTerm !== '') {
-        result = result.filter(customer => {
-            return (
-                (customer.name || '').toLowerCase().includes(searchTerm) ||
-                (customer.phone || '').toLowerCase().includes(searchTerm) ||
-                (customer.email || '').toLowerCase().includes(searchTerm) ||
-                (customer.address || '').toLowerCase().includes(searchTerm)
-            );
-        });
-    }
 
     if (statusFilter !== '') {
         result = result.filter(customer => {
