@@ -11,10 +11,11 @@ let lastVisible = null;
 let firstVisible = null;
 let isSearching = false;
 
-// TPOS API Configuration
-const TPOS_API_URL = 'https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2';
-const TPOS_BEARER_TOKEN = 'Bearer eyJhbGciOiJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGRzaWctbW9yZSNobWFjLXNoYTI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI3MDI4MTYiLCJzZXNzaW9uaWQiOiI0YjJmZTg4Ny1iM2VkLTRkMTQtOWM0Ny0yN2RjZmZiYzQ5ZDUiLCJ1bmlxdWVfbmFtZSI6Imd1ZXN0MTA2NDU3NCIsImJyYW5jaGlkIjoiMTE5OTY1IiwibmJmIjoxNzMzMzk4NjM0LCJleHAiOjE3NjQ5MzQ2MzQsImlhdCI6MTczMzM5ODYzNH0.Z8zSJ3LPG-H5y3C0HsjvSy_OGsKhWQv7-Rgu_-QClWs';
+// TPOS API Configuration - using Cloudflare Worker proxy
+const CLOUDFLARE_PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+const TPOS_API_URL = `${CLOUDFLARE_PROXY}/api/odata/Partner/ODataService.GetViewV2`;
 let isSyncing = false;
+let tposAccessToken = null;
 
 // Check authentication - Admin only
 if (typeof authManager !== 'undefined') {
@@ -678,20 +679,91 @@ function exportToExcel() {
 // TPOS API SYNCHRONIZATION
 // ============================================
 
+// Get TPOS access token (cached by Cloudflare Worker)
+async function getTPOSToken() {
+    try {
+        // Check if we have a valid cached token
+        if (tposAccessToken) {
+            return tposAccessToken;
+        }
+
+        const response = await fetch(`${CLOUDFLARE_PROXY}/api/token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'grant_type=password&username=nvkt&password=Aa%40123456789&client_id=tmtWebApp'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to get token: ${response.status}`);
+        }
+
+        const tokenData = await response.json();
+        if (!tokenData.access_token) {
+            throw new Error('No access_token in response');
+        }
+
+        // Cache token
+        tposAccessToken = tokenData.access_token;
+
+        // Clear cache before token expires (expires_in is in seconds)
+        if (tokenData.expires_in) {
+            setTimeout(() => {
+                tposAccessToken = null;
+            }, (tokenData.expires_in - 300) * 1000); // Refresh 5 min before expiry
+        }
+
+        console.log('✅ TPOS token obtained');
+        return tposAccessToken;
+    } catch (error) {
+        console.error('Error getting TPOS token:', error);
+        throw error;
+    }
+}
+
 // Fetch customers from TPOS API
 async function fetchTPOSCustomers(skip = 0, top = 100) {
     try {
+        // Get access token first
+        const token = await getTPOSToken();
+
         const url = `${TPOS_API_URL}?$skip=${skip}&$top=${top}&$orderby=CreatedDate desc`;
 
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'Authorization': TPOS_BEARER_TOKEN,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
         });
 
         if (!response.ok) {
+            // If 401, clear token cache and retry once
+            if (response.status === 401 && tposAccessToken) {
+                console.log('Token expired, refreshing...');
+                tposAccessToken = null;
+                const newToken = await getTPOSToken();
+
+                const retryResponse = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${newToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!retryResponse.ok) {
+                    throw new Error(`HTTP error! status: ${retryResponse.status}`);
+                }
+
+                const retryData = await retryResponse.json();
+                return {
+                    count: retryData['@odata.count'] || 0,
+                    customers: retryData.value || []
+                };
+            }
+
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
