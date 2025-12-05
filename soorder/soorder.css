@@ -438,7 +438,6 @@ textarea.form-control {
 /* Chênh lệch column */
 .order-table td:nth-child(4) {
     font-weight: 600;
-    text-align: right;
     min-width: 120px;
 }
 
