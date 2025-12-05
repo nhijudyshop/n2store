@@ -976,3 +976,65 @@ body {
         width: 100%;
     }
 }
+
+/* =====================================================
+   CUSTOMER INFO STYLES
+   ===================================================== */
+
+/* Customer info cells in table */
+.customer-info-cell {
+    max-width: 200px;
+}
+
+.customer-info-cell.no-info {
+    color: #999;
+    font-style: italic;
+}
+
+.customer-info-cell button {
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.customer-info-cell button:hover {
+    opacity: 1;
+}
+
+/* Edit customer modal specific styles */
+#editCustomerModal .filter-input {
+    margin: 0;
+}
+
+#editCustomerModal label i {
+    margin-right: 4px;
+}
+
+/* Customer info in QR modal */
+.qr-customer-info-section {
+    margin-top: 20px;
+    padding: 15px;
+    background: #e7f3ff;
+    border-radius: 8px;
+    border: 1px solid #b3d9ff;
+}
+
+.qr-customer-info-section input {
+    margin-bottom: 10px;
+}
+
+/* Mobile responsive for customer info */
+@media (max-width: 768px) {
+    .customer-info-cell {
+        max-width: 150px;
+        font-size: 0.85rem;
+    }
+
+    .customer-info-cell button {
+        padding: 2px 4px;
+    }
+
+    .customer-info-cell button i {
+        width: 12px;
+        height: 12px;
+    }
+}

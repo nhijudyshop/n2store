@@ -357,7 +357,7 @@ function renderTable(data) {
     if (!data || data.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="10" style="text-align: center; padding: 40px;">
+                <td colspan="12" style="text-align: center; padding: 40px;">
                     <i class="fas fa-inbox" style="font-size: 48px; color: #bdc3c7;"></i>
                     <p style="margin-top: 15px; color: #7f8c8d;">Không có dữ liệu</p>
                 </td>
@@ -371,6 +371,12 @@ function renderTable(data) {
         const content = row.content || '';
         const uniqueCodeMatch = content.match(/N2[A-Z0-9]+/);
         const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
+
+        // Get customer info if unique code exists
+        let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
+        if (uniqueCode && window.CustomerInfoManager) {
+            customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+        }
 
         return `
         <tr>
@@ -389,6 +395,19 @@ function renderTable(data) {
             <td>${formatCurrency(row.accumulated)}</td>
             <td>${truncateText(content || 'N/A', 50)}</td>
             <td>${row.reference_code || 'N/A'}</td>
+            <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
+                ${uniqueCode ? `
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span>${customerDisplay.name}</span>
+                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
+                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    </div>
+                ` : '<span style="color: #999;">N/A</span>'}
+            </td>
+            <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
+                ${uniqueCode ? customerDisplay.phone : '<span style="color: #999;">N/A</span>'}
+            </td>
             <td class="text-center">
                 ${uniqueCode ? `
                     <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', ${row.transfer_amount})" title="Xem QR Code">
@@ -689,12 +708,43 @@ qrModal?.addEventListener('click', (e) => {
     }
 });
 
+// =====================================================
+// EDIT CUSTOMER MODAL EVENT LISTENERS
+// =====================================================
+
+const editCustomerModal = document.getElementById('editCustomerModal');
+const closeEditCustomerModalBtn = document.getElementById('closeEditCustomerModalBtn');
+const cancelEditCustomerBtn = document.getElementById('cancelEditCustomerBtn');
+const editCustomerForm = document.getElementById('editCustomerForm');
+
+// Close Edit Customer Modal
+closeEditCustomerModalBtn?.addEventListener('click', () => {
+    editCustomerModal.style.display = 'none';
+});
+
+// Cancel Edit Customer
+cancelEditCustomerBtn?.addEventListener('click', () => {
+    editCustomerModal.style.display = 'none';
+});
+
+// Close modal when clicking outside
+editCustomerModal?.addEventListener('click', (e) => {
+    if (e.target === editCustomerModal) {
+        editCustomerModal.style.display = 'none';
+    }
+});
+
+// Submit Edit Customer Form
+editCustomerForm?.addEventListener('submit', saveEditCustomerInfo);
+
 // Export for use in HTML onclick
 window.showDetail = showDetail;
 window.showTransactionQR = showTransactionQR;
 window.copyUniqueCode = copyUniqueCode;
 window.copyQRUrl = copyQRUrl;
 window.downloadQR = downloadQR;
+window.editCustomerInfo = editCustomerInfo;
+window.saveQRCustomerInfo = saveQRCustomerInfo;
 
 // =====================================================
 // REALTIME UPDATES (SSE)
@@ -927,7 +977,7 @@ function generateDepositQR() {
     }
 
     const qrData = window.QRGenerator.generateDepositQR(0); // 0 = customer fills amount
-    showQRModal(qrData);
+    showQRModal(qrData, true); // true = is new QR
 }
 
 // Show QR code for an existing transaction
@@ -942,9 +992,12 @@ function showTransactionQR(uniqueCode, amount = 0) {
 }
 
 // Display QR modal with QR code
-function showQRModal(qrData) {
+function showQRModal(qrData, isNewQR = false) {
     const qrModal = document.getElementById('qrModal');
     const qrModalBody = document.getElementById('qrModalBody');
+
+    // Get existing customer info if available
+    const customerInfo = window.CustomerInfoManager ? window.CustomerInfoManager.getCustomerInfo(qrData.uniqueCode) : null;
 
     qrModalBody.innerHTML = `
         <div style="padding: 20px;">
@@ -962,6 +1015,21 @@ function showQRModal(qrData) {
                 ${qrData.amount > 0 ? `<div style="margin-top: 8px;"><strong>Số tiền:</strong> ${formatCurrency(qrData.amount)}</div>` : '<div style="margin-top: 8px; color: #6c757d;"><em>Khách hàng tự điền số tiền</em></div>'}
             </div>
 
+            ${isNewQR ? `
+                <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 8px; border: 1px solid #b3d9ff;">
+                    <div style="margin-bottom: 10px; font-weight: 600; color: #0056b3;">
+                        <i data-lucide="user-plus" style="width: 16px; height: 16px; vertical-align: middle;"></i> Thông tin khách hàng (tùy chọn)
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <input type="text" id="qrCustomerName" class="filter-input" placeholder="Tên khách hàng" value="${customerInfo?.name || ''}" style="width: 100%;">
+                        <input type="tel" id="qrCustomerPhone" class="filter-input" placeholder="Số điện thoại" value="${customerInfo?.phone || ''}" style="width: 100%;">
+                        <button class="btn btn-success btn-sm" onclick="saveQRCustomerInfo('${qrData.uniqueCode}')" style="width: 100%;">
+                            <i data-lucide="save"></i> Lưu thông tin khách hàng
+                        </button>
+                    </div>
+                </div>
+            ` : ''}
+
             <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="copyQRUrl('${qrData.qrUrl}')">
                     <i data-lucide="image"></i> Copy URL QR
@@ -972,6 +1040,11 @@ function showQRModal(qrData) {
                 <button class="btn btn-secondary" onclick="downloadQR('${qrData.qrUrl}', '${qrData.uniqueCode}')">
                     <i data-lucide="download"></i> Tải QR
                 </button>
+                ${!isNewQR ? `
+                    <button class="btn btn-info" onclick="editCustomerInfo('${qrData.uniqueCode}')">
+                        <i data-lucide="user-pen"></i> Sửa TT Khách
+                    </button>
+                ` : ''}
             </div>
 
             <div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; font-size: 13px; color: #856404;">
@@ -1044,6 +1117,98 @@ async function downloadQR(qrUrl, uniqueCode) {
             window.NotificationManager.showNotification('Không thể tải QR code', 'error');
         } else {
             alert('Không thể tải QR code');
+        }
+    }
+}
+
+// =====================================================
+// CUSTOMER INFO FUNCTIONS
+// =====================================================
+
+// Save customer info from QR modal
+function saveQRCustomerInfo(uniqueCode) {
+    if (!window.CustomerInfoManager) return;
+
+    const name = document.getElementById('qrCustomerName')?.value || '';
+    const phone = document.getElementById('qrCustomerPhone')?.value || '';
+
+    const success = window.CustomerInfoManager.saveCustomerInfo(uniqueCode, { name, phone });
+
+    if (success) {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Đã lưu thông tin khách hàng!', 'success');
+        } else {
+            alert('Đã lưu thông tin khách hàng!');
+        }
+        // Reload table to show updated customer info
+        loadData();
+    } else {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Không thể lưu thông tin', 'error');
+        } else {
+            alert('Không thể lưu thông tin');
+        }
+    }
+}
+
+// Edit customer info - show edit modal
+function editCustomerInfo(uniqueCode) {
+    if (!window.CustomerInfoManager) return;
+
+    const editCustomerModal = document.getElementById('editCustomerModal');
+    const editCustomerUniqueCode = document.getElementById('editCustomerUniqueCode');
+    const editCustomerName = document.getElementById('editCustomerName');
+    const editCustomerPhone = document.getElementById('editCustomerPhone');
+
+    // Get existing customer info
+    const customerInfo = window.CustomerInfoManager.getCustomerInfo(uniqueCode) || { name: '', phone: '' };
+
+    // Fill form
+    editCustomerUniqueCode.textContent = uniqueCode;
+    editCustomerName.value = customerInfo.name || '';
+    editCustomerPhone.value = customerInfo.phone || '';
+
+    // Store unique code for form submission
+    editCustomerForm.dataset.uniqueCode = uniqueCode;
+
+    // Show modal
+    editCustomerModal.style.display = 'block';
+
+    // Reinitialize Lucide icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+// Save customer info from edit modal
+function saveEditCustomerInfo(event) {
+    event.preventDefault();
+
+    if (!window.CustomerInfoManager) return;
+
+    const uniqueCode = event.target.dataset.uniqueCode;
+    const name = document.getElementById('editCustomerName').value;
+    const phone = document.getElementById('editCustomerPhone').value;
+
+    const success = window.CustomerInfoManager.saveCustomerInfo(uniqueCode, { name, phone });
+
+    if (success) {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Đã cập nhật thông tin khách hàng!', 'success');
+        } else {
+            alert('Đã cập nhật thông tin khách hàng!');
+        }
+
+        // Close modal
+        document.getElementById('editCustomerModal').style.display = 'none';
+
+        // Reload table to show updated customer info
+        loadData();
+    } else {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Không thể cập nhật thông tin', 'error');
+        } else {
+            alert('Không thể cập nhật thông tin');
         }
     }
 }
