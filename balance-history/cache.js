@@ -3,9 +3,9 @@
 class CacheManager {
     constructor(config = {}) {
         this.cache = new Map();
-        this.maxAge = config.CACHE_EXPIRY || APP_CONFIG.CACHE_EXPIRY;
+        this.maxAge = config.CACHE_EXPIRY || (window.CONFIG && window.CONFIG.CACHE_EXPIRY) || 5 * 60 * 1000;
         this.stats = { hits: 0, misses: 0 };
-        this.storageKey = config.storageKey || "livestream_persistent_cache";
+        this.storageKey = config.storageKey || "balance_history_cache";
         this.saveTimeout = null;
         this.loadFromStorage();
 
