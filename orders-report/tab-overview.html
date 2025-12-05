@@ -20,21 +20,15 @@
                 Tổng Quan - Tập Hợp Tag Theo Nhân Viên
             </div>
             <div class="control-actions">
+                <select id="campaignFilter" class="form-select" onchange="onCampaignChange()" style="min-width: 300px; margin-right: 12px;">
+                    <option value="">-- Đang tải chiến dịch --</option>
+                </select>
                 <button class="btn-action btn-export" onclick="exportToExcel()" disabled id="exportBtn">
                     <i class="fas fa-file-excel"></i> Export Excel
                 </button>
                 <button class="btn-action btn-refresh" onclick="loadData()" id="refreshBtn">
                     <i class="fas fa-sync-alt"></i> Làm mới
                 </button>
-            </div>
-        </div>
-
-        <div class="control-filters">
-            <div class="filter-group">
-                <label for="campaignFilter">Chọn chiến dịch Live:</label>
-                <select id="campaignFilter" class="form-select" onchange="onCampaignChange()">
-                    <option value="">-- Đang tải chiến dịch --</option>
-                </select>
             </div>
         </div>
     </div>
