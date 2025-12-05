@@ -33,8 +33,8 @@ window.SoOrderCRUD = {
 
             // Render UI
             window.SoOrderUI.renderTable();
-            utils.toggleHolidayColumns(state.currentDayData.isHoliday);
-            utils.updateSummary(state.currentDayData.orders);
+            window.SoOrderUI.toggleHolidayColumnsVisibility();
+            window.SoOrderUI.updateFooterSummary();
 
             utils.showLoading(false);
         } catch (error) {
@@ -116,7 +116,7 @@ window.SoOrderCRUD = {
             utils.showToast("Đã thêm đơn hàng thành công", "success");
             // Re-render
             window.SoOrderUI.renderTable();
-            utils.updateSummary(state.currentDayData.orders);
+            window.SoOrderUI.updateFooterSummary();
             return true;
         }
 
@@ -172,7 +172,7 @@ window.SoOrderCRUD = {
             utils.showToast("Đã cập nhật đơn hàng thành công", "success");
             // Re-render
             window.SoOrderUI.renderTable();
-            utils.updateSummary(state.currentDayData.orders);
+            window.SoOrderUI.updateFooterSummary();
             return true;
         }
 
@@ -213,7 +213,7 @@ window.SoOrderCRUD = {
             utils.showToast("Đã xóa đơn hàng thành công", "success");
             // Re-render
             window.SoOrderUI.renderTable();
-            utils.updateSummary(state.currentDayData.orders);
+            window.SoOrderUI.updateFooterSummary();
             return true;
         }
 
@@ -252,7 +252,7 @@ window.SoOrderCRUD = {
         if (success) {
             // Re-render
             window.SoOrderUI.renderTable();
-            utils.updateSummary(state.currentDayData.orders);
+            window.SoOrderUI.updateFooterSummary();
             return true;
         }
 
@@ -292,7 +292,7 @@ window.SoOrderCRUD = {
             // If this is the current day, update state
             if (dateString === state.currentDateString) {
                 state.currentDayData.isHoliday = isHoliday;
-                utils.toggleHolidayColumns(isHoliday);
+                window.SoOrderUI.toggleHolidayColumnsVisibility();
             }
 
             utils.showToast(

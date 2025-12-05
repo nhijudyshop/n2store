@@ -96,6 +96,12 @@ function initDOMElements() {
     elements.holidayDate = document.getElementById("holidayDate");
     elements.isHolidayCheck = document.getElementById("isHolidayCheck");
 
+    // Calendar elements
+    elements.calendarMonthYear = document.getElementById("calendarMonthYear");
+    elements.calendarGrid = document.getElementById("calendarGrid");
+    elements.btnPrevMonth = document.getElementById("btnPrevMonth");
+    elements.btnNextMonth = document.getElementById("btnNextMonth");
+
     // Delete modal
     elements.deleteConfirmModal = document.getElementById("deleteConfirmModal");
     elements.deleteModalOverlay = document.getElementById("deleteModalOverlay");
@@ -307,17 +313,30 @@ function setupEventListeners() {
         });
     }
 
-    // Cancel holiday button
+    // Cancel holiday button (now "Đóng" button)
     if (elements.btnCancelHoliday) {
         elements.btnCancelHoliday.addEventListener("click", () => {
             ui.hideHolidayModal();
         });
     }
 
-    // Save holiday button
+    // Save holiday button (legacy - may not exist anymore)
     if (elements.btnSaveHoliday) {
         elements.btnSaveHoliday.addEventListener("click", () => {
-            ui.handleSaveHoliday();
+            ui.hideHolidayModal();
+        });
+    }
+
+    // Calendar month navigation
+    if (elements.btnPrevMonth) {
+        elements.btnPrevMonth.addEventListener("click", () => {
+            ui.navigateCalendarMonth(-1);
+        });
+    }
+
+    if (elements.btnNextMonth) {
+        elements.btnNextMonth.addEventListener("click", () => {
+            ui.navigateCalendarMonth(1);
         });
     }
 
