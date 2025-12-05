@@ -2537,8 +2537,11 @@
     };
 
     async function renderPreviewContent(stts) {
-        let html = '';
-        for (const stt of stts.sort((a, b) => Number(a) - Number(b))) {
+        // =====================================================
+        // STEP 1: Fetch all existing products for all STTs
+        // =====================================================
+        const sttProductsData = {};
+        for (const stt of stts) {
             const data = uploadData[stt];
             if (!data) continue;
 
@@ -2550,6 +2553,84 @@
                     console.warn(`Failed to fetch existing products for order ${data.orderInfo.orderId}`);
                 }
             }
+
+            sttProductsData[stt] = {
+                data: data,
+                existingProducts: existingProducts
+            };
+        }
+
+        // =====================================================
+        // STEP 2: Check for STTs with existing products (GIỐNG TAB-UPLOAD-TPOS)
+        // =====================================================
+        const sttsWithExistingProducts = [];
+
+        Object.keys(sttProductsData).forEach(stt => {
+            const { data, existingProducts } = sttProductsData[stt];
+
+            // Create map of existing products
+            const existingProductsMap = {};
+            existingProducts.forEach(p => {
+                if (p.productId) existingProductsMap[p.productId] = p;
+            });
+
+            // Check if any assigned products already exist in order
+            const existingProductsInOrder = [];
+            data.products.forEach(product => {
+                if (existingProductsMap[product.productId]) {
+                    const existingProduct = existingProductsInOrder.find(p => p.code === product.productCode);
+                    if (existingProduct) {
+                        existingProduct.quantity += 1;
+                    } else {
+                        existingProductsInOrder.push({
+                            code: product.productCode,
+                            quantity: 1,
+                            currentQuantity: existingProductsMap[product.productId].quantity
+                        });
+                    }
+                }
+            });
+
+            if (existingProductsInOrder.length > 0) {
+                sttsWithExistingProducts.push({
+                    stt: stt,
+                    products: existingProductsInOrder
+                });
+            }
+        });
+
+        // =====================================================
+        // STEP 3: Build HTML with warning if needed (GIỐNG TAB-UPLOAD-TPOS)
+        // =====================================================
+        let html = '';
+
+        // Add warning section if there are STTs with existing products
+        if (sttsWithExistingProducts.length > 0) {
+            html += `
+                <div class="alert alert-warning mb-4" role="alert">
+                    <h6 class="alert-heading mb-3">
+                        <i class="fas fa-info-circle"></i> Các STT có mã sản phẩm sắp upload đã có sẵn trong đơn hàng
+                    </h6>
+                    <div class="small">
+                        ${sttsWithExistingProducts.map(item => `
+                            <div class="mb-2">
+                                <strong>STT ${item.stt}:</strong>
+                                ${item.products.map(p => `${p.code} +${p.quantity}`).join(', ')}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // STEP 4: Render each STT card
+        // =====================================================
+        for (const stt of stts.sort((a, b) => Number(a) - Number(b))) {
+            const sttData = sttProductsData[stt];
+            if (!sttData) continue;
+
+            const { data, existingProducts } = sttData;
 
             const existingProductsMap = {};
             existingProducts.forEach(p => {
