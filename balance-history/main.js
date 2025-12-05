@@ -357,7 +357,7 @@ function renderTable(data) {
     if (!data || data.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="12" style="text-align: center; padding: 40px;">
+                <td colspan="11" style="text-align: center; padding: 40px;">
                     <i class="fas fa-inbox" style="font-size: 48px; color: #bdc3c7;"></i>
                     <p style="margin-top: 15px; color: #7f8c8d;">Không có dữ liệu</p>
                 </td>
@@ -380,7 +380,6 @@ function renderTable(data) {
 
         return `
         <tr>
-            <td>${row.sepay_id}</td>
             <td>${formatDateTime(row.transaction_date)}</td>
             <td>${row.gateway}</td>
             <td>
