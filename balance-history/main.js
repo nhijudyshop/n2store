@@ -357,7 +357,7 @@ function renderTable(data) {
     if (!data || data.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="9" style="text-align: center; padding: 40px;">
+                <td colspan="10" style="text-align: center; padding: 40px;">
                     <i class="fas fa-inbox" style="font-size: 48px; color: #bdc3c7;"></i>
                     <p style="margin-top: 15px; color: #7f8c8d;">Không có dữ liệu</p>
                 </td>
@@ -366,7 +366,13 @@ function renderTable(data) {
         return;
     }
 
-    tableBody.innerHTML = data.map(row => `
+    tableBody.innerHTML = data.map(row => {
+        // Extract unique code from content (look for N2 prefix pattern)
+        const content = row.content || '';
+        const uniqueCodeMatch = content.match(/N2[A-Z0-9]+/);
+        const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
+
+        return `
         <tr>
             <td>${row.sepay_id}</td>
             <td>${formatDateTime(row.transaction_date)}</td>
@@ -381,15 +387,31 @@ function renderTable(data) {
                 ${row.transfer_type === 'in' ? '+' : '-'}${formatCurrency(row.transfer_amount)}
             </td>
             <td>${formatCurrency(row.accumulated)}</td>
-            <td>${truncateText(row.content || 'N/A', 50)}</td>
+            <td>${truncateText(content || 'N/A', 50)}</td>
             <td>${row.reference_code || 'N/A'}</td>
+            <td class="text-center">
+                ${uniqueCode ? `
+                    <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', ${row.transfer_amount})" title="Xem QR Code">
+                        <i data-lucide="qr-code"></i>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
+                        <i data-lucide="copy"></i>
+                    </button>
+                ` : '<span style="color: #999;">N/A</span>'}
+            </td>
             <td class="text-center">
                 <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
                     Chi tiết
                 </button>
             </td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
+
+    // Reinitialize Lucide icons for dynamically added buttons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
 }
 
 // Render Statistics
@@ -642,8 +664,37 @@ rawDataModal?.addEventListener('click', (e) => {
     }
 });
 
+// =====================================================
+// QR CODE MODAL EVENT LISTENERS
+// =====================================================
+
+const generateQRBtn = document.getElementById('generateQRBtn');
+const qrModal = document.getElementById('qrModal');
+const closeQRModalBtn = document.getElementById('closeQRModalBtn');
+
+// Generate QR Button
+generateQRBtn?.addEventListener('click', () => {
+    generateDepositQR();
+});
+
+// Close QR Modal
+closeQRModalBtn?.addEventListener('click', () => {
+    qrModal.style.display = 'none';
+});
+
+// Close modal when clicking outside
+qrModal?.addEventListener('click', (e) => {
+    if (e.target === qrModal) {
+        qrModal.style.display = 'none';
+    }
+});
+
 // Export for use in HTML onclick
 window.showDetail = showDetail;
+window.showTransactionQR = showTransactionQR;
+window.copyUniqueCode = copyUniqueCode;
+window.copyQRUrl = copyQRUrl;
+window.downloadQR = downloadQR;
 
 // =====================================================
 // REALTIME UPDATES (SSE)
@@ -862,6 +913,139 @@ function showRealtimeStatus(status) {
     `;
 
     lucide.createIcons();
+}
+
+// =====================================================
+// QR CODE FUNCTIONS
+// =====================================================
+
+// Generate and show a new deposit QR code
+function generateDepositQR() {
+    if (!window.QRGenerator) {
+        console.error('QR Generator not loaded');
+        return;
+    }
+
+    const qrData = window.QRGenerator.generateDepositQR(0); // 0 = customer fills amount
+    showQRModal(qrData);
+}
+
+// Show QR code for an existing transaction
+function showTransactionQR(uniqueCode, amount = 0) {
+    if (!window.QRGenerator) {
+        console.error('QR Generator not loaded');
+        return;
+    }
+
+    const qrData = window.QRGenerator.regenerateQR(uniqueCode, amount);
+    showQRModal(qrData);
+}
+
+// Display QR modal with QR code
+function showQRModal(qrData) {
+    const qrModal = document.getElementById('qrModal');
+    const qrModalBody = document.getElementById('qrModalBody');
+
+    qrModalBody.innerHTML = `
+        <div style="padding: 20px;">
+            <img src="${qrData.qrUrl}" alt="QR Code" style="width: 300px; max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+
+            <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <div style="margin-bottom: 12px;">
+                    <strong>Ngân hàng:</strong> ${qrData.bankInfo.bank}<br>
+                    <strong>Số tài khoản:</strong> ${qrData.bankInfo.accountNo}<br>
+                    <strong>Chủ tài khoản:</strong> ${qrData.bankInfo.accountName}
+                </div>
+                <div style="margin-top: 12px; padding: 10px; background: white; border: 2px dashed #dee2e6; border-radius: 6px; font-family: monospace; font-size: 14px; font-weight: bold; color: #495057;">
+                    Mã giao dịch: ${qrData.uniqueCode}
+                </div>
+                ${qrData.amount > 0 ? `<div style="margin-top: 8px;"><strong>Số tiền:</strong> ${formatCurrency(qrData.amount)}</div>` : '<div style="margin-top: 8px; color: #6c757d;"><em>Khách hàng tự điền số tiền</em></div>'}
+            </div>
+
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="copyQRUrl('${qrData.qrUrl}')">
+                    <i data-lucide="image"></i> Copy URL QR
+                </button>
+                <button class="btn btn-success" onclick="copyUniqueCode('${qrData.uniqueCode}')">
+                    <i data-lucide="hash"></i> Copy Mã GD
+                </button>
+                <button class="btn btn-secondary" onclick="downloadQR('${qrData.qrUrl}', '${qrData.uniqueCode}')">
+                    <i data-lucide="download"></i> Tải QR
+                </button>
+            </div>
+
+            <div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; font-size: 13px; color: #856404;">
+                <strong>Lưu ý:</strong> Khách hàng phải nhập đúng mã giao dịch <strong>${qrData.uniqueCode}</strong> khi chuyển khoản để hệ thống tự động xác nhận.
+            </div>
+        </div>
+    `;
+
+    qrModal.style.display = 'block';
+
+    // Reinitialize Lucide icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+// Copy QR URL to clipboard
+async function copyQRUrl(qrUrl) {
+    if (!window.QRGenerator) return;
+
+    const success = await window.QRGenerator.copyQRUrl(qrUrl);
+    if (success) {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Đã copy URL QR code!', 'success');
+        } else {
+            alert('Đã copy URL QR code!');
+        }
+    } else {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Không thể copy URL', 'error');
+        } else {
+            alert('Không thể copy URL');
+        }
+    }
+}
+
+// Copy unique code to clipboard
+async function copyUniqueCode(uniqueCode) {
+    if (!window.QRGenerator) return;
+
+    const success = await window.QRGenerator.copyUniqueCode(uniqueCode);
+    if (success) {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(`Đã copy mã: ${uniqueCode}`, 'success');
+        } else {
+            alert(`Đã copy mã: ${uniqueCode}`);
+        }
+    } else {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Không thể copy mã', 'error');
+        } else {
+            alert('Không thể copy mã');
+        }
+    }
+}
+
+// Download QR code image
+async function downloadQR(qrUrl, uniqueCode) {
+    if (!window.QRGenerator) return;
+
+    const filename = `QR-${uniqueCode}-${Date.now()}.png`;
+    const success = await window.QRGenerator.downloadQRImage(qrUrl, filename);
+
+    if (success) {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Đang tải QR code...', 'success');
+        }
+    } else {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Không thể tải QR code', 'error');
+        } else {
+            alert('Không thể tải QR code');
+        }
+    }
 }
 
 // Auto-connect on page load

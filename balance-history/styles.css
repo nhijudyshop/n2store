@@ -883,3 +883,96 @@ body {
         flex-wrap: wrap;
     }
 }
+
+/* =====================================================
+   QR CODE STYLES
+   ===================================================== */
+
+/* QR Code buttons in table */
+.data-table td.text-center button[onclick*="showTransactionQR"] {
+    min-width: 36px;
+    padding: 6px;
+}
+
+.data-table td.text-center button[onclick*="copyUniqueCode"] {
+    min-width: 36px;
+    padding: 6px;
+}
+
+/* QR Modal specific styling */
+#qrModal .modal-content {
+    max-width: 500px;
+}
+
+/* QR Code container */
+.qr-code-display {
+    text-align: center;
+    padding: 20px;
+}
+
+.qr-code-display img {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-width: 100%;
+}
+
+/* QR Info box */
+.qr-info-box {
+    margin-top: 20px;
+    padding: 15px;
+    background: var(--gray-50);
+    border-radius: 8px;
+    text-align: left;
+}
+
+.qr-transaction-code {
+    margin-top: 12px;
+    padding: 10px;
+    background: white;
+    border: 2px dashed var(--border);
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+/* QR Action buttons */
+.qr-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* QR Warning box */
+.qr-warning {
+    margin-top: 15px;
+    padding: 12px;
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #856404;
+}
+
+/* Mobile responsive for QR */
+@media (max-width: 768px) {
+    #qrModal .modal-content {
+        max-width: 95%;
+    }
+
+    .qr-code-display img {
+        width: 250px;
+    }
+
+    .qr-actions {
+        flex-direction: column;
+    }
+
+    .qr-actions button {
+        width: 100%;
+    }
+}
