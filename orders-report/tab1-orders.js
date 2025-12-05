@@ -2704,6 +2704,12 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
         if (selectedCampaign?.displayName) {
             console.log(`[EMPLOYEE] Auto-loading employee ranges for: ${selectedCampaign.displayName}`);
             await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
+
+            // ⭐ Re-render bảng nếu đã có dữ liệu (để apply employee ranges ngay)
+            if (allData.length > 0) {
+                console.log(`[EMPLOYEE] Re-rendering table with ${employeeRanges.length} employee ranges`);
+                performTableSearch();
+            }
         }
 
         if (autoLoad) {
