@@ -76,6 +76,20 @@ class AuthManager {
         return parseInt(auth.checkLogin) <= requiredLevel;
     }
 
+    isAdmin() {
+        return this.hasPermission(0);
+    }
+
+    requireAuth() {
+        if (!this.isAuthenticated()) {
+            console.log("[AUTH] Not authenticated, redirecting...");
+            this.clearAuth();
+            window.location.href = "../index.html";
+            return false;
+        }
+        return true;
+    }
+
     getAuthState() {
         try {
             // Check sessionStorage first
@@ -98,6 +112,24 @@ class AuthManager {
 
     getUserInfo() {
         return this.getAuthState();
+    }
+
+    getUserName() {
+        const auth = this.getAuthState();
+        if (!auth || !auth.userType) {
+            return "Admin";
+        }
+        return auth.userType.split("-")[0] || "Admin";
+    }
+
+    getUserType() {
+        const auth = this.getAuthState();
+        return auth?.userType || "admin-0";
+    }
+
+    getCheckLogin() {
+        const auth = this.getAuthState();
+        return auth?.checkLogin ?? 0;
     }
 
     clearAuth() {
@@ -131,19 +163,6 @@ const authManager = new AuthManager();
 window.authManager = authManager;
 
 console.log("[AUTH] AuthManager initialized:", authManager.isAuthenticated());
-
-// Redirect to login if not authenticated (production mode)
-if (!authManager.isAuthenticated()) {
-    console.warn("[AUTH] User not authenticated, redirecting to login...");
-    // Allow a brief moment for any pending operations
-    setTimeout(() => {
-        if (!authManager.isAuthenticated()) {
-            localStorage.clear();
-            sessionStorage.clear();
-            window.location.href = "../index.html";
-        }
-    }, 500);
-}
 
 // =====================================================
 // LEGACY FUNCTIONS (for backward compatibility)
@@ -210,13 +229,7 @@ function getUserName() {
 }
 
 function handleLogout() {
-    const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
-    if (confirmLogout) {
-        localStorage.clear();
-        sessionStorage.clear();
-        invalidateCache();
-        window.location.href = "../index.html";
-    }
+    authManager.logout();
 }
 
 console.log("Authentication system loaded");
