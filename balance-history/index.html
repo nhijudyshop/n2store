@@ -58,6 +58,9 @@
                 <div class="header-content">
                     <h1><i data-lucide="wallet"></i> Lịch sử biến động số dư</h1>
                     <div class="header-actions">
+                        <button id="generateQRBtn" class="btn btn-success">
+                            <i data-lucide="qr-code"></i> Tạo QR Chuyển Khoản
+                        </button>
                         <button id="viewRawDataBtn" class="btn btn-secondary">
                             <i data-lucide="database"></i> Xem Raw Data
                         </button>
@@ -204,6 +207,7 @@
                             <th>Số dư</th>
                             <th>Nội dung</th>
                             <th>Mã tham chiếu</th>
+                            <th>QR Code</th>
                             <th>Thao tác</th>
                         </tr>
                     </thead>
@@ -263,6 +267,19 @@
         </div>
     </div>
 
+    <!-- QR Code Modal -->
+    <div id="qrModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2><i data-lucide="qr-code"></i> QR Chuyển Khoản</h2>
+                <button class="modal-close" id="closeQRModalBtn">&times;</button>
+            </div>
+            <div class="modal-body" id="qrModalBody" style="text-align: center;">
+                <!-- QR code will be inserted here -->
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
@@ -274,6 +291,7 @@
     <script src="auth.js"></script>
     <script src="cache.js"></script>
     <script src="config.js"></script>
+    <script src="qr-generator.js"></script>
     <script src="main.js"></script>
 
     <!-- Initialize Lucide Icons -->
