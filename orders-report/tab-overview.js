@@ -211,16 +211,19 @@ function aggregateTagsByEmployee() {
         let totalOrders = empOrders.length;
 
         empOrders.forEach(order => {
-            // Primary tag
-            if (order.Tag) {
-                const tagName = getTagName(order.Tag);
-                tagCounts[tagName] = (tagCounts[tagName] || 0) + 1;
-            }
-
-            // Secondary tag
-            if (order.TagSecondary) {
-                const tagName = getTagName(order.TagSecondary);
-                tagCounts[tagName] = (tagCounts[tagName] || 0) + 1;
+            // Parse Tags JSON array (same format as tab1-orders)
+            if (order.Tags) {
+                try {
+                    const tags = JSON.parse(order.Tags);
+                    if (Array.isArray(tags)) {
+                        tags.forEach(tag => {
+                            const tagName = tag.Name || `Tag #${tag.Id}`;
+                            tagCounts[tagName] = (tagCounts[tagName] || 0) + 1;
+                        });
+                    }
+                } catch (e) {
+                    console.warn(`[OVERVIEW] Failed to parse tags for order ${order.Id}:`, e);
+                }
             }
         });
 
