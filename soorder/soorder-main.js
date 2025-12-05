@@ -111,6 +111,15 @@ function initDOMElements() {
     elements.btnCancelDelete = document.getElementById("btnCancelDelete");
     elements.btnConfirmDelete = document.getElementById("btnConfirmDelete");
 
+    // Date Range modal
+    elements.dateRangeModal = document.getElementById("dateRangeModal");
+    elements.dateRangeModalOverlay = document.getElementById("dateRangeModalOverlay");
+    elements.btnCloseDateRangeModal = document.getElementById("btnCloseDateRangeModal");
+    elements.btnCancelDateRange = document.getElementById("btnCancelDateRange");
+    elements.btnApplyDateRange = document.getElementById("btnApplyDateRange");
+    elements.startDateInput = document.getElementById("startDateInput");
+    elements.endDateInput = document.getElementById("endDateInput");
+
     // Toast
     elements.toastContainer = document.getElementById("toastContainer");
 }
@@ -144,6 +153,17 @@ function setupEventListeners() {
     if (elements.dateRangeSelect) {
         elements.dateRangeSelect.addEventListener("change", (e) => {
             const value = e.target.value;
+
+            if (value === "custom") {
+                // Show date range picker modal
+                ui.showDateRangeModal();
+                // Reset dropdown
+                setTimeout(() => {
+                    e.target.value = "today";
+                }, 100);
+                return;
+            }
+
             const today = new Date();
             let targetDate;
 
@@ -371,6 +391,38 @@ function setupEventListeners() {
     if (elements.btnNextMonth) {
         elements.btnNextMonth.addEventListener("click", () => {
             ui.navigateCalendarMonth(1);
+        });
+    }
+
+    // =====================================================
+    // DATE RANGE MODAL
+    // =====================================================
+
+    // Close date range modal button
+    if (elements.btnCloseDateRangeModal) {
+        elements.btnCloseDateRangeModal.addEventListener("click", () => {
+            ui.hideDateRangeModal();
+        });
+    }
+
+    // Date range modal overlay click
+    if (elements.dateRangeModalOverlay) {
+        elements.dateRangeModalOverlay.addEventListener("click", () => {
+            ui.hideDateRangeModal();
+        });
+    }
+
+    // Cancel date range button
+    if (elements.btnCancelDateRange) {
+        elements.btnCancelDateRange.addEventListener("click", () => {
+            ui.hideDateRangeModal();
+        });
+    }
+
+    // Apply date range button
+    if (elements.btnApplyDateRange) {
+        elements.btnApplyDateRange.addEventListener("click", () => {
+            ui.handleApplyDateRange();
         });
     }
 

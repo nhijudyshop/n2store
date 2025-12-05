@@ -407,4 +407,76 @@ window.SoOrderCRUD = {
             return false;
         }
     },
+
+    // =====================================================
+    // LOAD DATE RANGE DATA
+    // =====================================================
+
+    async loadDateRangeData(startDateStr, endDateStr) {
+        const config = window.SoOrderConfig;
+        const state = window.SoOrderState;
+        const utils = window.SoOrderUtils;
+
+        utils.showLoading(true);
+
+        try {
+            // Parse dates
+            const startDate = utils.parseDate(startDateStr);
+            const endDate = utils.parseDate(endDateStr);
+
+            // Generate array of dates in range
+            const dateStrings = [];
+            const currentDate = new Date(startDate);
+
+            while (currentDate <= endDate) {
+                dateStrings.push(utils.formatDate(currentDate));
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            // Load all documents for the date range
+            const rangeData = [];
+
+            for (const dateString of dateStrings) {
+                const docRef = config.orderLogsCollectionRef.doc(dateString);
+                const doc = await docRef.get();
+
+                if (doc.exists) {
+                    rangeData.push(doc.data());
+                } else {
+                    // Add empty day data
+                    rangeData.push({
+                        date: dateString,
+                        isHoliday: false,
+                        orders: [],
+                    });
+                }
+            }
+
+            // Update state
+            state.isRangeMode = true;
+            state.rangeStartDate = startDateStr;
+            state.rangeEndDate = endDateStr;
+            state.rangeData = rangeData;
+
+            // Update date display
+            const elements = window.SoOrderElements;
+            if (elements.dateDisplay) {
+                const startDateObj = utils.parseDate(startDateStr);
+                const endDateObj = utils.parseDate(endDateStr);
+                const startDisplay = utils.formatDateDisplay(startDateObj);
+                const endDisplay = utils.formatDateDisplay(endDateObj);
+                elements.dateDisplay.textContent = `${startDisplay} - ${endDisplay}`;
+            }
+
+            // Render UI
+            window.SoOrderUI.renderTable();
+            window.SoOrderUI.updateFooterSummary();
+
+            utils.showLoading(false);
+        } catch (error) {
+            utils.showLoading(false);
+            console.error("Error loading date range data:", error);
+            utils.showToast("Lỗi khi tải dữ liệu: " + error.message, "error");
+        }
+    },
 };

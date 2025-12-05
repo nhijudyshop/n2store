@@ -103,6 +103,13 @@ window.SoOrderUtils = {
     // Navigate to a specific date
     navigateToDate(date) {
         const state = window.SoOrderState;
+
+        // Exit range mode
+        state.isRangeMode = false;
+        state.rangeData = [];
+        state.rangeStartDate = null;
+        state.rangeEndDate = null;
+
         state.currentDate = date;
         state.currentDateString = this.formatDate(date);
 

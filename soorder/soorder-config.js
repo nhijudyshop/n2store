@@ -29,6 +29,12 @@ window.SoOrderState = {
     editingOrderId: null,
     deleteOrderId: null,
 
+    // Date range state
+    isRangeMode: false, // Whether we're viewing a date range
+    rangeStartDate: null,
+    rangeEndDate: null,
+    rangeData: [], // Array of day data for the range
+
     // Calendar state
     calendarViewDate: new Date(), // Current month being viewed in calendar
     holidays: new Map(), // Map of date strings to holiday status
@@ -102,6 +108,16 @@ window.SoOrderElements = {
     btnCloseDeleteModal: null,
     btnCancelDelete: null,
     btnConfirmDelete: null,
+
+    // Date Range modal
+    dateRangeModal: null,
+    dateRangeModalOverlay: null,
+    btnCloseDateRangeModal: null,
+    btnCancelDateRange: null,
+    btnApplyDateRange: null,
+    startDateInput: null,
+    endDateInput: null,
+    dateRangeSelect: null,
 
     // Toast
     toastContainer: null,
