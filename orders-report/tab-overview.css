@@ -73,34 +73,6 @@ body {
     background: #059669;
 }
 
-.control-filters {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.filter-group {
-    flex: 1;
-    min-width: 250px;
-}
-
-.filter-group label {
-    display: block;
-    font-size: 13px;
-    font-weight: 500;
-    color: #475569;
-    margin-bottom: 6px;
-}
-
-.filter-group select {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 14px;
-    color: #334155;
-}
-
 /* Overview Container */
 .overview-container {
     background: white;
