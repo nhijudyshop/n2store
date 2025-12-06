@@ -410,7 +410,12 @@ function renderTable(data) {
                 ` : '<span style="color: #999;">N/A</span>'}
             </td>
             <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-                ${uniqueCode ? customerDisplay.phone : '<span style="color: #999;">N/A</span>'}
+                ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
+                    <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                        ${customerDisplay.phone}
+                        <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
+                    </a>
+                ` : '<span style="color: #999;">N/A</span>'}
             </td>
             <td class="text-center">
                 ${uniqueCode ? `
@@ -1216,6 +1221,204 @@ async function saveEditCustomerInfo(event) {
         }
     }
 }
+
+// =====================================================
+// CUSTOMER LIST BY PHONE - MAPPING FEATURE
+// =====================================================
+
+const CUSTOMER_API_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+// Cache for customer data by phone
+const customerListCache = {};
+const CUSTOMER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Show customers list by phone number
+ * @param {string} phone - Phone number to search
+ */
+async function showCustomersByPhone(phone) {
+    if (!phone || phone === 'N/A') {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Không có số điện thoại để tìm kiếm', 'warning');
+        }
+        return;
+    }
+
+    const modal = document.getElementById('customerListModal');
+    const loadingEl = document.getElementById('customerListLoading');
+    const emptyEl = document.getElementById('customerListEmpty');
+    const contentEl = document.getElementById('customerListContent');
+    const phoneEl = document.getElementById('customerListPhone');
+
+    // Show modal and loading state
+    modal.style.display = 'block';
+    phoneEl.textContent = phone;
+    loadingEl.style.display = 'block';
+    emptyEl.style.display = 'none';
+    contentEl.style.display = 'none';
+
+    // Reinitialize icons
+    if (window.lucide) lucide.createIcons();
+
+    try {
+        // Check cache first
+        const cacheKey = phone.replace(/\D/g, '');
+        const cached = customerListCache[cacheKey];
+        if (cached && (Date.now() - cached.timestamp < CUSTOMER_CACHE_TTL)) {
+            console.log('[CUSTOMER-LIST] Using cached data for:', phone);
+            renderCustomerList(cached.data);
+            return;
+        }
+
+        // Fetch from API
+        const response = await fetch(`${CUSTOMER_API_URL}/api/customers/search?q=${encodeURIComponent(phone)}&limit=50`);
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to fetch customers');
+        }
+
+        // Filter customers with exact phone match
+        const customers = (result.data || []).filter(c => {
+            const customerPhone = (c.phone || '').replace(/\D/g, '');
+            const searchPhone = phone.replace(/\D/g, '');
+            return customerPhone === searchPhone || customerPhone.endsWith(searchPhone) || searchPhone.endsWith(customerPhone);
+        });
+
+        // Cache the result
+        customerListCache[cacheKey] = {
+            data: customers,
+            timestamp: Date.now()
+        };
+
+        renderCustomerList(customers);
+
+    } catch (error) {
+        console.error('[CUSTOMER-LIST] Error:', error);
+        loadingEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+        emptyEl.querySelector('p').textContent = 'Lỗi khi tải dữ liệu: ' + error.message;
+    }
+}
+
+/**
+ * Render customer list in modal
+ * @param {Array} customers - List of customers
+ */
+function renderCustomerList(customers) {
+    const loadingEl = document.getElementById('customerListLoading');
+    const emptyEl = document.getElementById('customerListEmpty');
+    const contentEl = document.getElementById('customerListContent');
+    const totalEl = document.getElementById('customerListTotal');
+    const tbody = document.getElementById('customerListTableBody');
+
+    loadingEl.style.display = 'none';
+
+    if (!customers || customers.length === 0) {
+        emptyEl.style.display = 'block';
+        contentEl.style.display = 'none';
+        return;
+    }
+
+    emptyEl.style.display = 'none';
+    contentEl.style.display = 'block';
+    totalEl.textContent = customers.length;
+
+    tbody.innerHTML = customers.map((customer, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>
+                <strong>${escapeHtmlForCustomer(customer.name || 'N/A')}</strong>
+                ${customer.email ? `<br><small style="color: #6b7280;">${escapeHtmlForCustomer(customer.email)}</small>` : ''}
+            </td>
+            <td>
+                <span class="badge ${getStatusBadgeClass(customer.status)}">
+                    ${customer.status || 'Bình thường'}
+                </span>
+            </td>
+            <td style="text-align: right; ${customer.debt > 0 ? 'color: #dc2626;' : 'color: #16a34a;'}">
+                ${formatCurrency(customer.debt || 0)}
+            </td>
+            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtmlForCustomer(customer.address || '')}">
+                ${escapeHtmlForCustomer(customer.address || 'N/A')}
+            </td>
+            <td>
+                <a href="../customer-management/index.html?search=${encodeURIComponent(customer.phone || '')}"
+                   target="_blank"
+                   class="btn btn-sm btn-secondary"
+                   title="Xem chi tiết"
+                   style="padding: 4px 8px;">
+                    <i data-lucide="external-link" style="width: 14px; height: 14px;"></i>
+                </a>
+                ${customer.phone ? `
+                    <a href="https://zalo.me/${customer.phone}"
+                       target="_blank"
+                       class="btn btn-sm btn-success"
+                       title="Chat Zalo"
+                       style="padding: 4px 8px; margin-left: 4px;">
+                        <i data-lucide="message-circle" style="width: 14px; height: 14px;"></i>
+                    </a>
+                ` : ''}
+            </td>
+        </tr>
+    `).join('');
+
+    // Reinitialize icons
+    if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Get status badge CSS class
+ */
+function getStatusBadgeClass(status) {
+    const statusMap = {
+        'Bình thường': 'badge-secondary',
+        'Bom hàng': 'badge-danger',
+        'Cảnh báo': 'badge-warning',
+        'Nguy hiểm': 'badge-danger',
+        'VIP': 'badge-success'
+    };
+    return statusMap[status] || 'badge-secondary';
+}
+
+/**
+ * Escape HTML for customer display
+ */
+function escapeHtmlForCustomer(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Close customer list modal
+ */
+function closeCustomerListModal() {
+    const modal = document.getElementById('customerListModal');
+    modal.style.display = 'none';
+}
+
+// Setup Customer List Modal Event Listeners
+const customerListModal = document.getElementById('customerListModal');
+const closeCustomerListModalBtn = document.getElementById('closeCustomerListModalBtn');
+
+closeCustomerListModalBtn?.addEventListener('click', closeCustomerListModal);
+
+customerListModal?.addEventListener('click', (e) => {
+    if (e.target === customerListModal) {
+        closeCustomerListModal();
+    }
+});
+
+// Export functions
+window.showCustomersByPhone = showCustomersByPhone;
+window.closeCustomerListModal = closeCustomerListModal;
 
 // Auto-connect on page load
 document.addEventListener('DOMContentLoaded', () => {

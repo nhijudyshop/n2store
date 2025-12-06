@@ -408,7 +408,12 @@ function createCustomerRow(customer) {
         </td>
         <td>
             <div class="customer-phone">
-                <span class="phone">${escapeHtml(customer.phone || '')}</span>
+                ${customer.phone ? `
+                    <a href="javascript:void(0)" onclick="openTransactionHistory('${customer.id}', '${escapeHtml(customer.phone || '')}', '${escapeHtml(customer.name || '')}')" class="phone-link" title="Xem lịch sử giao dịch" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                        <span class="phone">${escapeHtml(customer.phone)}</span>
+                        <i data-lucide="receipt" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
+                    </a>
+                ` : '<span class="phone" style="color: #999;">N/A</span>'}
                 ${customer.carrier ? `<span class="carrier">${customer.carrier}</span>` : ''}
             </div>
         </td>

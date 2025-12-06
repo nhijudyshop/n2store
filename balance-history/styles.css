@@ -1159,3 +1159,98 @@ body {
         height: 12px;
     }
 }
+
+/* =====================================================
+   PHONE LINK MAPPING STYLES
+   ===================================================== */
+
+/* Phone link styling */
+.phone-link {
+    color: var(--primary);
+    text-decoration: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all var(--transition-fast);
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+}
+
+.phone-link:hover {
+    background: var(--primary-bg);
+    color: var(--primary-dark);
+    text-decoration: underline;
+}
+
+.phone-link i {
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+}
+
+.phone-link:hover i {
+    opacity: 1;
+}
+
+/* Customer List Modal specific styles */
+#customerListModal .modal-content {
+    max-width: 800px;
+}
+
+#customerListModal .data-table {
+    font-size: 0.85rem;
+}
+
+#customerListModal .data-table th,
+#customerListModal .data-table td {
+    padding: 10px 12px;
+}
+
+#customerListModal .badge {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+}
+
+/* Badge styles for customer status */
+.badge-secondary {
+    background: var(--gray-100);
+    color: var(--text-secondary);
+}
+
+.badge-warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Animate spin for loading */
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Mobile responsive for customer list modal */
+@media (max-width: 768px) {
+    #customerListModal .modal-content {
+        max-width: 95%;
+        margin: 10px;
+    }
+
+    #customerListModal .data-table {
+        font-size: 0.75rem;
+    }
+
+    #customerListModal .data-table th,
+    #customerListModal .data-table td {
+        padding: 6px 8px;
+    }
+
+    #customerListModal .modal-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    #customerListModal .modal-footer a,
+    #customerListModal .modal-footer button {
+        width: 100%;
+        text-align: center;
+    }
+}
