@@ -1266,25 +1266,38 @@ async function showCustomersByPhone(phone) {
         const cached = customerListCache[cacheKey];
         if (cached && (Date.now() - cached.timestamp < CUSTOMER_CACHE_TTL)) {
             console.log('[CUSTOMER-LIST] Using cached data for:', phone);
-            renderCustomerList(cached.data);
+            renderCustomerList(cached.data, cached.balanceStats);
             return;
         }
 
-        // Fetch from API
-        const response = await fetch(`${CUSTOMER_API_URL}/api/customers/search?q=${encodeURIComponent(phone)}&limit=50`);
+        // Fetch customers and transaction stats in parallel
+        const [customersResponse, transactionsResponse] = await Promise.all([
+            fetch(`${CUSTOMER_API_URL}/api/customers/search?q=${encodeURIComponent(phone)}&limit=50`),
+            fetch(`${CUSTOMER_API_URL}/api/sepay/transactions-by-phone?phone=${encodeURIComponent(phone)}&limit=1`)
+        ]);
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        if (!customersResponse.ok) {
+            throw new Error(`HTTP error! status: ${customersResponse.status}`);
         }
 
-        const result = await response.json();
+        const customersResult = await customersResponse.json();
+        let balanceStats = null;
 
-        if (!result.success) {
-            throw new Error(result.message || 'Failed to fetch customers');
+        // Get balance statistics from transactions
+        if (transactionsResponse.ok) {
+            const transactionsResult = await transactionsResponse.json();
+            if (transactionsResult.success && transactionsResult.statistics) {
+                balanceStats = transactionsResult.statistics;
+                console.log('[CUSTOMER-LIST] Balance stats:', balanceStats);
+            }
+        }
+
+        if (!customersResult.success) {
+            throw new Error(customersResult.message || 'Failed to fetch customers');
         }
 
         // Filter customers with exact phone match
-        const customers = (result.data || []).filter(c => {
+        const customers = (customersResult.data || []).filter(c => {
             const customerPhone = (c.phone || '').replace(/\D/g, '');
             const searchPhone = phone.replace(/\D/g, '');
             return customerPhone === searchPhone || customerPhone.endsWith(searchPhone) || searchPhone.endsWith(customerPhone);
@@ -1293,10 +1306,11 @@ async function showCustomersByPhone(phone) {
         // Cache the result
         customerListCache[cacheKey] = {
             data: customers,
+            balanceStats: balanceStats,
             timestamp: Date.now()
         };
 
-        renderCustomerList(customers);
+        renderCustomerList(customers, balanceStats);
 
     } catch (error) {
         console.error('[CUSTOMER-LIST] Error:', error);
@@ -1309,13 +1323,15 @@ async function showCustomersByPhone(phone) {
 /**
  * Render customer list in modal
  * @param {Array} customers - List of customers
+ * @param {Object} balanceStats - Transaction statistics from balance-history
  */
-function renderCustomerList(customers) {
+function renderCustomerList(customers, balanceStats = null) {
     const loadingEl = document.getElementById('customerListLoading');
     const emptyEl = document.getElementById('customerListEmpty');
     const contentEl = document.getElementById('customerListContent');
     const totalEl = document.getElementById('customerListTotal');
     const tbody = document.getElementById('customerListTableBody');
+    const countDiv = document.getElementById('customerListCount');
 
     loadingEl.style.display = 'none';
 
@@ -1329,6 +1345,38 @@ function renderCustomerList(customers) {
     contentEl.style.display = 'block';
     totalEl.textContent = customers.length;
 
+    // Update count div with balance statistics
+    if (balanceStats) {
+        const netChange = balanceStats.net_change || 0;
+        const netColor = netChange >= 0 ? '#16a34a' : '#dc2626';
+        countDiv.innerHTML = `
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+                <span>
+                    <i data-lucide="users" style="width: 16px; height: 16px; vertical-align: middle;"></i>
+                    <strong>${customers.length}</strong> khách hàng
+                </span>
+                <span style="color: #16a34a;">
+                    <i data-lucide="arrow-down" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                    Vào: <strong>${formatCurrency(balanceStats.total_in || 0)}</strong>
+                </span>
+                <span style="color: #dc2626;">
+                    <i data-lucide="arrow-up" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                    Ra: <strong>${formatCurrency(balanceStats.total_out || 0)}</strong>
+                </span>
+                <span style="color: ${netColor}; font-weight: 600;">
+                    <i data-lucide="wallet" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                    Tổng: <strong>${formatCurrency(netChange)}</strong>
+                </span>
+                <span style="color: #6b7280;">
+                    (${balanceStats.total_transactions || 0} giao dịch)
+                </span>
+            </div>
+        `;
+    }
+
+    // Calculate balance-based debt (net_change from transactions)
+    const balanceDebt = balanceStats ? (balanceStats.net_change || 0) : null;
+
     tbody.innerHTML = customers.map((customer, index) => `
         <tr>
             <td>${index + 1}</td>
@@ -1341,8 +1389,15 @@ function renderCustomerList(customers) {
                     ${customer.status || 'Bình thường'}
                 </span>
             </td>
-            <td style="text-align: right; ${customer.debt > 0 ? 'color: #dc2626;' : 'color: #16a34a;'}">
-                ${formatCurrency(customer.debt || 0)}
+            <td style="text-align: right;">
+                ${balanceDebt !== null ? `
+                    <div style="color: ${balanceDebt >= 0 ? '#16a34a' : '#dc2626'}; font-weight: 600;">
+                        ${formatCurrency(balanceDebt)}
+                    </div>
+                    <small style="color: #9ca3af; font-size: 10px;">từ giao dịch</small>
+                ` : `
+                    <span style="color: #9ca3af;">Chưa có GD</span>
+                `}
             </td>
             <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtmlForCustomer(customer.address || '')}">
                 ${escapeHtmlForCustomer(customer.address || 'N/A')}
