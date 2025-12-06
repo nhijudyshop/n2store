@@ -372,9 +372,9 @@ function renderTable(data) {
     }
 
     tableBody.innerHTML = data.map(row => {
-        // Extract unique code from content (look for N2 prefix pattern)
+        // Extract unique code from content (look for N2 prefix pattern - exactly 18 chars)
         const content = row.content || '';
-        const uniqueCodeMatch = content.match(/N2[A-Z0-9]+/);
+        const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
         const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
 
         // Get customer info if unique code exists
