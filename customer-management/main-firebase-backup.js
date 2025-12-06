@@ -1,17 +1,17 @@
-// Customer Management System - PostgreSQL Backend
-// This version uses PostgreSQL API instead of Firebase Firestore
-
+// Customer Management System
 let customers = [];
 let filteredCustomers = [];
-let editingCustomer = null; // Changed from editingCustomerId to store full customer object
+let editingCustomerId = null;
 
 // Pagination state
 let currentPage = 1;
 let pageSize = 100;
 let totalCustomers = 0;
+let lastVisible = null;
+let firstVisible = null;
 let isSearching = false;
-let currentSearchTerm = '';
-let searchDebounceTimer = null;
+let currentSearchTerm = ''; // Track current search term
+let searchDebounceTimer = null; // Debounce timer
 
 // TPOS API Configuration - using Cloudflare Worker proxy
 const CLOUDFLARE_PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -20,7 +20,7 @@ let isSyncing = false;
 let tposAccessToken = null;
 
 // ============================================
-// INDEXEDDB CACHE LAYER (Kept for offline support)
+// INDEXEDDB CACHE LAYER
 // ============================================
 const DB_NAME = 'CustomerDB';
 const DB_VERSION = 1;
@@ -45,6 +45,8 @@ async function initIndexedDB() {
 
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
+
+            // Create object store for cache
             if (!db.objectStoreNames.contains(STORE_NAME)) {
                 const objectStore = db.createObjectStore(STORE_NAME, { keyPath: 'key' });
                 objectStore.createIndex('timestamp', 'timestamp', { unique: false });
@@ -68,14 +70,14 @@ async function saveToCache(key, data) {
         };
 
         await store.put(cacheData);
-        console.log(`💾 Cached: ${key}`);
+        console.log(`💾 Cached: ${key} (${JSON.stringify(data).length} bytes)`);
     } catch (error) {
         console.error('Error saving to cache:', error);
     }
 }
 
 // Load from cache
-async function loadFromCache(key, maxAge = 5 * 60 * 1000) {
+async function loadFromCache(key, maxAge = 5 * 60 * 1000) { // Default 5 minutes
     try {
         const db = await initIndexedDB();
         const transaction = db.transaction([STORE_NAME], 'readonly');
@@ -96,12 +98,12 @@ async function loadFromCache(key, maxAge = 5 * 60 * 1000) {
                 const age = Date.now() - cached.timestamp;
 
                 if (age > maxAge) {
-                    console.log(`⏰ Cache expired: ${key}`);
+                    console.log(`⏰ Cache expired: ${key} (${Math.round(age / 1000)}s old)`);
                     resolve(null);
                     return;
                 }
 
-                console.log(`✅ Cache hit: ${key}`);
+                console.log(`✅ Cache hit: ${key} (${Math.round(age / 1000)}s old)`);
                 resolve(cached.data);
             };
 
@@ -144,18 +146,23 @@ if (typeof authManager !== 'undefined') {
     }
 }
 
-// Initialize Firebase (keep for auth only)
+// Initialize Firebase
 if (!firebase.apps.length) {
     firebase.initializeApp(window.FIREBASE_CONFIG);
 }
 
+// Firebase references
+const db = firebase.firestore();
+const customersCollection = db.collection('customers');
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
+    // Load customers first (fast - only 100 records)
     await loadCustomers();
     initializeEventListeners();
     lucide.createIcons();
 
-    // Load statistics in background
+    // Load statistics in background (slow - don't block UI)
     loadTotalCountAndStats();
 
     // Auto-sync from TPOS if needed
@@ -164,47 +171,58 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Initialize event listeners
 function initializeEventListeners() {
+    // Button listeners
     document.getElementById('addCustomerBtn').addEventListener('click', openAddCustomerModal);
     document.getElementById('importExcelBtn').addEventListener('click', openImportModal);
     document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
     document.getElementById('syncTPOSBtn').addEventListener('click', syncFromTPOS);
     document.getElementById('selectAll').addEventListener('click', handleSelectAll);
+
+    // Pagination
     document.getElementById('prevPageBtn').addEventListener('click', goToPreviousPage);
     document.getElementById('nextPageBtn').addEventListener('click', goToNextPage);
     document.getElementById('pageSizeSelect').addEventListener('change', handlePageSizeChange);
+
+    // Search and filter
     document.getElementById('searchInput').addEventListener('input', handleSearch);
     document.getElementById('statusFilter').addEventListener('change', handleFilter);
+
+    // Form submission
     document.getElementById('customerForm').addEventListener('submit', handleCustomerSubmit);
+
+    // Excel file input
     document.getElementById('excelFile').addEventListener('change', handleFileSelect);
+
+    // Import confirmation
     document.getElementById('confirmImportBtn').addEventListener('click', handleImportConfirm);
 
+    // Drag and drop for file upload
     const uploadArea = document.getElementById('uploadArea');
     uploadArea.addEventListener('dragover', handleDragOver);
     uploadArea.addEventListener('dragleave', handleDragLeave);
     uploadArea.addEventListener('drop', handleDrop);
 }
 
-// ============================================
-// POSTGRESQL API CALLS (Replacing Firebase)
-// ============================================
-
-/**
- * Load total customer count and statistics
- */
+// Load total customer count and statistics (with cache)
 async function loadTotalCountAndStats(forceRefresh = false) {
     try {
         // Try cache first
         if (!forceRefresh) {
-            const cached = await loadFromCache(STATS_CACHE_KEY, 10 * 60 * 1000);
+            const cached = await loadFromCache(STATS_CACHE_KEY, 10 * 60 * 1000); // 10 min cache
 
             if (cached) {
                 console.log('⚡ Loading stats from cache');
                 totalCustomers = cached.total;
-                updateStatsUI(cached);
+                document.getElementById('totalCount').textContent = formatNumber(cached.total);
+                document.getElementById('normalCount').textContent = formatNumber(cached.normal);
+                document.getElementById('dangerCount').textContent = formatNumber(cached.danger);
+                document.getElementById('warningCount').textContent = formatNumber(cached.warning);
+                document.getElementById('criticalCount').textContent = formatNumber(cached.critical);
+                document.getElementById('vipCount').textContent = formatNumber(cached.vip);
                 updatePaginationUI();
 
                 // Refresh in background
-                loadStatsFromAPI();
+                loadStatsFromFirestore();
                 return;
             }
         }
@@ -217,81 +235,82 @@ async function loadTotalCountAndStats(forceRefresh = false) {
         document.getElementById('criticalCount').textContent = '...';
         document.getElementById('vipCount').textContent = '...';
 
-        await loadStatsFromAPI();
+        await loadStatsFromFirestore();
     } catch (error) {
         console.error('Error loading statistics:', error);
         document.getElementById('totalCount').textContent = '?';
-        showNotification('Lỗi khi tải thống kê', 'error');
     }
 }
 
-/**
- * Load stats from PostgreSQL API
- */
-async function loadStatsFromAPI() {
+// Load stats from Firestore (internal)
+async function loadStatsFromFirestore() {
     try {
-        const response = await API.getStats();
+        // Load counts (this is slow for 80K records but cached after first load)
+        const [totalSnap, normalSnap, dangerSnap, warningSnap, criticalSnap, vipSnap] = await Promise.all([
+            customersCollection.get(),
+            customersCollection.where('status', '==', 'Bình thường').get(),
+            customersCollection.where('status', '==', 'Bom hàng').get(),
+            customersCollection.where('status', '==', 'Cảnh báo').get(),
+            customersCollection.where('status', '==', 'Nguy hiểm').get(),
+            customersCollection.where('status', '==', 'VIP').get()
+        ]);
 
-        if (!response.success) {
-            throw new Error(response.message || 'Failed to load stats');
-        }
+        totalCustomers = totalSnap.size;
 
-        const stats = response.data;
-        totalCustomers = stats.total;
+        const stats = {
+            total: totalSnap.size,
+            normal: normalSnap.size,
+            danger: dangerSnap.size,
+            warning: warningSnap.size,
+            critical: criticalSnap.size,
+            vip: vipSnap.size
+        };
 
         // Save to cache
         await saveToCache(STATS_CACHE_KEY, stats);
 
-        // Update UI
-        updateStatsUI(stats);
-        updatePaginationUI();
+        document.getElementById('totalCount').textContent = formatNumber(stats.total);
+        document.getElementById('normalCount').textContent = formatNumber(stats.normal);
+        document.getElementById('dangerCount').textContent = formatNumber(stats.danger);
+        document.getElementById('warningCount').textContent = formatNumber(stats.warning);
+        document.getElementById('criticalCount').textContent = formatNumber(stats.critical);
+        document.getElementById('vipCount').textContent = formatNumber(stats.vip);
 
-        console.log(`[STATS] Loaded in ${response.query_time_ms}ms`);
+        updatePaginationUI();
     } catch (error) {
-        console.error('Error loading stats from API:', error);
+        console.error('Error loading stats from Firestore:', error);
         throw error;
     }
 }
 
-/**
- * Update statistics UI
- */
-function updateStatsUI(stats) {
-    document.getElementById('totalCount').textContent = formatNumber(stats.total);
-    document.getElementById('normalCount').textContent = formatNumber(stats.normal);
-    document.getElementById('dangerCount').textContent = formatNumber(stats.danger);
-    document.getElementById('warningCount').textContent = formatNumber(stats.warning);
-    document.getElementById('criticalCount').textContent = formatNumber(stats.critical);
-    document.getElementById('vipCount').textContent = formatNumber(stats.vip);
-}
-
-/**
- * Load customers from PostgreSQL API with pagination
- */
-async function loadCustomers(forceRefresh = false) {
+// Load customers from Firebase with pagination (with IndexedDB cache)
+async function loadCustomers(direction = 'next', forceRefresh = false) {
     try {
-        // Try cache first (only for initial load)
-        if (!isSearching && currentPage === 1 && !forceRefresh) {
+        // Try cache first (only for initial load, not pagination)
+        if (direction === 'next' && !lastVisible && !forceRefresh) {
             const cacheKey = `${CACHE_KEY}_page${currentPage}_size${pageSize}`;
-            const cached = await loadFromCache(cacheKey, 5 * 60 * 1000);
+            const cached = await loadFromCache(cacheKey, 5 * 60 * 1000); // 5 min cache
 
             if (cached) {
                 console.log('⚡ Loading from cache (instant)');
                 customers = cached.customers || [];
                 filteredCustomers = [...customers];
+                // Note: firstVisible and lastVisible are not cached (can't clone Firestore cursors)
+                // They will be set after background refresh
                 renderCustomers();
                 updatePaginationUI();
                 showEmptyState(customers.length === 0);
 
-                // Refresh in background
-                loadCustomersFromAPI();
+                // Refresh in background to get fresh cursors
+                loadCustomersFromFirestore(direction, cacheKey);
                 return;
             }
         }
 
         // Cache miss or force refresh - show loading
         showLoading(true);
-        await loadCustomersFromAPI();
+        const cacheKey = `${CACHE_KEY}_page${currentPage}_size${pageSize}`;
+        await loadCustomersFromFirestore(direction, cacheKey);
     } catch (error) {
         console.error('Error loading customers:', error);
         showNotification('Lỗi khi tải dữ liệu khách hàng', 'error');
@@ -299,42 +318,60 @@ async function loadCustomers(forceRefresh = false) {
     }
 }
 
-/**
- * Load customers from PostgreSQL API (internal)
- */
-async function loadCustomersFromAPI() {
+// Load customers from Firestore (internal)
+async function loadCustomersFromFirestore(direction = 'next', cacheKey = null) {
     try {
-        const statusFilter = document.getElementById('statusFilter').value;
+        let query = customersCollection.orderBy('createdAt', 'desc').limit(pageSize);
 
-        const response = await API.getCustomers(
-            currentPage,
-            pageSize,
-            statusFilter || null
-        );
-
-        if (!response.success) {
-            throw new Error(response.message || 'Failed to load customers');
+        if (direction === 'next' && lastVisible) {
+            query = query.startAfter(lastVisible);
+        } else if (direction === 'prev' && firstVisible) {
+            query = customersCollection
+                .orderBy('createdAt', 'desc')
+                .endBefore(firstVisible)
+                .limitToLast(pageSize);
         }
 
-        customers = response.data || [];
+        const snapshot = await query.get();
+
+        if (snapshot.empty) {
+            customers = [];
+            filteredCustomers = [];
+            renderCustomers();
+            updatePaginationUI();
+            showEmptyState(true);
+            showLoading(false);
+            return;
+        }
+
+        // Store pagination cursors
+        firstVisible = snapshot.docs[0];
+        lastVisible = snapshot.docs[snapshot.docs.length - 1];
+
+        customers = [];
+        snapshot.forEach(doc => {
+            customers.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+
         filteredCustomers = [...customers];
 
-        // Update pagination info from server
-        if (response.pagination) {
-            totalCustomers = response.pagination.total;
+        // Cache the data (only customer data, not Firestore cursors)
+        if (cacheKey) {
+            await saveToCache(cacheKey, {
+                customers: customers
+                // Note: firstVisible/lastVisible are Firestore DocumentSnapshots
+                // They contain functions and cannot be cloned to IndexedDB
+            });
         }
-
-        // Cache the data
-        const cacheKey = `${CACHE_KEY}_page${currentPage}_size${pageSize}`;
-        await saveToCache(cacheKey, { customers });
 
         renderCustomers();
         updatePaginationUI();
-        showEmptyState(customers.length === 0);
-
-        console.log(`[CUSTOMERS] Loaded ${customers.length} customers (page ${currentPage})`);
+        showEmptyState(false);
     } catch (error) {
-        console.error('Error loading from API:', error);
+        console.error('Error loading from Firestore:', error);
         throw error;
     } finally {
         showLoading(false);
@@ -353,7 +390,7 @@ function updatePaginationUI() {
 async function goToPreviousPage() {
     if (currentPage > 1) {
         currentPage--;
-        await loadCustomers();
+        await loadCustomers('prev');
     }
 }
 
@@ -362,7 +399,7 @@ async function goToNextPage() {
     const totalPages = Math.ceil(totalCustomers / pageSize);
     if (currentPage < totalPages) {
         currentPage++;
-        await loadCustomers();
+        await loadCustomers('next');
     }
 }
 
@@ -370,6 +407,8 @@ async function goToNextPage() {
 async function handlePageSizeChange(e) {
     pageSize = parseInt(e.target.value);
     currentPage = 1;
+    lastVisible = null;
+    firstVisible = null;
     await loadCustomers();
 }
 
@@ -432,10 +471,10 @@ function createCustomerRow(customer) {
                 <button class="icon-btn view" onclick="openTransactionHistory('${customer.id}', '${escapeHtml(customer.phone || '')}', '${escapeHtml(customer.name || '')}')" title="Lịch sử giao dịch">
                     <i data-lucide="receipt"></i>
                 </button>
-                <button class="icon-btn edit" onclick="openEditCustomerModal(${customer.id})" title="Sửa">
+                <button class="icon-btn edit" onclick="openEditCustomerModal('${customer.id}')" title="Sửa">
                     <i data-lucide="edit"></i>
                 </button>
-                <button class="icon-btn delete" onclick="deleteCustomer(${customer.id})" title="Xóa">
+                <button class="icon-btn delete" onclick="deleteCustomer('${customer.id}')" title="Xóa">
                     <i data-lucide="trash-2"></i>
                 </button>
             </div>
@@ -456,16 +495,15 @@ function getStatusClass(status) {
     return statusMap[status] || 'normal';
 }
 
-// Update statistics
+// Update statistics - load from entire database (runs in background)
 function updateStatistics() {
+    // Run in background, don't await
     loadTotalCountAndStats().catch(err => {
         console.error('Failed to update statistics:', err);
     });
 }
 
-/**
- * Search handler - PostgreSQL API search
- */
+// Search handler - server-side search across ALL 80k+ customers
 function handleSearch(e) {
     const searchTerm = e.target.value.trim();
 
@@ -474,13 +512,14 @@ function handleSearch(e) {
         clearTimeout(searchDebounceTimer);
     }
 
-    // Show instant feedback
+    // Show instant feedback that search is pending
     if (searchTerm !== '') {
+        // Show subtle loading indicator immediately
         const searchInput = document.getElementById('searchInput');
-        searchInput.style.borderColor = '#3b82f6';
+        searchInput.style.borderColor = '#3b82f6'; // Blue border to indicate processing
     }
 
-    // Debounce search
+    // Debounce search - reduced to 200ms for faster response
     searchDebounceTimer = setTimeout(async () => {
         currentSearchTerm = searchTerm;
 
@@ -499,43 +538,127 @@ function handleSearch(e) {
         // Reset border color
         const searchInput = document.getElementById('searchInput');
         searchInput.style.borderColor = '';
-    }, 200);
+    }, 200); // Reduced from 500ms to 200ms for faster search
 }
 
 /**
- * Search customers using PostgreSQL API
+ * 🆕 Server-side search across ALL customers in Firebase (80k+)
+ * Supports:
+ * - Phone number (exact match or prefix)
+ * - Name (prefix match)
+ * - Email (prefix match)
  */
 async function searchCustomers(searchTerm) {
     try {
         showLoading(true);
 
-        const statusFilter = document.getElementById('statusFilter').value;
+        // Detect search type
+        const isPhoneSearch = /^\d+$/.test(searchTerm); // Only digits = phone search
+        let query;
 
-        const startTime = Date.now();
-        const response = await API.searchCustomers(
-            searchTerm,
-            100,
-            statusFilter || null
-        );
-        const duration = Date.now() - startTime;
+        if (isPhoneSearch) {
+            // Phone search - exact match or prefix
+            // Try exact match first, then prefix
+            query = customersCollection
+                .where('phone', '>=', searchTerm)
+                .where('phone', '<=', searchTerm + '\uf8ff')
+                .limit(100);
+        } else {
+            // Name/Email search - case-insensitive prefix match
+            // Note: Firebase doesn't support full-text search, so we use prefix matching
+            const searchLower = searchTerm.toLowerCase();
+            const searchUpper = searchTerm.toUpperCase();
+            const searchCapitalized = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1).toLowerCase();
 
-        if (!response.success) {
-            throw new Error(response.message || 'Search failed');
+            // Try name search with different case variations
+            query = customersCollection
+                .orderBy('name')
+                .startAt(searchCapitalized)
+                .endAt(searchCapitalized + '\uf8ff')
+                .limit(100);
         }
 
-        customers = response.data || [];
-        filteredCustomers = [...customers];
+        const snapshot = await query.get();
 
+        if (snapshot.empty) {
+            // No results - try broader search
+            if (!isPhoneSearch) {
+                // For name search, also try lowercase
+                const searchLower = searchTerm.toLowerCase();
+                const queryLower = customersCollection
+                    .orderBy('name')
+                    .startAt(searchLower)
+                    .endAt(searchLower + '\uf8ff')
+                    .limit(100);
+
+                const snapshotLower = await queryLower.get();
+
+                if (snapshotLower.empty) {
+                    customers = [];
+                    filteredCustomers = [];
+                    renderCustomers();
+                    updatePaginationUI();
+                    showEmptyState(true);
+                    showLoading(false);
+                    showNotification(`Không tìm thấy khách hàng: "${searchTerm}"`, 'info');
+                    return;
+                }
+
+                // Process lowercase results
+                customers = [];
+                snapshotLower.forEach(doc => {
+                    customers.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+            } else {
+                customers = [];
+                filteredCustomers = [];
+                renderCustomers();
+                updatePaginationUI();
+                showEmptyState(true);
+                showLoading(false);
+                showNotification(`Không tìm thấy SĐT: "${searchTerm}"`, 'info');
+                return;
+            }
+        } else {
+            // Process search results
+            customers = [];
+            snapshot.forEach(doc => {
+                customers.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+        }
+
+        // Apply additional client-side filtering for broader matches
+        if (!isPhoneSearch) {
+            // For name search, also check email and address
+            const searchLower = searchTerm.toLowerCase();
+            customers = customers.filter(customer => {
+                return (
+                    (customer.name || '').toLowerCase().includes(searchLower) ||
+                    (customer.email || '').toLowerCase().includes(searchLower) ||
+                    (customer.address || '').toLowerCase().includes(searchLower)
+                );
+            });
+        }
+
+        filteredCustomers = [...customers];
         renderCustomers();
         updatePaginationUI();
-        showEmptyState(customers.length === 0);
+        showEmptyState(false);
         showLoading(false);
 
-        console.log(`[SEARCH] ✅ Found ${customers.length} customers in ${duration}ms`);
-
-        if (customers.length === 0) {
-            showNotification(`Không tìm thấy khách hàng: "${searchTerm}"`, 'info');
-        }
+        // Don't show success notification - user can see results in table
+        // Only log to console
+        console.log('[SEARCH] ✅ Found customers:', {
+            searchTerm,
+            count: customers.length,
+            type: isPhoneSearch ? 'phone' : 'name'
+        });
 
     } catch (error) {
         console.error('[SEARCH] Error:', error);
@@ -546,19 +669,31 @@ async function searchCustomers(searchTerm) {
 
 // Filter handler
 function handleFilter() {
-    if (isSearching && currentSearchTerm) {
-        // Re-search with new filter
-        searchCustomers(currentSearchTerm);
-    } else {
-        // Reload with new filter
-        currentPage = 1;
-        loadCustomers();
+    applyStatusFilter();
+}
+
+// Apply status filter (works with both search and pagination)
+function applyStatusFilter() {
+    const statusFilter = document.getElementById('statusFilter').value;
+
+    // IMPORTANT: Do NOT do search here - search is handled by searchCustomers()
+    // This function ONLY filters by status
+
+    let result = customers;
+
+    if (statusFilter !== '') {
+        result = result.filter(customer => {
+            return (customer.status || 'Bình thường') === statusFilter;
+        });
     }
+
+    filteredCustomers = result;
+    renderCustomers();
 }
 
 // Open add customer modal
 function openAddCustomerModal() {
-    editingCustomer = null;
+    editingCustomerId = null;
     document.getElementById('modalTitle').textContent = 'Thêm Khách Hàng';
     document.getElementById('customerForm').reset();
     document.getElementById('customerId').value = '';
@@ -568,15 +703,14 @@ function openAddCustomerModal() {
 }
 
 // Open edit customer modal
-async function openEditCustomerModal(customerId) {
+function openEditCustomerModal(customerId) {
+    editingCustomerId = customerId;
     const customer = customers.find(c => c.id === customerId);
 
     if (!customer) {
         showNotification('Không tìm thấy khách hàng', 'error');
         return;
     }
-
-    editingCustomer = customer;
 
     document.getElementById('modalTitle').textContent = 'Sửa Thông Tin Khách Hàng';
     document.getElementById('customerId').value = customer.id;
@@ -596,7 +730,7 @@ async function openEditCustomerModal(customerId) {
 function closeCustomerModal() {
     document.getElementById('customerModal').classList.remove('active');
     document.getElementById('customerForm').reset();
-    editingCustomer = null;
+    editingCustomerId = null;
 }
 
 // Handle customer form submit
@@ -611,29 +745,20 @@ async function handleCustomerSubmit(e) {
         email: document.getElementById('customerEmail').value.trim(),
         address: document.getElementById('customerAddress').value.trim(),
         debt: parseFloat(document.getElementById('customerDebt').value) || 0,
-        active: document.getElementById('customerActive').checked
+        active: document.getElementById('customerActive').checked,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
 
     try {
-        if (editingCustomer) {
+        if (editingCustomerId) {
             // Update existing customer
-            const response = await API.updateCustomer(editingCustomer.id, customerData);
-
-            if (!response.success) {
-                throw new Error(response.message || 'Update failed');
-            }
-
+            await customersCollection.doc(editingCustomerId).update(customerData);
             showNotification('Cập nhật khách hàng thành công', 'success');
         } else {
             // Add new customer
-            const response = await API.createCustomer(customerData);
-
-            if (!response.success) {
-                throw new Error(response.message || 'Create failed');
-            }
-
+            customerData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await customersCollection.add(customerData);
             showNotification('Thêm khách hàng thành công', 'success');
-            updateStatistics(); // Update stats in background
         }
 
         closeCustomerModal();
@@ -642,11 +767,14 @@ async function handleCustomerSubmit(e) {
         await clearCache(CACHE_KEY);
         await clearCache(STATS_CACHE_KEY);
 
-        // Reload
-        await loadCustomers(true);
+        // Update statistics in background if adding new customer
+        if (!editingCustomerId) {
+            updateStatistics();
+        }
+        await loadCustomers('next', true);
     } catch (error) {
         console.error('Error saving customer:', error);
-        showNotification(error.message || 'Lỗi khi lưu khách hàng', 'error');
+        showNotification('Lỗi khi lưu khách hàng', 'error');
     }
 }
 
@@ -659,23 +787,18 @@ async function deleteCustomer(customerId) {
     }
 
     try {
-        const response = await API.deleteCustomer(customerId, false); // Soft delete
-
-        if (!response.success) {
-            throw new Error(response.message || 'Delete failed');
-        }
-
+        await customersCollection.doc(customerId).delete();
         showNotification('Xóa khách hàng thành công', 'success');
 
         // Clear cache
         await clearCache(CACHE_KEY);
         await clearCache(STATS_CACHE_KEY);
 
-        updateStatistics();
-        await loadCustomers(true);
+        updateStatistics(); // Update in background
+        await loadCustomers('next', true);
     } catch (error) {
         console.error('Error deleting customer:', error);
-        showNotification(error.message || 'Lỗi khi xóa khách hàng', 'error');
+        showNotification('Lỗi khi xóa khách hàng', 'error');
     }
 }
 
@@ -777,18 +900,23 @@ function processExcelFile(file) {
 function detectCarrier(phone) {
     const phoneClean = phone.replace(/\D/g, '');
 
+    // Viettel prefixes
     if (/^(086|096|097|098|032|033|034|035|036|037|038|039)/.test(phoneClean)) {
         return 'Viettel';
     }
+    // Vinaphone prefixes
     if (/^(088|091|094|083|084|085|081|082)/.test(phoneClean)) {
         return 'Vinaphone';
     }
+    // Mobifone prefixes
     if (/^(089|090|093|070|079|077|076|078)/.test(phoneClean)) {
         return 'Mobifone';
     }
+    // Vietnamobile prefixes
     if (/^(092|056|058)/.test(phoneClean)) {
         return 'Vietnamobile';
     }
+    // Gmobile prefixes
     if (/^(099|059)/.test(phoneClean)) {
         return 'Gmobile';
     }
@@ -831,24 +959,43 @@ async function handleImportConfirm() {
     confirmBtn.textContent = 'Đang import...';
 
     try {
-        const response = await API.batchCreateCustomers(importData);
+        let batch = db.batch();
+        let count = 0;
 
-        if (!response.success) {
-            throw new Error(response.message || 'Batch import failed');
+        for (const customer of importData) {
+            const docRef = customersCollection.doc();
+            batch.set(docRef, {
+                ...customer,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            count++;
+
+            // Firestore batch limit is 500
+            if (count % 500 === 0) {
+                await batch.commit();
+                batch = db.batch(); // Create new batch after commit
+            }
         }
 
-        showNotification(`Import thành công ${response.data.success}/${importData.length} khách hàng`, 'success');
+        // Commit remaining
+        if (count % 500 !== 0) {
+            await batch.commit();
+        }
+
+        showNotification(`Import thành công ${importData.length} khách hàng`, 'success');
         closeImportModal();
 
         // Clear cache
         await clearCache(CACHE_KEY);
         await clearCache(STATS_CACHE_KEY);
 
-        updateStatistics();
-        await loadCustomers(true);
+        updateStatistics(); // Update in background
+        await loadCustomers('next', true);
     } catch (error) {
         console.error('Error importing customers:', error);
-        showNotification(error.message || 'Lỗi khi import khách hàng', 'error');
+        showNotification('Lỗi khi import khách hàng', 'error');
     } finally {
         confirmBtn.disabled = false;
         confirmBtn.innerHTML = '<i data-lucide="check"></i> Xác nhận Import';
@@ -885,12 +1032,13 @@ function exportToExcel() {
 }
 
 // ============================================
-// TPOS API SYNCHRONIZATION (Keep unchanged)
+// TPOS API SYNCHRONIZATION
 // ============================================
 
-// Get TPOS access token
+// Get TPOS access token (cached by Cloudflare Worker)
 async function getTPOSToken() {
     try {
+        // Check if we have a valid cached token
         if (tposAccessToken) {
             return tposAccessToken;
         }
@@ -912,12 +1060,14 @@ async function getTPOSToken() {
             throw new Error('No access_token in response');
         }
 
+        // Cache token
         tposAccessToken = tokenData.access_token;
 
+        // Clear cache before token expires (expires_in is in seconds)
         if (tokenData.expires_in) {
             setTimeout(() => {
                 tposAccessToken = null;
-            }, (tokenData.expires_in - 300) * 1000);
+            }, (tokenData.expires_in - 300) * 1000); // Refresh 5 min before expiry
         }
 
         console.log('✅ TPOS token obtained');
@@ -931,6 +1081,7 @@ async function getTPOSToken() {
 // Fetch customers from TPOS API
 async function fetchTPOSCustomers(skip = 0, top = 100) {
     try {
+        // Get access token first
         const token = await getTPOSToken();
 
         const url = `${TPOS_API_URL}?Type=Customer&Active=true&$skip=${skip}&$top=${top}&$orderby=DateCreated+desc&$count=true`;
@@ -945,6 +1096,7 @@ async function fetchTPOSCustomers(skip = 0, top = 100) {
         });
 
         if (!response.ok) {
+            // If 401, clear token cache and retry once
             if (response.status === 401 && tposAccessToken) {
                 console.log('Token expired, refreshing...');
                 tposAccessToken = null;
@@ -984,10 +1136,12 @@ async function fetchTPOSCustomers(skip = 0, top = 100) {
     }
 }
 
-// Map TPOS customer to API format
-function mapTPOSToAPI(tposCustomer) {
+// Map TPOS customer to Firestore format
+function mapTPOSToFirestore(tposCustomer) {
+    // Detect carrier from phone
     const carrier = detectCarrier(tposCustomer.Phone || '');
 
+    // Map status
     let status = 'Bình thường';
     if (tposCustomer.Status) {
         const statusLower = tposCustomer.Status.toLowerCase();
@@ -1003,7 +1157,7 @@ function mapTPOSToAPI(tposCustomer) {
     }
 
     return {
-        tpos_id: tposCustomer.Id,
+        tposId: tposCustomer.Id,
         name: tposCustomer.Name || '',
         phone: (tposCustomer.Phone || '').trim(),
         email: tposCustomer.Email || '',
@@ -1012,7 +1166,7 @@ function mapTPOSToAPI(tposCustomer) {
         status: status,
         debt: parseFloat(tposCustomer.Credit || 0) || 0,
         active: tposCustomer.IsActive !== false,
-        tpos_data: {
+        tposData: {
             code: tposCustomer.Code,
             createdDate: tposCustomer.CreatedDate,
             modifiedDate: tposCustomer.ModifiedDate
@@ -1020,20 +1174,22 @@ function mapTPOSToAPI(tposCustomer) {
     };
 }
 
-// Check if customer exists by phone
+// Check if customer already exists by phone
 async function customerExists(phone) {
     try {
-        if (!phone) return false;
+        if (!phone) {
+            return false;
+        }
 
-        const response = await API.searchCustomers(phone, 1);
-        return response.success && response.count > 0;
+        const phoneQuery = await customersCollection.where('phone', '==', phone).limit(1).get();
+        return !phoneQuery.empty;
     } catch (error) {
         console.error('Error checking customer existence:', error);
         return false;
     }
 }
 
-// Sync customers from TPOS
+// Sync customers from TPOS (fetch 100 newest only)
 async function syncFromTPOS() {
     if (isSyncing) {
         showNotification('Đang đồng bộ, vui lòng đợi...', 'warning');
@@ -1051,6 +1207,7 @@ async function syncFromTPOS() {
     try {
         showNotification('Bắt đầu đồng bộ từ TPOS...', 'info');
 
+        // Fetch only 100 newest customers from TPOS
         const result = await fetchTPOSCustomers(0, 100);
 
         if (!result.customers || result.customers.length === 0) {
@@ -1060,47 +1217,72 @@ async function syncFromTPOS() {
 
         console.log(`Fetched ${result.customers.length} customers from TPOS`);
 
-        const newCustomers = [];
+        let batch = db.batch();
+        let batchCount = 0;
+        let newCustomersCount = 0;
 
+        // Process each customer
         for (const tposCustomer of result.customers) {
+            // Skip if no phone number
             if (!tposCustomer.Phone || !tposCustomer.Phone.trim()) {
                 continue;
             }
 
+            // Check if customer already exists by phone
             const exists = await customerExists(tposCustomer.Phone);
 
             if (exists) {
+                // Gặp duplicate → DỪNG NGAY
                 console.log(`Duplicate found, stopping sync: ${tposCustomer.Name} (${tposCustomer.Phone})`);
                 break;
             }
 
-            newCustomers.push(mapTPOSToAPI(tposCustomer));
+            // Map and add new customer
+            const customerData = mapTPOSToFirestore(tposCustomer);
+            const docRef = customersCollection.doc();
+            batch.set(docRef, {
+                ...customerData,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            batchCount++;
+            newCustomersCount++;
+
+            // Commit batch every 500 documents
+            if (batchCount >= 500) {
+                await batch.commit();
+                console.log(`Committed batch of ${batchCount} customers`);
+                batch = db.batch();
+                batchCount = 0;
+            }
         }
 
-        if (newCustomers.length === 0) {
-            showNotification('Không có khách hàng mới để đồng bộ', 'info');
-            return;
+        // Commit remaining customers
+        if (batchCount > 0) {
+            await batch.commit();
+            console.log(`Committed final batch of ${batchCount} customers`);
         }
 
-        // Batch create using API
-        const response = await API.batchCreateCustomers(newCustomers);
-
-        if (!response.success) {
-            throw new Error(response.message || 'Sync failed');
-        }
-
+        // Save sync timestamp
         localStorage.setItem('lastTPOSSync', new Date().toISOString());
 
-        showNotification(`Đồng bộ thành công ${response.data.success} khách hàng mới từ TPOS`, 'success');
+        if (newCustomersCount > 0) {
+            showNotification(`Đồng bộ thành công ${newCustomersCount} khách hàng mới từ TPOS`, 'success');
 
-        // Clear cache and reload
-        await clearCache(CACHE_KEY);
-        await clearCache(STATS_CACHE_KEY);
+            // Clear cache
+            await clearCache(CACHE_KEY);
+            await clearCache(STATS_CACHE_KEY);
 
-        updateStatistics();
-        currentPage = 1;
-        await loadCustomers(true);
-
+            // Reload data
+            updateStatistics(); // Update in background
+            currentPage = 1;
+            lastVisible = null;
+            firstVisible = null;
+            await loadCustomers('next', true);
+        } else {
+            showNotification('Không có khách hàng mới để đồng bộ', 'info');
+        }
     } catch (error) {
         console.error('Error syncing from TPOS:', error);
         showNotification('Lỗi khi đồng bộ từ TPOS: ' + error.message, 'error');
@@ -1120,6 +1302,7 @@ async function autoSyncFromTPOS() {
         const lastSync = localStorage.getItem('lastTPOSSync');
         const now = new Date();
 
+        // Auto-sync if never synced or last sync was more than 1 hour ago
         if (!lastSync) {
             console.log('No previous sync found, skipping auto-sync');
             return;
@@ -1148,6 +1331,7 @@ function showEmptyState(show) {
 }
 
 function showNotification(message, type = 'info') {
+    // Use common-utils if available
     if (window.showFloatingNotification) {
         window.showFloatingNotification(message, type);
     } else {
@@ -1166,36 +1350,50 @@ function escapeHtml(text) {
 }
 
 // =====================================================
-// TRANSACTION HISTORY INTEGRATION (Keep unchanged)
+// 🆕 TRANSACTION HISTORY INTEGRATION (Phase 2)
 // =====================================================
 
 const BALANCE_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
+/**
+ * Open transaction history modal for a customer
+ */
 async function openTransactionHistory(customerId, phone, name) {
     if (!phone) {
         showNotification('Khách hàng chưa có số điện thoại', 'error');
         return;
     }
 
+    // Show modal
     const modal = document.getElementById('transactionHistoryModal');
     modal.classList.add('active');
 
+    // Set customer name
     document.getElementById('txHistoryCustomerName').textContent = name || phone;
 
+    // Show loading state
     document.getElementById('txLoadingState').style.display = 'block';
     document.getElementById('txEmptyState').style.display = 'none';
     document.getElementById('txTableContainer').style.display = 'none';
 
+    // Load transaction history
     await loadTransactionHistory(phone);
 
+    // Re-init icons
     lucide.createIcons();
 }
 
+/**
+ * Close transaction history modal
+ */
 function closeTransactionHistoryModal() {
     const modal = document.getElementById('transactionHistoryModal');
     modal.classList.remove('active');
 }
 
+/**
+ * Load transaction history from API
+ */
 async function loadTransactionHistory(phone) {
     try {
         const response = await fetch(`${BALANCE_API_URL}/api/sepay/transactions-by-phone?phone=${encodeURIComponent(phone)}&limit=100`);
@@ -1206,25 +1404,41 @@ async function loadTransactionHistory(phone) {
 
         const result = await response.json();
 
+        // Hide loading state
         document.getElementById('txLoadingState').style.display = 'none';
 
         if (!result.success || result.data.length === 0) {
+            // Show empty state
             document.getElementById('txEmptyState').style.display = 'block';
             return;
         }
 
+        // Update statistics
         updateTransactionStats(result.statistics);
+
+        // Render transactions table
         renderTransactionTable(result.data);
+
+        // Show table
         document.getElementById('txTableContainer').style.display = 'block';
 
     } catch (error) {
         console.error('[TRANSACTION-HISTORY] Error loading:', error);
+
+        // Hide loading state
         document.getElementById('txLoadingState').style.display = 'none';
+
+        // Show error message
         showNotification('Không thể tải lịch sử giao dịch', 'error');
+
+        // Close modal
         setTimeout(() => closeTransactionHistoryModal(), 2000);
     }
 }
 
+/**
+ * Update transaction statistics
+ */
 function updateTransactionStats(stats) {
     document.getElementById('txTotalIn').textContent = formatCurrency(stats.total_in);
     document.getElementById('txTotalInCount').textContent = `${stats.total_in_count} giao dịch`;
@@ -1236,6 +1450,9 @@ function updateTransactionStats(stats) {
     document.getElementById('txTotalCount').textContent = `${stats.total_transactions} giao dịch`;
 }
 
+/**
+ * Render transactions table
+ */
 function renderTransactionTable(transactions) {
     const tbody = document.getElementById('txTableBody');
     tbody.innerHTML = '';
@@ -1264,6 +1481,9 @@ function renderTransactionTable(transactions) {
     });
 }
 
+/**
+ * Format transaction date
+ */
 function formatTransactionDate(dateString) {
     if (!dateString) return '-';
 
@@ -1272,6 +1492,7 @@ function formatTransactionDate(dateString) {
     const diffMs = now - date;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
 
+    // If within 24 hours, show relative time
     if (diffHours < 24) {
         if (diffHours < 1) {
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
@@ -1280,6 +1501,7 @@ function formatTransactionDate(dateString) {
         return `${diffHours} giờ trước`;
     }
 
+    // Otherwise show formatted date
     return date.toLocaleString('vi-VN', {
         year: 'numeric',
         month: '2-digit',
@@ -1289,6 +1511,9 @@ function formatTransactionDate(dateString) {
     });
 }
 
+/**
+ * Format currency (VND)
+ */
 function formatCurrency(amount) {
     if (!amount && amount !== 0) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', {
