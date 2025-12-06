@@ -3,11 +3,12 @@
  * Centralized API endpoint management
  */
 
-// API Base URL (via Cloudflare Worker proxy for CORS)
-const API_BASE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+// API Base URL (Render.com backend)
+const API_BASE_URL = 'https://n2shop-api.onrender.com';
 
-// Direct Render.com backend (fallback)
-// const API_BASE_URL = 'https://n2store-fallback.onrender.com';
+// Fallback to local development
+// Uncomment for local testing:
+// const API_BASE_URL = 'http://localhost:3000';
 
 // API Endpoints
 const API_ENDPOINTS = {
