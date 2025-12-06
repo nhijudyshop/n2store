@@ -533,10 +533,6 @@ async function searchCustomers(searchTerm) {
 
         console.log(`[SEARCH] ✅ Found ${customers.length} customers in ${duration}ms`);
 
-        if (customers.length === 0) {
-            showNotification(`Không tìm thấy khách hàng: "${searchTerm}"`, 'info');
-        }
-
     } catch (error) {
         console.error('[SEARCH] Error:', error);
         showNotification('Lỗi khi tìm kiếm khách hàng', 'error');
