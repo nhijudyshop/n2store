@@ -10,14 +10,52 @@
 const CustomerInfoManager = {
     STORAGE_KEY: 'balance_history_customer_info',
     API_BASE_URL: null, // Will be set from CONFIG
+    firebaseDb: null, // Firebase Firestore instance
+    customersCollection: null, // Firebase customers collection
 
     /**
      * Initialize the manager
      */
     init() {
         this.API_BASE_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+        // Initialize Firebase
+        this.initFirebase();
+
         // Load data from database on init
         this.syncFromDatabase();
+    },
+
+    /**
+     * Initialize Firebase Firestore
+     */
+    initFirebase() {
+        try {
+            // Check if Firebase is available
+            if (typeof firebase === 'undefined') {
+                console.error('[CUSTOMER-INFO] Firebase not loaded');
+                return;
+            }
+
+            // Check if Firebase config is available
+            if (!window.FIREBASE_CONFIG) {
+                console.error('[CUSTOMER-INFO] Firebase config not found');
+                return;
+            }
+
+            // Initialize Firebase if not already initialized
+            if (!firebase.apps.length) {
+                firebase.initializeApp(window.FIREBASE_CONFIG);
+                console.log('[CUSTOMER-INFO] ✅ Firebase initialized');
+            }
+
+            // Get Firestore instance
+            this.firebaseDb = firebase.firestore();
+            this.customersCollection = this.firebaseDb.collection('customers');
+            console.log('[CUSTOMER-INFO] ✅ Firebase Firestore ready');
+        } catch (error) {
+            console.error('[CUSTOMER-INFO] Firebase initialization failed:', error);
+        }
     },
 
     /**
@@ -126,6 +164,11 @@ const CustomerInfoManager = {
 
             if (result.success) {
                 console.log('[CUSTOMER-INFO] ✅ Saved to database:', uniqueCode);
+
+                // 🆕 SYNC TO FIREBASE (Phase 1)
+                // After saving to PostgreSQL, sync to Firebase customer-management
+                await this.syncToFirebase(customerInfo);
+
                 return true;
             } else {
                 console.error('[CUSTOMER-INFO] Failed to save to database:', result.error);
@@ -136,6 +179,107 @@ const CustomerInfoManager = {
             // Still return true since we saved to localStorage
             return true;
         }
+    },
+
+    /**
+     * 🆕 Sync customer info to Firebase (for customer-management integration)
+     * ONLY maps existing customers - does NOT create new ones
+     * @param {Object} customerInfo - Customer information
+     * @param {string} customerInfo.name - Customer name
+     * @param {string} customerInfo.phone - Customer phone
+     */
+    async syncToFirebase(customerInfo) {
+        // Skip if Firebase is not initialized
+        if (!this.customersCollection) {
+            console.warn('[CUSTOMER-INFO] ⚠️ Firebase not initialized, skipping sync');
+            return;
+        }
+
+        // Skip if no phone number (required for mapping)
+        if (!customerInfo.phone) {
+            console.warn('[CUSTOMER-INFO] ⚠️ No phone number, skipping Firebase sync');
+            return;
+        }
+
+        try {
+            // Check if customer exists in Firebase by phone number
+            // Note: Searching in 80,000+ customers - ensure 'phone' field is indexed
+            const querySnapshot = await this.customersCollection
+                .where('phone', '==', customerInfo.phone)
+                .limit(1)
+                .get();
+
+            if (!querySnapshot.empty) {
+                // Customer exists → Update mapping information
+                const existingDoc = querySnapshot.docs[0];
+                const existingData = existingDoc.data();
+                const updateData = {
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                // Only update name if it's provided and different
+                if (customerInfo.name && customerInfo.name !== existingData.name) {
+                    updateData.name = customerInfo.name;
+                }
+
+                // Add metadata about balance-history sync
+                updateData.lastSyncFrom = 'balance-history';
+                updateData.lastSyncAt = firebase.firestore.FieldValue.serverTimestamp();
+
+                await existingDoc.ref.update(updateData);
+
+                console.log('[CUSTOMER-INFO] ✅ Updated existing customer in Firebase:', {
+                    id: existingDoc.id,
+                    phone: customerInfo.phone,
+                    name: customerInfo.name,
+                    previousName: existingData.name
+                });
+            } else {
+                // Customer NOT found → Only log warning, DO NOT create new
+                console.warn('[CUSTOMER-INFO] ⚠️ Customer not found in Firebase (phone: ' + customerInfo.phone + '). Skipping sync. Customer must be created in customer-management first.');
+            }
+        } catch (error) {
+            console.error('[CUSTOMER-INFO] ❌ Failed to sync to Firebase:', error);
+            // Don't throw error - sync is optional
+        }
+    },
+
+    /**
+     * Detect phone carrier from phone number
+     * @param {string} phone - Phone number
+     * @returns {string} Carrier name
+     */
+    detectCarrier(phone) {
+        if (!phone) return '';
+
+        const phoneStr = phone.replace(/\D/g, ''); // Remove non-digits
+
+        // Viettel: 086, 096, 097, 098, 032, 033, 034, 035, 036, 037, 038, 039
+        if (/^(086|096|097|098|032|033|034|035|036|037|038|039)/.test(phoneStr)) {
+            return 'Viettel';
+        }
+
+        // Vinaphone: 088, 091, 094, 083, 084, 085, 081, 082
+        if (/^(088|091|094|083|084|085|081|082)/.test(phoneStr)) {
+            return 'Vinaphone';
+        }
+
+        // Mobifone: 089, 090, 093, 070, 079, 077, 076, 078
+        if (/^(089|090|093|070|079|077|076|078)/.test(phoneStr)) {
+            return 'Mobifone';
+        }
+
+        // Vietnamobile: 092, 056, 058
+        if (/^(092|056|058)/.test(phoneStr)) {
+            return 'Vietnamobile';
+        }
+
+        // Gmobile: 099, 059
+        if (/^(099|059)/.test(phoneStr)) {
+            return 'Gmobile';
+        }
+
+        return 'Khác';
     },
 
     /**

@@ -318,6 +318,10 @@ export default {
         // Sepay Webhook & Balance History (Render)
         const sepayPath = pathname.replace(/^\/api\/sepay\//, '');
         targetUrl = `https://n2store-fallback.onrender.com/api/sepay/${sepayPath}${url.search}`;
+      } else if (pathname.startsWith('/api/customers/') || pathname === '/api/customers') {
+        // Customers API (Render) - PostgreSQL backend
+        const customersPath = pathname.replace(/^\/api\/customers\/?/, '');
+        targetUrl = `https://n2store-fallback.onrender.com/api/customers/${customersPath}${url.search}`;
       } else if (pathname.startsWith('/api/')) {
         // TPOS API (catch-all)
         const apiPath = pathname.replace(/^\/api\//, '');

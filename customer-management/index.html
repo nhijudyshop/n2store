@@ -117,7 +117,7 @@
             <div class="search-container">
                 <div class="search-box">
                     <i data-lucide="search"></i>
-                    <input type="text" id="searchInput" placeholder="Tìm kiếm trong trang hiện tại (tên, số điện thoại, địa chỉ...)">
+                    <input type="text" id="searchInput" placeholder="🔍 Tìm kiếm toàn bộ 80k+ khách hàng (tên, SĐT, email...)">
                 </div>
                 <div class="filter-box">
                     <select id="statusFilter">
@@ -131,8 +131,8 @@
                 </div>
             </div>
             <div class="info-message">
-                <i data-lucide="info"></i>
-                <span>Lưu ý: Tìm kiếm và lọc chỉ áp dụng cho khách hàng trong trang hiện tại. Dùng phân trang để xem thêm.</span>
+                <i data-lucide="zap"></i>
+                <span>✨ Tìm kiếm server-side: Tìm trong TOÀN BỘ 80,000+ khách hàng. SĐT (exact/prefix), Tên (prefix), Email. Kết quả giới hạn 100 khách.</span>
             </div>
 
             <!-- Customer Table -->
@@ -326,11 +326,98 @@
         </div>
     </div>
 
+    <!-- 🆕 Transaction History Modal -->
+    <div id="transactionHistoryModal" class="modal-overlay">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>
+                    <i data-lucide="receipt"></i>
+                    Lịch sử giao dịch - <span id="txHistoryCustomerName"></span>
+                </h2>
+                <button class="modal-close" onclick="closeTransactionHistoryModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Statistics Cards -->
+                <div class="stats-container" id="txStatsContainer" style="margin-bottom: 20px;">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-blue">
+                            <i data-lucide="arrow-down"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Tổng tiền vào</h3>
+                            <p class="stat-value" id="txTotalIn">0 ₫</p>
+                            <small id="txTotalInCount">0 giao dịch</small>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon stat-red">
+                            <i data-lucide="arrow-up"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Tổng tiền ra</h3>
+                            <p class="stat-value" id="txTotalOut">0 ₫</p>
+                            <small id="txTotalOutCount">0 giao dịch</small>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon stat-green">
+                            <i data-lucide="scale"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Chênh lệch</h3>
+                            <p class="stat-value" id="txNetChange">0 ₫</p>
+                            <small id="txTotalCount">0 giao dịch</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="txLoadingState" class="loading-state" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Đang tải lịch sử giao dịch...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div id="txEmptyState" class="empty-state" style="display: none;">
+                    <i data-lucide="inbox"></i>
+                    <p>Chưa có giao dịch nào</p>
+                </div>
+
+                <!-- Transactions Table -->
+                <div id="txTableContainer" style="display: none;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ngày GD</th>
+                                <th>Mã GD</th>
+                                <th>Loại</th>
+                                <th>Số tiền</th>
+                                <th>Nội dung</th>
+                                <th>Cổng</th>
+                            </tr>
+                        </thead>
+                        <tbody id="txTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeTransactionHistoryModal()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase Config -->
     <script src="../js/firebase-config.js"></script>
     <script src="auth.js"></script>
     <script src="../js/navigation-modern.js"></script>
     <script src="../js/common-utils.js"></script>
+    <!-- API Configuration for PostgreSQL Backend -->
+    <script src="api-config.js"></script>
     <script src="main.js"></script>
 
     <script>

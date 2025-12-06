@@ -20,18 +20,19 @@ const QRGenerator = {
 
     /**
      * Generate a unique transaction code
-     * Format: Base36 encoded (timestamp + random) for uniqueness up to 1M+ accounts
-     * Example: "A1B2C3D4E5" (10 characters, supports 36^10 = 3.6 quadrillion combinations)
+     * Format: N2 + 16 characters (total 18 chars) - Base36 encoded for uniqueness
+     * Example: "N2ABCD1234EFGH5678" (18 characters fixed length)
      *
      * @param {string} prefix - Optional prefix for the code (default: "N2")
-     * @returns {string} Unique transaction code
+     * @returns {string} Unique transaction code (always 18 characters)
      */
     generateUniqueCode(prefix = 'N2') {
-        const timestamp = Date.now().toString(36).toUpperCase(); // Convert timestamp to base36
-        const random = Math.random().toString(36).substring(2, 8).toUpperCase(); // 6 random chars
-        const sequence = Math.floor(Math.random() * 1000).toString(36).toUpperCase().padStart(2, '0');
+        // Get timestamp and limit to last 8 characters for consistency
+        const timestamp = Date.now().toString(36).toUpperCase().slice(-8); // 8 chars
+        const random = Math.random().toString(36).substring(2, 8).toUpperCase(); // 6 chars
+        const sequence = Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0'); // 2 chars (36^2 = 1296)
 
-        return `${prefix}${timestamp}${random}${sequence}`;
+        return `${prefix}${timestamp}${random}${sequence}`; // N2 (2) + 8 + 6 + 2 = 18 chars
     },
 
     /**
