@@ -702,3 +702,56 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* =====================================================
+   PHONE LINK MAPPING STYLES
+   ===================================================== */
+
+/* Phone link styling for transaction history */
+.phone-link {
+    color: #3b82f6;
+    text-decoration: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.phone-link:hover {
+    background: #eff6ff;
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+.phone-link .phone {
+    color: inherit;
+}
+
+.phone-link i {
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.phone-link:hover i {
+    opacity: 1;
+}
+
+/* Customer phone column styling */
+.customer-phone {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.customer-phone .carrier {
+    font-size: 11px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 1px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 2px;
+}
