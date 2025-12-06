@@ -68,6 +68,193 @@
         }).format(amount);
     }
 
+    // =====================================================
+    // NOTE ENCODING/DECODING UTILITIES (for upload)
+    // =====================================================
+    const ENCODE_KEY = 'live';
+
+    /**
+     * Base64URL encode - compact format without padding
+     */
+    function base64UrlEncode(str) {
+        return btoa(String.fromCharCode(...new TextEncoder().encode(str)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+    }
+
+    /**
+     * Base64URL decode
+     */
+    function base64UrlDecode(str) {
+        const padding = '='.repeat((4 - str.length % 4) % 4);
+        const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + padding;
+        const binary = atob(base64);
+        return new TextDecoder().decode(
+            Uint8Array.from(binary, c => c.charCodeAt(0))
+        );
+    }
+
+    /**
+     * XOR encryption with key
+     */
+    function xorEncrypt(text, key) {
+        const textBytes = new TextEncoder().encode(text);
+        const keyBytes = new TextEncoder().encode(key);
+        const encrypted = new Uint8Array(textBytes.length);
+
+        for (let i = 0; i < textBytes.length; i++) {
+            encrypted[i] = textBytes[i] ^ keyBytes[i % keyBytes.length];
+        }
+
+        return btoa(String.fromCharCode(...encrypted));
+    }
+
+    /**
+     * XOR decryption with key
+     */
+    function xorDecrypt(encoded, key) {
+        const encrypted = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
+        const keyBytes = new TextEncoder().encode(key);
+        const decrypted = new Uint8Array(encrypted.length);
+
+        for (let i = 0; i < encrypted.length; i++) {
+            decrypted[i] = encrypted[i] ^ keyBytes[i % keyBytes.length];
+        }
+
+        return new TextDecoder().decode(decrypted);
+    }
+
+    /**
+     * Encode full note text - wrap in [""]
+     */
+    function encodeFullNote(text) {
+        if (!text || text.trim() === '') return '';
+
+        const encrypted = xorEncrypt(text, ENCODE_KEY);
+        const encoded = base64UrlEncode(encrypted);
+
+        // Wrap in [""] for easy identification
+        return `["${encoded}"]`;
+    }
+
+    /**
+     * Decode full note text - extract from [""] if present
+     */
+    function decodeFullNote(encoded) {
+        if (!encoded || encoded.trim() === '') return null;
+
+        try {
+            let encodedString = encoded.trim();
+
+            // Extract from [""] wrapper if present
+            const wrapperMatch = encodedString.match(/^\["(.+)"\]$/);
+            if (wrapperMatch) {
+                encodedString = wrapperMatch[1];
+            }
+
+            const decrypted = base64UrlDecode(encodedString);
+            const text = xorDecrypt(decrypted, ENCODE_KEY);
+
+            return text;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    /**
+     * Extract plain text and encoded content from note
+     */
+    function extractNoteComponents(note) {
+        if (!note || note.trim() === '') {
+            return { plainText: '', encodedContent: null };
+        }
+
+        const wrapperMatch = note.match(/\["([A-Za-z0-9\-_]+)"\]/);
+
+        if (wrapperMatch) {
+            const encodedContent = wrapperMatch[0];
+            const plainText = note.replace(encodedContent, '').trim();
+            return { plainText, encodedContent };
+        }
+
+        return { plainText: note.trim(), encodedContent: null };
+    }
+
+    /**
+     * Build product info lines from products array
+     */
+    function buildProductNoteLines(products) {
+        if (!products || products.length === 0) return '';
+
+        return products.map(p =>
+            `${p.productCode} - ${p.quantity} - ${p.price}`
+        ).join('\n');
+    }
+
+    /**
+     * Process note for upload: decode existing, add products, re-encode
+     */
+    function processNoteForUpload(currentNote, products) {
+        let plainTextOutside = '';
+        let decodedContent = '';
+
+        if (currentNote && currentNote.trim() !== '') {
+            const { plainText, encodedContent } = extractNoteComponents(currentNote);
+            plainTextOutside = plainText;
+
+            if (encodedContent) {
+                console.log('[NOTE] Found encoded content in [""], decoding...');
+                decodedContent = decodeFullNote(encodedContent) || '';
+            } else {
+                // Might be legacy encoded or plain text
+                const decoded = decodeFullNote(currentNote);
+                if (decoded) {
+                    console.log('[NOTE] Legacy encoded note, decoding...');
+                    decodedContent = decoded;
+                    plainTextOutside = '';
+                } else {
+                    // Plain text note
+                    decodedContent = currentNote;
+                    plainTextOutside = '';
+                }
+            }
+        }
+
+        // Build product lines
+        const productLines = buildProductNoteLines(products);
+
+        // Combine decoded content + new products
+        let contentToEncode = '';
+        if (decodedContent.trim() !== '' && productLines !== '') {
+            contentToEncode = `${decodedContent}\n${productLines}`;
+        } else if (decodedContent.trim() !== '') {
+            contentToEncode = decodedContent;
+        } else if (productLines !== '') {
+            contentToEncode = productLines;
+        }
+
+        console.log('[NOTE] Content to encode:\n', contentToEncode);
+
+        // Build final note
+        let finalNote = '';
+
+        if (contentToEncode.trim() !== '') {
+            const encoded = encodeFullNote(contentToEncode);
+            console.log('[NOTE] Encoded content length:', encoded.length);
+
+            if (plainTextOutside.trim() !== '') {
+                finalNote = `${plainTextOutside}\n${encoded}`;
+            } else {
+                finalNote = encoded;
+            }
+        } else if (plainTextOutside.trim() !== '') {
+            finalNote = plainTextOutside;
+        }
+
+        return finalNote;
+    }
+
     function showNotification(message, type = 'success') {
         const notification = document.createElement('div');
         notification.style.cssText = `
@@ -522,7 +709,10 @@
                     let noteText = item.orderInfo?.note || '';
                     try {
                         if (noteText && window.DecodingUtility) {
-                            // Try to extract plain text from decoded HTML (remove encoded parts)
+                            // Remove [""] encoded blocks first
+                            noteText = noteText.replace(/\["[A-Za-z0-9\-_]+"\]/g, '').trim();
+
+                            // Then filter out legacy encoded lines
                             const lines = noteText.split('\n');
                             const plainLines = lines.filter(line => {
                                 const trimmed = line.trim();
@@ -695,7 +885,10 @@
             let noteText = order.note || '';
             try {
                 if (noteText && window.DecodingUtility) {
-                    // Try to extract plain text from note (remove encoded parts)
+                    // Remove [""] encoded blocks first
+                    noteText = noteText.replace(/\["[A-Za-z0-9\-_]+"\]/g, '').trim();
+
+                    // Then filter out legacy encoded lines
                     const lines = noteText.split('\n');
                     const plainLines = lines.filter(line => {
                         const trimmed = line.trim();
@@ -2678,8 +2871,8 @@
                                         <thead><tr><th>Sản phẩm</th><th class="text-center">SL</th></tr></thead>
                                         <tbody>
                                             ${existingProducts.map(p => {
-                                                const willBeUpdated = productsWithStatus.some(ap => ap.productId === p.productId);
-                                                return `
+                const willBeUpdated = productsWithStatus.some(ap => ap.productId === p.productId);
+                return `
                                                     <tr class="${willBeUpdated ? 'table-warning' : ''}">
                                                         <td>
                                                             <div class="d-flex align-items-center gap-2">
@@ -2693,7 +2886,7 @@
                                                         <td class="text-center"><span class="badge bg-info">${p.quantity}</span></td>
                                                     </tr>
                                                 `;
-                                            }).join('')}
+            }).join('')}
                                         </tbody>
                                     </table>
                                 ` : '<div class="text-center text-muted py-3 border rounded"><i class="fas fa-inbox fa-2x mb-2"></i><p class="mb-0">Không có sản phẩm có sẵn</p><small>(Tất cả sản phẩm đều là mới)</small></div>'}
@@ -2850,6 +3043,47 @@
             });
             orderData.TotalQuantity = totalQty;
             orderData.TotalAmount = totalAmount;
+
+            // =====================================================
+            // ENCODE ORDER NOTE WITH PRODUCTS (NEW [""] format)
+            // Same logic as tab-upload-tpos.js
+            // =====================================================
+            // Build products list for encoding into note
+            // Get price from mergedDetails for each product
+            const productsForNote = [];
+
+            // Create a map from mergedDetails for price lookup
+            const priceByProductId = {};
+            mergedDetails.forEach(detail => {
+                const pid = detail.ProductId || detail.Product?.Id;
+                if (pid) {
+                    priceByProductId[pid] = detail.Price || 0;
+                }
+            });
+
+            // Build products list with actual prices
+            sessionData.products.forEach(p => {
+                const price = priceByProductId[p.productId] || 0;
+                productsForNote.push({
+                    productCode: p.productCode || p.productName || 'N/A',
+                    quantity: p.quantity || 1,
+                    price: price
+                });
+            });
+
+            if (productsForNote.length > 0) {
+                console.log(`[UPLOAD] 📝 Encoding ${productsForNote.length} products into order note...`);
+
+                // Get current order note
+                const currentNote = orderData.Note || '';
+
+                // Process note: decode existing → add products → encode with [""]
+                const encodedNote = processNoteForUpload(currentNote, productsForNote);
+
+                // Update order note
+                orderData.Note = encodedNote;
+                console.log(`[UPLOAD] ✅ Order note updated with encoded products`);
+            }
 
             // Prepare payload
             const payload = prepareUploadPayload(orderData);
@@ -3789,8 +4023,11 @@
      */
     function filterNonEncodedNotes(note) {
         if (!note) return '';
-        // Remove all strings matching encoded pattern (UPPERCASE letters/numbers at least 40 chars)
-        return note.replace(/[A-Z0-9]{40,}/g, '').trim();
+        // Remove [""] encoded blocks first
+        let cleaned = note.replace(/\[\"[A-Za-z0-9\-_]+\"\]/g, '');
+        // Remove legacy encoded pattern (UPPERCASE letters/numbers at least 40 chars)
+        cleaned = cleaned.replace(/[A-Z0-9]{40,}/g, '');
+        return cleaned.trim();
     }
 
     /**

@@ -290,7 +290,7 @@
     /**
      * Encode full note text (including newlines)
      * @param {string} text - Full note text to encode
-     * @returns {string} Base64URL encoded string
+     * @returns {string} Base64URL encoded string wrapped in [""]
      */
     function encodeFullNote(text) {
         if (!text || text.trim() === '') return '';
@@ -299,20 +299,31 @@
         const encrypted = xorEncrypt(text, ENCODE_KEY);
 
         // Base64URL encode (no padding, URL-safe)
-        return base64UrlEncode(encrypted);
+        const encoded = base64UrlEncode(encrypted);
+
+        // Wrap in [""] for easy identification
+        return `["${encoded}"]`;
     }
 
     /**
      * Decode full note text
-     * @param {string} encoded - Base64URL encoded string
+     * @param {string} encoded - Base64URL encoded string (may be wrapped in [""])
      * @returns {string|null} Decoded text or null if invalid
      */
     function decodeFullNote(encoded) {
         if (!encoded || encoded.trim() === '') return null;
 
         try {
+            let encodedString = encoded.trim();
+
+            // Extract from [""] wrapper if present
+            const wrapperMatch = encodedString.match(/^\["(.+)"\]$/);
+            if (wrapperMatch) {
+                encodedString = wrapperMatch[1];
+            }
+
             // Base64URL decode
-            const decrypted = base64UrlDecode(encoded);
+            const decrypted = base64UrlDecode(encodedString);
 
             // XOR decrypt
             const text = xorDecrypt(decrypted, ENCODE_KEY);
@@ -325,24 +336,30 @@
     }
 
     /**
-     * Check if note is encoded (full note encoding format)
+     * Check if note contains encoded content in [""] format
      * @param {string} note - Note text to check
-     * @returns {boolean} true if note appears to be encoded
+     * @returns {boolean} true if note contains [""] encoded content
      */
     function isNoteEncoded(note) {
         if (!note || note.trim() === '') return false;
 
-        // Check if it's a single line of Base64URL characters (no newlines, no spaces)
+        // Check for [""] wrapper pattern
+        const hasWrapper = /\["[A-Za-z0-9\-_]+"\]/.test(note);
+        if (hasWrapper) {
+            return true;
+        }
+
+        // Legacy check: single line of Base64URL characters (no newlines, no spaces)
         const trimmed = note.trim();
         const lines = trimmed.split('\n');
 
-        // If multiple lines, it's not encoded
+        // If multiple lines, it's not legacy encoded
         if (lines.length > 1) return false;
 
         // If contains normal readable text patterns, it's not encoded
         if (/[a-zA-Z]{3,}\s+[a-zA-Z]{3,}/.test(trimmed)) return false;
 
-        // Try to decode
+        // Try to decode (legacy format)
         const decoded = decodeFullNote(trimmed);
         return decoded !== null;
     }
@@ -361,48 +378,99 @@
     }
 
     /**
+     * Extract plain text and encoded content from note
+     * @param {string} note - Note text (may contain ["encoded"] part)
+     * @returns {object} { plainText: string, encodedContent: string|null }
+     */
+    function extractNoteComponents(note) {
+        if (!note || note.trim() === '') {
+            return { plainText: '', encodedContent: null };
+        }
+
+        // Match ["..."] pattern
+        const wrapperMatch = note.match(/\["([A-Za-z0-9\-_]+)"\]/);
+
+        if (wrapperMatch) {
+            // Extract encoded content
+            const encodedContent = wrapperMatch[0]; // Full match including [""]
+
+            // Remove encoded part from note to get plain text
+            const plainText = note.replace(encodedContent, '').trim();
+
+            return { plainText, encodedContent };
+        }
+
+        // No [""] wrapper found, all is plain text
+        return { plainText: note.trim(), encodedContent: null };
+    }
+
+    /**
      * Process note when uploading: decode if needed, append products, encode
-     * @param {string} currentNote - Current order note (may be encoded or plain text)
+     * Format: plain text stays outside, encoded content wrapped in [""]
+     * @param {string} currentNote - Current order note (may have plain text + ["encoded"] part)
      * @param {array} products - Array of { productCode, quantity, price } to append
-     * @returns {string} Final encoded note
+     * @returns {string} Final note with plain text + ["encoded_content"]
      */
     function processNoteForUpload(currentNote, products) {
-        // Step 1: Decode current note
-        let plainNote = '';
+        // Step 1: Extract components from current note
+        let plainTextOutside = '';
+        let decodedContent = '';
+
         if (currentNote && currentNote.trim() !== '') {
-            if (isNoteEncoded(currentNote)) {
-                // Full note is encoded → decode it
-                console.log('[NOTE] Current note is full-encoded, decoding...');
-                plainNote = decodeFullNote(currentNote) || '';
+            const { plainText, encodedContent } = extractNoteComponents(currentNote);
+
+            // Keep plain text that's outside [""]
+            plainTextOutside = plainText;
+
+            if (encodedContent) {
+                // Decode the ["encoded"] content
+                console.log('[NOTE] Found encoded content in [""], decoding...');
+                decodedContent = decodeFullNote(encodedContent) || '';
+            } else if (isNoteEncoded(currentNote)) {
+                // Legacy: entire note is encoded (old format without [""])
+                console.log('[NOTE] Legacy encoded note, decoding...');
+                decodedContent = decodeFullNote(currentNote) || '';
+                plainTextOutside = ''; // All was encoded
             } else {
                 // Note might have per-line encoded strings → decode each line
                 console.log('[NOTE] Decoding note line-by-line...');
-                plainNote = decodeNoteLineByLine(currentNote);
+                decodedContent = decodeNoteLineByLine(currentNote);
+                plainTextOutside = ''; // All was processed
             }
         }
 
         // Step 2: Build product lines
         const productLines = buildProductNoteLines(products);
 
-        // Step 3: Combine note + product info
-        let fullNote = '';
-        if (plainNote.trim() !== '' && productLines !== '') {
-            fullNote = `${plainNote}\n${productLines}`;
-        } else if (plainNote.trim() !== '') {
-            fullNote = plainNote;
+        // Step 3: Combine decoded content + new product info (to be encoded)
+        let contentToEncode = '';
+        if (decodedContent.trim() !== '' && productLines !== '') {
+            contentToEncode = `${decodedContent}\n${productLines}`;
+        } else if (decodedContent.trim() !== '') {
+            contentToEncode = decodedContent;
         } else if (productLines !== '') {
-            fullNote = productLines;
+            contentToEncode = productLines;
         }
 
-        console.log('[NOTE] Plain note content:\n', fullNote);
+        console.log('[NOTE] Content to encode:\n', contentToEncode);
 
-        // Step 4: Encode full note
-        if (fullNote.trim() === '') return '';
+        // Step 4: Build final note: plainTextOutside + ["encoded"]
+        let finalNote = '';
 
-        const encoded = encodeFullNote(fullNote);
-        console.log('[NOTE] Encoded note length:', encoded.length);
+        if (contentToEncode.trim() !== '') {
+            const encoded = encodeFullNote(contentToEncode);
+            console.log('[NOTE] Encoded content length:', encoded.length);
 
-        return encoded;
+            if (plainTextOutside.trim() !== '') {
+                finalNote = `${plainTextOutside}\n${encoded}`;
+            } else {
+                finalNote = encoded;
+            }
+        } else if (plainTextOutside.trim() !== '') {
+            finalNote = plainTextOutside;
+        }
+
+        return finalNote;
     }
 
     /**
@@ -983,7 +1051,7 @@ ${encodedString}
     }
 
     // Switch View Mode (order or product)
-    window.switchViewMode = function(mode) {
+    window.switchViewMode = function (mode) {
         if (mode === currentViewMode) return;
 
         currentViewMode = mode;
@@ -1022,7 +1090,7 @@ ${encodedString}
     };
 
     // Handle Product Group Checkbox (select/deselect all orders containing this product)
-    window.handleProductGroupCheckbox = function(productId, checked) {
+    window.handleProductGroupCheckbox = function (productId, checked) {
         // Find all orders containing this product
         Object.entries(sessionIndexData).forEach(([stt, data]) => {
             const hasProduct = data.products.some(p => p.productId === productId);
@@ -1391,8 +1459,11 @@ ${encodedString}
     function filterNonEncodedNotes(noteText) {
         if (!noteText) return '';
 
+        // First, remove [""] encoded blocks
+        let cleanedText = noteText.replace(/\["[A-Za-z0-9\-_]+"\]/g, '').trim();
+
         // Split by spaces and newlines
-        const parts = noteText.split(/[\s\n]+/);
+        const parts = cleanedText.split(/[\s\n]+/);
         const nonEncodedParts = [];
 
         for (const part of parts) {
@@ -3978,14 +4049,14 @@ ${encodedString}
                             </thead>
                             <tbody>
                                 ${Object.values(productsByCode)
-                                    .sort((a, b) => a.productName.localeCompare(b.productName))
-                                    .map(product => `
+                    .sort((a, b) => a.productName.localeCompare(b.productName))
+                    .map(product => `
                                     <tr>
                                         <td>
                                             <div class="d-flex align-items-center gap-2">
                                                 ${product.imageUrl
-                                                    ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
-                                                    : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📦</div>'}
+                            ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                            : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📦</div>'}
                                                 <div>
                                                     <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
                                                     <div style="font-size: 12px; color: #6b7280;">${product.productCode || 'N/A'}</div>
@@ -4020,8 +4091,8 @@ ${encodedString}
                         <div class="alert alert-success" role="alert">
                             <strong><i class="fas fa-check-circle"></i> Thành công (${successfulSTTs.length} STT):</strong>
                             ${successfulSTTs.map(stt => {
-                                return `${stt}`;
-                            }).join(', ')}
+                        return `${stt}`;
+                    }).join(', ')}
                         </div>
                     `;
                 }
@@ -4031,9 +4102,9 @@ ${encodedString}
                         <div class="alert alert-danger" role="alert">
                             <strong><i class="fas fa-exclamation-circle"></i> Thất bại (${failedSTTs.length} STT):</strong>
                             ${failedSTTs.map(stt => {
-                                const result = uploadResultsMap[stt];
-                                return `STT ${stt} - ${result.error || 'Unknown error'}`;
-                            }).join('<br>')}
+                        const result = uploadResultsMap[stt];
+                        return `STT ${stt} - ${result.error || 'Unknown error'}`;
+                    }).join('<br>')}
                         </div>
                     `;
                 }
@@ -4756,7 +4827,7 @@ ${encodedString}
     /**
      * Open Finalize Session Modal
      */
-    window.openFinalizeSessionModal = async function() {
+    window.openFinalizeSessionModal = async function () {
         console.log('[FINALIZE] 🎯 Opening finalize session modal...');
 
         try {
@@ -4873,7 +4944,7 @@ ${encodedString}
             const sttList = product.sttQuantities && product.sttQuantities.length > 0
                 ? product.sttQuantities.map(item =>
                     item.quantity > 1 ? `${item.stt}x${item.quantity}` : item.stt
-                  ).join(', ')
+                ).join(', ')
                 : product.stts.join(', '); // Fallback for backward compatibility
 
             html += `
@@ -4965,7 +5036,7 @@ ${encodedString}
     /**
      * Toggle cart details visibility
      */
-    window.toggleCartDetails = function() {
+    window.toggleCartDetails = function () {
         const detailsBody = document.getElementById('cartDetailsBody');
         const toggleIcon = document.getElementById('cartDetailsToggleIcon');
 
@@ -4991,7 +5062,7 @@ ${encodedString}
     /**
      * Toggle product details visibility
      */
-    window.toggleProductDetails = function() {
+    window.toggleProductDetails = function () {
         const detailsBody = document.getElementById('productDetailsBody');
         const toggleIcon = document.getElementById('productDetailsToggleIcon');
 
@@ -5017,7 +5088,7 @@ ${encodedString}
     /**
      * Toggle comment analysis details visibility
      */
-    window.toggleCommentAnalysis = function() {
+    window.toggleCommentAnalysis = function () {
         const detailsBody = document.getElementById('commentAnalysisBody');
         const toggleIcon = document.getElementById('commentAnalysisToggleIcon');
 
@@ -5505,7 +5576,7 @@ ${encodedString}
     /**
      * Update comment user note
      */
-    window.updateCommentNote = function(input, type, idx) {
+    window.updateCommentNote = function (input, type, idx) {
         const value = input.value;
         if (type === 'duplicate') {
             commentAnalysisData.duplicateEntries[idx].userNote = value;
@@ -5517,7 +5588,7 @@ ${encodedString}
     /**
      * Update comment checked status
      */
-    window.updateCommentChecked = function(checkbox, type, idx) {
+    window.updateCommentChecked = function (checkbox, type, idx) {
         const checked = checkbox.checked;
         if (type === 'duplicate') {
             commentAnalysisData.duplicateEntries[idx].checked = checked;
@@ -5754,7 +5825,7 @@ ${encodedString}
         extraSTTs.sort((a, b) => b.difference - a.difference);
 
         const hasDiscrepancy = missingProducts.length > 0 || extraProducts.length > 0 ||
-                               missingSTTs.length > 0 || extraSTTs.length > 0;
+            missingSTTs.length > 0 || extraSTTs.length > 0;
 
         // Calculate totalExpected from STT map
         // This matches the logic in comment analysis (totalOrderQuantity)
@@ -6019,7 +6090,7 @@ ${encodedString}
     /**
      * Toggle product discrepancy details visibility
      */
-    window.toggleProductDiscrepancy = function() {
+    window.toggleProductDiscrepancy = function () {
         const detailsBody = document.getElementById('productDiscrepancyBody');
         const toggleIcon = document.getElementById('productDiscrepancyToggleIcon');
 
@@ -6043,7 +6114,7 @@ ${encodedString}
     /**
      * Save finalize session to Firebase
      */
-    window.saveFinalizeSession = async function() {
+    window.saveFinalizeSession = async function () {
         console.log('[FINALIZE] 💾 Saving finalize session...');
 
         try {
@@ -6214,7 +6285,7 @@ ${encodedString}
 })();
 
 // ===== FINALIZE HISTORY FUNCTIONALITY =====
-(function() {
+(function () {
     'use strict';
 
     // Get Firebase database reference
@@ -6223,7 +6294,7 @@ ${encodedString}
     /**
      * Open finalize history modal
      */
-    window.openFinalizeHistoryModal = async function() {
+    window.openFinalizeHistoryModal = async function () {
         console.log('[FINALIZE-HISTORY] 📋 Opening finalize history modal...');
 
         // Show modal
@@ -6404,7 +6475,7 @@ ${encodedString}
             const sttList = product.sttQuantities && Array.isArray(product.sttQuantities) && product.sttQuantities.length > 0
                 ? product.sttQuantities.map(item =>
                     item.quantity > 1 ? `${item.stt}x${item.quantity}` : item.stt
-                  ).join(', ')
+                ).join(', ')
                 : `${product.sttCount} STT`;
 
             html += `
@@ -6820,7 +6891,7 @@ ${encodedString}
     /**
      * Toggle product discrepancy details visibility in history view
      */
-    window.toggleHistoryProductDiscrepancy = function(sessionId) {
+    window.toggleHistoryProductDiscrepancy = function (sessionId) {
         const detailsBody = document.getElementById(`productDiscrepancyBody-${sessionId}`);
         const toggleIcon = document.getElementById(`productDiscrepancyToggleIcon-${sessionId}`);
 
@@ -6897,7 +6968,7 @@ ${encodedString}
     /**
      * Toggle cart details visibility in history view
      */
-    window.toggleHistoryCartDetails = function(sessionId) {
+    window.toggleHistoryCartDetails = function (sessionId) {
         const detailsBody = document.getElementById(`cartBody-${sessionId}`);
         const toggleIcon = document.getElementById(`cartToggleIcon-${sessionId}`);
 
@@ -6921,7 +6992,7 @@ ${encodedString}
     /**
      * Toggle product details visibility in history view
      */
-    window.toggleHistoryProductDetails = function(sessionId) {
+    window.toggleHistoryProductDetails = function (sessionId) {
         const detailsBody = document.getElementById(`productBody-${sessionId}`);
         const toggleIcon = document.getElementById(`productToggleIcon-${sessionId}`);
 
@@ -6947,7 +7018,7 @@ ${encodedString}
     /**
      * Toggle comment analysis details visibility in history view
      */
-    window.toggleHistoryCommentAnalysis = function(sessionId) {
+    window.toggleHistoryCommentAnalysis = function (sessionId) {
         const detailsBody = document.getElementById(`commentAnalysisBody-${sessionId}`);
         const toggleIcon = document.getElementById(`commentAnalysisToggleIcon-${sessionId}`);
 
@@ -6971,7 +7042,7 @@ ${encodedString}
     /**
      * Toggle finalize history item expand/collapse
      */
-    window.toggleFinalizeHistoryItem = function(index) {
+    window.toggleFinalizeHistoryItem = function (index) {
         const body = document.getElementById(`historyBody-${index}`);
         const icon = document.getElementById(`toggleIcon-${index}`);
 

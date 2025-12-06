@@ -49,15 +49,24 @@
 
     /**
      * Decode full note text (NEW format - encodes entire note as one string)
-     * @param {string} encoded - Base64URL encoded string
+     * Supports both ["encoded"] wrapper format and raw encoded string
+     * @param {string} encoded - Base64URL encoded string (may be wrapped in [""])
      * @returns {string|null} Decoded text or null if invalid
      */
     function decodeFullNote(encoded) {
         if (!encoded || encoded.trim() === '') return null;
 
         try {
+            let encodedString = encoded.trim();
+
+            // Extract from [""] wrapper if present
+            const wrapperMatch = encodedString.match(/^\["(.+)"\]$/);
+            if (wrapperMatch) {
+                encodedString = wrapperMatch[1];
+            }
+
             // Base64URL decode
-            const decrypted = base64UrlDecode(encoded);
+            const decrypted = base64UrlDecode(encodedString);
 
             // XOR decrypt
             const text = xorDecrypt(decrypted, ENCODE_KEY);
@@ -131,6 +140,7 @@
 
     /**
      * Format note text with decoded data
+     * Supports new [""] format and legacy encoded strings
      * @param {string} noteText - Original note text
      * @returns {string} HTML string with decoded info
      */
@@ -145,6 +155,56 @@
         };
 
         const safeNote = escapeHtml(noteText);
+
+        // Check for [""] wrapper format first
+        const wrapperPattern = /\["([A-Za-z0-9\-_]+)"\]/g;
+        let hasWrapper = wrapperPattern.test(noteText);
+        wrapperPattern.lastIndex = 0; // Reset regex
+
+        if (hasWrapper) {
+            // Process note with [""] format: keep plain text, decode content in [""]
+            let result = safeNote;
+
+            // Find and replace each [""] block with decoded content
+            const matches = noteText.matchAll(/\["([A-Za-z0-9\-_]+)"\]/g);
+
+            for (const match of matches) {
+                const fullMatch = match[0]; // ["encoded"]
+                const encodedContent = match[1]; // encoded (without brackets)
+
+                // Try to decode
+                const decodedNote = decodeFullNote(fullMatch);
+
+                if (decodedNote && /[\x20-\x7E\s\u00A0-\uFFFF]{3,}/.test(decodedNote)) {
+                    const decodedHtml = `
+                        <div class="decoded-note-content" style="
+                            color: #334155; 
+                            background: #f8fafc; 
+                            border: 1px solid #e2e8f0; 
+                            border-left: 3px solid #3b82f6;
+                            padding: 8px 12px; 
+                            border-radius: 4px; 
+                            margin-top: 4px;
+                            font-size: 13px;
+                            line-height: 1.5;
+                        ">
+                            <div style="font-weight: 600; color: #3b82f6; font-size: 11px; margin-bottom: 4px; text-transform: uppercase;">
+                                <i class="fas fa-unlock-alt"></i> Nội dung đã giải mã
+                            </div>
+                            ${escapeHtml(decodedNote).replace(/\n/g, '<br>')}
+                        </div>
+                    `;
+
+                    // Replace the [""] block with decoded content
+                    result = result.replace(escapeHtml(fullMatch), decodedHtml);
+                }
+            }
+
+            // Replace newlines with <br> for plain text parts
+            return result.replace(/\n/g, '<br>');
+        }
+
+        // Legacy format: process line by line
         const lines = safeNote.split('\n');
 
         return lines.map(line => {
