@@ -154,14 +154,27 @@ router.get('/search', async (req, res) => {
             `;
             params = [searchTerm];
         } else {
-            // OPTIMIZED: Text search using trigram similarity (uses GIN index)
-            query = `
-                SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
-                    (similarity(name, $1) * 100)::int AS priority
-                FROM customers
-                WHERE name % $1 OR email % $1 OR address % $1
-            `;
-            params = [searchTerm];
+            // OPTIMIZED: Full-text search using GIN index (idx_customers_fts)
+            // Fallback to LIKE for short queries (< 3 chars)
+            if (searchTerm.length >= 3) {
+                const tsQuery = searchTerm.split(/\s+/).filter(w => w.length >= 2).join(' | ');
+                query = `
+                    SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
+                        ts_rank(to_tsvector('simple', COALESCE(name,'') || ' ' || COALESCE(email,'') || ' ' || COALESCE(address,'')), to_tsquery('simple', $1)) * 100 AS priority
+                    FROM customers
+                    WHERE to_tsvector('simple', COALESCE(name,'') || ' ' || COALESCE(email,'') || ' ' || COALESCE(address,'')) @@ to_tsquery('simple', $1)
+                `;
+                params = [tsQuery || searchTerm];
+            } else {
+                // Short query - use prefix search on name index
+                query = `
+                    SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
+                        CASE WHEN LOWER(name) LIKE $1 || '%' THEN 100 ELSE 50 END AS priority
+                    FROM customers
+                    WHERE LOWER(name) LIKE $1 || '%'
+                `;
+                params = [searchTerm.toLowerCase()];
+            }
         }
 
         // Add status filter if provided
