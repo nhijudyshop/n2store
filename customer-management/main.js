@@ -819,7 +819,7 @@ function displayPreview() {
     lucide.createIcons();
 }
 
-// Handle import confirm - chunked import for large datasets
+// Handle import confirm - chunked import for large datasets with retry
 async function handleImportConfirm() {
     if (importData.length === 0) {
         showNotification('Không có dữ liệu để import', 'error');
@@ -829,14 +829,47 @@ async function handleImportConfirm() {
     const confirmBtn = document.getElementById('confirmImportBtn');
     confirmBtn.disabled = true;
 
-    // Use smaller chunks (100 records) and call render.com directly to bypass CF Worker limits
+    // Configuration
     const CHUNK_SIZE = 100;
-    const DIRECT_API_URL = 'https://n2store-fallback.onrender.com'; // Bypass Cloudflare for large imports
+    const MAX_RETRIES = 3;
+    const DIRECT_API_URL = 'https://n2store-fallback.onrender.com';
     const totalChunks = Math.ceil(importData.length / CHUNK_SIZE);
-    let totalSuccess = 0;
-    let totalFailed = 0;
 
-    console.log(`[IMPORT] Starting chunked import: ${importData.length} customers in ${totalChunks} chunks (direct to render.com)`);
+    let totalSuccess = 0;
+    let totalSkipped = 0;
+    let failedChunks = [];
+
+    console.log(`[IMPORT] Starting chunked import: ${importData.length} customers in ${totalChunks} chunks (with ${MAX_RETRIES} retries)`);
+
+    // Helper function to import a single chunk with retry
+    async function importChunkWithRetry(chunk, chunkIndex, retryCount = 0) {
+        try {
+            const response = await fetch(`${DIRECT_API_URL}/api/customers/batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customers: chunk })
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                return { success: true, data: result.data };
+            } else {
+                throw new Error(result.message || 'Import failed');
+            }
+        } catch (error) {
+            if (retryCount < MAX_RETRIES) {
+                // Exponential backoff: 200ms, 400ms, 800ms
+                const delay = 200 * Math.pow(2, retryCount);
+                console.log(`[IMPORT] Chunk ${chunkIndex} failed, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return importChunkWithRetry(chunk, chunkIndex, retryCount + 1);
+            }
+            // All retries failed
+            console.error(`[IMPORT] Chunk ${chunkIndex} failed after ${MAX_RETRIES} retries:`, error.message);
+            return { success: false, error: error.message };
+        }
+    }
 
     try {
         for (let i = 0; i < totalChunks; i++) {
@@ -853,38 +886,31 @@ async function handleImportConfirm() {
                 console.log(`[IMPORT] Chunk ${i + 1}/${totalChunks}: ${chunk.length} customers`);
             }
 
-            try {
-                // Call render.com directly (bypass Cloudflare Worker)
-                const response = await fetch(`${DIRECT_API_URL}/api/customers/batch`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ customers: chunk })
-                });
+            const result = await importChunkWithRetry(chunk, i + 1);
 
-                const result = await response.json();
-
-                if (result.success && result.data) {
-                    totalSuccess += result.data.success || 0;
-                    totalFailed += result.data.skipped || 0;
-                } else {
-                    console.error(`[IMPORT] Chunk ${i + 1} error:`, result.message);
-                    totalFailed += chunk.length;
-                }
-            } catch (chunkError) {
-                console.error(`[IMPORT] Chunk ${i + 1} failed:`, chunkError);
-                totalFailed += chunk.length;
+            if (result.success) {
+                totalSuccess += result.data.success || 0;
+                totalSkipped += result.data.skipped || 0;
+            } else {
+                failedChunks.push({ index: i + 1, count: chunk.length, error: result.error });
             }
 
-            // Small delay between chunks to avoid overwhelming the server
+            // Small delay between chunks
             if (i < totalChunks - 1) {
                 await new Promise(resolve => setTimeout(resolve, 50));
             }
         }
 
-        console.log(`[IMPORT] Complete: Success=${totalSuccess}, Skipped/Failed=${totalFailed}`);
-        showNotification(`Import hoàn tất: ${totalSuccess}/${importData.length} khách hàng thành công`, 'success');
+        const totalFailed = failedChunks.reduce((sum, c) => sum + c.count, 0);
+        console.log(`[IMPORT] Complete: Success=${totalSuccess}, Skipped=${totalSkipped}, Failed=${totalFailed}`);
+
+        if (failedChunks.length > 0) {
+            console.warn(`[IMPORT] Failed chunks:`, failedChunks);
+            showNotification(`Import: ${totalSuccess} thành công, ${totalFailed} thất bại (${failedChunks.length} chunks)`, 'warning');
+        } else {
+            showNotification(`Import hoàn tất: ${totalSuccess}/${importData.length} khách hàng thành công`, 'success');
+        }
+
         closeImportModal();
 
         // Clear cache

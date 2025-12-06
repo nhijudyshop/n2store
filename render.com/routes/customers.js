@@ -676,12 +676,11 @@ router.post('/batch', async (req, res) => {
             });
         }
 
-        // Multi-row INSERT with ON CONFLICT DO NOTHING
+        // Multi-row INSERT (allows duplicate phones)
         const query = `
             INSERT INTO customers (
                 phone, name, email, address, carrier, status, debt, active, firebase_id, tpos_id, tpos_data
             ) VALUES ${placeholders.join(', ')}
-            ON CONFLICT (phone) DO NOTHING
         `;
 
         const result = await db.query(query, values);
