@@ -51,17 +51,27 @@ function detectCarrier(phone) {
 
 /**
  * Validate customer data
+ * Pattern inspired by sepay-webhook.js validation (line 64-104)
  */
 function validateCustomerData(data, isUpdate = false) {
     const errors = [];
 
+    // Validate data type (like sepay-webhook.js:64-71)
+    if (!data || typeof data !== 'object') {
+        errors.push('Dữ liệu không hợp lệ - expected JSON object');
+        return errors;
+    }
+
     if (!isUpdate) {
-        // Required fields for create
-        if (!data.name || data.name.trim() === '') {
-            errors.push('Tên khách hàng là bắt buộc');
-        }
-        if (!data.phone || data.phone.trim() === '') {
-            errors.push('Số điện thoại là bắt buộc');
+        // Required fields for create (like sepay-webhook.js:73-91)
+        const requiredFields = ['name', 'phone'];
+        const missingFields = requiredFields.filter(field =>
+            !data[field] || data[field].trim() === ''
+        );
+
+        if (missingFields.length > 0) {
+            errors.push(`Thiếu trường bắt buộc: ${missingFields.join(', ')}`);
+            return errors; // Early return if missing required fields
         }
     }
 
@@ -81,10 +91,15 @@ function validateCustomerData(data, isUpdate = false) {
         }
     }
 
-    // Validate status
+    // Validate status (like sepay-webhook.js:93-104)
     const validStatuses = ['Bình thường', 'Bom hàng', 'Cảnh báo', 'Nguy hiểm', 'VIP'];
     if (data.status && !validStatuses.includes(data.status)) {
-        errors.push('Trạng thái không hợp lệ');
+        errors.push(`Trạng thái không hợp lệ - phải là: ${validStatuses.join(', ')}`);
+    }
+
+    // Validate debt (must be number)
+    if (data.debt !== undefined && isNaN(parseInt(data.debt))) {
+        errors.push('Nợ phải là số');
     }
 
     return errors;
