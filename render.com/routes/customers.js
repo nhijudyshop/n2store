@@ -154,23 +154,14 @@ router.get('/search', async (req, res) => {
             `;
             params = [searchTerm];
         } else {
-            // OPTIMIZED: Text search - name/email/address with simpler conditions
-            const searchLower = searchTerm.toLowerCase();
+            // OPTIMIZED: Text search using trigram similarity (uses GIN index)
             query = `
                 SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
-                    CASE
-                        WHEN LOWER(name) = $1 THEN 100
-                        WHEN LOWER(name) LIKE $1 || '%' THEN 90
-                        WHEN LOWER(name) LIKE '%' || $1 || '%' THEN 80
-                        WHEN LOWER(email) LIKE '%' || $1 || '%' THEN 50
-                        ELSE 30
-                    END AS priority
+                    (similarity(name, $1) * 100)::int AS priority
                 FROM customers
-                WHERE LOWER(name) LIKE '%' || $1 || '%'
-                   OR LOWER(email) LIKE '%' || $1 || '%'
-                   OR LOWER(address) LIKE '%' || $1 || '%'
+                WHERE name % $1 OR email % $1 OR address % $1
             `;
-            params = [searchLower];
+            params = [searchTerm];
         }
 
         // Add status filter if provided
