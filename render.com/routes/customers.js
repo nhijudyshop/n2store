@@ -134,7 +134,8 @@ router.get('/search', async (req, res) => {
 
         console.log(`[CUSTOMERS-SEARCH] Term: "${searchTerm}", Limit: ${limitCount}, Status: ${status || 'all'}`);
 
-        // Use the optimized search function
+        // Optimized search using trigram similarity (pg_trgm) + LIKE fallback
+        // Priority: exact phone > phone prefix > phone contains > name match > email/address
         let query = `
             SELECT
                 id,
@@ -151,12 +152,14 @@ router.get('/search', async (req, res) => {
                 tpos_data,
                 created_at,
                 updated_at,
+                -- Priority scoring with similarity boost
                 CASE
                     WHEN phone = $1 THEN 100
                     WHEN phone LIKE $1 || '%' THEN 95
                     WHEN phone LIKE '%' || $1 || '%' THEN 90
                     WHEN LOWER(name) = LOWER($1) THEN 85
                     WHEN LOWER(name) LIKE LOWER($1) || '%' THEN 80
+                    WHEN name % $1 THEN 75 + (similarity(name, $1) * 10)::int
                     WHEN LOWER(name) LIKE '%' || LOWER($1) || '%' THEN 70
                     WHEN LOWER(email) LIKE '%' || LOWER($1) || '%' THEN 50
                     WHEN LOWER(address) LIKE '%' || LOWER($1) || '%' THEN 30
@@ -164,8 +167,15 @@ router.get('/search', async (req, res) => {
                 END AS priority
             FROM customers
             WHERE (
-                phone LIKE '%' || $1 || '%'
+                -- Exact/prefix phone matches (uses B-tree index)
+                phone = $1
+                OR phone LIKE $1 || '%'
+                OR phone LIKE '%' || $1 || '%'
+                -- Trigram similarity for fuzzy name matching (uses GIN index)
+                OR name % $1
+                -- LIKE fallback for name
                 OR LOWER(name) LIKE '%' || LOWER($1) || '%'
+                -- Email and address
                 OR LOWER(email) LIKE '%' || LOWER($1) || '%'
                 OR LOWER(address) LIKE '%' || LOWER($1) || '%'
             )
