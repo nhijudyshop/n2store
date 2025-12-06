@@ -119,7 +119,7 @@ function validateCustomerData(data, isUpdate = false) {
  */
 router.get('/search', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb; // Reuse existing PostgreSQL connection
+        const db = req.app.locals.chatDb;
         const { q, limit = 100, status } = req.query;
 
         if (!q || q.trim() === '') {
@@ -130,58 +130,48 @@ router.get('/search', async (req, res) => {
         }
 
         const searchTerm = q.trim();
-        const limitCount = Math.min(parseInt(limit) || 100, 500); // Max 500 results
+        const limitCount = Math.min(parseInt(limit) || 100, 500);
 
         console.log(`[CUSTOMERS-SEARCH] Term: "${searchTerm}", Limit: ${limitCount}, Status: ${status || 'all'}`);
 
-        // Optimized search using trigram similarity (pg_trgm) + LIKE fallback
-        // Priority: exact phone > phone prefix > phone contains > name match > email/address
-        let query = `
-            SELECT
-                id,
-                firebase_id,
-                phone,
-                name,
-                email,
-                address,
-                carrier,
-                status,
-                debt,
-                active,
-                tpos_id,
-                tpos_data,
-                created_at,
-                updated_at,
-                -- Priority scoring with similarity boost
-                CASE
-                    WHEN phone = $1 THEN 100
-                    WHEN phone LIKE $1 || '%' THEN 95
-                    WHEN phone LIKE '%' || $1 || '%' THEN 90
-                    WHEN LOWER(name) = LOWER($1) THEN 85
-                    WHEN LOWER(name) LIKE LOWER($1) || '%' THEN 80
-                    WHEN name % $1 THEN 75 + (similarity(name, $1) * 10)::int
-                    WHEN LOWER(name) LIKE '%' || LOWER($1) || '%' THEN 70
-                    WHEN LOWER(email) LIKE '%' || LOWER($1) || '%' THEN 50
-                    WHEN LOWER(address) LIKE '%' || LOWER($1) || '%' THEN 30
-                    ELSE 0
-                END AS priority
-            FROM customers
-            WHERE (
-                -- Exact/prefix phone matches (uses B-tree index)
-                phone = $1
-                OR phone LIKE $1 || '%'
-                OR phone LIKE '%' || $1 || '%'
-                -- Trigram similarity for fuzzy name matching (uses GIN index)
-                OR name % $1
-                -- LIKE fallback for name
-                OR LOWER(name) LIKE '%' || LOWER($1) || '%'
-                -- Email and address
-                OR LOWER(email) LIKE '%' || LOWER($1) || '%'
-                OR LOWER(address) LIKE '%' || LOWER($1) || '%'
-            )
-        `;
+        // Detect search type: phone (digits only) vs text
+        const isPhoneSearch = /^\d+$/.test(searchTerm);
 
-        const params = [searchTerm];
+        let query;
+        let params;
+
+        if (isPhoneSearch) {
+            // OPTIMIZED: Phone search - uses B-tree index directly
+            query = `
+                SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
+                    CASE
+                        WHEN phone = $1 THEN 100
+                        WHEN phone LIKE $1 || '%' THEN 95
+                        ELSE 90
+                    END AS priority
+                FROM customers
+                WHERE phone LIKE $1 || '%' OR phone LIKE '%' || $1
+            `;
+            params = [searchTerm];
+        } else {
+            // OPTIMIZED: Text search - name/email/address with simpler conditions
+            const searchLower = searchTerm.toLowerCase();
+            query = `
+                SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
+                    CASE
+                        WHEN LOWER(name) = $1 THEN 100
+                        WHEN LOWER(name) LIKE $1 || '%' THEN 90
+                        WHEN LOWER(name) LIKE '%' || $1 || '%' THEN 80
+                        WHEN LOWER(email) LIKE '%' || $1 || '%' THEN 50
+                        ELSE 30
+                    END AS priority
+                FROM customers
+                WHERE LOWER(name) LIKE '%' || $1 || '%'
+                   OR LOWER(email) LIKE '%' || $1 || '%'
+                   OR LOWER(address) LIKE '%' || $1 || '%'
+            `;
+            params = [searchLower];
+        }
 
         // Add status filter if provided
         if (status) {
@@ -196,7 +186,7 @@ router.get('/search', async (req, res) => {
         const result = await db.query(query, params);
         const duration = Date.now() - startTime;
 
-        console.log(`[CUSTOMERS-SEARCH] Found ${result.rows.length} results in ${duration}ms`);
+        console.log(`[CUSTOMERS-SEARCH] Found ${result.rows.length} results in ${duration}ms (${isPhoneSearch ? 'phone' : 'text'} search)`);
 
         res.json({
             success: true,
