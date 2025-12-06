@@ -739,7 +739,7 @@ let importData = [];
 function processExcelFile(file) {
     const reader = new FileReader();
 
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         try {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
@@ -819,7 +819,7 @@ function displayPreview() {
     lucide.createIcons();
 }
 
-// Handle import confirm
+// Handle import confirm - chunked import for large datasets
 async function handleImportConfirm() {
     if (importData.length === 0) {
         showNotification('Không có dữ liệu để import', 'error');
@@ -828,16 +828,63 @@ async function handleImportConfirm() {
 
     const confirmBtn = document.getElementById('confirmImportBtn');
     confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Đang import...';
+
+    // Use smaller chunks (100 records) and call render.com directly to bypass CF Worker limits
+    const CHUNK_SIZE = 100;
+    const DIRECT_API_URL = 'https://n2store-fallback.onrender.com'; // Bypass Cloudflare for large imports
+    const totalChunks = Math.ceil(importData.length / CHUNK_SIZE);
+    let totalSuccess = 0;
+    let totalFailed = 0;
+
+    console.log(`[IMPORT] Starting chunked import: ${importData.length} customers in ${totalChunks} chunks (direct to render.com)`);
 
     try {
-        const response = await API.batchCreateCustomers(importData);
+        for (let i = 0; i < totalChunks; i++) {
+            const start = i * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, importData.length);
+            const chunk = importData.slice(start, end);
 
-        if (!response.success) {
-            throw new Error(response.message || 'Batch import failed');
+            // Update button with progress
+            const progress = Math.round(((i + 1) / totalChunks) * 100);
+            confirmBtn.innerHTML = `<i data-lucide="loader" class="animate-spin"></i> Đang import... ${progress}% (${end}/${importData.length})`;
+
+            // Log every 10 chunks
+            if (i % 10 === 0 || i === totalChunks - 1) {
+                console.log(`[IMPORT] Chunk ${i + 1}/${totalChunks}: ${chunk.length} customers`);
+            }
+
+            try {
+                // Call render.com directly (bypass Cloudflare Worker)
+                const response = await fetch(`${DIRECT_API_URL}/api/customers/batch`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ customers: chunk })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    totalSuccess += result.data.success || 0;
+                    totalFailed += result.data.skipped || 0;
+                } else {
+                    console.error(`[IMPORT] Chunk ${i + 1} error:`, result.message);
+                    totalFailed += chunk.length;
+                }
+            } catch (chunkError) {
+                console.error(`[IMPORT] Chunk ${i + 1} failed:`, chunkError);
+                totalFailed += chunk.length;
+            }
+
+            // Small delay between chunks to avoid overwhelming the server
+            if (i < totalChunks - 1) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
         }
 
-        showNotification(`Import thành công ${response.data.success}/${importData.length} khách hàng`, 'success');
+        console.log(`[IMPORT] Complete: Success=${totalSuccess}, Skipped/Failed=${totalFailed}`);
+        showNotification(`Import hoàn tất: ${totalSuccess}/${importData.length} khách hàng thành công`, 'success');
         closeImportModal();
 
         // Clear cache
