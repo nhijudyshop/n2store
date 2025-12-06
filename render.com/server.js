@@ -23,9 +23,9 @@ app.use(cors({
     credentials: false // credentials cannot be true when origin is *
 }));
 
-// Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing - increased limit for large customer imports (80k+ records)
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Request logging
 app.use((req, res, next) => {

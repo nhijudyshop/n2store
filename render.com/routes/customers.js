@@ -624,6 +624,7 @@ router.delete('/:id', async (req, res) => {
 /**
  * POST /api/customers/batch
  * Batch create customers (for import/migration)
+ * Optimized with multi-row INSERT for 80k+ records
  */
 router.post('/batch', async (req, res) => {
     try {
@@ -638,64 +639,69 @@ router.post('/batch', async (req, res) => {
         }
 
         console.log(`[CUSTOMERS-BATCH] Importing ${customers.length} customers...`);
+        const startTime = Date.now();
 
-        const results = {
-            success: 0,
-            failed: 0,
-            errors: []
-        };
+        // Prepare values for multi-row INSERT
+        const values = [];
+        const placeholders = [];
+        let paramIndex = 1;
 
-        // Use transaction for batch insert
-        await db.query('BEGIN');
+        for (const customer of customers) {
+            if (!customer.phone || !customer.name) continue; // Skip invalid
 
-        try {
-            for (const customer of customers) {
-                try {
-                    const carrier = customer.carrier || detectCarrier(customer.phone);
+            const carrier = customer.carrier || detectCarrier(customer.phone);
 
-                    await db.query(`
-                        INSERT INTO customers (
-                            phone, name, email, address, carrier, status, debt, active, firebase_id, tpos_id, tpos_data
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                        ON CONFLICT (phone) DO NOTHING
-                    `, [
-                        customer.phone?.trim(),
-                        customer.name?.trim(),
-                        customer.email?.trim() || null,
-                        customer.address?.trim() || null,
-                        carrier,
-                        customer.status || 'Bình thường',
-                        customer.debt || 0,
-                        customer.active !== false,
-                        customer.firebase_id || null,
-                        customer.tpos_id || null,
-                        customer.tpos_data ? JSON.stringify(customer.tpos_data) : null
-                    ]);
+            values.push(
+                customer.phone?.trim(),
+                customer.name?.trim(),
+                customer.email?.trim() || null,
+                customer.address?.trim() || null,
+                carrier,
+                customer.status || 'Bình thường',
+                customer.debt || 0,
+                customer.active !== false,
+                customer.firebase_id || null,
+                customer.tpos_id || null,
+                customer.tpos_data ? JSON.stringify(customer.tpos_data) : null
+            );
 
-                    results.success++;
-                } catch (error) {
-                    results.failed++;
-                    results.errors.push({
-                        phone: customer.phone,
-                        error: error.message
-                    });
-                }
-            }
-
-            await db.query('COMMIT');
-
-            console.log(`[CUSTOMERS-BATCH] Success: ${results.success}, Failed: ${results.failed}`);
-
-            res.json({
-                success: true,
-                message: `Import thành công ${results.success}/${customers.length} khách hàng`,
-                data: results
-            });
-
-        } catch (error) {
-            await db.query('ROLLBACK');
-            throw error;
+            placeholders.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10})`);
+            paramIndex += 11;
         }
+
+        if (placeholders.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có khách hàng hợp lệ để import'
+            });
+        }
+
+        // Multi-row INSERT with ON CONFLICT DO NOTHING
+        const query = `
+            INSERT INTO customers (
+                phone, name, email, address, carrier, status, debt, active, firebase_id, tpos_id, tpos_data
+            ) VALUES ${placeholders.join(', ')}
+            ON CONFLICT (phone) DO NOTHING
+        `;
+
+        const result = await db.query(query, values);
+        const duration = Date.now() - startTime;
+
+        const successCount = result.rowCount || 0;
+        const skippedCount = customers.length - successCount;
+
+        console.log(`[CUSTOMERS-BATCH] Success: ${successCount}, Skipped (duplicate): ${skippedCount}, Time: ${duration}ms`);
+
+        res.json({
+            success: true,
+            message: `Import thành công ${successCount}/${customers.length} khách hàng`,
+            data: {
+                success: successCount,
+                failed: 0,
+                skipped: skippedCount,
+                duration_ms: duration
+            }
+        });
 
     } catch (error) {
         console.error('[CUSTOMERS-BATCH] Error:', error);
