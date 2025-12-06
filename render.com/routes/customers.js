@@ -154,27 +154,21 @@ router.get('/search', async (req, res) => {
             `;
             params = [searchTerm];
         } else {
-            // OPTIMIZED: Full-text search using GIN index (idx_customers_fts)
-            // Fallback to LIKE for short queries (< 3 chars)
-            if (searchTerm.length >= 3) {
-                const tsQuery = searchTerm.split(/\s+/).filter(w => w.length >= 2).join(' | ');
-                query = `
-                    SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
-                        ts_rank(to_tsvector('simple', COALESCE(name,'') || ' ' || COALESCE(email,'') || ' ' || COALESCE(address,'')), to_tsquery('simple', $1)) * 100 AS priority
-                    FROM customers
-                    WHERE to_tsvector('simple', COALESCE(name,'') || ' ' || COALESCE(email,'') || ' ' || COALESCE(address,'')) @@ to_tsquery('simple', $1)
-                `;
-                params = [tsQuery || searchTerm];
-            } else {
-                // Short query - use prefix search on name index
-                query = `
-                    SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
-                        CASE WHEN LOWER(name) LIKE $1 || '%' THEN 100 ELSE 50 END AS priority
-                    FROM customers
-                    WHERE LOWER(name) LIKE $1 || '%'
-                `;
-                params = [searchTerm.toLowerCase()];
-            }
+            // OPTIMIZED: Text search - use trigram with high threshold for speed
+            // Set similarity threshold high (0.3) to reduce false positives and speed up
+            query = `
+                SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
+                    GREATEST(
+                        similarity(name, $1),
+                        similarity(COALESCE(email,''), $1) * 0.5,
+                        similarity(COALESCE(address,''), $1) * 0.3
+                    ) * 100 AS priority
+                FROM customers
+                WHERE similarity(name, $1) > 0.2
+                   OR similarity(COALESCE(email,''), $1) > 0.3
+                   OR similarity(COALESCE(address,''), $1) > 0.3
+            `;
+            params = [searchTerm];
         }
 
         // Add status filter if provided
