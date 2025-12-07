@@ -373,6 +373,80 @@ async function handlePageSizeChange(e) {
     await loadCustomers();
 }
 
+// Merge customers with the same phone number
+function mergeCustomersByPhone(customers) {
+    const phoneMap = new Map();
+
+    customers.forEach(customer => {
+        const phone = (customer.phone || '').trim();
+        if (!phone) {
+            // Customers without phone are kept as-is
+            const uniqueKey = `no_phone_${customer.id}`;
+            phoneMap.set(uniqueKey, {
+                ...customer,
+                mergedNames: [customer.name || ''],
+                mergedAddresses: [customer.address || ''],
+                mergedIds: [customer.id]
+            });
+            return;
+        }
+
+        if (phoneMap.has(phone)) {
+            // Merge with existing customer
+            const existing = phoneMap.get(phone);
+            const newName = (customer.name || '').trim();
+            const newAddress = (customer.address || '').trim();
+
+            // Add unique names
+            if (newName && !existing.mergedNames.includes(newName)) {
+                existing.mergedNames.push(newName);
+            }
+
+            // Add unique addresses
+            if (newAddress && !existing.mergedAddresses.includes(newAddress)) {
+                existing.mergedAddresses.push(newAddress);
+            }
+
+            // Merge IDs for reference
+            existing.mergedIds.push(customer.id);
+
+            // Keep the higher debt
+            if ((customer.debt || 0) > (existing.debt || 0)) {
+                existing.debt = customer.debt;
+            }
+
+            // Keep VIP or worse status
+            existing.status = getMergedStatus(existing.status, customer.status);
+        } else {
+            // First occurrence
+            phoneMap.set(phone, {
+                ...customer,
+                mergedNames: [customer.name || ''],
+                mergedAddresses: [customer.address || ''],
+                mergedIds: [customer.id]
+            });
+        }
+    });
+
+    return Array.from(phoneMap.values());
+}
+
+// Get merged status (prioritize VIP > Nguy hiểm > Cảnh báo > Bom hàng > Bình thường)
+function getMergedStatus(status1, status2) {
+    const statusPriority = {
+        'VIP': 5,
+        'Nguy hiểm': 4,
+        'Cảnh báo': 3,
+        'Bom hàng': 2,
+        'Bình thường': 1
+    };
+
+    const priority1 = statusPriority[status1] || 1;
+    const priority2 = statusPriority[status2] || 1;
+
+    return priority1 >= priority2 ? status1 : status2;
+}
+
 // Render customers in table
 function renderCustomers() {
     const tbody = document.getElementById('customerTableBody');
@@ -385,7 +459,10 @@ function renderCustomers() {
 
     showEmptyState(false);
 
-    filteredCustomers.forEach(customer => {
+    // Merge customers with the same phone number
+    const mergedCustomers = mergeCustomersByPhone(filteredCustomers);
+
+    mergedCustomers.forEach(customer => {
         const row = createCustomerRow(customer);
         tbody.appendChild(row);
     });
@@ -396,20 +473,37 @@ function renderCustomers() {
 // Create customer table row
 function createCustomerRow(customer) {
     const tr = document.createElement('tr');
+
+    // Handle merged names display (Tên 1 | Tên 2 | Tên 3...)
+    const mergedNames = customer.mergedNames || [customer.name || ''];
+    const displayName = mergedNames.filter(n => n.trim()).join(' | ');
+
+    // Handle merged addresses display (each on separate line)
+    const mergedAddresses = customer.mergedAddresses || [customer.address || ''];
+    const displayAddress = mergedAddresses
+        .filter(a => a.trim())
+        .map(a => escapeHtml(a))
+        .join('<br>');
+
+    // Check if this is a merged customer (has multiple entries)
+    const isMerged = (customer.mergedIds && customer.mergedIds.length > 1);
+    const mergedBadge = isMerged ? `<span class="merged-badge" title="${customer.mergedIds.length} khách hàng trùng SĐT" style="background: #f59e0b; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${customer.mergedIds.length} trùng</span>` : '';
+
     tr.innerHTML = `
         <td>
             <input type="checkbox" class="customer-checkbox" data-id="${customer.id}">
         </td>
         <td>
             <div class="customer-name">
-                <span class="name">${escapeHtml(customer.name || '')}</span>
+                <span class="name">${escapeHtml(displayName)}</span>
+                ${mergedBadge}
                 <span class="status-badge ${getStatusClass(customer.status)}">${customer.status || 'Bình thường'}</span>
             </div>
         </td>
         <td>
             <div class="customer-phone">
                 ${customer.phone ? `
-                    <a href="javascript:void(0)" onclick="openTransactionHistory('${customer.id}', '${escapeHtml(customer.phone || '')}', '${escapeHtml(customer.name || '')}')" class="phone-link" title="Xem lịch sử giao dịch" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                    <a href="javascript:void(0)" onclick="openTransactionHistory('${customer.id}', '${escapeHtml(customer.phone || '')}', '${escapeHtml(displayName)}')" class="phone-link" title="Xem lịch sử giao dịch" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
                         <span class="phone">${escapeHtml(customer.phone)}</span>
                         <i data-lucide="receipt" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
                     </a>
@@ -418,7 +512,7 @@ function createCustomerRow(customer) {
             </div>
         </td>
         <td>${escapeHtml(customer.email || '')}</td>
-        <td>${escapeHtml(customer.address || '')}</td>
+        <td style="white-space: pre-line; line-height: 1.4;">${displayAddress}</td>
         <td>
             ${customer.phone ? `<a href="https://zalo.me/${customer.phone}" target="_blank" class="zalo-link" title="Chat Zalo">
                 <i data-lucide="message-circle"></i>
@@ -434,7 +528,7 @@ function createCustomerRow(customer) {
         </td>
         <td>
             <div class="action-buttons">
-                <button class="icon-btn view" onclick="openTransactionHistory('${customer.id}', '${escapeHtml(customer.phone || '')}', '${escapeHtml(customer.name || '')}')" title="Lịch sử giao dịch">
+                <button class="icon-btn view" onclick="openTransactionHistory('${customer.id}', '${escapeHtml(customer.phone || '')}', '${escapeHtml(displayName)}')" title="Lịch sử giao dịch">
                     <i data-lucide="receipt"></i>
                 </button>
                 <button class="icon-btn edit" onclick="openEditCustomerModal(${customer.id})" title="Sửa">
