@@ -721,12 +721,15 @@ router.post('/batch', async (req, res) => {
  *   - phone: string (required) - customer phone number
  */
 router.post('/process-unprocessed-transactions', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const client = await db.connect(); // Get a dedicated client for transaction
+
     try {
-        const db = req.app.locals.chatDb;
         const { phone } = req.body;
 
         // Validate input
         if (!phone) {
+            client.release();
             return res.status(400).json({
                 success: false,
                 message: 'Số điện thoại là bắt buộc'
@@ -741,9 +744,11 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
 
         console.log(`[PROCESS-TRANSACTIONS] Processing for phone: ${phone} (variants: ${phoneWithZero}, ${phoneWithoutZero})`);
 
-        // Step 1: Find all unprocessed incoming transactions for this phone
-        // Join balance_history with balance_customer_info by matching unique code from content
-        // Use phone variants to handle different formats
+        // ✅ START DATABASE TRANSACTION - Critical for preventing race conditions
+        await client.query('BEGIN');
+
+        // Step 1: Find and LOCK all unprocessed incoming transactions for this phone
+        // FOR UPDATE SKIP LOCKED prevents other concurrent requests from processing same rows
         const findUnprocessedQuery = `
             SELECT
                 bh.id,
@@ -765,15 +770,18 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
               AND bh.transfer_type = 'in'
               AND (bh.debt_added IS NULL OR bh.debt_added = FALSE)
             ORDER BY bh.transaction_date ASC
+            FOR UPDATE OF bh SKIP LOCKED
         `;
 
-        const unprocessedResult = await db.query(findUnprocessedQuery, [phone, phoneWithZero, phoneWithoutZero, phoneClean]);
+        const unprocessedResult = await client.query(findUnprocessedQuery, [phone, phoneWithZero, phoneWithoutZero, phoneClean]);
         const unprocessedTransactions = unprocessedResult.rows;
 
-        console.log(`[PROCESS-TRANSACTIONS] Found ${unprocessedTransactions.length} unprocessed transactions`);
+        console.log(`[PROCESS-TRANSACTIONS] Found ${unprocessedTransactions.length} unprocessed transactions (locked)`);
 
-        // If no unprocessed transactions, return early
+        // If no unprocessed transactions, commit and return early
         if (unprocessedTransactions.length === 0) {
+            await client.query('COMMIT');
+            client.release();
             return res.json({
                 success: true,
                 message: 'Không có giao dịch chưa xử lý',
@@ -791,11 +799,10 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
         const customerName = unprocessedTransactions[0].customer_name || 'N/A';
         const transactionIds = unprocessedTransactions.map(tx => tx.id);
 
-        console.log(`[PROCESS-TRANSACTIONS] Total amount: ${totalAmount}, Customer: ${customerName}`);
+        console.log(`[PROCESS-TRANSACTIONS] Total amount: ${totalAmount}, Customer: ${customerName}, Transaction IDs: [${transactionIds.join(', ')}]`);
 
         // Step 3: Update customer debt (add total amount)
         // Update ALL customers with matching phone (handles duplicate records)
-        // This ensures all customer records with the same phone stay in sync
         const updateDebtQuery = `
             UPDATE customers
             SET debt = COALESCE(debt, 0) + $1, updated_at = CURRENT_TIMESTAMP
@@ -804,18 +811,19 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
             RETURNING id, name, phone, debt
         `;
 
-        const debtResult = await db.query(updateDebtQuery, [totalAmount, phone, phoneWithZero, phoneWithoutZero, phoneClean]);
+        const debtResult = await client.query(updateDebtQuery, [totalAmount, phone, phoneWithZero, phoneWithoutZero, phoneClean]);
 
         if (debtResult.rows.length === 0) {
             console.log(`[PROCESS-TRANSACTIONS] No customer found with phone: ${phone}`);
             // Still mark transactions as processed to avoid retry loop
-            // but don't update debt since customer not found
             const markProcessedQuery = `
                 UPDATE balance_history
                 SET debt_added = TRUE, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ANY($1)
             `;
-            await db.query(markProcessedQuery, [transactionIds]);
+            await client.query(markProcessedQuery, [transactionIds]);
+            await client.query('COMMIT');
+            client.release();
 
             return res.json({
                 success: true,
@@ -835,16 +843,23 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
             UPDATE balance_history
             SET debt_added = TRUE, updated_at = CURRENT_TIMESTAMP
             WHERE id = ANY($1)
+            RETURNING id
         `;
 
-        await db.query(markProcessedQuery, [transactionIds]);
+        const markResult = await client.query(markProcessedQuery, [transactionIds]);
+        const markedCount = markResult.rows.length;
 
-        console.log(`[PROCESS-TRANSACTIONS] ✅ Successfully processed:`, {
+        // ✅ COMMIT TRANSACTION - All changes are atomic
+        await client.query('COMMIT');
+
+        console.log(`[PROCESS-TRANSACTIONS] ✅ Successfully processed (ATOMIC):`, {
             phone,
             customerName: customer.name,
             transactionCount: transactionIds.length,
+            markedCount,
             totalAmount,
-            newDebt: customer.debt
+            newDebt: customer.debt,
+            processedIds: transactionIds
         });
 
         res.json({
@@ -858,12 +873,17 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[PROCESS-TRANSACTIONS] Error:', error);
+        // ❌ ROLLBACK on error
+        await client.query('ROLLBACK');
+        console.error('[PROCESS-TRANSACTIONS] Error (ROLLED BACK):', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi khi xử lý giao dịch',
             error: error.message
         });
+    } finally {
+        // Always release the client back to the pool
+        client.release();
     }
 });
 
