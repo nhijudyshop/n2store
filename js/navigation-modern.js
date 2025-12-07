@@ -119,6 +119,14 @@ const MENU_CONFIG = [
         permissionRequired: "order-log",
     },
     {
+        href: "../order-live-tracking/index.html",
+        icon: "radio",
+        text: "Sổ Order Live",
+        shortText: "Order Live",
+        pageIdentifier: "order-live-tracking",
+        permissionRequired: "order-live-tracking",
+    },
+    {
         href: "../soluong-live/index.html",
         icon: "bar-chart",
         text: "Quản Lý Số Lượng",
