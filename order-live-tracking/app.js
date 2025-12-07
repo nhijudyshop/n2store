@@ -667,9 +667,13 @@ async function addProductToSheet(product) {
 
     showToast('Đang thêm sản phẩm...', 'info');
 
+    // Fetch product with image from TPOS API
     let imageUrl = '';
     if (product.id) {
-        imageUrl = await fetchProductImage(product.id);
+        const productData = await fetchProductWithImage(product.id);
+        if (productData && productData.imageUrl) {
+            imageUrl = productData.imageUrl;
+        }
     }
 
     const newItem = {
@@ -775,150 +779,165 @@ async function deleteItem(index) {
 }
 
 // =====================================================
-// PRODUCT SEARCH (TPOS)
+// PRODUCT SEARCH (TPOS) - Copy from tab3-product-assignment
 // =====================================================
 
+// Token state
+let bearerToken = null;
+let tokenExpiry = null;
+
+// Auth Functions - Server-side token caching
+async function getAuthToken() {
+    try {
+        const response = await API_CONFIG.smartFetch(`${API_CONFIG.WORKER_URL}/api/token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'grant_type=password&username=nvkt&password=Aa%40123456789&client_id=tmtWebApp'
+        });
+
+        if (!response.ok) {
+            throw new Error('Không thể xác thực');
+        }
+
+        const data = await response.json();
+        bearerToken = data.access_token;
+        tokenExpiry = Date.now() + (data.expires_in * 1000);
+        console.log('[APP] ✅ Token received');
+
+        return data.access_token;
+    } catch (error) {
+        console.error('[APP] Lỗi xác thực:', error);
+        throw error;
+    }
+}
+
+async function getValidToken() {
+    if (bearerToken && tokenExpiry && tokenExpiry > Date.now() + 300000) {
+        console.log('[APP] ✅ Using cached token');
+        return bearerToken;
+    }
+    console.log('[APP] Token expired, fetching new token...');
+    return await getAuthToken();
+}
+
+async function authenticatedFetch(url, options = {}) {
+    const token = await getValidToken();
+    const headers = {
+        ...options.headers,
+        'Authorization': `Bearer ${token}`
+    };
+
+    const response = await fetch(url, {
+        ...options,
+        headers
+    });
+
+    if (response.status === 401) {
+        const newToken = await getAuthToken();
+        headers.Authorization = `Bearer ${newToken}`;
+        return fetch(url, { ...options, headers });
+    }
+
+    return response;
+}
+
+// Load Products Data
 async function loadProductsData() {
-    if (AppState.isLoadingProducts || AppState.productsData.length > 0) return;
+    if (AppState.isLoadingProducts) return;
+    if (AppState.productsData.length > 0) {
+        console.log('[APP] Products already loaded:', AppState.productsData.length);
+        return;
+    }
 
     AppState.isLoadingProducts = true;
     console.log('[APP] Loading products from TPOS...');
 
     try {
-        const cached = window.tposProductsCache?.getData?.();
-        if (cached && cached.length > 0) {
-            AppState.productsData = cached;
-            console.log('[APP] Loaded', cached.length, 'products from cache');
-            AppState.isLoadingProducts = false;
-            return;
-        }
-
-        const token = await getTPOSToken();
-        if (!token) {
-            console.warn('[APP] No TPOS token available');
-            AppState.isLoadingProducts = false;
-            return;
-        }
-
-        const response = await smartFetch(
-            '/api/Product/ExportFileWithVariantPrice',
-            {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ Keyword: "", Status: 1 })
-            }
-        );
-
-        if (response.ok) {
-            const blob = await response.blob();
-            const data = await parseExcelBlob(blob);
-            AppState.productsData = data;
-            console.log('[APP] Loaded', data.length, 'products from API');
-
-            if (window.tposProductsCache?.setData) {
-                window.tposProductsCache.setData(data);
-            }
-        }
-    } catch (error) {
-        console.error('[APP] Error loading products:', error);
-    }
-
-    AppState.isLoadingProducts = false;
-}
-
-async function getTPOSToken() {
-    try {
-        if (window.tokenManager?.getToken) {
-            return await window.tokenManager.getToken();
-        }
-
-        const response = await smartFetch('/api/token', {
+        const response = await authenticatedFetch(`${API_CONFIG.WORKER_URL}/api/Product/ExportFileWithVariantPrice`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
-                username: 'nvkt',
-                password: 'Aa@123456789'
+                model: { Active: "true" },
+                ids: ""
             })
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            return data.access_token;
+        if (!response.ok) {
+            throw new Error('Không thể tải dữ liệu sản phẩm');
         }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+        AppState.productsData = jsonData.map(row => {
+            const productName = row['Tên sản phẩm'] || '';
+            const codeFromName = extractProductCode(productName);
+            return {
+                id: row['Id sản phẩm (*)'],
+                name: productName,
+                nameNoSign: removeVietnameseTones(productName || ''),
+                code: codeFromName || row['Mã sản phẩm'] || ''
+            };
+        }).filter(p => p.name);
+
+        console.log('[APP] ✅ Loaded', AppState.productsData.length, 'products');
     } catch (error) {
-        console.error('[APP] Error getting token:', error);
+        console.error('[APP] Error loading products:', error);
+        showToast('Lỗi tải sản phẩm: ' + error.message, 'error');
+    } finally {
+        AppState.isLoadingProducts = false;
     }
-    return null;
 }
 
-async function parseExcelBlob(blob) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-
-                const products = jsonData.map(row => {
-                    const productName = row['Tên sản phẩm'] || '';
-                    const codeMatch = productName.match(/\[([^\]]+)\]/);
-                    const codeFromName = codeMatch ? codeMatch[1] : '';
-
-                    return {
-                        id: row['Id sản phẩm (*)'],
-                        name: productName,
-                        nameNoSign: removeVietnameseTones(productName || ''),
-                        code: codeFromName || row['Mã sản phẩm'] || ''
-                    };
-                }).filter(p => p.name);
-
-                resolve(products);
-            } catch (error) {
-                console.error('[APP] Error parsing Excel:', error);
-                resolve([]);
-            }
-        };
-        reader.readAsArrayBuffer(blob);
-    });
+function extractProductCode(nameGet) {
+    if (!nameGet) return '';
+    const match = nameGet.match(/\[([^\]]+)\]/);
+    return match ? match[1] : '';
 }
 
-async function fetchProductImage(productId) {
+// Fetch product with image from TPOS API
+async function fetchProductWithImage(productId) {
     try {
-        const token = await getTPOSToken();
-        if (!token || !productId) return null;
-
-        const response = await smartFetch(
-            `/api/odata/Product(${productId})?$select=Id,ImageUrl,ProductTmplId`,
-            { headers: { 'Authorization': `Bearer ${token}` } }
+        const response = await authenticatedFetch(
+            `${API_CONFIG.WORKER_URL}/api/odata/Product(${productId})?$select=Id,NameGet,ImageUrl,ProductTmplId,DefaultCode,Barcode`
         );
 
-        if (response.ok) {
-            const productData = await response.json();
-            if (productData.ImageUrl) {
-                return productData.ImageUrl;
-            }
+        if (!response.ok) return null;
 
-            if (productData.ProductTmplId) {
-                const templateResponse = await smartFetch(
-                    `/api/odata/ProductTemplate(${productData.ProductTmplId})?$select=Id,ImageUrl`,
-                    { headers: { 'Authorization': `Bearer ${token}` } }
+        const productData = await response.json();
+        let imageUrl = productData.ImageUrl;
+
+        // If no image, try to get from template
+        if (!imageUrl && productData.ProductTmplId) {
+            try {
+                const templateResponse = await authenticatedFetch(
+                    `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$select=Id,ImageUrl`
                 );
-
                 if (templateResponse.ok) {
                     const templateData = await templateResponse.json();
-                    return templateData.ImageUrl || null;
+                    imageUrl = templateData.ImageUrl;
                 }
+            } catch (e) {
+                console.warn('[APP] Could not fetch template image');
             }
         }
+
+        return {
+            id: productData.Id,
+            name: productData.NameGet,
+            code: extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '',
+            imageUrl: imageUrl || ''
+        };
     } catch (error) {
-        console.error('[APP] Error fetching product image:', error);
+        console.error('[APP] Error fetching product:', error);
+        return null;
     }
-    return null;
 }
 
 function searchProducts(keyword) {
@@ -947,7 +966,7 @@ function removeVietnameseTones(str) {
 // SEARCH UI
 // =====================================================
 
-function handleSearch(keyword) {
+async function handleSearch(keyword) {
     const dropdown = document.getElementById('suggestionsDropdown');
     const loadingEl = document.getElementById('searchLoading');
 
@@ -956,12 +975,21 @@ function handleSearch(keyword) {
         return;
     }
 
-    if (AppState.productsData.length === 0) {
+    // Load products if not loaded yet
+    if (AppState.productsData.length === 0 && !AppState.isLoadingProducts) {
         if (loadingEl) loadingEl.style.display = 'block';
-        loadProductsData().then(() => {
-            if (loadingEl) loadingEl.style.display = 'none';
-            handleSearch(keyword);
-        });
+        await loadProductsData();
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+
+    // Still no products (load failed), show error
+    if (AppState.productsData.length === 0) {
+        dropdown.innerHTML = `
+            <div class="suggestion-item" style="justify-content: center; color: var(--danger);">
+                <i class="bi bi-exclamation-circle"></i> Lỗi tải danh sách sản phẩm
+            </div>
+        `;
+        dropdown.classList.add('show');
         return;
     }
 
