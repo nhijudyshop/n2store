@@ -610,7 +610,7 @@ router.delete('/:id', async (req, res) => {
 /**
  * POST /api/customers/batch
  * Batch create customers (for import/migration)
- * Optimized with multi-row INSERT for 80k+ records
+ * UPSERT logic: Insert new customers with debt=0, update existing but PRESERVE debt
  */
 router.post('/batch', async (req, res) => {
     try {
@@ -644,7 +644,7 @@ router.post('/batch', async (req, res) => {
                 customer.address?.trim() || null,
                 carrier,
                 customer.status || 'Bình thường',
-                customer.debt || 0,
+                0, // Always set debt = 0 for NEW customers
                 customer.active !== false,
                 customer.firebase_id || null,
                 customer.tpos_id || null,
@@ -662,20 +662,32 @@ router.post('/batch', async (req, res) => {
             });
         }
 
-        // Multi-row INSERT (allows duplicate phones)
+        // UPSERT: Insert new customers or update existing ones
+        // IMPORTANT: When conflict on phone, update all fields EXCEPT debt (preserve existing debt)
         const query = `
             INSERT INTO customers (
                 phone, name, email, address, carrier, status, debt, active, firebase_id, tpos_id, tpos_data
             ) VALUES ${placeholders.join(', ')}
+            ON CONFLICT (phone) DO UPDATE SET
+                name = EXCLUDED.name,
+                email = EXCLUDED.email,
+                address = EXCLUDED.address,
+                carrier = EXCLUDED.carrier,
+                status = EXCLUDED.status,
+                -- debt = customers.debt (KEEP EXISTING - don't update),
+                active = EXCLUDED.active,
+                firebase_id = COALESCE(EXCLUDED.firebase_id, customers.firebase_id),
+                tpos_id = COALESCE(EXCLUDED.tpos_id, customers.tpos_id),
+                tpos_data = COALESCE(EXCLUDED.tpos_data, customers.tpos_data),
+                updated_at = CURRENT_TIMESTAMP
         `;
 
         const result = await db.query(query, values);
         const duration = Date.now() - startTime;
 
         const successCount = result.rowCount || 0;
-        const skippedCount = customers.length - successCount;
 
-        console.log(`[CUSTOMERS-BATCH] Success: ${successCount}, Skipped (duplicate): ${skippedCount}, Time: ${duration}ms`);
+        console.log(`[CUSTOMERS-BATCH] Processed: ${successCount} customers (inserted/updated), Time: ${duration}ms`);
 
         res.json({
             success: true,
@@ -683,7 +695,7 @@ router.post('/batch', async (req, res) => {
             data: {
                 success: successCount,
                 failed: 0,
-                skipped: skippedCount,
+                skipped: customers.length - successCount,
                 duration_ms: duration
             }
         });
