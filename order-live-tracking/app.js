@@ -1,4 +1,4 @@
-// =====================================================
+﻿// =====================================================
 // SỔ ORDER LIVE - MAIN APPLICATION
 // Firebase Realtime Sync
 // =====================================================
@@ -589,12 +589,6 @@ function renderProductsTable(items) {
                         <div class="product-cell-code">Mã: ${escapeHtml(item.productCode || '--')}</div>
                     </div>
                 </div>
-            </td>
-            <td class="image-cell">
-                ${item.imageUrl
-                    ? `<img src="${item.imageUrl}" alt="" style="cursor:pointer" onerror="this.outerHTML='📦'">`
-                    : '📦'
-                }
             </td>
             <td class="text-center">
                 <input type="number" class="qty-input" value="${item.qtyLive || 0}"

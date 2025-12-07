@@ -69,25 +69,6 @@
 
             <!-- Sheet Content -->
             <div class="sheet-content" id="sheetContent" style="display: none;">
-                <!-- Sheet Header -->
-                <div class="sheet-header">
-                    <div class="sheet-title-section">
-                        <h2 class="sheet-title" id="sheetTitle">Live 6/12</h2>
-                        <div class="sheet-actions">
-                            <button class="btn-icon" onclick="editSheetName()" title="Đổi tên">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn-icon btn-danger-hover" onclick="deleteCurrentSheet()" title="Xóa trang">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="sheet-meta">
-                        <span><i class="bi bi-calendar3"></i> <span id="sheetCreatedAt">--</span></span>
-                        <span><i class="bi bi-box-seam"></i> <span id="itemCount">0</span> sản phẩm</span>
-                    </div>
-                </div>
-
                 <!-- Product Search -->
                 <div class="product-search-section">
                     <div class="search-container">
@@ -112,7 +93,6 @@
                         <thead>
                             <tr>
                                 <th class="col-product">📦 Sản phẩm</th>
-                                <th class="col-image">🖼️ Hình ảnh</th>
                                 <th class="col-qty">📺 SL Live</th>
                                 <th class="col-qty">📥 SL Inbox</th>
                                 <th class="col-qty">📤 Gửi NCC</th>
@@ -125,7 +105,7 @@
                         </tbody>
                         <tfoot id="tableFoot" style="display: none;">
                             <tr class="total-row">
-                                <td colspan="2" class="total-label">📊 Tổng cộng</td>
+                                <td class="total-label">📊 Tổng cộng</td>
                                 <td class="total-value" id="totalLive">0</td>
                                 <td class="total-value" id="totalInbox">0</td>
                                 <td class="total-value" id="totalSentNCC">0</td>
