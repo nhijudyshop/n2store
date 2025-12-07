@@ -585,6 +585,78 @@ router.get('/customer-info', async (req, res) => {
 });
 
 /**
+ * GET /api/sepay/transaction-by-code/:uniqueCode
+ * Lấy thông tin giao dịch theo unique code (N2XXXXXXXXXXXXXXXX)
+ * Used to get transfer_amount when updating customer debt retroactively
+ */
+router.get('/transaction-by-code/:uniqueCode', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { uniqueCode } = req.params;
+
+    if (!uniqueCode) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required parameter: uniqueCode'
+        });
+    }
+
+    try {
+        // Find transaction where content contains the unique code
+        const query = `
+            SELECT
+                id,
+                sepay_id,
+                gateway,
+                transaction_date,
+                account_number,
+                code,
+                content,
+                transfer_type,
+                transfer_amount,
+                accumulated,
+                sub_account,
+                reference_code,
+                description,
+                created_at
+            FROM balance_history
+            WHERE content LIKE '%' || $1 || '%'
+            ORDER BY transaction_date DESC
+            LIMIT 1
+        `;
+
+        const result = await db.query(query, [uniqueCode]);
+
+        if (result.rows.length === 0) {
+            return res.json({
+                success: true,
+                data: null,
+                message: 'No transaction found with this unique code'
+            });
+        }
+
+        console.log('[TRANSACTION-BY-CODE] ✅ Found transaction:', {
+            uniqueCode,
+            id: result.rows[0].id,
+            transfer_type: result.rows[0].transfer_type,
+            transfer_amount: result.rows[0].transfer_amount
+        });
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[TRANSACTION-BY-CODE] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch transaction',
+            message: error.message
+        });
+    }
+});
+
+/**
  * 🆕 GET /api/sepay/transactions-by-phone
  * Lấy lịch sử giao dịch theo số điện thoại khách hàng
  * Query params:
@@ -608,7 +680,8 @@ router.get('/transactions-by-phone', async (req, res) => {
         const queryLimit = Math.min(parseInt(limit) || 50, 200);
 
         // Query to find all transactions for this phone number
-        // Join balance_history with balance_customer_info to get customer details
+        // Join balance_history with balance_customer_info by matching unique code from content
+        // Unique code format: N2XXXXXXXXXXXXXXXX (N2 + 16 alphanumeric chars)
         const query = `
             SELECT
                 bh.id,
@@ -629,7 +702,8 @@ router.get('/transactions-by-phone', async (req, res) => {
                 bci.customer_name,
                 bci.customer_phone
             FROM balance_history bh
-            LEFT JOIN balance_customer_info bci ON bh.code = bci.unique_code
+            INNER JOIN balance_customer_info bci
+                ON bci.unique_code = (regexp_match(bh.content, 'N2[A-Z0-9]{16}'))[1]
             WHERE bci.customer_phone = $1
             ORDER BY bh.transaction_date DESC
             LIMIT $2

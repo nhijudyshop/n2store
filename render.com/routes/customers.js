@@ -710,4 +710,89 @@ router.post('/batch', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/customers/update-debt-by-phone
+ * Update customer debt by phone number
+ * Finds the newest customer with matching phone and adds amount to their debt
+ * Body:
+ *   - phone: string (required) - customer phone number
+ *   - amount: number (required) - amount to add to debt (can be negative)
+ */
+router.post('/update-debt-by-phone', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        const { phone, amount } = req.body;
+
+        // Validate input
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                message: 'Số điện thoại là bắt buộc'
+            });
+        }
+
+        if (amount === undefined || amount === null || isNaN(parseFloat(amount))) {
+            return res.status(400).json({
+                success: false,
+                message: 'Số tiền phải là số hợp lệ'
+            });
+        }
+
+        const amountNum = parseFloat(amount);
+
+        console.log(`[CUSTOMERS-DEBT] Updating debt for phone: ${phone}, amount: ${amountNum}`);
+
+        // Find the newest customer with matching phone and update their debt
+        // ORDER BY created_at DESC to get the newest customer if multiple exist
+        const result = await db.query(`
+            UPDATE customers
+            SET debt = COALESCE(debt, 0) + $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = (
+                SELECT id FROM customers
+                WHERE phone = $2
+                ORDER BY created_at DESC
+                LIMIT 1
+            )
+            RETURNING id, name, phone, debt, updated_at
+        `, [amountNum, phone]);
+
+        if (result.rows.length === 0) {
+            console.log(`[CUSTOMERS-DEBT] No customer found with phone: ${phone}`);
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy khách hàng với số điện thoại này'
+            });
+        }
+
+        const customer = result.rows[0];
+        console.log(`[CUSTOMERS-DEBT] ✅ Updated customer debt:`, {
+            id: customer.id,
+            name: customer.name,
+            phone: customer.phone,
+            newDebt: customer.debt,
+            amountAdded: amountNum
+        });
+
+        res.json({
+            success: true,
+            message: `Đã cập nhật nợ cho khách hàng ${customer.name}`,
+            data: {
+                id: customer.id,
+                name: customer.name,
+                phone: customer.phone,
+                debt: customer.debt,
+                amount_added: amountNum
+            }
+        });
+
+    } catch (error) {
+        console.error('[CUSTOMERS-DEBT] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi cập nhật nợ khách hàng',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

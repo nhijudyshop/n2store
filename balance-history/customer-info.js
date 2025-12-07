@@ -137,6 +137,10 @@ const CustomerInfoManager = {
     async saveCustomerInfo(uniqueCode, customerInfo) {
         if (!uniqueCode) return false;
 
+        // Get existing data to check if phone is being added/changed
+        const existingInfo = this.getCustomerInfo(uniqueCode);
+        const isNewPhone = customerInfo.phone && (!existingInfo || existingInfo.phone !== customerInfo.phone);
+
         // Save to localStorage first (for offline support)
         const allData = this.getAllCustomerInfo();
         allData[uniqueCode] = {
@@ -169,6 +173,12 @@ const CustomerInfoManager = {
                 // After saving to PostgreSQL, sync to Firebase customer-management
                 await this.syncToFirebase(customerInfo);
 
+                // 🆕 UPDATE CUSTOMER DEBT (if phone is newly added)
+                // When phone is added for an existing transaction, update customer debt
+                if (isNewPhone && customerInfo.phone) {
+                    await this.updateCustomerDebtForTransaction(uniqueCode, customerInfo.phone);
+                }
+
                 return true;
             } else {
                 console.error('[CUSTOMER-INFO] Failed to save to database:', result.error);
@@ -179,6 +189,75 @@ const CustomerInfoManager = {
             // Still return true since we saved to localStorage
             return true;
         }
+    },
+
+    /**
+     * 🆕 Update customer debt when phone is added to an existing transaction
+     * Fetches the transaction amount and updates customer debt if transfer_type = 'in'
+     * @param {string} uniqueCode - The transaction unique code
+     * @param {string} phone - Customer phone number
+     */
+    async updateCustomerDebtForTransaction(uniqueCode, phone) {
+        try {
+            console.log('[DEBT-RETROACTIVE] Checking transaction for debt update:', uniqueCode);
+
+            // Fetch transaction info to get transfer_amount and transfer_type
+            const txResponse = await fetch(`${this.API_BASE_URL}/api/sepay/transaction-by-code/${uniqueCode}`);
+            const txResult = await txResponse.json();
+
+            if (!txResult.success || !txResult.data) {
+                console.log('[DEBT-RETROACTIVE] No transaction found for:', uniqueCode);
+                return;
+            }
+
+            const transaction = txResult.data;
+
+            // Only update debt for incoming transactions
+            if (transaction.transfer_type !== 'in') {
+                console.log('[DEBT-RETROACTIVE] Transaction is not incoming, skipping:', transaction.transfer_type);
+                return;
+            }
+
+            const amount = parseInt(transaction.transfer_amount) || 0;
+            if (amount <= 0) {
+                console.log('[DEBT-RETROACTIVE] Invalid amount:', amount);
+                return;
+            }
+
+            // Update customer debt
+            console.log('[DEBT-RETROACTIVE] Updating debt for phone:', phone, 'amount:', amount);
+
+            if (window.updateCustomerDebtByPhone) {
+                const result = await window.updateCustomerDebtByPhone(phone, amount);
+                if (result.success) {
+                    console.log('[DEBT-RETROACTIVE] ✅ Customer debt updated:', result.data);
+                    if (window.NotificationManager) {
+                        window.NotificationManager.showNotification(
+                            `Đã cập nhật nợ +${this.formatCurrency(amount)} cho ${result.data.name}`,
+                            'success'
+                        );
+                    }
+                } else {
+                    console.log('[DEBT-RETROACTIVE] ⚠️ Failed to update debt:', result.message);
+                }
+            } else {
+                console.warn('[DEBT-RETROACTIVE] updateCustomerDebtByPhone not available');
+            }
+        } catch (error) {
+            console.error('[DEBT-RETROACTIVE] Error:', error);
+        }
+    },
+
+    /**
+     * Format currency for display
+     * @param {number} amount - Amount to format
+     * @returns {string} Formatted currency string
+     */
+    formatCurrency(amount) {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND'
+        }).format(amount || 0);
     },
 
     /**

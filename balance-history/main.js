@@ -827,9 +827,14 @@ function disconnectRealtimeUpdates() {
 }
 
 // Handle new transaction from SSE
-function handleNewTransaction(transaction) {
+async function handleNewTransaction(transaction) {
     // Show notification
     showNotification(transaction);
+
+    // Auto-update customer debt for incoming transactions
+    if (transaction.transfer_type === 'in') {
+        await autoUpdateCustomerDebt(transaction);
+    }
 
     // Check if transaction matches current filters
     if (!transactionMatchesFilters(transaction)) {
@@ -846,6 +851,89 @@ function handleNewTransaction(transaction) {
         showNewDataBanner();
     }
 }
+
+/**
+ * Auto-update customer debt when receiving a new incoming transaction
+ * Only for transfer_type = 'in'
+ * @param {Object} transaction - The new transaction data from SSE
+ */
+async function autoUpdateCustomerDebt(transaction) {
+    try {
+        // Extract unique code from content
+        const content = transaction.content || '';
+        const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
+        const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
+
+        if (!uniqueCode) {
+            console.log('[DEBT-UPDATE] No unique code found in transaction content');
+            return;
+        }
+
+        // Get customer phone from CustomerInfoManager
+        if (!window.CustomerInfoManager) {
+            console.log('[DEBT-UPDATE] CustomerInfoManager not available');
+            return;
+        }
+
+        const customerInfo = window.CustomerInfoManager.getCustomerInfo(uniqueCode);
+        if (!customerInfo || !customerInfo.phone) {
+            console.log('[DEBT-UPDATE] No phone found for unique code:', uniqueCode);
+            return;
+        }
+
+        const phone = customerInfo.phone;
+        const amount = parseInt(transaction.transfer_amount) || 0;
+
+        if (amount <= 0) {
+            console.log('[DEBT-UPDATE] Invalid amount:', amount);
+            return;
+        }
+
+        // Call API to update customer debt
+        console.log('[DEBT-UPDATE] Updating debt for phone:', phone, 'amount:', amount);
+        const result = await updateCustomerDebtByPhone(phone, amount);
+
+        if (result.success) {
+            console.log('[DEBT-UPDATE] ✅ Customer debt updated:', result.data);
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(
+                    `Đã cập nhật nợ +${formatCurrency(amount)} cho ${result.data.name}`,
+                    'success'
+                );
+            }
+        } else {
+            console.log('[DEBT-UPDATE] ⚠️ Failed to update debt:', result.message);
+        }
+    } catch (error) {
+        console.error('[DEBT-UPDATE] Error:', error);
+    }
+}
+
+/**
+ * Call API to update customer debt by phone
+ * @param {string} phone - Customer phone number
+ * @param {number} amount - Amount to add to debt
+ * @returns {Promise<Object>} - API response
+ */
+async function updateCustomerDebtByPhone(phone, amount) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/customers/update-debt-by-phone`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ phone, amount })
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('[DEBT-UPDATE] API error:', error);
+        return { success: false, message: error.message };
+    }
+}
+
+// Export for use in customer-info.js
+window.updateCustomerDebtByPhone = updateCustomerDebtByPhone;
 
 // Check if transaction matches current filters
 function transactionMatchesFilters(transaction) {
