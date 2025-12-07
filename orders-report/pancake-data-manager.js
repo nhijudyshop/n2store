@@ -126,6 +126,71 @@ class PancakeDataManager {
     }
 
     /**
+     * Lấy danh sách pages với số lượng unread conversations
+     * Endpoint: /api/v1/pages/unread_conv_pages_count
+     * @returns {Promise<Array>} Array of { page_id, unread_conv_count }
+     */
+    async fetchPagesWithUnreadCount() {
+        try {
+            console.log('[PANCAKE] Fetching pages with unread count...');
+
+            const token = await this.getToken();
+            if (!token) {
+                throw new Error('No Pancake token available');
+            }
+
+            // Use Cloudflare Worker proxy to bypass CORS
+            const url = window.API_CONFIG.buildUrl.pancake('pages/unread_conv_pages_count', `access_token=${token}`);
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+
+            console.log('[PANCAKE] Unread pages response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[PANCAKE] Error response:', errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] Unread pages response:', data);
+
+            if (data.success && data.data) {
+                // Merge with existing pages data to get page names
+                const pagesWithUnread = data.data.map(item => {
+                    // Find matching page from cached pages to get the name
+                    const cachedPage = this.pages.find(p =>
+                        p.page_id === item.page_id ||
+                        p.fb_page_id === item.page_id ||
+                        p.id === item.page_id
+                    );
+                    return {
+                        page_id: item.page_id,
+                        unread_conv_count: item.unread_conv_count || 0,
+                        page_name: cachedPage?.page_name || cachedPage?.name || item.page_id
+                    };
+                });
+
+                console.log(`[PANCAKE] ✅ Got ${pagesWithUnread.length} pages with unread count`);
+                return pagesWithUnread;
+            } else {
+                console.warn('[PANCAKE] Unexpected response format:', data);
+                return [];
+            }
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error fetching pages with unread count:', error);
+            return [];
+        }
+    }
+
+    /**
      * Search conversations theo query (tên khách hàng, fb_id, etc.)
      * Tối ưu hơn fetchConversations() vì chỉ search những gì cần
      * @param {string} query - Search query (tên hoặc fb_id)
