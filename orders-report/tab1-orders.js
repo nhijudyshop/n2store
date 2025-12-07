@@ -6025,12 +6025,13 @@ window.populateChatPageSelector = async function (currentPageId) {
  * Handle page selection change
  * @param {string} pageId - Selected page ID
  */
-window.onChatPageChanged = function (pageId) {
+window.onChatPageChanged = async function (pageId) {
     console.log('[PAGE-SELECTOR] Page changed to:', pageId);
 
     if (!pageId) return;
 
     // Update currentChatChannelId to use selected page
+    const oldChannelId = window.currentChatChannelId;
     window.currentChatChannelId = pageId;
 
     // Show notification
@@ -6038,10 +6039,110 @@ window.onChatPageChanged = function (pageId) {
     const pageName = selectedPage?.page_name || pageId;
 
     if (window.notificationManager) {
-        window.notificationManager.show(`Đã chọn page: ${pageName}`, 'info', 2000);
+        window.notificationManager.show(`Đang tải tin nhắn từ page: ${pageName}...`, 'info', 2000);
     }
 
     console.log('[PAGE-SELECTOR] ✅ Updated currentChatChannelId to:', pageId);
+
+    // Reload messages/comments for the new page
+    await window.reloadChatForSelectedPage(pageId);
+};
+
+/**
+ * Reload messages/comments when page is changed
+ * @param {string} pageId - New page ID to load messages from
+ */
+window.reloadChatForSelectedPage = async function (pageId) {
+    console.log('[PAGE-RELOAD] Reloading chat for page:', pageId);
+
+    const modalBody = document.getElementById('chatModalBody');
+    if (!modalBody) return;
+
+    const psid = window.currentChatPSID;
+    if (!psid) {
+        console.error('[PAGE-RELOAD] No PSID available');
+        return;
+    }
+
+    // Show loading
+    const loadingText = currentChatType === 'comment' ? 'Đang tải bình luận...' : 'Đang tải tin nhắn...';
+    modalBody.innerHTML = `
+        <div class="chat-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>${loadingText}</p>
+        </div>`;
+
+    try {
+        if (currentChatType === 'comment') {
+            // Fetch comments for new page
+            const response = await window.chatDataManager.fetchComments(pageId, psid);
+            window.allChatComments = response.comments || [];
+            currentChatCursor = response.after;
+
+            console.log(`[PAGE-RELOAD] Loaded ${window.allChatComments.length} comments from page ${pageId}`);
+
+            // Update parent comment ID if available
+            if (window.allChatComments.length > 0) {
+                const rootComment = window.allChatComments.find(c => !c.ParentId) || window.allChatComments[0];
+                if (rootComment && rootComment.Id) {
+                    currentParentCommentId = getFacebookCommentId(rootComment);
+                    console.log(`[PAGE-RELOAD] Updated parent comment ID: ${currentParentCommentId}`);
+                }
+            }
+
+            renderComments(window.allChatComments, true);
+        } else {
+            // Fetch messages for new page
+            const response = await window.chatDataManager.fetchMessages(pageId, psid);
+            window.allChatMessages = response.messages || [];
+            currentChatCursor = response.after;
+
+            console.log(`[PAGE-RELOAD] Loaded ${window.allChatMessages.length} messages from page ${pageId}`);
+
+            renderChatMessages(window.allChatMessages, true);
+
+            // Re-setup infinite scroll
+            setupChatInfiniteScroll();
+            setupNewMessageIndicatorListener();
+        }
+
+        // Update conversationId for new page
+        if (currentOrder && window.pancakeDataManager) {
+            const facebookPsid = currentOrder.Facebook_ASUserId;
+            if (facebookPsid) {
+                const conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+                if (conversation && conversation.customers && conversation.customers.length > 0) {
+                    const customerUuid = conversation.customers[0].id;
+                    try {
+                        const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(pageId, customerUuid);
+                        if (inboxPreview.success && inboxPreview.conversationId) {
+                            window.currentConversationId = inboxPreview.conversationId;
+                            console.log('[PAGE-RELOAD] ✅ Updated conversationId:', window.currentConversationId);
+                        }
+                    } catch (error) {
+                        console.warn('[PAGE-RELOAD] Could not fetch inbox_preview:', error);
+                    }
+                }
+            }
+        }
+
+        // Show success notification
+        const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
+        const pageName = selectedPage?.page_name || pageId;
+        if (window.notificationManager) {
+            window.notificationManager.show(`✅ Đã tải tin nhắn từ page: ${pageName}`, 'success', 2000);
+        }
+
+    } catch (error) {
+        console.error('[PAGE-RELOAD] Error loading chat:', error);
+        const errorText = currentChatType === 'comment' ? 'Lỗi khi tải bình luận' : 'Lỗi khi tải tin nhắn';
+        modalBody.innerHTML = `
+            <div class="chat-error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>${errorText}</p>
+                <p style="font-size: 12px; color: #9ca3af;">${error.message}</p>
+            </div>`;
+    }
 };
 
 window.openChatModal = async function (orderId, channelId, psid, type = 'message') {
