@@ -1085,4 +1085,24 @@ if (typeof XLSX === 'undefined') {
     document.head.appendChild(script);
 }
 
+// =====================================================
+// EXPOSE FUNCTIONS TO WINDOW (for onclick handlers)
+// =====================================================
+
+window.selectSheet = selectSheet;
+window.createNewSheet = createNewSheet;
+window.editSheetName = editSheetName;
+window.editSheetNameById = editSheetNameById;
+window.saveSheet = saveSheet;
+window.deleteSheet = deleteSheet;
+window.deleteCurrentSheet = deleteCurrentSheet;
+window.confirmDeleteSheet = confirmDeleteSheet;
+window.addProductToSheet = addProductToSheet;
+window.updateItemQty = updateItemQty;
+window.deleteItem = deleteItem;
+window.toggleSidebar = toggleSidebar;
+window.toggleHistoryPanel = toggleHistoryPanel;
+window.closePanels = closePanels;
+window.viewImage = viewImage;
+
 console.log('[APP] Sổ Order Live app.js loaded');
