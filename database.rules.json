@@ -15,25 +15,6 @@
     "tpos_token": {
       ".validate": "newData.hasChildren(['access_token', 'expires_at'])"
     },
-    "chat_products": {
-      "shared": {
-        ".indexOn": [
-          "Id"
-        ]
-      },
-      "$orderId": {
-        ".indexOn": [
-          "Id"
-        ]
-      }
-    },
-    "chat_products_history": {
-      "shared": {
-        ".indexOn": [
-          "timestamp"
-        ]
-      }
-    },
     "dropped_products": {
       ".indexOn": [
         "ProductId",
