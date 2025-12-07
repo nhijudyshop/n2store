@@ -16,8 +16,8 @@ const AppState = {
     productsData: [],
     isLoadingProducts: false,
     searchDebounceTimer: null,
-    unsubscribeSheets: null,
-    unsubscribeHistory: null
+    saveDebounceTimer: null,
+    isSaving: false
 };
 
 // Firebase paths
@@ -34,24 +34,32 @@ const FIREBASE_PATHS = {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('[APP] Initializing Sổ Order Live...');
 
-    // Initialize Firebase
-    await initFirebase();
+    try {
+        // Initialize Firebase
+        await initFirebase();
 
-    // Initialize Auth
-    await initAuth();
+        // Initialize Auth
+        await initAuth();
 
-    // Setup event listeners
-    setupEventListeners();
+        // Setup event listeners with event delegation
+        setupEventListeners();
 
-    // Load products data
-    loadProductsData();
+        // Load products data in background
+        loadProductsData();
 
-    console.log('[APP] Initialization complete');
+        console.log('[APP] Initialization complete');
+    } catch (error) {
+        console.error('[APP] Initialization error:', error);
+        showToast('Lỗi khởi tạo ứng dụng', 'error');
+    }
 });
 
 async function initFirebase() {
     try {
-        // Check if Firebase is already initialized
+        if (typeof firebase === 'undefined') {
+            throw new Error('Firebase SDK not loaded');
+        }
+
         if (firebase.apps.length === 0) {
             firebase.initializeApp(firebaseConfig);
         }
@@ -60,14 +68,14 @@ async function initFirebase() {
     } catch (error) {
         console.error('[APP] Firebase init error:', error);
         showToast('Lỗi kết nối Firebase', 'error');
+        throw error;
     }
 }
 
 async function initAuth() {
     try {
-        // Wait for authManager
         let attempts = 0;
-        while (!window.authManager && attempts < 50) {
+        while (!window.authManager && attempts < 30) {
             await new Promise(r => setTimeout(r, 100));
             attempts++;
         }
@@ -76,7 +84,6 @@ async function initAuth() {
             const authState = window.authManager.getAuthState();
             if (authState && authState.isLoggedIn === 'true') {
                 AppState.currentUser = authState;
-                // Extract user identifier
                 if (authState.userType) {
                     AppState.userIdentifier = authState.userType.includes('-')
                         ? authState.userType.split('-')[0]
@@ -87,19 +94,15 @@ async function initAuth() {
                     AppState.userIdentifier = 'default';
                 }
                 console.log('[APP] User authenticated:', AppState.userIdentifier);
-
-                // Setup realtime listeners
-                setupRealtimeListeners();
             } else {
-                console.warn('[APP] User not logged in');
                 AppState.userIdentifier = 'guest';
-                setupRealtimeListeners();
             }
         } else {
-            console.warn('[APP] AuthManager not found');
             AppState.userIdentifier = 'guest';
-            setupRealtimeListeners();
         }
+
+        // Setup realtime listeners
+        setupRealtimeListeners();
     } catch (error) {
         console.error('[APP] Auth init error:', error);
         AppState.userIdentifier = 'guest';
@@ -121,40 +124,165 @@ function setupRealtimeListeners() {
         return;
     }
 
-    // Listen to sheets
     const sheetsPath = getUserPath(FIREBASE_PATHS.SHEETS);
     console.log('[APP] Setting up listener for:', sheetsPath);
 
+    // Listen to sheets changes
     AppState.database.ref(sheetsPath).on('value', (snapshot) => {
         const data = snapshot.val();
         AppState.sheets = data || {};
         console.log('[APP] Sheets updated:', Object.keys(AppState.sheets).length, 'sheets');
+
         renderSheetsList();
 
-        // Re-render current sheet if active
         if (AppState.activeSheetId && AppState.sheets[AppState.activeSheetId]) {
             renderSheetContent();
         } else if (AppState.activeSheetId && !AppState.sheets[AppState.activeSheetId]) {
-            // Active sheet was deleted
             AppState.activeSheetId = null;
             showNoSheetSelected();
         }
 
         updateSyncStatus('synced');
+    }, (error) => {
+        console.error('[APP] Firebase listen error:', error);
+        updateSyncStatus('error');
     });
 
-    // Listen to active sheet ID
+    // Listen to active sheet
     const activePath = getUserPath(FIREBASE_PATHS.ACTIVE_SHEET);
     AppState.database.ref(activePath).on('value', (snapshot) => {
         const activeId = snapshot.val();
-        if (activeId && activeId !== AppState.activeSheetId) {
+        if (activeId && activeId !== AppState.activeSheetId && AppState.sheets[activeId]) {
             AppState.activeSheetId = activeId;
-            if (AppState.sheets[activeId]) {
-                renderSheetsList();
-                renderSheetContent();
-            }
+            renderSheetsList();
+            renderSheetContent();
         }
     });
+}
+
+// =====================================================
+// EVENT LISTENERS (Event Delegation)
+// =====================================================
+
+function setupEventListeners() {
+    // Sheet list click handler (Event Delegation)
+    const sheetsList = document.getElementById('sheetsList');
+    if (sheetsList) {
+        sheetsList.addEventListener('click', handleSheetsListClick);
+    }
+
+    // Products table click handler
+    const productsTable = document.getElementById('productsTable');
+    if (productsTable) {
+        productsTable.addEventListener('click', handleTableClick);
+        productsTable.addEventListener('change', handleTableChange);
+    }
+
+    // Search input
+    const searchInput = document.getElementById('productSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(AppState.searchDebounceTimer);
+            AppState.searchDebounceTimer = setTimeout(() => {
+                handleSearch(e.target.value);
+            }, 300);
+        });
+
+        searchInput.addEventListener('focus', () => {
+            if (searchInput.value.length >= 2) {
+                handleSearch(searchInput.value);
+            }
+        });
+    }
+
+    // Suggestions dropdown click
+    const suggestionsDropdown = document.getElementById('suggestionsDropdown');
+    if (suggestionsDropdown) {
+        suggestionsDropdown.addEventListener('click', handleSuggestionClick);
+    }
+
+    // Close suggestions on outside click
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-container')) {
+            hideSuggestions();
+        }
+    });
+
+    // Sheet name input enter key
+    const sheetNameInput = document.getElementById('sheetNameInput');
+    if (sheetNameInput) {
+        sheetNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                saveSheet();
+            }
+        });
+    }
+
+    // Header buttons
+    document.getElementById('syncStatus')?.addEventListener('click', () => {
+        updateSyncStatus('syncing');
+        setTimeout(() => updateSyncStatus('synced'), 1000);
+    });
+}
+
+function handleSheetsListClick(e) {
+    const sheetItem = e.target.closest('.sheet-item');
+    const editBtn = e.target.closest('button[data-action="edit"]');
+    const deleteBtn = e.target.closest('button[data-action="delete"]');
+
+    if (editBtn) {
+        e.stopPropagation();
+        const sheetId = editBtn.dataset.sheetId;
+        editSheetNameById(sheetId);
+        return;
+    }
+
+    if (deleteBtn) {
+        e.stopPropagation();
+        const sheetId = deleteBtn.dataset.sheetId;
+        deleteSheet(sheetId);
+        return;
+    }
+
+    if (sheetItem) {
+        const sheetId = sheetItem.dataset.sheetId;
+        if (sheetId) {
+            selectSheet(sheetId);
+        }
+    }
+}
+
+function handleTableClick(e) {
+    const deleteBtn = e.target.closest('.btn-delete-row');
+    if (deleteBtn) {
+        const index = parseInt(deleteBtn.dataset.index);
+        if (!isNaN(index)) {
+            deleteItem(index);
+        }
+    }
+}
+
+function handleTableChange(e) {
+    const input = e.target.closest('.qty-input');
+    if (input) {
+        const index = parseInt(input.dataset.index);
+        const field = input.dataset.field;
+        if (!isNaN(index) && field) {
+            updateItemQty(index, field, input.value);
+        }
+    }
+}
+
+function handleSuggestionClick(e) {
+    const item = e.target.closest('.suggestion-item');
+    if (item && item.dataset.product) {
+        try {
+            const product = JSON.parse(item.dataset.product);
+            addProductToSheet(product);
+        } catch (error) {
+            console.error('[APP] Error parsing product data:', error);
+        }
+    }
 }
 
 // =====================================================
@@ -164,6 +292,8 @@ function setupRealtimeListeners() {
 function renderSheetsList() {
     const container = document.getElementById('sheetsList');
     const emptyState = document.getElementById('emptySheets');
+
+    if (!container) return;
 
     const sheetIds = Object.keys(AppState.sheets);
 
@@ -176,24 +306,22 @@ function renderSheetsList() {
 
     emptyState.style.display = 'none';
 
-    // Sort by createdAt desc
     const sortedSheets = sheetIds
         .map(id => ({ id, ...AppState.sheets[id] }))
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     container.innerHTML = sortedSheets.map(sheet => `
         <div class="sheet-item ${sheet.id === AppState.activeSheetId ? 'active' : ''}"
-             onclick="selectSheet('${sheet.id}')"
              data-sheet-id="${sheet.id}">
             <div class="sheet-item-info">
                 <div class="sheet-item-name">📄 ${escapeHtml(sheet.name || 'Chưa đặt tên')}</div>
                 <div class="sheet-item-meta">${formatDate(sheet.createdAt)} • ${(sheet.items || []).length} SP</div>
             </div>
             <div class="sheet-item-actions">
-                <button onclick="event.stopPropagation(); editSheetNameById('${sheet.id}')" title="Đổi tên">
+                <button data-action="edit" data-sheet-id="${sheet.id}" title="Đổi tên">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn-delete" onclick="event.stopPropagation(); deleteSheet('${sheet.id}')" title="Xóa">
+                <button class="btn-delete" data-action="delete" data-sheet-id="${sheet.id}" title="Xóa">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -202,22 +330,29 @@ function renderSheetsList() {
 }
 
 function selectSheet(sheetId) {
+    console.log('[APP] Selecting sheet:', sheetId);
+
+    if (!sheetId || !AppState.sheets[sheetId]) {
+        console.warn('[APP] Invalid sheet ID:', sheetId);
+        return;
+    }
+
     AppState.activeSheetId = sheetId;
 
-    // Save active sheet to Firebase
+    // Save to Firebase (fire and forget for speed)
     const activePath = getUserPath(FIREBASE_PATHS.ACTIVE_SHEET);
     AppState.database.ref(activePath).set(sheetId);
 
     renderSheetsList();
     renderSheetContent();
-
-    // Close sidebar on mobile
     closePanels();
 }
 
 function showNoSheetSelected() {
-    document.getElementById('noSheetSelected').style.display = 'flex';
-    document.getElementById('sheetContent').style.display = 'none';
+    const noSheet = document.getElementById('noSheetSelected');
+    const sheetContent = document.getElementById('sheetContent');
+    if (noSheet) noSheet.style.display = 'flex';
+    if (sheetContent) sheetContent.style.display = 'none';
 }
 
 function renderSheetContent() {
@@ -231,15 +366,11 @@ function renderSheetContent() {
 
     const sheet = AppState.sheets[AppState.activeSheetId];
 
-    // Update header
     document.getElementById('sheetTitle').textContent = sheet.name || 'Chưa đặt tên';
     document.getElementById('sheetCreatedAt').textContent = formatDate(sheet.createdAt);
     document.getElementById('itemCount').textContent = (sheet.items || []).length;
 
-    // Render table
     renderProductsTable(sheet.items || []);
-
-    // Load history for this sheet
     loadSheetHistory(AppState.activeSheetId);
 }
 
@@ -280,8 +411,9 @@ function editSheetNameById(sheetId) {
     modal.show();
 
     setTimeout(() => {
-        document.getElementById('sheetNameInput').focus();
-        document.getElementById('sheetNameInput').select();
+        const input = document.getElementById('sheetNameInput');
+        input.focus();
+        input.select();
     }, 300);
 }
 
@@ -301,16 +433,16 @@ async function saveSheet() {
         const sheetsPath = getUserPath(FIREBASE_PATHS.SHEETS);
 
         if (editingSheetId) {
-            // Update existing sheet
-            await AppState.database.ref(`${sheetsPath}/${editingSheetId}/name`).set(name);
-            await AppState.database.ref(`${sheetsPath}/${editingSheetId}/updatedAt`).set(Date.now());
+            // Update existing
+            const updates = {};
+            updates[`${sheetsPath}/${editingSheetId}/name`] = name;
+            updates[`${sheetsPath}/${editingSheetId}/updatedAt`] = Date.now();
+            await AppState.database.ref().update(updates);
 
-            // Log history
             await logHistory(editingSheetId, 'edit', `Đổi tên thành "${name}"`);
-
             showToast('Đã cập nhật tên trang', 'success');
         } else {
-            // Create new sheet
+            // Create new
             const newSheetId = 'sheet_' + Date.now();
             const newSheet = {
                 id: newSheetId,
@@ -320,19 +452,16 @@ async function saveSheet() {
                 items: []
             };
 
-            await AppState.database.ref(`${sheetsPath}/${newSheetId}`).set(newSheet);
+            const updates = {};
+            updates[`${sheetsPath}/${newSheetId}`] = newSheet;
+            updates[getUserPath(FIREBASE_PATHS.ACTIVE_SHEET)] = newSheetId;
+            await AppState.database.ref().update(updates);
 
-            // Auto select new sheet
             AppState.activeSheetId = newSheetId;
-            await AppState.database.ref(getUserPath(FIREBASE_PATHS.ACTIVE_SHEET)).set(newSheetId);
-
             showToast('Đã tạo trang mới', 'success');
         }
 
-        // Close modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('sheetModal'));
-        modal.hide();
-
+        bootstrap.Modal.getInstance(document.getElementById('sheetModal'))?.hide();
     } catch (error) {
         console.error('[APP] Error saving sheet:', error);
         showToast('Lỗi lưu trang', 'error');
@@ -362,25 +491,19 @@ async function confirmDeleteSheet() {
     updateSyncStatus('syncing');
 
     try {
-        const sheetsPath = getUserPath(FIREBASE_PATHS.SHEETS);
-        await AppState.database.ref(`${sheetsPath}/${deletingSheetId}`).remove();
+        const updates = {};
+        updates[`${getUserPath(FIREBASE_PATHS.SHEETS)}/${deletingSheetId}`] = null;
+        updates[`${getUserPath(FIREBASE_PATHS.HISTORY)}/${deletingSheetId}`] = null;
 
-        // Clear history for this sheet
-        const historyPath = getUserPath(FIREBASE_PATHS.HISTORY);
-        await AppState.database.ref(`${historyPath}/${deletingSheetId}`).remove();
-
-        // If deleted sheet was active, clear active
         if (deletingSheetId === AppState.activeSheetId) {
+            updates[getUserPath(FIREBASE_PATHS.ACTIVE_SHEET)] = null;
             AppState.activeSheetId = null;
-            await AppState.database.ref(getUserPath(FIREBASE_PATHS.ACTIVE_SHEET)).remove();
         }
 
+        await AppState.database.ref().update(updates);
         showToast('Đã xóa trang', 'success');
 
-        // Close modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
-        modal.hide();
-
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal'))?.hide();
     } catch (error) {
         console.error('[APP] Error deleting sheet:', error);
         showToast('Lỗi xóa trang', 'error');
@@ -399,15 +522,17 @@ function renderProductsTable(items) {
     const emptyTable = document.getElementById('emptyTable');
     const tableFoot = document.getElementById('tableFoot');
 
+    if (!tbody) return;
+
     if (!items || items.length === 0) {
         tbody.innerHTML = '';
-        emptyTable.style.display = 'block';
-        tableFoot.style.display = 'none';
+        if (emptyTable) emptyTable.style.display = 'block';
+        if (tableFoot) tableFoot.style.display = 'none';
         return;
     }
 
-    emptyTable.style.display = 'none';
-    tableFoot.style.display = 'table-footer-group';
+    if (emptyTable) emptyTable.style.display = 'none';
+    if (tableFoot) tableFoot.style.display = 'table-footer-group';
 
     tbody.innerHTML = items.map((item, index) => `
         <tr data-index="${index}">
@@ -425,35 +550,34 @@ function renderProductsTable(items) {
             </td>
             <td class="image-cell">
                 ${item.imageUrl
-                    ? `<img src="${item.imageUrl}" alt="" onclick="viewImage('${item.imageUrl}')" onerror="this.outerHTML='📦'">`
+                    ? `<img src="${item.imageUrl}" alt="" style="cursor:pointer" onerror="this.outerHTML='📦'">`
                     : '📦'
                 }
             </td>
             <td class="text-center">
                 <input type="number" class="qty-input" value="${item.qtyLive || 0}"
-                       min="0" onchange="updateItemQty(${index}, 'qtyLive', this.value)">
+                       min="0" data-index="${index}" data-field="qtyLive">
             </td>
             <td class="text-center">
                 <input type="number" class="qty-input" value="${item.qtyInbox || 0}"
-                       min="0" onchange="updateItemQty(${index}, 'qtyInbox', this.value)">
+                       min="0" data-index="${index}" data-field="qtyInbox">
             </td>
             <td class="text-center">
                 <input type="number" class="qty-input" value="${item.sentToNCC || 0}"
-                       min="0" onchange="updateItemQty(${index}, 'sentToNCC', this.value)">
+                       min="0" data-index="${index}" data-field="sentToNCC">
             </td>
             <td class="text-center">
                 <input type="number" class="qty-input" value="${item.receivedIB || 0}"
-                       min="0" onchange="updateItemQty(${index}, 'receivedIB', this.value)">
+                       min="0" data-index="${index}" data-field="receivedIB">
             </td>
             <td class="text-center">
-                <button class="btn-delete-row" onclick="deleteItem(${index})" title="Xóa">
+                <button class="btn-delete-row" data-index="${index}" title="Xóa">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </td>
         </tr>
     `).join('');
 
-    // Update totals
     updateTotals(items);
 }
 
@@ -467,10 +591,15 @@ function updateTotals(items) {
         totalReceivedIB += parseInt(item.receivedIB) || 0;
     });
 
-    document.getElementById('totalLive').textContent = totalLive;
-    document.getElementById('totalInbox').textContent = totalInbox;
-    document.getElementById('totalSentNCC').textContent = totalSentNCC;
-    document.getElementById('totalReceivedIB').textContent = totalReceivedIB;
+    const el = (id, val) => {
+        const e = document.getElementById(id);
+        if (e) e.textContent = val;
+    };
+
+    el('totalLive', totalLive);
+    el('totalInbox', totalInbox);
+    el('totalSentNCC', totalSentNCC);
+    el('totalReceivedIB', totalReceivedIB);
 }
 
 // =====================================================
@@ -484,19 +613,18 @@ async function addProductToSheet(product) {
     }
 
     const sheet = AppState.sheets[AppState.activeSheetId];
-    const items = sheet.items || [];
+    if (!sheet) return;
 
-    // Check duplicate
+    const items = [...(sheet.items || [])];
+
     const exists = items.some(item => item.productCode === product.code);
     if (exists) {
         showToast('Sản phẩm đã có trong danh sách', 'warning');
         return;
     }
 
-    // Show loading toast
     showToast('Đang thêm sản phẩm...', 'info');
 
-    // Fetch image URL from API
     let imageUrl = '';
     if (product.id) {
         imageUrl = await fetchProductImage(product.id);
@@ -516,23 +644,20 @@ async function addProductToSheet(product) {
     };
 
     items.push(newItem);
-
     updateSyncStatus('syncing');
 
     try {
         const sheetsPath = getUserPath(FIREBASE_PATHS.SHEETS);
-        await AppState.database.ref(`${sheetsPath}/${AppState.activeSheetId}/items`).set(items);
-        await AppState.database.ref(`${sheetsPath}/${AppState.activeSheetId}/updatedAt`).set(Date.now());
+        const updates = {};
+        updates[`${sheetsPath}/${AppState.activeSheetId}/items`] = items;
+        updates[`${sheetsPath}/${AppState.activeSheetId}/updatedAt`] = Date.now();
+        await AppState.database.ref().update(updates);
 
-        // Log history
         await logHistory(AppState.activeSheetId, 'add', `Thêm ${product.code || product.name}`);
-
         showToast('Đã thêm sản phẩm', 'success');
 
-        // Clear search
         document.getElementById('productSearch').value = '';
         hideSuggestions();
-
     } catch (error) {
         console.error('[APP] Error adding product:', error);
         showToast('Lỗi thêm sản phẩm', 'error');
@@ -544,64 +669,62 @@ async function updateItemQty(index, field, value) {
     if (!AppState.activeSheetId) return;
 
     const sheet = AppState.sheets[AppState.activeSheetId];
-    const items = sheet.items || [];
+    if (!sheet || !sheet.items || !sheet.items[index]) return;
 
-    if (!items[index]) return;
-
-    const oldValue = items[index][field] || 0;
+    const oldValue = sheet.items[index][field] || 0;
     const newValue = parseInt(value) || 0;
 
     if (oldValue === newValue) return;
 
-    items[index][field] = newValue;
+    // Debounce saves
+    clearTimeout(AppState.saveDebounceTimer);
+    AppState.saveDebounceTimer = setTimeout(async () => {
+        updateSyncStatus('syncing');
 
-    updateSyncStatus('syncing');
+        try {
+            const sheetsPath = getUserPath(FIREBASE_PATHS.SHEETS);
+            const updates = {};
+            updates[`${sheetsPath}/${AppState.activeSheetId}/items/${index}/${field}`] = newValue;
+            updates[`${sheetsPath}/${AppState.activeSheetId}/updatedAt`] = Date.now();
+            await AppState.database.ref().update(updates);
 
-    try {
-        const sheetsPath = getUserPath(FIREBASE_PATHS.SHEETS);
-        await AppState.database.ref(`${sheetsPath}/${AppState.activeSheetId}/items/${index}/${field}`).set(newValue);
-        await AppState.database.ref(`${sheetsPath}/${AppState.activeSheetId}/updatedAt`).set(Date.now());
-
-        // Log history
-        const fieldNames = {
-            qtyLive: 'SL Live',
-            qtyInbox: 'SL Inbox',
-            sentToNCC: 'Gửi NCC',
-            receivedIB: 'Nhận IB'
-        };
-        await logHistory(AppState.activeSheetId, 'edit',
-            `${items[index].productCode}: ${fieldNames[field]} ${oldValue} → ${newValue}`);
-
-    } catch (error) {
-        console.error('[APP] Error updating item:', error);
-        showToast('Lỗi cập nhật', 'error');
-        updateSyncStatus('error');
-    }
+            const fieldNames = {
+                qtyLive: 'SL Live',
+                qtyInbox: 'SL Inbox',
+                sentToNCC: 'Gửi NCC',
+                receivedIB: 'Nhận IB'
+            };
+            await logHistory(AppState.activeSheetId, 'edit',
+                `${sheet.items[index].productCode}: ${fieldNames[field]} ${oldValue} → ${newValue}`);
+        } catch (error) {
+            console.error('[APP] Error updating item:', error);
+            showToast('Lỗi cập nhật', 'error');
+            updateSyncStatus('error');
+        }
+    }, 500);
 }
 
 async function deleteItem(index) {
     if (!AppState.activeSheetId) return;
 
     const sheet = AppState.sheets[AppState.activeSheetId];
-    const items = sheet.items || [];
+    if (!sheet || !sheet.items || !sheet.items[index]) return;
 
-    if (!items[index]) return;
-
-    const deletedItem = items[index];
+    const deletedItem = sheet.items[index];
+    const items = [...sheet.items];
     items.splice(index, 1);
 
     updateSyncStatus('syncing');
 
     try {
         const sheetsPath = getUserPath(FIREBASE_PATHS.SHEETS);
-        await AppState.database.ref(`${sheetsPath}/${AppState.activeSheetId}/items`).set(items);
-        await AppState.database.ref(`${sheetsPath}/${AppState.activeSheetId}/updatedAt`).set(Date.now());
+        const updates = {};
+        updates[`${sheetsPath}/${AppState.activeSheetId}/items`] = items;
+        updates[`${sheetsPath}/${AppState.activeSheetId}/updatedAt`] = Date.now();
+        await AppState.database.ref().update(updates);
 
-        // Log history
         await logHistory(AppState.activeSheetId, 'delete', `Xóa ${deletedItem.productName}`);
-
         showToast('Đã xóa sản phẩm', 'success');
-
     } catch (error) {
         console.error('[APP] Error deleting item:', error);
         showToast('Lỗi xóa sản phẩm', 'error');
@@ -620,8 +743,7 @@ async function loadProductsData() {
     console.log('[APP] Loading products from TPOS...');
 
     try {
-        // Check cache first
-        const cached = window.tposProductsCache?.getData();
+        const cached = window.tposProductsCache?.getData?.();
         if (cached && cached.length > 0) {
             AppState.productsData = cached;
             console.log('[APP] Loaded', cached.length, 'products from cache');
@@ -629,7 +751,6 @@ async function loadProductsData() {
             return;
         }
 
-        // Fetch from API
         const token = await getTPOSToken();
         if (!token) {
             console.warn('[APP] No TPOS token available');
@@ -645,10 +766,7 @@ async function loadProductsData() {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    Keyword: "",
-                    Status: 1
-                })
+                body: JSON.stringify({ Keyword: "", Status: 1 })
             }
         );
 
@@ -658,12 +776,10 @@ async function loadProductsData() {
             AppState.productsData = data;
             console.log('[APP] Loaded', data.length, 'products from API');
 
-            // Save to cache
-            if (window.tposProductsCache) {
+            if (window.tposProductsCache?.setData) {
                 window.tposProductsCache.setData(data);
             }
         }
-
     } catch (error) {
         console.error('[APP] Error loading products:', error);
     }
@@ -673,12 +789,10 @@ async function loadProductsData() {
 
 async function getTPOSToken() {
     try {
-        // Try using existing token manager
-        if (window.tokenManager) {
+        if (window.tokenManager?.getToken) {
             return await window.tokenManager.getToken();
         }
 
-        // Fallback: fetch token directly
         const response = await smartFetch('/api/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -706,10 +820,8 @@ async function parseExcelBlob(blob) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                // Parse with header row
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
-                // Parse products using Vietnamese headers
                 const products = jsonData.map(row => {
                     const productName = row['Tên sản phẩm'] || '';
                     const codeMatch = productName.match(/\[([^\]]+)\]/);
@@ -733,18 +845,14 @@ async function parseExcelBlob(blob) {
     });
 }
 
-// Fetch product image from TPOS API
 async function fetchProductImage(productId) {
     try {
         const token = await getTPOSToken();
         if (!token || !productId) return null;
 
-        // First try to get from product API
         const response = await smartFetch(
             `/api/odata/Product(${productId})?$select=Id,ImageUrl,ProductTmplId`,
-            {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }
+            { headers: { 'Authorization': `Bearer ${token}` } }
         );
 
         if (response.ok) {
@@ -753,13 +861,10 @@ async function fetchProductImage(productId) {
                 return productData.ImageUrl;
             }
 
-            // If no image, try to get from template
             if (productData.ProductTmplId) {
                 const templateResponse = await smartFetch(
                     `/api/odata/ProductTemplate(${productData.ProductTmplId})?$select=Id,ImageUrl`,
-                    {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    }
+                    { headers: { 'Authorization': `Bearer ${token}` } }
                 );
 
                 if (templateResponse.ok) {
@@ -785,7 +890,7 @@ function searchProducts(keyword) {
             const matchCode = product.code && product.code.toLowerCase().includes(keyword.toLowerCase());
             return matchName || matchCode;
         })
-        .slice(0, 10); // Max 10 results
+        .slice(0, 10);
 }
 
 function removeVietnameseTones(str) {
@@ -800,37 +905,6 @@ function removeVietnameseTones(str) {
 // SEARCH UI
 // =====================================================
 
-function setupEventListeners() {
-    const searchInput = document.getElementById('productSearch');
-
-    searchInput.addEventListener('input', (e) => {
-        clearTimeout(AppState.searchDebounceTimer);
-        AppState.searchDebounceTimer = setTimeout(() => {
-            handleSearch(e.target.value);
-        }, 300);
-    });
-
-    searchInput.addEventListener('focus', () => {
-        if (searchInput.value.length > 0) {
-            handleSearch(searchInput.value);
-        }
-    });
-
-    // Close suggestions on click outside
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.search-container')) {
-            hideSuggestions();
-        }
-    });
-
-    // Enter key in sheet name input
-    document.getElementById('sheetNameInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            saveSheet();
-        }
-    });
-}
-
 function handleSearch(keyword) {
     const dropdown = document.getElementById('suggestionsDropdown');
     const loadingEl = document.getElementById('searchLoading');
@@ -840,11 +914,10 @@ function handleSearch(keyword) {
         return;
     }
 
-    // Show loading if products not loaded yet
     if (AppState.productsData.length === 0) {
-        loadingEl.style.display = 'block';
+        if (loadingEl) loadingEl.style.display = 'block';
         loadProductsData().then(() => {
-            loadingEl.style.display = 'none';
+            if (loadingEl) loadingEl.style.display = 'none';
             handleSearch(keyword);
         });
         return;
@@ -862,9 +935,8 @@ function handleSearch(keyword) {
         return;
     }
 
-    // Products from Excel don't have imageUrl - show placeholder
     dropdown.innerHTML = results.map(product => `
-        <div class="suggestion-item" onclick='addProductToSheet(${JSON.stringify(product)})'>
+        <div class="suggestion-item" data-product='${JSON.stringify(product).replace(/'/g, "&#39;")}'>
             <div class="suggestion-placeholder">📦</div>
             <div class="suggestion-info">
                 <div class="suggestion-name">${escapeHtml(product.name)}</div>
@@ -877,7 +949,8 @@ function handleSearch(keyword) {
 }
 
 function hideSuggestions() {
-    document.getElementById('suggestionsDropdown').classList.remove('show');
+    const dropdown = document.getElementById('suggestionsDropdown');
+    if (dropdown) dropdown.classList.remove('show');
 }
 
 // =====================================================
@@ -891,11 +964,10 @@ async function logHistory(sheetId, action, description) {
 
         await AppState.database.ref(`${historyPath}/${sheetId}/${historyId}`).set({
             id: historyId,
-            action: action, // add, edit, delete
+            action: action,
             description: description,
             timestamp: Date.now()
         });
-
     } catch (error) {
         console.error('[APP] Error logging history:', error);
     }
@@ -904,18 +976,11 @@ async function logHistory(sheetId, action, description) {
 function loadSheetHistory(sheetId) {
     const historyPath = getUserPath(FIREBASE_PATHS.HISTORY);
 
-    // Remove old listener
-    if (AppState.unsubscribeHistory) {
-        AppState.database.ref(`${historyPath}/${AppState.activeSheetId}`).off();
-    }
-
-    // Setup new listener
     AppState.database.ref(`${historyPath}/${sheetId}`)
         .orderByChild('timestamp')
         .limitToLast(50)
         .on('value', (snapshot) => {
-            const data = snapshot.val();
-            renderHistory(data);
+            renderHistory(snapshot.val());
         });
 }
 
@@ -923,29 +988,24 @@ function renderHistory(historyData) {
     const container = document.getElementById('historyList');
     const emptyHistory = document.getElementById('emptyHistory');
 
+    if (!container) return;
+
     if (!historyData) {
         container.innerHTML = '';
-        emptyHistory.style.display = 'block';
-        container.appendChild(emptyHistory);
+        if (emptyHistory) {
+            emptyHistory.style.display = 'block';
+            container.appendChild(emptyHistory);
+        }
         return;
     }
 
-    emptyHistory.style.display = 'none';
+    if (emptyHistory) emptyHistory.style.display = 'none';
 
-    // Sort by timestamp desc
     const items = Object.values(historyData).sort((a, b) => b.timestamp - a.timestamp);
 
     container.innerHTML = items.map(item => {
-        const icons = {
-            add: 'bi-plus-circle',
-            edit: 'bi-pencil',
-            delete: 'bi-trash'
-        };
-        const titles = {
-            add: 'Thêm mới',
-            edit: 'Chỉnh sửa',
-            delete: 'Xóa'
-        };
+        const icons = { add: 'bi-plus-circle', edit: 'bi-pencil', delete: 'bi-trash' };
+        const titles = { add: 'Thêm mới', edit: 'Chỉnh sửa', delete: 'Xóa' };
 
         return `
             <div class="history-item ${item.action}">
@@ -969,27 +1029,26 @@ function renderHistory(historyData) {
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('overlay');
-
-    sidebar.classList.toggle('show');
-    overlay.classList.toggle('show');
+    sidebar?.classList.toggle('show');
+    overlay?.classList.toggle('show');
 }
 
 function toggleHistoryPanel() {
     const panel = document.getElementById('historyPanel');
     const overlay = document.getElementById('overlay');
-
-    panel.classList.toggle('show');
-    overlay.classList.toggle('show');
+    panel?.classList.toggle('show');
+    overlay?.classList.toggle('show');
 }
 
 function closePanels() {
-    document.getElementById('sidebar').classList.remove('show');
-    document.getElementById('historyPanel').classList.remove('show');
-    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('sidebar')?.classList.remove('show');
+    document.getElementById('historyPanel')?.classList.remove('show');
+    document.getElementById('overlay')?.classList.remove('show');
 }
 
 function updateSyncStatus(status) {
     const el = document.getElementById('syncStatus');
+    if (!el) return;
 
     el.classList.remove('syncing', 'error');
 
@@ -1009,8 +1068,9 @@ function updateSyncStatus(status) {
 
 function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
-    const toastId = 'toast_' + Date.now();
+    if (!container) return;
 
+    const toastId = 'toast_' + Date.now();
     const icons = {
         success: 'bi-check-circle',
         error: 'bi-x-circle',
@@ -1033,9 +1093,7 @@ function showToast(message, type = 'info') {
     const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
     toast.show();
 
-    toastEl.addEventListener('hidden.bs.toast', () => {
-        toastEl.remove();
-    });
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
 }
 
 function viewImage(url) {
@@ -1055,8 +1113,7 @@ function escapeHtml(text) {
 
 function formatDate(timestamp) {
     if (!timestamp) return '--';
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('vi-VN', {
+    return new Date(timestamp).toLocaleDateString('vi-VN', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
@@ -1065,8 +1122,7 @@ function formatDate(timestamp) {
 
 function formatDateTime(timestamp) {
     if (!timestamp) return '--';
-    const date = new Date(timestamp);
-    return date.toLocaleString('vi-VN', {
+    return new Date(timestamp).toLocaleString('vi-VN', {
         day: '2-digit',
         month: '2-digit',
         hour: '2-digit',
@@ -1075,18 +1131,7 @@ function formatDateTime(timestamp) {
 }
 
 // =====================================================
-// XLSX LIBRARY LOADER
-// =====================================================
-
-// Load XLSX library if not available
-if (typeof XLSX === 'undefined') {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js';
-    document.head.appendChild(script);
-}
-
-// =====================================================
-// EXPOSE FUNCTIONS TO WINDOW (for onclick handlers)
+// EXPOSE FUNCTIONS TO WINDOW
 // =====================================================
 
 window.selectSheet = selectSheet;
