@@ -185,6 +185,16 @@ router.post('/webhook', async (req, res) => {
         });
         console.log('[SEPAY-WEBHOOK] Broadcasting realtime update to clients...');
 
+        // 🆕 Auto-update customer debt if transaction matches a QR code
+        if (webhookData.transferType === 'in' && webhookData.content) {
+            try {
+                await processDebtUpdate(db, webhookData.content, insertedId);
+            } catch (debtError) {
+                // Log error but don't fail the webhook
+                console.error('[SEPAY-WEBHOOK] ⚠️ Debt update failed (non-critical):', debtError.message);
+            }
+        }
+
         // Trả về response theo spec của Sepay
         res.status(200).json({
             success: true,
@@ -466,6 +476,120 @@ async function logWebhook(db, sepayId, req, statusCode, responseBody, errorMessa
     } catch (err) {
         console.error('[SEPAY-WEBHOOK] Failed to log webhook:', err);
     }
+}
+
+/**
+ * 🆕 Helper function: Process debt update when receiving new transaction
+ * This function:
+ * 1. Extracts QR code from transaction content
+ * 2. Finds the phone number associated with the QR code
+ * 3. Finds all unprocessed transactions (debt_added = FALSE) for that phone
+ * 4. Updates customer debt
+ * 5. Marks transactions as processed (debt_added = TRUE)
+ */
+async function processDebtUpdate(db, content, transactionId) {
+    // 1. Extract QR code from content (format: N2 + 16 alphanumeric chars)
+    const qrCodeMatch = content.match(/N2[A-Z0-9]{16}/i);
+    if (!qrCodeMatch) {
+        console.log('[DEBT-UPDATE] No QR code found in content');
+        return;
+    }
+
+    const qrCode = qrCodeMatch[0].toUpperCase();
+    console.log('[DEBT-UPDATE] Found QR code:', qrCode);
+
+    // 2. Find phone number associated with this QR code
+    const customerInfoResult = await db.query(
+        'SELECT customer_phone FROM balance_customer_info WHERE unique_code = $1',
+        [qrCode]
+    );
+
+    if (customerInfoResult.rows.length === 0) {
+        console.log('[DEBT-UPDATE] No phone number linked to QR code:', qrCode);
+        return;
+    }
+
+    const phone = customerInfoResult.rows[0].customer_phone;
+    if (!phone) {
+        console.log('[DEBT-UPDATE] QR code exists but no phone number assigned');
+        return;
+    }
+
+    console.log('[DEBT-UPDATE] Phone found for QR code:', phone);
+
+    // 3. Find ALL QR codes linked to this phone
+    const allQrCodesResult = await db.query(
+        'SELECT unique_code FROM balance_customer_info WHERE customer_phone = $1',
+        [phone]
+    );
+    const allQrCodes = allQrCodesResult.rows.map(r => r.unique_code);
+
+    if (allQrCodes.length === 0) {
+        console.log('[DEBT-UPDATE] No QR codes found for phone:', phone);
+        return;
+    }
+
+    console.log('[DEBT-UPDATE] All QR codes for phone:', allQrCodes);
+
+    // 4. Find all UNPROCESSED transactions (debt_added = FALSE or NULL) with these QR codes
+    const placeholders = allQrCodes.map((_, i) => `$${i + 1}`).join(', ');
+    const unprocessedQuery = `
+        SELECT id, transfer_amount, content
+        FROM balance_history
+        WHERE transfer_type = 'in'
+          AND (debt_added IS NULL OR debt_added = FALSE)
+          AND (regexp_match(content, 'N2[A-Z0-9]{16}'))[1] IN (${placeholders})
+    `;
+
+    const unprocessedResult = await db.query(unprocessedQuery, allQrCodes);
+    const unprocessedTransactions = unprocessedResult.rows;
+
+    if (unprocessedTransactions.length === 0) {
+        console.log('[DEBT-UPDATE] No unprocessed transactions found');
+        return;
+    }
+
+    // 5. Calculate total amount to add to debt
+    const totalToAdd = unprocessedTransactions.reduce((sum, t) =>
+        sum + (parseInt(t.transfer_amount) || 0), 0
+    );
+    const transactionIds = unprocessedTransactions.map(t => t.id);
+
+    console.log('[DEBT-UPDATE] Processing:', {
+        phone,
+        transactionsCount: transactionIds.length,
+        totalToAdd,
+        transactionIds
+    });
+
+    // 6. Update customer debt (atomic operation)
+    // Use UPSERT: if customer doesn't exist, create with this debt
+    const updateDebtQuery = `
+        INSERT INTO customers (phone, name, debt, status, active)
+        VALUES ($1, $1, $2, 'Bình thường', true)
+        ON CONFLICT (phone) DO UPDATE SET
+            debt = customers.debt + $2,
+            updated_at = CURRENT_TIMESTAMP
+        RETURNING id, phone, debt
+    `;
+    const updateResult = await db.query(updateDebtQuery, [phone, totalToAdd]);
+
+    console.log('[DEBT-UPDATE] Customer debt updated:', updateResult.rows[0]);
+
+    // 7. Mark transactions as processed (debt_added = TRUE)
+    const markProcessedQuery = `
+        UPDATE balance_history
+        SET debt_added = TRUE
+        WHERE id = ANY($1::int[])
+    `;
+    await db.query(markProcessedQuery, [transactionIds]);
+
+    console.log('[DEBT-UPDATE] ✅ Debt update completed:', {
+        phone,
+        newDebt: updateResult.rows[0].debt,
+        processedTransactions: transactionIds.length,
+        totalAdded: totalToAdd
+    });
 }
 
 /**
@@ -756,6 +880,123 @@ router.get('/transactions-by-phone', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch transactions',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * 🆕 GET /api/sepay/debt-summary
+ * Lấy Tổng Công Nợ và danh sách GD đã cộng vào nợ theo số điện thoại
+ * Query params:
+ * - phone: Số điện thoại khách hàng (required)
+ */
+router.get('/debt-summary', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone } = req.query;
+
+    // Validate phone number
+    if (!phone) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required parameter: phone'
+        });
+    }
+
+    try {
+        // 1. Lấy Tổng Công Nợ từ bảng customers
+        const customerQuery = `
+            SELECT id, phone, name, debt
+            FROM customers
+            WHERE phone = $1
+            LIMIT 1
+        `;
+        const customerResult = await db.query(customerQuery, [phone]);
+
+        const customer = customerResult.rows[0] || null;
+        const totalDebt = customer ? (parseInt(customer.debt) || 0) : 0;
+
+        // 2. Lấy tất cả mã QR (unique_code) liên kết với SĐT này
+        const qrCodesQuery = `
+            SELECT unique_code, customer_name, customer_phone
+            FROM balance_customer_info
+            WHERE customer_phone = $1
+        `;
+        const qrCodesResult = await db.query(qrCodesQuery, [phone]);
+        const qrCodes = qrCodesResult.rows.map(r => r.unique_code);
+
+        // 3. Lấy danh sách GD đã được cộng vào nợ (debt_added = TRUE)
+        let transactions = [];
+
+        if (qrCodes.length > 0) {
+            // Build query to find transactions with these QR codes
+            const placeholders = qrCodes.map((_, i) => `$${i + 1}`).join(', ');
+            const transactionsQuery = `
+                SELECT
+                    bh.id,
+                    bh.sepay_id,
+                    bh.gateway,
+                    bh.transaction_date,
+                    bh.content,
+                    bh.transfer_type,
+                    bh.transfer_amount,
+                    bh.debt_added,
+                    bh.created_at,
+                    (regexp_match(bh.content, 'N2[A-Z0-9]{16}'))[1] as qr_code
+                FROM balance_history bh
+                WHERE bh.transfer_type = 'in'
+                  AND bh.debt_added = TRUE
+                  AND (regexp_match(bh.content, 'N2[A-Z0-9]{16}'))[1] IN (${placeholders})
+                ORDER BY bh.transaction_date DESC
+                LIMIT 100
+            `;
+
+            const transactionsResult = await db.query(transactionsQuery, qrCodes);
+            transactions = transactionsResult.rows;
+        }
+
+        // 4. Tính tổng từ các GD đã cộng (để verify)
+        const totalFromTransactions = transactions.reduce((sum, t) =>
+            sum + (parseInt(t.transfer_amount) || 0), 0
+        );
+
+        console.log('[DEBT-SUMMARY] ✅ Summary for phone:', {
+            phone,
+            totalDebt,
+            transactionCount: transactions.length,
+            totalFromTransactions,
+            qrCodesCount: qrCodes.length
+        });
+
+        res.json({
+            success: true,
+            data: {
+                phone,
+                total_debt: totalDebt,
+                customer: customer ? {
+                    id: customer.id,
+                    name: customer.name,
+                    phone: customer.phone
+                } : null,
+                qr_codes: qrCodes,
+                transactions: transactions.map(t => ({
+                    id: t.id,
+                    qr_code: t.qr_code,
+                    amount: parseInt(t.transfer_amount) || 0,
+                    date: t.transaction_date,
+                    content: t.content,
+                    gateway: t.gateway
+                })),
+                transaction_count: transactions.length,
+                total_from_transactions: totalFromTransactions
+            }
+        });
+
+    } catch (error) {
+        console.error('[DEBT-SUMMARY] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch debt summary',
             message: error.message
         });
     }
