@@ -298,21 +298,25 @@ function handleSuggestionClick(e) {
 
 function renderSheetsList() {
     const container = document.getElementById('sheetsList');
-    const emptyState = document.getElementById('emptySheets');
-
     if (!container) return;
 
     const sheetIds = Object.keys(AppState.sheets);
 
     if (sheetIds.length === 0) {
-        emptyState.style.display = 'block';
-        container.innerHTML = '';
-        container.appendChild(emptyState);
+        // Show empty state
+        container.innerHTML = `
+            <div class="empty-state" id="emptySheets">
+                <i class="bi bi-journal-plus"></i>
+                <p>Chưa có trang nào</p>
+                <button class="btn btn-primary btn-sm" onclick="createNewSheet()">
+                    Tạo trang đầu tiên
+                </button>
+            </div>
+        `;
         return;
     }
 
-    emptyState.style.display = 'none';
-
+    // Render sheets list
     const sortedSheets = sheetIds
         .map(id => ({ id, ...AppState.sheets[id] }))
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
