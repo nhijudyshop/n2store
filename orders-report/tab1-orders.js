@@ -7860,8 +7860,9 @@ async function sendCommentInternal(commentData) {
             throw new Error('Thiếu thông tin: Facebook_UserName, Facebook_ASUserId, Facebook_CommentId, hoặc Facebook_PostId');
         }
 
-        // Extract pageId and message_id
-        const pageId = facebookPostId.split('_')[0]; // Extract pageId from postId
+        // Use channelId from dropdown selection, or extract from order if not available
+        const pageId = channelId || facebookPostId.split('_')[0];
+        console.log('[COMMENT] Using pageId from selection:', pageId, '(channelId param:', channelId, ')');
 
         // For message_id: use parentCommentId if replying to specific comment, otherwise use order's comment ID
         let messageId;
