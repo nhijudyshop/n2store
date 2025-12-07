@@ -587,7 +587,6 @@ async function openEditCustomerModal(customerId) {
     document.getElementById('customerStatus').value = customer.status || 'Bình thường';
     document.getElementById('customerEmail').value = customer.email || '';
     document.getElementById('customerAddress').value = customer.address || '';
-    document.getElementById('customerDebt').value = customer.debt || 0;
     document.getElementById('customerActive').checked = customer.active !== false;
 
     document.getElementById('customerModal').classList.add('active');
@@ -611,7 +610,7 @@ async function handleCustomerSubmit(e) {
         status: document.getElementById('customerStatus').value,
         email: document.getElementById('customerEmail').value.trim(),
         address: document.getElementById('customerAddress').value.trim(),
-        debt: parseFloat(document.getElementById('customerDebt').value) || 0,
+        debt: 0, // Always 0, cannot be edited
         active: document.getElementById('customerActive').checked
     };
 
@@ -755,7 +754,7 @@ function processExcelFile(file) {
                 address: row['Địa chỉ'] || row['Dia chi'] || '',
                 status: row['Trạng thái'] || row['Trang thai'] || 'Bình thường',
                 carrier: detectCarrier(String(row['Điện thoại'] || row['Dien thoai'] || '')),
-                debt: parseFloat(row['Nợ'] || row['No'] || row['Doanh số đầu kỳ Nhóm'] || 0) || 0,
+                debt: 0, // Always 0 - debt cannot be imported
                 active: true
             })).filter(customer => customer.name && customer.phone);
 
@@ -1084,7 +1083,7 @@ function mapTPOSToAPI(tposCustomer) {
         address: tposCustomer.Street || '',
         carrier: carrier,
         status: status,
-        debt: parseFloat(tposCustomer.Credit || 0) || 0,
+        debt: 0, // Always 0 - debt cannot be synced from TPOS
         active: tposCustomer.IsActive !== false,
         tpos_data: {
             code: tposCustomer.Code,
