@@ -831,11 +831,6 @@ async function handleNewTransaction(transaction) {
     // Show notification
     showNotification(transaction);
 
-    // Auto-update customer debt for incoming transactions
-    if (transaction.transfer_type === 'in') {
-        await autoUpdateCustomerDebt(transaction);
-    }
-
     // Check if transaction matches current filters
     if (!transactionMatchesFilters(transaction)) {
         console.log('[REALTIME] Transaction does not match current filters, skipping UI update');
@@ -851,118 +846,6 @@ async function handleNewTransaction(transaction) {
         showNewDataBanner();
     }
 }
-
-/**
- * Auto-update customer debt when receiving a new incoming transaction
- * Only for transfer_type = 'in'
- * Checks debt_added flag to avoid double-counting
- * @param {Object} transaction - The new transaction data from SSE
- */
-async function autoUpdateCustomerDebt(transaction) {
-    try {
-        // Skip if already processed
-        if (transaction.debt_added) {
-            console.log('[DEBT-UPDATE] Transaction already processed, skipping');
-            return;
-        }
-
-        // Extract unique code from content
-        const content = transaction.content || '';
-        const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
-        const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
-
-        if (!uniqueCode) {
-            console.log('[DEBT-UPDATE] No unique code found in transaction content');
-            return;
-        }
-
-        // Get customer phone from CustomerInfoManager
-        if (!window.CustomerInfoManager) {
-            console.log('[DEBT-UPDATE] CustomerInfoManager not available');
-            return;
-        }
-
-        const customerInfo = window.CustomerInfoManager.getCustomerInfo(uniqueCode);
-        if (!customerInfo || !customerInfo.phone) {
-            console.log('[DEBT-UPDATE] No phone found for unique code:', uniqueCode);
-            return;
-        }
-
-        const phone = customerInfo.phone;
-
-        // Fetch ALL unprocessed transactions for this phone and update debt
-        console.log('[DEBT-UPDATE] Processing all unprocessed transactions for phone:', phone);
-        const result = await processUnprocessedTransactionsForPhone(phone);
-
-        if (result.success) {
-            console.log('[DEBT-UPDATE] ✅ Customer debt updated:', result);
-            if (window.NotificationManager && result.totalAmount > 0) {
-                window.NotificationManager.showNotification(
-                    `Đã cập nhật nợ +${formatCurrency(result.totalAmount)} cho ${result.customerName} (${result.transactionCount} giao dịch)`,
-                    'success'
-                );
-            }
-        } else {
-            console.log('[DEBT-UPDATE] ⚠️ Failed to update debt:', result.message);
-        }
-    } catch (error) {
-        console.error('[DEBT-UPDATE] Error:', error);
-    }
-}
-
-/**
- * Process all unprocessed transactions for a phone number
- * Sums all transactions with debt_added = false, updates customer debt, and marks them as processed
- * @param {string} phone - Customer phone number
- * @returns {Promise<Object>} - Result with success status and details
- */
-async function processUnprocessedTransactionsForPhone(phone) {
-    try {
-        // Call API to get and process all unprocessed transactions
-        const response = await fetch(`${API_BASE_URL}/api/customers/process-unprocessed-transactions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ phone })
-        });
-
-        const result = await response.json();
-        return result;
-    } catch (error) {
-        console.error('[DEBT-UPDATE] API error:', error);
-        return { success: false, message: error.message };
-    }
-}
-
-// Export for use elsewhere
-window.processUnprocessedTransactionsForPhone = processUnprocessedTransactionsForPhone;
-
-/**
- * Call API to update customer debt by phone
- * @param {string} phone - Customer phone number
- * @param {number} amount - Amount to add to debt
- * @returns {Promise<Object>} - API response
- */
-async function updateCustomerDebtByPhone(phone, amount) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/customers/update-debt-by-phone`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ phone, amount })
-        });
-
-        return await response.json();
-    } catch (error) {
-        console.error('[DEBT-UPDATE] API error:', error);
-        return { success: false, message: error.message };
-    }
-}
-
-// Export for use in customer-info.js
-window.updateCustomerDebtByPhone = updateCustomerDebtByPhone;
 
 // Check if transaction matches current filters
 function transactionMatchesFilters(transaction) {
