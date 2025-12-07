@@ -1433,7 +1433,10 @@ async function showCustomersByPhone(phone) {
         console.error('[CUSTOMER-LIST] Error:', error);
         loadingEl.style.display = 'none';
         emptyEl.style.display = 'block';
-        emptyEl.querySelector('p').textContent = 'Lỗi khi tải dữ liệu: ' + error.message;
+        const errorParagraph = emptyEl.querySelector('p');
+        if (errorParagraph) {
+            errorParagraph.textContent = 'Lỗi khi tải dữ liệu: ' + error.message;
+        }
     }
 }
 
@@ -1478,10 +1481,9 @@ function mergeCustomersByPhone(customers) {
             // Merge IDs for reference
             existing.mergedIds.push(customer.id);
 
-            // Keep the higher debt
-            if ((customer.debt || 0) > (existing.debt || 0)) {
-                existing.debt = customer.debt;
-            }
+            // SUM all debts from merged customers (not keep max)
+            // This ensures total debt is accurately reflected when customers are merged
+            existing.debt = (existing.debt || 0) + (customer.debt || 0);
 
             // Keep VIP or worse status
             existing.status = getMergedCustomerStatus(existing.status, customer.status);
