@@ -1378,14 +1378,8 @@ async function showCustomersByPhone(phone) {
     if (window.lucide) lucide.createIcons();
 
     try {
-        // Check cache first
+        // Always fetch fresh data (no cache) to ensure latest debt values
         const cacheKey = phone.replace(/\D/g, '');
-        const cached = customerListCache[cacheKey];
-        if (cached && (Date.now() - cached.timestamp < CUSTOMER_CACHE_TTL)) {
-            console.log('[CUSTOMER-LIST] Using cached data for:', phone);
-            renderCustomerList(cached.data, cached.balanceStats, phone);
-            return;
-        }
 
         // Fetch customers and transaction stats in parallel
         const [customersResponse, transactionsResponse] = await Promise.all([
@@ -1606,7 +1600,6 @@ function renderCustomerList(customers, balanceStats = null, phone = '') {
                 <div style="color: #16a34a; font-weight: 600;">
                     ${formatCurrency(debt)}
                 </div>
-                <small style="color: #9ca3af; font-size: 10px;">từ giao dịch</small>
             </td>
             <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtmlForCustomer(customer.address || '')}">
                 ${escapeHtmlForCustomer(customer.address || 'N/A')}
