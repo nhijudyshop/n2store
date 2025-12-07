@@ -229,14 +229,16 @@ export default {
         }
       }
 
-      // ========== FACEBOOK AVATAR PROXY ENDPOINT ==========
+      // ========== FACEBOOK/PANCAKE AVATAR PROXY ENDPOINT ==========
       if (pathname === '/api/fb-avatar' && request.method === 'GET') {
         const fbId = url.searchParams.get('id');
+        const pageId = url.searchParams.get('page') || '270136663390370'; // Default page ID
+        const accessToken = url.searchParams.get('token'); // Pancake JWT token (optional)
 
         if (!fbId) {
           return new Response(JSON.stringify({
             error: 'Missing id parameter',
-            usage: '/api/fb-avatar?id=<facebook_user_id>'
+            usage: '/api/fb-avatar?id=<facebook_user_id>&page=<page_id>&token=<jwt_token>'
           }), {
             status: 400,
             headers: {
@@ -246,24 +248,50 @@ export default {
           });
         }
 
-        // Construct Facebook Graph API avatar URL
-        const fbAvatarUrl = `https://graph.facebook.com/${fbId}/picture?width=80&height=80&type=normal`;
-        console.log('[FB-AVATAR] Fetching:', fbAvatarUrl);
+        // Use Pancake Avatar API which handles the hash lookup
+        let pancakeAvatarUrl = `https://pancake.vn/api/v1/pages/${pageId}/avatar/${fbId}`;
+        if (accessToken) {
+          pancakeAvatarUrl += `?access_token=${accessToken}`;
+        }
+        console.log('[FB-AVATAR] Fetching from Pancake:', pancakeAvatarUrl);
 
         try {
-          // Fetch from Facebook with proper headers
-          const avatarResponse = await fetch(fbAvatarUrl, {
+          // Fetch from Pancake Avatar API (it will redirect to content.pancake.vn)
+          const avatarResponse = await fetch(pancakeAvatarUrl, {
             method: 'GET',
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
-              'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-              'Accept-Language': 'en-US,en;q=0.9',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'image/*,*/*',
+              'Referer': 'https://pancake.vn/'
             },
             redirect: 'follow'
           });
 
           if (!avatarResponse.ok) {
-            console.error('[FB-AVATAR] Failed:', avatarResponse.status, avatarResponse.statusText);
+            console.error('[FB-AVATAR] Pancake failed:', avatarResponse.status, '- falling back to Facebook');
+            // Fallback to Facebook Graph API
+            const fbAvatarUrl = `https://graph.facebook.com/${fbId}/picture?width=80&height=80&type=normal`;
+            const fbResponse = await fetch(fbAvatarUrl, {
+              method: 'GET',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'image/*,*/*',
+              },
+              redirect: 'follow'
+            });
+
+            if (fbResponse.ok) {
+              const contentType = fbResponse.headers.get('content-type') || 'image/jpeg';
+              return new Response(fbResponse.body, {
+                status: 200,
+                headers: {
+                  'Content-Type': contentType,
+                  'Cache-Control': 'public, max-age=86400',
+                  'Access-Control-Allow-Origin': '*',
+                },
+              });
+            }
+
             // Return default avatar SVG
             return new Response(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#e5e7eb"/><circle cx="20" cy="15" r="7" fill="#9ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="#9ca3af"/></svg>`, {
               status: 200,
@@ -279,7 +307,7 @@ export default {
           const contentType = avatarResponse.headers.get('content-type') || 'image/jpeg';
 
           // Create response with CORS headers
-          const newResponse = new Response(avatarResponse.body, {
+          return new Response(avatarResponse.body, {
             status: 200,
             headers: {
               'Content-Type': contentType,
@@ -289,9 +317,6 @@ export default {
               'Access-Control-Allow-Headers': 'Content-Type, Accept',
             },
           });
-
-          console.log('[FB-AVATAR] Success:', contentType);
-          return newResponse;
 
         } catch (error) {
           console.error('[FB-AVATAR] Error:', error.message);
