@@ -1410,6 +1410,12 @@ function renderCustomerList(customers, balanceStats = null, debtSummary = null) 
     const tbody = document.getElementById('customerListTableBody');
     const countDiv = document.getElementById('customerListCount');
 
+    // 🆕 Safety check for null elements
+    if (!loadingEl || !emptyEl || !contentEl) {
+        console.error('[CUSTOMER-LIST] Required DOM elements not found');
+        return;
+    }
+
     loadingEl.style.display = 'none';
 
     if (!customers || customers.length === 0) {
@@ -1424,7 +1430,10 @@ function renderCustomerList(customers, balanceStats = null, debtSummary = null) 
     // Merge customers with the same phone number
     const mergedCustomers = mergeCustomersByPhone(customers);
 
-    totalEl.textContent = mergedCustomers.length;
+    // 🆕 Safety check before setting textContent
+    if (totalEl) {
+        totalEl.textContent = mergedCustomers.length;
+    }
 
     // 🆕 Get debt info from debtSummary
     const totalDebt = debtSummary ? (debtSummary.total_debt || 0) : 0;
