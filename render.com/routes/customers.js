@@ -794,7 +794,8 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
         console.log(`[PROCESS-TRANSACTIONS] Total amount: ${totalAmount}, Customer: ${customerName}`);
 
         // Step 3: Update customer debt (add total amount)
-        // Search with phone variants to handle different formats
+        // Update the customer with HIGHEST debt (matches frontend display logic which shows max debt)
+        // This ensures the displayed customer is the one that gets updated
         const updateDebtQuery = `
             UPDATE customers
             SET debt = COALESCE(debt, 0) + $1, updated_at = CURRENT_TIMESTAMP
@@ -802,7 +803,7 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
                 SELECT id FROM customers
                 WHERE phone = $2 OR phone = $3 OR phone = $4
                    OR REGEXP_REPLACE(phone, '\\D', '', 'g') = $5
-                ORDER BY created_at DESC
+                ORDER BY COALESCE(debt, 0) DESC, created_at DESC
                 LIMIT 1
             )
             RETURNING id, name, phone, debt
@@ -903,15 +904,15 @@ router.post('/update-debt-by-phone', async (req, res) => {
 
         console.log(`[CUSTOMERS-DEBT] Updating debt for phone: ${phone}, amount: ${amountNum}`);
 
-        // Find the newest customer with matching phone and update their debt
-        // ORDER BY created_at DESC to get the newest customer if multiple exist
+        // Find the customer with HIGHEST debt (matches frontend display logic which shows max debt)
+        // This ensures the displayed customer is the one that gets updated
         const result = await db.query(`
             UPDATE customers
             SET debt = COALESCE(debt, 0) + $1, updated_at = CURRENT_TIMESTAMP
             WHERE id = (
                 SELECT id FROM customers
                 WHERE phone = $2
-                ORDER BY created_at DESC
+                ORDER BY COALESCE(debt, 0) DESC, created_at DESC
                 LIMIT 1
             )
             RETURNING id, name, phone, debt, updated_at
