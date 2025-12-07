@@ -37,6 +37,11 @@ let pendingDeleteTagIndex = -1; // Track which tag is pending deletion on backsp
 let currentPastedImage = null; // Track pasted image for chat reply (deprecated - use array below)
 let uploadedImagesData = []; // Track uploaded images data (array for multiple images)
 
+// Purchase Comment Highlight State
+window.purchaseCommentId = null; // Store the Facebook_CommentId from the order to highlight in comment modal
+window.purchaseFacebookPostId = null; // Store Facebook_PostId
+window.purchaseFacebookASUserId = null; // Store Facebook_ASUserId
+
 // =====================================================
 // FIREBASE DATABASE REFERENCE FOR NOTE TRACKING
 // =====================================================
@@ -6285,7 +6290,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     window.populateSendPageSelector(channelId);  // Send page selector (independent)
 
     // Initialize chat modal products with order data
-    // Fetch full order data with product details
+    // Fetch full order data with product details (including Facebook_PostId, Facebook_ASUserId, Facebook_CommentId)
     try {
         const headers = await window.tokenManager.getAuthHeader();
         const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
@@ -6298,9 +6303,24 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         });
         if (response.ok) {
             const fullOrderData = await response.json();
+
+            // Store Facebook data for highlighting purchase comment
+            window.purchaseFacebookPostId = fullOrderData.Facebook_PostId || null;
+            window.purchaseFacebookASUserId = fullOrderData.Facebook_ASUserId || null;
+            window.purchaseCommentId = fullOrderData.Facebook_CommentId || null;
+
+            console.log('[CHAT] Order Facebook data loaded:', {
+                PostId: window.purchaseFacebookPostId,
+                ASUserId: window.purchaseFacebookASUserId,
+                CommentId: window.purchaseCommentId
+            });
         }
     } catch (error) {
         console.error('[CHAT] Error loading order details:', error);
+        // Reset Facebook data on error
+        window.purchaseFacebookPostId = null;
+        window.purchaseFacebookASUserId = null;
+        window.purchaseCommentId = null;
     }
 
     // Show loading
@@ -6709,6 +6729,11 @@ window.closeChatModal = async function () {
     window.currentPastedImage = null;
     window.uploadedImagesData = [];
     window.isUploadingImages = false;
+
+    // Reset purchase comment highlight state
+    window.purchaseCommentId = null;
+    window.purchaseFacebookPostId = null;
+    window.purchaseFacebookASUserId = null;
 
     // Hide reply preview
     const replyPreviewContainer = document.getElementById('chatReplyPreviewContainer');
@@ -8507,10 +8532,41 @@ function renderComments(comments, scrollToBottom = false) {
     // Reverse comments to show oldest first
     const sortedComments = comments.slice().reverse();
 
+    // Helper function to check if comment is the purchase comment
+    const isPurchaseComment = (comment) => {
+        if (!window.purchaseCommentId) return false;
+
+        // Get comment ID (handle different formats)
+        const commentId = comment.FacebookId || comment.OriginalId || comment.Id || comment.id;
+
+        // Facebook_CommentId format: "postId_commentId" (e.g., "1672237127083024_2168976250601862")
+        // Extract just the comment ID part for comparison
+        const purchaseIdParts = window.purchaseCommentId.split('_');
+        const purchaseCommentOnlyId = purchaseIdParts.length > 1 ? purchaseIdParts[purchaseIdParts.length - 1] : window.purchaseCommentId;
+
+        // Check if this comment matches the purchase comment
+        if (commentId === window.purchaseCommentId) return true;
+        if (commentId === purchaseCommentOnlyId) return true;
+
+        // Also check if commentId contains the purchase comment ID
+        if (commentId && commentId.includes(purchaseCommentOnlyId)) return true;
+
+        // Check full format match (postId_commentId)
+        const fullCommentId = `${comment.PostId || ''}_${commentId}`;
+        if (fullCommentId === window.purchaseCommentId) return true;
+
+        return false;
+    };
+
     const commentsHTML = sortedComments.map(comment => {
         const isOwner = comment.IsOwner;
         const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
         const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
+
+        // Check if this is the purchase comment (comment where user made the order)
+        const isPurchase = isPurchaseComment(comment);
+        const purchaseHighlightClass = isPurchase ? 'purchase-comment-highlight' : '';
+        const purchaseBadge = isPurchase ? '<span class="purchase-badge"><i class="fas fa-shopping-cart"></i> Bình luận đặt hàng</span>' : '';
 
         let content = '';
         if (comment.Message) {
@@ -8618,7 +8674,8 @@ function renderComments(comments, scrollToBottom = false) {
         }
 
         return `
-            <div class="chat-message ${alignClass}">
+            <div class="chat-message ${alignClass} ${purchaseHighlightClass}" data-comment-id="${comment.Id || comment.id || ''}">
+                ${purchaseBadge}
                 <div class="chat-bubble ${bgClass}">
                     ${content}
                     <p class="chat-message-time">
@@ -8693,12 +8750,25 @@ function renderComments(comments, scrollToBottom = false) {
 
     modalBody.innerHTML = `<div class="chat-messages-container">${loadingIndicator}${postContext}${commentsHTML}</div>`;
 
+    // Check if there's a purchase comment to scroll to (only on initial load)
+    const purchaseCommentElement = modalBody.querySelector('.purchase-comment-highlight');
+
     // Only auto-scroll if explicitly requested OR user was already at bottom
     if (wasAtBottom) {
         // Use requestAnimationFrame to ensure DOM has updated before scrolling
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                modalBody.scrollTop = modalBody.scrollHeight;
+                // Priority: scroll to purchase comment if exists, otherwise scroll to bottom
+                if (purchaseCommentElement && scrollToBottom) {
+                    // Scroll to purchase comment with smooth behavior
+                    purchaseCommentElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                    console.log('[CHAT] Scrolled to purchase comment');
+                } else {
+                    modalBody.scrollTop = modalBody.scrollHeight;
+                }
                 // Hide new message indicator when scrolled to bottom
                 const indicator = document.getElementById('chatNewMessageIndicator');
                 if (indicator) indicator.style.display = 'none';
