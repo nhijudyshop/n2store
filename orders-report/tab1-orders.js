@@ -3710,9 +3710,10 @@ function renderMultiCustomerMessages(order, columnType = 'messages') {
         const fontWeight = messageInfo.hasUnread ? '700' : '400';
         const color = messageInfo.hasUnread ? '#111827' : '#6b7280';
 
-        // Create click handler - use 'message' or 'comment' as type param
-        const typeParam = columnType === 'messages' ? 'message' : 'comment';
-        const clickHandler = `openChatModal('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}', '${typeParam}')`;
+        // Create click handler - use separate modals for messages and comments
+        const clickHandler = columnType === 'messages'
+            ? `openChatModal('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}')`
+            : `openCommentModal('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}')`;
 
         rows.push(`
             <div class="multi-customer-message-row" onclick="${clickHandler}" style="border-bottom: 1px solid #e5e7eb; padding: 6px 8px; cursor: pointer; transition: background-color 0.2s;">
@@ -3904,9 +3905,10 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
     // Click handler
     // For merged orders, use the TargetOrderId (order with largest STT) instead of the combined Id
     const orderIdToUse = order.IsMerged && order.TargetOrderId ? order.TargetOrderId : order.Id;
+    // Use separate modals: openChatModal for messages, openCommentModal for comments
     const clickHandler = columnType === 'messages'
         ? `openChatModal('${orderIdToUse}', '${channelId}', '${psid}')`
-        : `openChatModal('${orderIdToUse}', '${channelId}', '${psid}', 'comment')`;
+        : `openCommentModal('${orderIdToUse}', '${channelId}', '${psid}')`;
 
     const tooltipText = columnType === 'comments'
         ? 'Click để xem bình luận'
@@ -9610,9 +9612,10 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
             `;
 
             // Add click event and styling
+            // Use separate modals: openChatModal for messages, openCommentModal for comments
             const clickHandler = type === 'INBOX'
                 ? `openChatModal('${order.Id}', '${pageId}', '${psid}')`
-                : `openChatModal('${order.Id}', '${pageId}', '${psid}', 'comment')`;
+                : `openCommentModal('${order.Id}', '${pageId}', '${psid}')`;
 
             const tooltipText = type === 'INBOX'
                 ? 'Click để xem toàn bộ tin nhắn'

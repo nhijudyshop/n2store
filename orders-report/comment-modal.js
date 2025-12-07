@@ -1,0 +1,568 @@
+// =====================================================
+// COMMENT MODAL - Separate modal for comments
+// =====================================================
+
+// Comment Modal State
+let commentModalOrder = null;
+let commentModalChannelId = null;
+let commentModalPSID = null;
+let commentModalComments = [];
+let commentModalCursor = null;
+let commentModalParentId = null;
+let isLoadingMoreComments = false;
+
+/**
+ * Open the Comment Modal
+ */
+window.openCommentModal = async function(orderId, channelId, psid) {
+    console.log('[COMMENT MODAL] Opening:', { orderId, channelId, psid });
+
+    if (!channelId || !psid) {
+        alert('Không có thông tin bình luận cho đơn hàng này');
+        return;
+    }
+
+    // Reset state
+    commentModalChannelId = channelId;
+    commentModalPSID = psid;
+    commentModalComments = [];
+    commentModalCursor = null;
+    commentModalParentId = null;
+    isLoadingMoreComments = false;
+    window.purchaseCommentId = null;
+    window.purchaseFacebookPostId = null;
+    window.purchaseFacebookASUserId = null;
+
+    // Find order
+    let order = allData.find(o => o.Id === orderId);
+    if (!order) {
+        order = allData.find(o => o.IsMerged && o.OriginalIds && o.OriginalIds.includes(orderId));
+    }
+    if (!order) {
+        alert('Không tìm thấy đơn hàng');
+        return;
+    }
+
+    commentModalOrder = order;
+
+    // Update modal title
+    document.getElementById('commentModalTitle').textContent = `Bình luận với ${order.Name}`;
+    document.getElementById('commentModalSubtitle').textContent = `SĐT: ${order.Telephone || 'N/A'} • Mã ĐH: ${order.Code}`;
+
+    // Show modal
+    document.getElementById('commentModal').classList.add('show');
+
+    // Show loading
+    const modalBody = document.getElementById('commentModalBody');
+    modalBody.innerHTML = `
+        <div class="chat-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Đang tải bình luận...</p>
+        </div>`;
+
+    // Fetch order details from TPOS to get Facebook_CommentId
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+        const response = await API_CONFIG.smartFetch(apiUrl, {
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        });
+        if (response.ok) {
+            const fullOrderData = await response.json();
+            window.purchaseFacebookPostId = fullOrderData.Facebook_PostId || null;
+            window.purchaseFacebookASUserId = fullOrderData.Facebook_ASUserId || null;
+            window.purchaseCommentId = fullOrderData.Facebook_CommentId || null;
+
+            console.log('[COMMENT MODAL] Order Facebook data loaded:', {
+                PostId: window.purchaseFacebookPostId,
+                ASUserId: window.purchaseFacebookASUserId,
+                CommentId: window.purchaseCommentId
+            });
+        }
+    } catch (error) {
+        console.error('[COMMENT MODAL] Error loading order details:', error);
+    }
+
+    // Setup reply input
+    setupCommentReplyInput();
+
+    // Fetch comments
+    try {
+        const response = await window.chatDataManager.fetchComments(channelId, psid);
+        commentModalComments = response.comments || [];
+        commentModalCursor = response.after;
+
+        if (commentModalComments.length > 0) {
+            const rootComment = commentModalComments.find(c => !c.ParentId) || commentModalComments[0];
+            if (rootComment && rootComment.Id) {
+                commentModalParentId = getFacebookCommentIdForModal(rootComment);
+            }
+        }
+
+        renderCommentModalComments(commentModalComments, true);
+
+        // Add scroll listener for pagination
+        modalBody.addEventListener('scroll', handleCommentModalScroll);
+
+    } catch (error) {
+        console.error('[COMMENT MODAL] Error loading comments:', error);
+        modalBody.innerHTML = `
+            <div class="chat-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>Lỗi tải bình luận: ${error.message}</p>
+            </div>`;
+    }
+};
+
+/**
+ * Close the Comment Modal
+ */
+window.closeCommentModal = function() {
+    document.getElementById('commentModal').classList.remove('show');
+
+    // Clean up scroll listener
+    const modalBody = document.getElementById('commentModalBody');
+    if (modalBody) {
+        modalBody.removeEventListener('scroll', handleCommentModalScroll);
+    }
+
+    // Reset state
+    commentModalOrder = null;
+    commentModalChannelId = null;
+    commentModalPSID = null;
+    commentModalComments = [];
+    commentModalCursor = null;
+    commentModalParentId = null;
+    isLoadingMoreComments = false;
+
+    // Reset purchase comment state
+    window.purchaseCommentId = null;
+    window.purchaseFacebookPostId = null;
+    window.purchaseFacebookASUserId = null;
+
+    // Reset reply state
+    cancelCommentReply();
+};
+
+/**
+ * Setup reply input for comment modal
+ */
+function setupCommentReplyInput() {
+    const replyInput = document.getElementById('commentReplyInput');
+    const sendBtn = document.getElementById('commentSendBtn');
+
+    // Disable by default - need to select a comment to reply
+    replyInput.disabled = true;
+    replyInput.placeholder = 'Chọn "Trả lời" một bình luận để reply...';
+    replyInput.style.background = '#f3f4f6';
+    replyInput.style.cursor = 'not-allowed';
+    sendBtn.disabled = true;
+    sendBtn.style.opacity = '0.5';
+    sendBtn.style.cursor = 'not-allowed';
+
+    // Clear previous input
+    replyInput.value = '';
+
+    // Add keydown listener
+    replyInput.onkeydown = function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendCommentReply();
+        }
+    };
+}
+
+/**
+ * Handle scroll for loading more comments
+ */
+function handleCommentModalScroll() {
+    if (isLoadingMoreComments || !commentModalCursor) return;
+
+    const modalBody = document.getElementById('commentModalBody');
+    if (modalBody.scrollTop < 100) {
+        loadMoreComments();
+    }
+}
+
+/**
+ * Load more comments (pagination)
+ */
+async function loadMoreComments() {
+    if (isLoadingMoreComments || !commentModalCursor) return;
+
+    isLoadingMoreComments = true;
+    const loadIndicator = document.getElementById('commentLoadMoreIndicator');
+    if (loadIndicator) {
+        loadIndicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+    }
+
+    try {
+        const response = await window.chatDataManager.fetchComments(
+            commentModalChannelId,
+            commentModalPSID,
+            commentModalCursor
+        );
+
+        const newComments = response.comments || [];
+        commentModalCursor = response.after;
+
+        // Add new comments to beginning
+        const existingIds = new Set(commentModalComments.map(c => c.id || c.Id));
+        const uniqueNewComments = newComments.filter(c => !existingIds.has(c.id || c.Id));
+
+        if (uniqueNewComments.length > 0) {
+            commentModalComments = [...uniqueNewComments, ...commentModalComments];
+            renderCommentModalComments(commentModalComments, false);
+        }
+    } catch (error) {
+        console.error('[COMMENT MODAL] Error loading more comments:', error);
+    } finally {
+        isLoadingMoreComments = false;
+    }
+}
+
+/**
+ * Helper function to get Facebook comment ID
+ */
+function getFacebookCommentIdForModal(comment) {
+    if (comment.FacebookId) return comment.FacebookId;
+    if (comment.OriginalId) return comment.OriginalId;
+    const isMongoId = /^[0-9a-fA-F]{24}$/.test(comment.Id);
+    if (comment.Id && !isMongoId) return comment.Id;
+    return comment.Id;
+}
+
+/**
+ * Check if comment is the purchase comment
+ */
+function isPurchaseCommentCheck(comment) {
+    if (!window.purchaseCommentId) return false;
+
+    const commentId = comment.FacebookId || comment.OriginalId || comment.Id || comment.id;
+    const purchaseIdParts = window.purchaseCommentId.split('_');
+    const purchaseCommentOnlyId = purchaseIdParts.length > 1 ? purchaseIdParts[purchaseIdParts.length - 1] : window.purchaseCommentId;
+
+    if (commentId === window.purchaseCommentId) return true;
+    if (commentId === purchaseCommentOnlyId) return true;
+    if (commentId && commentId.includes && commentId.includes(purchaseCommentOnlyId)) return true;
+
+    const fullCommentId = `${comment.PostId || ''}_${commentId}`;
+    if (fullCommentId === window.purchaseCommentId) return true;
+
+    return false;
+}
+
+/**
+ * Render comments in the modal
+ */
+function renderCommentModalComments(comments, scrollToPurchase = false) {
+    const modalBody = document.getElementById('commentModalBody');
+
+    if (!comments || comments.length === 0) {
+        modalBody.innerHTML = `
+            <div class="chat-empty">
+                <i class="fas fa-comments"></i>
+                <p>Chưa có bình luận</p>
+            </div>`;
+        return;
+    }
+
+    const formatTime = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffDays < 7) return `${diffDays} ngày trước`;
+        return date.toLocaleDateString('vi-VN');
+    };
+
+    // Reverse to show oldest first
+    const sortedComments = comments.slice().reverse();
+
+    const commentsHTML = sortedComments.map(comment => {
+        const isOwner = comment.IsOwner;
+        const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
+        const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
+
+        // Check if purchase comment
+        const isPurchase = isPurchaseCommentCheck(comment);
+        const purchaseHighlightClass = isPurchase ? 'purchase-comment-highlight' : '';
+        const purchaseBadge = isPurchase ? '<span class="purchase-badge"><i class="fas fa-shopping-cart"></i> Bình luận đặt hàng</span>' : '';
+
+        let content = '';
+        if (comment.Message) {
+            content = `<p class="chat-message-text">${comment.Message}</p>`;
+        }
+
+        // Handle attachments
+        if (comment.Attachments && comment.Attachments.length > 0) {
+            comment.Attachments.forEach(att => {
+                if (att.Type === 'image' && att.Payload && att.Payload.Url) {
+                    content += `<img src="${att.Payload.Url}" class="chat-message-image" loading="lazy" />`;
+                }
+            });
+        }
+
+        if (comment.attachments && comment.attachments.length > 0) {
+            comment.attachments.forEach(att => {
+                if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
+                    content += `<img src="${att.file_url}" class="chat-message-image" loading="lazy" />`;
+                }
+            });
+        }
+
+        // Status badge
+        const statusBadge = comment.Status === 30
+            ? '<span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">Mới</span>'
+            : '';
+
+        // Render nested replies
+        let repliesHTML = '';
+        if (comment.Messages && comment.Messages.length > 0) {
+            repliesHTML = comment.Messages.map(reply => {
+                const replyIsOwner = reply.IsOwner;
+                const replyAlignClass = replyIsOwner ? 'chat-message-right' : 'chat-message-left';
+                const replyBgClass = replyIsOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
+
+                let replyContent = '';
+                if (reply.Message) {
+                    replyContent = `<p class="chat-message-text">${reply.Message}</p>`;
+                }
+
+                return `
+                    <div class="chat-message ${replyAlignClass}" style="margin-left: 24px; margin-top: 8px;">
+                        <div class="chat-bubble ${replyBgClass}" style="font-size: 13px;">
+                            ${replyContent}
+                            <p class="chat-message-time">${formatTime(reply.CreatedTime)}</p>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        return `
+            <div class="chat-message ${alignClass} ${purchaseHighlightClass}" data-comment-id="${comment.Id || comment.id || ''}">
+                ${purchaseBadge}
+                <div class="chat-bubble ${bgClass}">
+                    ${content}
+                    <p class="chat-message-time">
+                        ${formatTime(comment.CreatedTime)} ${statusBadge}
+                        ${!isOwner ? `<span class="comment-reply-btn" onclick="handleCommentModalReply('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
+                    </p>
+                </div>
+            </div>
+            ${repliesHTML}`;
+    }).join('');
+
+    // Loading indicator
+    let loadingIndicator = '';
+    if (commentModalCursor) {
+        loadingIndicator = `
+            <div id="commentLoadMoreIndicator" style="
+                text-align: center;
+                padding: 16px 12px;
+                color: #6b7280;
+                font-size: 13px;
+                background: linear-gradient(to bottom, #f9fafb 0%, transparent 100%);
+                border-bottom: 1px solid #e5e7eb;
+                margin-bottom: 8px;
+            ">
+                <i class="fas fa-arrow-up" style="margin-right: 6px; color: #3b82f6;"></i>
+                <span style="font-weight: 500;">Cuộn lên để tải thêm bình luận</span>
+            </div>`;
+    }
+
+    // Post context
+    let postContext = '';
+    if (comments[0] && comments[0].Object) {
+        const obj = comments[0].Object;
+        postContext = `
+            <div style="
+                background: #f9fafb;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 12px;
+                margin-bottom: 16px;
+            ">
+                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">
+                    <i class="fas fa-video"></i> ${obj.ObjectType === 1 ? 'Video' : 'Bài viết'} Live
+                </div>
+                <div style="font-size: 13px; font-weight: 500; color: #1f2937;">
+                    ${obj.Description || obj.Title || 'Không có mô tả'}
+                </div>
+            </div>`;
+    }
+
+    modalBody.innerHTML = `<div class="chat-messages-container">${loadingIndicator}${postContext}${commentsHTML}</div>`;
+
+    // Scroll to purchase comment or bottom
+    if (scrollToPurchase) {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const purchaseElement = modalBody.querySelector('.purchase-comment-highlight');
+                if (purchaseElement) {
+                    purchaseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    console.log('[COMMENT MODAL] Scrolled to purchase comment');
+                } else {
+                    modalBody.scrollTop = modalBody.scrollHeight;
+                }
+            });
+        });
+    }
+}
+
+/**
+ * Handle reply to comment
+ */
+window.handleCommentModalReply = function(commentId, postId) {
+    console.log('[COMMENT MODAL] Reply to comment:', commentId, postId);
+
+    // Find the comment
+    const comment = commentModalComments.find(c => c.Id === commentId || c.id === commentId);
+    if (!comment) {
+        console.warn('[COMMENT MODAL] Comment not found:', commentId);
+        return;
+    }
+
+    // Store the parent comment ID for reply
+    commentModalParentId = getFacebookCommentIdForModal(comment);
+
+    // Show reply preview
+    const previewContainer = document.getElementById('commentReplyPreviewContainer');
+    const previewText = document.getElementById('commentReplyPreviewText');
+    previewText.textContent = comment.Message || '[Hình ảnh/Media]';
+    previewContainer.style.display = 'block';
+
+    // Enable reply input
+    const replyInput = document.getElementById('commentReplyInput');
+    const sendBtn = document.getElementById('commentSendBtn');
+
+    replyInput.disabled = false;
+    replyInput.placeholder = 'Nhập tin nhắn trả lời... (Enter để gửi)';
+    replyInput.style.background = 'white';
+    replyInput.style.cursor = 'text';
+    sendBtn.disabled = false;
+    sendBtn.style.opacity = '1';
+    sendBtn.style.cursor = 'pointer';
+
+    replyInput.focus();
+};
+
+/**
+ * Cancel reply
+ */
+window.cancelCommentReply = function() {
+    const previewContainer = document.getElementById('commentReplyPreviewContainer');
+    if (previewContainer) {
+        previewContainer.style.display = 'none';
+    }
+
+    const replyInput = document.getElementById('commentReplyInput');
+    const sendBtn = document.getElementById('commentSendBtn');
+
+    if (replyInput) {
+        replyInput.value = '';
+        replyInput.disabled = true;
+        replyInput.placeholder = 'Chọn "Trả lời" một bình luận để reply...';
+        replyInput.style.background = '#f3f4f6';
+        replyInput.style.cursor = 'not-allowed';
+    }
+
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.style.opacity = '0.5';
+        sendBtn.style.cursor = 'not-allowed';
+    }
+
+    commentModalParentId = null;
+};
+
+/**
+ * Send reply comment
+ */
+window.sendCommentReply = async function() {
+    const replyInput = document.getElementById('commentReplyInput');
+    const message = replyInput.value.trim();
+
+    if (!message) {
+        alert('Vui lòng nhập nội dung trả lời');
+        return;
+    }
+
+    if (!commentModalParentId) {
+        alert('Vui lòng chọn bình luận để trả lời');
+        return;
+    }
+
+    const sendBtn = document.getElementById('commentSendBtn');
+    const originalBtnHTML = sendBtn.innerHTML;
+
+    try {
+        // Show sending state
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+
+        // Get page token
+        const pageToken = await window.pancakeDataManager?.getPageToken(commentModalChannelId);
+        if (!pageToken) {
+            throw new Error('Không tìm thấy token cho page này');
+        }
+
+        // Send reply via Facebook Graph API
+        const response = await fetch(`https://graph.facebook.com/v18.0/${commentModalParentId}/comments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: message,
+                access_token: pageToken
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || 'Lỗi gửi bình luận');
+        }
+
+        const result = await response.json();
+        console.log('[COMMENT MODAL] Reply sent:', result);
+
+        // Clear input and refresh comments
+        replyInput.value = '';
+        cancelCommentReply();
+
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã gửi trả lời thành công', 'success');
+        }
+
+        // Refresh comments
+        const commentsResponse = await window.chatDataManager.fetchComments(commentModalChannelId, commentModalPSID);
+        commentModalComments = commentsResponse.comments || [];
+        commentModalCursor = commentsResponse.after;
+        renderCommentModalComments(commentModalComments, false);
+
+    } catch (error) {
+        console.error('[COMMENT MODAL] Error sending reply:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi gửi trả lời: ' + error.message, 'error');
+        } else {
+            alert('Lỗi gửi trả lời: ' + error.message);
+        }
+    } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = originalBtnHTML;
+    }
+};
+
+console.log('[COMMENT MODAL] Module loaded');
