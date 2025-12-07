@@ -459,10 +459,10 @@ function renderCustomers() {
 
     showEmptyState(false);
 
-    // Merge customers with the same phone number
-    const mergedCustomers = mergeCustomersByPhone(filteredCustomers);
+    // Display each customer separately (no phone merging)
+    // const mergedCustomers = mergeCustomersByPhone(filteredCustomers);
 
-    mergedCustomers.forEach(customer => {
+    filteredCustomers.forEach(customer => {
         const row = createCustomerRow(customer);
         tbody.appendChild(row);
     });
