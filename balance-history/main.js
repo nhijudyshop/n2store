@@ -855,10 +855,17 @@ async function handleNewTransaction(transaction) {
 /**
  * Auto-update customer debt when receiving a new incoming transaction
  * Only for transfer_type = 'in'
+ * Checks debt_added flag to avoid double-counting
  * @param {Object} transaction - The new transaction data from SSE
  */
 async function autoUpdateCustomerDebt(transaction) {
     try {
+        // Skip if already processed
+        if (transaction.debt_added) {
+            console.log('[DEBT-UPDATE] Transaction already processed, skipping');
+            return;
+        }
+
         // Extract unique code from content
         const content = transaction.content || '';
         const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
@@ -882,22 +889,16 @@ async function autoUpdateCustomerDebt(transaction) {
         }
 
         const phone = customerInfo.phone;
-        const amount = parseInt(transaction.transfer_amount) || 0;
 
-        if (amount <= 0) {
-            console.log('[DEBT-UPDATE] Invalid amount:', amount);
-            return;
-        }
-
-        // Call API to update customer debt
-        console.log('[DEBT-UPDATE] Updating debt for phone:', phone, 'amount:', amount);
-        const result = await updateCustomerDebtByPhone(phone, amount);
+        // Fetch ALL unprocessed transactions for this phone and update debt
+        console.log('[DEBT-UPDATE] Processing all unprocessed transactions for phone:', phone);
+        const result = await processUnprocessedTransactionsForPhone(phone);
 
         if (result.success) {
-            console.log('[DEBT-UPDATE] ✅ Customer debt updated:', result.data);
-            if (window.NotificationManager) {
+            console.log('[DEBT-UPDATE] ✅ Customer debt updated:', result);
+            if (window.NotificationManager && result.totalAmount > 0) {
                 window.NotificationManager.showNotification(
-                    `Đã cập nhật nợ +${formatCurrency(amount)} cho ${result.data.name}`,
+                    `Đã cập nhật nợ +${formatCurrency(result.totalAmount)} cho ${result.customerName} (${result.transactionCount} giao dịch)`,
                     'success'
                 );
             }
@@ -908,6 +909,34 @@ async function autoUpdateCustomerDebt(transaction) {
         console.error('[DEBT-UPDATE] Error:', error);
     }
 }
+
+/**
+ * Process all unprocessed transactions for a phone number
+ * Sums all transactions with debt_added = false, updates customer debt, and marks them as processed
+ * @param {string} phone - Customer phone number
+ * @returns {Promise<Object>} - Result with success status and details
+ */
+async function processUnprocessedTransactionsForPhone(phone) {
+    try {
+        // Call API to get and process all unprocessed transactions
+        const response = await fetch(`${API_BASE_URL}/api/customers/process-unprocessed-transactions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ phone })
+        });
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('[DEBT-UPDATE] API error:', error);
+        return { success: false, message: error.message };
+    }
+}
+
+// Export for use elsewhere
+window.processUnprocessedTransactionsForPhone = processUnprocessedTransactionsForPhone;
 
 /**
  * Call API to update customer debt by phone
@@ -1409,6 +1438,86 @@ async function showCustomersByPhone(phone) {
 }
 
 /**
+ * Merge customers with the same phone number (like customer-management)
+ * @param {Array} customers - List of customers
+ * @returns {Array} - Merged customer list
+ */
+function mergeCustomersByPhone(customers) {
+    const phoneMap = new Map();
+
+    customers.forEach(customer => {
+        const phone = (customer.phone || '').trim();
+        if (!phone) {
+            // Customers without phone are kept as-is
+            const uniqueKey = `no_phone_${customer.id}`;
+            phoneMap.set(uniqueKey, {
+                ...customer,
+                mergedNames: [customer.name || ''],
+                mergedAddresses: [customer.address || ''],
+                mergedIds: [customer.id]
+            });
+            return;
+        }
+
+        if (phoneMap.has(phone)) {
+            // Merge with existing customer
+            const existing = phoneMap.get(phone);
+            const newName = (customer.name || '').trim();
+            const newAddress = (customer.address || '').trim();
+
+            // Add unique names
+            if (newName && !existing.mergedNames.includes(newName)) {
+                existing.mergedNames.push(newName);
+            }
+
+            // Add unique addresses
+            if (newAddress && !existing.mergedAddresses.includes(newAddress)) {
+                existing.mergedAddresses.push(newAddress);
+            }
+
+            // Merge IDs for reference
+            existing.mergedIds.push(customer.id);
+
+            // Keep the higher debt
+            if ((customer.debt || 0) > (existing.debt || 0)) {
+                existing.debt = customer.debt;
+            }
+
+            // Keep VIP or worse status
+            existing.status = getMergedCustomerStatus(existing.status, customer.status);
+        } else {
+            // First occurrence
+            phoneMap.set(phone, {
+                ...customer,
+                mergedNames: [customer.name || ''],
+                mergedAddresses: [customer.address || ''],
+                mergedIds: [customer.id]
+            });
+        }
+    });
+
+    return Array.from(phoneMap.values());
+}
+
+/**
+ * Get merged status (prioritize VIP > Nguy hiểm > Cảnh báo > Bom hàng > Bình thường)
+ */
+function getMergedCustomerStatus(status1, status2) {
+    const statusPriority = {
+        'VIP': 5,
+        'Nguy hiểm': 4,
+        'Cảnh báo': 3,
+        'Bom hàng': 2,
+        'Bình thường': 1
+    };
+
+    const priority1 = statusPriority[status1] || 1;
+    const priority2 = statusPriority[status2] || 1;
+
+    return priority1 >= priority2 ? status1 : status2;
+}
+
+/**
  * Render customer list in modal
  * @param {Array} customers - List of customers
  * @param {Object} balanceStats - Transaction statistics from balance-history
@@ -1431,7 +1540,11 @@ function renderCustomerList(customers, balanceStats = null) {
 
     emptyEl.style.display = 'none';
     contentEl.style.display = 'block';
-    totalEl.textContent = customers.length;
+
+    // Merge customers with the same phone number
+    const mergedCustomers = mergeCustomersByPhone(customers);
+
+    totalEl.textContent = mergedCustomers.length;
 
     // Update count div with balance statistics
     if (balanceStats) {
@@ -1440,7 +1553,7 @@ function renderCustomerList(customers, balanceStats = null) {
             <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
                 <span>
                     <i data-lucide="users" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-                    <strong>${customers.length}</strong> khách hàng
+                    <strong>${mergedCustomers.length}</strong> khách hàng
                 </span>
                 <span style="color: #16a34a; font-weight: 600;">
                     <i data-lucide="banknote" style="width: 14px; height: 14px; vertical-align: middle;"></i>
@@ -1456,11 +1569,21 @@ function renderCustomerList(customers, balanceStats = null) {
     // Calculate total transactions amount (total_in from balance-history)
     const totalTransactionAmount = balanceStats ? (balanceStats.total_in || 0) : null;
 
-    tbody.innerHTML = customers.map((customer, index) => `
+    tbody.innerHTML = mergedCustomers.map((customer, index) => {
+        // Handle merged names display (Tên 1 | Tên 2 | Tên 3...)
+        const mergedNames = customer.mergedNames || [customer.name || ''];
+        const displayName = mergedNames.filter(n => n.trim()).join(' | ');
+
+        // Check if this is a merged customer (has multiple entries)
+        const isMerged = (customer.mergedIds && customer.mergedIds.length > 1);
+        const mergedBadge = isMerged ? `<span style="background: #f59e0b; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${customer.mergedIds.length} trùng</span>` : '';
+
+        return `
         <tr>
             <td>${index + 1}</td>
             <td>
-                <strong>${escapeHtmlForCustomer(customer.name || 'N/A')}</strong>
+                <strong>${escapeHtmlForCustomer(displayName || 'N/A')}</strong>
+                ${mergedBadge}
                 ${customer.email ? `<br><small style="color: #6b7280;">${escapeHtmlForCustomer(customer.email)}</small>` : ''}
             </td>
             <td>
@@ -1500,7 +1623,7 @@ function renderCustomerList(customers, balanceStats = null) {
                 ` : ''}
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 
     // Reinitialize icons
     if (window.lucide) lucide.createIcons();
