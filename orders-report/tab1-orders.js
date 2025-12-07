@@ -264,7 +264,7 @@ function cleanupTagRealtimeListeners() {
  * TEST FUNCTION - Check if TAG listeners are working
  * Call from Console: testTagListeners()
  */
-window.testTagListeners = function() {
+window.testTagListeners = function () {
     console.log('=== TAG REALTIME LISTENER TEST ===');
     console.log('1. Firebase:', database ? '✅ Available' : '❌ Not available');
     console.log('2. Listeners setup:', tagListenersSetup ? '✅ Yes' : '❌ No');
@@ -341,7 +341,7 @@ window.addEventListener("DOMContentLoaded", async function () {
     // Event listener for employee campaign selector
     const employeeCampaignSelector = document.getElementById('employeeCampaignSelector');
     if (employeeCampaignSelector) {
-        employeeCampaignSelector.addEventListener('change', function(e) {
+        employeeCampaignSelector.addEventListener('change', function (e) {
             const selectedOption = e.target.options[e.target.selectedIndex];
             if (selectedOption && selectedOption.dataset.campaign) {
                 const campaign = JSON.parse(selectedOption.dataset.campaign);
@@ -365,27 +365,29 @@ window.addEventListener("DOMContentLoaded", async function () {
     }
 
     // Initialize Pancake Token Manager & Data Manager
+    // IMPORTANT: Wait for this to complete before loading campaigns
+    // so that chat columns can display properly on first render
+    let pancakeInitialized = false;
     if (window.pancakeTokenManager && window.pancakeDataManager) {
         console.log('[PANCAKE] Initializing Pancake managers...');
 
         // Initialize token manager first
         window.pancakeTokenManager.initialize();
 
-        // Then initialize data manager
-        window.pancakeDataManager.initialize().then(success => {
-            if (success) {
+        // Then initialize data manager and WAIT for it
+        try {
+            pancakeInitialized = await window.pancakeDataManager.initialize();
+            if (pancakeInitialized) {
                 console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully');
-                // Re-render table with unread info if orders already loaded
-                if (allData.length > 0) {
-                    performTableSearch();
-                }
+                // Set chatDataManager alias for compatibility
+                window.chatDataManager = window.pancakeDataManager;
             } else {
                 console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
                 console.warn('[PANCAKE] Please set JWT token in Pancake Settings');
             }
-        }).catch(error => {
+        } catch (error) {
             console.error('[PANCAKE] ❌ Error initializing PancakeDataManager:', error);
-        });
+        }
     } else {
         console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
@@ -425,7 +427,9 @@ window.addEventListener("DOMContentLoaded", async function () {
 
     // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
     // Tags sẽ được load SAU KHI load xong đơn hàng và hiển thị bảng
+    // NOTE: chatDataManager is now available (pancakeDataManager) for chat column rendering
     console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
+    console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
     await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
 
     // Search functionality
@@ -1011,7 +1015,7 @@ function openCreateTagModal() {
         // Setup color input sync (only once)
         const colorInput = document.getElementById('newTagColor');
         if (colorInput && !colorInput.dataset.listenerAdded) {
-            colorInput.addEventListener('input', function() {
+            colorInput.addEventListener('input', function () {
                 const color = this.value;
                 document.getElementById('newTagColorHex').value = color;
                 document.getElementById('colorPreview').style.background = color;
@@ -3813,12 +3817,8 @@ function renderMessagesColumn(order) {
     const channelId = orderChatInfo.channelId;
     const psid = orderChatInfo.psid;
 
-    // If no message, show dash but keep it clickable (via renderChatColumnWithData)
-    // if (!messageInfo.message && !messageInfo.hasUnread) {
-    //    return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
-    // }
-
-    // Render with message data
+    // Always render with clickable cell (even when showing "-") as long as we have channelId and psid
+    // This allows users to open the modal even when there are no messages yet
     return renderChatColumnWithData(order, messageInfo, channelId, psid, 'messages');
 }
 
@@ -3852,12 +3852,8 @@ function renderCommentsColumn(order) {
     const channelId = orderChatInfo.channelId;
     const psid = orderChatInfo.psid;
 
-    // If no comment, show dash but keep it clickable
-    // if (!commentInfo.message) {
-    //    return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
-    // }
-
-    // Render with comment data
+    // Always render with clickable cell (even when showing "-") as long as we have channelId and psid
+    // This allows users to open the modal even when there are no comments yet
     return renderChatColumnWithData(order, commentInfo, channelId, psid, 'comments');
 }
 
@@ -6457,66 +6453,65 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             // Fetch inbox_preview for comment modal - lấy customer ID từ conversations
             const facebookPsid = order.Facebook_ASUserId;
+            // facebookPostId đã được khai báo ở trên (dòng 6426)
             let pancakeCustomerUuid = null;
 
-            console.log('[CHAT-MODAL] 🔍 Starting inbox_preview fetch...');
+            console.log('[CHAT-MODAL] 🔍 Starting inbox_preview fetch for COMMENT...');
             console.log('[CHAT-MODAL] - Facebook PSID:', facebookPsid);
+            console.log('[CHAT-MODAL] - Facebook PostId:', facebookPostId);
 
-            if (window.pancakeDataManager && facebookPsid) {
-                // Tìm conversation trong cache
-                let conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
-                console.log('[CHAT-MODAL] - Conversation found in cache:', !!conversation);
+            if (window.pancakeDataManager && facebookPostId) {
+                const facebookName = order.Facebook_UserName;
+                console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName, 'post_id:', facebookPostId);
+                try {
+                    // Dùng searchConversations() để tìm conversation
+                    const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
 
-                // Nếu không tìm thấy trong cache, search trực tiếp theo tên Facebook
-                if (!conversation) {
-                    const facebookName = order.Facebook_UserName;
-                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName, 'fb_id:', facebookPsid);
-                    try {
-                        // Dùng searchConversations() thay vì fetchConversations() để tối ưu
-                        // Search theo tên Facebook để tìm conversation (sẽ được encode URL tự động)
-                        const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
+                    if (searchResult.conversations.length > 0) {
+                        console.log('[CHAT-MODAL] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
 
-                        // IMPORTANT: Don't use searchResult.customerId as it's unreliable (takes first result without checking fb_id)
-                        // Always match by fb_id to ensure we get the correct customer
-                        if (searchResult.conversations.length > 0) {
-                            console.log('[CHAT-MODAL] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
+                        // Cho COMMENT: match theo post_id để lấy đúng customer UUID
+                        // Lấy TẤT CẢ conversations matching post_id (có thể có nhiều)
+                        const matchingConversations = searchResult.conversations.filter(conv => {
+                            return conv.type === 'COMMENT' && conv.post_id === facebookPostId;
+                        });
 
-                            // Find conversation matching fb_id (not just taking first result)
-                            conversation = searchResult.conversations.find(conv => {
-                                // Check in customers array
-                                const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
+                        console.log('[CHAT-MODAL] Matching conversations with post_id:', matchingConversations.length);
 
-                                // Check in from.id
-                                const hasMatchingFrom = conv.from?.id === facebookPsid;
-
-                                // Check in from_psid
-                                const hasMatchingPsid = conv.from_psid === facebookPsid;
-
-                                return hasMatchingCustomer || hasMatchingFrom || hasMatchingPsid;
+                        if (matchingConversations.length > 0) {
+                            // Collect tất cả customer UUIDs từ các conversations
+                            const allCustomerUuids = [];
+                            matchingConversations.forEach(conv => {
+                                if (conv.customers && conv.customers.length > 0) {
+                                    conv.customers.forEach(c => {
+                                        if (c.id && !allCustomerUuids.includes(c.id)) {
+                                            allCustomerUuids.push(c.id);
+                                        }
+                                    });
+                                }
                             });
 
-                            if (conversation && conversation.customers && conversation.customers.length > 0) {
-                                pancakeCustomerUuid = conversation.customers[0].id;
-                                console.log('[CHAT-MODAL] ✅ Matched conversation by fb_id:', facebookPsid, 'customer UUID:', pancakeCustomerUuid);
-                            } else {
-                                console.warn('[CHAT-MODAL] ⚠️ No conversation matched fb_id:', facebookPsid, 'in', searchResult.conversations.length, 'results');
+                            if (allCustomerUuids.length > 0) {
+                                // Lưu tất cả UUIDs
+                                pancakeCustomerUuid = allCustomerUuids[0]; // Dùng cái đầu tiên
+                                window.currentCustomerUUIDs = allCustomerUuids; // Lưu tất cả
+                                window.currentCustomerUUID = pancakeCustomerUuid;
+                                console.log('[CHAT-MODAL] ✅ Found', allCustomerUuids.length, 'customer UUIDs from', matchingConversations.length, 'conversations:', allCustomerUuids);
                             }
+                        } else {
+                            console.warn('[CHAT-MODAL] ⚠️ No COMMENT conversation matched post_id:', facebookPostId);
                         }
-                    } catch (searchError) {
-                        console.error('[CHAT-MODAL] ❌ Error searching conversations:', searchError);
                     }
-                } else {
-                    // Lấy customer UUID từ conversation trong cache
-                    if (conversation.customers && conversation.customers.length > 0) {
-                        pancakeCustomerUuid = conversation.customers[0].id;
-                        console.log('[CHAT-MODAL] ✅ Got customer UUID from cache:', pancakeCustomerUuid);
-                    }
+                } catch (searchError) {
+                    console.error('[CHAT-MODAL] ❌ Error searching conversations:', searchError);
                 }
+            } else {
+                console.warn('[CHAT-MODAL] ⚠️ Missing pancakeDataManager or facebookPostId');
+            }
 
-                // Nếu vẫn chưa có customer UUID, log warning
-                if (!pancakeCustomerUuid) {
-                    console.warn('[CHAT-MODAL] ⚠️ No customer UUID found after search');
-                }
+            // Nếu vẫn chưa có customer UUID, log warning
+            if (!pancakeCustomerUuid) {
+                console.warn('[CHAT-MODAL] ⚠️ No customer UUID found after search');
             }
 
             // Fetch inbox_preview nếu có customer UUID và lưu conversationId
@@ -6579,35 +6574,73 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 if (!pancakeCustomerUuid) {
                     const facebookName = order.Facebook_UserName;
                     const facebookPsid = order.Facebook_ASUserId;
-                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName, 'fb_id:', facebookPsid);
+                    const facebookPostId = order.Facebook_PostId; // Format: pageId_postId
+                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName, 'fb_id:', facebookPsid, 'post_id:', facebookPostId);
                     try {
                         // Dùng searchConversations() để tìm conversation
                         const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
 
-                        // IMPORTANT: Don't use searchResult.customerId as it's unreliable (takes first result without checking fb_id)
-                        // Always match by fb_id to ensure we get the correct customer
                         if (searchResult.conversations.length > 0) {
                             console.log('[CHAT-MODAL] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
 
-                            // Find conversation matching fb_id (not just taking first result)
-                            conversation = searchResult.conversations.find(conv => {
-                                // Check in customers array
-                                const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
+                            // Match logic khác nhau cho INBOX vs COMMENT
+                            if (type === 'comment' && facebookPostId) {
+                                // Cho COMMENT: match theo post_id để lấy đúng customer UUID
+                                // post_id format: pageId_postId (e.g., "270136663390370_1672237127083024")
+                                // Lấy TẤT CẢ conversations matching post_id (có thể có nhiều)
+                                const matchingConversations = searchResult.conversations.filter(conv => {
+                                    return conv.type === 'COMMENT' && conv.post_id === facebookPostId;
+                                });
 
-                                // Check in from.id
-                                const hasMatchingFrom = conv.from?.id === facebookPsid;
+                                if (matchingConversations.length > 0) {
+                                    // Collect tất cả customer UUIDs từ các conversations
+                                    const allCustomerUuids = [];
+                                    matchingConversations.forEach(conv => {
+                                        if (conv.customers && conv.customers.length > 0) {
+                                            conv.customers.forEach(c => {
+                                                if (c.id && !allCustomerUuids.includes(c.id)) {
+                                                    allCustomerUuids.push(c.id);
+                                                }
+                                            });
+                                        }
+                                    });
 
-                                // Check in from_psid
-                                const hasMatchingPsid = conv.from_psid === facebookPsid;
-
-                                return hasMatchingCustomer || hasMatchingFrom || hasMatchingPsid;
-                            });
-
-                            if (conversation && conversation.customers && conversation.customers.length > 0) {
-                                pancakeCustomerUuid = conversation.customers[0].id;
-                                console.log('[CHAT-MODAL] ✅ Matched conversation by fb_id:', facebookPsid, 'customer UUID:', pancakeCustomerUuid);
+                                    if (allCustomerUuids.length > 0) {
+                                        // Lưu tất cả UUIDs, sẽ thử lần lượt
+                                        pancakeCustomerUuid = allCustomerUuids[0]; // Dùng cái đầu tiên
+                                        window.currentCustomerUUIDs = allCustomerUuids; // Lưu tất cả
+                                        window.currentCustomerUUID = pancakeCustomerUuid;
+                                        console.log('[CHAT-MODAL] ✅ Found', allCustomerUuids.length, 'customer UUIDs from', matchingConversations.length, 'conversations:', allCustomerUuids);
+                                    }
+                                    conversation = matchingConversations[0]; // Lấy conversation đầu tiên
+                                }
                             } else {
-                                console.warn('[CHAT-MODAL] ⚠️ No conversation matched fb_id:', facebookPsid, 'in', searchResult.conversations.length, 'results');
+                                // Cho INBOX: match theo fb_id/from_psid
+                                conversation = searchResult.conversations.find(conv => {
+                                    // Only match INBOX type for messages
+                                    if (conv.type !== 'INBOX') return false;
+
+                                    // Check in customers array
+                                    const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
+
+                                    // Check in from.id
+                                    const hasMatchingFrom = conv.from?.id === facebookPsid;
+
+                                    // Check in from_psid
+                                    const hasMatchingPsid = conv.from_psid === facebookPsid;
+
+                                    return hasMatchingCustomer || hasMatchingFrom || hasMatchingPsid;
+                                });
+
+                                if (conversation && conversation.customers && conversation.customers.length > 0) {
+                                    pancakeCustomerUuid = conversation.customers[0].id;
+                                    window.currentCustomerUUID = pancakeCustomerUuid;
+                                    console.log('[CHAT-MODAL] ✅ Matched INBOX conversation - customer UUID:', pancakeCustomerUuid);
+                                }
+                            }
+
+                            if (!pancakeCustomerUuid) {
+                                console.warn('[CHAT-MODAL] ⚠️ No conversation matched for type:', type, 'in', searchResult.conversations.length, 'results');
                             }
                         }
                     } catch (searchError) {
@@ -6640,7 +6673,8 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             }
 
             // Fetch initial messages with pagination support
-            const response = await window.chatDataManager.fetchMessages(channelId, psid);
+            // Pass customerId to avoid 400 Bad Request from Pancake API
+            const response = await window.chatDataManager.fetchMessages(channelId, psid, window.currentConversationId, window.currentCustomerUUID);
             window.allChatMessages = response.messages || [];
             currentChatCursor = response.after; // Store cursor for next page
 
@@ -6658,7 +6692,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         /* LEGACY CODE REMOVED
         // Initialize Chat Product State
         initChatProductSearch();
- 
+     
         // Firebase Sync Logic - Shared products across all orders
         if (database) {
             currentChatProductsRef = database.ref('order_products/shared');
@@ -6989,9 +7023,9 @@ window.updateMultipleImagesPreview = function updateMultipleImagesPreview() {
                 <!-- Status text -->
                 <span style="font-size: 10px; max-width: 80px; text-align: center; white-space: normal; line-height: 1.2;">
                     ${isUploading ? '<span style="color: #3b82f6;">Đang tải...</span>' :
-                      isFailed ? `<span style="color: #ef4444;">${imageData.error || 'Lỗi'}</span><br><button onclick="retryUploadAtIndex(${index})" style="margin-top: 2px; padding: 2px 6px; font-size: 9px; background: #3b82f6; color: white; border: none; border-radius: 3px; cursor: pointer;">Retry</button>` :
-                      isCached ? '<span style="color: #10b981;"><i class="fas fa-recycle"></i> Đã có sẵn</span>' :
-                      `<span style="color: #10b981;"><i class="fas fa-check"></i> ${Math.round((imageData.blob?.size || 0) / 1024)} KB</span>`}
+                isFailed ? `<span style="color: #ef4444;">${imageData.error || 'Lỗi'}</span><br><button onclick="retryUploadAtIndex(${index})" style="margin-top: 2px; padding: 2px 6px; font-size: 9px; background: #3b82f6; color: white; border: none; border-radius: 3px; cursor: pointer;">Retry</button>` :
+                    isCached ? '<span style="color: #10b981;"><i class="fas fa-recycle"></i> Đã có sẵn</span>' :
+                        `<span style="color: #10b981;"><i class="fas fa-check"></i> ${Math.round((imageData.blob?.size || 0) / 1024)} KB</span>`}
                 </span>
             </div>
         `;
@@ -7082,7 +7116,7 @@ window.updateUploadPreviewUI = function updateUploadPreviewUI(success, message, 
 /**
  * NEW: Remove a single image at index
  */
-window.removeImageAtIndex = function(index) {
+window.removeImageAtIndex = function (index) {
     if (!window.uploadedImagesData || index < 0 || index >= window.uploadedImagesData.length) return;
 
     // Revoke blob URL if exists
@@ -7103,7 +7137,7 @@ window.removeImageAtIndex = function(index) {
 /**
  * NEW: Clear all images
  */
-window.clearAllImages = function() {
+window.clearAllImages = function () {
     // Revoke all blob URLs
     if (window.uploadedImagesData) {
         window.uploadedImagesData.forEach(imageData => {
@@ -7125,7 +7159,7 @@ window.clearAllImages = function() {
 /**
  * NEW: Retry upload at specific index (for failed uploads)
  */
-window.retryUploadAtIndex = async function(index) {
+window.retryUploadAtIndex = async function (index) {
     if (!window.uploadedImagesData || index < 0 || index >= window.uploadedImagesData.length) return;
 
     const imageData = window.uploadedImagesData[index];
@@ -7182,7 +7216,7 @@ window.retryUploadAtIndex = async function(index) {
 /**
  * Retry upload when failed (DEPRECATED - use retryUploadAtIndex)
  */
-window.retryUpload = async function() {
+window.retryUpload = async function () {
     if (!currentPastedImage) return;
 
     const status = document.getElementById('uploadStatus');
@@ -7412,7 +7446,7 @@ function extractMessageText(message) {
 /**
  * Show/Hide sending indicator in chat modal
  */
-window.showChatSendingIndicator = function(text = 'Đang gửi...', queueCount = 0) {
+window.showChatSendingIndicator = function (text = 'Đang gửi...', queueCount = 0) {
     const indicator = document.getElementById('chatSendingIndicator');
     const textSpan = document.getElementById('chatSendingText');
     const queueSpan = document.getElementById('chatQueueCount');
@@ -7431,7 +7465,7 @@ window.showChatSendingIndicator = function(text = 'Đang gửi...', queueCount =
     }
 }
 
-window.hideChatSendingIndicator = function() {
+window.hideChatSendingIndicator = function () {
     const indicator = document.getElementById('chatSendingIndicator');
     if (indicator) {
         indicator.style.display = 'none';
@@ -7693,7 +7727,7 @@ function getImageDimensions(blob) {
         const img = new Image();
         const url = URL.createObjectURL(blob);
 
-        img.onload = function() {
+        img.onload = function () {
             URL.revokeObjectURL(url);
             resolve({
                 width: img.naturalWidth,
@@ -7701,7 +7735,7 @@ function getImageDimensions(blob) {
             });
         };
 
-        img.onerror = function() {
+        img.onerror = function () {
             URL.revokeObjectURL(url);
             reject(new Error('Failed to load image'));
         };
@@ -8366,6 +8400,14 @@ function renderChatMessages(messages, scrollToBottom = false) {
         const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
         const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
+        // Get avatar URL for customer messages with pageId and token for Pancake lookup
+        const fromId = msg.from?.id || msg.FromId || null;
+        const pageId = window.currentChatChannelId || msg.page_id || null;
+        const cachedToken = window.pancakeTokenManager?.token || null;
+        const avatarUrl = window.pancakeDataManager?.getAvatarUrl(fromId, pageId, cachedToken) ||
+            'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
+        const senderName = msg.from?.name || msg.FromName || '';
+
         let content = '';
         if (msg.Message) {
             content = `<p class="chat-message-text">${msg.Message}</p>`;
@@ -8423,12 +8465,28 @@ function renderChatMessages(messages, scrollToBottom = false) {
             </button>
         ` : '';
 
+        // Avatar HTML - only show for customer messages (not owner)
+        const avatarHTML = !isOwner ? `
+            <img src="${avatarUrl}"
+                 alt="${senderName}"
+                 title="${senderName}"
+                 class="avatar-loading"
+                 style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 8px; border: 2px solid #e5e7eb; background: #f3f4f6;"
+                 onload="this.classList.remove('avatar-loading')"
+                 onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%227%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2232%22 rx=%2211%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'"
+            />
+        ` : '';
+
         return `
-            <div class="chat-message ${alignClass}" onmouseenter="this.querySelector('.chat-message-reply-btn')?.style.setProperty('display', 'flex')" onmouseleave="this.querySelector('.chat-message-reply-btn')?.style.setProperty('display', 'none')">
-                <div class="chat-bubble ${bgClass}" style="position: relative;">
-                    ${content}
-                    <p class="chat-message-time">${formatTime(msg.CreatedTime)}</p>
-                    ${replyButton}
+            <div class="chat-message ${alignClass}" style="display: flex; align-items: flex-start;" onmouseenter="this.querySelector('.chat-message-reply-btn')?.style.setProperty('display', 'flex')" onmouseleave="this.querySelector('.chat-message-reply-btn')?.style.setProperty('display', 'none')">
+                ${!isOwner ? avatarHTML : ''}
+                <div style="flex: 1; ${isOwner ? 'display: flex; justify-content: flex-end;' : ''}">
+                    <div class="chat-bubble ${bgClass}" style="position: relative;">
+                        ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
+                        ${content}
+                        <p class="chat-message-time">${formatTime(msg.CreatedTime)}</p>
+                        ${replyButton}
+                    </div>
                 </div>
             </div>`;
     }).join('');

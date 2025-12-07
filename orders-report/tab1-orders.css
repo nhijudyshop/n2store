@@ -3014,6 +3014,20 @@ button[onclick*="showAddProductForm"] {
     color: white;
 }
 
+/* Avatar loading animation */
+.avatar-loading {
+    animation: avatar-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes avatar-pulse {
+    0%, 100% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
 .chat-message-text {
     margin: 0;
     font-size: 14px;

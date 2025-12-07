@@ -60,9 +60,10 @@ const API_CONFIG = {
      * @param {string} url - Full URL (should start with WORKER_URL)
      * @param {object} options - Fetch options
      * @param {number} maxRetries - Maximum number of retries per endpoint (default: 3)
+     * @param {boolean} skipFallback - Skip fallback server (default: false)
      * @returns {Promise<Response>}
      */
-    smartFetch: async function(url, options = {}, maxRetries = 3) {
+    smartFetch: async function (url, options = {}, maxRetries = 3, skipFallback = false) {
         const originalUrl = url;
 
         /**
@@ -139,6 +140,12 @@ const API_CONFIG = {
             return response;
 
         } catch (error) {
+            // If skipFallback is true, don't try fallback - just throw the error
+            if (skipFallback) {
+                console.warn('[API] ⚠️ Cloudflare failed and skipFallback is enabled, not trying fallback');
+                throw error;
+            }
+
             // Try fallback (Render.com) with retries
             const fallbackUrl = url.replace(WORKER_URL, FALLBACK_URL);
             console.log(`[API] 🔄 Switching to fallback endpoint...`);
@@ -166,7 +173,7 @@ const API_CONFIG = {
     /**
      * Reset to primary server (Cloudflare)
      */
-    resetToPrimary: function() {
+    resetToPrimary: function () {
         this._isFallbackActive = false;
         this._currentUrl = WORKER_URL;
         console.log('[API] 🔄 Reset to primary (Cloudflare)');
@@ -175,7 +182,7 @@ const API_CONFIG = {
     /**
      * Get current server status
      */
-    getStatus: function() {
+    getStatus: function () {
         return {
             primary: WORKER_URL,
             fallback: FALLBACK_URL,
