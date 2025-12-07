@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 </head>
+
 <body>
     <!-- Header -->
     <header class="app-header">
@@ -74,11 +76,8 @@
                     <div class="search-container">
                         <div class="search-input-wrapper">
                             <i class="bi bi-search"></i>
-                            <input type="text"
-                                   id="productSearch"
-                                   class="search-input"
-                                   placeholder="Tìm kiếm sản phẩm (nhập mã hoặc tên)..."
-                                   autocomplete="off">
+                            <input type="text" id="productSearch" class="search-input"
+                                placeholder="Tìm kiếm sản phẩm (nhập mã hoặc tên)..." autocomplete="off">
                             <div class="search-loading" id="searchLoading" style="display: none;">
                                 <div class="spinner-border spinner-border-sm"></div>
                             </div>
@@ -97,6 +96,7 @@
                                 <th class="col-qty">📥 SL Inbox</th>
                                 <th class="col-qty">📤 Gửi NCC</th>
                                 <th class="col-qty">✅ Nhận IB</th>
+                                <th class="col-qty">👥 Team IB</th>
                                 <th class="col-actions">🔧</th>
                             </tr>
                         </thead>
@@ -110,6 +110,7 @@
                                 <td class="total-value" id="totalInbox">0</td>
                                 <td class="total-value" id="totalSentNCC">0</td>
                                 <td class="total-value" id="totalReceivedIB">0</td>
+                                <td class="total-value" id="totalTeamIB">0</td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -159,11 +160,8 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label for="sheetNameInput">Tên trang</label>
-                        <input type="text"
-                               id="sheetNameInput"
-                               class="form-control"
-                               placeholder="VD: Live 6/12, Đợt 1..."
-                               maxlength="50">
+                        <input type="text" id="sheetNameInput" class="form-control"
+                            placeholder="VD: Live 6/12, Đợt 1..." maxlength="50">
                         <small class="text-muted">Tối đa 50 ký tự</small>
                     </div>
                 </div>
@@ -220,4 +218,5 @@
     <!-- Main app -->
     <script src="app.js"></script>
 </body>
+
 </html>

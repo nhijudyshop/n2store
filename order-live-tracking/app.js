@@ -665,6 +665,10 @@ function renderProductsTable(items) {
                        min="0" data-index="${index}" data-field="receivedIB">
             </td>
             <td class="text-center">
+                <input type="number" class="qty-input" value="${item.teamIB || 0}"
+                       min="0" data-index="${index}" data-field="teamIB">
+            </td>
+            <td class="text-center">
                 <button class="btn-delete-row" data-index="${index}" title="Xóa">
                     <i class="bi bi-x-lg"></i>
                 </button>
@@ -676,13 +680,14 @@ function renderProductsTable(items) {
 }
 
 function updateTotals(items) {
-    let totalLive = 0, totalInbox = 0, totalSentNCC = 0, totalReceivedIB = 0;
+    let totalLive = 0, totalInbox = 0, totalSentNCC = 0, totalReceivedIB = 0, totalTeamIB = 0;
 
     items.forEach(item => {
         totalLive += parseInt(item.qtyLive) || 0;
         totalInbox += parseInt(item.qtyInbox) || 0;
         totalSentNCC += parseInt(item.sentToNCC) || 0;
         totalReceivedIB += parseInt(item.receivedIB) || 0;
+        totalTeamIB += parseInt(item.teamIB) || 0;
     });
 
     const el = (id, val) => {
@@ -694,6 +699,7 @@ function updateTotals(items) {
     el('totalInbox', totalInbox);
     el('totalSentNCC', totalSentNCC);
     el('totalReceivedIB', totalReceivedIB);
+    el('totalTeamIB', totalTeamIB);
 }
 
 // =====================================================
@@ -738,6 +744,7 @@ async function addProductToSheet(product) {
         qtyInbox: 0,
         sentToNCC: 0,
         receivedIB: 0,
+        teamIB: 0,
         addedAt: Date.now()
     };
 
@@ -790,7 +797,8 @@ async function updateItemQty(index, field, value) {
                 qtyLive: 'SL Live',
                 qtyInbox: 'SL Inbox',
                 sentToNCC: 'Gửi NCC',
-                receivedIB: 'Nhận IB'
+                receivedIB: 'Nhận IB',
+                teamIB: 'Team IB'
             };
             await logHistory(AppState.activeSheetId, 'edit',
                 `${sheet.items[index].productCode}: ${fieldNames[field]} ${oldValue} → ${newValue}`);
