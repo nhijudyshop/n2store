@@ -1546,28 +1546,28 @@ function renderCustomerList(customers, balanceStats = null) {
 
     totalEl.textContent = mergedCustomers.length;
 
-    // Update count div with balance statistics
-    if (balanceStats) {
-        const totalIn = balanceStats.total_in || 0;
-        countDiv.innerHTML = `
-            <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
-                <span>
-                    <i data-lucide="users" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-                    <strong>${mergedCustomers.length}</strong> khách hàng
-                </span>
-                <span style="color: #16a34a; font-weight: 600;">
-                    <i data-lucide="banknote" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                    Tổng GD: <strong>${formatCurrency(totalIn)}</strong>
-                </span>
-                <span style="color: #6b7280;">
-                    (${balanceStats.total_transactions || 0} giao dịch)
-                </span>
-            </div>
-        `;
-    }
+    // Get customer debt (from customer management, not from transactions)
+    const customerDebt = mergedCustomers.length > 0 ? (mergedCustomers[0].debt || 0) : 0;
 
-    // Calculate total transactions amount (total_in from balance-history)
-    const totalTransactionAmount = balanceStats ? (balanceStats.total_in || 0) : null;
+    // Update count div with balance statistics and customer debt
+    const totalIn = balanceStats ? (balanceStats.total_in || 0) : 0;
+    const transactionCount = balanceStats ? (balanceStats.total_transactions || 0) : 0;
+
+    countDiv.innerHTML = `
+        <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+            <span>
+                <i data-lucide="users" style="width: 16px; height: 16px; vertical-align: middle;"></i>
+                <strong>${mergedCustomers.length}</strong> khách hàng
+            </span>
+            <span style="color: #16a34a; font-weight: 600;">
+                <i data-lucide="banknote" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                Tổng GD: <strong>${formatCurrency(totalIn)}</strong>
+            </span>
+            <span style="color: #6b7280;">
+                (${transactionCount} giao dịch)
+            </span>
+        </div>
+    `;
 
     tbody.innerHTML = mergedCustomers.map((customer, index) => {
         // Handle merged names display (Tên 1 | Tên 2 | Tên 3...)
@@ -1577,6 +1577,9 @@ function renderCustomerList(customers, balanceStats = null) {
         // Check if this is a merged customer (has multiple entries)
         const isMerged = (customer.mergedIds && customer.mergedIds.length > 1);
         const mergedBadge = isMerged ? `<span style="background: #f59e0b; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${customer.mergedIds.length} trùng</span>` : '';
+
+        // Use customer's debt from customer management
+        const debt = customer.debt || 0;
 
         return `
         <tr>
@@ -1592,14 +1595,10 @@ function renderCustomerList(customers, balanceStats = null) {
                 </span>
             </td>
             <td style="text-align: right;">
-                ${totalTransactionAmount !== null ? `
-                    <div style="color: #16a34a; font-weight: 600;">
-                        ${formatCurrency(totalTransactionAmount)}
-                    </div>
-                    <small style="color: #9ca3af; font-size: 10px;">từ giao dịch</small>
-                ` : `
-                    <span style="color: #9ca3af;">Chưa có GD</span>
-                `}
+                <div style="color: #16a34a; font-weight: 600;">
+                    ${formatCurrency(debt)}
+                </div>
+                <small style="color: #9ca3af; font-size: 10px;">từ giao dịch</small>
             </td>
             <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtmlForCustomer(customer.address || '')}">
                 ${escapeHtmlForCustomer(customer.address || 'N/A')}
