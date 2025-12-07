@@ -410,9 +410,10 @@ function mergeCustomersByPhone(customers) {
             // Merge IDs for reference
             existing.mergedIds.push(customer.id);
 
-            // SUM all debts from merged customers (not keep max)
-            // This ensures total debt is accurately reflected when customers are merged
-            existing.debt = (existing.debt || 0) + (customer.debt || 0);
+            // Keep the higher debt (display the max debt from merged customers)
+            if ((customer.debt || 0) > (existing.debt || 0)) {
+                existing.debt = customer.debt;
+            }
 
             // Keep VIP or worse status
             existing.status = getMergedStatus(existing.status, customer.status);

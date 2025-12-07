@@ -794,17 +794,13 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
         console.log(`[PROCESS-TRANSACTIONS] Total amount: ${totalAmount}, Customer: ${customerName}`);
 
         // Step 3: Update customer debt (add total amount)
-        // Search with phone variants to handle different formats
+        // Update ALL customers with matching phone (handles duplicate records)
+        // This ensures all customer records with the same phone stay in sync
         const updateDebtQuery = `
             UPDATE customers
             SET debt = COALESCE(debt, 0) + $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id = (
-                SELECT id FROM customers
-                WHERE phone = $2 OR phone = $3 OR phone = $4
-                   OR REGEXP_REPLACE(phone, '\\D', '', 'g') = $5
-                ORDER BY created_at DESC
-                LIMIT 1
-            )
+            WHERE phone = $2 OR phone = $3 OR phone = $4
+               OR REGEXP_REPLACE(phone, '\\D', '', 'g') = $5
             RETURNING id, name, phone, debt
         `;
 
@@ -903,17 +899,12 @@ router.post('/update-debt-by-phone', async (req, res) => {
 
         console.log(`[CUSTOMERS-DEBT] Updating debt for phone: ${phone}, amount: ${amountNum}`);
 
-        // Find the newest customer with matching phone and update their debt
-        // ORDER BY created_at DESC to get the newest customer if multiple exist
+        // Update ALL customers with matching phone (handles duplicate records)
+        // This ensures all customer records with the same phone stay in sync
         const result = await db.query(`
             UPDATE customers
             SET debt = COALESCE(debt, 0) + $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id = (
-                SELECT id FROM customers
-                WHERE phone = $2
-                ORDER BY created_at DESC
-                LIMIT 1
-            )
+            WHERE phone = $2
             RETURNING id, name, phone, debt, updated_at
         `, [amountNum, phone]);
 
