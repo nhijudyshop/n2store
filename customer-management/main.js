@@ -748,6 +748,7 @@ function processExcelFile(file) {
             const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
             // Map Excel columns to customer fields
+            // NOTE: debt is NOT imported from Excel - new customers get debt=0, existing customers keep their debt
             importData = jsonData.map(row => ({
                 name: row['Tên'] || row['Ten'] || '',
                 phone: String(row['Điện thoại'] || row['Dien thoai'] || '').trim(),
@@ -755,7 +756,7 @@ function processExcelFile(file) {
                 address: row['Địa chỉ'] || row['Dia chi'] || '',
                 status: row['Trạng thái'] || row['Trang thai'] || 'Bình thường',
                 carrier: detectCarrier(String(row['Điện thoại'] || row['Dien thoai'] || '')),
-                debt: parseFloat(row['Nợ'] || row['No'] || row['Doanh số đầu kỳ Nhóm'] || 0) || 0,
+                // debt: Not imported - backend handles this (0 for new, preserve for existing)
                 active: true
             })).filter(customer => customer.name && customer.phone);
 
@@ -1076,6 +1077,7 @@ function mapTPOSToAPI(tposCustomer) {
         }
     }
 
+    // NOTE: debt is NOT synced from TPOS - new customers get debt=0, existing customers keep their debt
     return {
         tpos_id: tposCustomer.Id,
         name: tposCustomer.Name || '',
@@ -1084,7 +1086,7 @@ function mapTPOSToAPI(tposCustomer) {
         address: tposCustomer.Street || '',
         carrier: carrier,
         status: status,
-        debt: parseFloat(tposCustomer.Credit || 0) || 0,
+        // debt: Not synced from TPOS - backend handles this (0 for new, preserve for existing)
         active: tposCustomer.IsActive !== false,
         tpos_data: {
             code: tposCustomer.Code,
