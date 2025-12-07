@@ -1378,8 +1378,14 @@ async function showCustomersByPhone(phone) {
     if (window.lucide) lucide.createIcons();
 
     try {
-        // Always fetch fresh data (no cache) to ensure latest debt values
+        // Check cache first
         const cacheKey = phone.replace(/\D/g, '');
+        const cached = customerListCache[cacheKey];
+        if (cached && (Date.now() - cached.timestamp < CUSTOMER_CACHE_TTL)) {
+            console.log('[CUSTOMER-LIST] Using cached data for:', phone);
+            renderCustomerList(cached.data, cached.balanceStats);
+            return;
+        }
 
         // Fetch customers and transaction stats in parallel
         const [customersResponse, transactionsResponse] = await Promise.all([
@@ -1418,20 +1424,16 @@ async function showCustomersByPhone(phone) {
         customerListCache[cacheKey] = {
             data: customers,
             balanceStats: balanceStats,
-            phone: phone,
             timestamp: Date.now()
         };
 
-        renderCustomerList(customers, balanceStats, phone);
+        renderCustomerList(customers, balanceStats);
 
     } catch (error) {
         console.error('[CUSTOMER-LIST] Error:', error);
         loadingEl.style.display = 'none';
         emptyEl.style.display = 'block';
-        const errorParagraph = emptyEl.querySelector('p');
-        if (errorParagraph) {
-            errorParagraph.textContent = 'Lỗi khi tải dữ liệu: ' + error.message;
-        }
+        emptyEl.querySelector('p').textContent = 'Lỗi khi tải dữ liệu: ' + error.message;
     }
 }
 
@@ -1476,7 +1478,7 @@ function mergeCustomersByPhone(customers) {
             // Merge IDs for reference
             existing.mergedIds.push(customer.id);
 
-            // Keep the higher debt (display the max debt from merged customers)
+            // Keep the higher debt
             if ((customer.debt || 0) > (existing.debt || 0)) {
                 existing.debt = customer.debt;
             }
@@ -1519,9 +1521,8 @@ function getMergedCustomerStatus(status1, status2) {
  * Render customer list in modal
  * @param {Array} customers - List of customers
  * @param {Object} balanceStats - Transaction statistics from balance-history
- * @param {string} phone - Customer phone number
  */
-function renderCustomerList(customers, balanceStats = null, phone = '') {
+function renderCustomerList(customers, balanceStats = null) {
     const loadingEl = document.getElementById('customerListLoading');
     const emptyEl = document.getElementById('customerListEmpty');
     const contentEl = document.getElementById('customerListContent');
@@ -1545,31 +1546,28 @@ function renderCustomerList(customers, balanceStats = null, phone = '') {
 
     totalEl.textContent = mergedCustomers.length;
 
-    // Get customer info for display
-    const customerNames = mergedCustomers.length > 0
-        ? (mergedCustomers[0].mergedNames || [mergedCustomers[0].name]).filter(n => n && n.trim()).join(' | ')
-        : 'N/A';
-    const displayPhone = phone || (mergedCustomers.length > 0 ? mergedCustomers[0].phone : '');
+    // Update count div with balance statistics
+    if (balanceStats) {
+        const totalIn = balanceStats.total_in || 0;
+        countDiv.innerHTML = `
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+                <span>
+                    <i data-lucide="users" style="width: 16px; height: 16px; vertical-align: middle;"></i>
+                    <strong>${mergedCustomers.length}</strong> khách hàng
+                </span>
+                <span style="color: #16a34a; font-weight: 600;">
+                    <i data-lucide="banknote" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                    Tổng GD: <strong>${formatCurrency(totalIn)}</strong>
+                </span>
+                <span style="color: #6b7280;">
+                    (${balanceStats.total_transactions || 0} giao dịch)
+                </span>
+            </div>
+        `;
+    }
 
-    // Update count div with transaction info
-    const totalIn = balanceStats ? (balanceStats.total_in || 0) : 0;
-    const transactionCount = balanceStats ? (balanceStats.total_transactions || 0) : 0;
-
-    countDiv.innerHTML = `
-        <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
-            <span>
-                <i data-lucide="users" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-                <strong>${mergedCustomers.length}</strong> khách hàng
-            </span>
-            <span style="color: #16a34a; font-weight: 600;">
-                <i data-lucide="plus-circle" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                <strong>+${formatCurrency(totalIn)}</strong> vào nợ của ${customerNames} - ${displayPhone}
-            </span>
-            <span style="color: #6b7280;">
-                (${transactionCount} giao dịch)
-            </span>
-        </div>
-    `;
+    // Calculate total transactions amount (total_in from balance-history)
+    const totalTransactionAmount = balanceStats ? (balanceStats.total_in || 0) : null;
 
     tbody.innerHTML = mergedCustomers.map((customer, index) => {
         // Handle merged names display (Tên 1 | Tên 2 | Tên 3...)
@@ -1579,9 +1577,6 @@ function renderCustomerList(customers, balanceStats = null, phone = '') {
         // Check if this is a merged customer (has multiple entries)
         const isMerged = (customer.mergedIds && customer.mergedIds.length > 1);
         const mergedBadge = isMerged ? `<span style="background: #f59e0b; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${customer.mergedIds.length} trùng</span>` : '';
-
-        // Use customer's debt from customer management
-        const debt = customer.debt || 0;
 
         return `
         <tr>
@@ -1597,9 +1592,14 @@ function renderCustomerList(customers, balanceStats = null, phone = '') {
                 </span>
             </td>
             <td style="text-align: right;">
-                <div style="color: #16a34a; font-weight: 600;">
-                    ${formatCurrency(debt)}
-                </div>
+                ${totalTransactionAmount !== null ? `
+                    <div style="color: #16a34a; font-weight: 600;">
+                        ${formatCurrency(totalTransactionAmount)}
+                    </div>
+                    <small style="color: #9ca3af; font-size: 10px;">từ giao dịch</small>
+                ` : `
+                    <span style="color: #9ca3af;">Chưa có GD</span>
+                `}
             </td>
             <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtmlForCustomer(customer.address || '')}">
                 ${escapeHtmlForCustomer(customer.address || 'N/A')}
