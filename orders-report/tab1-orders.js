@@ -6298,17 +6298,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         });
         if (response.ok) {
             const fullOrderData = await response.json();
-            // Initialize products panel with full order data
-            if (typeof window.initChatModalProducts === 'function') {
-                window.initChatModalProducts(fullOrderData);
-            }
         }
     } catch (error) {
         console.error('[CHAT] Error loading order details:', error);
-        // Continue with basic order data
-        if (typeof window.initChatModalProducts === 'function') {
-            window.initChatModalProducts(order);
-        }
     }
 
     // Show loading
@@ -6644,12 +6636,6 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         /* LEGACY CODE REMOVED
         // Initialize Chat Product State
         initChatProductSearch();
- 
-        // Initialize ChatProductManager for history tracking
-        if (window.chatProductManager) {
-            await window.chatProductManager.init('shared');
-            console.log('[CHAT] ChatProductManager initialized');
-        }
  
         // Firebase Sync Logic - Shared products across all orders
         if (database) {

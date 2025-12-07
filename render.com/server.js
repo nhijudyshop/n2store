@@ -33,63 +33,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// =====================================================
-// POSTGRESQL DATABASE (For Chat)
-// =====================================================
-
-const { Pool } = require('pg');
-
-const chatDbPool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
-
-// Test database connection
-chatDbPool.query('SELECT NOW()', (err, res) => {
-    if (err) {
-        console.error('❌ [CHAT-DB] Connection failed:', err.message);
-    } else {
-        console.log('✅ [CHAT-DB] Connected at:', res.rows[0].now);
-    }
-});
-
-// Make pool available to chat routes
-app.locals.chatDb = chatDbPool;
-
-// =====================================================
-// SSE CLIENTS MANAGER (For Realtime Chat)
-// =====================================================
-
-const sseClients = new Map(); // userId -> response object
-
-// Broadcast message to specific users
-function broadcastToUsers(userIds, event, data) {
-    userIds.forEach(userId => {
-        const client = sseClients.get(userId);
-        if (client) {
-            client.write(`event: ${event}\n`);
-            client.write(`data: ${JSON.stringify(data)}\n\n`);
-        }
-    });
-}
-
-// Broadcast to all clients in a conversation
-async function broadcastToConversation(conversationId, event, data) {
-    try {
-        const result = await chatDbPool.query(
-            'SELECT user_id FROM conversation_participants WHERE conversation_id = $1',
-            [conversationId]
-        );
-        const userIds = result.rows.map(row => row.user_id);
-        broadcastToUsers(userIds, event, data);
-    } catch (error) {
-        console.error('[SSE] Failed to broadcast to conversation:', error);
-    }
-}
-
-app.locals.broadcastToConversation = broadcastToConversation;
-app.locals.broadcastToUsers = broadcastToUsers;
-app.locals.sseClients = sseClients;
 
 // =====================================================
 // ROUTES
@@ -120,101 +63,21 @@ app.get('/api/debug/time', (req, res) => {
     });
 });
 
-// =====================================================
-// SSE ENDPOINT (For Realtime Chat Updates)
-// =====================================================
-
-app.get('/api/chat/stream', async (req, res) => {
-    // EventSource doesn't support custom headers, so get userId from query param
-    const userId = req.query.userId || req.headers['x-user-id'];
-
-    if (!userId) {
-        return res.status(401).json({ error: 'Missing userId (use ?userId=xxx query parameter)' });
-    }
-
-    // Set headers for SSE
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    // Store client connection
-    sseClients.set(userId, res);
-    console.log(`✅ [SSE] Client connected: ${userId} (Total: ${sseClients.size})`);
-
-    // Send initial connection event
-    res.write('event: connected\n');
-    res.write(`data: ${JSON.stringify({ userId, timestamp: new Date().toISOString() })}\n\n`);
-
-    // Update user status to online
-    try {
-        await chatDbPool.query(
-            'UPDATE users SET status = $1, last_seen = CURRENT_TIMESTAMP WHERE user_id = $2',
-            ['online', userId]
-        );
-
-        // Broadcast user online status to all clients
-        broadcastToUsers(Array.from(sseClients.keys()), 'user-status', {
-            userId,
-            status: 'online',
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        console.error('[SSE] Failed to update user status:', error);
-    }
-
-    // Handle client disconnect
-    req.on('close', async () => {
-        sseClients.delete(userId);
-        console.log(`❌ [SSE] Client disconnected: ${userId} (Total: ${sseClients.size})`);
-
-        // Update user status to offline
-        try {
-            await chatDbPool.query(
-                'UPDATE users SET status = $1, last_seen = CURRENT_TIMESTAMP WHERE user_id = $2',
-                ['offline', userId]
-            );
-
-            // Broadcast user offline status
-            broadcastToUsers(Array.from(sseClients.keys()), 'user-status', {
-                userId,
-                status: 'offline',
-                timestamp: new Date().toISOString()
-            });
-        } catch (error) {
-            console.error('[SSE] Failed to update user status:', error);
-        }
-
-        res.end();
-    });
-});
-
 // Import route modules
 const tokenRoutes = require('./routes/token');
 const odataRoutes = require('./routes/odata');
-const chatomniRoutes = require('./routes/chatomni');
 const pancakeRoutes = require('./routes/pancake');
 const imageProxyRoutes = require('./routes/image-proxy');
-const chatRoutes = require('./routes/chat'); // Firebase chat (old)
-const chatAuthRoutes = require('./routes/chat-auth'); // 🆕 PostgreSQL chat - Auth
-const chatUsersRoutes = require('./routes/chat-users'); // 🆕 PostgreSQL chat - Users
-const chatConversationsRoutes = require('./routes/chat-conversations'); // 🆕 PostgreSQL chat - Conversations
-const chatMessagesRoutes = require('./routes/chat-messages'); // 🆕 PostgreSQL chat - Messages
-const sepayWebhookRoutes = require('./routes/sepay-webhook'); // 🆕 Sepay webhook & balance history
-const customersRoutes = require('./routes/customers'); // 🆕 Customers API - PostgreSQL
+const sepayWebhookRoutes = require('./routes/sepay-webhook');
+const customersRoutes = require('./routes/customers');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
 app.use('/api/odata', odataRoutes);
-app.use('/api/api-ms/chatomni', chatomniRoutes);
 app.use('/api/pancake', pancakeRoutes);
 app.use('/api/image-proxy', imageProxyRoutes);
-app.use('/api/chat', chatRoutes); // Firebase chat (old) - keep for compatibility
-app.use('/api/chat', chatAuthRoutes); // 🆕 PostgreSQL chat routes
-app.use('/api/chat', chatUsersRoutes);
-app.use('/api/chat', chatConversationsRoutes);
-app.use('/api/chat', chatMessagesRoutes);
-app.use('/api/sepay', sepayWebhookRoutes); // 🆕 Sepay webhook & balance history
-app.use('/api/customers', customersRoutes); // 🆕 Customers API
+app.use('/api/sepay', sepayWebhookRoutes);
+app.use('/api/customers', customersRoutes);
 // =====================================================
 // WEBSOCKET SERVER & CLIENT (REALTIME)
 // =====================================================
@@ -454,24 +317,6 @@ const interval = setInterval(function ping() {
         ws.ping();
     });
 }, 30000);
-
-// 🆕 NEW - Initialize Chat WebSocket Handler
-const ChatWebSocketHandler = require('./chat-server/websocket-handler');
-const chatWSHandler = new ChatWebSocketHandler(wss);
-
-// Store chatWSHandler in app for access in routes
-app.set('chatWSHandler', chatWSHandler);
-
-console.log('[CHAT-WS] ✅ Chat WebSocket handler initialized');
-
-// OLD WebSocket connection handler (kept for compatibility)
-// Note: Chat connections are handled by ChatWebSocketHandler
-// This is for any other WebSocket connections if needed
-wss.on('connection', (ws, req) => {
-    // Check if this is a chat connection (will be handled by ChatWebSocketHandler)
-    // For now, all connections go through ChatWebSocketHandler
-    console.log('[WSS] Legacy connection handler - delegating to ChatWebSocketHandler');
-});
 
 wss.on('close', function close() {
     clearInterval(interval);
