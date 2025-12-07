@@ -5950,6 +5950,99 @@ let isLoadingMoreMessages = false;
 let currentOrder = null;  // Lưu order hiện tại để gửi reply
 let currentParentCommentId = null;  // Lưu parent comment ID
 let currentPostId = null; // Lưu post ID của comment đang reply
+window.availableChatPages = []; // Cache pages for selector
+
+// =====================================================
+// PAGE SELECTOR FUNCTIONS
+// =====================================================
+
+/**
+ * Populate page selector dropdown with pages from Pancake API
+ * @param {string} currentPageId - Current page ID to pre-select
+ */
+window.populateChatPageSelector = async function (currentPageId) {
+    console.log('[PAGE-SELECTOR] Populating page selector, current:', currentPageId);
+
+    const select = document.getElementById('chatPageSelect');
+    if (!select) {
+        console.warn('[PAGE-SELECTOR] Select element not found');
+        return;
+    }
+
+    // Show loading state
+    select.innerHTML = '<option value="">Đang tải pages...</option>';
+    select.disabled = true;
+
+    try {
+        // Ensure pages are fetched first (for page names)
+        if (window.pancakeDataManager) {
+            await window.pancakeDataManager.fetchPages();
+        }
+
+        // Fetch pages with unread count
+        const pagesWithUnread = window.pancakeDataManager ?
+            await window.pancakeDataManager.fetchPagesWithUnreadCount() : [];
+
+        if (pagesWithUnread.length === 0) {
+            select.innerHTML = '<option value="">Không có page nào</option>';
+            select.disabled = true;
+            return;
+        }
+
+        // Cache pages
+        window.availableChatPages = pagesWithUnread;
+
+        // Build options
+        let optionsHtml = '';
+        pagesWithUnread.forEach(page => {
+            const isSelected = page.page_id === currentPageId ? 'selected' : '';
+            const unreadBadge = page.unread_conv_count > 0 ? ` (${page.unread_conv_count})` : '';
+            optionsHtml += `<option value="${page.page_id}" ${isSelected}>${page.page_name}${unreadBadge}</option>`;
+        });
+
+        select.innerHTML = optionsHtml;
+        select.disabled = false;
+
+        // If current page not in list, add it as first option
+        if (currentPageId && !pagesWithUnread.find(p => p.page_id === currentPageId)) {
+            const currentOption = document.createElement('option');
+            currentOption.value = currentPageId;
+            currentOption.textContent = `Page ${currentPageId}`;
+            currentOption.selected = true;
+            select.insertBefore(currentOption, select.firstChild);
+        }
+
+        console.log('[PAGE-SELECTOR] ✅ Populated with', pagesWithUnread.length, 'pages');
+
+    } catch (error) {
+        console.error('[PAGE-SELECTOR] ❌ Error populating:', error);
+        select.innerHTML = '<option value="">Lỗi tải pages</option>';
+        select.disabled = true;
+    }
+};
+
+/**
+ * Handle page selection change
+ * @param {string} pageId - Selected page ID
+ */
+window.onChatPageChanged = function (pageId) {
+    console.log('[PAGE-SELECTOR] Page changed to:', pageId);
+
+    if (!pageId) return;
+
+    // Update currentChatChannelId to use selected page
+    window.currentChatChannelId = pageId;
+
+    // Show notification
+    const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
+    const pageName = selectedPage?.page_name || pageId;
+
+    if (window.notificationManager) {
+        window.notificationManager.show(`Đã chọn page: ${pageName}`, 'info', 2000);
+    }
+
+    console.log('[PAGE-SELECTOR] ✅ Updated currentChatChannelId to:', pageId);
+};
 
 window.openChatModal = async function (orderId, channelId, psid, type = 'message') {
     console.log('[CHAT] Opening modal:', { orderId, channelId, psid, type });
@@ -5995,6 +6088,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
     // Show modal
     document.getElementById('chatModal').classList.add('show');
+
+    // Populate page selector with current channelId
+    window.populateChatPageSelector(channelId);
 
     // Initialize chat modal products with order data
     // Fetch full order data with product details
