@@ -173,12 +173,6 @@ const CustomerInfoManager = {
                 // After saving to PostgreSQL, sync to Firebase customer-management
                 await this.syncToFirebase(customerInfo);
 
-                // 🆕 UPDATE CUSTOMER DEBT (if phone is newly added)
-                // When phone is added for an existing transaction, update customer debt
-                if (isNewPhone && customerInfo.phone) {
-                    await this.updateCustomerDebtForTransaction(uniqueCode, customerInfo.phone);
-                }
-
                 return true;
             } else {
                 console.error('[CUSTOMER-INFO] Failed to save to database:', result.error);
@@ -189,113 +183,6 @@ const CustomerInfoManager = {
             // Still return true since we saved to localStorage
             return true;
         }
-    },
-
-    /**
-     * 🆕 Update customer debt when phone is added to an existing transaction
-     * Processes ALL unprocessed transactions for this phone number
-     * @param {string} uniqueCode - The transaction unique code (used for logging)
-     * @param {string} phone - Customer phone number
-     */
-    async updateCustomerDebtForTransaction(uniqueCode, phone) {
-        try {
-            console.log('[DEBT-RETROACTIVE] Processing all unprocessed transactions for phone:', phone);
-
-            // Process all unprocessed transactions for this phone
-            if (window.processUnprocessedTransactionsForPhone) {
-                const result = await window.processUnprocessedTransactionsForPhone(phone);
-                if (result.success) {
-                    console.log('[DEBT-RETROACTIVE] ✅ All unprocessed transactions processed:', result);
-                    if (window.NotificationManager && result.totalAmount > 0) {
-                        window.NotificationManager.showNotification(
-                            `Đã cập nhật nợ +${this.formatCurrency(result.totalAmount)} cho ${result.customerName} (${result.transactionCount} giao dịch)`,
-                            'success'
-                        );
-                    }
-                } else {
-                    console.log('[DEBT-RETROACTIVE] ⚠️ Failed to process transactions:', result.message);
-                }
-            } else {
-                // Fallback to old method if new function not available
-                console.warn('[DEBT-RETROACTIVE] processUnprocessedTransactionsForPhone not available, using fallback');
-                await this.updateCustomerDebtForTransactionFallback(uniqueCode, phone);
-            }
-        } catch (error) {
-            console.error('[DEBT-RETROACTIVE] Error:', error);
-        }
-    },
-
-    /**
-     * Fallback method for updating debt (old method - single transaction only)
-     * @param {string} uniqueCode - The transaction unique code
-     * @param {string} phone - Customer phone number
-     */
-    async updateCustomerDebtForTransactionFallback(uniqueCode, phone) {
-        try {
-            console.log('[DEBT-RETROACTIVE-FALLBACK] Checking transaction for debt update:', uniqueCode);
-
-            // Fetch transaction info to get transfer_amount and transfer_type
-            const txResponse = await fetch(`${this.API_BASE_URL}/api/sepay/transaction-by-code/${uniqueCode}`);
-            const txResult = await txResponse.json();
-
-            if (!txResult.success || !txResult.data) {
-                console.log('[DEBT-RETROACTIVE-FALLBACK] No transaction found for:', uniqueCode);
-                return;
-            }
-
-            const transaction = txResult.data;
-
-            // Only update debt for incoming transactions that haven't been processed
-            if (transaction.transfer_type !== 'in') {
-                console.log('[DEBT-RETROACTIVE-FALLBACK] Transaction is not incoming, skipping:', transaction.transfer_type);
-                return;
-            }
-
-            if (transaction.debt_added) {
-                console.log('[DEBT-RETROACTIVE-FALLBACK] Transaction already processed, skipping');
-                return;
-            }
-
-            const amount = parseInt(transaction.transfer_amount) || 0;
-            if (amount <= 0) {
-                console.log('[DEBT-RETROACTIVE-FALLBACK] Invalid amount:', amount);
-                return;
-            }
-
-            // Update customer debt
-            console.log('[DEBT-RETROACTIVE-FALLBACK] Updating debt for phone:', phone, 'amount:', amount);
-
-            if (window.updateCustomerDebtByPhone) {
-                const result = await window.updateCustomerDebtByPhone(phone, amount);
-                if (result.success) {
-                    console.log('[DEBT-RETROACTIVE-FALLBACK] ✅ Customer debt updated:', result.data);
-                    if (window.NotificationManager) {
-                        window.NotificationManager.showNotification(
-                            `Đã cập nhật nợ +${this.formatCurrency(amount)} cho ${result.data.name}`,
-                            'success'
-                        );
-                    }
-                } else {
-                    console.log('[DEBT-RETROACTIVE-FALLBACK] ⚠️ Failed to update debt:', result.message);
-                }
-            } else {
-                console.warn('[DEBT-RETROACTIVE-FALLBACK] updateCustomerDebtByPhone not available');
-            }
-        } catch (error) {
-            console.error('[DEBT-RETROACTIVE-FALLBACK] Error:', error);
-        }
-    },
-
-    /**
-     * Format currency for display
-     * @param {number} amount - Amount to format
-     * @returns {string} Formatted currency string
-     */
-    formatCurrency(amount) {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND'
-        }).format(amount || 0);
     },
 
     /**
