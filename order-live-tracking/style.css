@@ -129,8 +129,15 @@ body {
 }
 
 @keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-3px); }
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-3px);
+    }
 }
 
 .logo-text {
@@ -171,8 +178,13 @@ body {
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .btn-history {
@@ -953,6 +965,31 @@ body {
     margin-top: 4px;
 }
 
+.history-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--gray-400);
+}
+
+.history-meta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.history-user {
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.history-user i,
+.history-time i {
+    font-size: 10px;
+}
+
 .empty-history {
     text-align: center;
     padding: 40px 20px;
@@ -1159,6 +1196,7 @@ body {
 }
 
 @media (max-width: 768px) {
+
     .products-table th.col-image,
     .products-table td:nth-child(2) {
         display: none;
@@ -1225,6 +1263,7 @@ body {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1236,6 +1275,7 @@ body {
         opacity: 0;
         transform: translateX(-20px);
     }
+
     to {
         opacity: 1;
         transform: translateX(0);

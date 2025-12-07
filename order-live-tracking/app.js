@@ -116,8 +116,22 @@ async function initAuth() {
 // FIREBASE REALTIME LISTENERS
 // =====================================================
 
+// Return shared path for all users (no user-specific path)
+function getSharedPath(basePath) {
+    return `${basePath}/shared`;
+}
+
+// Alias for backward compatibility - now uses shared path
 function getUserPath(basePath) {
-    return `${basePath}/${AppState.userIdentifier}`;
+    return getSharedPath(basePath);
+}
+
+// Get display name for current user
+function getDisplayUsername() {
+    if (AppState.currentUser) {
+        return AppState.currentUser.username || AppState.userIdentifier || 'Người dùng';
+    }
+    return AppState.userIdentifier || 'Khách';
 }
 
 function setupRealtimeListeners() {
@@ -1074,7 +1088,10 @@ async function logHistory(sheetId, action, description) {
             id: historyId,
             action: action,
             description: description,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            // Add user information
+            user: getDisplayUsername(),
+            userId: AppState.userIdentifier || 'unknown'
         });
     } catch (error) {
         console.error('[APP] Error logging history:', error);
@@ -1114,6 +1131,7 @@ function renderHistory(historyData) {
     container.innerHTML = items.map(item => {
         const icons = { add: 'bi-plus-circle', edit: 'bi-pencil', delete: 'bi-trash' };
         const titles = { add: 'Thêm mới', edit: 'Chỉnh sửa', delete: 'Xóa' };
+        const userName = item.user || 'Không rõ';
 
         return `
             <div class="history-item ${item.action}">
@@ -1123,7 +1141,10 @@ function renderHistory(historyData) {
                 <div class="history-content">
                     <div class="history-title">${titles[item.action] || item.action}</div>
                     <div class="history-desc">${escapeHtml(item.description)}</div>
-                    <div class="history-time">${formatDateTime(item.timestamp)}</div>
+                    <div class="history-meta">
+                        <span class="history-user"><i class="bi bi-person"></i> ${escapeHtml(userName)}</span>
+                        <span class="history-time"><i class="bi bi-clock"></i> ${formatDateTime(item.timestamp)}</span>
+                    </div>
                 </div>
             </div>
         `;
