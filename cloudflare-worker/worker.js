@@ -307,6 +307,67 @@ export default {
         }
       }
 
+      // ========== PANCAKE AVATAR PROXY ENDPOINT ==========
+      if (pathname === '/api/pancake-avatar' && request.method === 'GET') {
+        const avatarHash = url.searchParams.get('hash');
+
+        if (!avatarHash) {
+          return new Response(JSON.stringify({
+            error: 'Missing hash parameter',
+            usage: '/api/pancake-avatar?hash=<avatar_hash>'
+          }), {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+
+        const pancakeAvatarUrl = `https://content.pancake.vn/2.1-24/avatars/${avatarHash}`;
+        console.log('[PANCAKE-AVATAR] Fetching:', pancakeAvatarUrl);
+
+        try {
+          const avatarResponse = await fetch(pancakeAvatarUrl, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'image/*,*/*',
+              'Referer': 'https://pancake.vn/'
+            }
+          });
+
+          if (!avatarResponse.ok) {
+            return new Response(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#e5e7eb"/><circle cx="20" cy="15" r="7" fill="#9ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="#9ca3af"/></svg>`, {
+              status: 200,
+              headers: {
+                'Content-Type': 'image/svg+xml',
+                'Cache-Control': 'public, max-age=3600',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+
+          const contentType = avatarResponse.headers.get('content-type') || 'image/jpeg';
+          return new Response(avatarResponse.body, {
+            status: 200,
+            headers: {
+              'Content-Type': contentType,
+              'Cache-Control': 'public, max-age=86400',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        } catch (error) {
+          return new Response(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#e5e7eb"/><circle cx="20" cy="15" r="7" fill="#9ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="#9ca3af"/></svg>`, {
+            status: 200,
+            headers: {
+              'Content-Type': 'image/svg+xml',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY ENDPOINT (For TinhThanhPho, etc.) ==========
       if (pathname === '/api/proxy') {
         const targetUrl = url.searchParams.get('url');
