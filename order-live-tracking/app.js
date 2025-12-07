@@ -13,6 +13,8 @@ const AppState = {
     userIdentifier: null,
     sheets: {},
     activeSheetId: null,
+    pendingActiveSheetId: null,  // Store pending active sheet from Firebase
+    sheetsLoaded: false,         // Track if sheets data has been loaded
     productsData: [],
     isLoadingProducts: false,
     searchDebounceTimer: null,
@@ -125,19 +127,41 @@ function setupRealtimeListeners() {
     }
 
     const sheetsPath = getUserPath(FIREBASE_PATHS.SHEETS);
-    console.log('[APP] Setting up listener for:', sheetsPath);
+    const activePath = getUserPath(FIREBASE_PATHS.ACTIVE_SHEET);
+    console.log('[APP] Setting up listeners for:', sheetsPath, activePath);
+
+    // Listen to active sheet FIRST - capture the value immediately
+    // This ensures we don't miss the active sheet ID due to race conditions
+    AppState.database.ref(activePath).on('value', (snapshot) => {
+        const activeId = snapshot.val();
+        console.log('[APP] Active sheet from Firebase:', activeId);
+
+        // Always store the Firebase value as pending
+        AppState.pendingActiveSheetId = activeId;
+
+        // If sheets already loaded, apply the active sheet immediately
+        if (AppState.sheetsLoaded) {
+            applyActiveSheet(activeId);
+        }
+    });
 
     // Listen to sheets changes
     AppState.database.ref(sheetsPath).on('value', (snapshot) => {
         const data = snapshot.val();
         AppState.sheets = data || {};
-        console.log('[APP] Sheets updated:', Object.keys(AppState.sheets).length, 'sheets');
+        AppState.sheetsLoaded = true;
+        console.log('[APP] Sheets updated from Firebase:', Object.keys(AppState.sheets).length, 'sheets');
 
         renderSheetsList();
 
-        if (AppState.activeSheetId && AppState.sheets[AppState.activeSheetId]) {
+        // Apply pending active sheet from Firebase (source of truth)
+        if (AppState.pendingActiveSheetId) {
+            applyActiveSheet(AppState.pendingActiveSheetId);
+        } else if (AppState.activeSheetId && AppState.sheets[AppState.activeSheetId]) {
+            // Current active sheet still valid
             renderSheetContent();
-        } else if (AppState.activeSheetId && !AppState.sheets[AppState.activeSheetId]) {
+        } else {
+            // No valid active sheet
             AppState.activeSheetId = null;
             showNoSheetSelected();
         }
@@ -147,17 +171,34 @@ function setupRealtimeListeners() {
         console.error('[APP] Firebase listen error:', error);
         updateSyncStatus('error');
     });
+}
 
-    // Listen to active sheet
-    const activePath = getUserPath(FIREBASE_PATHS.ACTIVE_SHEET);
-    AppState.database.ref(activePath).on('value', (snapshot) => {
-        const activeId = snapshot.val();
-        if (activeId && activeId !== AppState.activeSheetId && AppState.sheets[activeId]) {
+// Helper function to apply active sheet from Firebase
+function applyActiveSheet(activeId) {
+    if (activeId && AppState.sheets[activeId]) {
+        // Valid active sheet from Firebase
+        if (activeId !== AppState.activeSheetId) {
             AppState.activeSheetId = activeId;
+            console.log('[APP] Applied active sheet from Firebase:', activeId);
             renderSheetsList();
             renderSheetContent();
+        } else {
+            // Same sheet, just ensure content is rendered
+            renderSheetContent();
         }
-    });
+    } else if (activeId && !AppState.sheets[activeId]) {
+        // Active sheet ID from Firebase doesn't exist in sheets - clear it
+        console.log('[APP] Active sheet not found in sheets, clearing:', activeId);
+        AppState.activeSheetId = null;
+        // Clear the invalid active sheet from Firebase
+        const activePath = getUserPath(FIREBASE_PATHS.ACTIVE_SHEET);
+        AppState.database.ref(activePath).set(null);
+        showNoSheetSelected();
+    } else {
+        // No active sheet set
+        AppState.activeSheetId = null;
+        showNoSheetSelected();
+    }
 }
 
 // =====================================================
@@ -342,8 +383,6 @@ function renderSheetsList() {
 
 function selectSheet(sheetId) {
     console.log('[APP] selectSheet called with:', sheetId);
-    console.log('[APP] Current sheets:', Object.keys(AppState.sheets));
-    console.log('[APP] Sheet exists:', !!AppState.sheets[sheetId]);
 
     if (!sheetId) {
         console.warn('[APP] No sheet ID provided');
@@ -352,25 +391,27 @@ function selectSheet(sheetId) {
 
     if (!AppState.sheets[sheetId]) {
         console.warn('[APP] Sheet not found in AppState.sheets:', sheetId);
-        console.log('[APP] Available sheets:', AppState.sheets);
         return;
     }
 
+    // Update both local state and pending state
     AppState.activeSheetId = sheetId;
-    console.log('[APP] Set activeSheetId to:', AppState.activeSheetId);
+    AppState.pendingActiveSheetId = sheetId;
+    console.log('[APP] Set activeSheetId to:', sheetId);
 
-    // Save to Firebase (fire and forget for speed)
+    // Save to Firebase - this will sync to all other tabs
     const activePath = getUserPath(FIREBASE_PATHS.ACTIVE_SHEET);
-    AppState.database.ref(activePath).set(sheetId);
+    AppState.database.ref(activePath).set(sheetId)
+        .then(() => {
+            console.log('[APP] Active sheet saved to Firebase:', sheetId);
+        })
+        .catch((error) => {
+            console.error('[APP] Error saving active sheet to Firebase:', error);
+        });
 
-    console.log('[APP] Calling renderSheetsList...');
     renderSheetsList();
-
-    console.log('[APP] Calling renderSheetContent...');
     renderSheetContent();
-
     closePanels();
-    console.log('[APP] selectSheet completed');
 }
 
 function showNoSheetSelected() {
@@ -499,7 +540,9 @@ async function saveSheet() {
             updates[getUserPath(FIREBASE_PATHS.ACTIVE_SHEET)] = newSheetId;
             await AppState.database.ref().update(updates);
 
+            // Update both local state and pending state
             AppState.activeSheetId = newSheetId;
+            AppState.pendingActiveSheetId = newSheetId;
             showToast('Đã tạo trang mới', 'success');
         }
 
@@ -540,6 +583,7 @@ async function confirmDeleteSheet() {
         if (deletingSheetId === AppState.activeSheetId) {
             updates[getUserPath(FIREBASE_PATHS.ACTIVE_SHEET)] = null;
             AppState.activeSheetId = null;
+            AppState.pendingActiveSheetId = null;
         }
 
         await AppState.database.ref().update(updates);
@@ -581,9 +625,9 @@ function renderProductsTable(items) {
             <td>
                 <div class="product-cell">
                     ${item.imageUrl
-                        ? `<img src="${item.imageUrl}" class="product-cell-image" alt="" onerror="this.outerHTML='<div class=\\'product-cell-placeholder\\'>📦</div>'">`
-                        : '<div class="product-cell-placeholder">📦</div>'
-                    }
+            ? `<img src="${item.imageUrl}" class="product-cell-image" alt="" onerror="this.outerHTML='<div class=\\'product-cell-placeholder\\'>📦</div>'">`
+            : '<div class="product-cell-placeholder">📦</div>'
+        }
                     <div class="product-cell-info">
                         <div class="product-cell-name">${escapeHtml(item.productName || 'Sản phẩm')}</div>
                         <div class="product-cell-code">Mã: ${escapeHtml(item.productCode || '--')}</div>
