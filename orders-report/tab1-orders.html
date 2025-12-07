@@ -2048,6 +2048,7 @@
     <script src="realtime-manager.js"></script>
     <script src="debug-realtime.js"></script>
     <script src="tab1-orders.js"></script>
+    <script src="comment-modal.js"></script>
 
     <!-- Additional Script for Checkbox Handling -->
     <script>
@@ -2101,6 +2102,67 @@
     <div class="save-indicator" id="saveIndicator">
         <i class="fas fa-check-circle"></i>
         <span id="saveIndicatorText">Đã lưu thành công</span>
+    </div>
+
+    <!-- Comment Modal (Separate from Chat Modal) -->
+    <div class="comment-modal" id="commentModal">
+        <div class="comment-modal-content">
+            <!-- Header -->
+            <div class="comment-modal-header">
+                <div class="comment-header-info">
+                    <h3 id="commentModalTitle">Bình luận với Khách hàng</h3>
+                    <p id="commentModalSubtitle">Đang tải...</p>
+                </div>
+                <button class="comment-modal-close" onclick="closeCommentModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Body - Comments List -->
+            <div class="comment-modal-body" id="commentModalBody">
+                <div class="chat-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Đang tải bình luận...</p>
+                </div>
+            </div>
+
+            <!-- Reply Container -->
+            <div class="comment-reply-container" id="commentReplyContainer">
+                <!-- Reply Preview -->
+                <div id="commentReplyPreviewContainer" style="display: none; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                    <div style="display: flex; align-items: start; gap: 8px;">
+                        <div style="flex: 1;">
+                            <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px; font-weight: 600;">
+                                <i class="fas fa-reply" style="margin-right: 4px;"></i>Đang trả lời
+                            </div>
+                            <div id="commentReplyPreviewText" style="font-size: 12px; color: #374151; max-height: 40px; overflow: hidden; text-overflow: ellipsis;"></div>
+                        </div>
+                        <button onclick="cancelCommentReply()" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; border-radius: 4px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Input Row -->
+                <div style="display: flex; gap: 8px; align-items: flex-end; padding: 12px 16px;">
+                    <textarea id="commentReplyInput" placeholder="Chọn 'Trả lời' một bình luận để reply..."
+                        rows="1" disabled
+                        style="flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 20px; font-size: 14px; background: #f3f4f6; resize: none; max-height: 120px; font-family: inherit; line-height: 1.5; cursor: not-allowed;"></textarea>
+                    <button class="comment-btn-send" id="commentSendBtn" onclick="sendCommentReply()" disabled
+                        style="padding: 10px 24px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: not-allowed; display: flex; align-items: center; gap: 6px; opacity: 0.5;">
+                        <i class="fas fa-paper-plane"></i>
+                        Gửi
+                    </button>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="comment-modal-footer">
+                <button class="comment-btn-close" onclick="closeCommentModal()">
+                    <i class="fas fa-times"></i> Đóng
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Pancake Settings Modal -->
