@@ -63,7 +63,7 @@ function getQuickFilterDates(filterType) {
 
     let startDate, endDate;
 
-    switch(filterType) {
+    switch (filterType) {
         case 'today':
             startDate = new Date(today);
             endDate = new Date(today);
@@ -1378,14 +1378,11 @@ async function showCustomersByPhone(phone) {
     if (window.lucide) lucide.createIcons();
 
     try {
-        // Check cache first
+        // Always fetch fresh data (don't use cache) to ensure latest debt is shown
+        // Clear cache for this phone to force refresh
         const cacheKey = phone.replace(/\D/g, '');
-        const cached = customerListCache[cacheKey];
-        if (cached && (Date.now() - cached.timestamp < CUSTOMER_CACHE_TTL)) {
-            console.log('[CUSTOMER-LIST] Using cached data for:', phone);
-            renderCustomerList(cached.data, cached.balanceStats);
-            return;
-        }
+        delete customerListCache[cacheKey];
+        console.log('[CUSTOMER-LIST] Fetching fresh data for:', phone);
 
         // Fetch customers and transaction stats in parallel
         const [customersResponse, transactionsResponse] = await Promise.all([
@@ -1544,8 +1541,6 @@ function renderCustomerList(customers, balanceStats = null) {
     // Merge customers with the same phone number
     const mergedCustomers = mergeCustomersByPhone(customers);
 
-    totalEl.textContent = mergedCustomers.length;
-
     // Update count div with balance statistics
     if (balanceStats) {
         const totalIn = balanceStats.total_in || 0;
@@ -1564,6 +1559,11 @@ function renderCustomerList(customers, balanceStats = null) {
                 </span>
             </div>
         `;
+    } else {
+        // Only set totalEl when not using balanceStats (which overwrites the element)
+        if (totalEl) {
+            totalEl.textContent = mergedCustomers.length;
+        }
     }
 
     // Calculate total transactions amount (total_in from balance-history)
