@@ -410,7 +410,7 @@ function mergeCustomersByPhone(customers) {
             // Merge IDs for reference
             existing.mergedIds.push(customer.id);
 
-            // Keep the higher debt
+            // Keep the higher debt (display the max debt from merged customers)
             if ((customer.debt || 0) > (existing.debt || 0)) {
                 existing.debt = customer.debt;
             }
