@@ -1383,7 +1383,7 @@ async function showCustomersByPhone(phone) {
         const cached = customerListCache[cacheKey];
         if (cached && (Date.now() - cached.timestamp < CUSTOMER_CACHE_TTL)) {
             console.log('[CUSTOMER-LIST] Using cached data for:', phone);
-            renderCustomerList(cached.data, cached.balanceStats);
+            renderCustomerList(cached.data, cached.balanceStats, phone);
             return;
         }
 
@@ -1424,10 +1424,11 @@ async function showCustomersByPhone(phone) {
         customerListCache[cacheKey] = {
             data: customers,
             balanceStats: balanceStats,
+            phone: phone,
             timestamp: Date.now()
         };
 
-        renderCustomerList(customers, balanceStats);
+        renderCustomerList(customers, balanceStats, phone);
 
     } catch (error) {
         console.error('[CUSTOMER-LIST] Error:', error);
@@ -1524,8 +1525,9 @@ function getMergedCustomerStatus(status1, status2) {
  * Render customer list in modal
  * @param {Array} customers - List of customers
  * @param {Object} balanceStats - Transaction statistics from balance-history
+ * @param {string} phone - Customer phone number
  */
-function renderCustomerList(customers, balanceStats = null) {
+function renderCustomerList(customers, balanceStats = null, phone = '') {
     const loadingEl = document.getElementById('customerListLoading');
     const emptyEl = document.getElementById('customerListEmpty');
     const contentEl = document.getElementById('customerListContent');
@@ -1549,10 +1551,13 @@ function renderCustomerList(customers, balanceStats = null) {
 
     totalEl.textContent = mergedCustomers.length;
 
-    // Get customer debt (from customer management, not from transactions)
-    const customerDebt = mergedCustomers.length > 0 ? (mergedCustomers[0].debt || 0) : 0;
+    // Get customer info for display
+    const customerNames = mergedCustomers.length > 0
+        ? (mergedCustomers[0].mergedNames || [mergedCustomers[0].name]).filter(n => n && n.trim()).join(' | ')
+        : 'N/A';
+    const displayPhone = phone || (mergedCustomers.length > 0 ? mergedCustomers[0].phone : '');
 
-    // Update count div with balance statistics and customer debt
+    // Update count div with transaction info
     const totalIn = balanceStats ? (balanceStats.total_in || 0) : 0;
     const transactionCount = balanceStats ? (balanceStats.total_transactions || 0) : 0;
 
@@ -1563,8 +1568,8 @@ function renderCustomerList(customers, balanceStats = null) {
                 <strong>${mergedCustomers.length}</strong> khách hàng
             </span>
             <span style="color: #16a34a; font-weight: 600;">
-                <i data-lucide="banknote" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                Tổng GD: <strong>${formatCurrency(totalIn)}</strong>
+                <i data-lucide="plus-circle" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                <strong>+${formatCurrency(totalIn)}</strong> vào nợ của ${customerNames} - ${displayPhone}
             </span>
             <span style="color: #6b7280;">
                 (${transactionCount} giao dịch)

@@ -794,18 +794,13 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
         console.log(`[PROCESS-TRANSACTIONS] Total amount: ${totalAmount}, Customer: ${customerName}`);
 
         // Step 3: Update customer debt (add total amount)
-        // Update the customer with HIGHEST debt (matches frontend display logic which shows max debt)
-        // This ensures the displayed customer is the one that gets updated
+        // Update ALL customers with matching phone (handles duplicate records)
+        // This ensures all customer records with the same phone stay in sync
         const updateDebtQuery = `
             UPDATE customers
             SET debt = COALESCE(debt, 0) + $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id = (
-                SELECT id FROM customers
-                WHERE phone = $2 OR phone = $3 OR phone = $4
-                   OR REGEXP_REPLACE(phone, '\\D', '', 'g') = $5
-                ORDER BY COALESCE(debt, 0) DESC, created_at DESC
-                LIMIT 1
-            )
+            WHERE phone = $2 OR phone = $3 OR phone = $4
+               OR REGEXP_REPLACE(phone, '\\D', '', 'g') = $5
             RETURNING id, name, phone, debt
         `;
 
@@ -904,17 +899,12 @@ router.post('/update-debt-by-phone', async (req, res) => {
 
         console.log(`[CUSTOMERS-DEBT] Updating debt for phone: ${phone}, amount: ${amountNum}`);
 
-        // Find the customer with HIGHEST debt (matches frontend display logic which shows max debt)
-        // This ensures the displayed customer is the one that gets updated
+        // Update ALL customers with matching phone (handles duplicate records)
+        // This ensures all customer records with the same phone stay in sync
         const result = await db.query(`
             UPDATE customers
             SET debt = COALESCE(debt, 0) + $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id = (
-                SELECT id FROM customers
-                WHERE phone = $2
-                ORDER BY COALESCE(debt, 0) DESC, created_at DESC
-                LIMIT 1
-            )
+            WHERE phone = $2
             RETURNING id, name, phone, debt, updated_at
         `, [amountNum, phone]);
 
