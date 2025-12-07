@@ -14,7 +14,7 @@ let isLoadingMoreComments = false;
 /**
  * Open the Comment Modal
  */
-window.openCommentModal = async function(orderId, channelId, psid) {
+window.openCommentModal = async function (orderId, channelId, psid) {
     console.log('[COMMENT MODAL] Opening:', { orderId, channelId, psid });
 
     if (!channelId || !psid) {
@@ -92,7 +92,10 @@ window.openCommentModal = async function(orderId, channelId, psid) {
 
     // Fetch comments
     try {
-        const response = await window.chatDataManager.fetchComments(channelId, psid);
+        // Truyền postId và customerName để search conversation nếu không tìm thấy trong cache
+        const postId = window.purchaseFacebookPostId;
+        const customerName = order.Facebook_UserName;
+        const response = await window.chatDataManager.fetchComments(channelId, psid, null, postId, customerName);
         commentModalComments = response.comments || [];
         commentModalCursor = response.after;
 
@@ -121,7 +124,7 @@ window.openCommentModal = async function(orderId, channelId, psid) {
 /**
  * Close the Comment Modal
  */
-window.closeCommentModal = function() {
+window.closeCommentModal = function () {
     document.getElementById('commentModal').classList.remove('show');
 
     // Clean up scroll listener
@@ -168,7 +171,7 @@ function setupCommentReplyInput() {
     replyInput.value = '';
 
     // Add keydown listener
-    replyInput.onkeydown = function(e) {
+    replyInput.onkeydown = function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             sendCommentReply();
@@ -204,7 +207,9 @@ async function loadMoreComments() {
         const response = await window.chatDataManager.fetchComments(
             commentModalChannelId,
             commentModalPSID,
-            commentModalCursor
+            commentModalCursor,
+            window.purchaseFacebookPostId,
+            commentModalOrder?.Facebook_UserName
         );
 
         const newComments = response.comments || [];
@@ -299,6 +304,20 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
         const purchaseHighlightClass = isPurchase ? 'purchase-comment-highlight' : '';
         const purchaseBadge = isPurchase ? '<span class="purchase-badge"><i class="fas fa-shopping-cart"></i> Bình luận đặt hàng</span>' : '';
 
+        // Get avatar URL with pageId and token for Pancake Avatar API lookup
+        const fromId = comment.from?.id || comment.FromId || null;
+        const pageId = commentModalChannelId || comment.PostId?.split('_')[0] || null;
+        const cachedToken = window.pancakeTokenManager?.token || null;
+        const avatarUrl = window.pancakeDataManager?.getAvatarUrl(fromId, pageId, cachedToken) ||
+            'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
+        const senderName = comment.from?.name || comment.FromName || '';
+
+        // Debug: log first comment to see structure
+        if (sortedComments.indexOf(comment) === 0) {
+            console.log('[COMMENT MODAL] First comment object:', comment);
+            console.log('[COMMENT MODAL] from:', comment.from, 'fromId:', fromId, 'avatarUrl:', avatarUrl);
+        }
+
         let content = '';
         if (comment.Message) {
             content = `<p class="chat-message-text">${comment.Message}</p>`;
@@ -349,15 +368,29 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
             }).join('');
         }
 
+        // Avatar HTML - only show for customer messages (not owner)
+        const avatarHTML = !isOwner ? `
+            <img src="${avatarUrl}" 
+                 alt="${senderName}" 
+                 title="${senderName}"
+                 style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 8px; border: 2px solid #e5e7eb;"
+                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%227%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2232%22 rx=%2211%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'"
+            />
+        ` : '';
+
         return `
-            <div class="chat-message ${alignClass} ${purchaseHighlightClass}" data-comment-id="${comment.Id || comment.id || ''}">
-                ${purchaseBadge}
-                <div class="chat-bubble ${bgClass}">
-                    ${content}
-                    <p class="chat-message-time">
-                        ${formatTime(comment.CreatedTime)} ${statusBadge}
-                        ${!isOwner ? `<span class="comment-reply-btn" onclick="handleCommentModalReply('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
-                    </p>
+            <div class="chat-message ${alignClass} ${purchaseHighlightClass}" data-comment-id="${comment.Id || comment.id || ''}" style="display: flex; align-items: flex-start;">
+                ${!isOwner ? avatarHTML : ''}
+                <div style="flex: 1; ${isOwner ? 'display: flex; justify-content: flex-end;' : ''}">
+                    ${purchaseBadge}
+                    <div class="chat-bubble ${bgClass}">
+                        ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
+                        ${content}
+                        <p class="chat-message-time">
+                            ${formatTime(comment.CreatedTime)} ${statusBadge}
+                            ${!isOwner ? `<span class="comment-reply-btn" onclick="handleCommentModalReply('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
+                        </p>
+                    </div>
                 </div>
             </div>
             ${repliesHTML}`;
@@ -423,7 +456,7 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
 /**
  * Handle reply to comment
  */
-window.handleCommentModalReply = function(commentId, postId) {
+window.handleCommentModalReply = function (commentId, postId) {
     console.log('[COMMENT MODAL] Reply to comment:', commentId, postId);
 
     // Find the comment
@@ -460,7 +493,7 @@ window.handleCommentModalReply = function(commentId, postId) {
 /**
  * Cancel reply
  */
-window.cancelCommentReply = function() {
+window.cancelCommentReply = function () {
     const previewContainer = document.getElementById('commentReplyPreviewContainer');
     if (previewContainer) {
         previewContainer.style.display = 'none';
@@ -489,7 +522,7 @@ window.cancelCommentReply = function() {
 /**
  * Send reply comment
  */
-window.sendCommentReply = async function() {
+window.sendCommentReply = async function () {
     const replyInput = document.getElementById('commentReplyInput');
     const message = replyInput.value.trim();
 
@@ -511,31 +544,66 @@ window.sendCommentReply = async function() {
         sendBtn.disabled = true;
         sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
 
-        // Get page token
-        const pageToken = await window.pancakeDataManager?.getPageToken(commentModalChannelId);
-        if (!pageToken) {
-            throw new Error('Không tìm thấy token cho page này');
+        // Get Pancake JWT token
+        const pancakeToken = await window.pancakeDataManager?.getToken();
+        if (!pancakeToken) {
+            throw new Error('Không tìm thấy Pancake token');
         }
 
-        // Send reply via Facebook Graph API
-        const response = await fetch(`https://graph.facebook.com/v18.0/${commentModalParentId}/comments`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                message: message,
-                access_token: pageToken
-            })
+        // Build conversation ID for comment reply
+        // Format: pageId_psid for inbox, or use the comment's conversation ID
+        const pageId = commentModalChannelId;
+        const conversationId = window.currentConversationId || `${pageId}_${commentModalPSID}`;
+
+        console.log('[COMMENT MODAL] Sending reply via Pancake API:', {
+            pageId,
+            conversationId,
+            commentId: commentModalParentId,
+            message
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Lỗi gửi bình luận');
+        // Call Pancake API through Cloudflare Worker
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/pages/${pageId}/conversations/${conversationId}/messages?access_token=${pancakeToken}`;
+
+        // Helper function to send with specific action
+        async function sendWithAction(action) {
+            const formData = new FormData();
+            formData.append('action', action);
+            formData.append('message', message);
+            formData.append('comment_id', commentModalParentId);
+
+            console.log(`[COMMENT MODAL] Trying action: ${action}`);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || result.success === false) {
+                return { success: false, result, response };
+            }
+
+            return { success: true, result, response };
         }
 
-        const result = await response.json();
-        console.log('[COMMENT MODAL] Reply sent:', result);
+        // Try private_reply first
+        let attempt = await sendWithAction('private_reply');
+
+        // If private_reply fails, try reply_inbox
+        if (!attempt.success) {
+            console.log('[COMMENT MODAL] private_reply failed, trying reply_inbox...', attempt.result);
+            attempt = await sendWithAction('reply_inbox');
+        }
+
+        // Check final result
+        if (!attempt.success) {
+            const errorMsg = attempt.result?.message || attempt.result?.error?.message || 'Lỗi gửi bình luận';
+            throw new Error(errorMsg);
+        }
+
+        console.log('[COMMENT MODAL] Reply sent:', attempt.result);
 
         // Clear input and refresh comments
         replyInput.value = '';
@@ -547,7 +615,13 @@ window.sendCommentReply = async function() {
         }
 
         // Refresh comments
-        const commentsResponse = await window.chatDataManager.fetchComments(commentModalChannelId, commentModalPSID);
+        const commentsResponse = await window.chatDataManager.fetchComments(
+            commentModalChannelId,
+            commentModalPSID,
+            null,
+            window.purchaseFacebookPostId,
+            commentModalOrder?.Facebook_UserName
+        );
         commentModalComments = commentsResponse.comments || [];
         commentModalCursor = commentsResponse.after;
         renderCommentModalComments(commentModalComments, false);

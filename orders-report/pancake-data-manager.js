@@ -59,6 +59,31 @@ class PancakeDataManager {
     }
 
     /**
+     * Lấy URL avatar cho user/customer
+     * Sử dụng Pancake Avatar API để lấy ảnh từ CDN
+     * @param {string} fbId - Facebook User ID
+     * @param {string} pageId - Page ID (optional, for Pancake avatar lookup)
+     * @param {string} token - Pancake JWT token (optional)
+     * @returns {string} Avatar URL
+     */
+    getAvatarUrl(fbId, pageId = null, token = null) {
+        if (!fbId) {
+            // Default avatar nếu không có fbId
+            return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
+        }
+
+        // Dùng /api/fb-avatar endpoint - sẽ gọi Pancake Avatar API với hash lookup
+        let url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${fbId}`;
+        if (pageId) {
+            url += `&page=${pageId}`;
+        }
+        if (token) {
+            url += `&token=${encodeURIComponent(token)}`;
+        }
+        return url;
+    }
+
+    /**
      * Lấy danh sách pages từ Pancake API
      * @param {boolean} forceRefresh - Bắt buộc refresh
      * @returns {Promise<Array>}
@@ -239,7 +264,7 @@ class PancakeDataManager {
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 body: formData
-            });
+            }, 3, true); // skipFallback = true for conversation search
 
             console.log('[PANCAKE] Search response status:', response.status);
 
@@ -682,7 +707,7 @@ class PancakeDataManager {
             }
 
             // Build URL: GET /api/v1/pages/{pageId}/conversations/{conversationId}/messages
-            let queryString = `access_token=${token}`;
+            let queryString = `access_token=${token}&user_view=true&is_new_api=true&separate_pos=true`;
             if (currentCount !== null) {
                 queryString += `&current_count=${currentCount}`;
             }
@@ -701,7 +726,7 @@ class PancakeDataManager {
                 headers: {
                     'Content-Type': 'application/json'
                 }
-            });
+            }, 3, true); // skipFallback = true for messages
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -751,7 +776,7 @@ class PancakeDataManager {
                 headers: {
                     'Content-Type': 'application/json'
                 }
-            });
+            }, 3, true); // skipFallback = true for inbox_preview
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1171,6 +1196,332 @@ class PancakeDataManager {
     }
 
     /**
+     * Parse channelId từ Facebook_PostId
+     * Format: pageId_postId_... -> lấy pageId (đầu tiên)
+     * @param {string} facebookPostId - Facebook Post ID
+     * @returns {string|null}
+     */
+    parseChannelId(facebookPostId) {
+        if (!facebookPostId) return null;
+        // Format: pageId_postId hoặc pageId_postId_xxx
+        const parts = facebookPostId.split('_');
+        return parts[0] || null;
+    }
+
+    /**
+     * Lấy thông tin chat cho một order (channelId, psid, hasChat)
+     * @param {Object} order - Order object
+     * @returns {Object} { channelId, psid, hasChat }
+     */
+    getChatInfoForOrder(order) {
+        if (!order) {
+            return { channelId: null, psid: null, hasChat: false };
+        }
+
+        const psid = order.Facebook_ASUserId || null;
+        const channelId = this.parseChannelId(order.Facebook_PostId);
+        const hasChat = !!(psid && channelId);
+
+        return {
+            channelId,
+            psid,
+            hasChat
+        };
+    }
+
+    /**
+     * Lấy tin nhắn cuối cùng cho một order (INBOX only)
+     * @param {Object} order - Order object
+     * @returns {Object} { message, hasUnread, unreadCount, attachments }
+     */
+    getLastMessageForOrder(order) {
+        if (!order || !order.Facebook_ASUserId) {
+            return {
+                message: '',
+                hasUnread: false,
+                unreadCount: 0,
+                attachments: []
+            };
+        }
+
+        // Find conversation in INBOX map
+        const userId = order.Facebook_ASUserId;
+        let conversation = this.inboxMapByPSID.get(userId);
+        if (!conversation) {
+            conversation = this.inboxMapByFBID.get(userId);
+        }
+
+        if (!conversation) {
+            return {
+                message: '',
+                hasUnread: false,
+                unreadCount: 0,
+                attachments: []
+            };
+        }
+
+        // Extract last message info from conversation
+        const lastMessage = conversation.last_message || conversation.snippet || '';
+        const hasUnread = conversation.seen === false && conversation.unread_count > 0;
+        const unreadCount = conversation.unread_count || 0;
+
+        // Check for attachments in last message
+        let attachments = [];
+        if (conversation.last_message_attachments) {
+            attachments = conversation.last_message_attachments;
+        }
+
+        return {
+            message: lastMessage,
+            hasUnread,
+            unreadCount,
+            attachments
+        };
+    }
+
+    /**
+     * Lấy bình luận cuối cùng cho một order (COMMENT only)
+     * @param {string} channelId - Page ID
+     * @param {string} psid - Customer PSID
+     * @param {Object} order - Order object
+     * @returns {Object} { message, hasUnread, unreadCount, attachments }
+     */
+    getLastCommentForOrder(channelId, psid, order) {
+        if (!order || !order.Facebook_ASUserId) {
+            return {
+                message: '',
+                hasUnread: false,
+                unreadCount: 0,
+                attachments: []
+            };
+        }
+
+        // Find conversation in COMMENT map
+        const userId = order.Facebook_ASUserId;
+        let conversation = this.commentMapByFBID.get(userId);
+        if (!conversation) {
+            conversation = this.commentMapByPSID.get(userId);
+        }
+        // Also try customers fb_id map for COMMENT type
+        if (!conversation) {
+            conversation = this.conversationsByCustomerFbId.get(userId);
+            // Make sure it's a COMMENT type
+            if (conversation && conversation.type !== 'COMMENT') {
+                conversation = null;
+            }
+        }
+
+        if (!conversation) {
+            return {
+                message: '',
+                hasUnread: false,
+                unreadCount: 0,
+                attachments: []
+            };
+        }
+
+        // Extract last comment info
+        const lastMessage = conversation.last_message || conversation.snippet || '';
+        const hasUnread = conversation.seen === false && conversation.unread_count > 0;
+        const unreadCount = conversation.unread_count || 0;
+
+        return {
+            message: lastMessage,
+            hasUnread,
+            unreadCount,
+            attachments: []
+        };
+    }
+
+    /**
+     * Wrapper function for fetchMessages - tương thích với tab1-orders.js
+     * @param {string} pageId - Page ID (channelId)
+     * @param {string} psid - Customer PSID  
+     * @param {string} conversationId - Optional conversation ID (passed from caller)
+     * @param {string} customerId - Optional customer UUID (passed from caller)
+     * @returns {Promise<Object>} { messages, conversation }
+     */
+    async fetchMessages(pageId, psid, conversationId = null, customerId = null) {
+        try {
+            console.log(`[PANCAKE] fetchMessages called: pageId=${pageId}, psid=${psid}, convId=${conversationId}, customerId=${customerId}`);
+
+            // Use passed conversationId or try to find from conversation map
+            let convId = conversationId;
+            if (!convId) {
+                // Try to find conversation by PSID
+                const conv = this.inboxMapByPSID.get(psid) || this.inboxMapByFBID.get(psid);
+                if (conv) {
+                    convId = conv.id;
+                } else {
+                    // Use format pageId_psid as conversationId
+                    convId = `${pageId}_${psid}`;
+                }
+            }
+
+            // Use passed customerId or try to get from conversation
+            let custId = customerId;
+            if (!custId) {
+                const conv = this.inboxMapByPSID.get(psid) || this.inboxMapByFBID.get(psid);
+                custId = conv?.customers?.[0]?.id || null;
+            }
+
+            return await this.fetchMessagesForConversation(pageId, convId, null, custId);
+        } catch (error) {
+            console.error('[PANCAKE] Error in fetchMessages:', error);
+            return { messages: [], conversation: null };
+        }
+    }
+
+    /**
+     * Wrapper function for fetchComments - tương thích với tab1-orders.js
+     * @param {string} pageId - Page ID (channelId)
+     * @param {string} psid - Customer PSID
+     * @param {string} conversationId - Optional conversation ID
+     * @param {string} postId - Optional Facebook Post ID for matching
+     * @param {string} customerName - Optional customer name for searching
+     * @returns {Promise<Object>} { messages, conversation }
+     */
+    async fetchComments(pageId, psid, conversationId = null, postId = null, customerName = null) {
+        try {
+            console.log(`[PANCAKE] fetchComments called: pageId=${pageId}, psid=${psid}, convId=${conversationId}, postId=${postId}`);
+
+            // For comments, find conversation in COMMENT map
+            let convId = conversationId;
+            let customerId = null;
+
+            if (!convId) {
+                // Try cache first
+                const conv = this.commentMapByFBID.get(psid) || this.commentMapByPSID.get(psid);
+                if (conv) {
+                    convId = conv.id;
+                    customerId = conv.customers?.[0]?.id || null;
+                    console.log('[PANCAKE] Found conversation in cache:', convId);
+                } else {
+                    // Fallback: use customers fb_id map
+                    const customerConv = this.conversationsByCustomerFbId.get(psid);
+                    if (customerConv && customerConv.type === 'COMMENT') {
+                        convId = customerConv.id;
+                        customerId = customerConv.customers?.[0]?.id || null;
+                    }
+                }
+            }
+
+            // If still not found and we have postId, search by postId
+            if (!convId && postId && customerName) {
+                console.log('[PANCAKE] Searching conversation by customerName and postId:', customerName, postId);
+                try {
+                    const searchResult = await this.searchConversations(customerName);
+                    if (searchResult.conversations && searchResult.conversations.length > 0) {
+                        console.log('[PANCAKE] Search returned', searchResult.conversations.length, 'conversations');
+
+                        // Debug: log all COMMENT conversations with their post_ids
+                        const commentConvs = searchResult.conversations.filter(c => c.type === 'COMMENT');
+                        console.log('[PANCAKE] COMMENT conversations:', commentConvs.map(c => ({
+                            id: c.id,
+                            post_id: c.post_id,
+                            customer_id: c.customers?.[0]?.id
+                        })));
+
+                        // Find conversation matching post_id
+                        const matchingConv = searchResult.conversations.find(c =>
+                            c.type === 'COMMENT' && c.post_id === postId
+                        );
+                        if (matchingConv) {
+                            convId = matchingConv.id;
+                            customerId = matchingConv.customers?.[0]?.id || null;
+                            console.log('[PANCAKE] ✅ Found conversation by postId:', convId, 'customerId:', customerId);
+                        } else {
+                            console.log('[PANCAKE] ⚠️ No conversation matched postId:', postId);
+                        }
+                    }
+                } catch (searchError) {
+                    console.error('[PANCAKE] Error searching by postId:', searchError);
+                }
+            }
+
+            if (!convId) {
+                console.log('[PANCAKE] No comment conversation found for PSID:', psid, 'postId:', postId);
+                return { comments: [], messages: [], conversation: null };
+            }
+
+            const result = await this.fetchMessagesForConversation(pageId, convId, null, customerId);
+
+            // Map messages to comments format for comment-modal.js compatibility
+            const comments = (result.messages || []).map(msg => ({
+                Id: msg.id,
+                Message: msg.original_message || msg.message?.replace(/<[^>]*>/g, '') || '', // Strip HTML tags
+                CreatedTime: msg.inserted_at,
+                IsOwner: msg.from?.id === pageId, // Check if from page
+                PostId: msg.page_id ? `${msg.page_id}_${msg.parent_id?.split('_')[0] || ''}` : null,
+                ParentId: msg.parent_id !== msg.id ? msg.parent_id : null,
+                FacebookId: msg.id,
+                Attachments: msg.attachments || [],
+                Status: msg.seen ? 10 : 30, // 30 = New, 10 = Seen
+                from: msg.from
+            }));
+
+            console.log('[PANCAKE] Mapped', comments.length, 'comments from messages');
+
+            return {
+                comments: comments,
+                messages: result.messages,
+                conversation: result.conversation,
+                after: null // Pagination cursor if needed
+            };
+        } catch (error) {
+            console.error('[PANCAKE] Error in fetchComments:', error);
+            return { comments: [], messages: [], conversation: null };
+        }
+    }
+
+    /**
+     * Lấy Facebook page access token từ cache
+     * @param {string} pageId - Facebook Page ID
+     * @returns {Promise<string|null>} Facebook Page access token
+     */
+    async getPageToken(pageId) {
+        try {
+            // Ensure pages are loaded
+            if (this.pages.length === 0) {
+                await this.fetchPages();
+            }
+
+            // Debug: log all pages to see structure
+            console.log('[PANCAKE] Looking for pageId:', pageId);
+            console.log('[PANCAKE] Available pages:', this.pages.map(p => ({
+                id: p.id,
+                fb_page_id: p.fb_page_id,
+                page_id: p.page_id,
+                name: p.name,
+                hasToken: !!p.access_token
+            })));
+
+            // Find page in cache - try multiple field names
+            const page = this.pages.find(p =>
+                p.fb_page_id === pageId ||
+                p.id === pageId ||
+                p.page_id === pageId ||
+                String(p.fb_page_id) === String(pageId) ||
+                String(p.id) === String(pageId)
+            );
+
+            if (page) {
+                console.log('[PANCAKE] Found page:', page);
+                if (page.access_token) {
+                    console.log('[PANCAKE] ✅ Found page token for pageId:', pageId);
+                    return page.access_token;
+                }
+            }
+
+            console.warn('[PANCAKE] ⚠️ No page token found for pageId:', pageId);
+            return null;
+        } catch (error) {
+            console.error('[PANCAKE] Error getting page token:', error);
+            return null;
+        }
+    }
+
+    /**
      * Mark conversation as read (tương tự TPOS)
      * Note: Pancake không có API public để mark as read từ ngoài,
      * chỉ để placeholder cho tương thích
@@ -1258,7 +1609,7 @@ class PancakeDataManager {
             const listingResponse = await API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 body: listingFormData
-            });
+            }, 3, true); // skipFallback = true for image listing
 
             if (!listingResponse.ok) {
                 throw new Error(`Listing failed: ${listingResponse.statusText}`);
@@ -1301,7 +1652,7 @@ class PancakeDataManager {
                 const uploadResponse = await API_CONFIG.smartFetch(url, {
                     method: 'POST',
                     body: uploadFormData
-                });
+                }, 3, true); // skipFallback = true for image upload
 
                 if (!uploadResponse.ok) {
                     throw new Error(`Upload failed: ${uploadResponse.statusText}`);
@@ -1357,7 +1708,7 @@ class PancakeDataManager {
                     'accept': 'application/json',
                     'Content-Type': 'application/json'
                 }
-            });
+            }, 3, true); // skipFallback = true for image delete
 
             if (!response.ok) {
                 const errorText = await response.text();
