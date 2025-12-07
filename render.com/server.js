@@ -6,6 +6,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,6 +34,23 @@ app.use((req, res, next) => {
     next();
 });
 
+// =====================================================
+// DATABASE CONNECTION
+// =====================================================
+
+// Initialize PostgreSQL connection pool for SePay and Customers routes
+const chatDbPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
+// Make pool available to routes via app.locals
+app.locals.chatDb = chatDbPool;
+
+// Test database connection on startup
+chatDbPool.query('SELECT NOW()')
+    .then(() => console.log('[DATABASE] PostgreSQL connected successfully'))
+    .catch(err => console.error('[DATABASE] PostgreSQL connection error:', err.message));
 
 // =====================================================
 // ROUTES
