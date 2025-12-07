@@ -5951,13 +5951,103 @@ let currentOrder = null;  // Lưu order hiện tại để gửi reply
 let currentParentCommentId = null;  // Lưu parent comment ID
 let currentPostId = null; // Lưu post ID của comment đang reply
 window.availableChatPages = []; // Cache pages for selector
+window.currentSendPageId = null; // Page ID selected for SENDING messages (independent from view)
 
 // =====================================================
 // PAGE SELECTOR FUNCTIONS
 // =====================================================
 
 /**
- * Populate page selector dropdown with pages from Pancake API
+ * Populate SEND page selector dropdown (for sending messages)
+ * @param {string} currentPageId - Current page ID to pre-select
+ */
+window.populateSendPageSelector = async function (currentPageId) {
+    console.log('[SEND-PAGE] Populating send page selector, current:', currentPageId);
+
+    const select = document.getElementById('chatSendPageSelect');
+    if (!select) {
+        console.warn('[SEND-PAGE] Select element not found');
+        return;
+    }
+
+    // Show loading state
+    select.innerHTML = '<option value="">Đang tải...</option>';
+    select.disabled = true;
+
+    try {
+        // Use cached pages if available
+        let pages = window.availableChatPages;
+        if (!pages || pages.length === 0) {
+            // Fetch pages if not cached
+            if (window.pancakeDataManager) {
+                await window.pancakeDataManager.fetchPages();
+                pages = await window.pancakeDataManager.fetchPagesWithUnreadCount();
+                window.availableChatPages = pages;
+            }
+        }
+
+        if (!pages || pages.length === 0) {
+            select.innerHTML = '<option value="">Không có page</option>';
+            select.disabled = true;
+            return;
+        }
+
+        // Build options
+        let optionsHtml = '';
+        pages.forEach(page => {
+            const isSelected = page.page_id === currentPageId ? 'selected' : '';
+            optionsHtml += `<option value="${page.page_id}" ${isSelected}>${page.page_name}</option>`;
+        });
+
+        select.innerHTML = optionsHtml;
+        select.disabled = false;
+
+        // Set current send page
+        window.currentSendPageId = currentPageId;
+
+        // If current page not in list, add it as first option
+        if (currentPageId && !pages.find(p => p.page_id === currentPageId)) {
+            const currentOption = document.createElement('option');
+            currentOption.value = currentPageId;
+            currentOption.textContent = `Page ${currentPageId}`;
+            currentOption.selected = true;
+            select.insertBefore(currentOption, select.firstChild);
+        }
+
+        console.log('[SEND-PAGE] ✅ Populated with', pages.length, 'pages, selected:', currentPageId);
+
+    } catch (error) {
+        console.error('[SEND-PAGE] ❌ Error:', error);
+        select.innerHTML = '<option value="">Lỗi tải</option>';
+        select.disabled = true;
+    }
+};
+
+/**
+ * Handle SEND page selection change
+ * @param {string} pageId - Selected page ID for sending
+ */
+window.onSendPageChanged = function (pageId) {
+    console.log('[SEND-PAGE] Send page changed to:', pageId);
+
+    if (!pageId) return;
+
+    // Update send page ID (independent from view page)
+    window.currentSendPageId = pageId;
+
+    // Show notification
+    const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
+    const pageName = selectedPage?.page_name || pageId;
+
+    if (window.notificationManager) {
+        window.notificationManager.show(`Sẽ gửi tin nhắn từ page: ${pageName}`, 'info', 2000);
+    }
+
+    console.log('[SEND-PAGE] ✅ Updated currentSendPageId to:', pageId);
+};
+
+/**
+ * Populate VIEW page selector dropdown with pages from Pancake API
  * @param {string} currentPageId - Current page ID to pre-select
  */
 window.populateChatPageSelector = async function (currentPageId) {
@@ -6190,8 +6280,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Show modal
     document.getElementById('chatModal').classList.add('show');
 
-    // Populate page selector with current channelId
-    window.populateChatPageSelector(channelId);
+    // Populate page selectors with current channelId
+    window.populateChatPageSelector(channelId);  // View page selector
+    window.populateSendPageSelector(channelId);  // Send page selector (independent)
 
     // Initialize chat modal products with order data
     // Fetch full order data with product details
@@ -7423,14 +7514,15 @@ window.sendMessage = async function () {
         const repliedMessageId = window.currentReplyingToMessage ?
             (window.currentReplyingToMessage.id || window.currentReplyingToMessage.Id || null) : null;
 
-        // Add to queue
-        console.log('[MESSAGE] Adding to queue', { repliedMessageId, imageCount: window.uploadedImagesData?.length || 0 });
+        // Add to queue - use currentSendPageId for sending (independent from view page)
+        const sendPageId = window.currentSendPageId || window.currentChatChannelId;
+        console.log('[MESSAGE] Adding to queue', { repliedMessageId, imageCount: window.uploadedImagesData?.length || 0, sendPageId });
         window.chatMessageQueue.push({
             message,
             uploadedImagesData: window.uploadedImagesData || [],
             order: currentOrder,
             conversationId: window.currentConversationId,
-            channelId: window.currentChatChannelId,
+            channelId: sendPageId,
             chatType: 'message', // EXPLICITLY set to message
             repliedMessageId: repliedMessageId
         });
@@ -7513,14 +7605,15 @@ window.sendComment = async function () {
             return;
         }
 
-        // Add to queue
-        console.log('[COMMENT] Adding to queue', { imageCount: window.uploadedImagesData?.length || 0 });
+        // Add to queue - use currentSendPageId for sending (independent from view page)
+        const sendPageId = window.currentSendPageId || window.currentChatChannelId;
+        console.log('[COMMENT] Adding to queue', { imageCount: window.uploadedImagesData?.length || 0, sendPageId });
         window.chatMessageQueue.push({
             message,
             uploadedImagesData: window.uploadedImagesData || [],
             order: currentOrder,
             conversationId: window.currentConversationId,
-            channelId: window.currentChatChannelId,
+            channelId: sendPageId,
             chatType: 'comment', // EXPLICITLY set to comment
             parentCommentId: currentParentCommentId,
             postId: currentPostId || currentOrder.Facebook_PostId
