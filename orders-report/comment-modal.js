@@ -353,16 +353,38 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
                 const replyAlignClass = replyIsOwner ? 'chat-message-right' : 'chat-message-left';
                 const replyBgClass = replyIsOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
+                // Get avatar for reply
+                const replyFromId = reply.from?.id || reply.FromId || null;
+                const replyAvatarUrl = window.pancakeDataManager?.getAvatarUrl(replyFromId, pageId, cachedToken) ||
+                    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
+                const replySenderName = reply.from?.name || reply.FromName || '';
+
+                // Avatar HTML for reply - only show for customer replies
+                const replyAvatarHTML = !replyIsOwner ? `
+                    <img src="${replyAvatarUrl}"
+                         alt="${replySenderName}"
+                         title="${replySenderName}"
+                         class="avatar-loading"
+                         style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 8px; border: 2px solid #e5e7eb; background: #f3f4f6;"
+                         onload="this.classList.remove('avatar-loading')"
+                         onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%227%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2232%22 rx=%2211%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'"
+                    />
+                ` : '';
+
                 let replyContent = '';
                 if (reply.Message) {
                     replyContent = `<p class="chat-message-text">${reply.Message}</p>`;
                 }
 
                 return `
-                    <div class="chat-message ${replyAlignClass}" style="margin-left: 24px; margin-top: 8px;">
-                        <div class="chat-bubble ${replyBgClass}" style="font-size: 13px;">
-                            ${replyContent}
-                            <p class="chat-message-time">${formatTime(reply.CreatedTime)}</p>
+                    <div class="chat-message ${replyAlignClass}" style="margin-left: 24px; margin-top: 8px; display: flex; align-items: flex-start;">
+                        ${!replyIsOwner ? replyAvatarHTML : ''}
+                        <div style="flex: 1; ${replyIsOwner ? 'display: flex; justify-content: flex-end;' : ''}">
+                            <div class="chat-bubble ${replyBgClass}" style="font-size: 13px;">
+                                ${!replyIsOwner && replySenderName ? `<p style="font-size: 10px; font-weight: 600; color: #6b7280; margin: 0 0 2px 0;">${replySenderName}</p>` : ''}
+                                ${replyContent}
+                                <p class="chat-message-time">${formatTime(reply.CreatedTime)}</p>
+                            </div>
                         </div>
                     </div>`;
             }).join('');
@@ -370,11 +392,13 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
 
         // Avatar HTML - only show for customer messages (not owner)
         const avatarHTML = !isOwner ? `
-            <img src="${avatarUrl}" 
-                 alt="${senderName}" 
+            <img src="${avatarUrl}"
+                 alt="${senderName}"
                  title="${senderName}"
-                 style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 8px; border: 2px solid #e5e7eb;"
-                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%227%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2232%22 rx=%2211%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'"
+                 class="avatar-loading"
+                 style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 8px; border: 2px solid #e5e7eb; background: #f3f4f6;"
+                 onload="this.classList.remove('avatar-loading')"
+                 onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%227%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2232%22 rx=%2211%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'"
             />
         ` : '';
 
