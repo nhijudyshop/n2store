@@ -733,10 +733,17 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
             });
         }
 
-        console.log(`[PROCESS-TRANSACTIONS] Processing unprocessed transactions for phone: ${phone}`);
+        // Normalize phone number - remove non-digits
+        const phoneClean = phone.replace(/\D/g, '');
+        // Create variants: with/without leading 0
+        const phoneWithZero = phoneClean.startsWith('0') ? phoneClean : '0' + phoneClean;
+        const phoneWithoutZero = phoneClean.startsWith('0') ? phoneClean.substring(1) : phoneClean;
+
+        console.log(`[PROCESS-TRANSACTIONS] Processing for phone: ${phone} (variants: ${phoneWithZero}, ${phoneWithoutZero})`);
 
         // Step 1: Find all unprocessed incoming transactions for this phone
         // Join balance_history with balance_customer_info by matching unique code from content
+        // Use phone variants to handle different formats
         const findUnprocessedQuery = `
             SELECT
                 bh.id,
@@ -744,17 +751,23 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
                 bh.transfer_amount,
                 bh.content,
                 bci.unique_code,
-                bci.customer_name
+                bci.customer_name,
+                bci.customer_phone
             FROM balance_history bh
             INNER JOIN balance_customer_info bci
                 ON bci.unique_code = (regexp_match(bh.content, 'N2[A-Z0-9]{16}'))[1]
-            WHERE bci.customer_phone = $1
+            WHERE (
+                bci.customer_phone = $1
+                OR bci.customer_phone = $2
+                OR bci.customer_phone = $3
+                OR REGEXP_REPLACE(bci.customer_phone, '\\D', '', 'g') = $4
+            )
               AND bh.transfer_type = 'in'
               AND (bh.debt_added IS NULL OR bh.debt_added = FALSE)
             ORDER BY bh.transaction_date ASC
         `;
 
-        const unprocessedResult = await db.query(findUnprocessedQuery, [phone]);
+        const unprocessedResult = await db.query(findUnprocessedQuery, [phone, phoneWithZero, phoneWithoutZero, phoneClean]);
         const unprocessedTransactions = unprocessedResult.rows;
 
         console.log(`[PROCESS-TRANSACTIONS] Found ${unprocessedTransactions.length} unprocessed transactions`);
@@ -781,25 +794,41 @@ router.post('/process-unprocessed-transactions', async (req, res) => {
         console.log(`[PROCESS-TRANSACTIONS] Total amount: ${totalAmount}, Customer: ${customerName}`);
 
         // Step 3: Update customer debt (add total amount)
+        // Search with phone variants to handle different formats
         const updateDebtQuery = `
             UPDATE customers
             SET debt = COALESCE(debt, 0) + $1, updated_at = CURRENT_TIMESTAMP
             WHERE id = (
                 SELECT id FROM customers
-                WHERE phone = $2
+                WHERE phone = $2 OR phone = $3 OR phone = $4
+                   OR REGEXP_REPLACE(phone, '\\D', '', 'g') = $5
                 ORDER BY created_at DESC
                 LIMIT 1
             )
             RETURNING id, name, phone, debt
         `;
 
-        const debtResult = await db.query(updateDebtQuery, [totalAmount, phone]);
+        const debtResult = await db.query(updateDebtQuery, [totalAmount, phone, phoneWithZero, phoneWithoutZero, phoneClean]);
 
         if (debtResult.rows.length === 0) {
             console.log(`[PROCESS-TRANSACTIONS] No customer found with phone: ${phone}`);
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy khách hàng với số điện thoại này'
+            // Still mark transactions as processed to avoid retry loop
+            // but don't update debt since customer not found
+            const markProcessedQuery = `
+                UPDATE balance_history
+                SET debt_added = TRUE, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ANY($1)
+            `;
+            await db.query(markProcessedQuery, [transactionIds]);
+
+            return res.json({
+                success: true,
+                message: 'Giao dịch đã được đánh dấu nhưng không tìm thấy khách hàng để cập nhật nợ',
+                totalAmount,
+                transactionCount: transactionIds.length,
+                customerName: null,
+                newDebt: null,
+                warning: 'Khách hàng chưa tồn tại trong hệ thống'
             });
         }
 
