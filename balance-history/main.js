@@ -1347,25 +1347,16 @@ function renderCustomerList(customers, balanceStats = null) {
 
     // Update count div with balance statistics
     if (balanceStats) {
-        const netChange = balanceStats.net_change || 0;
-        const netColor = netChange >= 0 ? '#16a34a' : '#dc2626';
+        const totalIn = balanceStats.total_in || 0;
         countDiv.innerHTML = `
             <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
                 <span>
                     <i data-lucide="users" style="width: 16px; height: 16px; vertical-align: middle;"></i>
                     <strong>${customers.length}</strong> khách hàng
                 </span>
-                <span style="color: #16a34a;">
-                    <i data-lucide="arrow-down" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                    Vào: <strong>${formatCurrency(balanceStats.total_in || 0)}</strong>
-                </span>
-                <span style="color: #dc2626;">
-                    <i data-lucide="arrow-up" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                    Ra: <strong>${formatCurrency(balanceStats.total_out || 0)}</strong>
-                </span>
-                <span style="color: ${netColor}; font-weight: 600;">
-                    <i data-lucide="wallet" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                    Tổng: <strong>${formatCurrency(netChange)}</strong>
+                <span style="color: #16a34a; font-weight: 600;">
+                    <i data-lucide="banknote" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                    Tổng GD: <strong>${formatCurrency(totalIn)}</strong>
                 </span>
                 <span style="color: #6b7280;">
                     (${balanceStats.total_transactions || 0} giao dịch)
@@ -1374,8 +1365,8 @@ function renderCustomerList(customers, balanceStats = null) {
         `;
     }
 
-    // Calculate balance-based debt (net_change from transactions)
-    const balanceDebt = balanceStats ? (balanceStats.net_change || 0) : null;
+    // Calculate total transactions amount (total_in from balance-history)
+    const totalTransactionAmount = balanceStats ? (balanceStats.total_in || 0) : null;
 
     tbody.innerHTML = customers.map((customer, index) => `
         <tr>
@@ -1390,9 +1381,9 @@ function renderCustomerList(customers, balanceStats = null) {
                 </span>
             </td>
             <td style="text-align: right;">
-                ${balanceDebt !== null ? `
-                    <div style="color: ${balanceDebt >= 0 ? '#16a34a' : '#dc2626'}; font-weight: 600;">
-                        ${formatCurrency(balanceDebt)}
+                ${totalTransactionAmount !== null ? `
+                    <div style="color: #16a34a; font-weight: 600;">
+                        ${formatCurrency(totalTransactionAmount)}
                     </div>
                     <small style="color: #9ca3af; font-size: 10px;">từ giao dịch</small>
                 ` : `
