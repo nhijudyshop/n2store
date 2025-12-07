@@ -226,13 +226,18 @@ function setupEventListeners() {
 }
 
 function handleSheetsListClick(e) {
+    console.log('[APP] Sheet list clicked:', e.target);
+
     const sheetItem = e.target.closest('.sheet-item');
     const editBtn = e.target.closest('button[data-action="edit"]');
     const deleteBtn = e.target.closest('button[data-action="delete"]');
 
+    console.log('[APP] Found elements:', { sheetItem, editBtn, deleteBtn });
+
     if (editBtn) {
         e.stopPropagation();
         const sheetId = editBtn.dataset.sheetId;
+        console.log('[APP] Edit button clicked for:', sheetId);
         editSheetNameById(sheetId);
         return;
     }
@@ -240,12 +245,14 @@ function handleSheetsListClick(e) {
     if (deleteBtn) {
         e.stopPropagation();
         const sheetId = deleteBtn.dataset.sheetId;
+        console.log('[APP] Delete button clicked for:', sheetId);
         deleteSheet(sheetId);
         return;
     }
 
     if (sheetItem) {
         const sheetId = sheetItem.dataset.sheetId;
+        console.log('[APP] Sheet item clicked:', sheetId);
         if (sheetId) {
             selectSheet(sheetId);
         }
@@ -330,22 +337,36 @@ function renderSheetsList() {
 }
 
 function selectSheet(sheetId) {
-    console.log('[APP] Selecting sheet:', sheetId);
+    console.log('[APP] selectSheet called with:', sheetId);
+    console.log('[APP] Current sheets:', Object.keys(AppState.sheets));
+    console.log('[APP] Sheet exists:', !!AppState.sheets[sheetId]);
 
-    if (!sheetId || !AppState.sheets[sheetId]) {
-        console.warn('[APP] Invalid sheet ID:', sheetId);
+    if (!sheetId) {
+        console.warn('[APP] No sheet ID provided');
+        return;
+    }
+
+    if (!AppState.sheets[sheetId]) {
+        console.warn('[APP] Sheet not found in AppState.sheets:', sheetId);
+        console.log('[APP] Available sheets:', AppState.sheets);
         return;
     }
 
     AppState.activeSheetId = sheetId;
+    console.log('[APP] Set activeSheetId to:', AppState.activeSheetId);
 
     // Save to Firebase (fire and forget for speed)
     const activePath = getUserPath(FIREBASE_PATHS.ACTIVE_SHEET);
     AppState.database.ref(activePath).set(sheetId);
 
+    console.log('[APP] Calling renderSheetsList...');
     renderSheetsList();
+
+    console.log('[APP] Calling renderSheetContent...');
     renderSheetContent();
+
     closePanels();
+    console.log('[APP] selectSheet completed');
 }
 
 function showNoSheetSelected() {
@@ -356,22 +377,39 @@ function showNoSheetSelected() {
 }
 
 function renderSheetContent() {
+    console.log('[APP] renderSheetContent called');
+    console.log('[APP] activeSheetId:', AppState.activeSheetId);
+    console.log('[APP] sheet data:', AppState.sheets[AppState.activeSheetId]);
+
     if (!AppState.activeSheetId || !AppState.sheets[AppState.activeSheetId]) {
+        console.log('[APP] No active sheet, showing empty state');
         showNoSheetSelected();
         return;
     }
 
-    document.getElementById('noSheetSelected').style.display = 'none';
-    document.getElementById('sheetContent').style.display = 'block';
+    const noSheetEl = document.getElementById('noSheetSelected');
+    const sheetContentEl = document.getElementById('sheetContent');
+
+    console.log('[APP] Elements found:', { noSheetEl: !!noSheetEl, sheetContentEl: !!sheetContentEl });
+
+    if (noSheetEl) noSheetEl.style.display = 'none';
+    if (sheetContentEl) sheetContentEl.style.display = 'block';
 
     const sheet = AppState.sheets[AppState.activeSheetId];
+    console.log('[APP] Rendering sheet:', sheet.name);
 
-    document.getElementById('sheetTitle').textContent = sheet.name || 'Chưa đặt tên';
-    document.getElementById('sheetCreatedAt').textContent = formatDate(sheet.createdAt);
-    document.getElementById('itemCount').textContent = (sheet.items || []).length;
+    const titleEl = document.getElementById('sheetTitle');
+    const createdEl = document.getElementById('sheetCreatedAt');
+    const countEl = document.getElementById('itemCount');
+
+    if (titleEl) titleEl.textContent = sheet.name || 'Chưa đặt tên';
+    if (createdEl) createdEl.textContent = formatDate(sheet.createdAt);
+    if (countEl) countEl.textContent = (sheet.items || []).length;
 
     renderProductsTable(sheet.items || []);
     loadSheetHistory(AppState.activeSheetId);
+
+    console.log('[APP] renderSheetContent completed');
 }
 
 // =====================================================
