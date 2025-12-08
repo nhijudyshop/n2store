@@ -12,6 +12,7 @@
     let saveDebounceTimer = null;
     let userStorageManager = null; // User-specific storage manager
     let autoAddVariants = true; // Auto-add all product variants when selecting a product
+    let productNotes = {}; // Store notes for products in preview (like tab2)
 
     // Firebase Configuration
     const firebaseConfig = {
@@ -2739,6 +2740,14 @@
         }
     };
 
+    /**
+     * Update Product Note (giống tab2)
+     */
+    window.updateProductNote = function (noteKey, value) {
+        productNotes[noteKey] = value;
+        console.log(`📝 Updated note for ${noteKey}:`, value);
+    };
+
     async function renderPreviewContent(stts) {
         // =====================================================
         // STEP 1: Fetch all existing products for all STTs
@@ -2845,6 +2854,14 @@
                 isExisting: !!existingProductsMap[p.productId]
             }));
 
+            // Store existing notes from fetched products
+            existingProducts.forEach(p => {
+                const noteKey = `${stt}-${p.productId}`;
+                if (p.note && !productNotes[noteKey]) {
+                    productNotes[noteKey] = p.note;
+                }
+            });
+
             html += `
                 <div class="card mb-3">
                     <div class="card-header bg-primary text-white">
@@ -2855,9 +2872,22 @@
                             <div class="col-md-6">
                                 <h6 class="text-success"><i class="fas fa-plus-circle"></i> Sản phẩm sẽ upload (${productsWithStatus.length})</h6>
                                 <table class="table table-sm table-bordered">
-                                    <thead><tr><th>Sản phẩm</th><th class="text-center">SL</th></tr></thead>
+                                    <thead>
+                                        <tr>
+                                            <th>Sản phẩm</th>
+                                            <th class="text-center">SL</th>
+                                            <th style="width: 150px;">Note</th>
+                                        </tr>
+                                    </thead>
                                     <tbody>
-                                        ${productsWithStatus.map(p => `
+                                        ${productsWithStatus.map(p => {
+                const noteKey = `${stt}-${p.productId}`;
+                // Auto-add "live" as default note if no note exists (giống tab2)
+                if (!productNotes[noteKey]) {
+                    productNotes[noteKey] = 'live';
+                }
+                const existingNote = filterNonEncodedNotes(productNotes[noteKey] || '');
+                return `
                                             <tr class="${p.isExisting ? 'table-warning' : 'table-success'}">
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
@@ -2869,19 +2899,39 @@
                                                     </div>
                                                 </td>
                                                 <td class="text-center"><span class="badge ${p.isExisting ? 'bg-warning text-dark' : 'bg-success'}">${p.quantity}</span></td>
+                                                <td>
+                                                    <input
+                                                        type="text"
+                                                        class="form-control form-control-sm"
+                                                        placeholder="Ghi chú..."
+                                                        value="${existingNote}"
+                                                        data-note-key="${noteKey}"
+                                                        onchange="updateProductNote('${noteKey}', this.value)"
+                                                    />
+                                                </td>
                                             </tr>
-                                        `).join('')}
+                                        `}).join('')}
                                     </tbody>
                                 </table>
                             </div>
                             <div class="col-md-6">
-                                <h6 class="text-info"><i class="fas fa-box"></i> Sản phẩm có sẵn (${existingProducts.length})</h6>
+                                <h6 class="text-info"><i class="fas fa-box"></i> Sản phẩm có sẵn trong đơn (${existingProducts.length})</h6>
                                 ${existingProducts.length > 0 ? `
                                     <table class="table table-sm table-bordered">
-                                        <thead><tr><th>Sản phẩm</th><th class="text-center">SL</th></tr></thead>
+                                        <thead>
+                                            <tr>
+                                                <th>Sản phẩm</th>
+                                                <th class="text-center">SL</th>
+                                                <th class="text-end">Giá</th>
+                                                <th style="width: 130px;">Note</th>
+                                            </tr>
+                                        </thead>
                                         <tbody>
                                             ${existingProducts.map(p => {
                 const willBeUpdated = productsWithStatus.some(ap => ap.productId === p.productId);
+                const noteKey = `${stt}-${p.productId}`;
+                const rawNote = productNotes[noteKey] || p.note || '';
+                const existingNote = filterNonEncodedNotes(rawNote);
                 return `
                                                     <tr class="${willBeUpdated ? 'table-warning' : ''}">
                                                         <td>
@@ -2894,6 +2944,19 @@
                                                             </div>
                                                         </td>
                                                         <td class="text-center"><span class="badge bg-info">${p.quantity}</span></td>
+                                                        <td class="text-end">
+                                                            <span style="font-weight:600;color:#3b82f6;">${(p.price || 0).toLocaleString('vi-VN')}đ</span>
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                type="text"
+                                                                class="form-control form-control-sm"
+                                                                placeholder="Ghi chú..."
+                                                                value="${existingNote}"
+                                                                data-note-key="${noteKey}"
+                                                                onchange="updateProductNote('${noteKey}', this.value)"
+                                                            />
+                                                        </td>
                                                     </tr>
                                                 `;
             }).join('')}
@@ -3164,16 +3227,32 @@
         // Clone existing details
         const mergedDetails = [...existingDetails];
 
+        // Update notes for existing products (giống tab2)
+        mergedDetails.forEach(detail => {
+            const pid = detail.Product?.Id || detail.ProductId;
+            const noteKey = `${stt}-${pid}`;
+            if (productNotes[noteKey] !== undefined) {
+                detail.Note = productNotes[noteKey] || '';
+                console.log(`   📝 Updated note for ${detail.ProductCode || pid}: "${detail.Note}"`);
+            }
+        });
+
         // Process assigned products
         for (const productId of Object.keys(assignedByProductId)) {
             const assignedData = assignedByProductId[productId];
             const existingDetail = existingByProductId[productId];
 
+            // Get note from productNotes (giống tab2)
+            const noteKey = `${stt}-${productId}`;
+            const noteValue = productNotes[noteKey] || 'live';
+
             if (existingDetail) {
                 // Product exists - increase quantity
                 const oldQty = existingDetail.Quantity || 0;
                 existingDetail.Quantity = oldQty + assignedData.count;
-                console.log(`   ✏️ Updated ${existingDetail.ProductCode || productId}: ${oldQty} → ${existingDetail.Quantity}`);
+                // Update note if set in preview
+                existingDetail.Note = noteValue;
+                console.log(`   ✏️ Updated ${existingDetail.ProductCode || productId}: ${oldQty} → ${existingDetail.Quantity}, note: "${noteValue}"`);
             } else {
                 // New product - fetch and add
                 console.log(`   ➕ Adding new product: ${productId} x${assignedData.count}`);
@@ -3188,7 +3267,7 @@
                     ProductId: fullProduct.Id,
                     Quantity: assignedData.count,
                     Price: fullProduct.PriceVariant || fullProduct.ListPrice || fullProduct.StandardPrice || 0,
-                    Note: null,
+                    Note: noteValue,
                     UOMId: fullProduct.UOM?.Id || 1,
                     Factor: 1,
                     Priority: 0,
@@ -3207,7 +3286,7 @@
                 };
 
                 mergedDetails.push(newProduct);
-                console.log(`   ✅ Added new product`);
+                console.log(`   ✅ Added new product with note: "${noteValue}"`);
             }
         }
 
