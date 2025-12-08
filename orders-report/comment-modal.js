@@ -279,8 +279,12 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
     // Format time helper - use global formatTimeVN
     const formatTime = window.formatTimeVN;
 
-    // Reverse to show oldest first
-    const sortedComments = comments.slice().reverse();
+    // Sort comments by timestamp - oldest first (newest at bottom like Messenger/Zalo)
+    const sortedComments = comments.slice().sort((a, b) => {
+        const timeA = new Date(a.inserted_at || a.CreatedTime || 0).getTime();
+        const timeB = new Date(b.inserted_at || b.CreatedTime || 0).getTime();
+        return timeA - timeB; // Ascending: oldest first, newest last (at bottom)
+    });
 
     const commentsHTML = sortedComments.map(comment => {
         // Determine isOwner by comparing from.id with page_id (Pancake API format)
