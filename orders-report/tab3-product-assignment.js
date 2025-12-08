@@ -68,6 +68,16 @@
         }).format(amount);
     }
 
+    /**
+     * Escape HTML special characters to prevent XSS
+     */
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     // =====================================================
     // NOTE ENCODING/DECODING UTILITIES (for upload)
     // =====================================================
@@ -3993,6 +4003,39 @@
                                         </td>
                                         <td class="text-center small">${product.sttList.join(', ')}</td>
                                         <td class="small">${product.note}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Display error details from uploadResults when there are failures
+        const failedResults = (record.uploadResults || []).filter(r => !r.success && r.error);
+        if (failedResults.length > 0) {
+            html += `
+                <h6 class="mb-3 mt-4 text-danger"><i class="fas fa-exclamation-triangle"></i> Chi tiết lỗi (${failedResults.length} STT thất bại)</h6>
+                <div class="card mb-3 border-danger">
+                    <div class="card-body p-0">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-danger">
+                                <tr>
+                                    <th style="width: 15%;">STT</th>
+                                    <th style="width: 15%;">Mã đơn hàng</th>
+                                    <th style="width: 70%;">Lỗi từ TPOS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${failedResults.map(result => `
+                                    <tr>
+                                        <td><span class="badge bg-secondary">${result.stt}</span></td>
+                                        <td>${result.orderId || 'N/A'}</td>
+                                        <td class="text-danger small">
+                                            <i class="fas fa-times-circle"></i>
+                                            <code style="word-break: break-all; white-space: pre-wrap;">${escapeHtml(result.error || 'Unknown error')}</code>
+                                        </td>
                                     </tr>
                                 `).join('')}
                             </tbody>
