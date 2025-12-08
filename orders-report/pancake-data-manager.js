@@ -60,19 +60,36 @@ class PancakeDataManager {
 
     /**
      * Lấy URL avatar cho user/customer
-     * Sử dụng Pancake Avatar API để lấy ảnh từ CDN
+     * Ưu tiên sử dụng avatar URL trực tiếp từ Pancake nếu có
      * @param {string} fbId - Facebook User ID
      * @param {string} pageId - Page ID (optional, for Pancake avatar lookup)
      * @param {string} token - Pancake JWT token (optional)
+     * @param {string} directAvatarUrl - Avatar URL trực tiếp từ Pancake API (optional)
      * @returns {string} Avatar URL
      */
-    getAvatarUrl(fbId, pageId = null, token = null) {
+    getAvatarUrl(fbId, pageId = null, token = null, directAvatarUrl = null) {
+        // Ưu tiên sử dụng avatar URL trực tiếp từ Pancake nếu có
+        if (directAvatarUrl && typeof directAvatarUrl === 'string') {
+            // Nếu là URL content.pancake.vn, sử dụng trực tiếp
+            if (directAvatarUrl.includes('content.pancake.vn')) {
+                return directAvatarUrl;
+            }
+            // Nếu là hash, build URL
+            if (/^[a-f0-9]{32,}$/i.test(directAvatarUrl)) {
+                return `https://content.pancake.vn/2.1-25/avatars/${directAvatarUrl}`;
+            }
+            // Nếu là URL khác hợp lệ
+            if (directAvatarUrl.startsWith('http')) {
+                return directAvatarUrl;
+            }
+        }
+
         if (!fbId) {
             // Default avatar nếu không có fbId
             return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
         }
 
-        // Dùng /api/fb-avatar endpoint - sẽ gọi Pancake Avatar API với hash lookup
+        // Fallback: Dùng /api/fb-avatar endpoint
         let url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${fbId}`;
         if (pageId) {
             url += `&page=${pageId}`;
