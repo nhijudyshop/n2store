@@ -1261,11 +1261,10 @@ async function showCustomersByPhone(phone) {
     if (window.lucide) lucide.createIcons();
 
     try {
-        // 🆕 Fetch customers, transaction stats, AND debt summary in parallel (no cache)
-        const [customersResponse, transactionsResponse, debtResponse] = await Promise.all([
+        // Fetch customers and transaction stats in parallel
+        const [customersResponse, transactionsResponse] = await Promise.all([
             fetch(`${CUSTOMER_API_URL}/api/customers/search?q=${encodeURIComponent(phone)}&limit=50`),
-            fetch(`${CUSTOMER_API_URL}/api/sepay/transactions-by-phone?phone=${encodeURIComponent(phone)}&limit=1`),
-            fetch(`${CUSTOMER_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(phone)}`)
+            fetch(`${CUSTOMER_API_URL}/api/sepay/transactions-by-phone?phone=${encodeURIComponent(phone)}&limit=1`)
         ]);
 
         if (!customersResponse.ok) {
@@ -1274,7 +1273,6 @@ async function showCustomersByPhone(phone) {
 
         const customersResult = await customersResponse.json();
         let balanceStats = null;
-        let debtSummary = null;
 
         // Get balance statistics from transactions
         if (transactionsResponse.ok) {
@@ -1282,15 +1280,6 @@ async function showCustomersByPhone(phone) {
             if (transactionsResult.success && transactionsResult.statistics) {
                 balanceStats = transactionsResult.statistics;
                 console.log('[CUSTOMER-LIST] Balance stats:', balanceStats);
-            }
-        }
-
-        // 🆕 Get debt summary (Tổng Công Nợ + danh sách GD đã cộng)
-        if (debtResponse.ok) {
-            const debtResult = await debtResponse.json();
-            if (debtResult.success && debtResult.data) {
-                debtSummary = debtResult.data;
-                console.log('[CUSTOMER-LIST] Debt summary:', debtSummary);
             }
         }
 
@@ -1305,8 +1294,7 @@ async function showCustomersByPhone(phone) {
             return customerPhone === searchPhone || customerPhone.endsWith(searchPhone) || searchPhone.endsWith(customerPhone);
         });
 
-        // 🆕 Pass debtSummary to renderCustomerList (no cache)
-        renderCustomerList(customers, balanceStats, debtSummary);
+        renderCustomerList(customers, balanceStats, phone);
 
     } catch (error) {
         console.error('[CUSTOMER-LIST] Error:', error);
@@ -1400,9 +1388,9 @@ function getMergedCustomerStatus(status1, status2) {
  * Render customer list in modal
  * @param {Array} customers - List of customers
  * @param {Object} balanceStats - Transaction statistics from balance-history
- * @param {Object} debtSummary - Debt summary from API (total_debt + transactions)
+ * @param {string} phone - Phone number for debt lookup
  */
-function renderCustomerList(customers, balanceStats = null, debtSummary = null) {
+function renderCustomerList(customers, balanceStats = null, phone = null) {
     const loadingEl = document.getElementById('customerListLoading');
     const emptyEl = document.getElementById('customerListEmpty');
     const contentEl = document.getElementById('customerListContent');
@@ -1410,7 +1398,7 @@ function renderCustomerList(customers, balanceStats = null, debtSummary = null) 
     const tbody = document.getElementById('customerListTableBody');
     const countDiv = document.getElementById('customerListCount');
 
-    // 🆕 Safety check for null elements
+    // Safety check for null elements
     if (!loadingEl || !emptyEl || !contentEl) {
         console.error('[CUSTOMER-LIST] Required DOM elements not found');
         return;
@@ -1430,19 +1418,14 @@ function renderCustomerList(customers, balanceStats = null, debtSummary = null) 
     // Merge customers with the same phone number
     const mergedCustomers = mergeCustomersByPhone(customers);
 
-    // 🆕 Safety check before setting textContent
+    // Safety check before setting textContent
     if (totalEl) {
         totalEl.textContent = mergedCustomers.length;
     }
 
-    // 🆕 Get debt info from debtSummary
-    const totalDebt = debtSummary ? (debtSummary.total_debt || 0) : 0;
-    const debtTransactions = debtSummary ? (debtSummary.transactions || []) : [];
-    const transactionCount = debtTransactions.length;
-
-    // Update count div with balance statistics AND debt summary
-    if (balanceStats || debtSummary) {
-        const totalIn = balanceStats ? (balanceStats.total_in || 0) : 0;
+    // Update count div with balance statistics
+    if (balanceStats) {
+        const totalIn = balanceStats.total_in || 0;
         countDiv.innerHTML = `
             <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
                 <span>
@@ -1454,29 +1437,11 @@ function renderCustomerList(customers, balanceStats = null, debtSummary = null) 
                     Tổng GD: <strong>${formatCurrency(totalIn)}</strong>
                 </span>
                 <span style="color: #6b7280;">
-                    (${balanceStats?.total_transactions || transactionCount} giao dịch)
+                    (${balanceStats.total_transactions || 0} giao dịch)
                 </span>
             </div>
         `;
     }
-
-    // 🆕 Build expandable debt detail HTML
-    const debtDetailHtml = debtTransactions.length > 0 ? `
-        <div class="debt-detail" id="debtDetail" style="display: none; margin-top: 8px; padding: 8px; background: #f9fafb; border-radius: 6px; font-size: 12px;">
-            ${debtTransactions.map((t, i) => {
-                const isLast = i === debtTransactions.length - 1;
-                const prefix = isLast ? '└──' : '├──';
-                const dateStr = t.date ? new Date(t.date).toLocaleDateString('vi-VN') : 'N/A';
-                return `
-                    <div style="padding: 4px 0; color: #374151; font-family: monospace;">
-                        ${prefix} <span style="color: #059669; font-weight: 500;">${t.qr_code || 'N/A'}</span>:
-                        <strong>${formatCurrency(t.amount)}</strong>
-                        <span style="color: #9ca3af;">(${dateStr})</span>
-                    </div>
-                `;
-            }).join('')}
-        </div>
-    ` : '';
 
     tbody.innerHTML = mergedCustomers.map((customer, index) => {
         // Handle merged names display (Tên 1 | Tên 2 | Tên 3...)
@@ -1500,22 +1465,8 @@ function renderCustomerList(customers, balanceStats = null, debtSummary = null) 
                     ${customer.status || 'Bình thường'}
                 </span>
             </td>
-            <td style="text-align: right;">
-                ${totalDebt > 0 ? `
-                    <div class="debt-summary-cell" onclick="toggleDebtDetail()" style="cursor: pointer;">
-                        <div style="color: #16a34a; font-weight: 600;">
-                            ${formatCurrency(totalDebt)}
-                        </div>
-                        <small style="color: #9ca3af; font-size: 10px;">
-                            ${transactionCount} giao dịch
-                            <span id="debtExpandIcon" style="font-size: 10px;">▼</span>
-                        </small>
-                    </div>
-                    ${debtDetailHtml}
-                ` : `
-                    <span style="color: #9ca3af;">0 đ</span>
-                    <br><small style="color: #9ca3af; font-size: 10px;">Chưa có GD</small>
-                `}
+            <td id="debtCell_${index}" style="text-align: right;">
+                <span style="color: #9ca3af;">Đang tải...</span>
             </td>
             <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtmlForCustomer(customer.address || '')}">
                 ${escapeHtmlForCustomer(customer.address || 'N/A')}
@@ -1543,10 +1494,91 @@ function renderCustomerList(customers, balanceStats = null, debtSummary = null) 
 
     // Reinitialize icons
     if (window.lucide) lucide.createIcons();
+
+    // Load debt data for this phone
+    if (phone) {
+        loadDebtForPhone(phone);
+    }
 }
 
 /**
- * 🆕 Toggle debt detail expandable row
+ * Load debt data for a phone number and update the debt cell
+ * @param {string} phone - Phone number
+ */
+async function loadDebtForPhone(phone) {
+    try {
+        const response = await fetch(`${CUSTOMER_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(phone)}`);
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to fetch debt');
+        }
+
+        const data = result.data;
+        const totalDebt = data.total_debt || 0;
+        const transactions = data.transactions || [];
+
+        console.log('[DEBT] Loaded for phone:', phone, 'Total:', totalDebt, 'Transactions:', transactions.length);
+
+        // Update all debt cells (there's only one row per phone now)
+        const debtCell = document.getElementById('debtCell_0');
+        if (debtCell) {
+            if (totalDebt > 0) {
+                // Build expandable transaction list
+                const transactionListHtml = transactions.length > 0 ? `
+                    <div id="debtDetail" style="display: none; margin-top: 8px; padding: 8px; background: #f9fafb; border-radius: 6px; font-size: 12px; text-align: left;">
+                        ${transactions.slice(0, 20).map((t, i) => {
+                            const isLast = i === Math.min(transactions.length - 1, 19);
+                            const prefix = isLast ? '└──' : '├──';
+                            const dateStr = t.date ? new Date(t.date).toLocaleDateString('vi-VN') : 'N/A';
+                            const statusIcon = t.debt_added ? '✓' : '○';
+                            return `
+                                <div style="padding: 2px 0; color: #374151; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    ${prefix} ${statusIcon} <strong>${formatCurrency(t.amount)}</strong>
+                                    <span style="color: #9ca3af;">(${dateStr})</span>
+                                </div>
+                            `;
+                        }).join('')}
+                        ${transactions.length > 20 ? `<div style="color: #9ca3af; font-style: italic;">... và ${transactions.length - 20} giao dịch khác</div>` : ''}
+                    </div>
+                ` : '';
+
+                debtCell.innerHTML = `
+                    <div onclick="toggleDebtDetail()" style="cursor: pointer;">
+                        <div style="color: #16a34a; font-weight: 600;">
+                            ${formatCurrency(totalDebt)}
+                        </div>
+                        <small style="color: #9ca3af; font-size: 10px;">
+                            ${transactions.length} giao dịch
+                            <span id="debtExpandIcon" style="font-size: 10px;">▼</span>
+                        </small>
+                    </div>
+                    ${transactionListHtml}
+                `;
+            } else {
+                debtCell.innerHTML = `
+                    <span style="color: #9ca3af;">0 đ</span>
+                    <br><small style="color: #9ca3af; font-size: 10px;">Chưa có GD</small>
+                `;
+            }
+        }
+
+    } catch (error) {
+        console.error('[DEBT] Error loading:', error);
+        const debtCell = document.getElementById('debtCell_0');
+        if (debtCell) {
+            debtCell.innerHTML = `<span style="color: #ef4444;">Lỗi</span>`;
+        }
+    }
+}
+
+/**
+ * Toggle debt detail expandable row
  */
 function toggleDebtDetail() {
     const detail = document.getElementById('debtDetail');
@@ -1559,6 +1591,9 @@ function toggleDebtDetail() {
         }
     }
 }
+
+// Export toggleDebtDetail
+window.toggleDebtDetail = toggleDebtDetail;
 
 /**
  * Get status badge CSS class
@@ -1607,7 +1642,6 @@ customerListModal?.addEventListener('click', (e) => {
 // Export functions
 window.showCustomersByPhone = showCustomersByPhone;
 window.closeCustomerListModal = closeCustomerListModal;
-window.toggleDebtDetail = toggleDebtDetail;
 
 // Auto-connect on page load
 document.addEventListener('DOMContentLoaded', () => {
