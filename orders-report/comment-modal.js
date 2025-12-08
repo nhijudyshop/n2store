@@ -350,10 +350,27 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
             });
         }
 
+        // Handle Pancake API format attachments (lowercase 'attachments')
         if (comment.attachments && comment.attachments.length > 0) {
             comment.attachments.forEach(att => {
-                if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
-                    content += `<img src="${att.file_url}" class="chat-message-image" loading="lazy" />`;
+                // Audio: mime_type = "audio/mp4", file_url
+                if (att.mime_type === 'audio/mp4' && att.file_url) {
+                    content += `
+                        <div class="chat-audio-message" style="display: flex; align-items: center; background: #f3f4f6; padding: 10px 14px; border-radius: 20px; margin-top: 8px;">
+                            <i class="fas fa-microphone" style="color: #3b82f6; margin-right: 10px; font-size: 16px;"></i>
+                            <audio controls style="height: 36px; flex: 1;">
+                                <source src="${att.file_url}" type="audio/mp4">
+                                Trình duyệt không hỗ trợ phát audio
+                            </audio>
+                        </div>`;
+                }
+                // Photo: type = "photo", url
+                else if (att.type === 'photo' && att.url) {
+                    content += `<img src="${att.url}" class="chat-message-image" loading="lazy" style="max-width: 100%; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="window.open('${att.url}', '_blank')" />`;
+                }
+                // Image with mime_type
+                else if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
+                    content += `<img src="${att.file_url}" class="chat-message-image" loading="lazy" style="max-width: 100%; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="window.open('${att.file_url}', '_blank')" />`;
                 }
             });
         }
