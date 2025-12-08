@@ -6861,6 +6861,7 @@ window.closeChatModal = async function () {
     currentChatCursor = null;
     window.allChatMessages = [];
     window.allChatComments = [];
+    window.chatMessagesById = {}; // Clear messages map for reply functionality
     isLoadingMoreMessages = false;
     currentOrder = null;
     currentChatOrderId = null;
@@ -7411,6 +7412,18 @@ function handleChatInputKeyDown(event) {
 function handleChatInputInput(event) {
     autoResizeTextarea(event.target);
 }
+
+/**
+ * Set a message to reply to by ID (lookup from chatMessagesById map)
+ */
+window.setReplyMessageById = function (messageId) {
+    const message = window.chatMessagesById?.[messageId];
+    if (message) {
+        window.setReplyMessage(message);
+    } else {
+        console.warn('[REPLY] Message not found in map:', messageId);
+    }
+};
 
 /**
  * Set a message to reply to
@@ -8502,7 +8515,17 @@ function renderChatMessages(messages, scrollToBottom = false) {
     // Reverse messages to show oldest first
     const sortedMessages = messages.slice().reverse();
 
+    // Initialize map to store messages by ID for reply functionality
+    if (!window.chatMessagesById) {
+        window.chatMessagesById = {};
+    }
+
     const messagesHTML = sortedMessages.map(msg => {
+        // Store message in map for reply button lookup
+        const msgId = msg.id || msg.Id || null;
+        if (msgId) {
+            window.chatMessagesById[msgId] = msg;
+        }
         // Determine isOwner by comparing from.id with page_id (Pancake API format)
         const pageId = window.currentChatChannelId || msg.page_id || null;
         const fromId = msg.from?.id || msg.FromId || null;
@@ -8614,7 +8637,7 @@ function renderChatMessages(messages, scrollToBottom = false) {
         const messageId = msg.id || msg.Id || null;
         const replyButton = !isOwner && messageId ? `
             <span class="message-reply-btn"
-                  onclick='window.setReplyMessage(${JSON.stringify(msg).replace(/'/g, "\\'")})'
+                  onclick="window.setReplyMessageById('${messageId}')"
                   style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">
                 Trả lời
             </span>
