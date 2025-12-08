@@ -346,11 +346,11 @@ class QuickReplyManager {
             },
             {
                 id: 2,
-                shortcut: 'CÁMƠN',
+                shortcut: 'CAMON',
                 topic: 'C.ƠN KH',
                 topicColor: '#cec40c',
                 message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️',
-                imageUrl: 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65093.jpg'
+                imageUrl: 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg'
             },
             {
                 id: 3,
@@ -679,6 +679,25 @@ class QuickReplyManager {
             return;
         }
 
+        // =====================================================
+        // AUTO-SEND: Check for exact /CAMON match (case-insensitive)
+        // Immediately sends image + text without needing Enter
+        // =====================================================
+        if (query.toUpperCase() === 'CAMON') {
+            console.log('[QUICK-REPLY] 🚀 Auto-sending /CAMON quick reply');
+            this.hideAutocomplete();
+
+            // Clear input (remove the /CAMON text)
+            const textAfterCursor = value.substring(cursorPos);
+            input.value = value.substring(0, lastSlashIndex) + textAfterCursor;
+
+            // Send the hardcoded image and message directly
+            const camonImageUrl = 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg';
+            const camonMessage = 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️';
+            this.sendQuickReplyWithImage(camonImageUrl, camonMessage);
+            return;
+        }
+
         // Filter suggestions
         this.currentSuggestions = this.replies.filter(reply => {
             if (!reply.shortcut) return false;
@@ -871,17 +890,35 @@ class QuickReplyManager {
             }
 
             // Send IMAGE and TEXT independently (image first, then text after 300ms)
-            // Image request
+            // Image request - MUST call pancake.vn directly with correct format
             const sendImage = async () => {
                 console.log('[QUICK-REPLY] 📤 Sending image...');
+
+                // Build Pancake API URL directly (not through proxy)
+                const pancakeApiUrl = `https://pancake.vn/api/v1/pages/${channelId}/conversations/${conversationId}/messages?${queryParams}`;
+
                 const imageFormData = new FormData();
                 imageFormData.append('action', 'reply_inbox');
                 imageFormData.append('message', ''); // Empty message, just image
-                imageFormData.append('content_urls', JSON.stringify([imageUrl]));
-                imageFormData.append('content_ids', JSON.stringify(['']));
-                imageFormData.append('dimensions', JSON.stringify([{width: 0, height: 0}]));
+                imageFormData.append('content_id', ''); // Empty for external URL
+                imageFormData.append('content_url', imageUrl);
+                imageFormData.append('width', '0');
+                imageFormData.append('height', '0');
+                imageFormData.append('send_by_platform', 'web');
 
-                const imageResponse = await API_CONFIG.smartFetch(apiUrl, {
+                console.log('[QUICK-REPLY] FormData:', {
+                    action: 'reply_inbox',
+                    message: '',
+                    content_id: '',
+                    content_url: imageUrl,
+                    width: '0',
+                    height: '0',
+                    send_by_platform: 'web'
+                });
+                console.log('[QUICK-REPLY] API URL:', pancakeApiUrl);
+
+                // Call Pancake API directly (same origin as pancake.vn when opened from there)
+                const imageResponse = await fetch(pancakeApiUrl, {
                     method: 'POST',
                     body: imageFormData
                 });
@@ -911,11 +948,17 @@ class QuickReplyManager {
                 await new Promise(resolve => setTimeout(resolve, 300));
 
                 console.log('[QUICK-REPLY] 📤 Sending text message...');
+
+                // Build Pancake API URL directly (not through proxy)
+                const pancakeApiUrl = `https://pancake.vn/api/v1/pages/${channelId}/conversations/${conversationId}/messages?${queryParams}`;
+
                 const textFormData = new FormData();
                 textFormData.append('action', 'reply_inbox');
                 textFormData.append('message', finalMessage);
+                textFormData.append('send_by_platform', 'web');
 
-                const textResponse = await API_CONFIG.smartFetch(apiUrl, {
+                // Call Pancake API directly
+                const textResponse = await fetch(pancakeApiUrl, {
                     method: 'POST',
                     body: textFormData
                 });
