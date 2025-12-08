@@ -8512,8 +8512,12 @@ function renderChatMessages(messages, scrollToBottom = false) {
     // Format time helper - use global formatTimeVN
     const formatTime = window.formatTimeVN;
 
-    // Reverse messages to show oldest first
-    const sortedMessages = messages.slice().reverse();
+    // Sort messages by timestamp - oldest first (newest at bottom like Messenger/Zalo)
+    const sortedMessages = messages.slice().sort((a, b) => {
+        const timeA = new Date(a.inserted_at || a.CreatedTime || 0).getTime();
+        const timeB = new Date(b.inserted_at || b.CreatedTime || 0).getTime();
+        return timeA - timeB; // Ascending: oldest first, newest last (at bottom)
+    });
 
     // Initialize map to store messages by ID for reply functionality
     if (!window.chatMessagesById) {
@@ -8762,8 +8766,12 @@ function renderComments(comments, scrollToBottom = false) {
     // Format time helper - use global formatTimeVN
     const formatTime = window.formatTimeVN;
 
-    // Reverse comments to show oldest first
-    const sortedComments = comments.slice().reverse();
+    // Sort comments by timestamp - oldest first (newest at bottom like Messenger/Zalo)
+    const sortedComments = comments.slice().sort((a, b) => {
+        const timeA = new Date(a.CreatedTime || a.updated_at || a.created_at || 0).getTime();
+        const timeB = new Date(b.CreatedTime || b.updated_at || b.created_at || 0).getTime();
+        return timeA - timeB; // Ascending: oldest first, newest last (at bottom)
+    });
 
     // Helper function to check if comment is the purchase comment
     const isPurchaseComment = (comment) => {
