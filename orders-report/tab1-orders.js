@@ -8410,9 +8410,26 @@ function renderChatMessages(messages, scrollToBottom = false) {
             'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
         const senderName = msg.from?.name || msg.FromName || '';
 
+        // Get message text - prioritize Pancake API format (lowercase 'message')
+        let messageText = msg.message || msg.Message || '';
+
+        // Clean up message - remove JSON metadata if accidentally included
+        if (messageText && typeof messageText === 'string') {
+            // Remove JSON-like content that starts with ,"field": or {"field":
+            messageText = messageText.replace(/[,{]"[a-z_]+"\s*:\s*[\[{"].*$/gi, '').trim();
+            // Remove trailing JSON artifacts
+            messageText = messageText.replace(/"\s*[,}]\s*$/g, '').trim();
+        }
+
         let content = '';
-        if (msg.Message) {
-            content = `<p class="chat-message-text">${msg.Message}</p>`;
+        if (messageText) {
+            // Escape HTML to prevent XSS and display issues
+            const escapedMessage = messageText
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
+            content = `<p class="chat-message-text">${escapedMessage}</p>`;
         }
 
         // Handle attachments (images and audio)
@@ -8473,7 +8490,7 @@ function renderChatMessages(messages, scrollToBottom = false) {
                  alt="${senderName}"
                  title="${senderName}"
                  class="avatar-loading"
-                 style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 8px; border: 2px solid #e5e7eb; background: #f3f4f6;"
+                 style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 10px; border: 2px solid #e5e7eb; background: #f3f4f6;"
                  onload="this.classList.remove('avatar-loading')"
                  onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%227%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2232%22 rx=%2211%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'"
             />
