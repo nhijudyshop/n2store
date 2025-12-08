@@ -8396,13 +8396,14 @@ function renderChatMessages(messages, scrollToBottom = false) {
     const sortedMessages = messages.slice().reverse();
 
     const messagesHTML = sortedMessages.map(msg => {
-        const isOwner = msg.IsOwner;
+        // Determine isOwner by comparing from.id with page_id (Pancake API format)
+        const pageId = window.currentChatChannelId || msg.page_id || null;
+        const fromId = msg.from?.id || msg.FromId || null;
+        const isOwner = msg.IsOwner !== undefined ? msg.IsOwner : (fromId === pageId);
         const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
         const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
         // Get avatar URL - prioritize direct URL from Pancake API
-        const fromId = msg.from?.id || msg.FromId || null;
-        const pageId = window.currentChatChannelId || msg.page_id || null;
         const cachedToken = window.pancakeTokenManager?.token || null;
         // Check for direct avatar URL from Pancake (avatar, picture, profile_picture fields)
         const directAvatar = msg.from?.avatar || msg.from?.picture || msg.from?.profile_picture || msg.avatar || null;
@@ -8410,15 +8411,12 @@ function renderChatMessages(messages, scrollToBottom = false) {
             'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
         const senderName = msg.from?.name || msg.FromName || '';
 
-        // Get message text - prioritize Pancake API format (lowercase 'message')
-        let messageText = msg.message || msg.Message || '';
+        // Get message text - prioritize original_message (plain text from Pancake API)
+        let messageText = msg.original_message || msg.message || msg.Message || '';
 
-        // Clean up message - remove JSON metadata if accidentally included
-        if (messageText && typeof messageText === 'string') {
-            // Remove JSON-like content that starts with ,"field": or {"field":
-            messageText = messageText.replace(/[,{]"[a-z_]+"\s*:\s*[\[{"].*$/gi, '').trim();
-            // Remove trailing JSON artifacts
-            messageText = messageText.replace(/"\s*[,}]\s*$/g, '').trim();
+        // If message is HTML (from Pancake's "message" field), strip HTML tags
+        if (messageText && messageText.includes('<div>')) {
+            messageText = messageText.replace(/<[^>]*>/g, '').trim();
         }
 
         let content = '';
@@ -8428,7 +8426,8 @@ function renderChatMessages(messages, scrollToBottom = false) {
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
-                .replace(/\n/g, '<br>');
+                .replace(/\n/g, '<br>')
+                .replace(/\r/g, '');
             content = `<p class="chat-message-text">${escapedMessage}</p>`;
         }
 
@@ -8503,7 +8502,7 @@ function renderChatMessages(messages, scrollToBottom = false) {
                     <div class="chat-bubble ${bgClass}" style="position: relative;">
                         ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
                         ${content}
-                        <p class="chat-message-time">${formatTime(msg.CreatedTime)}</p>
+                        <p class="chat-message-time">${formatTime(msg.inserted_at || msg.CreatedTime)}</p>
                         ${replyButton}
                     </div>
                 </div>
