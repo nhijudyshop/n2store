@@ -620,6 +620,19 @@ class QuickReplyManager {
         return div.innerHTML;
     }
 
+    /**
+     * Remove Vietnamese diacritics from text for easier matching
+     * e.g., "CÁMƠN" -> "CAMON", "ĐỔI" -> "DOI"
+     */
+    removeVietnameseDiacritics(str) {
+        if (!str) return '';
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Remove combining diacritical marks
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D');
+    }
+
     // =====================================================
     // AUTOCOMPLETE FEATURE
     // =====================================================
@@ -698,10 +711,15 @@ class QuickReplyManager {
             return;
         }
 
-        // Filter suggestions
+        // Filter suggestions - match with Vietnamese diacritics removed
+        const queryNoDiacritics = this.removeVietnameseDiacritics(query.toLowerCase());
         this.currentSuggestions = this.replies.filter(reply => {
             if (!reply.shortcut) return false;
-            return reply.shortcut.toLowerCase().startsWith(query.toLowerCase());
+            // Compare both original and diacritics-removed versions
+            const shortcutLower = reply.shortcut.toLowerCase();
+            const shortcutNoDiacritics = this.removeVietnameseDiacritics(shortcutLower);
+            return shortcutLower.startsWith(query.toLowerCase()) ||
+                shortcutNoDiacritics.startsWith(queryNoDiacritics);
         });
 
         if (this.currentSuggestions.length > 0) {
@@ -795,6 +813,10 @@ class QuickReplyManager {
     applyAutocompleteSuggestion(reply) {
         const input = document.getElementById('chatReplyInput');
         if (!input) return;
+
+        // DEBUG: Log reply object to check if imageUrl exists
+        console.log('[QUICK-REPLY] 📋 Selected reply:', JSON.stringify(reply, null, 2));
+        console.log('[QUICK-REPLY] 🖼️ Has imageUrl?', !!reply.imageUrl, '→', reply.imageUrl);
 
         // Check if this reply has an imageUrl - send image first, then text
         if (reply.imageUrl) {

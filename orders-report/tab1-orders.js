@@ -7396,6 +7396,12 @@ function autoResizeTextarea(textarea) {
  */
 function handleChatInputKeyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
+        // Skip if autocomplete is active (let quick-reply-manager handle the Enter)
+        if (window.quickReplyManager && window.quickReplyManager.autocompleteActive) {
+            console.log('[CHAT] Enter pressed but autocomplete is active, skipping sendReplyComment');
+            return; // Don't prevent default - let quick-reply-manager handle it
+        }
+
         event.preventDefault(); // Prevent default form submission and double trigger
         event.stopPropagation(); // Stop event bubbling
 
