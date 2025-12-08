@@ -141,6 +141,34 @@ class QuickReplyManager {
                                 onblur="this.style.borderColor='#e5e7eb';" />
                         </div>
 
+                        <!-- Image Upload Area -->
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">
+                                Hình ảnh đính kèm
+                            </label>
+                            <div id="templateImageDropZone"
+                                style="border: 2px dashed #e5e7eb; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f9fafb;"
+                                onclick="document.getElementById('templateImageFileInput').click()">
+                                <div id="templateImagePreviewContainer" style="display: none;">
+                                    <img id="templateImagePreview" src="" alt="Preview" style="max-width: 100%; max-height: 150px; border-radius: 6px; margin-bottom: 8px;" />
+                                    <div style="display: flex; justify-content: center; gap: 8px;">
+                                        <button type="button" onclick="event.stopPropagation(); quickReplyManager.removeTemplateImage();"
+                                            style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                                            <i class="fas fa-trash"></i> Xóa ảnh
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="templateImagePlaceholder">
+                                    <i class="fas fa-image" style="font-size: 32px; color: #9ca3af; margin-bottom: 8px;"></i>
+                                    <p style="color: #6b7280; margin: 0; font-size: 13px;">Paste hình (Ctrl+V) hoặc click để chọn</p>
+                                    <p style="color: #9ca3af; margin: 4px 0 0 0; font-size: 11px;">Hình sẽ được gửi trước, text gửi sau</p>
+                                </div>
+                            </div>
+                            <input type="file" id="templateImageFileInput" accept="image/*" style="display: none;"
+                                onchange="quickReplyManager.handleTemplateImageSelect(event)" />
+                            <input type="hidden" id="templateInputImageUrl" value="" />
+                        </div>
+
                         <div style="margin-bottom: 16px;">
                             <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">
                                 Nội dung tin nhắn <span style="color: #ef4444;">*</span>
@@ -174,6 +202,7 @@ class QuickReplyManager {
         `;
 
         document.body.insertAdjacentHTML('beforeend', inputModalHTML);
+        this.setupTemplateImagePaste();
         console.log('[QUICK-REPLY] ✅ Template input modal DOM created');
     }
 
@@ -789,7 +818,7 @@ class QuickReplyManager {
     }
 
     /**
-     * Send quick reply with image - sends image first, then text message
+     * Send quick reply with image - sends image first, then text message (independent requests)
      * @param {string} imageUrl - URL of the image to send
      * @param {string} message - Text message to send after the image
      */
@@ -820,15 +849,8 @@ class QuickReplyManager {
 
             // Show loading indicator
             if (window.notificationManager) {
-                window.notificationManager.info('Đang gửi hình ảnh...', 3000);
+                window.notificationManager.info('Đang gửi tin nhắn...', 3000);
             }
-
-            // Step 1: Send the IMAGE first
-            console.log('[QUICK-REPLY] 📤 Sending image...');
-            const imageFormData = new FormData();
-            imageFormData.append('action', 'reply_inbox');
-            imageFormData.append('message', ''); // Empty message, just image
-            imageFormData.append('content_urls', JSON.stringify([imageUrl]));
 
             let queryParams = `access_token=${token}`;
             if (customerId) {
@@ -840,24 +862,6 @@ class QuickReplyManager {
                 queryParams
             );
 
-            const imageResponse = await API_CONFIG.smartFetch(apiUrl, {
-                method: 'POST',
-                body: imageFormData
-            });
-
-            if (!imageResponse.ok) {
-                const errorText = await imageResponse.text();
-                console.error('[QUICK-REPLY] ❌ Image send failed:', errorText);
-                throw new Error('Gửi hình ảnh thất bại');
-            }
-
-            const imageResult = await imageResponse.json();
-            console.log('[QUICK-REPLY] ✅ Image sent:', imageResult);
-
-            // Step 2: Wait a moment then send the TEXT message
-            console.log('[QUICK-REPLY] ⏳ Waiting before sending text...');
-            await new Promise(resolve => setTimeout(resolve, 500));
-
             // Add employee signature
             let finalMessage = message;
             const auth = window.authManager ? window.authManager.getAuthState() : null;
@@ -866,24 +870,67 @@ class QuickReplyManager {
                 finalMessage = message + '\nNv. ' + displayName;
             }
 
-            console.log('[QUICK-REPLY] 📤 Sending text message...');
-            const textFormData = new FormData();
-            textFormData.append('action', 'reply_inbox');
-            textFormData.append('message', finalMessage);
+            // Send IMAGE and TEXT independently (image first, then text after 300ms)
+            // Image request
+            const sendImage = async () => {
+                console.log('[QUICK-REPLY] 📤 Sending image...');
+                const imageFormData = new FormData();
+                imageFormData.append('action', 'reply_inbox');
+                imageFormData.append('message', ''); // Empty message, just image
+                imageFormData.append('content_urls', JSON.stringify([imageUrl]));
 
-            const textResponse = await API_CONFIG.smartFetch(apiUrl, {
-                method: 'POST',
-                body: textFormData
-            });
+                const imageResponse = await API_CONFIG.smartFetch(apiUrl, {
+                    method: 'POST',
+                    body: imageFormData
+                });
 
-            if (!textResponse.ok) {
-                const errorText = await textResponse.text();
-                console.error('[QUICK-REPLY] ❌ Text send failed:', errorText);
-                throw new Error('Gửi tin nhắn thất bại');
+                if (!imageResponse.ok) {
+                    const errorText = await imageResponse.text();
+                    console.error('[QUICK-REPLY] ❌ Image send failed:', errorText);
+                    return { success: false, error: 'Gửi hình ảnh thất bại' };
+                }
+
+                const imageResult = await imageResponse.json();
+                console.log('[QUICK-REPLY] ✅ Image sent:', imageResult);
+                return { success: true, data: imageResult };
+            };
+
+            // Text request (with small delay to ensure image is sent first)
+            const sendText = async () => {
+                // Small delay to ensure image is sent first
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+                console.log('[QUICK-REPLY] 📤 Sending text message...');
+                const textFormData = new FormData();
+                textFormData.append('action', 'reply_inbox');
+                textFormData.append('message', finalMessage);
+
+                const textResponse = await API_CONFIG.smartFetch(apiUrl, {
+                    method: 'POST',
+                    body: textFormData
+                });
+
+                if (!textResponse.ok) {
+                    const errorText = await textResponse.text();
+                    console.error('[QUICK-REPLY] ❌ Text send failed:', errorText);
+                    return { success: false, error: 'Gửi tin nhắn thất bại' };
+                }
+
+                const textResult = await textResponse.json();
+                console.log('[QUICK-REPLY] ✅ Text sent:', textResult);
+                return { success: true, data: textResult };
+            };
+
+            // Send both independently using Promise.all
+            const [imageResult, textResult] = await Promise.all([sendImage(), sendText()]);
+
+            // Check results
+            if (!imageResult.success || !textResult.success) {
+                const errors = [];
+                if (!imageResult.success) errors.push(imageResult.error);
+                if (!textResult.success) errors.push(textResult.error);
+                throw new Error(errors.join(', '));
             }
-
-            const textResult = await textResponse.json();
-            console.log('[QUICK-REPLY] ✅ Text sent:', textResult);
 
             // Success notification
             if (window.notificationManager) {
@@ -1001,16 +1048,17 @@ class QuickReplyManager {
     addNewTemplate() {
         // Open modal for adding new template
         this.currentEditingTemplateId = null; // null means adding new
-        this.openTemplateInputModal('Thêm mẫu tin nhắn', '', '', '', '');
+        this.openTemplateInputModal('Thêm mẫu tin nhắn', '', '', '', '', '');
     }
 
-    openTemplateInputModal(title, shortcut = '', topic = '', topicColor = '', message = '') {
+    openTemplateInputModal(title, shortcut = '', topic = '', topicColor = '', message = '', imageUrl = '') {
         const modal = document.getElementById('templateInputModal');
         const modalTitle = document.getElementById('templateInputModalTitle');
         const shortcutInput = document.getElementById('templateInputShortcut');
         const topicInput = document.getElementById('templateInputTopic');
         const colorInput = document.getElementById('templateInputColor');
         const messageInput = document.getElementById('templateInputMessage');
+        const imageUrlInput = document.getElementById('templateInputImageUrl');
 
         if (!modal) {
             console.error('[QUICK-REPLY] Template input modal not found');
@@ -1023,6 +1071,15 @@ class QuickReplyManager {
         topicInput.value = topic;
         colorInput.value = topicColor;
         messageInput.value = message;
+
+        // Handle image URL
+        if (imageUrlInput) {
+            imageUrlInput.value = imageUrl || '';
+        }
+        this.pendingTemplateImageBlob = null; // Clear any pending blob
+
+        // Update image preview
+        this.updateTemplateImagePreview(imageUrl);
 
         // Add keyboard event listener
         const handleKeyDown = (e) => {
@@ -1059,6 +1116,130 @@ class QuickReplyManager {
             }
         }
         this.currentEditingTemplateId = null;
+        this.pendingTemplateImageBlob = null;
+    }
+
+    // =====================================================
+    // TEMPLATE IMAGE HANDLING
+    // =====================================================
+
+    setupTemplateImagePaste() {
+        // Wait for modal to be in DOM
+        setTimeout(() => {
+            const modal = document.getElementById('templateInputModal');
+            if (modal) {
+                modal.addEventListener('paste', (e) => this.handleTemplateImagePaste(e));
+                console.log('[QUICK-REPLY] ✅ Template image paste listener attached');
+            }
+        }, 100);
+    }
+
+    handleTemplateImagePaste(e) {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const blob = item.getAsFile();
+                if (blob) {
+                    this.processTemplateImage(blob);
+                }
+                return;
+            }
+        }
+    }
+
+    handleTemplateImageSelect(event) {
+        const file = event.target.files?.[0];
+        if (file && file.type.startsWith('image/')) {
+            this.processTemplateImage(file);
+        }
+        // Reset input so the same file can be selected again
+        event.target.value = '';
+    }
+
+    async processTemplateImage(blob) {
+        console.log('[QUICK-REPLY] 🖼️ Processing template image...');
+
+        // Store the blob for upload when saving
+        this.pendingTemplateImageBlob = blob;
+
+        // Show preview immediately using local URL
+        const localUrl = URL.createObjectURL(blob);
+        this.updateTemplateImagePreview(localUrl);
+
+        // Clear the hidden imageUrl input since we'll upload on save
+        const imageUrlInput = document.getElementById('templateInputImageUrl');
+        if (imageUrlInput) {
+            imageUrlInput.value = ''; // Will be set after upload
+        }
+
+        if (window.notificationManager) {
+            window.notificationManager.info('Hình sẽ được upload khi lưu mẫu', 2000);
+        }
+    }
+
+    updateTemplateImagePreview(imageUrl) {
+        const previewContainer = document.getElementById('templateImagePreviewContainer');
+        const previewImg = document.getElementById('templateImagePreview');
+        const placeholder = document.getElementById('templateImagePlaceholder');
+
+        if (imageUrl) {
+            previewImg.src = imageUrl;
+            previewContainer.style.display = 'block';
+            placeholder.style.display = 'none';
+        } else {
+            previewImg.src = '';
+            previewContainer.style.display = 'none';
+            placeholder.style.display = 'block';
+        }
+    }
+
+    removeTemplateImage() {
+        console.log('[QUICK-REPLY] 🗑️ Removing template image');
+
+        this.pendingTemplateImageBlob = null;
+
+        const imageUrlInput = document.getElementById('templateInputImageUrl');
+        if (imageUrlInput) {
+            imageUrlInput.value = '';
+        }
+
+        this.updateTemplateImagePreview('');
+
+        if (window.notificationManager) {
+            window.notificationManager.info('Đã xóa hình ảnh', 2000);
+        }
+    }
+
+    async uploadTemplateImage(blob) {
+        console.log('[QUICK-REPLY] 📤 Uploading template image...');
+
+        try {
+            // Get a page ID for uploading (use first available)
+            const channelId = window.currentChatChannelId || window.currentSendPageId;
+            if (!channelId) {
+                throw new Error('Không tìm thấy page ID để upload');
+            }
+
+            // Upload via pancakeDataManager
+            if (!window.pancakeDataManager) {
+                throw new Error('PancakeDataManager not available');
+            }
+
+            const result = await window.pancakeDataManager.uploadImage(channelId, blob);
+            console.log('[QUICK-REPLY] ✅ Image uploaded:', result);
+
+            if (result && result.content_url) {
+                return result.content_url;
+            }
+
+            throw new Error('Upload không trả về URL');
+        } catch (error) {
+            console.error('[QUICK-REPLY] ❌ Image upload failed:', error);
+            throw error;
+        }
     }
 
     async saveTemplateInput() {
@@ -1066,11 +1247,13 @@ class QuickReplyManager {
         const topicInput = document.getElementById('templateInputTopic');
         const colorInput = document.getElementById('templateInputColor');
         const messageInput = document.getElementById('templateInputMessage');
+        const imageUrlInput = document.getElementById('templateInputImageUrl');
 
         const shortcut = shortcutInput.value.trim();
         const topic = topicInput.value.trim();
         const topicColor = colorInput.value.trim() || '#6b7280';
         const message = messageInput.value.trim();
+        let imageUrl = imageUrlInput?.value?.trim() || '';
 
         // Validation
         if (!shortcut) {
@@ -1086,6 +1269,25 @@ class QuickReplyManager {
         }
 
         try {
+            // Upload pending image if exists
+            if (this.pendingTemplateImageBlob) {
+                if (window.notificationManager) {
+                    window.notificationManager.info('Đang upload hình ảnh...', 5000);
+                }
+
+                try {
+                    imageUrl = await this.uploadTemplateImage(this.pendingTemplateImageBlob);
+                    console.log('[QUICK-REPLY] ✅ Image uploaded, URL:', imageUrl);
+                } catch (uploadError) {
+                    console.error('[QUICK-REPLY] ❌ Image upload failed:', uploadError);
+                    if (window.notificationManager) {
+                        window.notificationManager.error('Upload hình thất bại: ' + uploadError.message);
+                    }
+                    // Don't save without the image if user added one
+                    return;
+                }
+            }
+
             if (this.currentEditingTemplateId === null) {
                 // Adding new template
                 const maxId = this.replies.length > 0 ? Math.max(...this.replies.map(r => r.id)) : 0;
@@ -1097,6 +1299,11 @@ class QuickReplyManager {
                     topicColor: topicColor,
                     message: message
                 };
+
+                // Add imageUrl if exists
+                if (imageUrl) {
+                    newReply.imageUrl = imageUrl;
+                }
 
                 this.replies.push(newReply);
                 await this.saveReplies();
@@ -1120,13 +1327,21 @@ class QuickReplyManager {
                     shortcut: reply.shortcut,
                     topic: reply.topic,
                     topicColor: reply.topicColor,
-                    message: reply.message
+                    message: reply.message,
+                    imageUrl: reply.imageUrl
                 };
 
                 reply.shortcut = shortcut;
                 reply.topic = topic;
                 reply.topicColor = topicColor;
                 reply.message = message;
+
+                // Handle imageUrl - set or clear
+                if (imageUrl) {
+                    reply.imageUrl = imageUrl;
+                } else {
+                    delete reply.imageUrl;
+                }
 
                 try {
                     await this.saveReplies();
@@ -1143,6 +1358,11 @@ class QuickReplyManager {
                     reply.topic = oldValues.topic;
                     reply.topicColor = oldValues.topicColor;
                     reply.message = oldValues.message;
+                    if (oldValues.imageUrl) {
+                        reply.imageUrl = oldValues.imageUrl;
+                    } else {
+                        delete reply.imageUrl;
+                    }
                     throw error;
                 }
             }
@@ -1168,7 +1388,8 @@ class QuickReplyManager {
             reply.shortcut,
             reply.topic,
             reply.topicColor,
-            reply.message
+            reply.message,
+            reply.imageUrl || ''
         );
     }
 
