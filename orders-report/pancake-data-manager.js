@@ -752,9 +752,18 @@ class PancakeDataManager {
             const data = await response.json();
             console.log(`[PANCAKE] Fetched ${data.messages?.length || 0} messages`);
 
+            // Extract customer_id from customers array if available
+            const customers = data.customers || data.conv_customers || [];
+            const extractedCustomerId = customers.length > 0 ? customers[0].id : null;
+            if (extractedCustomerId) {
+                console.log(`[PANCAKE] ✅ Extracted customer_id from response: ${extractedCustomerId}`);
+            }
+
             return {
                 messages: data.messages || [],
-                conversation: data.conversation || null
+                conversation: data.conversation || null,
+                customers: customers,
+                customerId: extractedCustomerId // Return customer_id for caller to use
             };
 
         } catch (error) {
@@ -827,12 +836,23 @@ class PancakeDataManager {
                 fromId = data.from_id;
             }
 
-            // Extract conversationId from inbox_conv_id
-            const conversationId = data.inbox_conv_id;
-            console.log(`[PANCAKE] ✅ Got conversationId from inbox_preview: ${conversationId}`);
+            // Extract BOTH conversationIds from response
+            // - inbox_conv_id: for INBOX messages
+            // - comment_conv_id: for COMMENT replies
+            const inboxConversationId = data.inbox_conv_id;
+            const commentConversationId = data.comment_conv_id;
+
+            // Default conversationId = inbox (for backwards compatibility)
+            const conversationId = inboxConversationId;
+
+            console.log(`[PANCAKE] ✅ Got conversationIds from inbox_preview:`);
+            console.log(`  - inbox_conv_id: ${inboxConversationId}`);
+            console.log(`  - comment_conv_id: ${commentConversationId}`);
 
             return {
-                conversationId: conversationId,
+                conversationId: conversationId,          // Default (inbox) - backwards compatible
+                inboxConversationId: inboxConversationId,   // Explicit inbox conversation ID
+                commentConversationId: commentConversationId, // Explicit comment conversation ID
                 messages: data.data || [],
                 threadId: data.thread_id_preview || data.thread_id,
                 threadKey: data.thread_key_preview || data.thread_key,
@@ -1483,6 +1503,8 @@ class PancakeDataManager {
                 comments: comments,
                 messages: result.messages,
                 conversation: result.conversation,
+                customers: result.customers,
+                customerId: result.customerId, // Return customer_id for caller to use
                 after: null // Pagination cursor if needed
             };
         } catch (error) {

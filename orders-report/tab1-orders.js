@@ -6208,9 +6208,23 @@ window.reloadChatForSelectedPage = async function (pageId) {
                     const customerUuid = conversation.customers[0].id;
                     try {
                         const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(pageId, customerUuid);
-                        if (inboxPreview.success && inboxPreview.conversationId) {
-                            window.currentConversationId = inboxPreview.conversationId;
-                            console.log('[PAGE-RELOAD] ✅ Updated conversationId:', window.currentConversationId);
+                        if (inboxPreview.success) {
+                            // Use appropriate conversationId based on current chat type
+                            if (currentChatType === 'comment') {
+                                window.currentConversationId = inboxPreview.commentConversationId
+                                    || inboxPreview.inboxConversationId
+                                    || inboxPreview.conversationId;
+                            } else {
+                                window.currentConversationId = inboxPreview.inboxConversationId
+                                    || inboxPreview.conversationId;
+                            }
+                            window.currentInboxConversationId = inboxPreview.inboxConversationId;
+                            window.currentCommentConversationId = inboxPreview.commentConversationId;
+                            console.log('[PAGE-RELOAD] ✅ Updated conversationIds:', {
+                                using: window.currentConversationId,
+                                inbox: window.currentInboxConversationId,
+                                comment: window.currentCommentConversationId
+                            });
                         }
                     } catch (error) {
                         console.warn('[PAGE-RELOAD] Could not fetch inbox_preview:', error);
@@ -6408,6 +6422,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             window.allChatComments = response.comments || [];
             currentChatCursor = response.after; // Store cursor for next page
 
+            // Update customer UUID from response if not already set
+            if (response.customerId && !window.currentCustomerUUID) {
+                window.currentCustomerUUID = response.customerId;
+                console.log(`[CHAT] ✅ Updated currentCustomerUUID from comments response: ${window.currentCustomerUUID}`);
+            }
+
             // Lấy parent comment ID từ comment đầu tiên (comment gốc)
             if (window.allChatComments.length > 0) {
                 // Tìm comment gốc (parent comment) - thường là comment không có ParentId hoặc comment đầu tiên
@@ -6518,9 +6538,21 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             if (pancakeCustomerUuid) {
                 try {
                     const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(channelId, pancakeCustomerUuid);
-                    if (inboxPreview.success && inboxPreview.conversationId) {
-                        window.currentConversationId = inboxPreview.conversationId;
-                        console.log('[CHAT-MODAL] ✅ Got conversationId from inbox_preview:', window.currentConversationId);
+                    if (inboxPreview.success) {
+                        // Cho COMMENT: ưu tiên dùng commentConversationId
+                        // Fallback: inboxConversationId hoặc conversationId (backwards compatible)
+                        window.currentConversationId = inboxPreview.commentConversationId
+                            || inboxPreview.inboxConversationId
+                            || inboxPreview.conversationId;
+
+                        // Store cả 2 loại để linh hoạt sử dụng
+                        window.currentInboxConversationId = inboxPreview.inboxConversationId;
+                        window.currentCommentConversationId = inboxPreview.commentConversationId;
+
+                        console.log('[CHAT-MODAL] ✅ Got conversationIds from inbox_preview:');
+                        console.log('  - inbox_conv_id:', window.currentInboxConversationId);
+                        console.log('  - comment_conv_id:', window.currentCommentConversationId);
+                        console.log('  - Using for COMMENT:', window.currentConversationId);
                     } else {
                         console.warn('[CHAT-MODAL] ⚠️ Failed to get conversationId from inbox_preview');
                     }
@@ -6652,9 +6684,20 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 if (pancakeCustomerUuid) {
                     try {
                         const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(channelId, pancakeCustomerUuid);
-                        if (inboxPreview.success && inboxPreview.conversationId) {
-                            window.currentConversationId = inboxPreview.conversationId;
-                            console.log(`[CHAT-MODAL] ✅ Got conversationId from inbox_preview: ${window.currentConversationId}`);
+                        if (inboxPreview.success) {
+                            // Cho MESSAGE: ưu tiên dùng inboxConversationId
+                            // Fallback: conversationId (backwards compatible)
+                            window.currentConversationId = inboxPreview.inboxConversationId
+                                || inboxPreview.conversationId;
+
+                            // Store cả 2 loại để linh hoạt sử dụng
+                            window.currentInboxConversationId = inboxPreview.inboxConversationId;
+                            window.currentCommentConversationId = inboxPreview.commentConversationId;
+
+                            console.log('[CHAT-MODAL] ✅ Got conversationIds from inbox_preview:');
+                            console.log('  - inbox_conv_id:', window.currentInboxConversationId);
+                            console.log('  - comment_conv_id:', window.currentCommentConversationId);
+                            console.log('  - Using for MESSAGE:', window.currentConversationId);
                         } else {
                             console.log(`[CHAT-MODAL] ℹ️ Could not get conversationId from inbox_preview`);
                         }
@@ -6677,6 +6720,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             const response = await window.chatDataManager.fetchMessages(channelId, psid, window.currentConversationId, window.currentCustomerUUID);
             window.allChatMessages = response.messages || [];
             currentChatCursor = response.after; // Store cursor for next page
+
+            // Update customer UUID from response if not already set
+            if (response.customerId && !window.currentCustomerUUID) {
+                window.currentCustomerUUID = response.customerId;
+                console.log(`[CHAT] ✅ Updated currentCustomerUUID from messages response: ${window.currentCustomerUUID}`);
+            }
 
             console.log(`[CHAT] Initial load: ${window.allChatMessages.length} messages, cursor: ${currentChatCursor}`);
 
@@ -7571,7 +7620,8 @@ window.sendMessage = async function () {
             conversationId: window.currentConversationId,
             channelId: sendPageId,
             chatType: 'message', // EXPLICITLY set to message
-            repliedMessageId: repliedMessageId
+            repliedMessageId: repliedMessageId,
+            customerId: window.currentCustomerUUID // Add customer_id for Pancake API
         });
 
         // Clear input
@@ -7663,7 +7713,8 @@ window.sendComment = async function () {
             channelId: sendPageId,
             chatType: 'comment', // EXPLICITLY set to comment
             parentCommentId: currentParentCommentId,
-            postId: currentPostId || currentOrder.Facebook_PostId
+            postId: currentPostId || currentOrder.Facebook_PostId,
+            customerId: window.currentCustomerUUID // Add customer_id for Pancake API
         });
 
         // Clear input
@@ -7753,7 +7804,7 @@ function getImageDimensions(blob) {
  * Called by queue processor
  */
 async function sendMessageInternal(messageData) {
-    const { message, uploadedImagesData, order, conversationId, channelId, repliedMessageId } = messageData;
+    const { message, uploadedImagesData, order, conversationId, channelId, repliedMessageId, customerId } = messageData;
 
     try {
         // Get Pancake token
@@ -7848,9 +7899,14 @@ async function sendMessageInternal(messageData) {
         }
 
         // Step 3: Send message
+        // IMPORTANT: customer_id is REQUIRED by Pancake API (as shown in real browser network request)
+        let queryParams = `access_token=${token}`;
+        if (customerId) {
+            queryParams += `&customer_id=${customerId}`;
+        }
         const replyUrl = window.API_CONFIG.buildUrl.pancake(
             `pages/${channelId}/conversations/${conversationId}/messages`,
-            `access_token=${token}`
+            queryParams
         );
 
         console.log('[MESSAGE] Sending message...');
@@ -7946,7 +8002,7 @@ async function sendMessageInternal(messageData) {
  * Called by queue processor
  */
 async function sendCommentInternal(commentData) {
-    const { message, uploadedImagesData, order, conversationId, channelId, parentCommentId, postId } = commentData;
+    const { message, uploadedImagesData, order, conversationId, channelId, parentCommentId, postId, customerId } = commentData;
 
     try {
         // Get Pancake token
@@ -8042,9 +8098,14 @@ async function sendCommentInternal(commentData) {
         // Step 4: Send both private_replies and reply_inbox in parallel
         showChatSendingIndicator('Đang gửi bình luận và tin nhắn...');
 
+        // IMPORTANT: customer_id is REQUIRED by Pancake API (as shown in real browser network request)
+        let queryParams = `access_token=${token}`;
+        if (customerId) {
+            queryParams += `&customer_id=${customerId}`;
+        }
         const apiUrl = window.API_CONFIG.buildUrl.pancake(
             `pages/${pageId}/conversations/${finalConversationId}/messages`,
-            `access_token=${token}`
+            queryParams
         );
 
         // Prepare private_replies payload (JSON)
@@ -8410,6 +8471,8 @@ function renderChatMessages(messages, scrollToBottom = false) {
         const avatarUrl = window.pancakeDataManager?.getAvatarUrl(fromId, pageId, cachedToken, directAvatar) ||
             'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
         const senderName = msg.from?.name || msg.FromName || '';
+        // Admin name for page messages (Pancake API returns from.admin_name for staff-sent messages)
+        const adminName = msg.from?.admin_name || null;
 
         // Get message text - prioritize original_message (plain text from Pancake API)
         let messageText = msg.original_message || msg.message || msg.Message || '';
@@ -8471,6 +8534,33 @@ function renderChatMessages(messages, scrollToBottom = false) {
                 else if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
                     content += `<img src="${att.file_url}" class="chat-message-image" loading="lazy" style="max-width: 100%; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="window.open('${att.file_url}', '_blank')" />`;
                 }
+                // Link attachment with comment (private reply preview from Pancake)
+                else if (att.type === 'link' && att.comment) {
+                    const commentFrom = att.comment.from || '';
+                    const commentContent = att.comment.content || '';
+                    const postName = att.name || '';
+                    const postUrl = att.url || '#';
+                    // Show post thumbnail if available
+                    const thumbnail = att.post_attachments?.[0]?.url || '';
+                    content += `
+                        <div class="chat-link-attachment" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-top: 8px; overflow: hidden;">
+                            ${thumbnail ? `<img src="${thumbnail}" style="width: 100%; max-height: 120px; object-fit: cover; border-bottom: 1px solid #e2e8f0;" loading="lazy" />` : ''}
+                            <div style="padding: 10px 12px;">
+                                <p style="font-size: 12px; color: #64748b; margin: 0 0 4px 0;"><i class="fas fa-comment" style="margin-right: 6px;"></i>Bình luận từ ${commentFrom}</p>
+                                <p style="font-size: 13px; color: #1e293b; margin: 0 0 6px 0; font-weight: 500;">"${commentContent}"</p>
+                                <a href="${postUrl}" target="_blank" style="font-size: 11px; color: #3b82f6; text-decoration: none; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    <i class="fas fa-external-link-alt" style="margin-right: 4px;"></i>${postName || 'Xem bài viết'}
+                                </a>
+                            </div>
+                        </div>`;
+                }
+                // Video attachment
+                else if ((att.type === 'video_inline' || att.type === 'video_direct_response' || att.type === 'video') && att.url) {
+                    content += `
+                        <div class="chat-video-attachment" style="margin-top: 8px;">
+                            <img src="${att.url}" style="max-width: 100%; border-radius: 8px; cursor: pointer;" onclick="window.open('${att.url}', '_blank')" loading="lazy" />
+                        </div>`;
+                }
             });
         }
 
@@ -8502,6 +8592,7 @@ function renderChatMessages(messages, scrollToBottom = false) {
                 <div style="flex: 1; ${isOwner ? 'display: flex; justify-content: flex-end;' : ''}">
                     <div class="chat-bubble ${bgClass}">
                         ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
+                        ${isOwner && adminName ? `<p style="font-size: 10px; font-weight: 500; color: #9ca3af; margin: 0 0 4px 0; text-align: right;"><i class="fas fa-user-tie" style="margin-right: 4px; font-size: 9px;"></i>${adminName}</p>` : ''}
                         ${content}
                         <p class="chat-message-time">
                             ${formatTime(msg.inserted_at || msg.CreatedTime)}
