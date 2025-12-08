@@ -522,7 +522,8 @@ async function processDebtUpdate(db, content, transactionId) {
         'SELECT unique_code FROM balance_customer_info WHERE customer_phone = $1',
         [phone]
     );
-    const allQrCodes = allQrCodesResult.rows.map(r => r.unique_code);
+    // 🆕 Uppercase all QR codes for consistent matching
+    const allQrCodes = allQrCodesResult.rows.map(r => (r.unique_code || '').toUpperCase());
 
     if (allQrCodes.length === 0) {
         console.log('[DEBT-UPDATE] No QR codes found for phone:', phone);
@@ -532,17 +533,22 @@ async function processDebtUpdate(db, content, transactionId) {
     console.log('[DEBT-UPDATE] All QR codes for phone:', allQrCodes);
 
     // 4. Find all UNPROCESSED transactions (debt_added = FALSE or NULL) with these QR codes
+    // 🆕 Use case-insensitive regex and UPPER() for consistent matching
     const placeholders = allQrCodes.map((_, i) => `$${i + 1}`).join(', ');
     const unprocessedQuery = `
-        SELECT id, transfer_amount, content
+        SELECT id, transfer_amount, content,
+               UPPER((regexp_match(content, 'N2[A-Za-z0-9]{16}', 'i'))[1]) as matched_qr
         FROM balance_history
         WHERE transfer_type = 'in'
           AND (debt_added IS NULL OR debt_added = FALSE)
-          AND (regexp_match(content, 'N2[A-Z0-9]{16}'))[1] IN (${placeholders})
+          AND UPPER((regexp_match(content, 'N2[A-Za-z0-9]{16}', 'i'))[1]) IN (${placeholders})
     `;
 
+    console.log('[DEBT-UPDATE] Query params:', allQrCodes);
     const unprocessedResult = await db.query(unprocessedQuery, allQrCodes);
     const unprocessedTransactions = unprocessedResult.rows;
+
+    console.log('[DEBT-UPDATE] Found unprocessed transactions:', unprocessedTransactions.length);
 
     if (unprocessedTransactions.length === 0) {
         console.log('[DEBT-UPDATE] No unprocessed transactions found');
@@ -827,7 +833,7 @@ router.get('/transactions-by-phone', async (req, res) => {
                 bci.customer_phone
             FROM balance_history bh
             INNER JOIN balance_customer_info bci
-                ON bci.unique_code = (regexp_match(bh.content, 'N2[A-Z0-9]{16}'))[1]
+                ON UPPER(bci.unique_code) = UPPER((regexp_match(bh.content, 'N2[A-Za-z0-9]{16}', 'i'))[1])
             WHERE bci.customer_phone = $1
             ORDER BY bh.transaction_date DESC
             LIMIT $2
@@ -923,13 +929,15 @@ router.get('/debt-summary', async (req, res) => {
             WHERE customer_phone = $1
         `;
         const qrCodesResult = await db.query(qrCodesQuery, [phone]);
-        const qrCodes = qrCodesResult.rows.map(r => r.unique_code);
+        // 🆕 Uppercase all QR codes for consistent matching
+        const qrCodes = qrCodesResult.rows.map(r => (r.unique_code || '').toUpperCase());
 
         // 3. Lấy danh sách GD đã được cộng vào nợ (debt_added = TRUE)
         let transactions = [];
 
         if (qrCodes.length > 0) {
             // Build query to find transactions with these QR codes
+            // 🆕 Use case-insensitive regex and UPPER() for consistent matching
             const placeholders = qrCodes.map((_, i) => `$${i + 1}`).join(', ');
             const transactionsQuery = `
                 SELECT
@@ -942,11 +950,11 @@ router.get('/debt-summary', async (req, res) => {
                     bh.transfer_amount,
                     bh.debt_added,
                     bh.created_at,
-                    (regexp_match(bh.content, 'N2[A-Z0-9]{16}'))[1] as qr_code
+                    UPPER((regexp_match(bh.content, 'N2[A-Za-z0-9]{16}', 'i'))[1]) as qr_code
                 FROM balance_history bh
                 WHERE bh.transfer_type = 'in'
                   AND bh.debt_added = TRUE
-                  AND (regexp_match(bh.content, 'N2[A-Z0-9]{16}'))[1] IN (${placeholders})
+                  AND UPPER((regexp_match(bh.content, 'N2[A-Za-z0-9]{16}', 'i'))[1]) IN (${placeholders})
                 ORDER BY bh.transaction_date DESC
                 LIMIT 100
             `;
@@ -1029,7 +1037,8 @@ router.post('/reprocess-debt', async (req, res) => {
             'SELECT unique_code FROM balance_customer_info WHERE customer_phone = $1',
             [phone]
         );
-        const qrCodes = qrCodesResult.rows.map(r => r.unique_code);
+        // 🆕 Uppercase all QR codes for consistent matching
+        const qrCodes = qrCodesResult.rows.map(r => (r.unique_code || '').toUpperCase());
 
         if (qrCodes.length === 0) {
             return res.status(404).json({
@@ -1041,12 +1050,13 @@ router.post('/reprocess-debt', async (req, res) => {
         console.log('[REPROCESS-DEBT] Found QR codes:', qrCodes);
 
         // 2. Reset tất cả GD có mã QR này về debt_added = FALSE
+        // 🆕 Use case-insensitive regex and UPPER() for consistent matching
         const placeholders = qrCodes.map((_, i) => `$${i + 1}`).join(', ');
         const resetQuery = `
             UPDATE balance_history
             SET debt_added = FALSE
             WHERE transfer_type = 'in'
-              AND (regexp_match(content, 'N2[A-Z0-9]{16}'))[1] IN (${placeholders})
+              AND UPPER((regexp_match(content, 'N2[A-Za-z0-9]{16}', 'i'))[1]) IN (${placeholders})
             RETURNING id
         `;
         const resetResult = await db.query(resetQuery, qrCodes);
@@ -1055,6 +1065,7 @@ router.post('/reprocess-debt', async (req, res) => {
         console.log('[REPROCESS-DEBT] Reset', resetCount, 'transactions to debt_added=FALSE');
 
         // 3. Tính tổng từ tất cả GD tiền vào có mã QR này
+        // 🆕 Use case-insensitive regex and UPPER() for consistent matching
         const sumQuery = `
             SELECT
                 COALESCE(SUM(transfer_amount), 0) as total,
@@ -1062,7 +1073,7 @@ router.post('/reprocess-debt', async (req, res) => {
                 array_agg(id) as ids
             FROM balance_history
             WHERE transfer_type = 'in'
-              AND (regexp_match(content, 'N2[A-Z0-9]{16}'))[1] IN (${placeholders})
+              AND UPPER((regexp_match(content, 'N2[A-Za-z0-9]{16}', 'i'))[1]) IN (${placeholders})
         `;
         const sumResult = await db.query(sumQuery, qrCodes);
         const totalDebt = parseInt(sumResult.rows[0].total) || 0;
