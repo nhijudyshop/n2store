@@ -295,7 +295,10 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
     const sortedComments = comments.slice().reverse();
 
     const commentsHTML = sortedComments.map(comment => {
-        const isOwner = comment.IsOwner;
+        // Determine isOwner by comparing from.id with page_id (Pancake API format)
+        const pageId = commentModalChannelId || comment.page_id || comment.PostId?.split('_')[0] || null;
+        const fromId = comment.from?.id || comment.FromId || null;
+        const isOwner = comment.IsOwner !== undefined ? comment.IsOwner : (fromId === pageId);
         const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
         const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
@@ -305,8 +308,6 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
         const purchaseBadge = isPurchase ? '<span class="purchase-badge"><i class="fas fa-shopping-cart"></i> Bình luận đặt hàng</span>' : '';
 
         // Get avatar URL - prioritize direct URL from Pancake API
-        const fromId = comment.from?.id || comment.FromId || null;
-        const pageId = commentModalChannelId || comment.PostId?.split('_')[0] || null;
         const cachedToken = window.pancakeTokenManager?.token || null;
         // Check for direct avatar URL from Pancake (avatar, picture, profile_picture fields)
         const directAvatar = comment.from?.avatar || comment.from?.picture || comment.from?.profile_picture || comment.avatar || null;
@@ -317,18 +318,15 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
         // Debug: log first comment to see structure
         if (sortedComments.indexOf(comment) === 0) {
             console.log('[COMMENT MODAL] First comment object:', comment);
-            console.log('[COMMENT MODAL] from:', comment.from, 'fromId:', fromId, 'avatarUrl:', avatarUrl);
+            console.log('[COMMENT MODAL] from:', comment.from, 'fromId:', fromId, 'isOwner:', isOwner);
         }
 
-        // Get message text - prioritize Pancake API format (lowercase 'message')
-        let messageText = comment.message || comment.Message || '';
+        // Get message text - prioritize original_message (plain text from Pancake API)
+        let messageText = comment.original_message || comment.message || comment.Message || '';
 
-        // Clean up message - remove JSON metadata if accidentally included
-        if (messageText && typeof messageText === 'string') {
-            // Remove JSON-like content that starts with ,"field": or {"field":
-            messageText = messageText.replace(/[,{]"[a-z_]+"\s*:\s*[\[{"].*$/gi, '').trim();
-            // Remove trailing JSON artifacts
-            messageText = messageText.replace(/"\s*[,}]\s*$/g, '').trim();
+        // If message is HTML (from Pancake's "message" field), strip HTML tags
+        if (messageText && messageText.includes('<div>')) {
+            messageText = messageText.replace(/<[^>]*>/g, '').trim();
         }
 
         let content = '';
@@ -338,7 +336,8 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
-                .replace(/\n/g, '<br>');
+                .replace(/\n/g, '<br>')
+                .replace(/\r/g, '');
             content = `<p class="chat-message-text">${escapedMessage}</p>`;
         }
 
@@ -403,7 +402,7 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
                             <div class="chat-bubble ${replyBgClass}" style="font-size: 13px;">
                                 ${!replyIsOwner && replySenderName ? `<p style="font-size: 10px; font-weight: 600; color: #6b7280; margin: 0 0 2px 0;">${replySenderName}</p>` : ''}
                                 ${replyContent}
-                                <p class="chat-message-time">${formatTime(reply.CreatedTime)}</p>
+                                <p class="chat-message-time">${formatTime(reply.inserted_at || reply.CreatedTime)}</p>
                             </div>
                         </div>
                     </div>`;
@@ -431,7 +430,7 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
                         ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
                         ${content}
                         <p class="chat-message-time">
-                            ${formatTime(comment.CreatedTime)} ${statusBadge}
+                            ${formatTime(comment.inserted_at || comment.CreatedTime)} ${statusBadge}
                             ${!isOwner ? `<span class="comment-reply-btn" onclick="handleCommentModalReply('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
                         </p>
                     </div>
