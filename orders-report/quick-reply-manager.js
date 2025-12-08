@@ -878,6 +878,8 @@ class QuickReplyManager {
                 imageFormData.append('action', 'reply_inbox');
                 imageFormData.append('message', ''); // Empty message, just image
                 imageFormData.append('content_urls', JSON.stringify([imageUrl]));
+                imageFormData.append('content_ids', JSON.stringify(['']));
+                imageFormData.append('dimensions', JSON.stringify([{width: 0, height: 0}]));
 
                 const imageResponse = await API_CONFIG.smartFetch(apiUrl, {
                     method: 'POST',
@@ -886,12 +888,20 @@ class QuickReplyManager {
 
                 if (!imageResponse.ok) {
                     const errorText = await imageResponse.text();
-                    console.error('[QUICK-REPLY] ❌ Image send failed:', errorText);
-                    return { success: false, error: 'Gửi hình ảnh thất bại' };
+                    console.error('[QUICK-REPLY] ❌ Image send HTTP failed:', errorText);
+                    return { success: false, error: 'Gửi hình ảnh thất bại (HTTP)' };
                 }
 
                 const imageResult = await imageResponse.json();
-                console.log('[QUICK-REPLY] ✅ Image sent:', imageResult);
+                console.log('[QUICK-REPLY] Image API response:', imageResult);
+
+                // Check API success field
+                if (!imageResult.success) {
+                    console.error('[QUICK-REPLY] ❌ Image send API failed:', imageResult.message || imageResult.error);
+                    return { success: false, error: imageResult.message || 'Gửi hình ảnh thất bại (API)' };
+                }
+
+                console.log('[QUICK-REPLY] ✅ Image sent successfully');
                 return { success: true, data: imageResult };
             };
 
@@ -912,12 +922,20 @@ class QuickReplyManager {
 
                 if (!textResponse.ok) {
                     const errorText = await textResponse.text();
-                    console.error('[QUICK-REPLY] ❌ Text send failed:', errorText);
-                    return { success: false, error: 'Gửi tin nhắn thất bại' };
+                    console.error('[QUICK-REPLY] ❌ Text send HTTP failed:', errorText);
+                    return { success: false, error: 'Gửi tin nhắn thất bại (HTTP)' };
                 }
 
                 const textResult = await textResponse.json();
-                console.log('[QUICK-REPLY] ✅ Text sent:', textResult);
+                console.log('[QUICK-REPLY] Text API response:', textResult);
+
+                // Check API success field
+                if (!textResult.success) {
+                    console.error('[QUICK-REPLY] ❌ Text send API failed:', textResult.message || textResult.error);
+                    return { success: false, error: textResult.message || 'Gửi tin nhắn thất bại (API)' };
+                }
+
+                console.log('[QUICK-REPLY] ✅ Text sent successfully');
                 return { success: true, data: textResult };
             };
 
