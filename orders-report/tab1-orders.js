@@ -8467,20 +8467,14 @@ function renderChatMessages(messages, scrollToBottom = false) {
             });
         }
 
-        // Get message ID for reply
+        // Reply button for customer messages
         const messageId = msg.id || msg.Id || null;
-        const messageJSON = JSON.stringify(msg).replace(/"/g, '&quot;');
-
-        // Add reply button for customer messages (not owner)
         const replyButton = !isOwner && messageId ? `
-            <button onclick='window.setReplyMessage(JSON.parse(this.getAttribute("data-message")))'
-                    data-message='${messageJSON}'
-                    class="chat-message-reply-btn"
-                    style="position: absolute; top: 4px; right: 4px; background: rgba(255, 255, 255, 0.9); border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: none; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.2s;"
-                    onmouseover="this.style.background='white'; this.style.transform='scale(1.1)';"
-                    onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.transform='scale(1)';">
-                <i class="fas fa-reply" style="font-size: 11px; color: #6b7280;"></i>
-            </button>
+            <span class="message-reply-btn"
+                  onclick='window.setReplyMessage(${JSON.stringify(msg).replace(/'/g, "\\'")})'
+                  style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">
+                Trả lời
+            </span>
         ` : '';
 
         // Avatar HTML - only show for customer messages (not owner)
@@ -8496,14 +8490,16 @@ function renderChatMessages(messages, scrollToBottom = false) {
         ` : '';
 
         return `
-            <div class="chat-message ${alignClass}" style="display: flex; align-items: flex-start;" onmouseenter="this.querySelector('.chat-message-reply-btn')?.style.setProperty('display', 'flex')" onmouseleave="this.querySelector('.chat-message-reply-btn')?.style.setProperty('display', 'none')">
+            <div class="chat-message ${alignClass}" style="display: flex; align-items: flex-start;">
                 ${!isOwner ? avatarHTML : ''}
                 <div style="flex: 1; ${isOwner ? 'display: flex; justify-content: flex-end;' : ''}">
-                    <div class="chat-bubble ${bgClass}" style="position: relative;">
+                    <div class="chat-bubble ${bgClass}">
                         ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
                         ${content}
-                        <p class="chat-message-time">${formatTime(msg.inserted_at || msg.CreatedTime)}</p>
-                        ${replyButton}
+                        <p class="chat-message-time">
+                            ${formatTime(msg.inserted_at || msg.CreatedTime)}
+                            ${replyButton}
+                        </p>
                     </div>
                 </div>
             </div>`;
