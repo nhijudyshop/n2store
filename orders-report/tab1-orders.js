@@ -1,6 +1,65 @@
 // =====================================================
 // GLOBAL VARIABLES
-// =====================================================// Global variables
+// =====================================================
+
+/**
+ * Format time to Vietnam timezone (GMT+7) with relative display
+ * @param {string|Date} dateInput - Date string or Date object (UTC or any timezone)
+ * @param {boolean} showFullDate - If true, always show full date instead of relative time
+ * @returns {string} Formatted time string in Vietnamese
+ */
+window.formatTimeVN = function (dateInput, showFullDate = false) {
+    if (!dateInput) return '';
+
+    // Parse input date
+    let date;
+    if (typeof dateInput === 'string') {
+        // Handle ISO string without timezone (assume UTC)
+        if (!dateInput.includes('Z') && !dateInput.includes('+') && !dateInput.includes('-', 10)) {
+            date = new Date(dateInput + 'Z');
+        } else {
+            date = new Date(dateInput);
+        }
+    } else {
+        date = new Date(dateInput);
+    }
+
+    if (isNaN(date.getTime())) return '';
+
+    // Vietnam timezone offset: UTC+7
+    const vnOffset = 7 * 60 * 60 * 1000; // 7 hours in milliseconds
+    const vnDate = new Date(date.getTime() + vnOffset);
+
+    // Current time in Vietnam
+    const nowVN = new Date(Date.now() + vnOffset);
+
+    // Calculate difference
+    const diffMs = nowVN - vnDate;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    // Show relative time if not showFullDate and within 7 days
+    if (!showFullDate) {
+        if (diffMins < 0) return 'Vừa xong'; // Future time (clock sync issue)
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffDays < 7) return `${diffDays} ngày trước`;
+    }
+
+    // Format full date in Vietnam timezone
+    // Format: dd/MM/yyyy HH:mm
+    const day = String(vnDate.getUTCDate()).padStart(2, '0');
+    const month = String(vnDate.getUTCMonth() + 1).padStart(2, '0');
+    const year = vnDate.getUTCFullYear();
+    const hours = String(vnDate.getUTCHours()).padStart(2, '0');
+    const minutes = String(vnDate.getUTCMinutes()).padStart(2, '0');
+
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+};
+
+// Global variables
 let allData = [];
 let filteredData = [];
 let displayedData = [];
@@ -8437,21 +8496,8 @@ function renderChatMessages(messages, scrollToBottom = false) {
         return;
     }
 
-    // Format time helper
-    const formatTime = (dateString) => {
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return 'Vừa xong';
-        if (diffMins < 60) return `${diffMins} phút trước`;
-        if (diffHours < 24) return `${diffHours} giờ trước`;
-        if (diffDays < 7) return `${diffDays} ngày trước`;
-        return date.toLocaleDateString('vi-VN');
-    };
+    // Format time helper - use global formatTimeVN
+    const formatTime = window.formatTimeVN;
 
     // Reverse messages to show oldest first
     const sortedMessages = messages.slice().reverse();
@@ -8685,21 +8731,8 @@ function renderComments(comments, scrollToBottom = false) {
         return;
     }
 
-    // Format time helper
-    const formatTime = (dateString) => {
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return 'Vừa xong';
-        if (diffMins < 60) return `${diffMins} phút trước`;
-        if (diffHours < 24) return `${diffHours} giờ trước`;
-        if (diffDays < 7) return `${diffDays} ngày trước`;
-        return date.toLocaleDateString('vi-VN');
-    };
+    // Format time helper - use global formatTimeVN
+    const formatTime = window.formatTimeVN;
 
     // Reverse comments to show oldest first
     const sortedComments = comments.slice().reverse();
@@ -9999,19 +10032,8 @@ function createMessageElement(msg, chatType = 'message') {
         });
     }
 
-    // Format time
-    const formatTime = (dateString) => {
-        const date = new Date(dateString);
-        const diffMs = Date.now() - date;
-        const diffMins = Math.floor(diffMs / 60000);
-        if (diffMins < 1) return 'Vừa xong';
-        if (diffMins < 60) return `${diffMins} phút trước`;
-        const diffHours = Math.floor(diffMs / 3600000);
-        if (diffHours < 24) return `${diffHours} giờ trước`;
-        const diffDays = Math.floor(diffMs / 86400000);
-        if (diffDays < 7) return `${diffDays} ngày trước`;
-        return date.toLocaleDateString('vi-VN');
-    };
+    // Format time - use global formatTimeVN
+    const formatTime = window.formatTimeVN;
 
     const timeStr = formatTime(msg.CreatedTime || msg.created_at);
 
