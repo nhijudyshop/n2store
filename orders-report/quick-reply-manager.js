@@ -700,9 +700,9 @@ class QuickReplyManager {
             console.log('[QUICK-REPLY] 🚀 Auto-sending /CAMON quick reply');
             this.hideAutocomplete();
 
-            // Clear input (remove the /CAMON text)
-            const textAfterCursor = value.substring(cursorPos);
-            input.value = value.substring(0, lastSlashIndex) + textAfterCursor;
+            // Clear the entire input field
+            input.value = '';
+            input.style.height = 'auto';
 
             // Send the hardcoded image and message directly
             const camonImageUrl = 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg';
@@ -823,13 +823,9 @@ class QuickReplyManager {
             console.log('[QUICK-REPLY] 🖼️ Reply has imageUrl, sending image first then text');
             this.hideAutocomplete();
 
-            // Clear the input (remove the /COMMAND text)
-            const value = input.value;
-            const cursorPos = input.selectionStart;
-            const textBeforeCursor = value.substring(0, cursorPos);
-            const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
-            const textAfterCursor = value.substring(cursorPos);
-            input.value = value.substring(0, lastSlashIndex) + textAfterCursor;
+            // Clear the entire input field
+            input.value = '';
+            input.style.height = 'auto';
 
             // Send image first, then text
             this.sendQuickReplyWithImage(reply.imageUrl, reply.message);
