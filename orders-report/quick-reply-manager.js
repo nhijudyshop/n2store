@@ -320,7 +320,8 @@ class QuickReplyManager {
                 shortcut: 'CÁMƠN',
                 topic: 'C.ƠN KH',
                 topicColor: '#cec40c',
-                message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️'
+                message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️',
+                imageUrl: 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65093.jpg'
             },
             {
                 id: 3,
@@ -527,6 +528,14 @@ class QuickReplyManager {
         }
 
         console.log('[QUICK-REPLY] ✅ Selected reply:', reply.shortcut || reply.id);
+
+        // Check if this reply has an imageUrl - send image first, then text
+        if (reply.imageUrl) {
+            console.log('[QUICK-REPLY] 🖼️ Reply has imageUrl, sending image first then text');
+            this.closeModal();
+            this.sendQuickReplyWithImage(reply.imageUrl, reply.message);
+            return;
+        }
 
         this.insertToInput(reply.message);
     }
@@ -739,6 +748,24 @@ class QuickReplyManager {
         const input = document.getElementById('chatReplyInput');
         if (!input) return;
 
+        // Check if this reply has an imageUrl - send image first, then text
+        if (reply.imageUrl) {
+            console.log('[QUICK-REPLY] 🖼️ Reply has imageUrl, sending image first then text');
+            this.hideAutocomplete();
+
+            // Clear the input (remove the /COMMAND text)
+            const value = input.value;
+            const cursorPos = input.selectionStart;
+            const textBeforeCursor = value.substring(0, cursorPos);
+            const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
+            const textAfterCursor = value.substring(cursorPos);
+            input.value = value.substring(0, lastSlashIndex) + textAfterCursor;
+
+            // Send image first, then text
+            this.sendQuickReplyWithImage(reply.imageUrl, reply.message);
+            return;
+        }
+
         const value = input.value;
         const cursorPos = input.selectionStart;
         const textBeforeCursor = value.substring(0, cursorPos);
@@ -759,6 +786,134 @@ class QuickReplyManager {
         input.focus();
 
         console.log('[QUICK-REPLY] ✅ Applied autocomplete:', reply.shortcut);
+    }
+
+    /**
+     * Send quick reply with image - sends image first, then text message
+     * @param {string} imageUrl - URL of the image to send
+     * @param {string} message - Text message to send after the image
+     */
+    async sendQuickReplyWithImage(imageUrl, message) {
+        console.log('[QUICK-REPLY] 🚀 Sending quick reply with image');
+        console.log('[QUICK-REPLY] Image URL:', imageUrl);
+        console.log('[QUICK-REPLY] Message:', message);
+
+        // Check if we have the required info
+        if (!window.currentConversationId || !window.currentChatChannelId) {
+            console.error('[QUICK-REPLY] ❌ Missing conversation info');
+            if (window.notificationManager) {
+                window.notificationManager.error('Không thể gửi: Thiếu thông tin cuộc hội thoại');
+            }
+            return;
+        }
+
+        try {
+            // Get Pancake token
+            const token = await window.pancakeTokenManager.getToken();
+            if (!token) {
+                throw new Error('Không tìm thấy Pancake token');
+            }
+
+            const channelId = window.currentSendPageId || window.currentChatChannelId;
+            const conversationId = window.currentConversationId;
+            const customerId = window.currentCustomerUUID;
+
+            // Show loading indicator
+            if (window.notificationManager) {
+                window.notificationManager.info('Đang gửi hình ảnh...', 3000);
+            }
+
+            // Step 1: Send the IMAGE first
+            console.log('[QUICK-REPLY] 📤 Sending image...');
+            const imageFormData = new FormData();
+            imageFormData.append('action', 'reply_inbox');
+            imageFormData.append('message', ''); // Empty message, just image
+            imageFormData.append('content_urls', JSON.stringify([imageUrl]));
+
+            let queryParams = `access_token=${token}`;
+            if (customerId) {
+                queryParams += `&customer_id=${customerId}`;
+            }
+
+            const apiUrl = window.API_CONFIG.buildUrl.pancake(
+                `pages/${channelId}/conversations/${conversationId}/messages`,
+                queryParams
+            );
+
+            const imageResponse = await API_CONFIG.smartFetch(apiUrl, {
+                method: 'POST',
+                body: imageFormData
+            });
+
+            if (!imageResponse.ok) {
+                const errorText = await imageResponse.text();
+                console.error('[QUICK-REPLY] ❌ Image send failed:', errorText);
+                throw new Error('Gửi hình ảnh thất bại');
+            }
+
+            const imageResult = await imageResponse.json();
+            console.log('[QUICK-REPLY] ✅ Image sent:', imageResult);
+
+            // Step 2: Wait a moment then send the TEXT message
+            console.log('[QUICK-REPLY] ⏳ Waiting before sending text...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Add employee signature
+            let finalMessage = message;
+            const auth = window.authManager ? window.authManager.getAuthState() : null;
+            const displayName = auth && auth.displayName ? auth.displayName : null;
+            if (displayName) {
+                finalMessage = message + '\nNv. ' + displayName;
+            }
+
+            console.log('[QUICK-REPLY] 📤 Sending text message...');
+            const textFormData = new FormData();
+            textFormData.append('action', 'reply_inbox');
+            textFormData.append('message', finalMessage);
+
+            const textResponse = await API_CONFIG.smartFetch(apiUrl, {
+                method: 'POST',
+                body: textFormData
+            });
+
+            if (!textResponse.ok) {
+                const errorText = await textResponse.text();
+                console.error('[QUICK-REPLY] ❌ Text send failed:', errorText);
+                throw new Error('Gửi tin nhắn thất bại');
+            }
+
+            const textResult = await textResponse.json();
+            console.log('[QUICK-REPLY] ✅ Text sent:', textResult);
+
+            // Success notification
+            if (window.notificationManager) {
+                window.notificationManager.success('Đã gửi tin nhắn cảm ơn!', 3000);
+            }
+
+            // Refresh messages in UI
+            setTimeout(async () => {
+                try {
+                    if (window.currentChatPSID && window.chatDataManager) {
+                        const response = await window.chatDataManager.fetchMessages(channelId, window.currentChatPSID);
+                        if (response.messages && response.messages.length > 0) {
+                            window.allChatMessages = response.messages;
+                            if (window.renderChatMessages) {
+                                window.renderChatMessages(window.allChatMessages, false);
+                            }
+                            console.log('[QUICK-REPLY] ✅ Messages refreshed');
+                        }
+                    }
+                } catch (refreshError) {
+                    console.warn('[QUICK-REPLY] ⚠️ Failed to refresh messages:', refreshError);
+                }
+            }, 300);
+
+        } catch (error) {
+            console.error('[QUICK-REPLY] ❌ Error:', error);
+            if (window.notificationManager) {
+                window.notificationManager.error('Lỗi: ' + error.message);
+            }
+        }
     }
 
     hideAutocomplete() {
