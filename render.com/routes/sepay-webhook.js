@@ -499,8 +499,9 @@ async function processDebtUpdate(db, content, transactionId) {
     console.log('[DEBT-UPDATE] Found QR code:', qrCode);
 
     // 2. Find phone number associated with this QR code
+    // 🆕 Use UPPER() for case-insensitive matching
     const customerInfoResult = await db.query(
-        'SELECT customer_phone FROM balance_customer_info WHERE unique_code = $1',
+        'SELECT customer_phone FROM balance_customer_info WHERE UPPER(unique_code) = $1',
         [qrCode]
     );
 
