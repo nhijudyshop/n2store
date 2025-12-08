@@ -320,12 +320,17 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
         let content = '';
         if (messageText) {
             // Escape HTML to prevent XSS and display issues
-            const escapedMessage = messageText
+            let escapedMessage = messageText
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/\n/g, '<br>')
                 .replace(/\r/g, '');
+
+            // Convert URLs to clickable links
+            const urlRegex = /(https?:\/\/[^\s<]+)/g;
+            escapedMessage = escapedMessage.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">$1</a>');
+
             content = `<p class="chat-message-text">${escapedMessage}</p>`;
         }
 
