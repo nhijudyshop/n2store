@@ -8400,11 +8400,13 @@ function renderChatMessages(messages, scrollToBottom = false) {
         const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
         const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
-        // Get avatar URL for customer messages with pageId and token for Pancake lookup
+        // Get avatar URL - prioritize direct URL from Pancake API
         const fromId = msg.from?.id || msg.FromId || null;
         const pageId = window.currentChatChannelId || msg.page_id || null;
         const cachedToken = window.pancakeTokenManager?.token || null;
-        const avatarUrl = window.pancakeDataManager?.getAvatarUrl(fromId, pageId, cachedToken) ||
+        // Check for direct avatar URL from Pancake (avatar, picture, profile_picture fields)
+        const directAvatar = msg.from?.avatar || msg.from?.picture || msg.from?.profile_picture || msg.avatar || null;
+        const avatarUrl = window.pancakeDataManager?.getAvatarUrl(fromId, pageId, cachedToken, directAvatar) ||
             'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
         const senderName = msg.from?.name || msg.FromName || '';
 

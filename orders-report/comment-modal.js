@@ -304,11 +304,13 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
         const purchaseHighlightClass = isPurchase ? 'purchase-comment-highlight' : '';
         const purchaseBadge = isPurchase ? '<span class="purchase-badge"><i class="fas fa-shopping-cart"></i> Bình luận đặt hàng</span>' : '';
 
-        // Get avatar URL with pageId and token for Pancake Avatar API lookup
+        // Get avatar URL - prioritize direct URL from Pancake API
         const fromId = comment.from?.id || comment.FromId || null;
         const pageId = commentModalChannelId || comment.PostId?.split('_')[0] || null;
         const cachedToken = window.pancakeTokenManager?.token || null;
-        const avatarUrl = window.pancakeDataManager?.getAvatarUrl(fromId, pageId, cachedToken) ||
+        // Check for direct avatar URL from Pancake (avatar, picture, profile_picture fields)
+        const directAvatar = comment.from?.avatar || comment.from?.picture || comment.from?.profile_picture || comment.avatar || null;
+        const avatarUrl = window.pancakeDataManager?.getAvatarUrl(fromId, pageId, cachedToken, directAvatar) ||
             'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
         const senderName = comment.from?.name || comment.FromName || '';
 
@@ -353,9 +355,10 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
                 const replyAlignClass = replyIsOwner ? 'chat-message-right' : 'chat-message-left';
                 const replyBgClass = replyIsOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
-                // Get avatar for reply
+                // Get avatar for reply - prioritize direct URL from Pancake API
                 const replyFromId = reply.from?.id || reply.FromId || null;
-                const replyAvatarUrl = window.pancakeDataManager?.getAvatarUrl(replyFromId, pageId, cachedToken) ||
+                const replyDirectAvatar = reply.from?.avatar || reply.from?.picture || reply.from?.profile_picture || reply.avatar || null;
+                const replyAvatarUrl = window.pancakeDataManager?.getAvatarUrl(replyFromId, pageId, cachedToken, replyDirectAvatar) ||
                     'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
                 const replySenderName = reply.from?.name || reply.FromName || '';
 
