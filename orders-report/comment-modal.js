@@ -320,9 +320,26 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
             console.log('[COMMENT MODAL] from:', comment.from, 'fromId:', fromId, 'avatarUrl:', avatarUrl);
         }
 
+        // Get message text - prioritize Pancake API format (lowercase 'message')
+        let messageText = comment.message || comment.Message || '';
+
+        // Clean up message - remove JSON metadata if accidentally included
+        if (messageText && typeof messageText === 'string') {
+            // Remove JSON-like content that starts with ,"field": or {"field":
+            messageText = messageText.replace(/[,{]"[a-z_]+"\s*:\s*[\[{"].*$/gi, '').trim();
+            // Remove trailing JSON artifacts
+            messageText = messageText.replace(/"\s*[,}]\s*$/g, '').trim();
+        }
+
         let content = '';
-        if (comment.Message) {
-            content = `<p class="chat-message-text">${comment.Message}</p>`;
+        if (messageText) {
+            // Escape HTML to prevent XSS and display issues
+            const escapedMessage = messageText
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
+            content = `<p class="chat-message-text">${escapedMessage}</p>`;
         }
 
         // Handle attachments
@@ -399,7 +416,7 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
                  alt="${senderName}"
                  title="${senderName}"
                  class="avatar-loading"
-                 style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 8px; border: 2px solid #e5e7eb; background: #f3f4f6;"
+                 style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 10px; border: 2px solid #e5e7eb; background: #f3f4f6;"
                  onload="this.classList.remove('avatar-loading')"
                  onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%227%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2232%22 rx=%2211%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'"
             />
