@@ -7670,9 +7670,14 @@ window.sendMessage = async function () {
             }
         }
 
-        // Validate
+        // Validate - skip if quick reply is sending
         const hasImages = (window.uploadedImagesData && window.uploadedImagesData.length > 0);
         if (!message && !hasImages) {
+            // Don't show alert if quick reply is currently sending
+            if (window.isQuickReplySending) {
+                console.log('[MESSAGE] Skipping validation - quick reply is sending');
+                return;
+            }
             alert('Vui lòng nhập tin nhắn hoặc dán ảnh!');
             return;
         }
@@ -7765,9 +7770,14 @@ window.sendComment = async function () {
             }
         }
 
-        // Validate
+        // Validate - skip if quick reply is sending
         const hasImages = (window.uploadedImagesData && window.uploadedImagesData.length > 0);
         if (!message && !hasImages) {
+            // Don't show alert if quick reply is currently sending
+            if (window.isQuickReplySending) {
+                console.log('[COMMENT] Skipping validation - quick reply is sending');
+                return;
+            }
             alert('Vui lòng nhập bình luận hoặc dán ảnh!');
             return;
         }

@@ -868,12 +868,16 @@ class QuickReplyManager {
         console.log('[QUICK-REPLY] Image URL:', imageUrl);
         console.log('[QUICK-REPLY] Message:', message);
 
+        // Set flag to prevent duplicate send validation alert
+        window.isQuickReplySending = true;
+
         // Check if we have the required info
         if (!window.currentConversationId || !window.currentChatChannelId) {
             console.error('[QUICK-REPLY] ❌ Missing conversation info');
             if (window.notificationManager) {
                 window.notificationManager.error('Không thể gửi: Thiếu thông tin cuộc hội thoại');
             }
+            window.isQuickReplySending = false;
             return;
         }
 
@@ -1043,6 +1047,11 @@ class QuickReplyManager {
             if (window.notificationManager) {
                 window.notificationManager.error('Lỗi: ' + error.message);
             }
+        } finally {
+            // Clear flag after sending completes (with delay to prevent race condition)
+            setTimeout(() => {
+                window.isQuickReplySending = false;
+            }, 500);
         }
     }
 
