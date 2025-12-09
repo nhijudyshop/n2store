@@ -154,10 +154,16 @@ async function searchFullAddress(address) {
 // Original VNHub API call (tienich.vnhub.com)
 async function searchFullAddressVnhub(address) {
     const targetUrl = 'https://tienich.vnhub.com/api/wards';
+    // Headers exactly matching the working browser request
     const customHeaders = {
         "accept": "application/json, text/plain, */*",
+        "accept-language": "en-US,en;q=0.9,vi;q=0.8",
         "content-type": "application/json",
-        "Referer": "https://tienich.vnhub.com/chuyen-doi-dia-chi-sau-sat-nhap-01-07-2025"
+        "Origin": "https://tienich.vnhub.com",
+        "Referer": "https://tienich.vnhub.com/",
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin"
     };
 
     // Construct proxy URL with custom headers
