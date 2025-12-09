@@ -11263,24 +11263,52 @@ async function getOrderDetails(orderId) {
 }
 
 /**
- * Update order products via API
- * @param {string} orderId - Order ID
- * @param {Array} productDetails - Array of product details
+ * Update order with full payload via API
+ * @param {Object} orderData - Full order data (fetched from API)
+ * @param {Array} newDetails - New Details array to set
  * @param {number} totalAmount - Total amount
  * @param {number} totalQuantity - Total quantity
  * @returns {Promise<Object>} Updated order data
  */
-async function updateOrderProducts(orderId, productDetails, totalAmount, totalQuantity) {
+async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, totalQuantity) {
     try {
         const headers = await window.tokenManager.getAuthHeader();
-        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})`;
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderData.Id})`;
 
-        // Prepare payload
-        const payload = {
-            Details: productDetails || [],
-            TotalAmount: totalAmount || 0,
-            TotalQuantity: totalQuantity || 0
-        };
+        // Clone order data and prepare payload (same approach as prepareOrderPayload)
+        const payload = JSON.parse(JSON.stringify(orderData));
+
+        // Add @odata.context (CRITICAL for PUT request)
+        if (!payload["@odata.context"]) {
+            payload["@odata.context"] = "http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity";
+        }
+
+        // Update Details with new products
+        payload.Details = (newDetails || []).map(detail => {
+            const cleaned = { ...detail };
+
+            // Remove Id if null/undefined (for new details)
+            if (!cleaned.Id || cleaned.Id === null || cleaned.Id === undefined) {
+                delete cleaned.Id;
+            }
+
+            // Ensure OrderId matches
+            cleaned.OrderId = orderData.Id;
+
+            return cleaned;
+        });
+
+        // Update totals
+        payload.TotalAmount = totalAmount || 0;
+        payload.TotalQuantity = totalQuantity || 0;
+
+        console.log(`[MERGE-API] Preparing PUT payload for order ${orderData.Id}:`, {
+            detailsCount: payload.Details.length,
+            totalAmount: payload.TotalAmount,
+            totalQuantity: payload.TotalQuantity,
+            hasContext: !!payload["@odata.context"],
+            hasRowVersion: !!payload.RowVersion
+        });
 
         const response = await API_CONFIG.smartFetch(apiUrl, {
             method: 'PUT',
@@ -11293,14 +11321,26 @@ async function updateOrderProducts(orderId, productDetails, totalAmount, totalQu
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorText = await response.text();
+            console.error(`[MERGE-API] PUT failed:`, errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
-        const data = await response.json();
-        console.log(`[MERGE-API] Updated order ${orderId} with ${productDetails.length} products`);
-        return data;
+        // Handle empty response body (PUT often returns 200 OK with no content)
+        let data = null;
+        const responseText = await response.text();
+        if (responseText && responseText.trim()) {
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseError) {
+                console.log(`[MERGE-API] Response is not JSON, treating as success`);
+            }
+        }
+
+        console.log(`[MERGE-API] ✅ Updated order ${orderData.Id} with ${newDetails.length} products`);
+        return data || { success: true, orderId: orderData.Id };
     } catch (error) {
-        console.error(`[MERGE-API] Error updating order ${orderId}:`, error);
+        console.error(`[MERGE-API] Error updating order ${orderData.Id}:`, error);
         throw error;
     }
 }
@@ -11327,34 +11367,64 @@ async function executeMergeOrderProducts(mergedOrder) {
             mergedOrder.SourceOrderIds.map(id => getOrderDetails(id))
         );
 
-        // Step 2: Collect all products
-        let allProducts = [...(targetOrderData.Details || [])];
-        let totalAmount = targetOrderData.TotalAmount || 0;
-        let totalQuantity = targetOrderData.TotalQuantity || 0;
+        // Step 2: Collect all products and merge by ProductId
+        const productMap = new Map(); // key: ProductId, value: product detail
 
+        // Add target order products first
+        (targetOrderData.Details || []).forEach(detail => {
+            const key = detail.ProductId;
+            if (productMap.has(key)) {
+                // Same product exists, merge quantity
+                const existing = productMap.get(key);
+                existing.Quantity = (existing.Quantity || 0) + (detail.Quantity || 0);
+                existing.Price = detail.Price; // Keep latest price
+            } else {
+                productMap.set(key, { ...detail });
+            }
+        });
+
+        // Add source order products
         sourceOrdersData.forEach((sourceOrder, index) => {
             const sourceProducts = sourceOrder.Details || [];
             console.log(`[MERGE-API] Source STT ${mergedOrder.SourceSTTs[index]}: ${sourceProducts.length} products`);
 
-            // Add source products to target
-            allProducts.push(...sourceProducts);
-            totalAmount += (sourceOrder.TotalAmount || 0);
-            totalQuantity += (sourceOrder.TotalQuantity || 0);
+            sourceProducts.forEach(detail => {
+                const key = detail.ProductId;
+                if (productMap.has(key)) {
+                    // Same product exists, merge quantity
+                    const existing = productMap.get(key);
+                    existing.Quantity = (existing.Quantity || 0) + (detail.Quantity || 0);
+                    console.log(`[MERGE-API] Merged duplicate ProductId ${key}: new qty = ${existing.Quantity}`);
+                } else {
+                    productMap.set(key, { ...detail });
+                }
+            });
+        });
+
+        // Convert map to array
+        const allProducts = Array.from(productMap.values());
+
+        // Calculate totals from merged products
+        let totalAmount = 0;
+        let totalQuantity = 0;
+        allProducts.forEach(p => {
+            totalAmount += (p.Price || 0) * (p.Quantity || 0);
+            totalQuantity += (p.Quantity || 0);
         });
 
         console.log(`[MERGE-API] Total products to merge: ${allProducts.length}`);
         console.log(`[MERGE-API] Total amount: ${totalAmount}, Total quantity: ${totalQuantity}`);
 
-        // Step 3: Update target order with all products
-        await updateOrderProducts(mergedOrder.TargetOrderId, allProducts, totalAmount, totalQuantity);
+        // Step 3: Update target order with all products (using full payload)
+        await updateOrderWithFullPayload(targetOrderData, allProducts, totalAmount, totalQuantity);
         console.log(`[MERGE-API] ✅ Updated target order STT ${mergedOrder.TargetSTT} with ${allProducts.length} products`);
 
-        // Step 4: Clear products from source orders
+        // Step 4: Clear products from source orders (using full payload)
         for (let i = 0; i < mergedOrder.SourceOrderIds.length; i++) {
-            const sourceId = mergedOrder.SourceOrderIds[i];
+            const sourceOrder = sourceOrdersData[i];
             const sourceSTT = mergedOrder.SourceSTTs[i];
 
-            await updateOrderProducts(sourceId, [], 0, 0);
+            await updateOrderWithFullPayload(sourceOrder, [], 0, 0);
             console.log(`[MERGE-API] ✅ Cleared products from source order STT ${sourceSTT}`);
         }
 
@@ -11387,7 +11457,9 @@ async function executeBulkMergeOrderProducts() {
         const mergedOrders = displayedData.filter(order => order.IsMerged === true);
 
         if (mergedOrders.length === 0) {
-            alert('Không có đơn hàng nào cần gộp sản phẩm.');
+            if (window.notificationManager) {
+                window.notificationManager.show('Không có đơn hàng nào cần gộp sản phẩm.', 'warning');
+            }
             return { success: false, message: 'No merged orders found' };
         }
 
@@ -11425,27 +11497,35 @@ async function executeBulkMergeOrderProducts() {
         const successCount = results.filter(r => r.result.success).length;
         const failureCount = results.length - successCount;
 
-        let summaryMsg = `✅ Hoàn tất gộp sản phẩm:\n\n`;
-        summaryMsg += `- Thành công: ${successCount}/${results.length} đơn\n`;
-        if (failureCount > 0) {
-            summaryMsg += `- Thất bại: ${failureCount} đơn\n\n`;
-            summaryMsg += `Các đơn thất bại:\n`;
-            results.filter(r => !r.result.success).forEach(r => {
-                summaryMsg += `  • SĐT ${r.order.Telephone}: ${r.result.message}\n`;
-            });
-        }
-
-        alert(summaryMsg);
-
+        // Show summary using custom notification
         if (window.notificationManager) {
-            window.notificationManager.show(
-                `Đã gộp ${successCount}/${results.length} đơn hàng`,
-                successCount === results.length ? 'success' : 'warning'
-            );
+            if (failureCount > 0) {
+                // Show detailed failure info
+                const failedPhones = results.filter(r => !r.result.success).map(r => r.order.Telephone).join(', ');
+                window.notificationManager.show(
+                    `⚠️ Gộp ${successCount}/${results.length} đơn. Thất bại: ${failedPhones}`,
+                    'warning',
+                    8000
+                );
+            } else {
+                window.notificationManager.show(
+                    `✅ Đã gộp sản phẩm thành công cho ${successCount} đơn hàng!`,
+                    'success',
+                    5000
+                );
+            }
         }
-
-        // Refresh table
-        performSearch();
+        // Refresh table - fetch fresh data from API and re-render
+        try {
+            // Reload orders data from current campaign
+            await fetchOrders();
+            // renderTable and updateStats are called inside fetchOrders flow
+        } catch (refreshError) {
+            console.warn('[MERGE-BULK] Could not auto-refresh, please reload manually:', refreshError);
+            // Fallback: just re-render with current data
+            renderTable();
+            updateStats();
+        }
 
         return {
             success: true,
@@ -11457,7 +11537,9 @@ async function executeBulkMergeOrderProducts() {
 
     } catch (error) {
         console.error('[MERGE-BULK] Error during bulk merge:', error);
-        alert('❌ Lỗi khi gộp sản phẩm: ' + error.message);
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi khi gộp sản phẩm: ' + error.message, 'error', 5000);
+        }
         return { success: false, message: error.message, error };
     }
 }
