@@ -3398,7 +3398,7 @@ function renderTable() {
     if (displayedData.length === 0) {
         const tbody = document.getElementById("tableBody");
         tbody.innerHTML =
-            '<tr><td colspan="16" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            '<tr><td colspan="17" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
 
@@ -3454,7 +3454,7 @@ function renderAllOrders() {
     if (displayedData.length > renderedCount) {
         const spacer = document.createElement('tr');
         spacer.id = 'table-spacer';
-        spacer.innerHTML = `<td colspan="16" style="text-align: center; padding: 20px; color: #6b7280;">
+        spacer.innerHTML = `<td colspan="17" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
         </td>`;
         tbody.appendChild(spacer);
@@ -3523,7 +3523,7 @@ function loadMoreRows() {
     if (renderedCount < displayedData.length) {
         const newSpacer = document.createElement('tr');
         newSpacer.id = 'table-spacer';
-        newSpacer.innerHTML = `<td colspan="16" style="text-align: center; padding: 20px; color: #6b7280;">
+        newSpacer.innerHTML = `<td colspan="17" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
         </td>`;
         tbody.appendChild(newSpacer);
@@ -3607,6 +3607,7 @@ function renderByEmployee() {
                                 <th data-column="messages">Tin nhắn</th>
                                 <th data-column="comments">Bình luận</th>
                                 <th data-column="phone">SĐT</th>
+                                <th data-column="qr" style="width: 50px; text-align: center;">QR</th>
                                 <th data-column="address">Địa chỉ</th>
                                 <th data-column="notes">Ghi chú</th>
                                 <th data-column="total">Tổng tiền</th>
@@ -3696,6 +3697,7 @@ function createRowHTML(order) {
             ${messagesHTML}
             ${commentsHTML}
             <td data-column="phone" style="text-align: center;">${highlight(order.Telephone)}</td>
+            <td data-column="qr" style="text-align: center;">${renderQRColumn(order.Telephone)}</td>
             <td data-column="address">${highlight(order.Address)}</td>
             <td data-column="notes">${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(order.Note) : highlight(order.Note)}</td>
             ${renderMergedTotalColumn(order)}
@@ -11769,3 +11771,648 @@ async function selectAddress(fullAddress, type) {
         }
     }
 }
+
+// =====================================================
+// PRODUCT STATS MODAL FUNCTIONS
+// =====================================================
+
+/**
+ * Open the product stats modal and load previous stats if available
+ */
+function openProductStatsModal() {
+    const modal = document.getElementById('productStatsModal');
+    if (modal) {
+        modal.classList.add('show');
+        // Load previous stats from Firebase if available
+        loadStatsFromFirebase();
+    }
+}
+
+/**
+ * Close the product stats modal
+ */
+function closeProductStatsModal() {
+    const modal = document.getElementById('productStatsModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('productStatsModal');
+    if (modal && event.target === modal) {
+        closeProductStatsModal();
+    }
+});
+
+/**
+ * Get current campaign ID for Firebase storage
+ */
+function getStatsCampaignId() {
+    if (selectedCampaign && selectedCampaign.campaignId) {
+        return selectedCampaign.campaignId;
+    }
+    return 'no_campaign';
+}
+
+/**
+ * Load stats from Firebase for current campaign
+ */
+async function loadStatsFromFirebase() {
+    const modalBody = document.getElementById('productStatsModalBody');
+    const campaignId = getStatsCampaignId();
+
+    try {
+        const statsRef = window.firebase.database().ref(`product_stats/${campaignId}`);
+        const snapshot = await statsRef.once('value');
+        const data = snapshot.val();
+
+        if (data && data.statsHtml) {
+            // Show campaign info
+            const campaignInfo = data.campaignName
+                ? `<div class="stats-campaign-info"><i class="fas fa-video"></i>Chiến dịch: ${data.campaignName} | Cập nhật: ${new Date(data.updatedAt).toLocaleString('vi-VN')}</div>`
+                : '';
+            modalBody.innerHTML = campaignInfo + data.statsHtml;
+        } else {
+            modalBody.innerHTML = `
+                <div class="stats-empty-state">
+                    <i class="fas fa-chart-pie"></i>
+                    <p>Chưa có dữ liệu thống kê. Bấm nút "Thống kê" để bắt đầu.</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('[PRODUCT-STATS] Error loading from Firebase:', error);
+        modalBody.innerHTML = `
+            <div class="stats-empty-state">
+                <i class="fas fa-chart-pie"></i>
+                <p>Bấm nút "Thống kê" để bắt đầu</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Save stats to Firebase for current campaign
+ */
+async function saveStatsToFirebase(statsHtml, summaryData) {
+    const campaignId = getStatsCampaignId();
+    const campaignName = selectedCampaign ? selectedCampaign.campaignName : '';
+
+    try {
+        const statsRef = window.firebase.database().ref(`product_stats/${campaignId}`);
+        await statsRef.set({
+            campaignId: campaignId,
+            campaignName: campaignName,
+            statsHtml: statsHtml,
+            totalProducts: summaryData.totalProducts,
+            totalQuantity: summaryData.totalQuantity,
+            totalOrders: summaryData.totalOrders,
+            updatedAt: new Date().toISOString()
+        });
+        console.log('[PRODUCT-STATS] Saved to Firebase successfully');
+    } catch (error) {
+        console.error('[PRODUCT-STATS] Error saving to Firebase:', error);
+    }
+}
+
+/**
+ * Run product statistics on all orders in allData
+ */
+async function runProductStats() {
+    const modalBody = document.getElementById('productStatsModalBody');
+    const runBtn = document.querySelector('.btn-run-stats');
+
+    // Show loading state
+    modalBody.innerHTML = `
+        <div class="stats-loading">
+            <div class="spinner"></div>
+            <p>Đang thống kê sản phẩm...</p>
+        </div>
+    `;
+
+    if (runBtn) {
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+    }
+
+    try {
+        // Check if allData exists
+        if (!allData || allData.length === 0) {
+            modalBody.innerHTML = `
+                <div class="stats-empty-state">
+                    <i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i>
+                    <p>Không có dữ liệu đơn hàng. Vui lòng tải dữ liệu trước.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Build product statistics
+        const productStats = new Map(); // key: ProductCode, value: { name, nameGet, imageUrl, sttList: [{stt, qty}] }
+        const orderSet = new Set(); // Track unique orders
+        let totalQuantity = 0;
+
+        allData.forEach((order) => {
+            const stt = order.SessionIndex || '';
+            if (!stt) return; // Skip orders without STT
+
+            orderSet.add(stt);
+
+            const details = order.Details || [];
+            details.forEach((product) => {
+                const productCode = product.ProductCode || 'N/A';
+                const quantity = product.Quantity || product.ProductUOMQty || 1;
+                totalQuantity += quantity;
+
+                if (!productStats.has(productCode)) {
+                    productStats.set(productCode, {
+                        code: productCode,
+                        name: product.ProductName || '',
+                        nameGet: product.ProductNameGet || product.ProductName || '',
+                        imageUrl: product.ImageUrl || '',
+                        sttList: [],
+                        totalQty: 0
+                    });
+                }
+
+                const stat = productStats.get(productCode);
+                stat.sttList.push({ stt: stt, qty: quantity });
+                stat.totalQty += quantity;
+            });
+        });
+
+        // Sort products by total quantity (descending)
+        const sortedProducts = Array.from(productStats.values()).sort((a, b) => b.totalQty - a.totalQty);
+
+        // Summary data
+        const summaryData = {
+            totalProducts: sortedProducts.length,
+            totalQuantity: totalQuantity,
+            totalOrders: orderSet.size
+        };
+
+        // Build HTML table
+        const tableRowsHtml = sortedProducts.map((product) => {
+            // Build STT list string with quantity
+            const sttListStr = product.sttList.map(item => {
+                if (item.qty > 1) {
+                    return `${item.stt}<span class="stats-stt-qty">(${item.qty})</span>`;
+                }
+                return item.stt;
+            }).join(', ');
+
+            // Product image
+            const imageHtml = product.imageUrl
+                ? `<img src="${product.imageUrl}" class="stats-product-image" alt="${product.code}" onerror="this.style.display='none'">`
+                : `<div class="stats-product-image-placeholder"><i class="fas fa-image"></i></div>`;
+
+            return `
+                <tr>
+                    <td>
+                        <div class="stats-product-info">
+                            ${imageHtml}
+                            <div class="stats-product-details">
+                                <div class="stats-product-code">[${product.code}]</div>
+                                <div class="stats-product-name">${product.nameGet || product.name}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="stats-quantity-badge">${product.totalQty}</span>
+                    </td>
+                    <td>
+                        <div class="stats-stt-list">${sttListStr}</div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        const statsHtml = `
+            <div class="stats-summary-header" onclick="toggleStatsSummary(this)">
+                <i class="fas fa-chevron-down toggle-icon"></i>
+                <i class="fas fa-list-alt"></i>
+                <span class="stats-summary-content">TỔNG CỘNG: ${summaryData.totalProducts} sản phẩm</span>
+                <div class="stats-summary-values">
+                    <span>${summaryData.totalQuantity.toLocaleString('vi-VN')} món</span>
+                    <span>${summaryData.totalOrders.toLocaleString('vi-VN')} đơn hàng</span>
+                </div>
+            </div>
+            <div class="stats-table-container">
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>SẢN PHẨM</th>
+                            <th>SỐ LƯỢNG</th>
+                            <th>MÃ ĐƠN HÀNG (STT)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        // Show campaign info
+        const campaignName = selectedCampaign ? selectedCampaign.campaignName : 'Không có chiến dịch';
+        const campaignInfo = `<div class="stats-campaign-info"><i class="fas fa-video"></i>Chiến dịch: ${campaignName} | Cập nhật: ${new Date().toLocaleString('vi-VN')}</div>`;
+
+        modalBody.innerHTML = campaignInfo + statsHtml;
+
+        // Save to Firebase
+        await saveStatsToFirebase(statsHtml, summaryData);
+
+        if (window.notificationManager) {
+            window.notificationManager.show(`Đã thống kê ${summaryData.totalProducts} sản phẩm từ ${summaryData.totalOrders} đơn hàng`, 'success');
+        }
+
+    } catch (error) {
+        console.error('[PRODUCT-STATS] Error running stats:', error);
+        modalBody.innerHTML = `
+            <div class="stats-empty-state">
+                <i class="fas fa-exclamation-circle" style="color: #ef4444;"></i>
+                <p>Lỗi khi thống kê: ${error.message}</p>
+            </div>
+        `;
+    } finally {
+        if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.innerHTML = '<i class="fas fa-play"></i> Thống kê';
+        }
+    }
+}
+
+/**
+ * Toggle stats summary collapse/expand
+ */
+function toggleStatsSummary(element) {
+    element.classList.toggle('collapsed');
+    const tableContainer = element.nextElementSibling;
+    if (tableContainer) {
+        tableContainer.style.display = element.classList.contains('collapsed') ? 'none' : 'block';
+    }
+}
+
+// Make functions globally accessible
+window.openProductStatsModal = openProductStatsModal;
+window.closeProductStatsModal = closeProductStatsModal;
+window.runProductStats = runProductStats;
+window.toggleStatsSummary = toggleStatsSummary;
+
+// =====================================================
+// QR CODE MAPPING FOR ORDERS
+// Mapping giữa SĐT và mã QR từ balance-history
+// =====================================================
+
+const QR_CACHE_KEY = 'orders_phone_qr_cache';
+const QR_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+/**
+ * Normalize phone number for consistent lookup
+ * @param {string} phone - Raw phone number
+ * @returns {string} Normalized phone number
+ */
+function normalizePhoneForQR(phone) {
+    if (!phone) return '';
+    // Remove all non-digit characters
+    let cleaned = phone.replace(/\D/g, '');
+    // Handle Vietnam country code: replace leading 84 with 0
+    if (cleaned.startsWith('84') && cleaned.length > 9) {
+        cleaned = '0' + cleaned.substring(2);
+    }
+    return cleaned;
+}
+
+/**
+ * Get QR cache from localStorage
+ * @returns {Object} Cache object { phone: { uniqueCode, createdAt, synced } }
+ */
+function getQRCache() {
+    try {
+        const cache = localStorage.getItem(QR_CACHE_KEY);
+        return cache ? JSON.parse(cache) : {};
+    } catch (e) {
+        console.error('[QR] Error reading cache:', e);
+        return {};
+    }
+}
+
+/**
+ * Save QR cache to localStorage
+ * @param {Object} cache - Cache object to save
+ */
+function saveQRCache(cache) {
+    try {
+        localStorage.setItem(QR_CACHE_KEY, JSON.stringify(cache));
+    } catch (e) {
+        console.error('[QR] Error saving cache:', e);
+    }
+}
+
+/**
+ * Generate unique QR code (same format as balance-history)
+ * Format: N2 + 16 characters (total 18 chars) - Base36 encoded
+ * @returns {string} Unique code like "N2ABCD1234EFGH5678"
+ */
+function generateUniqueCode() {
+    const timestamp = Date.now().toString(36).toUpperCase().slice(-8); // 8 chars
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase(); // 6 chars
+    const sequence = Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0'); // 2 chars
+    return `N2${timestamp}${random}${sequence}`; // N2 (2) + 8 + 6 + 2 = 18 chars
+}
+
+/**
+ * Get QR code for phone from cache
+ * @param {string} phone - Phone number
+ * @returns {string|null} Unique code or null
+ */
+function getQRFromCache(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return null;
+
+    const cache = getQRCache();
+    return cache[normalizedPhone]?.uniqueCode || null;
+}
+
+/**
+ * Save QR code to cache
+ * @param {string} phone - Phone number
+ * @param {string} uniqueCode - QR unique code
+ * @param {boolean} synced - Whether synced to API
+ */
+function saveQRToCache(phone, uniqueCode, synced = false) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone || !uniqueCode) return;
+
+    const cache = getQRCache();
+    cache[normalizedPhone] = {
+        uniqueCode: uniqueCode,
+        createdAt: new Date().toISOString(),
+        synced: synced
+    };
+    saveQRCache(cache);
+}
+
+/**
+ * Fetch QR codes from balance-history API and populate cache
+ * Called once when page loads
+ */
+async function syncQRFromBalanceHistory() {
+    try {
+        console.log('[QR] Syncing from balance-history API...');
+        const response = await fetch(`${QR_API_URL}/api/sepay/customer-info`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const cache = getQRCache();
+            let newCount = 0;
+
+            result.data.forEach(item => {
+                if (item.customer_phone && item.unique_code) {
+                    const normalizedPhone = normalizePhoneForQR(item.customer_phone);
+                    if (normalizedPhone && !cache[normalizedPhone]) {
+                        cache[normalizedPhone] = {
+                            uniqueCode: item.unique_code,
+                            createdAt: item.updated_at || new Date().toISOString(),
+                            synced: true
+                        };
+                        newCount++;
+                    }
+                }
+            });
+
+            saveQRCache(cache);
+            console.log(`[QR] ✅ Synced ${newCount} new phone-QR mappings from balance-history`);
+        }
+    } catch (error) {
+        console.error('[QR] Failed to sync from balance-history:', error);
+    }
+}
+
+/**
+ * Save QR mapping to balance-history API
+ * @param {string} phone - Phone number
+ * @param {string} uniqueCode - QR unique code
+ */
+async function syncQRToBalanceHistory(phone, uniqueCode) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone || !uniqueCode) return;
+
+    try {
+        const response = await fetch(`${QR_API_URL}/api/sepay/customer-info`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                uniqueCode: uniqueCode,
+                customerName: '',
+                customerPhone: normalizedPhone
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Update cache to mark as synced
+            saveQRToCache(normalizedPhone, uniqueCode, true);
+            console.log(`[QR] ✅ Synced to balance-history: ${normalizedPhone} → ${uniqueCode}`);
+        } else {
+            console.error('[QR] Failed to sync to balance-history:', result.error);
+        }
+    } catch (error) {
+        console.error('[QR] Error syncing to balance-history:', error);
+    }
+}
+
+/**
+ * Get or create QR code for a phone number
+ * @param {string} phone - Phone number
+ * @returns {string|null} Unique code or null if no phone
+ */
+function getOrCreateQRForPhone(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return null;
+
+    // 1. Check cache first
+    let uniqueCode = getQRFromCache(normalizedPhone);
+
+    if (!uniqueCode) {
+        // 2. Create new code
+        uniqueCode = generateUniqueCode();
+
+        // 3. Save to cache
+        saveQRToCache(normalizedPhone, uniqueCode, false);
+
+        // 4. Sync to balance-history API (async, don't wait)
+        syncQRToBalanceHistory(normalizedPhone, uniqueCode);
+
+        console.log(`[QR] Created new QR for ${normalizedPhone}: ${uniqueCode}`);
+    }
+
+    return uniqueCode;
+}
+
+/**
+ * Copy QR code to clipboard
+ * @param {string} phone - Phone number to get QR for
+ */
+async function copyQRCode(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) {
+        showNotification('Không có số điện thoại', 'warning');
+        return;
+    }
+
+    const uniqueCode = getOrCreateQRForPhone(normalizedPhone);
+
+    if (!uniqueCode) {
+        showNotification('Không thể tạo mã QR', 'error');
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(uniqueCode);
+        showNotification('Đã copy QR', 'success');
+    } catch (error) {
+        // Fallback for older browsers
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = uniqueCode;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showNotification('Đã copy QR', 'success');
+        } catch (fallbackError) {
+            console.error('[QR] Copy failed:', fallbackError);
+            showNotification('Không thể copy', 'error');
+        }
+    }
+}
+
+/**
+ * Render QR column HTML
+ * @param {string} phone - Phone number
+ * @returns {string} HTML string for QR column
+ */
+function renderQRColumn(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+
+    if (!normalizedPhone) {
+        // No phone number - show disabled button
+        return `
+            <button class="btn-qr-copy disabled" disabled title="Không có SĐT" style="
+                padding: 4px 8px;
+                border: none;
+                border-radius: 4px;
+                cursor: not-allowed;
+                background: #e5e7eb;
+                color: #9ca3af;
+                font-size: 12px;
+            ">
+                <i class="fas fa-copy"></i>
+            </button>
+        `;
+    }
+
+    // Check if QR exists in cache
+    const existingQR = getQRFromCache(normalizedPhone);
+    const hasQR = !!existingQR;
+
+    return `
+        <button class="btn-qr-copy ${hasQR ? 'has-qr' : ''}"
+                onclick="copyQRCode('${normalizedPhone}'); event.stopPropagation();"
+                title="${hasQR ? 'Copy mã QR: ' + existingQR : 'Tạo và copy mã QR mới'}"
+                style="
+                    padding: 4px 8px;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    background: ${hasQR ? '#10b981' : '#3b82f6'};
+                    color: white;
+                    font-size: 12px;
+                    transition: all 0.2s;
+                "
+                onmouseover="this.style.opacity='0.8'"
+                onmouseout="this.style.opacity='1'">
+            <i class="fas fa-copy"></i>
+        </button>
+    `;
+}
+
+/**
+ * Show notification (uses existing notification system if available)
+ * @param {string} message - Message to show
+ * @param {string} type - 'success', 'error', 'warning', 'info'
+ */
+function showNotification(message, type = 'info') {
+    // Try to use existing notification system
+    if (window.NotificationManager && window.NotificationManager.show) {
+        window.NotificationManager.show(message, type);
+        return;
+    }
+
+    // Fallback: create simple toast notification
+    const toast = document.createElement('div');
+    toast.className = `qr-toast qr-toast-${type}`;
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'times-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+        <span>${message}</span>
+    `;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        color: white;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+    `;
+
+    document.body.appendChild(toast);
+
+    // Auto remove after 2 seconds
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
+}
+
+// Add CSS animation for toast
+const toastStyle = document.createElement('style');
+toastStyle.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+document.head.appendChild(toastStyle);
+
+// Initialize: Sync QR data from balance-history when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Delay sync to let page load first
+    setTimeout(() => {
+        syncQRFromBalanceHistory();
+    }, 2000);
+});
+
+// Make QR functions globally accessible
+window.copyQRCode = copyQRCode;
+window.getOrCreateQRForPhone = getOrCreateQRForPhone;
+window.renderQRColumn = renderQRColumn;
+window.syncQRFromBalanceHistory = syncQRFromBalanceHistory;
