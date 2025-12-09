@@ -170,7 +170,6 @@ class UnifiedNavigationManager {
         this.userPermissions = [];
         this.isAdmin = false;
         this.isMobile = window.innerWidth <= 768;
-        this.customMenuNames = {}; // Store custom menu names {pageIdentifier: {text: "...", shortText: "..."}}
         this.init();
     }
 
@@ -198,10 +197,6 @@ class UnifiedNavigationManager {
                 "[Unified Nav] Permissions loaded:",
                 this.userPermissions,
             );
-
-            // Load custom menu names
-            await this.loadCustomMenuNames();
-            console.log("[Unified Nav] Custom menu names loaded:", this.customMenuNames);
 
             // Get current page
             this.currentPage = this.getCurrentPageIdentifier();
@@ -350,386 +345,6 @@ class UnifiedNavigationManager {
         console.log(
             "[Permission Load] No permissions loaded, defaulting to empty",
         );
-    }
-
-    // =====================================================
-    // CUSTOM MENU NAMES - Admin can customize menu display names
-    // =====================================================
-
-    async loadCustomMenuNames() {
-        // Try to load from localStorage cache first
-        try {
-            const cachedNames = localStorage.getItem("customMenuNames");
-            if (cachedNames) {
-                this.customMenuNames = JSON.parse(cachedNames);
-                console.log("[Menu Names] Loaded from cache:", this.customMenuNames);
-            }
-        } catch (error) {
-            console.error("[Menu Names] Error loading from cache:", error);
-        }
-
-        // Try to load from Firebase for the latest data
-        try {
-            if (typeof firebase !== "undefined" && firebase.firestore) {
-                const db = firebase.firestore();
-                const doc = await db.collection("settings").doc("menuNames").get();
-
-                if (doc.exists) {
-                    const data = doc.data();
-                    this.customMenuNames = data.names || {};
-
-                    // Update cache
-                    localStorage.setItem("customMenuNames", JSON.stringify(this.customMenuNames));
-                    console.log("[Menu Names] Loaded from Firebase:", this.customMenuNames);
-                }
-            }
-        } catch (error) {
-            console.error("[Menu Names] Error loading from Firebase:", error);
-        }
-    }
-
-    getMenuItemDisplayText(menuItem) {
-        const customName = this.customMenuNames[menuItem.pageIdentifier];
-        return {
-            text: customName?.text || menuItem.text,
-            shortText: customName?.shortText || menuItem.shortText || menuItem.text
-        };
-    }
-
-    async saveCustomMenuNames() {
-        try {
-            // Save to localStorage
-            localStorage.setItem("customMenuNames", JSON.stringify(this.customMenuNames));
-
-            // Save to Firebase
-            if (typeof firebase !== "undefined" && firebase.firestore) {
-                const db = firebase.firestore();
-                await db.collection("settings").doc("menuNames").set({
-                    names: this.customMenuNames,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: authManager.getUserInfo()?.username || "unknown"
-                });
-                console.log("[Menu Names] Saved to Firebase successfully");
-                return true;
-            }
-
-            return true;
-        } catch (error) {
-            console.error("[Menu Names] Error saving:", error);
-            return false;
-        }
-    }
-
-    showEditSingleMenuNameModal(menuItem) {
-        const pageId = menuItem.pageIdentifier;
-        const currentText = this.customMenuNames[pageId]?.text || menuItem.text;
-        const currentShortText = this.customMenuNames[pageId]?.shortText || menuItem.shortText || "";
-        const originalText = menuItem.text;
-        const originalShortText = menuItem.shortText || "";
-
-        const modal = document.createElement("div");
-        modal.className = "settings-modal-overlay";
-
-        modal.innerHTML = `
-            <div class="settings-modal" style="max-width: 450px;">
-                <div class="settings-header">
-                    <h2>
-                        <i data-lucide="${menuItem.icon}"></i>
-                        Đổi Tên Menu
-                    </h2>
-                    <button class="settings-close" id="closeEditMenuModal">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
-
-                <div class="settings-content">
-                    <div class="setting-group">
-                        <div class="single-menu-edit-info">
-                            <span class="single-menu-original-label">Tên gốc:</span>
-                            <span class="single-menu-original-text">${originalText}</span>
-                        </div>
-
-                        <div class="menu-name-input-group" style="margin-top: 16px;">
-                            <label class="setting-label">
-                                <i data-lucide="type"></i>
-                                Tên đầy đủ (sidebar)
-                            </label>
-                            <input type="text" class="menu-name-input" id="menuTextInput"
-                                   value="${currentText}"
-                                   placeholder="${originalText}">
-                        </div>
-
-                        <div class="menu-name-input-group" style="margin-top: 16px;">
-                            <label class="setting-label">
-                                <i data-lucide="smartphone"></i>
-                                Tên ngắn (mobile)
-                            </label>
-                            <input type="text" class="menu-name-input" id="menuShortTextInput"
-                                   value="${currentShortText}"
-                                   placeholder="${originalShortText || originalText}">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="settings-footer">
-                    <button class="btn-reset" id="resetMenuNameBtn">
-                        <i data-lucide="rotate-ccw"></i>
-                        Đặt Lại
-                    </button>
-                    <button class="btn-save" id="saveMenuNameBtn">
-                        <i data-lucide="check"></i>
-                        Lưu
-                    </button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        // Add styles for the modal
-        this.addEditMenuNamesStyles();
-
-        if (typeof lucide !== "undefined") {
-            lucide.createIcons();
-        }
-
-        // Event listeners
-        const closeBtn = modal.querySelector("#closeEditMenuModal");
-        const saveBtn = modal.querySelector("#saveMenuNameBtn");
-        const resetBtn = modal.querySelector("#resetMenuNameBtn");
-        const textInput = modal.querySelector("#menuTextInput");
-        const shortTextInput = modal.querySelector("#menuShortTextInput");
-
-        const closeModal = () => modal.remove();
-
-        closeBtn.addEventListener("click", closeModal);
-        modal.addEventListener("click", (e) => {
-            if (e.target === modal) closeModal();
-        });
-
-        resetBtn.addEventListener("click", () => {
-            textInput.value = originalText;
-            shortTextInput.value = originalShortText;
-            this.showToast("Đã đặt lại tên mặc định", "info");
-        });
-
-        saveBtn.addEventListener("click", async () => {
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i data-lucide="loader"></i> Đang lưu...';
-            if (typeof lucide !== "undefined") {
-                lucide.createIcons();
-            }
-
-            const newText = textInput.value.trim();
-            const newShortText = shortTextInput.value.trim();
-
-            // Update customMenuNames
-            if (newText !== originalText || newShortText !== originalShortText) {
-                this.customMenuNames[pageId] = {
-                    text: newText || originalText,
-                    shortText: newShortText || originalShortText
-                };
-            } else {
-                // Remove custom name if same as original
-                delete this.customMenuNames[pageId];
-            }
-
-            const success = await this.saveCustomMenuNames();
-
-            if (success) {
-                closeModal();
-                this.showToast("Đã lưu tên menu thành công!", "success");
-
-                // Reload the page to apply changes
-                setTimeout(() => {
-                    window.location.reload();
-                }, 800);
-            } else {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu';
-                if (typeof lucide !== "undefined") {
-                    lucide.createIcons();
-                }
-                this.showToast("Có lỗi xảy ra khi lưu!", "error");
-            }
-        });
-
-        // Focus on input
-        textInput.focus();
-        textInput.select();
-    }
-
-    addInlineEditStyles() {
-        if (document.getElementById("inlineEditStyles")) return;
-
-        const style = document.createElement("style");
-        style.id = "inlineEditStyles";
-        style.textContent = `
-            /* Wrapper for nav item + edit button */
-            .nav-item-wrapper {
-                display: flex;
-                align-items: center;
-                position: relative;
-            }
-
-            .nav-item-wrapper .nav-item {
-                flex: 1;
-                padding-right: 40px; /* Make room for edit button */
-            }
-
-            .nav-item-edit-btn {
-                position: absolute;
-                right: 8px;
-                width: 28px;
-                height: 28px;
-                border: none;
-                background: rgba(16, 185, 129, 0.3);
-                border-radius: 6px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                opacity: 0;
-                transition: all 0.2s;
-                z-index: 100;
-                pointer-events: auto;
-            }
-
-            .nav-item-wrapper:hover .nav-item-edit-btn {
-                opacity: 1;
-            }
-
-            .nav-item-edit-btn:hover {
-                background: rgba(16, 185, 129, 0.5);
-                transform: scale(1.1);
-            }
-
-            .nav-item-edit-btn:active {
-                transform: scale(0.95);
-            }
-
-            .nav-item-edit-btn i {
-                width: 14px;
-                height: 14px;
-                color: #10b981;
-                pointer-events: none;
-            }
-
-            /* Mobile menu item wrapper */
-            .mobile-menu-item-wrapper {
-                display: flex;
-                align-items: center;
-                position: relative;
-            }
-
-            .mobile-menu-item-wrapper .mobile-menu-item {
-                flex: 1;
-                padding-right: 50px; /* Make room for edit button */
-            }
-
-            .mobile-menu-item-edit-btn {
-                position: absolute;
-                right: 12px;
-                width: 36px;
-                height: 36px;
-                border: none;
-                background: rgba(16, 185, 129, 0.2);
-                border-radius: 8px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: all 0.2s;
-                z-index: 100;
-                pointer-events: auto;
-            }
-
-            .mobile-menu-item-edit-btn:hover,
-            .mobile-menu-item-edit-btn:active {
-                background: rgba(16, 185, 129, 0.3);
-            }
-
-            .mobile-menu-item-edit-btn i {
-                width: 16px;
-                height: 16px;
-                color: #10b981;
-                pointer-events: none;
-            }
-
-            /* Single menu edit modal styles */
-            .single-menu-edit-info {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 12px 16px;
-                background: rgba(99, 102, 241, 0.1);
-                border-radius: 8px;
-            }
-
-            .single-menu-original-label {
-                font-size: 12px;
-                color: var(--text-tertiary);
-            }
-
-            .single-menu-original-text {
-                font-weight: 600;
-                color: var(--accent-color);
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    addEditMenuNamesStyles() {
-        if (document.getElementById("editMenuNamesStyles")) return;
-
-        const style = document.createElement("style");
-        style.id = "editMenuNamesStyles";
-        style.textContent = `
-            .menu-name-input-group {
-                display: flex;
-                flex-direction: column;
-                gap: 6px;
-            }
-
-            .menu-name-input-group .setting-label {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                font-weight: 600;
-                color: var(--text-secondary);
-                font-size: 13px;
-            }
-
-            .menu-name-input-group .setting-label i {
-                width: 16px;
-                height: 16px;
-                color: var(--accent-color);
-            }
-
-            .menu-name-input {
-                padding: 10px 14px;
-                border: 1px solid var(--border-color);
-                border-radius: 8px;
-                font-size: 14px;
-                color: var(--text-primary);
-                background: var(--bg-primary);
-                transition: all 0.2s;
-                outline: none;
-                width: 100%;
-                box-sizing: border-box;
-            }
-
-            .menu-name-input:focus {
-                border-color: var(--accent-color);
-                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-            }
-
-            .menu-name-input::placeholder {
-                color: var(--text-tertiary);
-                font-style: italic;
-            }
-        `;
-        document.head.appendChild(style);
     }
 
     getCurrentPageIdentifier() {
@@ -946,12 +561,9 @@ class UnifiedNavigationManager {
                 console.log("[Mobile Nav] Active page:", item.pageIdentifier);
             }
 
-            // Use custom menu name if available
-            const displayText = this.getMenuItemDisplayText(item);
-
             navItem.innerHTML = `
                 <i data-lucide="${item.icon}"></i>
-                <span>${displayText.shortText}</span>
+                <span>${item.shortText || item.text}</span>
             `;
 
             bottomNav.appendChild(navItem);
@@ -993,25 +605,6 @@ class UnifiedNavigationManager {
 
         const accessiblePages = this.getAccessiblePages();
 
-        // Build menu items with custom names and inline edit buttons for admin
-        const menuItemsHtml = accessiblePages.map((item) => {
-            const displayText = this.getMenuItemDisplayText(item);
-            return `
-                <div class="mobile-menu-item-wrapper" data-page="${item.pageIdentifier}">
-                    <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? "active" : ""}">
-                        <i data-lucide="${item.icon}"></i>
-                        <span>${displayText.text}</span>
-                        ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ""}
-                    </a>
-                    ${this.isAdmin ? `
-                    <button class="mobile-menu-item-edit-btn" data-page="${item.pageIdentifier}" title="Đổi tên">
-                        <i data-lucide="pencil"></i>
-                    </button>
-                    ` : ''}
-                </div>
-            `;
-        }).join("");
-
         menu.innerHTML = `
             <div class="mobile-menu-header">
                 <h3>Tất Cả Trang</h3>
@@ -1020,7 +613,17 @@ class UnifiedNavigationManager {
                 </button>
             </div>
             <div class="mobile-menu-content">
-                ${menuItemsHtml}
+                ${accessiblePages
+                .map(
+                    (item) => `
+                    <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? "active" : ""}">
+                        <i data-lucide="${item.icon}"></i>
+                        <span>${item.text}</span>
+                        ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ""}
+                    </a>
+                `,
+                )
+                .join("")}
             </div>
             <div class="mobile-menu-footer">
                 <button class="mobile-menu-action" id="mobileSettingsBtn">
@@ -1052,22 +655,6 @@ class UnifiedNavigationManager {
             overlay.remove();
             this.showSettings();
         });
-
-        // Add edit button listeners for admin
-        if (this.isAdmin) {
-            menu.querySelectorAll(".mobile-menu-item-edit-btn").forEach((btn) => {
-                btn.addEventListener("click", (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const pageId = btn.getAttribute("data-page");
-                    const menuItem = MENU_CONFIG.find(item => item.pageIdentifier === pageId);
-                    if (menuItem) {
-                        overlay.remove();
-                        this.showEditSingleMenuNameModal(menuItem);
-                    }
-                });
-            });
-        }
 
         const logoutBtn = menu.querySelector("#mobileLogoutBtn");
         logoutBtn.addEventListener("click", () => {
@@ -1127,10 +714,6 @@ class UnifiedNavigationManager {
                 return;
             }
 
-            // Create wrapper for nav item + edit button
-            const navWrapper = document.createElement("div");
-            navWrapper.className = "nav-item-wrapper";
-
             const navItem = document.createElement("a");
             navItem.href = menuItem.href;
             navItem.className = "nav-item";
@@ -1139,40 +722,18 @@ class UnifiedNavigationManager {
                 navItem.classList.add("active");
             }
 
-            // Use custom menu name if available
-            const displayText = this.getMenuItemDisplayText(menuItem);
-
             navItem.innerHTML = `
                 <i data-lucide="${menuItem.icon}"></i>
-                <span>${displayText.text}</span>
+                <span>${menuItem.text}</span>
             `;
 
-            navWrapper.appendChild(navItem);
-
-            // Add edit button for admin only
-            if (this.isAdmin) {
-                const editBtn = document.createElement("button");
-                editBtn.className = "nav-item-edit-btn";
-                editBtn.title = "Đổi tên menu này";
-                editBtn.innerHTML = '<i data-lucide="pencil"></i>';
-                editBtn.addEventListener("click", (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.showEditSingleMenuNameModal(menuItem);
-                });
-                navWrapper.appendChild(editBtn);
-            }
-
-            sidebarNav.appendChild(navWrapper);
+            sidebarNav.appendChild(navItem);
             renderedCount++;
         });
 
         console.log(
             `[Unified Nav] Rendered ${renderedCount} desktop menu items`,
         );
-
-        // Add styles for inline edit buttons
-        this.addInlineEditStyles();
 
         this.addSettingsToNavigation(sidebarNav);
 
