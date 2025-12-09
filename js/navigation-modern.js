@@ -794,7 +794,8 @@ class UnifiedNavigationManager {
 
         const logoutBtn = menu.querySelector("#mobileLogoutBtn");
         logoutBtn.addEventListener("click", () => {
-            authManager.logout();
+            overlay.remove();
+            this.showLogoutConfirmDialog();
         });
     }
 
@@ -1147,7 +1148,7 @@ class UnifiedNavigationManager {
         const btnLogout = document.getElementById("btnLogout");
         if (btnLogout) {
             btnLogout.addEventListener("click", () => {
-                authManager.logout();
+                this.showLogoutConfirmDialog();
             });
         }
 
@@ -2383,6 +2384,193 @@ class UnifiedNavigationManager {
             toast.style.animation = "toastSlideIn 0.3s ease-out reverse";
             setTimeout(() => toast.remove(), 300);
         }, 3000);
+    }
+
+    // =====================================================
+    // LOGOUT CONFIRMATION DIALOG
+    // =====================================================
+
+    showLogoutConfirmDialog() {
+        // Create overlay
+        const overlay = document.createElement("div");
+        overlay.className = "logout-confirm-overlay";
+        overlay.innerHTML = `
+            <div class="logout-confirm-dialog">
+                <div class="logout-confirm-icon">
+                    <i data-lucide="log-out"></i>
+                </div>
+                <h3 class="logout-confirm-title">Đăng Xuất</h3>
+                <p class="logout-confirm-message">Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?</p>
+                <div class="logout-confirm-actions">
+                    <button class="logout-confirm-btn logout-cancel-btn" id="logoutCancelBtn">
+                        <i data-lucide="x"></i>
+                        Hủy
+                    </button>
+                    <button class="logout-confirm-btn logout-ok-btn" id="logoutOkBtn">
+                        <i data-lucide="check"></i>
+                        Đăng Xuất
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Add styles
+        this.injectLogoutConfirmStyles();
+
+        document.body.appendChild(overlay);
+
+        // Animate in
+        requestAnimationFrame(() => {
+            overlay.classList.add("show");
+        });
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+
+        // Event handlers
+        const cancelBtn = overlay.querySelector("#logoutCancelBtn");
+        const okBtn = overlay.querySelector("#logoutOkBtn");
+
+        const closeDialog = () => {
+            overlay.classList.remove("show");
+            setTimeout(() => overlay.remove(), 300);
+        };
+
+        cancelBtn.addEventListener("click", closeDialog);
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) closeDialog();
+        });
+
+        okBtn.addEventListener("click", () => {
+            localStorage.clear();
+            authManager.logout();
+        });
+    }
+
+    injectLogoutConfirmStyles() {
+        if (document.getElementById("logoutConfirmStyles")) return;
+
+        const style = document.createElement("style");
+        style.id = "logoutConfirmStyles";
+        style.textContent = `
+            .logout-confirm-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(4px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 99999;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+
+            .logout-confirm-overlay.show {
+                opacity: 1;
+            }
+
+            .logout-confirm-dialog {
+                background: linear-gradient(145deg, #1a1a2e, #16213e);
+                border-radius: 20px;
+                padding: 32px;
+                max-width: 400px;
+                width: 90%;
+                text-align: center;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                transform: scale(0.9) translateY(20px);
+                transition: transform 0.3s ease;
+            }
+
+            .logout-confirm-overlay.show .logout-confirm-dialog {
+                transform: scale(1) translateY(0);
+            }
+
+            .logout-confirm-icon {
+                width: 64px;
+                height: 64px;
+                margin: 0 auto 20px;
+                background: linear-gradient(135deg, #ef4444, #dc2626);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .logout-confirm-icon svg {
+                width: 32px;
+                height: 32px;
+                color: white;
+            }
+
+            .logout-confirm-title {
+                color: #fff;
+                font-size: 24px;
+                font-weight: 700;
+                margin: 0 0 12px;
+            }
+
+            .logout-confirm-message {
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 15px;
+                line-height: 1.5;
+                margin: 0 0 28px;
+            }
+
+            .logout-confirm-actions {
+                display: flex;
+                gap: 12px;
+                justify-content: center;
+            }
+
+            .logout-confirm-btn {
+                flex: 1;
+                padding: 14px 24px;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                transition: all 0.2s ease;
+                border: none;
+            }
+
+            .logout-confirm-btn svg {
+                width: 18px;
+                height: 18px;
+            }
+
+            .logout-cancel-btn {
+                background: rgba(255, 255, 255, 0.1);
+                color: rgba(255, 255, 255, 0.8);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+
+            .logout-cancel-btn:hover {
+                background: rgba(255, 255, 255, 0.15);
+                color: #fff;
+            }
+
+            .logout-ok-btn {
+                background: linear-gradient(135deg, #ef4444, #dc2626);
+                color: white;
+            }
+
+            .logout-ok-btn:hover {
+                background: linear-gradient(135deg, #f87171, #ef4444);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     // =====================================================

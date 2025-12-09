@@ -2461,8 +2461,9 @@ function performTableSearch() {
         });
     }
 
-    // Merge orders with duplicate phone numbers
-    filteredData = mergeOrdersByPhone(filteredData);
+    // NOTE: Visual merging disabled - each order shows as separate row
+    // Merge products button (mergeProductsBtn) still works independently
+    // filteredData = mergeOrdersByPhone(filteredData);
 
     displayedData = filteredData;
     renderTable();
@@ -11453,20 +11454,50 @@ async function executeMergeOrderProducts(mergedOrder) {
  */
 async function executeBulkMergeOrderProducts() {
     try {
-        // Find all merged orders in displayed data
-        const mergedOrders = displayedData.filter(order => order.IsMerged === true);
-
-        if (mergedOrders.length === 0) {
-            if (window.notificationManager) {
-                window.notificationManager.show('Không có đơn hàng nào cần gộp sản phẩm.', 'warning');
+        // Group orders by phone number to find duplicates
+        const phoneGroups = new Map();
+        displayedData.forEach(order => {
+            const phone = order.Telephone?.trim();
+            if (phone) {
+                if (!phoneGroups.has(phone)) {
+                    phoneGroups.set(phone, []);
+                }
+                phoneGroups.get(phone).push(order);
             }
-            return { success: false, message: 'No merged orders found' };
+        });
+
+        // Find phone numbers with multiple orders (need merging)
+        const mergeableGroups = [];
+        phoneGroups.forEach((orders, phone) => {
+            if (orders.length > 1) {
+                // Sort by SessionIndex (STT) descending - target is highest STT
+                orders.sort((a, b) => (b.SessionIndex || 0) - (a.SessionIndex || 0));
+                const targetOrder = orders[0];
+                const sourceOrders = orders.slice(1);
+
+                mergeableGroups.push({
+                    Telephone: phone,
+                    TargetOrderId: targetOrder.Id,
+                    TargetSTT: targetOrder.SessionIndex,
+                    SourceOrderIds: sourceOrders.map(o => o.Id),
+                    SourceSTTs: sourceOrders.map(o => o.SessionIndex),
+                    IsMerged: true // For compatibility with executeMergeOrderProducts
+                });
+            }
+        });
+
+        if (mergeableGroups.length === 0) {
+            if (window.notificationManager) {
+                window.notificationManager.show('Không có đơn hàng nào trùng SĐT cần gộp sản phẩm.', 'warning');
+            }
+            return { success: false, message: 'No duplicate phone orders found' };
         }
 
-        const confirmMsg = `Bạn có chắc muốn gộp sản phẩm cho ${mergedOrders.length} đơn hàng đã merge?\n\n` +
+        const totalSourceOrders = mergeableGroups.reduce((sum, g) => sum + g.SourceOrderIds.length, 0);
+        const confirmMsg = `Tìm thấy ${mergeableGroups.length} SĐT trùng (${totalSourceOrders + mergeableGroups.length} đơn).\n\n` +
             `Hành động này sẽ:\n` +
-            `- Chuyển tất cả sản phẩm từ đơn STT nhỏ sang đơn STT lớn\n` +
-            `- Xóa sản phẩm khỏi các đơn STT nhỏ`;
+            `- Gộp sản phẩm từ đơn STT nhỏ → đơn STT lớn\n` +
+            `- Xóa sản phẩm khỏi ${totalSourceOrders} đơn nguồn`;
 
         const confirmed = await window.notificationManager.confirm(confirmMsg, "Xác nhận gộp sản phẩm");
         if (!confirmed) {
@@ -11475,20 +11506,20 @@ async function executeBulkMergeOrderProducts() {
 
         // Show loading indicator
         if (window.notificationManager) {
-            window.notificationManager.show(`Đang gộp sản phẩm cho ${mergedOrders.length} đơn hàng...`, 'info');
+            window.notificationManager.show(`Đang gộp sản phẩm cho ${mergeableGroups.length} SĐT...`, 'info');
         }
 
-        // Execute merge for each merged order
+        // Execute merge for each phone group
         const results = [];
-        for (let i = 0; i < mergedOrders.length; i++) {
-            const order = mergedOrders[i];
-            console.log(`[MERGE-BULK] Processing ${i + 1}/${mergedOrders.length}: Phone ${order.Telephone}`);
+        for (let i = 0; i < mergeableGroups.length; i++) {
+            const group = mergeableGroups[i];
+            console.log(`[MERGE-BULK] Processing ${i + 1}/${mergeableGroups.length}: Phone ${group.Telephone}`);
 
-            const result = await executeMergeOrderProducts(order);
-            results.push({ order, result });
+            const result = await executeMergeOrderProducts(group);
+            results.push({ order: group, result });
 
             // Small delay to avoid rate limiting
-            if (i < mergedOrders.length - 1) {
+            if (i < mergeableGroups.length - 1) {
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
         }
