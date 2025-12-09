@@ -12739,3 +12739,174 @@ window.copyQRImageUrl = copyQRImageUrl;
 window.renderDebtColumn = renderDebtColumn;
 window.fetchDebtForPhone = fetchDebtForPhone;
 window.batchFetchDebts = batchFetchDebts;
+
+// =====================================================
+// REALTIME DEBT UPDATES (SSE)
+// Lắng nghe giao dịch mới để cập nhật công nợ
+// =====================================================
+
+let debtEventSource = null;
+let debtReconnectTimeout = null;
+let isDebtManualClose = false;
+
+/**
+ * Extract phone number from transaction content
+ * Tìm SĐT trong nội dung giao dịch hoặc từ customer-info mapping
+ * @param {Object} transaction - Transaction object
+ * @returns {string|null} Phone number or null
+ */
+function extractPhoneFromTransaction(transaction) {
+    const content = transaction.content || '';
+
+    // Try to find unique code (N2XXXXXXXXXX) in content
+    const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
+
+    if (uniqueCodeMatch) {
+        const uniqueCode = uniqueCodeMatch[0];
+        // Look up phone from QR cache (reverse lookup)
+        const qrCache = getQRCache();
+        for (const [phone, data] of Object.entries(qrCache)) {
+            if (data.uniqueCode === uniqueCode) {
+                return phone;
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Handle new transaction from SSE - update debt
+ * @param {Object} transaction - Transaction data
+ */
+async function handleDebtTransaction(transaction) {
+    // Only care about incoming transactions (deposits)
+    if (transaction.transfer_type !== 'in') return;
+
+    const phone = extractPhoneFromTransaction(transaction);
+
+    if (phone) {
+        console.log(`[DEBT-REALTIME] New transaction for phone ${phone}, refreshing debt...`);
+
+        // Invalidate cache for this phone
+        const cache = getDebtCache();
+        delete cache[phone];
+        saveDebtCache(cache);
+
+        // Re-fetch debt
+        const newDebt = await fetchDebtForPhone(phone);
+
+        // Update all cells in the table
+        updateDebtCellsInTable(phone, newDebt);
+
+        // Show notification
+        showNotification(`Cập nhật công nợ: ${formatDebtCurrency(newDebt)}`, 'info');
+    }
+}
+
+/**
+ * Update debt cells in the orders table
+ * @param {string} phone - Phone number
+ * @param {number} debt - New debt amount
+ */
+function updateDebtCellsInTable(phone, debt) {
+    const color = debt > 0 ? '#10b981' : '#9ca3af';
+    const html = `<span style="color: ${color}; font-weight: 500; font-size: 12px;">${formatDebtCurrency(debt)}</span>`;
+
+    // Find all debt cells and update those matching this phone
+    document.querySelectorAll('td[data-column="debt"]').forEach(cell => {
+        // Get the phone from the same row
+        const row = cell.closest('tr');
+        if (row) {
+            const phoneCell = row.querySelector('td[data-column="phone"]');
+            if (phoneCell) {
+                const cellPhone = normalizePhoneForQR(phoneCell.textContent.trim());
+                if (cellPhone === phone) {
+                    cell.innerHTML = html;
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Connect to SSE endpoint for realtime debt updates
+ */
+function connectDebtRealtime() {
+    if (debtEventSource) return; // Already connected
+
+    try {
+        console.log('[DEBT-REALTIME] Connecting to SSE endpoint...');
+        debtEventSource = new EventSource(`${QR_API_URL}/api/sepay/stream`);
+
+        // Connection established
+        debtEventSource.addEventListener('connected', (e) => {
+            console.log('[DEBT-REALTIME] ✅ Connected to SSE');
+        });
+
+        // New transaction received
+        debtEventSource.addEventListener('new-transaction', (e) => {
+            try {
+                const transaction = JSON.parse(e.data);
+                console.log('[DEBT-REALTIME] New transaction:', transaction.content?.substring(0, 50));
+                handleDebtTransaction(transaction);
+            } catch (err) {
+                console.error('[DEBT-REALTIME] Error parsing transaction:', err);
+            }
+        });
+
+        // Connection error
+        debtEventSource.onerror = (error) => {
+            console.error('[DEBT-REALTIME] SSE Error:', error);
+
+            // Close current connection
+            if (debtEventSource) {
+                debtEventSource.close();
+                debtEventSource = null;
+            }
+
+            // Attempt to reconnect after 10 seconds (if not manually closed)
+            if (!isDebtManualClose) {
+                clearTimeout(debtReconnectTimeout);
+                debtReconnectTimeout = setTimeout(() => {
+                    console.log('[DEBT-REALTIME] Attempting to reconnect...');
+                    connectDebtRealtime();
+                }, 10000);
+            }
+        };
+
+    } catch (error) {
+        console.error('[DEBT-REALTIME] Failed to connect:', error);
+    }
+}
+
+/**
+ * Disconnect from SSE
+ */
+function disconnectDebtRealtime() {
+    isDebtManualClose = true;
+    clearTimeout(debtReconnectTimeout);
+
+    if (debtEventSource) {
+        debtEventSource.close();
+        debtEventSource = null;
+        console.log('[DEBT-REALTIME] Disconnected from SSE');
+    }
+}
+
+// Auto-connect realtime when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Delay connection to let page load first
+    setTimeout(() => {
+        connectDebtRealtime();
+    }, 3000);
+});
+
+// Disconnect when page unloads
+window.addEventListener('beforeunload', () => {
+    disconnectDebtRealtime();
+});
+
+// Export realtime functions
+window.connectDebtRealtime = connectDebtRealtime;
+window.disconnectDebtRealtime = disconnectDebtRealtime;
