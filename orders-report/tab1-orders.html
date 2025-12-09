@@ -301,18 +301,18 @@
             </div>
 
             <!-- Table Filters Row -->
-            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid #e5e7eb; margin-top: 8px;">
+            <div
+                style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid #e5e7eb; margin-top: 8px;">
                 <!-- TAG Filter -->
                 <label>TAG:</label>
                 <div class="custom-dropdown" id="tagFilterDropdown" style="min-width: 200px;">
-                    <div class="dropdown-selected" onclick="toggleTagDropdown()"
-                        id="tagFilterSelected">
+                    <div class="dropdown-selected" onclick="toggleTagDropdown()" id="tagFilterSelected">
                         <span>Tất cả</span>
                         <i class="fas fa-chevron-down"></i>
                     </div>
                     <div class="dropdown-container" id="tagFilterContainer">
-                        <input type="text" id="tagFilterInput" placeholder="Tìm tag..."
-                            onkeyup="filterTagDropdown()" onclick="event.stopPropagation()">
+                        <input type="text" id="tagFilterInput" placeholder="Tìm tag..." onkeyup="filterTagDropdown()"
+                            onclick="event.stopPropagation()">
                         <div id="tagFilterOptions" class="dropdown-options">
                             <!-- Options populated by JS -->
                         </div>
@@ -338,20 +338,17 @@
             </div>
 
             <!-- Bulk Tag Assignment Row -->
-            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #e5e7eb; margin-top: 12px;">
+            <div
+                style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #e5e7eb; margin-top: 12px;">
                 <label style="font-weight: 600; color: #374151;">Gán tag hàng loạt:</label>
 
                 <!-- STT Input Container -->
                 <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; max-width: 400px;">
                     <div style="position: relative;">
-                        <input
-                            type="text"
-                            id="bulkTagSTTInput"
-                            placeholder="Nhập STT (VD: 1, 2, 5-10, 15)"
+                        <input type="text" id="bulkTagSTTInput" placeholder="Nhập STT (VD: 1, 2, 5-10, 15)"
                             style="width: 100%; padding: 8px 40px 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;"
                             onkeydown="handleBulkTagSTTInput(event)">
-                        <button
-                            onclick="clearBulkTagSTT()"
+                        <button onclick="clearBulkTagSTT()"
                             style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #9ca3af; cursor: pointer; padding: 4px;"
                             title="Xóa tất cả">
                             <i class="fas fa-times-circle"></i>
@@ -380,10 +377,7 @@
                 </div>
 
                 <!-- Assign Button -->
-                <button
-                    class="btn-primary"
-                    id="bulkAssignTagBtn"
-                    onclick="executeBulkTagAssignment()"
+                <button class="btn-primary" id="bulkAssignTagBtn" onclick="executeBulkTagAssignment()"
                     style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 8px 20px; display: flex; align-items: center; gap: 8px;"
                     title="Gán tag cho các đơn hàng theo STT đã nhập">
                     <i class="fas fa-tags"></i>
@@ -588,14 +582,16 @@
             </div>
             <div class="tag-modal-body">
                 <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151;">
+                    <label
+                        style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151;">
                         <i class="fas fa-tag"></i> Tên tag:
                     </label>
                     <input type="text" id="newTagName" placeholder="Nhập tên tag..."
                         style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
                 </div>
                 <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151;">
+                    <label
+                        style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151;">
                         <i class="fas fa-palette"></i> Màu sắc:
                     </label>
                     <div style="display: flex; gap: 12px; align-items: center;">
@@ -611,24 +607,51 @@
                     <div style="margin-top: 12px;">
                         <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">Màu gợi ý:</div>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <div onclick="selectPresetColor('#ef4444')" style="width: 32px; height: 32px; background: #ef4444; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Đỏ"></div>
-                            <div onclick="selectPresetColor('#f59e0b')" style="width: 32px; height: 32px; background: #f59e0b; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Cam"></div>
-                            <div onclick="selectPresetColor('#eab308')" style="width: 32px; height: 32px; background: #eab308; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Vàng"></div>
-                            <div onclick="selectPresetColor('#22c55e')" style="width: 32px; height: 32px; background: #22c55e; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Xanh lá"></div>
-                            <div onclick="selectPresetColor('#10b981')" style="width: 32px; height: 32px; background: #10b981; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Xanh lá đậm"></div>
-                            <div onclick="selectPresetColor('#06b6d4')" style="width: 32px; height: 32px; background: #06b6d4; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Cyan"></div>
-                            <div onclick="selectPresetColor('#3b82f6')" style="width: 32px; height: 32px; background: #3b82f6; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Xanh dương"></div>
-                            <div onclick="selectPresetColor('#6366f1')" style="width: 32px; height: 32px; background: #6366f1; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Indigo"></div>
-                            <div onclick="selectPresetColor('#8b5cf6')" style="width: 32px; height: 32px; background: #8b5cf6; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Tím"></div>
-                            <div onclick="selectPresetColor('#ec4899')" style="width: 32px; height: 32px; background: #ec4899; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Hồng"></div>
-                            <div onclick="selectPresetColor('#f43f5e')" style="width: 32px; height: 32px; background: #f43f5e; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Hồng đậm"></div>
-                            <div onclick="selectPresetColor('#64748b')" style="width: 32px; height: 32px; background: #64748b; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Xám"></div>
+                            <div onclick="selectPresetColor('#ef4444')"
+                                style="width: 32px; height: 32px; background: #ef4444; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Đỏ"></div>
+                            <div onclick="selectPresetColor('#f59e0b')"
+                                style="width: 32px; height: 32px; background: #f59e0b; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Cam"></div>
+                            <div onclick="selectPresetColor('#eab308')"
+                                style="width: 32px; height: 32px; background: #eab308; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Vàng"></div>
+                            <div onclick="selectPresetColor('#22c55e')"
+                                style="width: 32px; height: 32px; background: #22c55e; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Xanh lá"></div>
+                            <div onclick="selectPresetColor('#10b981')"
+                                style="width: 32px; height: 32px; background: #10b981; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Xanh lá đậm"></div>
+                            <div onclick="selectPresetColor('#06b6d4')"
+                                style="width: 32px; height: 32px; background: #06b6d4; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Cyan"></div>
+                            <div onclick="selectPresetColor('#3b82f6')"
+                                style="width: 32px; height: 32px; background: #3b82f6; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Xanh dương"></div>
+                            <div onclick="selectPresetColor('#6366f1')"
+                                style="width: 32px; height: 32px; background: #6366f1; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Indigo"></div>
+                            <div onclick="selectPresetColor('#8b5cf6')"
+                                style="width: 32px; height: 32px; background: #8b5cf6; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Tím"></div>
+                            <div onclick="selectPresetColor('#ec4899')"
+                                style="width: 32px; height: 32px; background: #ec4899; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Hồng"></div>
+                            <div onclick="selectPresetColor('#f43f5e')"
+                                style="width: 32px; height: 32px; background: #f43f5e; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Hồng đậm"></div>
+                            <div onclick="selectPresetColor('#64748b')"
+                                style="width: 32px; height: 32px; background: #64748b; border-radius: 4px; cursor: pointer; border: 2px solid transparent;"
+                                title="Xám"></div>
                         </div>
                     </div>
                 </div>
-                <div id="createTagStatus" style="display: none; padding: 10px; border-radius: 6px; margin-bottom: 16px; font-size: 14px;"></div>
+                <div id="createTagStatus"
+                    style="display: none; padding: 10px; border-radius: 6px; margin-bottom: 16px; font-size: 14px;">
+                </div>
             </div>
-            <div class="tag-modal-footer" style="display: flex; gap: 12px; padding: 16px; border-top: 1px solid #e5e7eb;">
+            <div class="tag-modal-footer"
+                style="display: flex; gap: 12px; padding: 16px; border-top: 1px solid #e5e7eb;">
                 <button onclick="closeCreateTagModal()"
                     style="flex: 1; padding: 10px; background: #e5e7eb; color: #374151; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
                     <i class="fas fa-times"></i> Hủy
@@ -797,8 +820,7 @@
                     </div>
                     <!-- Page Selector -->
                     <div class="chat-page-selector" id="chatPageSelector" style="margin-right: 12px;">
-                        <select id="chatPageSelect"
-                            onchange="onChatPageChanged(this.value)"
+                        <select id="chatPageSelect" onchange="onChatPageChanged(this.value)"
                             style="padding: 8px 12px; border-radius: 8px; border: none; background: rgba(255, 255, 255, 0.2); color: white; font-size: 13px; font-weight: 500; cursor: pointer; min-width: 180px; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 10px center; background-size: 10px; padding-right: 30px;">
                             <option value="">Đang tải pages...</option>
                         </select>
@@ -877,8 +899,7 @@
                             <label style="font-size: 12px; color: #6b7280; white-space: nowrap;">
                                 <i class="fas fa-paper-plane" style="margin-right: 4px;"></i>Gửi từ:
                             </label>
-                            <select id="chatSendPageSelect"
-                                onchange="onSendPageChanged(this.value)"
+                            <select id="chatSendPageSelect" onchange="onSendPageChanged(this.value)"
                                 style="padding: 6px 10px; border-radius: 6px; border: 1px solid #e5e7eb; background: white; color: #374151; font-size: 12px; cursor: pointer; min-width: 150px; max-width: 200px;">
                                 <option value="">Đang tải...</option>
                             </select>
@@ -1621,6 +1642,7 @@
                     transform: scale(0.8);
                     opacity: 0;
                 }
+
                 to {
                     transform: scale(1);
                     opacity: 1;
@@ -2038,6 +2060,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="order-image-generator.js"></script>
     <script src="message-template-manager.js"></script>
+
     <script src="quick-reply-manager.js"></script>
     <script src="product-search-manager.js"></script>
     <!-- Product Search Module for search suggestions -->
@@ -2129,15 +2152,19 @@
             <!-- Reply Container -->
             <div class="comment-reply-container" id="commentReplyContainer">
                 <!-- Reply Preview -->
-                <div id="commentReplyPreviewContainer" style="display: none; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                <div id="commentReplyPreviewContainer"
+                    style="display: none; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
                     <div style="display: flex; align-items: start; gap: 8px;">
                         <div style="flex: 1;">
                             <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px; font-weight: 600;">
                                 <i class="fas fa-reply" style="margin-right: 4px;"></i>Đang trả lời
                             </div>
-                            <div id="commentReplyPreviewText" style="font-size: 12px; color: #374151; max-height: 40px; overflow: hidden; text-overflow: ellipsis;"></div>
+                            <div id="commentReplyPreviewText"
+                                style="font-size: 12px; color: #374151; max-height: 40px; overflow: hidden; text-overflow: ellipsis;">
+                            </div>
                         </div>
-                        <button onclick="cancelCommentReply()" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; border-radius: 4px;">
+                        <button onclick="cancelCommentReply()"
+                            style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; border-radius: 4px;">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -2145,8 +2172,8 @@
 
                 <!-- Input Row -->
                 <div style="display: flex; gap: 8px; align-items: flex-end; padding: 12px 16px;">
-                    <textarea id="commentReplyInput" placeholder="Chọn 'Trả lời' một bình luận để reply..."
-                        rows="1" disabled
+                    <textarea id="commentReplyInput" placeholder="Chọn 'Trả lời' một bình luận để reply..." rows="1"
+                        disabled
                         style="flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 20px; font-size: 14px; background: #f3f4f6; resize: none; max-height: 120px; font-family: inherit; line-height: 1.5; cursor: not-allowed;"></textarea>
                     <button class="comment-btn-send" id="commentSendBtn" onclick="sendCommentReply()" disabled
                         style="padding: 10px 24px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: not-allowed; display: flex; align-items: center; gap: 6px; opacity: 0.5;">
@@ -2871,7 +2898,7 @@
         }
 
         // Close dropdown when clicking outside
-        document.addEventListener('click', function(event) {
+        document.addEventListener('click', function (event) {
             const dropdown = document.getElementById('tagFilterDropdown');
             const container = document.getElementById('tagFilterContainer');
 
@@ -3188,11 +3215,13 @@
         </div>
         <div class="employee-drawer-body">
             <!-- Campaign Selector -->
-            <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e5e7eb;">
+            <div
+                style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e5e7eb;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #374151;">
                     <i class="fas fa-video"></i> Chọn chiến dịch live:
                 </label>
-                <select id="employeeCampaignSelector" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
+                <select id="employeeCampaignSelector"
+                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
                     <option value="">Cấu hình chung (tất cả chiến dịch)</option>
                 </select>
                 <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">

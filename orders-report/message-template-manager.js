@@ -862,11 +862,11 @@ class MessageTemplateManager {
         }
 
         // Get chat info
-        if (!window.chatDataManager) {
-            throw new Error('chatDataManager không có sẵn');
+        if (!window.pancakeDataManager) {
+            throw new Error('pancakeDataManager không có sẵn');
         }
 
-        const chatInfo = window.chatDataManager.getChatInfoForOrder(fullOrderData.raw);
+        const chatInfo = window.pancakeDataManager.getChatInfoForOrder(fullOrderData.raw);
         const channelId = chatInfo.channelId;
         const psid = chatInfo.psid;
         const customerId = fullOrderData.raw.PartnerId;
@@ -880,26 +880,33 @@ class MessageTemplateManager {
         }
 
         // Get conversation from Pancake to get correct conversationId
-        if (!window.pancakeDataManager) {
-            throw new Error('pancakeDataManager không có sẵn');
+        // First try to get from cache, if not found, construct from channelId_psid
+        let conversationId;
+        const conversation = window.pancakeDataManager?.getConversationByUserId(psid);
+
+        if (conversation && conversation.id) {
+            conversationId = conversation.id;
+            this.log(`📌 Found conversation in cache: ${conversationId}`);
+        } else {
+            // Fallback: construct conversationId from channelId_psid (standard format)
+            conversationId = `${channelId}_${psid}`;
+            this.log(`⚠️ Conversation not in cache, using fallback: ${conversationId}`);
         }
 
-        const conversation = window.pancakeDataManager.getConversationByUserId(psid);
-        if (!conversation) {
-            throw new Error(`Không tìm thấy conversation cho PSID ${psid}. Order: ${order.code}`);
+        // Build API URL with customer_id in query params (like sendMessageInternal)
+        let queryParams = `access_token=${token}`;
+        if (customerId) {
+            queryParams += `&customer_id=${customerId}`;
         }
-
-        // Use conversation.id from Pancake API (format: pageId_threadId)
-        const conversationId = conversation.id;
-
-        // Send via Pancake API
         const apiUrl = window.API_CONFIG.buildUrl.pancake(
             `pages/${channelId}/conversations/${conversationId}/messages`,
-            `access_token=${token}`
+            queryParams
         );
 
-        let requestBody;
-        let fetchOptions;
+        // Build FormData payload (like sendMessageInternal uses multipart/form-data)
+        const formData = new FormData();
+        formData.append('action', 'reply_inbox');
+        formData.append('message', messageContent);
 
         if (sendMode === 'image') {
             // IMAGE MODE
@@ -978,63 +985,39 @@ class MessageTemplateManager {
                 this.log('♻️ Using cached image - skip upload');
             }
 
-            requestBody = {
-                action: "reply_inbox",
-                message: messageContent,
-                customer_id: customerId,
-                send_by_platform: "web",
-                content_url: contentUrl
-            };
+            // Add image data to FormData (like sendMessageInternal)
+            const contentUrls = [contentUrl];
+            const contentIds = [contentId || ''];
+            const dimensions = [JSON.stringify({ width: 0, height: 0 })];
 
-            // Store contentId for cleanup (DISABLED - we keep images now)
-            // if (contentId) {
-            //     context.cleanupImageId = contentId;
-            //     context.cleanupPageId = channelId;
-            // }
-        } else {
-            // TEXT MODE
-            requestBody = {
-                action: "reply_inbox",
-                message: messageContent,
-                customer_id: customerId,
-                send_by_platform: "web"
-            };
+            formData.append('content_urls', JSON.stringify(contentUrls));
+            formData.append('content_ids', JSON.stringify(contentIds));
+            formData.append('dimensions', JSON.stringify(dimensions));
+
+            this.log('📷 Image added to FormData:', contentUrl);
         }
 
-        fetchOptions = {
+        // Send using FormData (like sendMessageInternal)
+        this.log('📤 Sending message via FormData...');
+        this.log('📡 API URL:', apiUrl);
+
+        const response = await API_CONFIG.smartFetch(apiUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-        };
+            body: formData // FormData automatically sets Content-Type with boundary
+        });
 
-        try {
-            const response = await API_CONFIG.smartFetch(apiUrl, fetchOptions);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            const responseData = await response.json();
-
-            if (!responseData.success) {
-                throw new Error(responseData.error || 'API returned success: false');
-            }
-
-            return true;
-        } finally {
-            // CLEANUP IMAGE IF NEEDED (DISABLED - we now keep images in Firebase cache)
-            // if (context.cleanupImageId && context.cleanupPageId) {
-            //     // Run in background, don't await
-            //     window.pancakeDataManager.deleteImage(context.cleanupPageId, context.cleanupImageId)
-            //         .then(success => {
-            //             if (success) console.log(`[CLEANUP] Deleted image ${context.cleanupImageId}`);
-            //         })
-            //         .catch(err => console.error('[CLEANUP] Failed to delete image:', err));
-            // }
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
+
+        const responseData = await response.json();
+
+        if (!responseData.success) {
+            throw new Error(responseData.error || 'API returned success: false');
+        }
+
+        return true;
     }
 
     async fetchCRMTeam(teamId) {
@@ -1360,16 +1343,16 @@ class MessageTemplateManager {
             const fullOrder = allOrders.find(o => o.Id === orderId);
 
             if (fullOrder) {
-                // Use full data
+                // Use full data - prioritize Partner info if available
                 selectedOrders.push({
                     Id: fullOrder.Id,
                     code: fullOrder.Code,
-                    customerName: fullOrder.Name, // Or Partner.Name if available
-                    phone: fullOrder.Telephone,
-                    address: fullOrder.Address,
+                    customerName: fullOrder.Partner?.Name || fullOrder.Name,
+                    phone: fullOrder.Partner?.Telephone || fullOrder.Telephone,
+                    address: fullOrder.Partner?.Address || fullOrder.Address,
                     totalAmount: fullOrder.TotalAmount,
-                    PartnerId: fullOrder.PartnerId || (fullOrder.Partner && fullOrder.Partner.Id),
-                    // Keep other fields if needed
+                    PartnerId: fullOrder.PartnerId || fullOrder.Partner?.Id,
+                    // Keep raw data for getChatInfoForOrder
                     raw: fullOrder
                 });
                 this.log('  - Found full order:', fullOrder.Code);

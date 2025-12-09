@@ -71,14 +71,6 @@ const MENU_CONFIG = [
         permissionRequired: "hanghoan",
     },
     {
-        href: "../trash-bin/index.html",
-        icon: "trash-2",
-        text: "Thùng Rác",
-        shortText: "Rác",
-        pageIdentifier: "trash-bin",
-        permissionRequired: "trash-bin",
-    },
-    {
         href: "../orders-report/main.html",
         icon: "shopping-cart",
         text: "Báo Cáo Sale-Online",
@@ -166,7 +158,11 @@ const MENU_CONFIG = [
 
 // localStorage key for custom menu names (cache)
 const CUSTOM_MENU_NAMES_KEY = 'n2shop_custom_menu_names';
+const CUSTOM_MENU_NAMES_TIMESTAMP_KEY = 'n2shop_custom_menu_names_timestamp';
 const FIREBASE_MENU_NAMES_DOC = 'settings/custom_menu_names';
+
+// Cache expiry time: 24 hours in milliseconds
+const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 // Cache for menu names (loaded from Firebase)
 let cachedMenuNames = null;
@@ -189,25 +185,59 @@ function getCustomMenuNames() {
     }
 }
 
+// Check if cache is still valid (not expired)
+function isCacheValid() {
+    try {
+        const timestamp = localStorage.getItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY);
+        if (!timestamp) return false;
+
+        const cacheTime = parseInt(timestamp, 10);
+        const now = Date.now();
+        const isValid = (now - cacheTime) < CACHE_EXPIRY_MS;
+
+        if (isValid) {
+            const remainingHours = Math.round((CACHE_EXPIRY_MS - (now - cacheTime)) / (60 * 60 * 1000));
+            console.log(`[Menu Names] Cache valid, expires in ~${remainingHours}h`);
+        }
+
+        return isValid;
+    } catch (e) {
+        return false;
+    }
+}
+
 // Load custom menu names from Firebase (call this on page load)
+// Only fetches from Firebase if cache is expired or doesn't exist
 async function loadCustomMenuNamesFromFirebase() {
     try {
+        // Check if we have valid cached data
+        const hasCache = localStorage.getItem(CUSTOM_MENU_NAMES_KEY);
+
+        if (hasCache && isCacheValid()) {
+            console.log('[Menu Names] Using cached data (not expired)');
+            return getCustomMenuNames();
+        }
+
         if (typeof firebase === 'undefined' || !firebase.firestore) {
             console.log('[Menu Names] Firebase not available, using localStorage only');
             return getCustomMenuNames();
         }
 
+        console.log('[Menu Names] Cache expired or missing, fetching from Firebase...');
         const db = firebase.firestore();
         const doc = await db.doc(FIREBASE_MENU_NAMES_DOC).get();
 
         if (doc.exists) {
             const data = doc.data();
             cachedMenuNames = data.names || {};
-            // Update localStorage cache
+            // Update localStorage cache with timestamp
             localStorage.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(cachedMenuNames));
+            localStorage.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
             console.log('[Menu Names] Loaded from Firebase:', Object.keys(cachedMenuNames).length, 'custom names');
         } else {
             cachedMenuNames = {};
+            // Still set timestamp to avoid continuous retry
+            localStorage.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
             console.log('[Menu Names] No custom names in Firebase');
         }
 

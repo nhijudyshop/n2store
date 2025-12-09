@@ -4361,11 +4361,15 @@ function updateActionButtons() {
     }
 }
 
-function handleClearCache() {
-    if (confirm("Bạn có chắc muốn xóa toàn bộ cache?")) {
+async function handleClearCache() {
+    const confirmed = await window.notificationManager.confirm(
+        "Bạn có chắc muốn xóa toàn bộ cache?",
+        "Xác nhận xóa cache"
+    );
+    if (confirmed) {
         window.cacheManager.clear("orders");
         window.cacheManager.clear("campaigns");
-        alert("Đã xóa cache");
+        window.notificationManager.success("Đã xóa cache");
         location.reload();
     }
 }
@@ -5061,21 +5065,16 @@ function showErrorState(message) {
 
 function closeEditModal() {
     if (hasUnsavedOrderChanges) {
-        const confirmClose = window.CustomPopup ?
-            window.CustomPopup.confirm("Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng không?", "Cảnh báo") :
-            confirm("Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng không?");
-
-        // Handle promise if CustomPopup returns one, or boolean from native confirm
-        if (confirmClose instanceof Promise) {
-            confirmClose.then(result => {
-                if (result) {
-                    forceCloseEditModal();
-                }
-            });
-            return;
-        } else if (!confirmClose) {
-            return;
-        }
+        // Use custom confirm popup since native confirm may be blocked
+        window.notificationManager.confirm(
+            "Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng không?",
+            "Cảnh báo"
+        ).then(result => {
+            if (result) {
+                forceCloseEditModal();
+            }
+        });
+        return;
     }
     forceCloseEditModal();
 }
@@ -5121,14 +5120,13 @@ function updateProductNote(index, note) {
     showSaveIndicator("success", "Ghi chú đã cập nhật");
 }
 
-function removeProduct(index) {
+async function removeProduct(index) {
     const product = currentEditOrderData.Details[index];
-    if (
-        !confirm(
-            `Xóa sản phẩm "${product.ProductNameGet || product.ProductName}"?`,
-        )
-    )
-        return;
+    const confirmed = await window.notificationManager.confirm(
+        `Xóa sản phẩm "${product.ProductNameGet || product.ProductName}"?`,
+        "Xác nhận xóa"
+    );
+    if (!confirmed) return;
 
     // Remove product from array
     currentEditOrderData.Details.splice(index, 1);
@@ -5209,7 +5207,16 @@ function recalculateTotals() {
 }
 
 async function saveAllOrderChanges() {
-    if (!confirm("Lưu tất cả thay đổi cho đơn hàng này?")) return;
+    console.log('[SAVE DEBUG] saveAllOrderChanges called at:', new Date().toISOString());
+
+    // Use custom confirm popup since native confirm may be blocked
+    const userConfirmed = await window.notificationManager.confirm(
+        "Lưu tất cả thay đổi cho đơn hàng này?",
+        "Xác nhận lưu"
+    );
+    console.log('[SAVE DEBUG] User confirmed:', userConfirmed);
+
+    if (!userConfirmed) return;
 
     let notifId = null;
 
@@ -11138,7 +11145,8 @@ async function executeBulkMergeOrderProducts() {
             `- Chuyển tất cả sản phẩm từ đơn STT nhỏ sang đơn STT lớn\n` +
             `- Xóa sản phẩm khỏi các đơn STT nhỏ`;
 
-        if (!confirm(confirmMsg)) {
+        const confirmed = await window.notificationManager.confirm(confirmMsg, "Xác nhận gộp sản phẩm");
+        if (!confirmed) {
             return { success: false, message: 'Cancelled by user' };
         }
 
@@ -11363,22 +11371,21 @@ async function handleFullAddressLookup() {
     }
 }
 
-function selectAddress(fullAddress, type) {
+async function selectAddress(fullAddress, type) {
     const addressTextarea = document.querySelector('textarea[onchange*="updateOrderInfo(\'Address\'"]');
     if (addressTextarea) {
         let newAddress = fullAddress;
 
         // Logic to append or replace
         if (addressTextarea.value && addressTextarea.value.trim() !== '') {
-            // Simple heuristic: if the current value is short, maybe replace. If long, maybe append.
-            // Or just ask the user via a simple confirm/prompt logic?
-            // "Bạn muốn THAY THẾ (OK) hay NỐI THÊM (Cancel)?" -> confusing.
-            // Let's just append if it's not empty, but add a separator.
-
-            // Actually, let's try to be smart. If the textarea contains the new address already, don't do anything.
+            // Check if the textarea contains the new address already
             if (!addressTextarea.value.includes(fullAddress)) {
-                // Confirm with user
-                if (confirm('Bạn có muốn thay thế địa chỉ hiện tại không?\nOK: Thay thế\nCancel: Nối thêm vào sau')) {
+                // Confirm with user using custom popup
+                const replaceAddress = await window.notificationManager.confirm(
+                    'Bạn có muốn thay thế địa chỉ hiện tại không?\n\nĐồng ý: Thay thế\nHủy: Nối thêm vào sau',
+                    'Chọn cách cập nhật địa chỉ'
+                );
+                if (replaceAddress) {
                     newAddress = fullAddress;
                 } else {
                     newAddress = addressTextarea.value + ', ' + fullAddress;

@@ -238,6 +238,95 @@ class NotificationManager {
             title: "Xử lý",
         });
     }
+
+    /**
+     * Custom confirm dialog to replace native confirm() which may be blocked
+     * @param {string} message - The message to display
+     * @param {string} title - The title of the dialog (optional)
+     * @returns {Promise<boolean>} - Resolves to true if confirmed, false if cancelled
+     */
+    confirm(message, title = "Xác nhận") {
+        return new Promise((resolve) => {
+            // Create overlay
+            const overlay = document.createElement("div");
+            overlay.className = "custom-confirm-overlay";
+            overlay.id = "customConfirmOverlay";
+
+            // Create modal
+            const modal = document.createElement("div");
+            modal.className = "custom-confirm-modal";
+            modal.innerHTML = `
+                <div class="custom-confirm-header">
+                    <i data-lucide="alert-circle" class="custom-confirm-icon"></i>
+                    <h3>${title}</h3>
+                </div>
+                <div class="custom-confirm-body">
+                    <p>${message}</p>
+                </div>
+                <div class="custom-confirm-footer">
+                    <button class="custom-confirm-btn custom-confirm-cancel">
+                        <i data-lucide="x"></i>
+                        Hủy
+                    </button>
+                    <button class="custom-confirm-btn custom-confirm-ok">
+                        <i data-lucide="check"></i>
+                        Đồng ý
+                    </button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Initialize Lucide icons
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons();
+            }
+
+            // Animate in
+            requestAnimationFrame(() => {
+                overlay.classList.add("show");
+            });
+
+            // Close function
+            const closeModal = (result) => {
+                overlay.classList.remove("show");
+                setTimeout(() => {
+                    overlay.remove();
+                    resolve(result);
+                }, 200);
+            };
+
+            // Event handlers
+            const cancelBtn = modal.querySelector(".custom-confirm-cancel");
+            const okBtn = modal.querySelector(".custom-confirm-ok");
+
+            cancelBtn.onclick = () => closeModal(false);
+            okBtn.onclick = () => closeModal(true);
+
+            // Close on overlay click
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    closeModal(false);
+                }
+            };
+
+            // Close on Escape key
+            const handleKeydown = (e) => {
+                if (e.key === "Escape") {
+                    closeModal(false);
+                    document.removeEventListener("keydown", handleKeydown);
+                } else if (e.key === "Enter") {
+                    closeModal(true);
+                    document.removeEventListener("keydown", handleKeydown);
+                }
+            };
+            document.addEventListener("keydown", handleKeydown);
+
+            // Focus OK button
+            okBtn.focus();
+        });
+    }
 }
 
 // Enhanced CSS for the new notification system
@@ -429,6 +518,126 @@ const notificationStyles = `
         min-width: auto;
         width: 100%;
     }
+}
+
+/* Custom Confirm Dialog Styles */
+.custom-confirm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+    backdrop-filter: blur(2px);
+}
+
+.custom-confirm-overlay.show {
+    opacity: 1;
+}
+
+.custom-confirm-modal {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    max-width: 420px;
+    width: 90%;
+    transform: scale(0.95) translateY(-20px);
+    transition: transform 0.2s ease-out;
+    overflow: hidden;
+}
+
+.custom-confirm-overlay.show .custom-confirm-modal {
+    transform: scale(1) translateY(0);
+}
+
+.custom-confirm-header {
+    padding: 20px 24px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+}
+
+.custom-confirm-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.custom-confirm-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.custom-confirm-body {
+    padding: 24px;
+}
+
+.custom-confirm-body p {
+    margin: 0;
+    font-size: 15px;
+    color: #374151;
+    line-height: 1.6;
+}
+
+.custom-confirm-footer {
+    padding: 16px 24px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+}
+
+.custom-confirm-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    border: none;
+}
+
+.custom-confirm-btn i {
+    width: 16px;
+    height: 16px;
+}
+
+.custom-confirm-cancel {
+    background: white;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+}
+
+.custom-confirm-cancel:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.custom-confirm-ok {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.custom-confirm-ok:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.custom-confirm-ok:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
 }
 </style>
 `;
