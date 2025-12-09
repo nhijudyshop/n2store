@@ -12304,16 +12304,17 @@ function renderQRColumn(phone) {
     if (!normalizedPhone) {
         // No phone number - show disabled button
         return `
-            <button class="btn-qr-copy disabled" disabled title="Không có SĐT" style="
-                padding: 4px 8px;
+            <button class="btn-qr" disabled title="Không có SĐT" style="
+                padding: 4px 10px;
                 border: none;
                 border-radius: 4px;
                 cursor: not-allowed;
                 background: #e5e7eb;
                 color: #9ca3af;
-                font-size: 12px;
+                font-size: 11px;
+                font-weight: 600;
             ">
-                <i class="fas fa-copy"></i>
+                QR
             </button>
         `;
     }
@@ -12323,22 +12324,23 @@ function renderQRColumn(phone) {
     const hasQR = !!existingQR;
 
     return `
-        <button class="btn-qr-copy ${hasQR ? 'has-qr' : ''}"
-                onclick="copyQRCode('${normalizedPhone}'); event.stopPropagation();"
-                title="${hasQR ? 'Copy mã QR: ' + existingQR : 'Tạo và copy mã QR mới'}"
+        <button class="btn-qr ${hasQR ? 'has-qr' : ''}"
+                onclick="showOrderQRModal('${normalizedPhone}'); event.stopPropagation();"
+                title="${hasQR ? 'Xem QR: ' + existingQR : 'Tạo QR mới'}"
                 style="
-                    padding: 4px 8px;
+                    padding: 4px 10px;
                     border: none;
                     border-radius: 4px;
                     cursor: pointer;
                     background: ${hasQR ? '#10b981' : '#3b82f6'};
                     color: white;
-                    font-size: 12px;
+                    font-size: 11px;
+                    font-weight: 600;
                     transition: all 0.2s;
                 "
                 onmouseover="this.style.opacity='0.8'"
                 onmouseout="this.style.opacity='1'">
-            <i class="fas fa-copy"></i>
+            QR
         </button>
     `;
 }
@@ -12411,8 +12413,155 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
 });
 
+// =====================================================
+// QR MODAL FUNCTIONS
+// =====================================================
+
+// Bank configuration (same as balance-history)
+const QR_BANK_CONFIG = {
+    bin: '970416',
+    name: 'ACB',
+    accountNo: '93616',
+    accountName: 'LAI THUY YEN NHI'
+};
+
+/**
+ * Generate VietQR URL for bank transfer
+ * @param {string} uniqueCode - Unique transaction code
+ * @param {number} amount - Transfer amount (optional)
+ * @returns {string} VietQR image URL
+ */
+function generateVietQRUrl(uniqueCode, amount = 0) {
+    const baseUrl = 'https://img.vietqr.io/image';
+    let url = `${baseUrl}/${QR_BANK_CONFIG.bin}-${QR_BANK_CONFIG.accountNo}-compact2.png`;
+
+    const params = new URLSearchParams();
+    if (amount > 0) {
+        params.append('amount', amount);
+    }
+    params.append('addInfo', uniqueCode);
+    params.append('accountName', QR_BANK_CONFIG.accountName);
+
+    return `${url}?${params.toString()}`;
+}
+
+/**
+ * Show QR Modal for a phone number
+ * @param {string} phone - Phone number
+ */
+function showOrderQRModal(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) {
+        showNotification('Không có số điện thoại', 'warning');
+        return;
+    }
+
+    // Get or create QR code
+    const uniqueCode = getOrCreateQRForPhone(normalizedPhone);
+    if (!uniqueCode) {
+        showNotification('Không thể tạo mã QR', 'error');
+        return;
+    }
+
+    // Generate QR URL
+    const qrUrl = generateVietQRUrl(uniqueCode);
+
+    // Get modal elements
+    const modal = document.getElementById('orderQRModal');
+    const modalBody = document.getElementById('orderQRModalBody');
+
+    // Render modal content
+    modalBody.innerHTML = `
+        <img src="${qrUrl}" alt="QR Code" style="width: 280px; max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+
+        <div style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; text-align: left; font-size: 13px;">
+            <div style="margin-bottom: 8px;">
+                <strong>Ngân hàng:</strong> ${QR_BANK_CONFIG.name}<br>
+                <strong>Số TK:</strong> ${QR_BANK_CONFIG.accountNo}<br>
+                <strong>Chủ TK:</strong> ${QR_BANK_CONFIG.accountName}
+            </div>
+            <div style="padding: 8px; background: white; border: 2px dashed #dee2e6; border-radius: 6px; font-family: monospace; font-size: 13px; font-weight: bold; color: #495057; text-align: center;">
+                ${uniqueCode}
+            </div>
+        </div>
+
+        <div style="margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+            <button onclick="copyQRCodeFromModal('${uniqueCode}')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                <i class="fas fa-copy"></i> Copy mã
+            </button>
+            <button onclick="copyQRImageUrl('${qrUrl}')" style="padding: 8px 16px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                <i class="fas fa-image"></i> Copy URL
+            </button>
+        </div>
+
+        <div style="margin-top: 12px; padding: 10px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px; font-size: 12px; color: #92400e; text-align: left;">
+            <strong>Lưu ý:</strong> Khách hàng cần nhập đúng mã <strong>${uniqueCode}</strong> khi chuyển khoản.
+        </div>
+    `;
+
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+/**
+ * Close QR Modal
+ */
+function closeOrderQRModal() {
+    const modal = document.getElementById('orderQRModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * Copy QR code from modal
+ * @param {string} uniqueCode - QR code to copy
+ */
+async function copyQRCodeFromModal(uniqueCode) {
+    try {
+        await navigator.clipboard.writeText(uniqueCode);
+        showNotification('Đã copy QR', 'success');
+    } catch (error) {
+        // Fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = uniqueCode;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showNotification('Đã copy QR', 'success');
+    }
+}
+
+/**
+ * Copy QR image URL
+ * @param {string} url - URL to copy
+ */
+async function copyQRImageUrl(url) {
+    try {
+        await navigator.clipboard.writeText(url);
+        showNotification('Đã copy URL', 'success');
+    } catch (error) {
+        showNotification('Không thể copy', 'error');
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('orderQRModal');
+    if (modal && event.target === modal) {
+        closeOrderQRModal();
+    }
+});
+
 // Make QR functions globally accessible
 window.copyQRCode = copyQRCode;
 window.getOrCreateQRForPhone = getOrCreateQRForPhone;
 window.renderQRColumn = renderQRColumn;
 window.syncQRFromBalanceHistory = syncQRFromBalanceHistory;
+window.showOrderQRModal = showOrderQRModal;
+window.closeOrderQRModal = closeOrderQRModal;
+window.copyQRCodeFromModal = copyQRCodeFromModal;
+window.copyQRImageUrl = copyQRImageUrl;
