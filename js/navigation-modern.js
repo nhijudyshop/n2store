@@ -574,23 +574,25 @@ class UnifiedNavigationManager {
 
             .nav-item-wrapper .nav-item {
                 flex: 1;
+                padding-right: 40px; /* Make room for edit button */
             }
 
             .nav-item-edit-btn {
                 position: absolute;
                 right: 8px;
-                width: 24px;
-                height: 24px;
+                width: 28px;
+                height: 28px;
                 border: none;
-                background: rgba(16, 185, 129, 0.2);
-                border-radius: 4px;
+                background: rgba(16, 185, 129, 0.3);
+                border-radius: 6px;
                 cursor: pointer;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 opacity: 0;
                 transition: all 0.2s;
-                z-index: 5;
+                z-index: 100;
+                pointer-events: auto;
             }
 
             .nav-item-wrapper:hover .nav-item-edit-btn {
@@ -598,14 +600,19 @@ class UnifiedNavigationManager {
             }
 
             .nav-item-edit-btn:hover {
-                background: rgba(16, 185, 129, 0.4);
+                background: rgba(16, 185, 129, 0.5);
                 transform: scale(1.1);
+            }
+
+            .nav-item-edit-btn:active {
+                transform: scale(0.95);
             }
 
             .nav-item-edit-btn i {
                 width: 14px;
                 height: 14px;
                 color: #10b981;
+                pointer-events: none;
             }
 
             /* Mobile menu item wrapper */
@@ -617,22 +624,24 @@ class UnifiedNavigationManager {
 
             .mobile-menu-item-wrapper .mobile-menu-item {
                 flex: 1;
+                padding-right: 50px; /* Make room for edit button */
             }
 
             .mobile-menu-item-edit-btn {
                 position: absolute;
                 right: 12px;
-                width: 32px;
-                height: 32px;
+                width: 36px;
+                height: 36px;
                 border: none;
-                background: rgba(16, 185, 129, 0.15);
-                border-radius: 6px;
+                background: rgba(16, 185, 129, 0.2);
+                border-radius: 8px;
                 cursor: pointer;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 transition: all 0.2s;
-                z-index: 5;
+                z-index: 100;
+                pointer-events: auto;
             }
 
             .mobile-menu-item-edit-btn:hover,
@@ -644,6 +653,7 @@ class UnifiedNavigationManager {
                 width: 16px;
                 height: 16px;
                 color: #10b981;
+                pointer-events: none;
             }
 
             /* Single menu edit modal styles */
