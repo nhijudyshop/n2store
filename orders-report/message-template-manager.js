@@ -1187,9 +1187,12 @@ class MessageTemplateManager {
             result = result.replace(/{partner\.name}/g, '(Khách hàng)');
         }
 
-        // Replace partner address - xử lý đặc biệt để tránh dấu ngoặc kép kép
+        // Replace partner address - bao gồm số điện thoại
         if (orderData.address && orderData.address.trim()) {
-            result = result.replace(/{partner\.address}/g, orderData.address);
+            // Thêm số điện thoại vào địa chỉ
+            const phone = orderData.phone && orderData.phone.trim() ? orderData.phone : '';
+            const addressWithPhone = phone ? `${orderData.address} - SĐT: ${phone}` : orderData.address;
+            result = result.replace(/{partner\.address}/g, addressWithPhone);
         } else {
             // Xử lý pattern với dấu ngoặc kép: "{partner.address}" → (Chưa có địa chỉ)
             result = result.replace(/"\{partner\.address\}"/g, '(Chưa có địa chỉ)');
@@ -1204,12 +1207,15 @@ class MessageTemplateManager {
             result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
         }
 
-        // Replace order details (products)
+        // Replace order details (products) - bao gồm Tổng tiền
         if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
             const productList = orderData.products
                 .map(p => `- ${p.name} x${p.quantity} = ${this.formatCurrency(p.total)}`)
                 .join('\n');
-            result = result.replace(/{order\.details}/g, productList);
+            // Thêm Tổng tiền vào cuối danh sách sản phẩm
+            const totalAmount = orderData.totalAmount ? this.formatCurrency(orderData.totalAmount) : '0đ';
+            const productListWithTotal = `${productList}\n\nTổng tiền: ${totalAmount}`;
+            result = result.replace(/{order\.details}/g, productListWithTotal);
         } else {
             result = result.replace(/{order\.details}/g, '(Chưa có sản phẩm)');
         }
