@@ -396,11 +396,14 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
                 const replyAvatarHTML = !replyIsOwner ? `
                     <img src="${replyAvatarUrl}"
                          alt="${replySenderName}"
-                         title="${replySenderName}"
-                         class="avatar-loading"
-                         style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 8px; border: 2px solid #e5e7eb; background: #f3f4f6;"
+                         title="Click để phóng to - ${replySenderName}"
+                         class="avatar-loading chat-avatar-clickable"
+                         style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 8px; border: 2px solid #e5e7eb; background: #f3f4f6; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;"
+                         onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)'"
+                         onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'"
+                         onclick="openAvatarZoom('${replyAvatarUrl}', '${replySenderName.replace(/'/g, "\\'")}')); event.stopPropagation();"
                          onload="this.classList.remove('avatar-loading')"
-                         onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%227%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2232%22 rx=%2211%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'"
+                         onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><circle cx=%2216%22 cy=%2216%22 r=%2216%22 fill=%22%23e5e7eb%22/><circle cx=%2216%22 cy=%2212%22 r=%226%22 fill=%22%239ca3af%22/><ellipse cx=%2216%22 cy=%2226%22 rx=%229%22 ry=%227%22 fill=%22%239ca3af%22/></svg>'"
                     />
                 ` : '';
 
@@ -427,11 +430,14 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
         const avatarHTML = !isOwner ? `
             <img src="${avatarUrl}"
                  alt="${senderName}"
-                 title="${senderName}"
-                 class="avatar-loading"
-                 style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 10px; border: 2px solid #e5e7eb; background: #f3f4f6;"
+                 title="Click để phóng to - ${senderName}"
+                 class="avatar-loading chat-avatar-clickable"
+                 style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 12px; border: 2px solid #e5e7eb; background: #f3f4f6; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;"
+                 onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'"
+                 onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'"
+                 onclick="openAvatarZoom('${avatarUrl}', '${senderName.replace(/'/g, "\\'")}')); event.stopPropagation();"
                  onload="this.classList.remove('avatar-loading')"
-                 onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%227%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2232%22 rx=%2211%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'"
+                 onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22><circle cx=%2224%22 cy=%2224%22 r=%2224%22 fill=%22%23e5e7eb%22/><circle cx=%2224%22 cy=%2218%22 r=%228%22 fill=%22%239ca3af%22/><ellipse cx=%2224%22 cy=%2238%22 rx=%2213%22 ry=%2210%22 fill=%22%239ca3af%22/></svg>'"
             />
         ` : '';
 

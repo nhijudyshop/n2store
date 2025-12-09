@@ -3930,6 +3930,14 @@ function renderCommentsColumn(order) {
 
 // Render merged messages/comments column with individual STT values
 function renderMergedMessagesColumn(order, columnType = 'messages') {
+    // Debug log
+    console.log('[renderMergedMessagesColumn]', {
+        columnType,
+        IsMerged: order.IsMerged,
+        OriginalOrdersCount: order.OriginalOrders?.length,
+        OriginalOrders: order.OriginalOrders
+    });
+
     // Sort by STT descending (largest first)
     const sortedOrders = [...order.OriginalOrders].sort((a, b) =>
         (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
@@ -3941,24 +3949,24 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         const channelId = chatInfo?.channelId || window.chatDataManager?.parseChannelId(originalOrder.Facebook_PostId);
         const psid = originalOrder.Facebook_ASUserId;
 
-        // Get message or comment info
+        // Get message or comment info - always show something even without chat info
         let displayMessage = '−';
         let hasUnread = false;
         let unreadCount = 0;
 
-        if (chatInfo && channelId && psid) {
+        if (window.chatDataManager && channelId && psid) {
             const msgInfo = columnType === 'messages'
                 ? window.chatDataManager.getLastMessageForOrder(originalOrder)
                 : window.chatDataManager.getLastCommentForOrder(channelId, psid, originalOrder);
 
-            if (msgInfo) {
+            if (msgInfo && (msgInfo.message || msgInfo.content || msgInfo.text)) {
                 displayMessage = formatMessagePreview(msgInfo);
                 hasUnread = msgInfo.hasUnread || false;
                 unreadCount = msgInfo.unreadCount || 0;
             }
         }
 
-        // Create click handler
+        // Create click handler - always allow click if we have channelId and psid
         const clickHandler = channelId && psid
             ? (columnType === 'messages'
                 ? `openChatModal('${originalOrder.Id}', '${channelId}', '${psid}')`
@@ -3972,6 +3980,9 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         const fontWeight = hasUnread ? '600' : '400';
         const color = hasUnread ? '#111827' : '#6b7280';
 
+        // Always show unread count if > 0
+        const unreadText = unreadCount > 0 ? `<span style="font-size: 10px; color: #ef4444; font-weight: 600; margin-left: 4px;">${unreadCount} tin mới</span>` : '';
+
         return `
             <div class="merged-detail-row" ${clickHandler ? `onclick="${clickHandler}; event.stopPropagation();"` : ''} 
                  style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; min-height: 28px; ${cursorStyle} transition: background 0.2s;"
@@ -3979,6 +3990,7 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
                 <span style="font-size: 11px; color: #6b7280; font-weight: 500; min-width: 55px; flex-shrink: 0;">STT ${originalOrder.SessionIndex}:</span>
                 ${unreadBadge}
                 <span style="font-size: 12px; font-weight: ${fontWeight}; color: ${color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">${displayMessage}</span>
+                ${unreadText}
             </div>
         `;
     }).join('');
@@ -6469,6 +6481,91 @@ window.reloadChatForSelectedPage = async function (pageId) {
     }
 };
 
+// =====================================================
+// AVATAR ZOOM MODAL
+// =====================================================
+window.openAvatarZoom = function (avatarUrl, senderName) {
+    // Remove existing modal if any
+    const existingModal = document.getElementById('avatar-zoom-modal');
+    if (existingModal) existingModal.remove();
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'avatar-zoom-modal';
+    modal.innerHTML = `
+        <div class="avatar-zoom-overlay" onclick="closeAvatarZoom()" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100000;
+            cursor: zoom-out;
+            animation: fadeIn 0.2s ease-out;
+        ">
+            <div style="text-align: center;">
+                <img src="${avatarUrl}" 
+                     alt="${senderName}"
+                     style="
+                        max-width: 90vw;
+                        max-height: 80vh;
+                        border-radius: 16px;
+                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                        animation: zoomIn 0.3s ease-out;
+                     "
+                     onclick="event.stopPropagation();"
+                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><circle cx=%22100%22 cy=%22100%22 r=%22100%22 fill=%22%23e5e7eb%22/><circle cx=%22100%22 cy=%2280%22 r=%2235%22 fill=%22%239ca3af%22/><ellipse cx=%22100%22 cy=%22160%22 rx=%2255%22 ry=%2240%22 fill=%22%239ca3af%22/></svg>'"
+                />
+                <p style="color: white; font-size: 16px; margin-top: 16px; font-weight: 500;">${senderName}</p>
+                <button onclick="closeAvatarZoom()" style="
+                    margin-top: 12px;
+                    padding: 10px 24px;
+                    background: white;
+                    color: #111827;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: transform 0.2s;
+                " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    <i class="fas fa-times" style="margin-right: 6px;"></i>Đóng
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Add animation styles
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes zoomIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    `;
+    modal.appendChild(style);
+
+    document.body.appendChild(modal);
+
+    // Close on Escape key
+    document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') {
+            closeAvatarZoom();
+            document.removeEventListener('keydown', escHandler);
+        }
+    });
+};
+
+window.closeAvatarZoom = function () {
+    const modal = document.getElementById('avatar-zoom-modal');
+    if (modal) {
+        modal.style.opacity = '0';
+        setTimeout(() => modal.remove(), 200);
+    }
+};
+
 window.openChatModal = async function (orderId, channelId, psid, type = 'message') {
     console.log('[CHAT] Opening modal:', { orderId, channelId, psid, type });
     if (!channelId || !psid) {
@@ -8830,11 +8927,14 @@ function renderChatMessages(messages, scrollToBottom = false) {
         const avatarHTML = !isOwner ? `
             <img src="${avatarUrl}"
                  alt="${senderName}"
-                 title="${senderName}"
-                 class="avatar-loading"
-                 style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 10px; border: 2px solid #e5e7eb; background: #f3f4f6;"
+                 title="Click để phóng to - ${senderName}"
+                 class="avatar-loading chat-avatar-clickable"
+                 style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 12px; border: 2px solid #e5e7eb; background: #f3f4f6; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;"
+                 onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'"
+                 onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'"
+                 onclick="openAvatarZoom('${avatarUrl}', '${senderName.replace(/'/g, "\\'")}'); event.stopPropagation();"
                  onload="this.classList.remove('avatar-loading')"
-                 onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%227%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2232%22 rx=%2211%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'"
+                 onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22><circle cx=%2224%22 cy=%2224%22 r=%2224%22 fill=%22%23e5e7eb%22/><circle cx=%2224%22 cy=%2218%22 r=%228%22 fill=%22%239ca3af%22/><ellipse cx=%2224%22 cy=%2238%22 rx=%2213%22 ry=%2210%22 fill=%22%239ca3af%22/></svg>'"
             />
         ` : '';
 
