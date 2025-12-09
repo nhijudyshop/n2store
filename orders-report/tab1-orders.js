@@ -3398,7 +3398,7 @@ function renderTable() {
     if (displayedData.length === 0) {
         const tbody = document.getElementById("tableBody");
         tbody.innerHTML =
-            '<tr><td colspan="16" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            '<tr><td colspan="17" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
 
@@ -3454,7 +3454,7 @@ function renderAllOrders() {
     if (displayedData.length > renderedCount) {
         const spacer = document.createElement('tr');
         spacer.id = 'table-spacer';
-        spacer.innerHTML = `<td colspan="16" style="text-align: center; padding: 20px; color: #6b7280;">
+        spacer.innerHTML = `<td colspan="17" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
         </td>`;
         tbody.appendChild(spacer);
@@ -3523,7 +3523,7 @@ function loadMoreRows() {
     if (renderedCount < displayedData.length) {
         const newSpacer = document.createElement('tr');
         newSpacer.id = 'table-spacer';
-        newSpacer.innerHTML = `<td colspan="16" style="text-align: center; padding: 20px; color: #6b7280;">
+        newSpacer.innerHTML = `<td colspan="17" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
         </td>`;
         tbody.appendChild(newSpacer);
@@ -3607,6 +3607,7 @@ function renderByEmployee() {
                                 <th data-column="messages">Tin nhắn</th>
                                 <th data-column="comments">Bình luận</th>
                                 <th data-column="phone">SĐT</th>
+                                <th data-column="qr" style="width: 50px; text-align: center;">QR</th>
                                 <th data-column="address">Địa chỉ</th>
                                 <th data-column="notes">Ghi chú</th>
                                 <th data-column="total">Tổng tiền</th>
@@ -3696,6 +3697,7 @@ function createRowHTML(order) {
             ${messagesHTML}
             ${commentsHTML}
             <td data-column="phone" style="text-align: center;">${highlight(order.Telephone)}</td>
+            <td data-column="qr" style="text-align: center;">${renderQRColumn(order.Telephone)}</td>
             <td data-column="address">${highlight(order.Address)}</td>
             <td data-column="notes">${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(order.Note) : highlight(order.Note)}</td>
             ${renderMergedTotalColumn(order)}
@@ -12058,3 +12060,359 @@ window.openProductStatsModal = openProductStatsModal;
 window.closeProductStatsModal = closeProductStatsModal;
 window.runProductStats = runProductStats;
 window.toggleStatsSummary = toggleStatsSummary;
+
+// =====================================================
+// QR CODE MAPPING FOR ORDERS
+// Mapping giữa SĐT và mã QR từ balance-history
+// =====================================================
+
+const QR_CACHE_KEY = 'orders_phone_qr_cache';
+const QR_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+/**
+ * Normalize phone number for consistent lookup
+ * @param {string} phone - Raw phone number
+ * @returns {string} Normalized phone number
+ */
+function normalizePhoneForQR(phone) {
+    if (!phone) return '';
+    // Remove all non-digit characters
+    let cleaned = phone.replace(/\D/g, '');
+    // Handle Vietnam country code: replace leading 84 with 0
+    if (cleaned.startsWith('84') && cleaned.length > 9) {
+        cleaned = '0' + cleaned.substring(2);
+    }
+    return cleaned;
+}
+
+/**
+ * Get QR cache from localStorage
+ * @returns {Object} Cache object { phone: { uniqueCode, createdAt, synced } }
+ */
+function getQRCache() {
+    try {
+        const cache = localStorage.getItem(QR_CACHE_KEY);
+        return cache ? JSON.parse(cache) : {};
+    } catch (e) {
+        console.error('[QR] Error reading cache:', e);
+        return {};
+    }
+}
+
+/**
+ * Save QR cache to localStorage
+ * @param {Object} cache - Cache object to save
+ */
+function saveQRCache(cache) {
+    try {
+        localStorage.setItem(QR_CACHE_KEY, JSON.stringify(cache));
+    } catch (e) {
+        console.error('[QR] Error saving cache:', e);
+    }
+}
+
+/**
+ * Generate unique QR code (same format as balance-history)
+ * Format: N2 + 16 characters (total 18 chars) - Base36 encoded
+ * @returns {string} Unique code like "N2ABCD1234EFGH5678"
+ */
+function generateUniqueCode() {
+    const timestamp = Date.now().toString(36).toUpperCase().slice(-8); // 8 chars
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase(); // 6 chars
+    const sequence = Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0'); // 2 chars
+    return `N2${timestamp}${random}${sequence}`; // N2 (2) + 8 + 6 + 2 = 18 chars
+}
+
+/**
+ * Get QR code for phone from cache
+ * @param {string} phone - Phone number
+ * @returns {string|null} Unique code or null
+ */
+function getQRFromCache(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return null;
+
+    const cache = getQRCache();
+    return cache[normalizedPhone]?.uniqueCode || null;
+}
+
+/**
+ * Save QR code to cache
+ * @param {string} phone - Phone number
+ * @param {string} uniqueCode - QR unique code
+ * @param {boolean} synced - Whether synced to API
+ */
+function saveQRToCache(phone, uniqueCode, synced = false) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone || !uniqueCode) return;
+
+    const cache = getQRCache();
+    cache[normalizedPhone] = {
+        uniqueCode: uniqueCode,
+        createdAt: new Date().toISOString(),
+        synced: synced
+    };
+    saveQRCache(cache);
+}
+
+/**
+ * Fetch QR codes from balance-history API and populate cache
+ * Called once when page loads
+ */
+async function syncQRFromBalanceHistory() {
+    try {
+        console.log('[QR] Syncing from balance-history API...');
+        const response = await fetch(`${QR_API_URL}/api/sepay/customer-info`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const cache = getQRCache();
+            let newCount = 0;
+
+            result.data.forEach(item => {
+                if (item.customer_phone && item.unique_code) {
+                    const normalizedPhone = normalizePhoneForQR(item.customer_phone);
+                    if (normalizedPhone && !cache[normalizedPhone]) {
+                        cache[normalizedPhone] = {
+                            uniqueCode: item.unique_code,
+                            createdAt: item.updated_at || new Date().toISOString(),
+                            synced: true
+                        };
+                        newCount++;
+                    }
+                }
+            });
+
+            saveQRCache(cache);
+            console.log(`[QR] ✅ Synced ${newCount} new phone-QR mappings from balance-history`);
+        }
+    } catch (error) {
+        console.error('[QR] Failed to sync from balance-history:', error);
+    }
+}
+
+/**
+ * Save QR mapping to balance-history API
+ * @param {string} phone - Phone number
+ * @param {string} uniqueCode - QR unique code
+ */
+async function syncQRToBalanceHistory(phone, uniqueCode) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone || !uniqueCode) return;
+
+    try {
+        const response = await fetch(`${QR_API_URL}/api/sepay/customer-info`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                uniqueCode: uniqueCode,
+                customerName: '',
+                customerPhone: normalizedPhone
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Update cache to mark as synced
+            saveQRToCache(normalizedPhone, uniqueCode, true);
+            console.log(`[QR] ✅ Synced to balance-history: ${normalizedPhone} → ${uniqueCode}`);
+        } else {
+            console.error('[QR] Failed to sync to balance-history:', result.error);
+        }
+    } catch (error) {
+        console.error('[QR] Error syncing to balance-history:', error);
+    }
+}
+
+/**
+ * Get or create QR code for a phone number
+ * @param {string} phone - Phone number
+ * @returns {string|null} Unique code or null if no phone
+ */
+function getOrCreateQRForPhone(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return null;
+
+    // 1. Check cache first
+    let uniqueCode = getQRFromCache(normalizedPhone);
+
+    if (!uniqueCode) {
+        // 2. Create new code
+        uniqueCode = generateUniqueCode();
+
+        // 3. Save to cache
+        saveQRToCache(normalizedPhone, uniqueCode, false);
+
+        // 4. Sync to balance-history API (async, don't wait)
+        syncQRToBalanceHistory(normalizedPhone, uniqueCode);
+
+        console.log(`[QR] Created new QR for ${normalizedPhone}: ${uniqueCode}`);
+    }
+
+    return uniqueCode;
+}
+
+/**
+ * Copy QR code to clipboard
+ * @param {string} phone - Phone number to get QR for
+ */
+async function copyQRCode(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) {
+        showNotification('Không có số điện thoại', 'warning');
+        return;
+    }
+
+    const uniqueCode = getOrCreateQRForPhone(normalizedPhone);
+
+    if (!uniqueCode) {
+        showNotification('Không thể tạo mã QR', 'error');
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(uniqueCode);
+        showNotification('Đã copy QR', 'success');
+    } catch (error) {
+        // Fallback for older browsers
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = uniqueCode;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showNotification('Đã copy QR', 'success');
+        } catch (fallbackError) {
+            console.error('[QR] Copy failed:', fallbackError);
+            showNotification('Không thể copy', 'error');
+        }
+    }
+}
+
+/**
+ * Render QR column HTML
+ * @param {string} phone - Phone number
+ * @returns {string} HTML string for QR column
+ */
+function renderQRColumn(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+
+    if (!normalizedPhone) {
+        // No phone number - show disabled button
+        return `
+            <button class="btn-qr-copy disabled" disabled title="Không có SĐT" style="
+                padding: 4px 8px;
+                border: none;
+                border-radius: 4px;
+                cursor: not-allowed;
+                background: #e5e7eb;
+                color: #9ca3af;
+                font-size: 12px;
+            ">
+                <i class="fas fa-copy"></i>
+            </button>
+        `;
+    }
+
+    // Check if QR exists in cache
+    const existingQR = getQRFromCache(normalizedPhone);
+    const hasQR = !!existingQR;
+
+    return `
+        <button class="btn-qr-copy ${hasQR ? 'has-qr' : ''}"
+                onclick="copyQRCode('${normalizedPhone}'); event.stopPropagation();"
+                title="${hasQR ? 'Copy mã QR: ' + existingQR : 'Tạo và copy mã QR mới'}"
+                style="
+                    padding: 4px 8px;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    background: ${hasQR ? '#10b981' : '#3b82f6'};
+                    color: white;
+                    font-size: 12px;
+                    transition: all 0.2s;
+                "
+                onmouseover="this.style.opacity='0.8'"
+                onmouseout="this.style.opacity='1'">
+            <i class="fas fa-copy"></i>
+        </button>
+    `;
+}
+
+/**
+ * Show notification (uses existing notification system if available)
+ * @param {string} message - Message to show
+ * @param {string} type - 'success', 'error', 'warning', 'info'
+ */
+function showNotification(message, type = 'info') {
+    // Try to use existing notification system
+    if (window.NotificationManager && window.NotificationManager.show) {
+        window.NotificationManager.show(message, type);
+        return;
+    }
+
+    // Fallback: create simple toast notification
+    const toast = document.createElement('div');
+    toast.className = `qr-toast qr-toast-${type}`;
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'times-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+        <span>${message}</span>
+    `;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        color: white;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+    `;
+
+    document.body.appendChild(toast);
+
+    // Auto remove after 2 seconds
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
+}
+
+// Add CSS animation for toast
+const toastStyle = document.createElement('style');
+toastStyle.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+document.head.appendChild(toastStyle);
+
+// Initialize: Sync QR data from balance-history when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Delay sync to let page load first
+    setTimeout(() => {
+        syncQRFromBalanceHistory();
+    }, 2000);
+});
+
+// Make QR functions globally accessible
+window.copyQRCode = copyQRCode;
+window.getOrCreateQRForPhone = getOrCreateQRForPhone;
+window.renderQRColumn = renderQRColumn;
+window.syncQRFromBalanceHistory = syncQRFromBalanceHistory;
