@@ -413,17 +413,26 @@ export default {
         console.log('[PROXY] Fetching:', targetUrl);
 
         try {
-          // Forward request
+          // Read body first before setting up options
+          const requestBody = request.method !== 'GET' && request.method !== 'HEAD'
+            ? await request.arrayBuffer()
+            : null;
+
+          // Forward request - start with default headers
           const fetchOptions = {
             method: request.method,
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
               'Accept': 'application/json, text/plain, */*',
             },
-            body: request.method !== 'GET' && request.method !== 'HEAD'
-              ? await request.arrayBuffer()
-              : null,
+            body: requestBody,
           };
+
+          // Preserve Content-Type from original request for POST/PUT
+          const originalContentType = request.headers.get('Content-Type');
+          if (originalContentType && requestBody) {
+            fetchOptions.headers['Content-Type'] = originalContentType;
+          }
 
           // Check for custom headers passed via query param 'headers' (JSON string)
           const customHeadersStr = url.searchParams.get('headers');
@@ -436,7 +445,12 @@ export default {
             }
           }
 
+          console.log('[PROXY] Request method:', request.method);
+          console.log('[PROXY] Headers:', JSON.stringify(fetchOptions.headers));
+
           const proxyResponse = await fetch(targetUrl, fetchOptions);
+
+          console.log('[PROXY] Response status:', proxyResponse.status);
 
           // Clone response and add CORS headers
           const newResponse = new Response(proxyResponse.body, proxyResponse);

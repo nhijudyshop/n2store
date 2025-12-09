@@ -117,38 +117,67 @@ async function getWardsByProvince(provinceCode) {
     }
 }
 
-// 7. Search Full Address (Tìm kiếm theo địa chỉ đầy đủ - tienich.vnhub.com)
+// 7. Search Full Address (Tìm kiếm theo địa chỉ đầy đủ - tienich.vnhub.com with fallback)
 async function searchFullAddress(address) {
+    // Try vnhub API first
     try {
-        const targetUrl = 'https://tienich.vnhub.com/api/wards';
-        const customHeaders = {
-            "accept": "application/json, text/plain, */*",
-            "content-type": "application/json",
-            "Referer": "https://tienich.vnhub.com/chuyen-doi-dia-chi-sau-sat-nhap-01-07-2025"
-        };
+        const result = await searchFullAddressVnhub(address);
+        if (result && result.data && result.data.length > 0) {
+            return result;
+        }
+    } catch (error) {
+        console.warn('VNHub API failed, trying fallback (34tinhthanh.com):', error.message);
+    }
 
-        // Construct proxy URL with custom headers
-        const proxyUrl = `${ADDRESS_API_CONFIG.proxyURL}?url=${encodeURIComponent(targetUrl)}&headers=${encodeURIComponent(JSON.stringify(customHeaders))}`;
+    // Fallback to 34tinhthanh.com search API
+    try {
+        console.log('Fallback: Using 34tinhthanh.com search API');
+        const searchResults = await searchByName(address);
 
-        console.log('Full Address Search (Proxy):', proxyUrl);
-
-        const response = await fetch(proxyUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ address: address })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        if (searchResults && searchResults.length > 0) {
+            // Format results to match vnhub API format
+            return {
+                data: searchResults.map(item => ({
+                    address: item.full_name || item.name || item.path || '',
+                    note: item.type ? `Loại: ${item.type}` : ''
+                }))
+            };
         }
 
-        return await response.json();
-    } catch (error) {
-        console.error('Error searching full address:', error);
-        throw error;
+        return { data: [] };
+    } catch (fallbackError) {
+        console.error('Fallback API also failed:', fallbackError);
+        throw new Error('Cả hai API đều không khả dụng. Vui lòng thử lại sau.');
     }
+}
+
+// Original VNHub API call (tienich.vnhub.com)
+async function searchFullAddressVnhub(address) {
+    const targetUrl = 'https://tienich.vnhub.com/api/wards';
+    const customHeaders = {
+        "accept": "application/json, text/plain, */*",
+        "content-type": "application/json",
+        "Referer": "https://tienich.vnhub.com/chuyen-doi-dia-chi-sau-sat-nhap-01-07-2025"
+    };
+
+    // Construct proxy URL with custom headers
+    const proxyUrl = `${ADDRESS_API_CONFIG.proxyURL}?url=${encodeURIComponent(targetUrl)}&headers=${encodeURIComponent(JSON.stringify(customHeaders))}`;
+
+    console.log('Full Address Search (VNHub Proxy):', proxyUrl);
+
+    const response = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ address: address })
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
 }
 
 // Log thông tin khi trang được load
