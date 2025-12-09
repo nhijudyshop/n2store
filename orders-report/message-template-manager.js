@@ -903,12 +903,25 @@ class MessageTemplateManager {
             queryParams
         );
 
+        // Cắt tin nhắn thành nhiều phần nếu quá dài
+        const messageParts = this.splitMessageIntoParts(messageContent);
+
+        // Gửi từng phần tin nhắn
+        for (let partIndex = 0; partIndex < messageParts.length; partIndex++) {
+            const messagePart = messageParts[partIndex];
+            const isLastPart = partIndex === messageParts.length - 1;
+
+            if (messageParts.length > 1) {
+                this.log(`📤 Sending part ${partIndex + 1}/${messageParts.length} (${messagePart.length} chars)`);
+            }
+
         // Build FormData payload (like sendMessageInternal uses multipart/form-data)
         const formData = new FormData();
         formData.append('action', 'reply_inbox');
-        formData.append('message', messageContent);
+        formData.append('message', messagePart);
 
-        if (sendMode === 'image') {
+        // Chỉ gửi ảnh ở phần cuối cùng
+        if (sendMode === 'image' && isLastPart) {
             // IMAGE MODE
             if (!window.orderImageGenerator) {
                 throw new Error('OrderImageGenerator không có sẵn');
@@ -1018,6 +1031,12 @@ class MessageTemplateManager {
             this.log('❌ API Error Details:', responseData);
             throw new Error(responseData.error || responseData.message || `API returned success: false - ${JSON.stringify(responseData)}`);
         }
+
+            // Delay nhỏ giữa các phần để tránh rate limit
+            if (!isLastPart && messageParts.length > 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        } // End of for loop (messageParts)
 
         return true;
     }
@@ -1237,6 +1256,48 @@ class MessageTemplateManager {
         }
 
         return result;
+    }
+
+    /**
+     * Cắt tin nhắn thành nhiều phần, mỗi phần tối đa 2000 ký tự
+     * Cắt logic ở dấu xuống dòng "\n" để không cắt giữa dòng
+     */
+    splitMessageIntoParts(message, maxLength = 2000) {
+        if (message.length <= maxLength) {
+            return [message];
+        }
+
+        const parts = [];
+        let remaining = message;
+
+        while (remaining.length > 0) {
+            if (remaining.length <= maxLength) {
+                parts.push(remaining);
+                break;
+            }
+
+            // Tìm vị trí xuống dòng gần nhất trước maxLength
+            let cutIndex = remaining.lastIndexOf('\n', maxLength);
+
+            // Nếu không tìm thấy xuống dòng, tìm dấu cách gần nhất
+            if (cutIndex === -1 || cutIndex < maxLength * 0.5) {
+                cutIndex = remaining.lastIndexOf(' ', maxLength);
+            }
+
+            // Nếu vẫn không tìm thấy, cắt cứng tại maxLength
+            if (cutIndex === -1 || cutIndex < maxLength * 0.3) {
+                cutIndex = maxLength;
+            }
+
+            const part = remaining.substring(0, cutIndex).trim();
+            if (part.length > 0) {
+                parts.push(part);
+            }
+            remaining = remaining.substring(cutIndex).trim();
+        }
+
+        this.log(`📝 Split message into ${parts.length} parts`);
+        return parts;
     }
 
     async copyToClipboard(text) {
