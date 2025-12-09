@@ -336,7 +336,7 @@ const notificationStyles = `
     position: fixed;
     top: 80px;
     right: var(--spacing-xl, 24px);
-    z-index: 3000;
+    z-index: 99999;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md, 12px);

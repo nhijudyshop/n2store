@@ -2190,7 +2190,7 @@ function mergeOrdersByPhone(orders) {
             const uniqueCustomerCount = customerGroups.size;
             const isSingleCustomer = uniqueCustomerCount === 1;
 
-            // Store original orders with necessary chat info
+            // Store original orders with necessary chat info AND amount/quantity for display
             const originalOrders = groupOrders.map(order => ({
                 Id: order.Id,
                 Name: order.Name,
@@ -2198,7 +2198,9 @@ function mergeOrdersByPhone(orders) {
                 SessionIndex: order.SessionIndex,
                 Facebook_ASUserId: order.Facebook_ASUserId,
                 Facebook_PostId: order.Facebook_PostId,
-                Telephone: order.Telephone
+                Telephone: order.Telephone,
+                TotalAmount: order.TotalAmount || 0,
+                TotalQuantity: order.TotalQuantity || 0
             }));
 
             // Create customer groups info for rendering
@@ -3692,17 +3694,35 @@ function createRowHTML(order) {
             <td data-column="customer"><div>${highlight(order.Name)}</div>${partnerStatusHTML}</td>
             ${messagesHTML}
             ${commentsHTML}
-            <td data-column="phone">${highlight(order.Telephone)}</td>
+            <td data-column="phone" style="text-align: center;">${highlight(order.Telephone)}</td>
             <td data-column="address">${highlight(order.Address)}</td>
             <td data-column="notes">${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(order.Note) : highlight(order.Note)}</td>
-            <td data-column="total">${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>
-            <td data-column="quantity">${order.TotalQuantity || 0}</td>
+            ${renderMergedTotalColumn(order)}
+            ${renderMergedQuantityColumn(order)}
             <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
             <td data-column="status"><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}" style="cursor: pointer;" onclick="openOrderStatusModal('${order.Id}', '${order.Status}')" data-order-id="${order.Id}" title="Click để thay đổi trạng thái">${highlight(order.StatusText || order.Status)}</span></td>
             <td data-column="actions">
-                <button class="btn-edit-icon" onclick="openEditModal('${order.TargetOrderId || order.Id}')" title="Chỉnh sửa đơn hàng ${isMerged ? '(STT ' + order.TargetSTT + ')' : ''}">
-                    <i class="fas fa-edit"></i>
-                </button>
+                ${isMerged ? `
+                    <div class="merged-edit-dropdown" style="position: relative; display: inline-block;">
+                        <button class="btn-edit-icon" onclick="toggleMergedEditDropdown(this, event)" title="Chọn đơn hàng để chỉnh sửa">
+                            <i class="fas fa-edit"></i>
+                            <i class="fas fa-caret-down" style="font-size: 10px; margin-left: 2px;"></i>
+                        </button>
+                        <div class="merged-edit-options" style="display: none; position: absolute; right: 0; top: 100%; background: white; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; min-width: 100px;">
+                            ${order.OriginalOrders.sort((a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)).map(o => `
+                                <div onclick="openEditModal('${o.Id}'); closeMergedEditDropdown(); event.stopPropagation();" 
+                                     style="padding: 8px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f3f4f6; transition: background 0.2s;"
+                                     onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+                                    <span style="font-weight: 500;">STT ${o.SessionIndex}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : `
+                    <button class="btn-edit-icon" onclick="openEditModal('${order.Id}')" title="Chỉnh sửa đơn hàng">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                `}
                 ${order.noteEdited ? '<span class="note-edited-badge" style="margin-left: 4px;" title="Ghi chú đã được sửa">✏️</span>' : ''}
             </td>
         </tr>`;
@@ -3842,15 +3862,9 @@ function renderMessagesColumn(order) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    // Check if this is a merged order with customer grouping info
-    if (order.IsMerged && order.CustomerGroups) {
-        if (order.IsSingleCustomer) {
-            // Single customer: show only message from order with largest STT
-            return renderSingleCustomerMessage(order, 'messages');
-        } else {
-            // Multiple customers: show multiple lines
-            return renderMultiCustomerMessages(order, 'messages');
-        }
+    // Check if this is a merged order - always show STT-based format
+    if (order.IsMerged && order.OriginalOrders && order.OriginalOrders.length > 1) {
+        return renderMergedMessagesColumn(order, 'messages');
     }
 
     // Get chat info for order
@@ -3888,15 +3902,9 @@ function renderCommentsColumn(order) {
         return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    // Check if this is a merged order with customer grouping info
-    if (order.IsMerged && order.CustomerGroups) {
-        if (order.IsSingleCustomer) {
-            // Single customer: show only comment from order with largest STT
-            return renderSingleCustomerMessage(order, 'comments');
-        } else {
-            // Multiple customers: show multiple lines
-            return renderMultiCustomerMessages(order, 'comments');
-        }
+    // Check if this is a merged order - always show STT-based format
+    if (order.IsMerged && order.OriginalOrders && order.OriginalOrders.length > 1) {
+        return renderMergedMessagesColumn(order, 'comments');
     }
 
     // Get chat info for order
@@ -3914,6 +3922,120 @@ function renderCommentsColumn(order) {
     // Always render with clickable cell (even when showing "-") as long as we have channelId and psid
     // This allows users to open the modal even when there are no comments yet
     return renderChatColumnWithData(order, commentInfo, channelId, psid, 'comments');
+}
+
+// =====================================================
+// MERGED ORDER COLUMNS - Messages & Comments (STT-based)
+// =====================================================
+
+// Render merged messages/comments column with individual STT values
+function renderMergedMessagesColumn(order, columnType = 'messages') {
+    // Sort by STT descending (largest first)
+    const sortedOrders = [...order.OriginalOrders].sort((a, b) =>
+        (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
+    );
+
+    const rows = sortedOrders.map(originalOrder => {
+        // Get chat info for this specific order
+        const chatInfo = window.chatDataManager ? window.chatDataManager.getChatInfoForOrder(originalOrder) : null;
+        const channelId = chatInfo?.channelId || window.chatDataManager?.parseChannelId(originalOrder.Facebook_PostId);
+        const psid = originalOrder.Facebook_ASUserId;
+
+        // Get message or comment info
+        let displayMessage = '−';
+        let hasUnread = false;
+        let unreadCount = 0;
+
+        if (chatInfo && channelId && psid) {
+            const msgInfo = columnType === 'messages'
+                ? window.chatDataManager.getLastMessageForOrder(originalOrder)
+                : window.chatDataManager.getLastCommentForOrder(channelId, psid, originalOrder);
+
+            if (msgInfo) {
+                displayMessage = formatMessagePreview(msgInfo);
+                hasUnread = msgInfo.hasUnread || false;
+                unreadCount = msgInfo.unreadCount || 0;
+            }
+        }
+
+        // Create click handler
+        const clickHandler = channelId && psid
+            ? (columnType === 'messages'
+                ? `openChatModal('${originalOrder.Id}', '${channelId}', '${psid}')`
+                : `openCommentModal('${originalOrder.Id}', '${channelId}', '${psid}')`)
+            : '';
+
+        const cursorStyle = clickHandler ? 'cursor: pointer;' : 'cursor: default;';
+        const hoverStyle = clickHandler ? `onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"` : '';
+
+        const unreadBadge = hasUnread ? '<span style="width: 6px; height: 6px; background: #ef4444; border-radius: 50%; flex-shrink: 0;"></span>' : '';
+        const fontWeight = hasUnread ? '600' : '400';
+        const color = hasUnread ? '#111827' : '#6b7280';
+
+        return `
+            <div class="merged-detail-row" ${clickHandler ? `onclick="${clickHandler}; event.stopPropagation();"` : ''} 
+                 style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; min-height: 28px; ${cursorStyle} transition: background 0.2s;"
+                 ${hoverStyle}>
+                <span style="font-size: 11px; color: #6b7280; font-weight: 500; min-width: 55px; flex-shrink: 0;">STT ${originalOrder.SessionIndex}:</span>
+                ${unreadBadge}
+                <span style="font-size: 12px; font-weight: ${fontWeight}; color: ${color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">${displayMessage}</span>
+            </div>
+        `;
+    }).join('');
+
+    return `<td data-column="${columnType}" style="padding: 0; vertical-align: top;">${rows}</td>`;
+}
+
+// =====================================================
+// MERGED ORDER COLUMNS - Quantity & Total Amount
+// =====================================================
+
+// Render merged quantity column with individual STT values
+function renderMergedQuantityColumn(order) {
+    // Non-merged orders: simple display
+    if (!order.IsMerged || !order.OriginalOrders || order.OriginalOrders.length <= 1) {
+        return `<td data-column="quantity">${order.TotalQuantity || 0}</td>`;
+    }
+
+    // Sort by STT descending (largest first)
+    const sortedOrders = [...order.OriginalOrders].sort((a, b) =>
+        (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
+    );
+
+    const rows = sortedOrders.map(o => `
+        <div class="merged-detail-row" onclick="openEditModal('${o.Id}'); event.stopPropagation();" 
+             style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; min-height: 28px; cursor: pointer; transition: background 0.2s;"
+             onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+            <span style="font-size: 11px; color: #6b7280; font-weight: 500; min-width: 55px; flex-shrink: 0;">STT ${o.SessionIndex}:</span>
+            <span style="font-weight: 600;">${o.TotalQuantity || 0}</span>
+        </div>
+    `).join('');
+
+    return `<td data-column="quantity" style="padding: 0; vertical-align: top;">${rows}</td>`;
+}
+
+// Render merged total amount column with individual STT values
+function renderMergedTotalColumn(order) {
+    // Non-merged orders: simple display
+    if (!order.IsMerged || !order.OriginalOrders || order.OriginalOrders.length <= 1) {
+        return `<td data-column="total">${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>`;
+    }
+
+    // Sort by STT descending (largest first)
+    const sortedOrders = [...order.OriginalOrders].sort((a, b) =>
+        (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
+    );
+
+    const rows = sortedOrders.map(o => `
+        <div class="merged-detail-row" onclick="openEditModal('${o.Id}'); event.stopPropagation();" 
+             style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; min-height: 28px; cursor: pointer; transition: background 0.2s;"
+             onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+            <span style="font-size: 11px; color: #6b7280; font-weight: 500; min-width: 55px; flex-shrink: 0;">STT ${o.SessionIndex}:</span>
+            <span style="font-weight: 600; color: #3b82f6;">${(o.TotalAmount || 0).toLocaleString("vi-VN")}đ</span>
+        </div>
+    `).join('');
+
+    return `<td data-column="total" style="padding: 0; vertical-align: top;">${rows}</td>`;
 }
 
 // Helper function to render chat column with data (for both messages and comments)
@@ -4435,6 +4557,35 @@ function showSaveIndicator(type, message) {
 })();
 
 let hasUnsavedOrderChanges = false;
+
+// Toggle merged order edit dropdown
+function toggleMergedEditDropdown(button, event) {
+    event.stopPropagation();
+    const dropdown = button.parentElement;
+    const options = dropdown.querySelector('.merged-edit-options');
+
+    // Close all other dropdowns first
+    document.querySelectorAll('.merged-edit-options').forEach(opt => {
+        if (opt !== options) opt.style.display = 'none';
+    });
+
+    // Toggle this dropdown
+    options.style.display = options.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close all merged edit dropdowns
+function closeMergedEditDropdown() {
+    document.querySelectorAll('.merged-edit-options').forEach(opt => {
+        opt.style.display = 'none';
+    });
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.merged-edit-dropdown')) {
+        closeMergedEditDropdown();
+    }
+});
 
 async function openEditModal(orderId) {
     currentEditOrderId = orderId;
