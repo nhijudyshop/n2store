@@ -1012,9 +1012,11 @@ class MessageTemplateManager {
         }
 
         const responseData = await response.json();
+        this.log('📥 API Response:', JSON.stringify(responseData, null, 2));
 
         if (!responseData.success) {
-            throw new Error(responseData.error || 'API returned success: false');
+            this.log('❌ API Error Details:', responseData);
+            throw new Error(responseData.error || responseData.message || `API returned success: false - ${JSON.stringify(responseData)}`);
         }
 
         return true;
