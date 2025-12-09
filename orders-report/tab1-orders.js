@@ -11856,7 +11856,8 @@ async function loadStatsFromFirebase() {
  */
 async function saveStatsToFirebase(statsHtml, summaryData) {
     const campaignId = getStatsCampaignId();
-    const campaignName = selectedCampaign ? selectedCampaign.campaignName : '';
+    // Fix: Ensure campaignName is never undefined (Firebase doesn't accept undefined)
+    const campaignName = (selectedCampaign && selectedCampaign.campaignName) ? selectedCampaign.campaignName : '';
 
     try {
         const statsRef = window.firebase.database().ref(`product_stats/${campaignId}`);
@@ -11873,6 +11874,61 @@ async function saveStatsToFirebase(statsHtml, summaryData) {
     } catch (error) {
         console.error('[PRODUCT-STATS] Error saving to Firebase:', error);
     }
+}
+
+/**
+ * Fetch order details for orders missing Details
+ * @param {Array} orders - Orders to fetch details for
+ * @param {Function} progressCallback - Callback for progress updates
+ * @returns {Promise<Map>} Map of orderId -> details
+ */
+async function fetchMissingOrderDetails(orders, progressCallback) {
+    const ordersNeedingDetails = orders.filter(order => !order.Details || order.Details.length === 0);
+
+    if (ordersNeedingDetails.length === 0) {
+        return new Map();
+    }
+
+    const detailsMap = new Map();
+    const BATCH_SIZE = 10; // Fetch 10 orders at a time
+    const headers = await window.tokenManager.getAuthHeader();
+
+    for (let i = 0; i < ordersNeedingDetails.length; i += BATCH_SIZE) {
+        const batch = ordersNeedingDetails.slice(i, i + BATCH_SIZE);
+
+        if (progressCallback) {
+            const progress = Math.round(((i + batch.length) / ordersNeedingDetails.length) * 100);
+            progressCallback(progress, i + batch.length, ordersNeedingDetails.length);
+        }
+
+        const fetchPromises = batch.map(async (order) => {
+            try {
+                const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${order.Id})?$expand=Details`;
+                const response = await fetch(apiUrl, {
+                    headers: { ...headers, 'Content-Type': 'application/json' }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    return { orderId: order.Id, details: data.Details || [] };
+                }
+            } catch (error) {
+                console.warn(`[PRODUCT-STATS] Failed to fetch details for order ${order.Id}:`, error);
+            }
+            return { orderId: order.Id, details: [] };
+        });
+
+        const results = await Promise.all(fetchPromises);
+        results.forEach(result => {
+            detailsMap.set(result.orderId, result.details);
+        });
+
+        // Small delay to avoid overwhelming the API
+        if (i + BATCH_SIZE < ordersNeedingDetails.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+
+    return detailsMap;
 }
 
 /**
@@ -11907,6 +11963,31 @@ async function runProductStats() {
             return;
         }
 
+        // Check if Details need to be fetched
+        const ordersWithoutDetails = allData.filter(order => !order.Details || order.Details.length === 0);
+        console.log(`[PRODUCT-STATS] Total orders: ${allData.length}, Orders without Details: ${ordersWithoutDetails.length}`);
+
+        // Fetch missing details if needed
+        let detailsMap = new Map();
+        if (ordersWithoutDetails.length > 0) {
+            modalBody.innerHTML = `
+                <div class="stats-loading">
+                    <div class="spinner"></div>
+                    <p>Đang tải chi tiết sản phẩm... <span id="statsProgress">0%</span></p>
+                    <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">
+                        <span id="statsProgressCount">0</span>/${ordersWithoutDetails.length} đơn hàng
+                    </p>
+                </div>
+            `;
+
+            detailsMap = await fetchMissingOrderDetails(allData, (progress, current, total) => {
+                const progressEl = document.getElementById('statsProgress');
+                const countEl = document.getElementById('statsProgressCount');
+                if (progressEl) progressEl.textContent = `${progress}%`;
+                if (countEl) countEl.textContent = current;
+            });
+        }
+
         // Build product statistics
         const productStats = new Map(); // key: ProductCode, value: { name, nameGet, imageUrl, sttList: [{stt, qty}] }
         const orderSet = new Set(); // Track unique orders
@@ -11918,7 +11999,14 @@ async function runProductStats() {
 
             orderSet.add(stt);
 
-            const details = order.Details || [];
+            // Get details from order or from fetched map
+            let details = order.Details || [];
+            if (details.length === 0 && detailsMap.has(order.Id)) {
+                details = detailsMap.get(order.Id);
+                // Cache back to allData for future use
+                order.Details = details;
+            }
+
             details.forEach((product) => {
                 const productCode = product.ProductCode || 'N/A';
                 const quantity = product.Quantity || product.ProductUOMQty || 1;
@@ -12014,7 +12102,7 @@ async function runProductStats() {
         `;
 
         // Show campaign info
-        const campaignName = selectedCampaign ? selectedCampaign.campaignName : 'Không có chiến dịch';
+        const campaignName = (selectedCampaign && selectedCampaign.campaignName) ? selectedCampaign.campaignName : 'Không có chiến dịch';
         const campaignInfo = `<div class="stats-campaign-info"><i class="fas fa-video"></i>Chiến dịch: ${campaignName} | Cập nhật: ${new Date().toLocaleString('vi-VN')}</div>`;
 
         modalBody.innerHTML = campaignInfo + statsHtml;
