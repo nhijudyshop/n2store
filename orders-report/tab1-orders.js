@@ -6645,6 +6645,13 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 ASUserId: window.purchaseFacebookASUserId,
                 CommentId: window.purchaseCommentId
             });
+
+            // Store order details for products display
+            currentChatOrderDetails = fullOrderData.Details ? JSON.parse(JSON.stringify(fullOrderData.Details)) : [];
+            console.log('[CHAT] Order details loaded:', currentChatOrderDetails.length, 'products');
+
+            // Render products table
+            renderChatProductsTable();
         }
     } catch (error) {
         console.error('[CHAT] Error loading order details:', error);
@@ -6652,6 +6659,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         window.purchaseFacebookPostId = null;
         window.purchaseFacebookASUserId = null;
         window.purchaseCommentId = null;
+        // Reset order details
+        currentChatOrderDetails = [];
+        renderChatProductsTable();
     }
 
     // Show loading
@@ -10843,6 +10853,144 @@ function renderChatProductsPanel() {
     `).join("");
 }
 */
+
+// =====================================================
+// RENDER CHAT PRODUCTS TABLE - Hiển thị sản phẩm đơn hàng trong modal tin nhắn
+// =====================================================
+function renderChatProductsTable() {
+    const listContainer = document.getElementById("chatProductsTableContainer");
+    const countBadge = document.getElementById("productCount");
+    const totalEl = document.getElementById("chatProductTotal");
+
+    if (!listContainer) {
+        console.error('[CHAT] Product list container not found');
+        return;
+    }
+
+    // Update Count & Total
+    const totalQty = currentChatOrderDetails.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+    const totalAmount = currentChatOrderDetails.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+
+    if (countBadge) countBadge.textContent = totalQty;
+    if (totalEl) totalEl.textContent = `${totalAmount.toLocaleString("vi-VN")}đ`;
+
+    // Empty State
+    if (currentChatOrderDetails.length === 0) {
+        listContainer.innerHTML = `
+            <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                <p style="font-size: 14px; margin: 0;">Chưa có sản phẩm nào</p>
+                <p style="font-size: 12px; margin-top: 4px;">Tìm kiếm để thêm sản phẩm vào đơn</p>
+            </div>`;
+        return;
+    }
+
+    // Render List
+    listContainer.innerHTML = currentChatOrderDetails.map((p, index) => `
+        <div class="chat-product-card" style="
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            gap: 12px;
+            transition: all 0.2s;
+        ">
+            <!-- Image -->
+            <div style="
+                width: 48px;
+                height: 48px;
+                border-radius: 6px;
+                background: #f1f5f9;
+                overflow: hidden;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            ">
+                ${p.ImageUrl
+            ? `<img src="${p.ImageUrl}" style="width: 100%; height: 100%; object-fit: cover;">`
+            : `<i class="fas fa-image" style="color: #cbd5e1;"></i>`}
+            </div>
+
+            <!-- Content -->
+            <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                    <div style="font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                        ${p.ProductName || p.Name || 'Sản phẩm'}
+                    </div>
+                    <button onclick="removeChatProduct(${index})" style="
+                        background: none;
+                        border: none;
+                        color: #ef4444;
+                        cursor: pointer;
+                        padding: 4px;
+                        margin-top: -4px;
+                        margin-right: -4px;
+                        opacity: 0.6;
+                        transition: opacity 0.2s;
+                    " onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
+                    Mã: ${p.ProductCode || p.Code || 'N/A'}
+                </div>
+
+                <!-- Controls -->
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="font-size: 13px; font-weight: 700; color: #3b82f6;">
+                        ${(p.Price || 0).toLocaleString("vi-VN")}đ
+                    </div>
+
+                    <div style="display: flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                        <button onclick="updateChatProductQuantity(${index}, -1)" style="
+                            width: 24px;
+                            height: 24px;
+                            border: none;
+                            background: #f8fafc;
+                            color: #64748b;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        ">−</button>
+                        <input type="number" value="${p.Quantity || 0}"
+                            onchange="updateChatProductQuantity(${index}, 0, this.value)"
+                            style="
+                            width: 36px;
+                            text-align: center;
+                            border: none;
+                            border-left: 1px solid #e2e8f0;
+                            border-right: 1px solid #e2e8f0;
+                            font-size: 13px;
+                            font-weight: 600;
+                            padding: 2px 0;
+                        ">
+                        <button onclick="updateChatProductQuantity(${index}, 1)" style="
+                            width: 24px;
+                            height: 24px;
+                            border: none;
+                            background: #f8fafc;
+                            color: #64748b;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        ">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join("");
+
+    console.log('[CHAT] Rendered', currentChatOrderDetails.length, 'products in chat panel');
+}
+
+// Expose to window for external usage
+window.renderChatProductsTable = renderChatProductsTable;
 
 // --- Search Logic ---
 var chatSearchTimeout = null;
