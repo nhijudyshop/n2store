@@ -159,11 +159,16 @@ async function searchFullAddressVnhub(address) {
         "accept": "application/json, text/plain, */*",
         "accept-language": "en-US,en;q=0.9,vi;q=0.8",
         "content-type": "application/json",
+        "Host": "tienich.vnhub.com",
         "Origin": "https://tienich.vnhub.com",
         "Referer": "https://tienich.vnhub.com/",
+        "sec-ch-ua": "\"Chromium\";v=\"142\", \"Google Chrome\";v=\"142\", \"Not_A Brand\";v=\"99\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"macOS\"",
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin"
+        "sec-fetch-site": "same-origin",
+        "x-kas": "89232422"
     };
 
     // Construct proxy URL with custom headers
