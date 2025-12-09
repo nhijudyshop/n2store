@@ -3398,7 +3398,7 @@ function renderTable() {
     if (displayedData.length === 0) {
         const tbody = document.getElementById("tableBody");
         tbody.innerHTML =
-            '<tr><td colspan="17" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            '<tr><td colspan="18" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
 
@@ -3454,7 +3454,7 @@ function renderAllOrders() {
     if (displayedData.length > renderedCount) {
         const spacer = document.createElement('tr');
         spacer.id = 'table-spacer';
-        spacer.innerHTML = `<td colspan="17" style="text-align: center; padding: 20px; color: #6b7280;">
+        spacer.innerHTML = `<td colspan="18" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
         </td>`;
         tbody.appendChild(spacer);
@@ -3523,7 +3523,7 @@ function loadMoreRows() {
     if (renderedCount < displayedData.length) {
         const newSpacer = document.createElement('tr');
         newSpacer.id = 'table-spacer';
-        newSpacer.innerHTML = `<td colspan="17" style="text-align: center; padding: 20px; color: #6b7280;">
+        newSpacer.innerHTML = `<td colspan="18" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
         </td>`;
         tbody.appendChild(newSpacer);
@@ -3608,6 +3608,7 @@ function renderByEmployee() {
                                 <th data-column="comments">Bình luận</th>
                                 <th data-column="phone">SĐT</th>
                                 <th data-column="qr" style="width: 50px; text-align: center;">QR</th>
+                                <th data-column="debt" style="width: 100px; text-align: right;">Công Nợ</th>
                                 <th data-column="address">Địa chỉ</th>
                                 <th data-column="notes">Ghi chú</th>
                                 <th data-column="total">Tổng tiền</th>
@@ -3698,6 +3699,7 @@ function createRowHTML(order) {
             ${commentsHTML}
             <td data-column="phone" style="text-align: center;">${highlight(order.Telephone)}</td>
             <td data-column="qr" style="text-align: center;">${renderQRColumn(order.Telephone)}</td>
+            <td data-column="debt" style="text-align: right;">${renderDebtColumn(order.Telephone)}</td>
             <td data-column="address">${highlight(order.Address)}</td>
             <td data-column="notes">${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(order.Note) : highlight(order.Note)}</td>
             ${renderMergedTotalColumn(order)}
@@ -12556,7 +12558,176 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// Make QR functions globally accessible
+// =====================================================
+// DEBT (CÔNG NỢ) FUNCTIONS
+// =====================================================
+
+const DEBT_CACHE_KEY = 'orders_phone_debt_cache';
+const DEBT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get debt cache from localStorage
+ * @returns {Object} Cache object { phone: { totalDebt, lastFetched } }
+ */
+function getDebtCache() {
+    try {
+        const cache = localStorage.getItem(DEBT_CACHE_KEY);
+        return cache ? JSON.parse(cache) : {};
+    } catch (e) {
+        console.error('[DEBT] Error reading cache:', e);
+        return {};
+    }
+}
+
+/**
+ * Save debt cache to localStorage
+ * @param {Object} cache - Cache object to save
+ */
+function saveDebtCache(cache) {
+    try {
+        localStorage.setItem(DEBT_CACHE_KEY, JSON.stringify(cache));
+    } catch (e) {
+        console.error('[DEBT] Error saving cache:', e);
+    }
+}
+
+/**
+ * Get cached debt for a phone number
+ * @param {string} phone - Phone number
+ * @returns {number|null} Total debt or null if not cached/expired
+ */
+function getCachedDebt(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return null;
+
+    const cache = getDebtCache();
+    const cached = cache[normalizedPhone];
+
+    if (cached && (Date.now() - cached.lastFetched) < DEBT_CACHE_TTL) {
+        return cached.totalDebt;
+    }
+
+    return null;
+}
+
+/**
+ * Save debt to cache
+ * @param {string} phone - Phone number
+ * @param {number} totalDebt - Total debt amount
+ */
+function saveDebtToCache(phone, totalDebt) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return;
+
+    const cache = getDebtCache();
+    cache[normalizedPhone] = {
+        totalDebt: totalDebt,
+        lastFetched: Date.now()
+    };
+    saveDebtCache(cache);
+}
+
+/**
+ * Fetch debt from API for a phone number
+ * @param {string} phone - Phone number
+ * @returns {Promise<number>} Total debt
+ */
+async function fetchDebtForPhone(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return 0;
+
+    try {
+        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(normalizedPhone)}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const totalDebt = result.data.total_debt || 0;
+            saveDebtToCache(normalizedPhone, totalDebt);
+            return totalDebt;
+        }
+    } catch (error) {
+        console.error('[DEBT] Error fetching:', error);
+    }
+
+    return 0;
+}
+
+/**
+ * Format currency for display
+ * @param {number} amount - Amount
+ * @returns {string} Formatted string
+ */
+function formatDebtCurrency(amount) {
+    if (!amount || amount === 0) return '0đ';
+    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+}
+
+/**
+ * Render debt column HTML
+ * @param {string} phone - Phone number
+ * @returns {string} HTML string for debt column
+ */
+function renderDebtColumn(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+
+    if (!normalizedPhone) {
+        return `<span style="color: #9ca3af;">-</span>`;
+    }
+
+    // Check cache first
+    const cachedDebt = getCachedDebt(normalizedPhone);
+
+    if (cachedDebt !== null) {
+        // Has cached value
+        const color = cachedDebt > 0 ? '#10b981' : '#9ca3af';
+        return `<span style="color: ${color}; font-weight: 500; font-size: 12px;">${formatDebtCurrency(cachedDebt)}</span>`;
+    }
+
+    // No cache - show loading and fetch async
+    fetchDebtForPhone(normalizedPhone).then(debt => {
+        // Update all cells with this phone number after fetch
+        updateDebtCells(normalizedPhone, debt);
+    });
+
+    return `<span class="debt-loading" data-phone="${normalizedPhone}" style="color: #9ca3af; font-size: 11px;"><i class="fas fa-spinner fa-spin"></i></span>`;
+}
+
+/**
+ * Update all debt cells with a specific phone number
+ * @param {string} phone - Normalized phone number
+ * @param {number} debt - Debt amount
+ */
+function updateDebtCells(phone, debt) {
+    const color = debt > 0 ? '#10b981' : '#9ca3af';
+    const html = `<span style="color: ${color}; font-weight: 500; font-size: 12px;">${formatDebtCurrency(debt)}</span>`;
+
+    // Find all loading cells with this phone and update them
+    document.querySelectorAll(`.debt-loading[data-phone="${phone}"]`).forEach(cell => {
+        cell.outerHTML = html;
+    });
+}
+
+/**
+ * Batch fetch debts for multiple phones (call after table render)
+ * @param {Array<string>} phones - Array of phone numbers
+ */
+async function batchFetchDebts(phones) {
+    const uniquePhones = [...new Set(phones.map(p => normalizePhoneForQR(p)).filter(p => p))];
+    const uncachedPhones = uniquePhones.filter(p => getCachedDebt(p) === null);
+
+    if (uncachedPhones.length === 0) return;
+
+    console.log(`[DEBT] Batch fetching ${uncachedPhones.length} phones...`);
+
+    // Fetch in parallel (limit to 10 concurrent)
+    const batchSize = 10;
+    for (let i = 0; i < uncachedPhones.length; i += batchSize) {
+        const batch = uncachedPhones.slice(i, i + batchSize);
+        await Promise.all(batch.map(phone => fetchDebtForPhone(phone)));
+    }
+}
+
+// Make QR and Debt functions globally accessible
 window.copyQRCode = copyQRCode;
 window.getOrCreateQRForPhone = getOrCreateQRForPhone;
 window.renderQRColumn = renderQRColumn;
@@ -12565,3 +12736,6 @@ window.showOrderQRModal = showOrderQRModal;
 window.closeOrderQRModal = closeOrderQRModal;
 window.copyQRCodeFromModal = copyQRCodeFromModal;
 window.copyQRImageUrl = copyQRImageUrl;
+window.renderDebtColumn = renderDebtColumn;
+window.fetchDebtForPhone = fetchDebtForPhone;
+window.batchFetchDebts = batchFetchDebts;
