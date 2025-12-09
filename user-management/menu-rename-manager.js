@@ -218,7 +218,7 @@ class MenuRenameManager {
         });
     }
 
-    saveChanges() {
+    async saveChanges() {
         const newCustomNames = {};
 
         const inputs = this.container.querySelectorAll('input[data-identifier]');
@@ -235,73 +235,102 @@ class MenuRenameManager {
             }
         });
 
-        // Save to localStorage
+        // Save to Firebase and localStorage (async)
         if (window.MenuNameUtils && window.MenuNameUtils.saveCustomMenuNames) {
-            const success = window.MenuNameUtils.saveCustomMenuNames(newCustomNames);
+            // Show loading state
+            const saveBtn = document.getElementById('saveMenuNames');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i data-lucide="loader"></i> Đang lưu...';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
 
-            if (success) {
-                this.customNames = newCustomNames;
+            try {
+                const success = await window.MenuNameUtils.saveCustomMenuNames(newCustomNames);
 
-                // Refresh the navigation sidebar immediately
-                if (window.navigationManager && typeof window.navigationManager.renderNavigation === 'function') {
-                    window.navigationManager.renderNavigation();
-                    if (typeof lucide !== 'undefined') {
-                        lucide.createIcons();
+                if (success) {
+                    this.customNames = newCustomNames;
+
+                    // Refresh the navigation sidebar immediately
+                    if (window.navigationManager && typeof window.navigationManager.renderNavigation === 'function') {
+                        window.navigationManager.renderNavigation();
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
                     }
+
                     // Show success notification
                     if (window.notify) {
-                        window.notify.success('Đã lưu và cập nhật tên menu thành công!');
+                        window.notify.success('Đã lưu và sync lên Firebase thành công!');
                     }
                 } else {
-                    // Fallback: reload page if navigation manager not available
                     if (window.notify) {
-                        window.notify.success('Đã lưu thay đổi! Đang tải lại trang...');
+                        window.notify.error('Lỗi khi lưu thay đổi!');
+                    } else {
+                        alert('Lỗi khi lưu thay đổi!');
                     }
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
                 }
-            } else {
+            } catch (error) {
+                console.error('[Menu Rename] Save error:', error);
                 if (window.notify) {
-                    window.notify.error('Lỗi khi lưu thay đổi!');
-                } else {
-                    alert('Lỗi khi lưu thay đổi!');
+                    window.notify.error('Lỗi khi lưu: ' + error.message);
+                }
+            } finally {
+                // Restore button state
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = '<i data-lucide="save"></i> Lưu Thay Đổi';
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
                 }
             }
         }
     }
 
-    resetToDefaults() {
+    async resetToDefaults() {
         if (!confirm('Bạn có chắc muốn khôi phục tất cả tên menu về mặc định?')) {
             return;
         }
 
-        // Clear localStorage
-        if (window.MenuNameUtils && window.MenuNameUtils.CUSTOM_MENU_NAMES_KEY) {
-            localStorage.removeItem(window.MenuNameUtils.CUSTOM_MENU_NAMES_KEY);
+        const resetBtn = document.getElementById('resetMenuNames');
+        if (resetBtn) {
+            resetBtn.disabled = true;
+            resetBtn.innerHTML = '<i data-lucide="loader"></i> Đang xóa...';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
-        this.customNames = {};
+        try {
+            // Save empty object to Firebase (sync the reset)
+            if (window.MenuNameUtils && window.MenuNameUtils.saveCustomMenuNames) {
+                await window.MenuNameUtils.saveCustomMenuNames({});
+            }
 
-        // Re-render UI
-        this.renderUI(this.container.id);
+            this.customNames = {};
 
-        // Refresh navigation sidebar
-        if (window.navigationManager && typeof window.navigationManager.renderNavigation === 'function') {
-            window.navigationManager.renderNavigation();
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
+            // Re-render UI
+            this.renderUI(this.container.id);
+
+            // Refresh navigation sidebar
+            if (window.navigationManager && typeof window.navigationManager.renderNavigation === 'function') {
+                window.navigationManager.renderNavigation();
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
             }
+
             if (window.notify) {
-                window.notify.success('Đã khôi phục tên menu về mặc định!');
+                window.notify.success('Đã khôi phục tên menu về mặc định và sync lên Firebase!');
             }
-        } else {
+        } catch (error) {
+            console.error('[Menu Rename] Reset error:', error);
             if (window.notify) {
-                window.notify.success('Đã khôi phục! Đang tải lại trang...');
+                window.notify.error('Lỗi khi khôi phục: ' + error.message);
             }
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+        } finally {
+            if (resetBtn) {
+                resetBtn.disabled = false;
+                resetBtn.innerHTML = '<i data-lucide="rotate-ccw"></i> Khôi Phục Mặc Định';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
         }
     }
 }

@@ -164,26 +164,81 @@ const MENU_CONFIG = [
     },
 ];
 
-// localStorage key for custom menu names
+// localStorage key for custom menu names (cache)
 const CUSTOM_MENU_NAMES_KEY = 'n2shop_custom_menu_names';
+const FIREBASE_MENU_NAMES_DOC = 'settings/custom_menu_names';
 
-// Helper functions for custom menu names
+// Cache for menu names (loaded from Firebase)
+let cachedMenuNames = null;
+
+// Helper functions for custom menu names with Firebase sync
 function getCustomMenuNames() {
+    // Return cached if available
+    if (cachedMenuNames !== null) {
+        return cachedMenuNames;
+    }
+
+    // Try to load from localStorage cache first
     try {
         const stored = localStorage.getItem(CUSTOM_MENU_NAMES_KEY);
-        return stored ? JSON.parse(stored) : {};
+        cachedMenuNames = stored ? JSON.parse(stored) : {};
+        return cachedMenuNames;
     } catch (e) {
-        console.error('[Menu Names] Error loading custom names:', e);
+        console.error('[Menu Names] Error loading from cache:', e);
         return {};
     }
 }
 
-function saveCustomMenuNames(customNames) {
+// Load custom menu names from Firebase (call this on page load)
+async function loadCustomMenuNamesFromFirebase() {
     try {
+        if (typeof firebase === 'undefined' || !firebase.firestore) {
+            console.log('[Menu Names] Firebase not available, using localStorage only');
+            return getCustomMenuNames();
+        }
+
+        const db = firebase.firestore();
+        const doc = await db.doc(FIREBASE_MENU_NAMES_DOC).get();
+
+        if (doc.exists) {
+            const data = doc.data();
+            cachedMenuNames = data.names || {};
+            // Update localStorage cache
+            localStorage.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(cachedMenuNames));
+            console.log('[Menu Names] Loaded from Firebase:', Object.keys(cachedMenuNames).length, 'custom names');
+        } else {
+            cachedMenuNames = {};
+            console.log('[Menu Names] No custom names in Firebase');
+        }
+
+        return cachedMenuNames;
+    } catch (e) {
+        console.error('[Menu Names] Error loading from Firebase:', e);
+        return getCustomMenuNames(); // Fallback to localStorage
+    }
+}
+
+// Save custom menu names to Firebase
+async function saveCustomMenuNames(customNames) {
+    try {
+        // Save to localStorage first (immediate)
         localStorage.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(customNames));
+        cachedMenuNames = customNames;
+
+        // Save to Firebase for sync
+        if (typeof firebase !== 'undefined' && firebase.firestore) {
+            const db = firebase.firestore();
+            await db.doc(FIREBASE_MENU_NAMES_DOC).set({
+                names: customNames,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: localStorage.getItem('currentUser') || 'admin'
+            }, { merge: true });
+            console.log('[Menu Names] Saved to Firebase successfully');
+        }
+
         return true;
     } catch (e) {
-        console.error('[Menu Names] Error saving custom names:', e);
+        console.error('[Menu Names] Error saving:', e);
         return false;
     }
 }
@@ -203,6 +258,7 @@ function getMenuDisplayName(menuItem) {
 window.MenuNameUtils = {
     getCustomMenuNames,
     saveCustomMenuNames,
+    loadCustomMenuNamesFromFirebase,
     getMenuDisplayName,
     MENU_CONFIG,
     CUSTOM_MENU_NAMES_KEY
@@ -257,6 +313,9 @@ class UnifiedNavigationManager {
 
             // Detect device type
             this.detectDevice();
+
+            // Load custom menu names from Firebase before rendering
+            await loadCustomMenuNamesFromFirebase();
 
             // Build UI based on device
             this.renderNavigation();
