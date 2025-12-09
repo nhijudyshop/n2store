@@ -170,6 +170,7 @@ class UnifiedNavigationManager {
         this.userPermissions = [];
         this.isAdmin = false;
         this.isMobile = window.innerWidth <= 768;
+        this.customMenuNames = {}; // Store custom menu names {pageIdentifier: {text: "...", shortText: "..."}}
         this.init();
     }
 
@@ -197,6 +198,10 @@ class UnifiedNavigationManager {
                 "[Unified Nav] Permissions loaded:",
                 this.userPermissions,
             );
+
+            // Load custom menu names
+            await this.loadCustomMenuNames();
+            console.log("[Unified Nav] Custom menu names loaded:", this.customMenuNames);
 
             // Get current page
             this.currentPage = this.getCurrentPageIdentifier();
@@ -345,6 +350,350 @@ class UnifiedNavigationManager {
         console.log(
             "[Permission Load] No permissions loaded, defaulting to empty",
         );
+    }
+
+    // =====================================================
+    // CUSTOM MENU NAMES - Admin can customize menu display names
+    // =====================================================
+
+    async loadCustomMenuNames() {
+        // Try to load from localStorage cache first
+        try {
+            const cachedNames = localStorage.getItem("customMenuNames");
+            if (cachedNames) {
+                this.customMenuNames = JSON.parse(cachedNames);
+                console.log("[Menu Names] Loaded from cache:", this.customMenuNames);
+            }
+        } catch (error) {
+            console.error("[Menu Names] Error loading from cache:", error);
+        }
+
+        // Try to load from Firebase for the latest data
+        try {
+            if (typeof firebase !== "undefined" && firebase.firestore) {
+                const db = firebase.firestore();
+                const doc = await db.collection("settings").doc("menuNames").get();
+
+                if (doc.exists) {
+                    const data = doc.data();
+                    this.customMenuNames = data.names || {};
+
+                    // Update cache
+                    localStorage.setItem("customMenuNames", JSON.stringify(this.customMenuNames));
+                    console.log("[Menu Names] Loaded from Firebase:", this.customMenuNames);
+                }
+            }
+        } catch (error) {
+            console.error("[Menu Names] Error loading from Firebase:", error);
+        }
+    }
+
+    getMenuItemDisplayText(menuItem) {
+        const customName = this.customMenuNames[menuItem.pageIdentifier];
+        return {
+            text: customName?.text || menuItem.text,
+            shortText: customName?.shortText || menuItem.shortText || menuItem.text
+        };
+    }
+
+    async saveCustomMenuNames() {
+        try {
+            // Save to localStorage
+            localStorage.setItem("customMenuNames", JSON.stringify(this.customMenuNames));
+
+            // Save to Firebase
+            if (typeof firebase !== "undefined" && firebase.firestore) {
+                const db = firebase.firestore();
+                await db.collection("settings").doc("menuNames").set({
+                    names: this.customMenuNames,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: authManager.getUserInfo()?.username || "unknown"
+                });
+                console.log("[Menu Names] Saved to Firebase successfully");
+                return true;
+            }
+
+            return true;
+        } catch (error) {
+            console.error("[Menu Names] Error saving:", error);
+            return false;
+        }
+    }
+
+    showEditMenuNamesModal() {
+        const modal = document.createElement("div");
+        modal.className = "settings-modal-overlay";
+
+        // Build menu items list for editing
+        const menuItemsHtml = MENU_CONFIG.map((item) => {
+            const currentText = this.customMenuNames[item.pageIdentifier]?.text || item.text;
+            const currentShortText = this.customMenuNames[item.pageIdentifier]?.shortText || item.shortText || "";
+            const originalText = item.text;
+            const originalShortText = item.shortText || "";
+
+            return `
+                <div class="menu-name-edit-item" data-page="${item.pageIdentifier}">
+                    <div class="menu-name-edit-header">
+                        <i data-lucide="${item.icon}"></i>
+                        <span class="menu-name-original">${originalText}</span>
+                    </div>
+                    <div class="menu-name-edit-inputs">
+                        <div class="menu-name-input-group">
+                            <label>Tên đầy đủ:</label>
+                            <input type="text" class="menu-name-input menu-text-input"
+                                   value="${currentText}"
+                                   placeholder="${originalText}"
+                                   data-original="${originalText}">
+                        </div>
+                        <div class="menu-name-input-group">
+                            <label>Tên ngắn (mobile):</label>
+                            <input type="text" class="menu-name-input menu-shorttext-input"
+                                   value="${currentShortText}"
+                                   placeholder="${originalShortText}"
+                                   data-original="${originalShortText}">
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+        modal.innerHTML = `
+            <div class="settings-modal" style="max-width: 700px; max-height: 85vh;">
+                <div class="settings-header">
+                    <h2>
+                        <i data-lucide="edit-3"></i>
+                        Chỉnh Sửa Tên Menu
+                    </h2>
+                    <button class="settings-close" id="closeEditMenuModal">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
+                <div class="settings-content" style="overflow-y: auto; max-height: 60vh;">
+                    <div class="setting-group">
+                        <div class="menu-names-info">
+                            <i data-lucide="info"></i>
+                            <span>Thay đổi tên hiển thị của các trang trong menu. Để trống để dùng tên mặc định.</span>
+                        </div>
+                        <div class="menu-names-list">
+                            ${menuItemsHtml}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-footer">
+                    <button class="btn-reset" id="resetMenuNamesBtn">
+                        <i data-lucide="rotate-ccw"></i>
+                        Đặt Lại Mặc Định
+                    </button>
+                    <button class="btn-save" id="saveMenuNamesBtn">
+                        <i data-lucide="check"></i>
+                        Lưu Thay Đổi
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Add styles for the modal
+        this.addEditMenuNamesStyles();
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+
+        // Event listeners
+        const closeBtn = modal.querySelector("#closeEditMenuModal");
+        const saveBtn = modal.querySelector("#saveMenuNamesBtn");
+        const resetBtn = modal.querySelector("#resetMenuNamesBtn");
+
+        const closeModal = () => modal.remove();
+
+        closeBtn.addEventListener("click", closeModal);
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        resetBtn.addEventListener("click", () => {
+            // Reset all inputs to original values
+            modal.querySelectorAll(".menu-name-edit-item").forEach((item) => {
+                const textInput = item.querySelector(".menu-text-input");
+                const shortTextInput = item.querySelector(".menu-shorttext-input");
+                if (textInput) textInput.value = textInput.getAttribute("data-original");
+                if (shortTextInput) shortTextInput.value = shortTextInput.getAttribute("data-original");
+            });
+            this.showToast("Đã đặt lại tên mặc định", "info");
+        });
+
+        saveBtn.addEventListener("click", async () => {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i data-lucide="loader"></i> Đang lưu...';
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons();
+            }
+
+            // Collect all custom names
+            const newCustomNames = {};
+
+            modal.querySelectorAll(".menu-name-edit-item").forEach((item) => {
+                const pageId = item.getAttribute("data-page");
+                const textInput = item.querySelector(".menu-text-input");
+                const shortTextInput = item.querySelector(".menu-shorttext-input");
+
+                const originalText = textInput.getAttribute("data-original");
+                const originalShortText = shortTextInput.getAttribute("data-original");
+
+                const newText = textInput.value.trim();
+                const newShortText = shortTextInput.value.trim();
+
+                // Only save if different from original
+                if (newText !== originalText || newShortText !== originalShortText) {
+                    newCustomNames[pageId] = {
+                        text: newText || originalText,
+                        shortText: newShortText || originalShortText
+                    };
+                }
+            });
+
+            this.customMenuNames = newCustomNames;
+            const success = await this.saveCustomMenuNames();
+
+            if (success) {
+                closeModal();
+                this.showToast("Đã lưu tên menu thành công! Đang tải lại...", "success");
+
+                // Reload the page to apply changes
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu Thay Đổi';
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+                this.showToast("Có lỗi xảy ra khi lưu!", "error");
+            }
+        });
+    }
+
+    addEditMenuNamesStyles() {
+        if (document.getElementById("editMenuNamesStyles")) return;
+
+        const style = document.createElement("style");
+        style.id = "editMenuNamesStyles";
+        style.textContent = `
+            .menu-names-info {
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                padding: 12px 16px;
+                background: rgba(59, 130, 246, 0.1);
+                border: 1px solid rgba(59, 130, 246, 0.2);
+                border-radius: 8px;
+                margin-bottom: 20px;
+                color: var(--text-secondary);
+                font-size: 13px;
+                line-height: 1.5;
+            }
+
+            .menu-names-info i {
+                width: 18px;
+                height: 18px;
+                color: #3b82f6;
+                flex-shrink: 0;
+                margin-top: 1px;
+            }
+
+            .menu-names-list {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .menu-name-edit-item {
+                padding: 14px 16px;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border-color);
+                border-radius: 10px;
+                transition: all 0.2s;
+            }
+
+            .menu-name-edit-item:hover {
+                border-color: var(--accent-color);
+                box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+            }
+
+            .menu-name-edit-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 12px;
+                padding-bottom: 10px;
+                border-bottom: 1px dashed var(--border-color);
+            }
+
+            .menu-name-edit-header i {
+                width: 20px;
+                height: 20px;
+                color: var(--accent-color);
+            }
+
+            .menu-name-original {
+                font-weight: 600;
+                color: var(--text-primary);
+                font-size: 14px;
+            }
+
+            .menu-name-edit-inputs {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+
+            @media (max-width: 500px) {
+                .menu-name-edit-inputs {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            .menu-name-input-group {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .menu-name-input-group label {
+                font-size: 11px;
+                font-weight: 600;
+                color: var(--text-tertiary);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .menu-name-input {
+                padding: 8px 12px;
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                font-size: 13px;
+                color: var(--text-primary);
+                background: var(--bg-primary);
+                transition: all 0.2s;
+                outline: none;
+            }
+
+            .menu-name-input:focus {
+                border-color: var(--accent-color);
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            }
+
+            .menu-name-input::placeholder {
+                color: var(--text-tertiary);
+                font-style: italic;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     getCurrentPageIdentifier() {
@@ -561,9 +910,12 @@ class UnifiedNavigationManager {
                 console.log("[Mobile Nav] Active page:", item.pageIdentifier);
             }
 
+            // Use custom menu name if available
+            const displayText = this.getMenuItemDisplayText(item);
+
             navItem.innerHTML = `
                 <i data-lucide="${item.icon}"></i>
-                <span>${item.shortText || item.text}</span>
+                <span>${displayText.shortText}</span>
             `;
 
             bottomNav.appendChild(navItem);
@@ -605,6 +957,18 @@ class UnifiedNavigationManager {
 
         const accessiblePages = this.getAccessiblePages();
 
+        // Build menu items with custom names
+        const menuItemsHtml = accessiblePages.map((item) => {
+            const displayText = this.getMenuItemDisplayText(item);
+            return `
+                <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? "active" : ""}">
+                    <i data-lucide="${item.icon}"></i>
+                    <span>${displayText.text}</span>
+                    ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ""}
+                </a>
+            `;
+        }).join("");
+
         menu.innerHTML = `
             <div class="mobile-menu-header">
                 <h3>Tất Cả Trang</h3>
@@ -613,19 +977,15 @@ class UnifiedNavigationManager {
                 </button>
             </div>
             <div class="mobile-menu-content">
-                ${accessiblePages
-                .map(
-                    (item) => `
-                    <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? "active" : ""}">
-                        <i data-lucide="${item.icon}"></i>
-                        <span>${item.text}</span>
-                        ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ""}
-                    </a>
-                `,
-                )
-                .join("")}
+                ${menuItemsHtml}
             </div>
             <div class="mobile-menu-footer">
+                ${this.isAdmin ? `
+                <button class="mobile-menu-action" id="mobileEditMenuNamesBtn">
+                    <i data-lucide="edit-3"></i>
+                    <span>Đổi Tên Menu</span>
+                </button>
+                ` : ''}
                 <button class="mobile-menu-action" id="mobileSettingsBtn">
                     <i data-lucide="settings"></i>
                     <span>Cài Đặt</span>
@@ -655,6 +1015,15 @@ class UnifiedNavigationManager {
             overlay.remove();
             this.showSettings();
         });
+
+        // Add edit menu names button listener for admin
+        const editMenuNamesBtn = menu.querySelector("#mobileEditMenuNamesBtn");
+        if (editMenuNamesBtn) {
+            editMenuNamesBtn.addEventListener("click", () => {
+                overlay.remove();
+                this.showEditMenuNamesModal();
+            });
+        }
 
         const logoutBtn = menu.querySelector("#mobileLogoutBtn");
         logoutBtn.addEventListener("click", () => {
@@ -722,9 +1091,12 @@ class UnifiedNavigationManager {
                 navItem.classList.add("active");
             }
 
+            // Use custom menu name if available
+            const displayText = this.getMenuItemDisplayText(menuItem);
+
             navItem.innerHTML = `
                 <i data-lucide="${menuItem.icon}"></i>
-                <span>${menuItem.text}</span>
+                <span>${displayText.text}</span>
             `;
 
             sidebarNav.appendChild(navItem);
@@ -734,6 +1106,11 @@ class UnifiedNavigationManager {
         console.log(
             `[Unified Nav] Rendered ${renderedCount} desktop menu items`,
         );
+
+        // Add edit menu names button for admin
+        if (this.isAdmin) {
+            this.addEditMenuNamesButton(sidebarNav);
+        }
 
         this.addSettingsToNavigation(sidebarNav);
 
@@ -782,6 +1159,44 @@ class UnifiedNavigationManager {
         }
 
         console.log("[Unified Nav] Settings button added");
+    }
+
+    addEditMenuNamesButton(sidebarNav) {
+        const editBtn = document.createElement("button");
+        editBtn.id = "btnEditMenuNames";
+        editBtn.className = "nav-item nav-edit-menu-btn";
+        editBtn.innerHTML = `
+            <i data-lucide="edit-3"></i>
+            <span>Đổi Tên Menu</span>
+        `;
+        editBtn.addEventListener("click", () => {
+            this.showEditMenuNamesModal();
+        });
+        sidebarNav.appendChild(editBtn);
+
+        if (!document.getElementById("editMenuNavStyles")) {
+            const style = document.createElement("style");
+            style.id = "editMenuNavStyles";
+            style.textContent = `
+                .nav-edit-menu-btn {
+                    background: none !important;
+                    border: none;
+                    width: 100%;
+                    text-align: left;
+                    cursor: pointer;
+                    margin-top: 4px;
+                }
+                .nav-edit-menu-btn:hover {
+                    background: rgba(255, 255, 255, 0.1) !important;
+                }
+                .nav-edit-menu-btn i {
+                    color: #10b981;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        console.log("[Unified Nav] Edit menu names button added (admin only)");
     }
 
     // =====================================================
