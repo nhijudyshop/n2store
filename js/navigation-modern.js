@@ -164,6 +164,50 @@ const MENU_CONFIG = [
     },
 ];
 
+// localStorage key for custom menu names
+const CUSTOM_MENU_NAMES_KEY = 'n2shop_custom_menu_names';
+
+// Helper functions for custom menu names
+function getCustomMenuNames() {
+    try {
+        const stored = localStorage.getItem(CUSTOM_MENU_NAMES_KEY);
+        return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+        console.error('[Menu Names] Error loading custom names:', e);
+        return {};
+    }
+}
+
+function saveCustomMenuNames(customNames) {
+    try {
+        localStorage.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(customNames));
+        return true;
+    } catch (e) {
+        console.error('[Menu Names] Error saving custom names:', e);
+        return false;
+    }
+}
+
+function getMenuDisplayName(menuItem) {
+    const customNames = getCustomMenuNames();
+    if (customNames[menuItem.pageIdentifier]) {
+        return {
+            text: customNames[menuItem.pageIdentifier].text || menuItem.text,
+            shortText: customNames[menuItem.pageIdentifier].shortText || menuItem.shortText
+        };
+    }
+    return { text: menuItem.text, shortText: menuItem.shortText };
+}
+
+// Export functions for external use (menu-rename-manager.js)
+window.MenuNameUtils = {
+    getCustomMenuNames,
+    saveCustomMenuNames,
+    getMenuDisplayName,
+    MENU_CONFIG,
+    CUSTOM_MENU_NAMES_KEY
+};
+
 class UnifiedNavigationManager {
     constructor() {
         this.currentPage = null;
@@ -615,13 +659,16 @@ class UnifiedNavigationManager {
             <div class="mobile-menu-content">
                 ${accessiblePages
                 .map(
-                    (item) => `
+                    (item) => {
+                        const displayName = getMenuDisplayName(item);
+                        return `
                     <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? "active" : ""}">
                         <i data-lucide="${item.icon}"></i>
-                        <span>${item.text}</span>
+                        <span>${displayName.text}</span>
                         ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ""}
                     </a>
-                `,
+                `;
+                    }
                 )
                 .join("")}
             </div>
@@ -722,9 +769,10 @@ class UnifiedNavigationManager {
                 navItem.classList.add("active");
             }
 
+            const displayName = getMenuDisplayName(menuItem);
             navItem.innerHTML = `
                 <i data-lucide="${menuItem.icon}"></i>
-                <span>${menuItem.text}</span>
+                <span>${displayName.text}</span>
             `;
 
             sidebarNav.appendChild(navItem);
@@ -1713,7 +1761,6 @@ class UnifiedNavigationManager {
                     <button class="btn-reset" id="resetSettings">
                         <i data-lucide="rotate-ccw"></i>
                         Đặt Lại Mặc Định
-                    </button>
                     <button class="btn-save" id="saveSettings">
                         <i data-lucide="check"></i>
                         Áp Dụng
