@@ -11769,3 +11769,292 @@ async function selectAddress(fullAddress, type) {
         }
     }
 }
+
+// =====================================================
+// PRODUCT STATS MODAL FUNCTIONS
+// =====================================================
+
+/**
+ * Open the product stats modal and load previous stats if available
+ */
+function openProductStatsModal() {
+    const modal = document.getElementById('productStatsModal');
+    if (modal) {
+        modal.classList.add('show');
+        // Load previous stats from Firebase if available
+        loadStatsFromFirebase();
+    }
+}
+
+/**
+ * Close the product stats modal
+ */
+function closeProductStatsModal() {
+    const modal = document.getElementById('productStatsModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('productStatsModal');
+    if (modal && event.target === modal) {
+        closeProductStatsModal();
+    }
+});
+
+/**
+ * Get current campaign ID for Firebase storage
+ */
+function getStatsCampaignId() {
+    if (selectedCampaign && selectedCampaign.campaignId) {
+        return selectedCampaign.campaignId;
+    }
+    return 'no_campaign';
+}
+
+/**
+ * Load stats from Firebase for current campaign
+ */
+async function loadStatsFromFirebase() {
+    const modalBody = document.getElementById('productStatsModalBody');
+    const campaignId = getStatsCampaignId();
+
+    try {
+        const statsRef = window.firebase.database().ref(`product_stats/${campaignId}`);
+        const snapshot = await statsRef.once('value');
+        const data = snapshot.val();
+
+        if (data && data.statsHtml) {
+            // Show campaign info
+            const campaignInfo = data.campaignName
+                ? `<div class="stats-campaign-info"><i class="fas fa-video"></i>Chiến dịch: ${data.campaignName} | Cập nhật: ${new Date(data.updatedAt).toLocaleString('vi-VN')}</div>`
+                : '';
+            modalBody.innerHTML = campaignInfo + data.statsHtml;
+        } else {
+            modalBody.innerHTML = `
+                <div class="stats-empty-state">
+                    <i class="fas fa-chart-pie"></i>
+                    <p>Chưa có dữ liệu thống kê. Bấm nút "Thống kê" để bắt đầu.</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('[PRODUCT-STATS] Error loading from Firebase:', error);
+        modalBody.innerHTML = `
+            <div class="stats-empty-state">
+                <i class="fas fa-chart-pie"></i>
+                <p>Bấm nút "Thống kê" để bắt đầu</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Save stats to Firebase for current campaign
+ */
+async function saveStatsToFirebase(statsHtml, summaryData) {
+    const campaignId = getStatsCampaignId();
+    const campaignName = selectedCampaign ? selectedCampaign.campaignName : '';
+
+    try {
+        const statsRef = window.firebase.database().ref(`product_stats/${campaignId}`);
+        await statsRef.set({
+            campaignId: campaignId,
+            campaignName: campaignName,
+            statsHtml: statsHtml,
+            totalProducts: summaryData.totalProducts,
+            totalQuantity: summaryData.totalQuantity,
+            totalOrders: summaryData.totalOrders,
+            updatedAt: new Date().toISOString()
+        });
+        console.log('[PRODUCT-STATS] Saved to Firebase successfully');
+    } catch (error) {
+        console.error('[PRODUCT-STATS] Error saving to Firebase:', error);
+    }
+}
+
+/**
+ * Run product statistics on all orders in allData
+ */
+async function runProductStats() {
+    const modalBody = document.getElementById('productStatsModalBody');
+    const runBtn = document.querySelector('.btn-run-stats');
+
+    // Show loading state
+    modalBody.innerHTML = `
+        <div class="stats-loading">
+            <div class="spinner"></div>
+            <p>Đang thống kê sản phẩm...</p>
+        </div>
+    `;
+
+    if (runBtn) {
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+    }
+
+    try {
+        // Check if allData exists
+        if (!allData || allData.length === 0) {
+            modalBody.innerHTML = `
+                <div class="stats-empty-state">
+                    <i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i>
+                    <p>Không có dữ liệu đơn hàng. Vui lòng tải dữ liệu trước.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Build product statistics
+        const productStats = new Map(); // key: ProductCode, value: { name, nameGet, imageUrl, sttList: [{stt, qty}] }
+        const orderSet = new Set(); // Track unique orders
+        let totalQuantity = 0;
+
+        allData.forEach((order) => {
+            const stt = order.SessionIndex || '';
+            if (!stt) return; // Skip orders without STT
+
+            orderSet.add(stt);
+
+            const details = order.Details || [];
+            details.forEach((product) => {
+                const productCode = product.ProductCode || 'N/A';
+                const quantity = product.Quantity || product.ProductUOMQty || 1;
+                totalQuantity += quantity;
+
+                if (!productStats.has(productCode)) {
+                    productStats.set(productCode, {
+                        code: productCode,
+                        name: product.ProductName || '',
+                        nameGet: product.ProductNameGet || product.ProductName || '',
+                        imageUrl: product.ImageUrl || '',
+                        sttList: [],
+                        totalQty: 0
+                    });
+                }
+
+                const stat = productStats.get(productCode);
+                stat.sttList.push({ stt: stt, qty: quantity });
+                stat.totalQty += quantity;
+            });
+        });
+
+        // Sort products by total quantity (descending)
+        const sortedProducts = Array.from(productStats.values()).sort((a, b) => b.totalQty - a.totalQty);
+
+        // Summary data
+        const summaryData = {
+            totalProducts: sortedProducts.length,
+            totalQuantity: totalQuantity,
+            totalOrders: orderSet.size
+        };
+
+        // Build HTML table
+        const tableRowsHtml = sortedProducts.map((product) => {
+            // Build STT list string with quantity
+            const sttListStr = product.sttList.map(item => {
+                if (item.qty > 1) {
+                    return `${item.stt}<span class="stats-stt-qty">(${item.qty})</span>`;
+                }
+                return item.stt;
+            }).join(', ');
+
+            // Product image
+            const imageHtml = product.imageUrl
+                ? `<img src="${product.imageUrl}" class="stats-product-image" alt="${product.code}" onerror="this.style.display='none'">`
+                : `<div class="stats-product-image-placeholder"><i class="fas fa-image"></i></div>`;
+
+            return `
+                <tr>
+                    <td>
+                        <div class="stats-product-info">
+                            ${imageHtml}
+                            <div class="stats-product-details">
+                                <div class="stats-product-code">[${product.code}]</div>
+                                <div class="stats-product-name">${product.nameGet || product.name}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="stats-quantity-badge">${product.totalQty}</span>
+                    </td>
+                    <td>
+                        <div class="stats-stt-list">${sttListStr}</div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        const statsHtml = `
+            <div class="stats-summary-header" onclick="toggleStatsSummary(this)">
+                <i class="fas fa-chevron-down toggle-icon"></i>
+                <i class="fas fa-list-alt"></i>
+                <span class="stats-summary-content">TỔNG CỘNG: ${summaryData.totalProducts} sản phẩm</span>
+                <div class="stats-summary-values">
+                    <span>${summaryData.totalQuantity.toLocaleString('vi-VN')} món</span>
+                    <span>${summaryData.totalOrders.toLocaleString('vi-VN')} đơn hàng</span>
+                </div>
+            </div>
+            <div class="stats-table-container">
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>SẢN PHẨM</th>
+                            <th>SỐ LƯỢNG</th>
+                            <th>MÃ ĐƠN HÀNG (STT)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        // Show campaign info
+        const campaignName = selectedCampaign ? selectedCampaign.campaignName : 'Không có chiến dịch';
+        const campaignInfo = `<div class="stats-campaign-info"><i class="fas fa-video"></i>Chiến dịch: ${campaignName} | Cập nhật: ${new Date().toLocaleString('vi-VN')}</div>`;
+
+        modalBody.innerHTML = campaignInfo + statsHtml;
+
+        // Save to Firebase
+        await saveStatsToFirebase(statsHtml, summaryData);
+
+        if (window.notificationManager) {
+            window.notificationManager.show(`Đã thống kê ${summaryData.totalProducts} sản phẩm từ ${summaryData.totalOrders} đơn hàng`, 'success');
+        }
+
+    } catch (error) {
+        console.error('[PRODUCT-STATS] Error running stats:', error);
+        modalBody.innerHTML = `
+            <div class="stats-empty-state">
+                <i class="fas fa-exclamation-circle" style="color: #ef4444;"></i>
+                <p>Lỗi khi thống kê: ${error.message}</p>
+            </div>
+        `;
+    } finally {
+        if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.innerHTML = '<i class="fas fa-play"></i> Thống kê';
+        }
+    }
+}
+
+/**
+ * Toggle stats summary collapse/expand
+ */
+function toggleStatsSummary(element) {
+    element.classList.toggle('collapsed');
+    const tableContainer = element.nextElementSibling;
+    if (tableContainer) {
+        tableContainer.style.display = element.classList.contains('collapsed') ? 'none' : 'block';
+    }
+}
+
+// Make functions globally accessible
+window.openProductStatsModal = openProductStatsModal;
+window.closeProductStatsModal = closeProductStatsModal;
+window.runProductStats = runProductStats;
+window.toggleStatsSummary = toggleStatsSummary;
