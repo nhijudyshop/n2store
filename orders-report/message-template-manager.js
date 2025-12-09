@@ -1236,6 +1236,14 @@ class MessageTemplateManager {
             result = result.replace(/{order\.total}/g, '0đ');
         }
 
+        // Giới hạn tin nhắn 2000 ký tự (Facebook Messenger limit)
+        const MAX_MESSAGE_LENGTH = 2000;
+        if (result.length > MAX_MESSAGE_LENGTH) {
+            this.log(`⚠️ Message too long (${result.length} chars), truncating to ${MAX_MESSAGE_LENGTH}...`);
+            // Cắt ngắn và thêm "..." để user biết tin nhắn bị cắt
+            result = result.substring(0, MAX_MESSAGE_LENGTH - 3) + '...';
+        }
+
         return result;
     }
 
