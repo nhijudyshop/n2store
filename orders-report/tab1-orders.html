@@ -161,6 +161,303 @@
             font-weight: 500;
             color: #374151;
         }
+
+        /* Product Stats Modal Styles */
+        .product-stats-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .product-stats-modal.show {
+            display: flex;
+        }
+
+        .product-stats-modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 95%;
+            max-width: 1200px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .product-stats-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .product-stats-modal-header i {
+            font-size: 18px;
+        }
+
+        .btn-run-stats {
+            background: white;
+            color: #0d9488;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-run-stats:hover {
+            background: #f0fdfa;
+            transform: scale(1.02);
+        }
+
+        .btn-run-stats:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .product-stats-modal-close {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0 8px;
+            line-height: 1;
+        }
+
+        .product-stats-modal-close:hover {
+            opacity: 0.8;
+        }
+
+        .product-stats-modal-body {
+            padding: 0;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .stats-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px;
+            color: #9ca3af;
+        }
+
+        .stats-empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .stats-empty-state p {
+            font-size: 16px;
+        }
+
+        /* Stats Table Styles */
+        .stats-summary-header {
+            background: #1f2937;
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .stats-summary-header:hover {
+            background: #374151;
+        }
+
+        .stats-summary-header i.toggle-icon {
+            transition: transform 0.2s;
+        }
+
+        .stats-summary-header.collapsed i.toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .stats-summary-content {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .stats-summary-values {
+            display: flex;
+            gap: 24px;
+            margin-left: auto;
+        }
+
+        .stats-summary-values span {
+            font-weight: 500;
+        }
+
+        .stats-table-container {
+            overflow-x: auto;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .stats-table thead {
+            background: #1f2937;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .stats-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+
+        .stats-table th:nth-child(2),
+        .stats-table td:nth-child(2) {
+            text-align: center;
+            width: 100px;
+        }
+
+        .stats-table tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .stats-table tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        .stats-table td {
+            padding: 12px 16px;
+            vertical-align: top;
+        }
+
+        .stats-product-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .stats-product-image {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            flex-shrink: 0;
+        }
+
+        .stats-product-image-placeholder {
+            width: 50px;
+            height: 50px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            flex-shrink: 0;
+        }
+
+        .stats-product-details {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stats-product-code {
+            font-weight: 700;
+            color: #1f2937;
+            font-size: 14px;
+        }
+
+        .stats-product-name {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+
+        .stats-quantity-badge {
+            background: #3b82f6;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 14px;
+            display: inline-block;
+        }
+
+        .stats-stt-list {
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.8;
+            word-break: break-word;
+        }
+
+        .stats-stt-item {
+            display: inline;
+        }
+
+        .stats-stt-qty {
+            color: #3b82f6;
+            font-weight: 500;
+        }
+
+        .stats-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px;
+        }
+
+        .stats-loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e5e7eb;
+            border-top-color: #14b8a6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .stats-loading p {
+            margin-top: 16px;
+            color: #6b7280;
+        }
+
+        .stats-campaign-info {
+            background: #f0fdfa;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: #0d9488;
+            border-bottom: 1px solid #ccfbf1;
+        }
+
+        .stats-campaign-info i {
+            margin-right: 8px;
+        }
     </style>
 </head>
 
@@ -271,6 +568,12 @@
                 title="Gộp sản phẩm từ các đơn có cùng SĐT vào đơn STT lớn nhất">
                 <i class="fas fa-compress-arrows-alt"></i>
                 Gộp sản phẩm đơn trùng SĐT
+            </button>
+            <button class="btn-primary" id="productStatsBtn" onclick="openProductStatsModal()"
+                style="background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)"
+                title="Thống kê tất cả sản phẩm theo đơn hàng">
+                <i class="fas fa-chart-bar"></i>
+                Thống kê SP
             </button>
             <div
                 style="display: flex; align-items: center; gap: 8px; margin-left: 12px; background: #f3f4f6; padding: 4px 8px; border-radius: 8px; border: 1px solid #e5e7eb;">
@@ -3488,6 +3791,30 @@
                 <div class="emoji-category">
                     <h4 class="emoji-category-title">Stickers</h4>
                     <p style="text-align: center; padding: 40px; color: #9ca3af;">Sticker sẽ được cập nhật sớm...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Stats Modal -->
+    <div id="productStatsModal" class="product-stats-modal">
+        <div class="product-stats-modal-content">
+            <div class="product-stats-modal-header">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <i class="fas fa-chart-bar"></i>
+                    <h3 style="margin: 0; font-size: 16px;">Thống kê sản phẩm theo đơn hàng</h3>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button class="btn-run-stats" onclick="runProductStats()" title="Chạy thống kê">
+                        <i class="fas fa-play"></i> Thống kê
+                    </button>
+                    <button class="product-stats-modal-close" onclick="closeProductStatsModal()">×</button>
+                </div>
+            </div>
+            <div class="product-stats-modal-body" id="productStatsModalBody">
+                <div class="stats-empty-state">
+                    <i class="fas fa-chart-pie"></i>
+                    <p>Bấm nút "Thống kê" để bắt đầu</p>
                 </div>
             </div>
         </div>
