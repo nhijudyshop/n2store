@@ -1403,6 +1403,8 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
  */
 async function quickRemoveTag(orderId, orderCode, tagId) {
     try {
+        console.log('[QUICK-TAG] Removing tag:', { orderId, orderCode, tagId });
+
         // Get current order from data
         const order = allData.find(o => o.Id === orderId);
         if (!order) {
@@ -1420,15 +1422,18 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
             orderTags = [];
         }
 
-        // Find tag to remove
-        const tagToRemove = orderTags.find(t => t.Id === tagId);
+        console.log('[QUICK-TAG] Current tags:', orderTags);
+
+        // Find tag to remove (compare as string to handle both number and string IDs)
+        const tagIdStr = String(tagId);
+        const tagToRemove = orderTags.find(t => String(t.Id) === tagIdStr);
         if (!tagToRemove) {
-            console.warn('[QUICK-TAG] Tag not found in order:', tagId);
+            console.warn('[QUICK-TAG] Tag not found in order:', tagId, 'Available:', orderTags.map(t => t.Id));
             return;
         }
 
         // Remove tag from list
-        orderTags = orderTags.filter(t => t.Id !== tagId);
+        orderTags = orderTags.filter(t => String(t.Id) !== tagIdStr);
 
         // Show loading
         if (window.notificationManager) {
@@ -4525,12 +4530,16 @@ function parseOrderTags(tagsJson, orderId, orderCode) {
     try {
         const tags = JSON.parse(tagsJson);
         if (!Array.isArray(tags) || tags.length === 0) return "";
+
+        // Escape function for safe onclick attributes
+        const escapeAttr = (str) => String(str).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
         return tags
             .map(
                 (tag) =>
                     `<div style="margin-bottom: 2px; display: flex; align-items: center; gap: 2px;">
-                        <span class="order-tag" style="background-color: ${tag.Color || "#6b7280"}; cursor: pointer;" onclick="openTagModal('${orderId}', '${orderCode}'); event.stopPropagation();" title="Quản lý tag">${tag.Name || ""}</span>
-                        <button class="tag-remove-btn" onclick="quickRemoveTag('${orderId}', '${orderCode}', '${tag.Id}'); event.stopPropagation();" title="Xóa tag này">×</button>
+                        <span class="order-tag" style="background-color: ${tag.Color || "#6b7280"}; cursor: pointer;" onclick="openTagModal('${escapeAttr(orderId)}', '${escapeAttr(orderCode)}'); event.stopPropagation();" title="Quản lý tag">${tag.Name || ""}</span>
+                        <button class="tag-remove-btn" onclick="quickRemoveTag('${escapeAttr(orderId)}', '${escapeAttr(orderCode)}', '${escapeAttr(tag.Id)}'); event.stopPropagation();" title="Xóa tag này">×</button>
                     </div>`,
             )
             .join("");
