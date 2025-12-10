@@ -829,7 +829,13 @@
                             Đang tải...</p>
                     </div>
                     <!-- QR Buttons -->
-                    <div class="chat-qr-buttons" id="chatQRButtons" style="display: flex; gap: 6px; margin-right: 12px;">
+                    <div class="chat-qr-buttons" id="chatQRButtons" style="display: flex; gap: 6px; margin-right: 12px; align-items: center;">
+                        <button id="qrAmountToggle" onclick="toggleQRAmountSetting()" title="Bật/tắt hiện số tiền trong QR"
+                            style="background: rgba(16, 185, 129, 0.8); border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: white; font-size: 11px; font-weight: 600; transition: all 0.2s;"
+                            onmouseover="this.style.opacity='0.9';"
+                            onmouseout="this.style.opacity='1';">
+                            <i class="fas fa-dollar-sign"></i>
+                        </button>
                         <button onclick="copyQRImageFromChat()" title="Copy ảnh QR"
                             style="background: rgba(255, 255, 255, 0.2); border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: white; font-size: 12px; font-weight: 500; transition: all 0.2s;"
                             onmouseover="this.style.background='rgba(255, 255, 255, 0.3)';"

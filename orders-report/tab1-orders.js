@@ -12715,9 +12715,111 @@ document.addEventListener('click', function(event) {
 // QR FUNCTIONS FOR CHAT MODAL
 // =====================================================
 
+// QR Amount Toggle Setting
+const QR_AMOUNT_SETTING_KEY = 'qr_show_amount';
+let qrShowAmountEnabled = true; // Default: show amount
+
+/**
+ * Load QR amount toggle setting from localStorage and Firebase
+ */
+async function loadQRAmountSetting() {
+    try {
+        // 1. Try localStorage first (for quick load)
+        if (window.userStorageManager) {
+            const localValue = window.userStorageManager.loadFromLocalStorage(QR_AMOUNT_SETTING_KEY);
+            if (localValue !== null) {
+                qrShowAmountEnabled = localValue === true || localValue === 'true';
+                updateQRAmountToggleUI();
+                console.log('[QR-SETTING] Loaded from localStorage:', qrShowAmountEnabled);
+            }
+        }
+
+        // 2. Try Firebase (source of truth)
+        if (window.firebase && window.userStorageManager) {
+            const firebaseValue = await window.userStorageManager.loadFromFirebase(
+                window.firebase.database(),
+                `settings/${QR_AMOUNT_SETTING_KEY}`
+            );
+            if (firebaseValue !== null) {
+                qrShowAmountEnabled = firebaseValue === true || firebaseValue === 'true';
+                // Sync to localStorage
+                window.userStorageManager.saveToLocalStorage(QR_AMOUNT_SETTING_KEY, qrShowAmountEnabled);
+                updateQRAmountToggleUI();
+                console.log('[QR-SETTING] Loaded from Firebase:', qrShowAmountEnabled);
+            }
+        }
+    } catch (error) {
+        console.error('[QR-SETTING] Error loading setting:', error);
+    }
+}
+
+/**
+ * Save QR amount toggle setting to localStorage and Firebase
+ */
+async function saveQRAmountSetting() {
+    try {
+        // 1. Save to localStorage
+        if (window.userStorageManager) {
+            window.userStorageManager.saveToLocalStorage(QR_AMOUNT_SETTING_KEY, qrShowAmountEnabled);
+            console.log('[QR-SETTING] Saved to localStorage:', qrShowAmountEnabled);
+        }
+
+        // 2. Save to Firebase
+        if (window.firebase && window.userStorageManager) {
+            await window.userStorageManager.saveToFirebase(
+                window.firebase.database(),
+                `settings/${QR_AMOUNT_SETTING_KEY}`,
+                qrShowAmountEnabled
+            );
+            console.log('[QR-SETTING] Saved to Firebase:', qrShowAmountEnabled);
+        }
+    } catch (error) {
+        console.error('[QR-SETTING] Error saving setting:', error);
+    }
+}
+
+/**
+ * Update QR amount toggle button UI
+ */
+function updateQRAmountToggleUI() {
+    const toggleBtn = document.getElementById('qrAmountToggle');
+    if (!toggleBtn) return;
+
+    if (qrShowAmountEnabled) {
+        toggleBtn.style.background = 'rgba(16, 185, 129, 0.8)'; // Green - enabled
+        toggleBtn.title = 'Số tiền: BẬT - Click để tắt';
+    } else {
+        toggleBtn.style.background = 'rgba(107, 114, 128, 0.6)'; // Gray - disabled
+        toggleBtn.title = 'Số tiền: TẮT - Click để bật';
+    }
+}
+
+/**
+ * Toggle QR amount setting
+ */
+async function toggleQRAmountSetting() {
+    qrShowAmountEnabled = !qrShowAmountEnabled;
+    updateQRAmountToggleUI();
+    await saveQRAmountSetting();
+
+    const statusText = qrShowAmountEnabled ? 'BẬT' : 'TẮT';
+    showNotification(`Số tiền trong QR: ${statusText}`, 'info');
+}
+
+// Export toggle functions
+window.toggleQRAmountSetting = toggleQRAmountSetting;
+window.loadQRAmountSetting = loadQRAmountSetting;
+
+// Load setting on page load
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        loadQRAmountSetting();
+    }, 1500);
+});
+
 /**
  * Copy QR image from chat modal to clipboard
- * Gets the current order's phone and copies the VietQR image with total amount
+ * Gets the current order's phone and copies the VietQR image with total amount (if enabled)
  */
 async function copyQRImageFromChat() {
     if (!currentOrder || !currentOrder.Telephone) {
@@ -12740,8 +12842,8 @@ async function copyQRImageFromChat() {
         return;
     }
 
-    // Get order total amount
-    const amount = currentOrder.TotalAmount || 0;
+    // Get order total amount (only if toggle is enabled)
+    const amount = qrShowAmountEnabled ? (currentOrder.TotalAmount || 0) : 0;
 
     // Generate QR URL with amount
     const qrUrl = generateVietQRUrl(uniqueCode, amount);
@@ -12789,8 +12891,8 @@ function showQRFromChat() {
         return;
     }
 
-    // Get order total amount
-    const amount = currentOrder.TotalAmount || 0;
+    // Get order total amount (only if toggle is enabled)
+    const amount = qrShowAmountEnabled ? (currentOrder.TotalAmount || 0) : 0;
 
     // Use existing QR modal function with amount
     showOrderQRModal(normalizedPhone, amount);
