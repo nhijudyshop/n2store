@@ -1187,44 +1187,6 @@
     // loadAssignments() removed - now loading directly from Firebase only
 
     /**
-     * Hard refresh - Force reload data from LocalStorage
-     * Called from UI button
-     */
-    window.hardRefreshFromFirebase = async function () {
-        try {
-            console.log('[HARD-REFRESH] 🔄 Hard refresh requested...');
-
-            // Show loading indicator
-            const btn = event.target.closest('button');
-            const originalHTML = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-
-            // Force reload from LocalStorage
-            loadAssignmentsFromLocalStorage();
-
-            // Restore button
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.innerHTML = originalHTML;
-                console.log('[HARD-REFRESH] ✅ Hard refresh completed');
-                alert('✅ Đã tải lại dữ liệu từ LocalStorage!');
-            }, 500);
-
-        } catch (error) {
-            console.error('[HARD-REFRESH] ❌ Error:', error);
-            alert('❌ Lỗi khi tải dữ liệu: ' + error.message);
-
-            // Restore button
-            if (event && event.target) {
-                const btn = event.target.closest('button');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Hard Refresh';
-            }
-        }
-    };
-
-    /**
      * Reload Page with Cache Clear
      * Clear cache và reload cả Tab1 + Tab3 để lấy dữ liệu mới nhất
      */
