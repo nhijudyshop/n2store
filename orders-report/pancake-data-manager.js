@@ -1442,10 +1442,16 @@ class PancakeDataManager {
                 }
             }
 
-            return await this.fetchMessagesForConversation(pageId, convId, null, custId);
+            const result = await this.fetchMessagesForConversation(pageId, convId, null, custId);
+            // Trả về thêm conversationId và customerId để caller có thể update state
+            return {
+                ...result,
+                conversationId: convId,
+                customerId: result.customerId || custId
+            };
         } catch (error) {
             console.error('[PANCAKE] Error in fetchMessages:', error);
-            return { messages: [], conversation: null };
+            return { messages: [], conversation: null, conversationId: null, customerId: null };
         }
     }
 
