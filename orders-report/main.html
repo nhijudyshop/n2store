@@ -410,14 +410,14 @@
                     console.log('[MAIN] ✅ Tab1 (ordersFrame) reloading...');
                 }
 
-                // Reload Tab3 sau 500ms để Tab1 có thời gian init
+                // Reload Tab3 sau 3500ms để Tab1 có thời gian init và fetch data
                 setTimeout(() => {
                     const productAssignmentFrame = document.getElementById("productAssignmentFrame");
                     if (productAssignmentFrame) {
                         productAssignmentFrame.src = productAssignmentFrame.src;
                         console.log('[MAIN] ✅ Tab3 (productAssignmentFrame) reloading...');
                     }
-                }, 500);
+                }, 3500);
             }
         });
 
