@@ -7047,6 +7047,13 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 console.log('[CHAT-MODAL] ℹ️ PancakeDataManager not available');
             }
 
+            // CRITICAL: Fallback - đảm bảo currentConversationId luôn có giá trị cho INBOX
+            // Nếu không có từ inbox_preview, dùng format mặc định {channelId}_{psid}
+            if (!window.currentConversationId) {
+                window.currentConversationId = `${channelId}_${psid}`;
+                console.log('[CHAT-MODAL] ⚠️ Using default conversationId format:', window.currentConversationId);
+            }
+
             if (chatInfo.hasUnread) {
                 markReadBtn.style.display = 'inline-flex';
             }
@@ -7056,6 +7063,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             const response = await window.chatDataManager.fetchMessages(channelId, psid, window.currentConversationId, window.currentCustomerUUID);
             window.allChatMessages = response.messages || [];
             currentChatCursor = response.after; // Store cursor for next page
+
+            // Update conversationId from response (chính xác hơn default format)
+            if (response.conversationId) {
+                window.currentConversationId = response.conversationId;
+                console.log(`[CHAT] ✅ Updated currentConversationId from messages response: ${window.currentConversationId}`);
+            }
 
             // Update customer UUID from response if not already set
             if (response.customerId && !window.currentCustomerUUID) {
