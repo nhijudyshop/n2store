@@ -1224,6 +1224,32 @@
         }
     };
 
+    /**
+     * Reload Page with Cache Clear
+     * Clear cache và reload cả Tab1 + Tab3 để lấy dữ liệu mới nhất
+     */
+    window.reloadWithCacheClear = function() {
+        console.log('[RELOAD] 🔄 Reload with cache clear requested...');
+
+        // 1. Clear cache trực tiếp (cùng localStorage với Tab1)
+        if (window.cacheManager) {
+            window.cacheManager.clear("orders");
+            window.cacheManager.clear("campaigns");
+            console.log('[RELOAD] ✅ Cache cleared (orders + campaigns)');
+        }
+
+        // 2. Gửi message lên main.html để reload cả 2 tabs
+        if (window.parent) {
+            window.parent.postMessage({
+                type: 'RELOAD_TAB1_AND_TAB3'
+            }, '*');
+            console.log('[RELOAD] 📤 Sent RELOAD_TAB1_AND_TAB3 message to parent');
+        } else {
+            // Fallback nếu không có parent
+            window.location.reload();
+        }
+    };
+
     // Load assignments from LocalStorage
     function loadAssignmentsFromLocalStorage() {
         try {
