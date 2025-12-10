@@ -1426,13 +1426,84 @@ class PancakeDataManager {
             let convId = conversationId;
             let customerId = null;
 
-            if (!convId) {
+            // CRITICAL: Khi có postId, PHẢI tìm conversation match cả fb_id VÀ post_id
+            // Vì cùng 1 khách hàng có thể comment trên NHIỀU post khác nhau
+            if (!convId && postId) {
+                console.log('[PANCAKE] Looking for conversation matching BOTH psid AND postId');
+
+                // Bước 1: Tìm trong conversations đã load (memory)
+                const matchingConvInMemory = this.conversations.find(conv =>
+                    conv.type === 'COMMENT' &&
+                    conv.post_id === postId &&
+                    (conv.from?.id === psid ||
+                     conv.from_psid === psid ||
+                     conv.customers?.some(c => c.fb_id === psid))
+                );
+
+                if (matchingConvInMemory) {
+                    convId = matchingConvInMemory.id;
+                    customerId = matchingConvInMemory.customers?.[0]?.id || null;
+                    console.log('[PANCAKE] ✅ Found in memory - conversation matching psid AND postId:', convId);
+                }
+
+                // Bước 2: Nếu không tìm thấy trong memory, search API
+                if (!convId && customerName) {
+                    console.log('[PANCAKE] Not found in memory, searching API by customerName:', customerName);
+                    try {
+                        const searchResult = await this.searchConversations(customerName);
+                        if (searchResult.conversations && searchResult.conversations.length > 0) {
+                            console.log('[PANCAKE] Search returned', searchResult.conversations.length, 'conversations');
+
+                            // Debug: log all COMMENT conversations with their post_ids
+                            const commentConvs = searchResult.conversations.filter(c => c.type === 'COMMENT');
+                            console.log('[PANCAKE] COMMENT conversations from search:', commentConvs.map(c => ({
+                                id: c.id,
+                                post_id: c.post_id,
+                                from_id: c.from?.id,
+                                customer_fb_id: c.customers?.[0]?.fb_id
+                            })));
+
+                            // Find conversation matching BOTH post_id AND fb_id/psid
+                            const matchingConv = searchResult.conversations.find(c =>
+                                c.type === 'COMMENT' &&
+                                c.post_id === postId &&
+                                (c.from?.id === psid ||
+                                 c.from_psid === psid ||
+                                 c.customers?.some(cust => cust.fb_id === psid))
+                            );
+
+                            if (matchingConv) {
+                                convId = matchingConv.id;
+                                customerId = matchingConv.customers?.[0]?.id || null;
+                                console.log('[PANCAKE] ✅ Found via search - conversation matching psid AND postId:', convId, 'customerId:', customerId);
+                            } else {
+                                // Fallback: chỉ match post_id nếu không tìm thấy exact match
+                                const postOnlyMatch = searchResult.conversations.find(c =>
+                                    c.type === 'COMMENT' && c.post_id === postId
+                                );
+                                if (postOnlyMatch) {
+                                    convId = postOnlyMatch.id;
+                                    customerId = postOnlyMatch.customers?.[0]?.id || null;
+                                    console.log('[PANCAKE] ⚠️ Fallback: Found conversation by postId only:', convId);
+                                } else {
+                                    console.log('[PANCAKE] ⚠️ No conversation matched postId:', postId);
+                                }
+                            }
+                        }
+                    } catch (searchError) {
+                        console.error('[PANCAKE] Error searching by postId:', searchError);
+                    }
+                }
+            }
+
+            // Fallback khi KHÔNG có postId: dùng cache như cũ
+            if (!convId && !postId) {
                 // Try cache first
                 const conv = this.commentMapByFBID.get(psid) || this.commentMapByPSID.get(psid);
                 if (conv) {
                     convId = conv.id;
                     customerId = conv.customers?.[0]?.id || null;
-                    console.log('[PANCAKE] Found conversation in cache:', convId);
+                    console.log('[PANCAKE] Found conversation in cache (no postId):', convId);
                 } else {
                     // Fallback: use customers fb_id map
                     const customerConv = this.conversationsByCustomerFbId.get(psid);
@@ -1440,39 +1511,6 @@ class PancakeDataManager {
                         convId = customerConv.id;
                         customerId = customerConv.customers?.[0]?.id || null;
                     }
-                }
-            }
-
-            // If still not found and we have postId, search by postId
-            if (!convId && postId && customerName) {
-                console.log('[PANCAKE] Searching conversation by customerName and postId:', customerName, postId);
-                try {
-                    const searchResult = await this.searchConversations(customerName);
-                    if (searchResult.conversations && searchResult.conversations.length > 0) {
-                        console.log('[PANCAKE] Search returned', searchResult.conversations.length, 'conversations');
-
-                        // Debug: log all COMMENT conversations with their post_ids
-                        const commentConvs = searchResult.conversations.filter(c => c.type === 'COMMENT');
-                        console.log('[PANCAKE] COMMENT conversations:', commentConvs.map(c => ({
-                            id: c.id,
-                            post_id: c.post_id,
-                            customer_id: c.customers?.[0]?.id
-                        })));
-
-                        // Find conversation matching post_id
-                        const matchingConv = searchResult.conversations.find(c =>
-                            c.type === 'COMMENT' && c.post_id === postId
-                        );
-                        if (matchingConv) {
-                            convId = matchingConv.id;
-                            customerId = matchingConv.customers?.[0]?.id || null;
-                            console.log('[PANCAKE] ✅ Found conversation by postId:', convId, 'customerId:', customerId);
-                        } else {
-                            console.log('[PANCAKE] ⚠️ No conversation matched postId:', postId);
-                        }
-                    }
-                } catch (searchError) {
-                    console.error('[PANCAKE] Error searching by postId:', searchError);
                 }
             }
 
