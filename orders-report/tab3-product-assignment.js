@@ -2535,7 +2535,6 @@
     function updateUploadButtons() {
         const hasSelection = selectedSTTs.size > 0;
         document.getElementById('previewUploadBtn').disabled = !hasSelection;
-        document.getElementById('uploadBtn').disabled = !hasSelection;
     }
 
     /**
@@ -2994,10 +2993,6 @@
 
         if (!confirm(`Bạn có chắc muốn upload ${selectedSTTs.size} STT lên TPOS?`)) return;
 
-        const uploadBtn = document.getElementById('uploadBtn');
-        uploadBtn.disabled = true;
-        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang upload...';
-
         try {
             const uploadId = `upload_${Date.now()}`;
             await createBackupBeforeUpload(uploadId, Array.from(selectedSTTs));
@@ -3032,9 +3027,6 @@
         } catch (error) {
             console.error('[UPLOAD] Error:', error);
             showNotification('Lỗi: ' + error.message, 'error');
-        } finally {
-            uploadBtn.disabled = false;
-            uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload Lên TPOS';
         }
     };
 
