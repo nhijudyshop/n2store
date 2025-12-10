@@ -6616,6 +6616,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Show modal
     document.getElementById('chatModal').classList.add('show');
 
+    // Load and display debt for this order's phone
+    loadChatDebt(order.Telephone);
+
     // Populate page selectors with current channelId
     window.populateChatPageSelector(channelId);  // View page selector
     window.populateSendPageSelector(channelId);  // Send page selector (independent)
@@ -12904,6 +12907,70 @@ function showQRFromChat() {
 // Export functions globally
 window.copyQRImageFromChat = copyQRImageFromChat;
 window.showQRFromChat = showQRFromChat;
+
+// =====================================================
+// CHAT MODAL DEBT DISPLAY
+// =====================================================
+
+/**
+ * Load and display debt in chat modal header
+ * @param {string} phone - Phone number
+ */
+async function loadChatDebt(phone) {
+    const debtValueEl = document.getElementById('chatDebtValue');
+    if (!debtValueEl) return;
+
+    const normalizedPhone = normalizePhoneForQR(phone);
+
+    if (!normalizedPhone) {
+        debtValueEl.textContent = '-';
+        debtValueEl.style.color = 'rgba(255, 255, 255, 0.6)';
+        return;
+    }
+
+    // Show loading
+    debtValueEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    debtValueEl.style.color = 'rgba(255, 255, 255, 0.8)';
+
+    // Check cache first
+    const cachedDebt = getCachedDebt(normalizedPhone);
+
+    if (cachedDebt !== null) {
+        // Has cached value
+        updateChatDebtDisplay(cachedDebt);
+        return;
+    }
+
+    // Fetch from API
+    try {
+        const debt = await fetchDebtForPhone(normalizedPhone);
+        updateChatDebtDisplay(debt);
+    } catch (error) {
+        console.error('[CHAT-DEBT] Error loading debt:', error);
+        debtValueEl.textContent = '-';
+        debtValueEl.style.color = 'rgba(255, 255, 255, 0.6)';
+    }
+}
+
+/**
+ * Update chat modal debt display
+ * @param {number} debt - Debt amount
+ */
+function updateChatDebtDisplay(debt) {
+    const debtValueEl = document.getElementById('chatDebtValue');
+    if (!debtValueEl) return;
+
+    if (debt > 0) {
+        debtValueEl.textContent = formatDebtCurrency(debt);
+        debtValueEl.style.color = '#4ade80'; // Green for positive debt
+    } else {
+        debtValueEl.textContent = '0đ';
+        debtValueEl.style.color = 'rgba(255, 255, 255, 0.6)';
+    }
+}
+
+// Export chat debt function
+window.loadChatDebt = loadChatDebt;
 
 // =====================================================
 // DEBT (CÔNG NỢ) FUNCTIONS
