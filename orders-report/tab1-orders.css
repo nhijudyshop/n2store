@@ -140,8 +140,8 @@ body {
 
 .table th[data-column="tag"],
 .table td[data-column="tag"] {
-    max-width: 120px;
-    width: 120px;
+    max-width: 240px;
+    width: 240px;
 }
 
 /* Customer column */
@@ -153,13 +153,25 @@ body {
     word-break: break-word;
 }
 
-/* Messages & Comments columns */
+.table td[data-column="customer"] {
+    font-size: 1.3em;
+    font-weight: bold;
+}
+
+/* Messages column */
 .table th[data-column="messages"],
-.table td[data-column="messages"],
-.table th[data-column="comments"],
-.table td[data-column="comments"] {
+.table td[data-column="messages"] {
     max-width: 180px;
     width: 180px;
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* Comments column */
+.table th[data-column="comments"],
+.table td[data-column="comments"] {
+    max-width: 90px;
+    width: 90px;
     white-space: normal;
     word-break: break-word;
 }
@@ -213,8 +225,8 @@ body {
 /* Status column */
 .table th[data-column="status"],
 .table td[data-column="status"] {
-    max-width: 120px;
-    width: 120px;
+    max-width: 84px;
+    width: 84px;
 }
 
 /* Actions column */
