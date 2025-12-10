@@ -583,7 +583,12 @@ window.cancelCommentReply = function () {
 };
 
 /**
- * Send reply comment
+ * Send reply comment (Private Reply via Pancake API)
+ *
+ * Pancake API format:
+ * - URL: /pages/{pageId}/conversations/{commentId}/messages
+ * - Body: JSON with action "private_replies"
+ * - Required fields: message_id, from_id, message, post_id, need_thread_id
  */
 window.sendCommentReply = async function () {
     const replyInput = document.getElementById('commentReplyInput');
@@ -613,60 +618,58 @@ window.sendCommentReply = async function () {
             throw new Error('Không tìm thấy Pancake token');
         }
 
-        // Build conversation ID for comment reply
-        // Format: pageId_psid for inbox, or use the comment's conversation ID
         const pageId = commentModalChannelId;
-        const conversationId = window.currentConversationId || `${pageId}_${commentModalPSID}`;
+        const commentId = commentModalParentId; // Facebook comment ID (e.g., "postId_commentId")
+        const psid = commentModalPSID; // Customer Facebook ID
 
-        console.log('[COMMENT MODAL] Sending reply via Pancake API:', {
+        // Extract post ID from comment ID (format: postId_commentId)
+        // The post_id for API should be: pageId_postId
+        const commentIdParts = commentId.split('_');
+        const postIdPart = commentIdParts.length > 1 ? commentIdParts[0] : commentId;
+        const postId = `${pageId}_${postIdPart}`;
+
+        console.log('[COMMENT MODAL] Sending private reply via Pancake API:', {
             pageId,
-            conversationId,
-            commentId: commentModalParentId,
+            commentId,
+            psid,
+            postId,
             message
         });
 
-        // Call Pancake API through Cloudflare Worker
-        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/pages/${pageId}/conversations/${conversationId}/messages?access_token=${pancakeToken}`;
+        // Pancake API: conversation ID = comment ID for private replies
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/pages/${pageId}/conversations/${commentId}/messages?access_token=${pancakeToken}`;
 
-        // Helper function to send with specific action
-        async function sendWithAction(action) {
-            const formData = new FormData();
-            formData.append('action', action);
-            formData.append('message', message);
-            formData.append('comment_id', commentModalParentId);
+        // Build JSON payload matching Pancake API format
+        const payload = {
+            action: 'private_replies',  // Note: has 's' at the end
+            message_id: commentId,      // The comment being replied to
+            from_id: psid,              // Customer's Facebook ID
+            message: message,           // Reply content
+            post_id: postId,            // Format: pageId_postId
+            need_thread_id: false,
+            thread_id_preview: null,
+            thread_key_preview: null
+        };
 
-            console.log(`[COMMENT MODAL] Trying action: ${action}`);
+        console.log('[COMMENT MODAL] Request payload:', payload);
 
-            const response = await fetch(url, {
-                method: 'POST',
-                body: formData
-            });
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json, text/plain, */*'
+            },
+            body: JSON.stringify(payload)
+        });
 
-            const result = await response.json();
+        const result = await response.json();
 
-            if (!response.ok || result.success === false) {
-                return { success: false, result, response };
-            }
-
-            return { success: true, result, response };
-        }
-
-        // Try private_reply first
-        let attempt = await sendWithAction('private_reply');
-
-        // If private_reply fails, try reply_inbox
-        if (!attempt.success) {
-            console.log('[COMMENT MODAL] private_reply failed, trying reply_inbox...', attempt.result);
-            attempt = await sendWithAction('reply_inbox');
-        }
-
-        // Check final result
-        if (!attempt.success) {
-            const errorMsg = attempt.result?.message || attempt.result?.error?.message || 'Lỗi gửi bình luận';
+        if (!response.ok || result.success === false || result.error) {
+            const errorMsg = result.message || result.error?.message || result.error || 'Lỗi gửi private reply';
             throw new Error(errorMsg);
         }
 
-        console.log('[COMMENT MODAL] Reply sent:', attempt.result);
+        console.log('[COMMENT MODAL] Private reply sent:', result);
 
         // Clear input and refresh comments
         replyInput.value = '';
@@ -690,7 +693,7 @@ window.sendCommentReply = async function () {
         renderCommentModalComments(commentModalComments, false);
 
     } catch (error) {
-        console.error('[COMMENT MODAL] Error sending reply:', error);
+        console.error('[COMMENT MODAL] Error sending private reply:', error);
         if (window.notificationManager) {
             window.notificationManager.show('❌ Lỗi gửi trả lời: ' + error.message, 'error');
         } else {
