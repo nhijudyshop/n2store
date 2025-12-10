@@ -1384,22 +1384,62 @@ class PancakeDataManager {
 
             // Use passed conversationId or try to find from conversation map
             let convId = conversationId;
-            if (!convId) {
-                // Try to find conversation by PSID
-                const conv = this.inboxMapByPSID.get(psid) || this.inboxMapByFBID.get(psid);
-                if (conv) {
-                    convId = conv.id;
-                } else {
-                    // Use format pageId_psid as conversationId
-                    convId = `${pageId}_${psid}`;
+            let custId = customerId;
+
+            // Try to find conversation in cache
+            const cachedConv = this.inboxMapByPSID.get(psid) || this.inboxMapByFBID.get(psid);
+
+            if (cachedConv) {
+                if (!convId) convId = cachedConv.id;
+                if (!custId) custId = cachedConv.customers?.[0]?.id || null;
+                console.log('[PANCAKE] Found conversation in cache:', convId, 'customerId:', custId);
+            }
+
+            // CRITICAL: Nếu không có customer_id, cần tìm conversation để lấy
+            // Vì Pancake API yêu cầu customer_id cho endpoint messages
+            if (!custId) {
+                console.log('[PANCAKE] No customer_id in cache, searching for conversation...');
+
+                // Tìm trong tất cả conversations đã load
+                const matchingConv = this.conversations.find(conv =>
+                    conv.type === 'INBOX' &&
+                    conv.page_id === pageId &&
+                    (conv.from_psid === psid || conv.from?.id === psid)
+                );
+
+                if (matchingConv) {
+                    if (!convId) convId = matchingConv.id;
+                    custId = matchingConv.customers?.[0]?.id || null;
+                    console.log('[PANCAKE] ✅ Found in conversations array:', convId, 'customerId:', custId);
                 }
             }
 
-            // Use passed customerId or try to get from conversation
-            let custId = customerId;
+            // Nếu vẫn không có convId, dùng format mặc định
+            if (!convId) {
+                convId = `${pageId}_${psid}`;
+                console.log('[PANCAKE] Using default conversationId format:', convId);
+            }
+
+            // Fallback: Nếu vẫn không có customer_id, fetch conversation info từ API
             if (!custId) {
-                const conv = this.inboxMapByPSID.get(psid) || this.inboxMapByFBID.get(psid);
-                custId = conv?.customers?.[0]?.id || null;
+                console.log('[PANCAKE] Still no customer_id, fetching conversation info from API...');
+                try {
+                    const token = await this.getToken();
+                    const convInfoUrl = window.API_CONFIG.buildUrl.pancake(
+                        `pages/${pageId}/conversations/${convId}`,
+                        `access_token=${token}`
+                    );
+                    const convResponse = await API_CONFIG.smartFetch(convInfoUrl, { method: 'GET' }, 2, true);
+                    if (convResponse.ok) {
+                        const convData = await convResponse.json();
+                        custId = convData.customers?.[0]?.id || convData.conversation?.customers?.[0]?.id || null;
+                        if (custId) {
+                            console.log('[PANCAKE] ✅ Got customer_id from API:', custId);
+                        }
+                    }
+                } catch (convError) {
+                    console.warn('[PANCAKE] Could not fetch conversation info:', convError.message);
+                }
             }
 
             return await this.fetchMessagesForConversation(pageId, convId, null, custId);
