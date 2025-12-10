@@ -415,6 +415,36 @@ body {
     font-size: 14px;
 }
 
+/* Quick Tag Buttons */
+.quick-tag-btn {
+    background: none;
+    border: 1px solid #f59e0b;
+    padding: 2px 6px;
+    cursor: pointer;
+    color: #f59e0b;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.quick-tag-btn:hover {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.quick-tag-btn i {
+    font-size: 12px;
+}
+
+.quick-tag-btn.quick-tag-ok {
+    border-color: #10b981;
+    color: #10b981;
+}
+
+.quick-tag-btn.quick-tag-ok:hover {
+    background: #d1fae5;
+    color: #059669;
+}
+
 /* Green icon button */
 .tag-icon-btn-green {
     background: none;
