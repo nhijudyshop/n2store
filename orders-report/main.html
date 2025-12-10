@@ -399,6 +399,25 @@
                 if (overviewFrame && overviewFrame.contentWindow) {
                     overviewFrame.contentWindow.postMessage(e.data, "*");
                 }
+            } else if (e.data.type === "RELOAD_TAB1_AND_TAB3") {
+                // Tab3 requested reload with cache clear
+                console.log('[MAIN] 🔄 Reloading Tab1 and Tab3 (cache already cleared)...');
+
+                // Reload Tab1 trước để fetch fresh data từ API
+                const ordersFrame = document.getElementById("ordersFrame");
+                if (ordersFrame) {
+                    ordersFrame.src = ordersFrame.src;
+                    console.log('[MAIN] ✅ Tab1 (ordersFrame) reloading...');
+                }
+
+                // Reload Tab3 sau 500ms để Tab1 có thời gian init
+                setTimeout(() => {
+                    const productAssignmentFrame = document.getElementById("productAssignmentFrame");
+                    if (productAssignmentFrame) {
+                        productAssignmentFrame.src = productAssignmentFrame.src;
+                        console.log('[MAIN] ✅ Tab3 (productAssignmentFrame) reloading...');
+                    }
+                }, 500);
             }
         });
 
