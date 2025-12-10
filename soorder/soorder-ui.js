@@ -39,7 +39,7 @@ window.SoOrderUI = {
         if (thead) {
             thead.innerHTML = `
                 <th style="width: 50px;">STT</th>
-                <th style="width: 150px;">NCC</th>
+                <th style="width: 300px;">NCC</th>
                 <th style="width: 200px;">Thành Tiền</th>
                 <th style="width: 130px;">Chênh Lệch</th>
                 <th>Ghi Chú</th>
@@ -90,7 +90,7 @@ window.SoOrderUI = {
             thead.innerHTML = `
                 <th style="width: 120px;">Ngày</th>
                 <th style="width: 50px;">STT</th>
-                <th style="width: 150px;">NCC</th>
+                <th style="width: 300px;">NCC</th>
                 <th style="width: 200px;">Thành Tiền</th>
                 <th style="width: 130px;">Chênh Lệch</th>
                 <th>Ghi Chú</th>
