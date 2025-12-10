@@ -6750,7 +6750,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     try {
         if (type === 'comment') {
             // Fetch initial comments with pagination support
-            const response = await window.chatDataManager.fetchComments(channelId, psid);
+            // CRITICAL: Truyền postId và customerName để tìm đúng conversation
+            // Vì cùng 1 khách hàng có thể comment trên nhiều post khác nhau
+            const postId = window.purchaseFacebookPostId;
+            const customerName = order.Facebook_UserName;
+            const response = await window.chatDataManager.fetchComments(channelId, psid, null, postId, customerName);
             window.allChatComments = response.comments || [];
             currentChatCursor = response.after; // Store cursor for next page
 
