@@ -1333,6 +1333,17 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
             orderTags = [];
         }
 
+        // Remove opposite tag if exists (xử lý <-> ok)
+        const oppositePrefix = tagPrefix.toLowerCase() === 'xử lý' ? 'OK' : 'XỬ LÝ';
+        const oppositeTagName = `${oppositePrefix} ${currentUserIdentifier}`.toUpperCase();
+        const oppositeTagIndex = orderTags.findIndex(t => t.Name && t.Name.toUpperCase() === oppositeTagName);
+
+        if (oppositeTagIndex !== -1) {
+            const removedTag = orderTags[oppositeTagIndex];
+            orderTags.splice(oppositeTagIndex, 1);
+            console.log('[QUICK-TAG] Removed opposite tag:', removedTag.Name);
+        }
+
         // Check if tag already assigned
         if (orderTags.some(t => t.Id === existingTag.Id)) {
             if (window.notificationManager) {
