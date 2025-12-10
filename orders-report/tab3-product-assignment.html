@@ -106,10 +106,10 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-upload"></i> Upload Sản Phẩm Lên TPOS</h5>
                     <div class="btn-group btn-group-sm view-mode-toggle" role="group">
-                        <button type="button" class="btn btn-light active" id="viewByOrderBtn" onclick="switchViewMode('order')">
+                        <button type="button" class="btn btn-light" id="viewByOrderBtn" onclick="switchViewMode('order')">
                             <i class="fas fa-list"></i> Theo Đơn
                         </button>
-                        <button type="button" class="btn btn-light" id="viewByProductBtn" onclick="switchViewMode('product')">
+                        <button type="button" class="btn btn-light active" id="viewByProductBtn" onclick="switchViewMode('product')">
                             <i class="fas fa-box"></i> Theo Sản Phẩm
                         </button>
                     </div>
@@ -121,10 +121,10 @@
                 <div class="upload-stats mb-3">
                     <div class="row text-center">
                         <div class="col-md-3">
-                            <div class="stat-card bg-info-subtle">
-                                <i class="fas fa-hashtag text-info"></i>
-                                <div class="stat-value" id="totalOrders">0</div>
-                                <div class="stat-label">Tổng STT</div>
+                            <div class="stat-card bg-danger-subtle">
+                                <i class="fas fa-shopping-cart text-danger"></i>
+                                <div class="stat-value" id="totalItems">0</div>
+                                <div class="stat-label">Tổng Items</div>
                             </div>
                         </div>
                         <div class="col-md-3">
@@ -135,17 +135,17 @@
                             </div>
                         </div>
                         <div class="col-md-3">
+                            <div class="stat-card bg-info-subtle">
+                                <i class="fas fa-hashtag text-info"></i>
+                                <div class="stat-value" id="totalOrders">0</div>
+                                <div class="stat-label">Tổng STT</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
                             <div class="stat-card bg-warning-subtle">
                                 <i class="fas fa-check-square text-warning"></i>
                                 <div class="stat-value" id="selectedCount">0</div>
                                 <div class="stat-label">Đã Chọn</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="stat-card bg-danger-subtle">
-                                <i class="fas fa-shopping-cart text-danger"></i>
-                                <div class="stat-value" id="totalItems">0</div>
-                                <div class="stat-label">Tổng Items</div>
                             </div>
                         </div>
                     </div>
