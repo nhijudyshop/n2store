@@ -10,6 +10,8 @@ let commentModalComments = [];
 let commentModalCursor = null;
 let commentModalParentId = null;
 let isLoadingMoreComments = false;
+let commentModalThreadId = null;
+let commentModalThreadKey = null;
 
 /**
  * Open the Comment Modal
@@ -149,6 +151,8 @@ window.closeCommentModal = function () {
     commentModalCursor = null;
     commentModalParentId = null;
     isLoadingMoreComments = false;
+    commentModalThreadId = null;
+    commentModalThreadKey = null;
 
     // Reset purchase comment state
     window.purchaseCommentId = null;
@@ -527,7 +531,7 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
 /**
  * Handle reply to comment
  */
-window.handleCommentModalReply = function (commentId, postId) {
+window.handleCommentModalReply = async function (commentId, postId) {
     console.log('[COMMENT MODAL] Reply to comment:', commentId, postId);
 
     // Find the comment
@@ -539,6 +543,32 @@ window.handleCommentModalReply = function (commentId, postId) {
 
     // Store the parent comment ID for reply
     commentModalParentId = getFacebookCommentIdForModal(comment);
+
+    // Reset thread IDs
+    commentModalThreadId = null;
+    commentModalThreadKey = null;
+
+    // Fetch inbox_preview to get thread_id and thread_key
+    if (window.currentCustomerUUID && window.pancakeDataManager && commentModalChannelId) {
+        try {
+            console.log('[COMMENT MODAL] Fetching inbox_preview for thread IDs...');
+            const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(commentModalChannelId, window.currentCustomerUUID);
+            if (inboxPreview.success) {
+                commentModalThreadId = inboxPreview.threadId || null;
+                commentModalThreadKey = inboxPreview.threadKey || null;
+                console.log('[COMMENT MODAL] ✅ Got thread IDs from inbox_preview:', {
+                    threadId: commentModalThreadId,
+                    threadKey: commentModalThreadKey
+                });
+            } else {
+                console.warn('[COMMENT MODAL] ⚠️ inbox_preview returned unsuccessfully');
+            }
+        } catch (inboxError) {
+            console.warn('[COMMENT MODAL] ⚠️ Could not fetch inbox_preview:', inboxError.message);
+        }
+    } else {
+        console.warn('[COMMENT MODAL] ⚠️ Missing customerId or pancakeDataManager, cannot fetch thread IDs');
+    }
 
     // Show reply preview
     const previewContainer = document.getElementById('commentReplyPreviewContainer');
@@ -655,8 +685,8 @@ window.sendCommentReply = async function () {
             message: message,           // Reply content
             post_id: postId,            // Format: pageId_postId
             need_thread_id: false,
-            thread_id_preview: null,
-            thread_key_preview: null
+            thread_id_preview: commentModalThreadId,   // From inbox_preview fetch
+            thread_key_preview: commentModalThreadKey  // From inbox_preview fetch
         };
 
         console.log('[COMMENT MODAL] Request payload:', payload);
