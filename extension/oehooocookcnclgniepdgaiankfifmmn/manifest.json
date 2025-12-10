@@ -56,6 +56,7 @@
 		"*://zalo.me/",
 		"*://*.nhijudyshop.workers.dev/*",
 		"*://*.nhijudyshop.com/*",
+		"*://*.nhijudyshop.github.io/*",
 		"*://127.0.0.1/*",
 		"*://localhost/*",
 		"file:///*"
@@ -91,6 +92,7 @@
 				"https://dev.pancake.vn:3600/*",
 				"https://*.nhijudyshop.workers.dev/*",
 				"https://*.nhijudyshop.com/*",
+				"https://nhijudyshop.github.io/*",
 				"http://127.0.0.1/*",
 				"http://localhost/*",
 				"file:///*"
