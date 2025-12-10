@@ -8335,7 +8335,14 @@ async function sendMessageInternal(messageData) {
             apiError = err;
             console.warn('[MESSAGE] ⚠️ API failed:', err.message);
 
-            // Try extension fallback
+            // Skip extension fallback for 24-hour policy errors
+            // Facebook enforces this at API level - extension can't bypass it
+            if (err.is24HourError) {
+                console.log('[MESSAGE] ⚠️ 24H policy error - skipping extension fallback (Facebook policy cannot be bypassed)');
+                throw err;
+            }
+
+            // Try extension fallback for network/CORS errors only
             if (window.extensionBridge && window.extensionBridge.isAvailable()) {
                 console.log('[MESSAGE] 🔄 Attempting extension fallback...');
                 showChatSendingIndicator('Đang thử gửi qua Extension...');
