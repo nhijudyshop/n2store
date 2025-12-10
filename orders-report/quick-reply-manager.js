@@ -912,12 +912,15 @@ class QuickReplyManager {
             }
 
             // Send IMAGE and TEXT independently (image first, then text after 300ms)
-            // Image request - MUST call pancake.vn directly with correct format
+            // Image request - via proxy to avoid CORS
             const sendImage = async () => {
                 console.log('[QUICK-REPLY] 📤 Sending image...');
 
-                // Build Pancake API URL directly (not through proxy)
-                const pancakeApiUrl = `https://pancake.vn/api/v1/pages/${channelId}/conversations/${conversationId}/messages?${queryParams}`;
+                // Build Pancake API URL via proxy (avoid CORS issues)
+                const pancakeApiUrl = window.API_CONFIG.buildUrl.pancake(
+                    `pages/${channelId}/conversations/${conversationId}/messages`,
+                    queryParams
+                );
 
                 const imageFormData = new FormData();
                 imageFormData.append('action', 'reply_inbox');
@@ -939,11 +942,11 @@ class QuickReplyManager {
                 });
                 console.log('[QUICK-REPLY] API URL:', pancakeApiUrl);
 
-                // Call Pancake API directly (same origin as pancake.vn when opened from there)
-                const imageResponse = await fetch(pancakeApiUrl, {
+                // Call Pancake API via proxy (avoid CORS)
+                const imageResponse = await API_CONFIG.smartFetch(pancakeApiUrl, {
                     method: 'POST',
                     body: imageFormData
-                });
+                }, 3, true);
 
                 if (!imageResponse.ok) {
                     const errorText = await imageResponse.text();
@@ -971,19 +974,22 @@ class QuickReplyManager {
 
                 console.log('[QUICK-REPLY] 📤 Sending text message...');
 
-                // Build Pancake API URL directly (not through proxy)
-                const pancakeApiUrl = `https://pancake.vn/api/v1/pages/${channelId}/conversations/${conversationId}/messages?${queryParams}`;
+                // Build Pancake API URL via proxy (avoid CORS issues)
+                const pancakeApiUrl = window.API_CONFIG.buildUrl.pancake(
+                    `pages/${channelId}/conversations/${conversationId}/messages`,
+                    queryParams
+                );
 
                 const textFormData = new FormData();
                 textFormData.append('action', 'reply_inbox');
                 textFormData.append('message', finalMessage);
                 textFormData.append('send_by_platform', 'web');
 
-                // Call Pancake API directly
-                const textResponse = await fetch(pancakeApiUrl, {
+                // Call Pancake API via proxy (avoid CORS)
+                const textResponse = await API_CONFIG.smartFetch(pancakeApiUrl, {
                     method: 'POST',
                     body: textFormData
-                });
+                }, 3, true);
 
                 if (!textResponse.ok) {
                     const errorText = await textResponse.text();
