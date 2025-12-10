@@ -291,6 +291,7 @@ function editUser(username) {
 
     document.getElementById("editUsername").value = user.id;
     document.getElementById("editDisplayName").value = user.displayName;
+    document.getElementById("editIdentifier").value = user.identifier || "";
     document.getElementById("editCheckLogin").value = user.checkLogin;
     document.getElementById("editNewPassword").value = "";
 
@@ -358,6 +359,7 @@ async function updateUser() {
 
     const username = document.getElementById("editUsername").value.trim();
     const displayName = document.getElementById("editDisplayName").value.trim();
+    const identifier = document.getElementById("editIdentifier").value.trim();
     const checkLogin = parseInt(
         document.getElementById("editCheckLogin").value,
     );
@@ -386,6 +388,7 @@ async function updateUser() {
     try {
         let updateData = {
             displayName: displayName,
+            identifier: identifier,
             checkLogin: checkLogin,
             pagePermissions: pagePermissions,
             detailedPermissions: detailedPermissions,
@@ -450,6 +453,7 @@ async function createUser() {
     const displayName =
         document.getElementById("newDisplayName").value.trim() ||
         username.charAt(0).toUpperCase() + username.slice(1);
+    const identifier = document.getElementById("newIdentifier").value.trim();
     const checkLogin = parseInt(document.getElementById("newCheckLogin").value);
 
     if (!username || !password) {
@@ -502,6 +506,7 @@ async function createUser() {
             .doc(username)
             .set({
                 displayName: displayName,
+                identifier: identifier,
                 checkLogin: checkLogin,
                 pagePermissions: pagePermissions,
                 detailedPermissions: detailedPermissions,
@@ -864,6 +869,7 @@ async function exportUsers() {
 function clearEditForm() {
     document.getElementById("editUsername").value = "";
     document.getElementById("editDisplayName").value = "";
+    document.getElementById("editIdentifier").value = "";
     document.getElementById("editCheckLogin").value = "1";
     document.getElementById("editNewPassword").value = "";
 
@@ -885,6 +891,7 @@ function clearCreateForm() {
     document.getElementById("newUsername").value = "";
     document.getElementById("newPassword").value = "";
     document.getElementById("newDisplayName").value = "";
+    document.getElementById("newIdentifier").value = "";
     document.getElementById("newCheckLogin").value = "1";
 
     if (window.newPagePermUI) {
