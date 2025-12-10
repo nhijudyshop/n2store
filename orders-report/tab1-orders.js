@@ -1712,16 +1712,19 @@ async function saveOrderTags() {
 
         window.cacheManager.clear("orders");
         showLoading(false);
+
+        // Save tag count before closeTagModal() clears currentOrderTags
+        const savedTagCount = currentOrderTags.length;
         closeTagModal();
 
         if (window.notificationManager) {
             window.notificationManager.success(
-                `Đã gán ${currentOrderTags.length} tag cho đơn hàng thành công!`,
+                `Đã gán ${savedTagCount} tag cho đơn hàng thành công!`,
                 2000
             );
         } else {
             showInfoBanner(
-                `✅ Đã gán ${currentOrderTags.length} tag cho đơn hàng thành công!`,
+                `✅ Đã gán ${savedTagCount} tag cho đơn hàng thành công!`,
             );
         }
     } catch (error) {
