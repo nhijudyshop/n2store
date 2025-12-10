@@ -38,6 +38,9 @@ window.SoOrderState = {
     // Calendar state
     calendarViewDate: new Date(), // Current month being viewed in calendar
     holidays: new Map(), // Map of date strings to holiday status
+
+    // Filter state
+    showOnlyUnpaid: false, // Whether to show only unpaid orders
 };
 
 // DOM elements (will be set after DOM ready)
@@ -118,6 +121,9 @@ window.SoOrderElements = {
     startDateInput: null,
     endDateInput: null,
     dateRangeSelect: null,
+
+    // Filter elements
+    unpaidFilterCheckbox: null,
 
     // Toast
     toastContainer: null,

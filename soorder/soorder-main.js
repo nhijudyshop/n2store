@@ -120,6 +120,9 @@ function initDOMElements() {
     elements.startDateInput = document.getElementById("startDateInput");
     elements.endDateInput = document.getElementById("endDateInput");
 
+    // Filter elements
+    elements.unpaidFilterCheckbox = document.getElementById("unpaidFilterCheckbox");
+
     // Toast
     elements.toastContainer = document.getElementById("toastContainer");
 }
@@ -420,6 +423,22 @@ function setupEventListeners() {
     if (elements.btnApplyDateRange) {
         elements.btnApplyDateRange.addEventListener("click", () => {
             ui.handleApplyDateRange();
+        });
+    }
+
+    // =====================================================
+    // UNPAID FILTER
+    // =====================================================
+
+    // Unpaid filter checkbox
+    if (elements.unpaidFilterCheckbox) {
+        elements.unpaidFilterCheckbox.addEventListener("change", (e) => {
+            const state = window.SoOrderState;
+            state.showOnlyUnpaid = e.target.checked;
+
+            // Re-render the table with the filter applied
+            ui.renderTable();
+            ui.updateFooterSummary();
         });
     }
 
