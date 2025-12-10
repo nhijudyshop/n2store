@@ -828,6 +828,21 @@
                         <p id="chatModalSubtitle" style="color: rgba(255, 255, 255, 0.9); font-size: 13px; margin: 0;">
                             Đang tải...</p>
                     </div>
+                    <!-- QR Buttons -->
+                    <div class="chat-qr-buttons" id="chatQRButtons" style="display: flex; gap: 6px; margin-right: 12px;">
+                        <button onclick="copyQRImageFromChat()" title="Copy ảnh QR"
+                            style="background: rgba(255, 255, 255, 0.2); border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: white; font-size: 12px; font-weight: 500; transition: all 0.2s;"
+                            onmouseover="this.style.background='rgba(255, 255, 255, 0.3)';"
+                            onmouseout="this.style.background='rgba(255, 255, 255, 0.2)';">
+                            <i class="fas fa-copy"></i> Copy QR
+                        </button>
+                        <button onclick="showQRFromChat()" title="Xem QR"
+                            style="background: rgba(16, 185, 129, 0.8); border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: white; font-size: 12px; font-weight: 500; transition: all 0.2s;"
+                            onmouseover="this.style.background='rgba(16, 185, 129, 1)';"
+                            onmouseout="this.style.background='rgba(16, 185, 129, 0.8)';">
+                            <i class="fas fa-qrcode"></i> Xem QR
+                        </button>
+                    </div>
                     <!-- Page Selector -->
                     <div class="chat-page-selector" id="chatPageSelector" style="margin-right: 12px;">
                         <select id="chatPageSelect" onchange="onChatPageChanged(this.value)"
