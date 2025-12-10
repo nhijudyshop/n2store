@@ -2378,7 +2378,6 @@
                 <th>Khách hàng</th>
                 <th>Sản phẩm</th>
                 <th>Số lượng</th>
-                <th>Thao tác</th>
             </tr>
         `;
 
@@ -2387,7 +2386,7 @@
         if (sttKeys.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-5">
+                    <td colspan="5" class="text-center text-muted py-5">
                         <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                         Chưa có sản phẩm nào để upload. Hãy gán sản phẩm ở bảng trên.
                     </td>
@@ -2413,11 +2412,6 @@
                     <td>${customerName}</td>
                     <td><small>${productsList}</small></td>
                     <td><span class="product-count-badge"><i class="fas fa-box"></i> ${totalQuantity}</span></td>
-                    <td>
-                        <button class="upload-action-btn btn-view" onclick="viewSTTDetail('${stt}')">
-                            <i class="fas fa-eye"></i> Xem
-                        </button>
-                    </td>
                 </tr>
             `;
         }).join('');
@@ -2437,7 +2431,6 @@
                 <th>Mã SP</th>
                 <th>STT Đơn Hàng</th>
                 <th>Tổng SL</th>
-                <th>Thao tác</th>
             </tr>
         `;
 
@@ -2463,7 +2456,7 @@
         if (products.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-5">
+                    <td colspan="5" class="text-center text-muted py-5">
                         <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                         Chưa có sản phẩm nào để upload. Hãy gán sản phẩm ở bảng trên.
                     </td>
@@ -2500,11 +2493,6 @@
                     <td>${product.productCode || 'N/A'}</td>
                     <td><small>${product.stts.join(', ')}</small></td>
                     <td><span class="product-count-badge"><i class="fas fa-box"></i> ${product.totalQuantity}</span></td>
-                    <td>
-                        <button class="upload-action-btn btn-view" onclick="viewProductSTTs('${product.productId}')">
-                            <i class="fas fa-eye"></i> Xem
-                        </button>
-                    </td>
                 </tr>
             `;
         }).join('');
