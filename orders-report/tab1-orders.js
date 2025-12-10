@@ -8292,24 +8292,83 @@ async function sendMessageInternal(messageData) {
         console.log('[MESSAGE] URL:', replyUrl);
         console.log('[MESSAGE] FormData fields:', Array.from(formData.entries()).map(([k, v]) => `${k}: ${v}`).join(', '));
 
-        const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
-            method: 'POST',
-            body: formData // FormData automatically sets Content-Type with boundary
-        });
+        // Try API first, then fallback to extension if available
+        let apiSuccess = false;
+        let apiError = null;
 
-        if (!replyResponse.ok) {
-            const errorText = await replyResponse.text();
-            console.error('[MESSAGE] Send failed:', errorText);
-            throw new Error(`Gửi tin nhắn thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
+        try {
+            const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
+                method: 'POST',
+                body: formData // FormData automatically sets Content-Type with boundary
+            });
+
+            if (!replyResponse.ok) {
+                const errorText = await replyResponse.text();
+                console.error('[MESSAGE] Send failed:', errorText);
+                throw new Error(`Gửi tin nhắn thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
+            }
+
+            const replyData = await replyResponse.json();
+            console.log('[MESSAGE] Response:', replyData);
+
+            if (!replyData.success) {
+                console.error('[MESSAGE] API Error:', replyData);
+
+                // Check for Facebook 24-hour policy error
+                const is24HourError = (replyData.e_code === 10 && replyData.e_subcode === 2018278) ||
+                    (replyData.message && replyData.message.includes('khoảng thời gian cho phép'));
+
+                if (is24HourError) {
+                    console.warn('[MESSAGE] ⚠️ 24-hour policy violation detected');
+                    const error24h = new Error('24H_POLICY_ERROR');
+                    error24h.is24HourError = true;
+                    error24h.originalMessage = replyData.message;
+                    throw error24h;
+                }
+
+                const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
+                throw new Error('Gửi tin nhắn thất bại: ' + errorMessage);
+            }
+
+            apiSuccess = true;
+        } catch (err) {
+            apiError = err;
+            console.warn('[MESSAGE] ⚠️ API failed:', err.message);
+
+            // Try extension fallback
+            if (window.extensionBridge && window.extensionBridge.isAvailable()) {
+                console.log('[MESSAGE] 🔄 Attempting extension fallback...');
+                showChatSendingIndicator('Đang thử gửi qua Extension...');
+
+                try {
+                    const extensionResult = await window.extensionBridge.sendMessage({
+                        pageId: channelId,
+                        threadId: conversationId,
+                        recipientId: order.Facebook_ASUserId || window.currentChatPSID,
+                        message: message,
+                        imageData: imagesDataArray.length > 0 ? imagesDataArray[0] : null
+                    });
+
+                    if (extensionResult.success) {
+                        console.log('[MESSAGE] ✅ Extension fallback succeeded!');
+                        apiSuccess = true;
+                        apiError = null;
+                    } else {
+                        console.error('[MESSAGE] ❌ Extension fallback failed:', extensionResult.error);
+                        // Keep original API error for user message
+                    }
+                } catch (extError) {
+                    console.error('[MESSAGE] ❌ Extension fallback error:', extError);
+                    // Keep original API error for user message
+                }
+            } else {
+                console.log('[MESSAGE] ⚠️ Extension not available for fallback');
+            }
         }
 
-        const replyData = await replyResponse.json();
-        console.log('[MESSAGE] Response:', replyData);
-
-        if (!replyData.success) {
-            console.error('[MESSAGE] API Error:', replyData);
-            const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
-            throw new Error('Gửi tin nhắn thất bại: ' + errorMessage);
+        // If both API and extension failed, throw error
+        if (!apiSuccess && apiError) {
+            throw apiError;
         }
 
         // Step 4: Optimistic UI update
@@ -8363,6 +8422,23 @@ async function sendMessageInternal(messageData) {
 
     } catch (error) {
         console.error('[MESSAGE] ❌ Error:', error);
+
+        // Special handling for 24-hour policy error
+        if (error.is24HourError) {
+            console.log('[MESSAGE] 📝 Suggesting comment as alternative');
+            if (window.notificationManager) {
+                window.notificationManager.show(
+                    '⚠️ Không thể gửi Inbox (đã quá 24h). Vui lòng dùng COMMENT để liên hệ với khách hàng!',
+                    'warning',
+                    8000 // Show for 8 seconds
+                );
+            } else {
+                alert('⚠️ Không thể gửi tin nhắn Inbox vì đã quá 24 giờ kể từ tin nhắn cuối của khách hàng.\n\nVui lòng sử dụng COMMENT để liên hệ với khách hàng.');
+            }
+            // Don't throw error for 24-hour case - just notify user
+            return;
+        }
+
         if (window.notificationManager) {
             window.notificationManager.show('❌ Lỗi khi gửi tin nhắn: ' + error.message, 'error');
         } else {
@@ -8610,10 +8686,57 @@ async function sendCommentInternal(commentData) {
             console.warn('[COMMENT] ❌ reply_inbox failed:', replyInboxResult.reason?.message || replyInboxResult.reason);
         }
 
-        // At least one must succeed
+        // At least one must succeed - try extension fallback if both failed
         if (!privateRepliesSuccess && !replyInboxSuccess) {
-            console.error('[COMMENT] ❌ Both actions failed!');
-            throw new Error('Cả 2 actions đều thất bại: private_replies và reply_inbox');
+            console.error('[COMMENT] ❌ Both actions failed! Attempting extension fallback...');
+
+            // Try extension fallback
+            if (window.extensionBridge && window.extensionBridge.isAvailable()) {
+                showChatSendingIndicator('Đang thử gửi qua Extension...');
+
+                try {
+                    // Try SEND_COMMENT via extension
+                    console.log('[COMMENT] 🔄 Trying SEND_COMMENT via extension...');
+                    const commentResult = await window.extensionBridge.sendComment({
+                        pageId: pageId,
+                        commentId: messageId,
+                        message: message,
+                        imageData: imageData
+                    });
+
+                    if (commentResult.success) {
+                        console.log('[COMMENT] ✅ Extension SEND_COMMENT succeeded!');
+                        privateRepliesSuccess = true;
+                    } else {
+                        console.warn('[COMMENT] ❌ Extension SEND_COMMENT failed:', commentResult.error);
+                    }
+
+                    // Also try SEND_PRIVATE_REPLY via extension
+                    console.log('[COMMENT] 🔄 Trying SEND_PRIVATE_REPLY via extension...');
+                    const privateResult = await window.extensionBridge.sendPrivateReply({
+                        pageId: pageId,
+                        commentId: messageId,
+                        message: message
+                    });
+
+                    if (privateResult.success) {
+                        console.log('[COMMENT] ✅ Extension SEND_PRIVATE_REPLY succeeded!');
+                        replyInboxSuccess = true;
+                    } else {
+                        console.warn('[COMMENT] ❌ Extension SEND_PRIVATE_REPLY failed:', privateResult.error);
+                    }
+
+                } catch (extError) {
+                    console.error('[COMMENT] ❌ Extension fallback error:', extError);
+                }
+            } else {
+                console.log('[COMMENT] ⚠️ Extension not available for fallback');
+            }
+
+            // Final check - if still no success, throw error
+            if (!privateRepliesSuccess && !replyInboxSuccess) {
+                throw new Error('Cả 2 actions đều thất bại: private_replies và reply_inbox (kể cả fallback extension)');
+            }
         }
 
         console.log('[COMMENT] ✅ At least one action succeeded (private_replies:', privateRepliesSuccess, ', reply_inbox:', replyInboxSuccess, ')');
@@ -11992,7 +12115,7 @@ function closeProductStatsModal() {
 }
 
 // Close modal when clicking outside
-document.addEventListener('click', function(event) {
+document.addEventListener('click', function (event) {
     const modal = document.getElementById('productStatsModal');
     if (modal && event.target === modal) {
         closeProductStatsModal();
@@ -12750,7 +12873,7 @@ async function copyQRImageUrl(url) {
 }
 
 // Close modal when clicking outside
-document.addEventListener('click', function(event) {
+document.addEventListener('click', function (event) {
     const modal = document.getElementById('orderQRModal');
     if (modal && event.target === modal) {
         closeOrderQRModal();
