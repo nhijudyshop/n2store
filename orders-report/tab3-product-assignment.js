@@ -2305,7 +2305,7 @@
     // Upload state
     let uploadData = {};
     let selectedSTTs = new Set();
-    let currentViewMode = 'order'; // 'order' or 'product'
+    let currentViewMode = 'product'; // 'order' or 'product'
 
     /**
      * Build upload data from assignments
