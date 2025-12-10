@@ -1,0 +1,126 @@
+{
+	"name": "__MSG_appName__",
+	"short_name": "Pancake v2",
+	"version": "0.5.34",
+	"manifest_version": 3,
+	"description": "__MSG_appDescription__",
+	"icons": {
+		"16": "images/icon-16.png",
+		"128": "images/icon-128.png"
+	},
+	"default_locale": "en",
+	"background": {
+		"service_worker": "scripts/background.js",
+		"type": "module"
+	},
+	"permissions": [
+		"cookies",
+		"storage",
+		"unlimitedStorage",
+		"offscreen",
+		"webRequest",
+		"declarativeNetRequestWithHostAccess",
+		"declarativeContent"
+	],
+	"host_permissions": [
+		"*://facebook.com/",
+		"*://www.facebook.com/",
+		"*://m.facebook.com/",
+		"*://www.m.facebook.com/",
+		"*://business.facebook.com/",
+		"*://www.business.facebook.com/",
+		"*://web.facebook.com/",
+		"*://www.web.facebook.com/",
+		"*://upload-business.facebook.com/",
+		"*://www.upload-business.facebook.com/",
+		"*://graph.facebook.com/",
+		"*://www.graph.facebook.com/",
+		"*://p-upload.facebook.com/",
+		"*://www.p-upload.facebook.com/",
+		"*://*.line.biz/",
+		"*://*.pages.fm/",
+		"*://*.botcake.io/",
+		"*://*.pancake.ph/",
+		"*://*.pancake.id/",
+		"*://*.pancake.in/",
+		"*://*.pancake.vn/",
+		"*://*.pancake.net/",
+		"*://*.pancake.biz/",
+		"*://*.instagram.com/",
+		"*://instagram.com/",
+		"*://www.instagram.com/",
+		"wss://edge-chat.facebook.com/",
+		"wss://edge-chat.instagram.com/",
+		"*://oa.zalo.me/",
+		"*://zalo.me/"
+	],
+	"action": {
+		"default_icon": "images/icon-128-gray.png"
+	},
+	"content_scripts": [
+		{
+			"matches": [
+				"https://comcake.localhost:3000/*",
+				"https://localhost:3000/*",
+				"https://localhost:3001/*",
+				"https://localhost:8003/*",
+				"http://dev.pages.fm/*",
+				"https://pages.fm/*",
+				"https://paging.botcake.io/*",
+				"https://botcake.io/*",
+				"https://pancake.ph/*",
+				"https://pancake.id/*",
+				"https://pancake.in/*",
+				"https://pancake.biz/*",
+				"https://pancake.vn/*",
+				"https://pancake.net/*",
+				"https://pos.pages.fm/*",
+				"https://pos.pancake.ph/*",
+				"https://pos.pancake.id/*",
+				"https://pos.pancake.in/*",
+				"https://pos.pancake.biz/*",
+				"https://pos.pancake.vn/*",
+				"https://pos.pancake.net/*",
+				"https://dev.pancake.vn/*",
+				"https://dev.pancake.vn:3600/*"
+			],
+			"js": [
+				"scripts/contentscript.js"
+			],
+			"run_at": "document_end",
+			"all_frames": false
+		}
+	],
+	"sandbox": {
+		"pages": [
+			"sandbox.html"
+		]
+	},
+	"web_accessible_resources": [
+		{
+			"resources": [
+				"pancext.html"
+			],
+			"matches": [
+				"*://*/*"
+			]
+		},
+		{
+			"resources": [
+				"offscreen.html",
+				"images/icon-128-gray.png"
+			],
+			"matches": [
+				"*://*/*"
+			]
+		},
+		{
+			"resources": [
+				"images/icon-128-gray.png"
+			],
+			"matches": [
+				"*://*/*"
+			]
+		}
+	]
+}
