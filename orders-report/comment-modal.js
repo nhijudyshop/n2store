@@ -99,6 +99,14 @@ window.openCommentModal = async function (orderId, channelId, psid) {
         commentModalComments = response.comments || [];
         commentModalCursor = response.after;
 
+        // Save customerId for reply comment to use in inbox_preview fetch
+        if (response.customerId) {
+            window.currentCustomerUUID = response.customerId;
+            console.log('[COMMENT MODAL] ✅ Saved currentCustomerUUID:', window.currentCustomerUUID);
+        } else {
+            console.warn('[COMMENT MODAL] ⚠️ No customerId returned from fetchComments');
+        }
+
         if (commentModalComments.length > 0) {
             const rootComment = commentModalComments.find(c => !c.ParentId) || commentModalComments[0];
             if (rootComment && rootComment.Id) {
