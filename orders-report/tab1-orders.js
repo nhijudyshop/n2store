@@ -8460,18 +8460,36 @@ async function sendCommentInternal(commentData) {
         console.log('[COMMENT] ConversationId (same as messageId):', finalConversationId);
         console.log('[COMMENT] Param conversationId:', conversationId);
 
-        // Step 3: Prepare payload data from order (no need to fetch search/inbox_preview)
-        // As per real API calls, thread_id_preview and thread_key_preview are null
-        const threadId = null;
-        const threadKey = null;
+        // Step 3: Fetch inbox_preview to get thread_id_preview and thread_key_preview
+        let threadId = null;
+        let threadKey = null;
         const fromId = facebookASUserId;
 
-        console.log('[COMMENT] Using data from order:', {
+        if (customerId && window.pancakeDataManager) {
+            try {
+                console.log('[COMMENT] Fetching inbox_preview for thread IDs...');
+                showChatSendingIndicator('Đang lấy thông tin thread...');
+                const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(pageId, customerId);
+                if (inboxPreview.success) {
+                    threadId = inboxPreview.threadId || null;
+                    threadKey = inboxPreview.threadKey || null;
+                    console.log('[COMMENT] ✅ Got thread IDs from inbox_preview:', { threadId, threadKey });
+                } else {
+                    console.warn('[COMMENT] ⚠️ inbox_preview returned unsuccessfully, using null thread IDs');
+                }
+            } catch (inboxError) {
+                console.warn('[COMMENT] ⚠️ Could not fetch inbox_preview, using null thread IDs:', inboxError.message);
+            }
+        } else {
+            console.warn('[COMMENT] ⚠️ Missing customerId or pancakeDataManager, using null thread IDs');
+        }
+
+        console.log('[COMMENT] Using data:', {
             pageId,
             conversationId: finalConversationId,
             fromId,
-            threadId: 'null (as per real API)',
-            threadKey: 'null (as per real API)'
+            threadId: threadId || 'null',
+            threadKey: threadKey || 'null'
         });
 
         // Step 4: Send both private_replies and reply_inbox in parallel
