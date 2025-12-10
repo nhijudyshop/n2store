@@ -8258,10 +8258,11 @@ async function sendMessageInternal(messageData) {
             imagesDataArray.forEach((imageData) => {
                 contentUrls.push(imageData.content_url);
                 contentIds.push(imageData.content_id || imageData.id || '');
-                dimensions.push(JSON.stringify({
+                // Không JSON.stringify ở đây, vì sẽ stringify cả array sau
+                dimensions.push({
                     width: imageData.image_data?.width || imageData.width || 0,
                     height: imageData.image_data?.height || imageData.height || 0
-                }));
+                });
             });
 
             // Append as arrays (check if Pancake accepts this format)
@@ -8514,10 +8515,11 @@ async function sendCommentInternal(commentData) {
         if (imageData) {
             const contentUrls = [imageData.content_url];
             const contentIds = [imageData.id || imageData.content_id || ''];
-            const dimensions = [JSON.stringify({
+            // Không JSON.stringify object trước, vì sẽ stringify cả array sau
+            const dimensions = [{
                 width: imageData.image_data?.width || imageData.width || 0,
                 height: imageData.image_data?.height || imageData.height || 0
-            })];
+            }];
 
             replyInboxFormData.append('content_urls', JSON.stringify(contentUrls));
             replyInboxFormData.append('content_ids', JSON.stringify(contentIds));
