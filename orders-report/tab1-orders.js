@@ -12578,12 +12578,15 @@ const QR_BANK_CONFIG = {
 /**
  * Generate VietQR URL for bank transfer
  * @param {string} uniqueCode - Unique transaction code
- * @param {number} amount - Transfer amount (optional)
+ * @param {number} amount - Transfer amount (optional, 0 = no amount shown)
  * @returns {string} VietQR image URL
  */
 function generateVietQRUrl(uniqueCode, amount = 0) {
     const baseUrl = 'https://img.vietqr.io/image';
-    let url = `${baseUrl}/${QR_BANK_CONFIG.bin}-${QR_BANK_CONFIG.accountNo}-compact2.png`;
+    // Use compact2 when showing amount (has bank branding + amount)
+    // Use qr_only when no amount (avoids showing "Số tiền: 0đ")
+    const template = amount > 0 ? 'compact2' : 'qr_only';
+    let url = `${baseUrl}/${QR_BANK_CONFIG.bin}-${QR_BANK_CONFIG.accountNo}-${template}.png`;
 
     const params = new URLSearchParams();
     if (amount > 0) {
