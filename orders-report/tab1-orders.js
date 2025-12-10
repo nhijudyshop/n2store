@@ -12707,6 +12707,89 @@ document.addEventListener('click', function(event) {
 });
 
 // =====================================================
+// QR FUNCTIONS FOR CHAT MODAL
+// =====================================================
+
+/**
+ * Copy QR image from chat modal to clipboard
+ * Gets the current order's phone and copies the VietQR image
+ */
+async function copyQRImageFromChat() {
+    if (!currentOrder || !currentOrder.Telephone) {
+        showNotification('Không có số điện thoại', 'warning');
+        return;
+    }
+
+    const phone = currentOrder.Telephone;
+    const normalizedPhone = normalizePhoneForQR(phone);
+
+    if (!normalizedPhone) {
+        showNotification('Số điện thoại không hợp lệ', 'warning');
+        return;
+    }
+
+    // Get or create QR code
+    const uniqueCode = getOrCreateQRForPhone(normalizedPhone);
+    if (!uniqueCode) {
+        showNotification('Không thể tạo mã QR', 'error');
+        return;
+    }
+
+    // Generate QR URL
+    const qrUrl = generateVietQRUrl(uniqueCode);
+
+    try {
+        // Fetch the image and copy to clipboard
+        const response = await fetch(qrUrl);
+        const blob = await response.blob();
+
+        // Create ClipboardItem with the image
+        const clipboardItem = new ClipboardItem({
+            [blob.type]: blob
+        });
+
+        await navigator.clipboard.write([clipboardItem]);
+        showNotification('Đã copy ảnh QR', 'success');
+        console.log(`[QR-CHAT] Copied QR image for ${normalizedPhone}: ${uniqueCode}`);
+    } catch (error) {
+        console.error('[QR-CHAT] Failed to copy image:', error);
+        // Fallback: copy URL instead
+        try {
+            await navigator.clipboard.writeText(qrUrl);
+            showNotification('Đã copy URL ảnh QR', 'success');
+        } catch (fallbackError) {
+            showNotification('Không thể copy ảnh QR', 'error');
+        }
+    }
+}
+
+/**
+ * Show QR modal from chat modal
+ * Opens the same QR modal as the table button
+ */
+function showQRFromChat() {
+    if (!currentOrder || !currentOrder.Telephone) {
+        showNotification('Không có số điện thoại', 'warning');
+        return;
+    }
+
+    const phone = currentOrder.Telephone;
+    const normalizedPhone = normalizePhoneForQR(phone);
+
+    if (!normalizedPhone) {
+        showNotification('Số điện thoại không hợp lệ', 'warning');
+        return;
+    }
+
+    // Use existing QR modal function
+    showOrderQRModal(normalizedPhone);
+}
+
+// Export functions globally
+window.copyQRImageFromChat = copyQRImageFromChat;
+window.showQRFromChat = showQRFromChat;
+
+// =====================================================
 // DEBT (CÔNG NỢ) FUNCTIONS
 // =====================================================
 
