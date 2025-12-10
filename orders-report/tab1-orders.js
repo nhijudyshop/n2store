@@ -93,6 +93,7 @@ let currentChatOrderId = null;
 let currentChatProductsRef = null;
 let currentOrderTags = [];
 let pendingDeleteTagIndex = -1; // Track which tag is pending deletion on backspace
+let currentUserIdentifier = null; // User identifier for quick tag feature
 let currentPastedImage = null; // Track pasted image for chat reply (deprecated - use array below)
 let uploadedImagesData = []; // Track uploaded images data (array for multiple images)
 
@@ -1199,6 +1200,197 @@ async function autoCreateAndAddTag(tagName) {
         console.error('[AUTO-CREATE-TAG] Error creating tag:', error);
         if (window.notificationManager) {
             window.notificationManager.error('Lỗi tạo tag: ' + error.message);
+        }
+    }
+}
+
+// =====================================================
+// QUICK TAG FEATURE - Load user identifier and quick assign
+// =====================================================
+
+/**
+ * Load current user identifier from Firestore
+ */
+async function loadCurrentUserIdentifier() {
+    try {
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        if (!auth || !auth.username) {
+            console.warn('[QUICK-TAG] No auth or username available');
+            return;
+        }
+
+        // Get Firestore instance
+        const db = firebase.firestore();
+        if (!db) {
+            console.warn('[QUICK-TAG] Firestore not available');
+            return;
+        }
+
+        // Load user data from Firestore
+        const userDoc = await db.collection('users').doc(auth.username).get();
+        if (userDoc.exists) {
+            const userData = userDoc.data();
+            currentUserIdentifier = userData.identifier || null;
+            console.log('[QUICK-TAG] Loaded user identifier:', currentUserIdentifier);
+        } else {
+            console.warn('[QUICK-TAG] User document not found:', auth.username);
+        }
+    } catch (error) {
+        console.error('[QUICK-TAG] Error loading user identifier:', error);
+    }
+}
+
+/**
+ * Quick assign tag to order
+ * @param {string} orderId - Order ID
+ * @param {string} orderCode - Order code for display
+ * @param {string} tagPrefix - Tag prefix ("xử lý" or "ok")
+ */
+async function quickAssignTag(orderId, orderCode, tagPrefix) {
+    // Check if identifier is loaded
+    if (!currentUserIdentifier) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Chưa có tên định danh. Vui lòng cập nhật trong Quản lý User.');
+        }
+        return;
+    }
+
+    const tagName = `${tagPrefix} ${currentUserIdentifier}`.toUpperCase();
+
+    try {
+        // Show loading
+        if (window.notificationManager) {
+            window.notificationManager.info(`Đang gán tag "${tagName}"...`);
+        }
+
+        // Check if tag exists in availableTags
+        let existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
+
+        // If tag doesn't exist, create it
+        if (!existingTag) {
+            console.log('[QUICK-TAG] Tag not found, creating:', tagName);
+            const color = generateRandomColor();
+            const headers = await window.tokenManager.getAuthHeader();
+
+            const createResponse = await API_CONFIG.smartFetch(
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
+                {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'accept': 'application/json, text/plain, */*',
+                        'content-type': 'application/json;charset=UTF-8',
+                    },
+                    body: JSON.stringify({
+                        Name: tagName,
+                        Color: color
+                    })
+                }
+            );
+
+            if (!createResponse.ok) {
+                throw new Error(`Lỗi tạo tag: ${createResponse.status}`);
+            }
+
+            existingTag = await createResponse.json();
+
+            // Remove @odata.context
+            if (existingTag['@odata.context']) {
+                delete existingTag['@odata.context'];
+            }
+
+            // Update local tags list
+            availableTags.push(existingTag);
+            window.availableTags = availableTags;
+            window.cacheManager.set("tags", availableTags, "tags");
+
+            // Save to Firebase
+            if (database) {
+                await database.ref('settings/tags').set(availableTags);
+            }
+
+            // Update dropdowns
+            populateTagFilter();
+            populateBulkTagDropdown();
+
+            console.log('[QUICK-TAG] Created new tag:', existingTag);
+        }
+
+        // Get current order from data
+        const order = allData.find(o => o.Id === orderId);
+        if (!order) {
+            throw new Error('Không tìm thấy đơn hàng');
+        }
+
+        // Parse existing tags
+        let orderTags = [];
+        try {
+            if (order.Tags) {
+                orderTags = JSON.parse(order.Tags);
+                if (!Array.isArray(orderTags)) orderTags = [];
+            }
+        } catch (e) {
+            orderTags = [];
+        }
+
+        // Check if tag already assigned
+        if (orderTags.some(t => t.Id === existingTag.Id)) {
+            if (window.notificationManager) {
+                window.notificationManager.info(`Tag "${tagName}" đã được gán cho đơn này rồi.`);
+            }
+            return;
+        }
+
+        // Add new tag to order tags
+        orderTags.push({
+            Id: existingTag.Id,
+            Name: existingTag.Name,
+            Color: existingTag.Color
+        });
+
+        // Assign tag via API
+        const headers = await window.tokenManager.getAuthHeader();
+        const assignResponse = await API_CONFIG.smartFetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
+            {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    Tags: orderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                    OrderId: orderId
+                })
+            }
+        );
+
+        if (!assignResponse.ok) {
+            throw new Error(`Lỗi gán tag: ${assignResponse.status}`);
+        }
+
+        // Update order in table
+        const updatedData = { Tags: JSON.stringify(orderTags) };
+        updateOrderInTable(orderId, updatedData);
+
+        // Emit Firebase realtime update
+        await emitTagUpdateToFirebase(orderId, orderTags);
+
+        // Clear cache
+        window.cacheManager.clear("orders");
+
+        // Success notification
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã gán tag "${tagName}" cho đơn ${orderCode}!`, 2000);
+        }
+
+        console.log('[QUICK-TAG] Tag assigned successfully:', tagName, 'to order:', orderCode);
+
+    } catch (error) {
+        console.error('[QUICK-TAG] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi: ${error.message}`);
         }
     }
 }
@@ -3114,6 +3306,9 @@ async function fetchOrders() {
         // Load tags in background
         loadAvailableTags().catch(err => console.error('[TAGS] Error loading tags:', err));
 
+        // Load user identifier for quick tag feature
+        loadCurrentUserIdentifier().catch(err => console.error('[QUICK-TAG] Error loading identifier:', err));
+
         // Detect edited notes using Firebase snapshots (fast, no API spam!)
         detectEditedNotes().then(() => {
             // Re-apply filters and merge with noteEdited flags
@@ -3794,9 +3989,17 @@ function createRowHTML(order) {
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
             <td data-column="tag">
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
-                    <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
-                        <i class="fas fa-tags"></i>
-                    </button>
+                    <div style="display: flex; gap: 2px;">
+                        <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
+                            <i class="fas fa-tags"></i>
+                        </button>
+                        <button class="quick-tag-btn" onclick="quickAssignTag('${order.Id}', '${order.Code}', 'xử lý'); event.stopPropagation();" title="Xử lý + định danh">
+                            <i class="fas fa-clock"></i>
+                        </button>
+                        <button class="quick-tag-btn quick-tag-ok" onclick="quickAssignTag('${order.Id}', '${order.Code}', 'ok'); event.stopPropagation();" title="OK + định danh">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </div>
                     ${tagsHTML}
                 </div>
             </td>
