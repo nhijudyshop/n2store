@@ -12583,9 +12583,9 @@ const QR_BANK_CONFIG = {
  */
 function generateVietQRUrl(uniqueCode, amount = 0) {
     const baseUrl = 'https://img.vietqr.io/image';
-    // Use compact2 when showing amount (has bank branding + amount)
-    // Use qr_only when no amount (avoids showing "Số tiền: 0đ")
-    const template = amount > 0 ? 'compact2' : 'qr_only';
+    // Use compact2 when showing amount (has bank branding + amount line)
+    // Use compact when no amount (bank branding without amount line)
+    const template = amount > 0 ? 'compact2' : 'compact';
     let url = `${baseUrl}/${QR_BANK_CONFIG.bin}-${QR_BANK_CONFIG.accountNo}-${template}.png`;
 
     const params = new URLSearchParams();
