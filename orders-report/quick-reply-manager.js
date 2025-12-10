@@ -1035,12 +1035,51 @@ class QuickReplyManager {
                 const has24HourError = imageResult.is24HourError || textResult.is24HourError;
                 if (has24HourError) {
                     console.warn('[QUICK-REPLY] ⚠️ 24-hour policy violation detected');
-                    if (window.notificationManager) {
-                        window.notificationManager.show(
-                            '⚠️ Không thể gửi Inbox (đã quá 24h). Vui lòng dùng COMMENT để liên hệ với khách hàng!',
-                            'warning',
-                            8000
-                        );
+
+                    // Try extension fallback - it uses Facebook's internal API which can bypass 24h rule
+                    if (window.extensionBridge && window.extensionBridge.isAvailable()) {
+                        console.log('[QUICK-REPLY] 🔄 Trying extension fallback to bypass 24h...');
+                        if (window.notificationManager) {
+                            window.notificationManager.show('🔄 Đang thử gửi qua Extension (bypass 24h)...', 'info', 3000);
+                        }
+
+                        try {
+                            const extResult = await window.extensionBridge.sendMessage({
+                                pageId: channelId,
+                                threadId: conversationId,
+                                recipientId: window.currentChatPSID,
+                                message: finalMessage,
+                                imageData: imageUrl ? { content_url: imageUrl } : null
+                            });
+
+                            if (extResult.success) {
+                                console.log('[QUICK-REPLY] ✅ Extension bypass succeeded!');
+                                if (window.notificationManager) {
+                                    window.notificationManager.success('✅ Đã gửi qua Extension!', 3000);
+                                }
+                                return; // Success via extension
+                            } else {
+                                console.warn('[QUICK-REPLY] ❌ Extension bypass failed:', extResult.error);
+                            }
+                        } catch (extErr) {
+                            console.error('[QUICK-REPLY] ❌ Extension error:', extErr);
+                        }
+
+                        // Extension also failed
+                        if (window.notificationManager) {
+                            window.notificationManager.show(
+                                '⚠️ Extension cũng không gửi được. Vui lòng dùng COMMENT!',
+                                'warning', 8000
+                            );
+                        }
+                    } else {
+                        // No extension available
+                        if (window.notificationManager) {
+                            window.notificationManager.show(
+                                '⚠️ Không thể gửi (quá 24h). Cài Extension Pancake v2 hoặc dùng COMMENT!',
+                                'warning', 8000
+                            );
+                        }
                     }
                     return; // Don't throw error for 24-hour case
                 }

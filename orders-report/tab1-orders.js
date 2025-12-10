@@ -8335,17 +8335,17 @@ async function sendMessageInternal(messageData) {
             apiError = err;
             console.warn('[MESSAGE] ⚠️ API failed:', err.message);
 
-            // Skip extension fallback for 24-hour policy errors
-            // Facebook enforces this at API level - extension can't bypass it
-            if (err.is24HourError) {
-                console.log('[MESSAGE] ⚠️ 24H policy error - skipping extension fallback (Facebook policy cannot be bypassed)');
-                throw err;
-            }
-
-            // Try extension fallback for network/CORS errors only
+            // Try extension fallback - extension uses Facebook's internal web API
+            // which can bypass 24-hour policy (unlike Pancake API which uses Graph API)
             if (window.extensionBridge && window.extensionBridge.isAvailable()) {
                 console.log('[MESSAGE] 🔄 Attempting extension fallback...');
-                showChatSendingIndicator('Đang thử gửi qua Extension...');
+
+                if (err.is24HourError) {
+                    console.log('[MESSAGE] 📝 24H policy error detected - extension may bypass this via internal API');
+                    showChatSendingIndicator('Đang thử gửi qua Extension (bypass 24h)...');
+                } else {
+                    showChatSendingIndicator('Đang thử gửi qua Extension...');
+                }
 
                 try {
                     const extensionResult = await window.extensionBridge.sendMessage({
@@ -8370,6 +8370,11 @@ async function sendMessageInternal(messageData) {
                 }
             } else {
                 console.log('[MESSAGE] ⚠️ Extension not available for fallback');
+
+                // For 24H errors without extension, suggest using comment
+                if (err.is24HourError) {
+                    console.log('[MESSAGE] 💡 Suggest using COMMENT as alternative');
+                }
             }
         }
 
@@ -8432,15 +8437,24 @@ async function sendMessageInternal(messageData) {
 
         // Special handling for 24-hour policy error
         if (error.is24HourError) {
-            console.log('[MESSAGE] 📝 Suggesting comment as alternative');
-            if (window.notificationManager) {
-                window.notificationManager.show(
-                    '⚠️ Không thể gửi Inbox (đã quá 24h). Vui lòng dùng COMMENT để liên hệ với khách hàng!',
-                    'warning',
-                    8000 // Show for 8 seconds
-                );
+            console.log('[MESSAGE] 📝 Suggesting alternatives for 24H error');
+
+            // Check if extension was available but still failed
+            const extensionAvailable = window.extensionBridge && window.extensionBridge.isAvailable();
+            let message = '⚠️ Không thể gửi Inbox (đã quá 24h).';
+
+            if (extensionAvailable) {
+                // Extension was available but still failed - suggest comment
+                message += ' Extension cũng không gửi được. Vui lòng dùng COMMENT!';
             } else {
-                alert('⚠️ Không thể gửi tin nhắn Inbox vì đã quá 24 giờ kể từ tin nhắn cuối của khách hàng.\n\nVui lòng sử dụng COMMENT để liên hệ với khách hàng.');
+                // Extension not available - suggest installing it or using comment
+                message += ' Cài Extension Pancake v2 để bypass 24h hoặc dùng COMMENT!';
+            }
+
+            if (window.notificationManager) {
+                window.notificationManager.show(message, 'warning', 8000);
+            } else {
+                alert(message);
             }
             // Don't throw error for 24-hour case - just notify user
             return;
