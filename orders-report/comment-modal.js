@@ -675,7 +675,11 @@ window.sendCommentReply = async function () {
         });
 
         // Pancake API: conversation ID = comment ID for private replies
-        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/pages/${pageId}/conversations/${commentId}/messages?access_token=${pancakeToken}`;
+        // Use API_CONFIG.buildUrl.pancake to get correct URL format
+        const url = window.API_CONFIG.buildUrl.pancake(
+            `pages/${pageId}/conversations/${commentId}/messages`,
+            `access_token=${pancakeToken}`
+        );
 
         // Build JSON payload matching Pancake API format
         const payload = {
@@ -690,8 +694,9 @@ window.sendCommentReply = async function () {
         };
 
         console.log('[COMMENT MODAL] Request payload:', payload);
+        console.log('[COMMENT MODAL] Request URL:', url);
 
-        const response = await fetch(url, {
+        const response = await API_CONFIG.smartFetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
