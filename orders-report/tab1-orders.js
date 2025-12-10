@@ -1395,6 +1395,93 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
     }
 }
 
+/**
+ * Quick remove tag from order
+ * @param {string} orderId - Order ID
+ * @param {string} orderCode - Order code for display
+ * @param {string} tagId - Tag ID to remove
+ */
+async function quickRemoveTag(orderId, orderCode, tagId) {
+    try {
+        // Get current order from data
+        const order = allData.find(o => o.Id === orderId);
+        if (!order) {
+            throw new Error('Không tìm thấy đơn hàng');
+        }
+
+        // Parse existing tags
+        let orderTags = [];
+        try {
+            if (order.Tags) {
+                orderTags = JSON.parse(order.Tags);
+                if (!Array.isArray(orderTags)) orderTags = [];
+            }
+        } catch (e) {
+            orderTags = [];
+        }
+
+        // Find tag to remove
+        const tagToRemove = orderTags.find(t => t.Id === tagId);
+        if (!tagToRemove) {
+            console.warn('[QUICK-TAG] Tag not found in order:', tagId);
+            return;
+        }
+
+        // Remove tag from list
+        orderTags = orderTags.filter(t => t.Id !== tagId);
+
+        // Show loading
+        if (window.notificationManager) {
+            window.notificationManager.info(`Đang xóa tag "${tagToRemove.Name}"...`);
+        }
+
+        // Assign updated tags via API
+        const headers = await window.tokenManager.getAuthHeader();
+        const assignResponse = await API_CONFIG.smartFetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
+            {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    Tags: orderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                    OrderId: orderId
+                })
+            }
+        );
+
+        if (!assignResponse.ok) {
+            throw new Error(`Lỗi xóa tag: ${assignResponse.status}`);
+        }
+
+        // Update order in table
+        const updatedData = { Tags: JSON.stringify(orderTags) };
+        updateOrderInTable(orderId, updatedData);
+
+        // Emit Firebase realtime update
+        await emitTagUpdateToFirebase(orderId, orderTags);
+
+        // Clear cache
+        window.cacheManager.clear("orders");
+
+        // Success notification
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã xóa tag "${tagToRemove.Name}" khỏi đơn ${orderCode}!`, 2000);
+        }
+
+        console.log('[QUICK-TAG] Tag removed successfully:', tagToRemove.Name, 'from order:', orderCode);
+
+    } catch (error) {
+        console.error('[QUICK-TAG] Error removing tag:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi: ${error.message}`);
+        }
+    }
+}
+
 // Update Color Preview
 function updateColorPreview() {
     const hexInput = document.getElementById('newTagColorHex');
@@ -4441,7 +4528,10 @@ function parseOrderTags(tagsJson, orderId, orderCode) {
         return tags
             .map(
                 (tag) =>
-                    `<div style="margin-bottom: 2px;"><span class="order-tag" style="background-color: ${tag.Color || "#6b7280"}; cursor: pointer;" onclick="openTagModal('${orderId}', '${orderCode}'); event.stopPropagation();" title="Quản lý tag">${tag.Name || ""}</span></div>`,
+                    `<div style="margin-bottom: 2px; display: flex; align-items: center; gap: 2px;">
+                        <span class="order-tag" style="background-color: ${tag.Color || "#6b7280"}; cursor: pointer;" onclick="openTagModal('${orderId}', '${orderCode}'); event.stopPropagation();" title="Quản lý tag">${tag.Name || ""}</span>
+                        <button class="tag-remove-btn" onclick="quickRemoveTag('${orderId}', '${orderCode}', '${tag.Id}'); event.stopPropagation();" title="Xóa tag này">×</button>
+                    </div>`,
             )
             .join("");
     } catch (e) {
