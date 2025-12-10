@@ -698,13 +698,37 @@ class MessageTemplateManager {
                         this.sendingState.success++;
                         this.log(`✅ Sent successfully to order ${order.code || order.Id}`);
                     } catch (err) {
+                        // Try extension fallback for 24H errors
+                        // Extension uses Facebook's internal API which can bypass 24h rule
+                        if (err.is24HourError && window.extensionBridge && window.extensionBridge.isAvailable()) {
+                            this.log(`[${order.code}] 🔄 Trying extension bypass for 24H error...`);
+                            try {
+                                const extResult = await window.extensionBridge.sendMessage({
+                                    pageId: order.rawOrder?.Facebook_PageId || order.channelId,
+                                    threadId: order.conversationId,
+                                    recipientId: order.rawOrder?.Facebook_ASUserId,
+                                    message: context.templateContent,
+                                    imageData: null
+                                });
+
+                                if (extResult.success) {
+                                    this.sendingState.success++;
+                                    this.log(`[${order.code}] ✅ Extension bypass succeeded!`);
+                                    continue; // Skip to next order
+                                }
+                                this.log(`[${order.code}] ❌ Extension bypass failed:`, extResult.error);
+                            } catch (extErr) {
+                                this.log(`[${order.code}] ❌ Extension error:`, extErr);
+                            }
+                        }
+
                         this.sendingState.error++;
 
                         // Track 24-hour policy errors specially
                         const errorInfo = { order: order.code || order.Id, error: err.message };
                         if (err.is24HourError) {
                             errorInfo.is24HourError = true;
-                            errorInfo.error = 'Đã quá 24h - dùng COMMENT thay thế';
+                            errorInfo.error = 'Đã quá 24h - Extension cũng không gửi được';
                         }
                         this.sendingState.errors.push(errorInfo);
 
@@ -760,11 +784,16 @@ class MessageTemplateManager {
                     const num24HErrors = this.sendingState.errors.filter(e => e.is24HourError).length;
 
                     if (has24HErrors) {
-                        window.notificationManager.show(
-                            `⚠️ ${num24HErrors} đơn hàng không thể gửi Inbox (quá 24h). Vui lòng dùng COMMENT để liên hệ!`,
-                            'warning',
-                            8000
-                        );
+                        const extensionAvailable = window.extensionBridge && window.extensionBridge.isAvailable();
+                        let msg = `⚠️ ${num24HErrors} đơn hàng không thể gửi (quá 24h).`;
+
+                        if (extensionAvailable) {
+                            msg += ' Extension cũng không gửi được. Vui lòng dùng COMMENT!';
+                        } else {
+                            msg += ' Cài Extension Pancake v2 để bypass hoặc dùng COMMENT!';
+                        }
+
+                        window.notificationManager.show(msg, 'warning', 8000);
                     } else {
                         window.notificationManager.warning(
                             `Gửi hoàn tất: ${this.sendingState.success} thành công, ${this.sendingState.error} thất bại`,
