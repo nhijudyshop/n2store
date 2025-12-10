@@ -699,7 +699,15 @@ class MessageTemplateManager {
                         this.log(`✅ Sent successfully to order ${order.code || order.Id}`);
                     } catch (err) {
                         this.sendingState.error++;
-                        this.sendingState.errors.push({ order: order.code || order.Id, error: err.message });
+
+                        // Track 24-hour policy errors specially
+                        const errorInfo = { order: order.code || order.Id, error: err.message };
+                        if (err.is24HourError) {
+                            errorInfo.is24HourError = true;
+                            errorInfo.error = 'Đã quá 24h - dùng COMMENT thay thế';
+                        }
+                        this.sendingState.errors.push(errorInfo);
+
                         this.log(`❌ Error sending to order ${order.code}:`, err);
                     } finally {
                         this.sendingState.completed++;
@@ -747,10 +755,22 @@ class MessageTemplateManager {
                 }
 
                 if (this.sendingState.error > 0) {
-                    window.notificationManager.warning(
-                        `Gửi hoàn tất: ${this.sendingState.success} thành công, ${this.sendingState.error} thất bại`,
-                        5000
-                    );
+                    // Check if any 24-hour policy errors
+                    const has24HErrors = this.sendingState.errors.some(e => e.is24HourError);
+                    const num24HErrors = this.sendingState.errors.filter(e => e.is24HourError).length;
+
+                    if (has24HErrors) {
+                        window.notificationManager.show(
+                            `⚠️ ${num24HErrors} đơn hàng không thể gửi Inbox (quá 24h). Vui lòng dùng COMMENT để liên hệ!`,
+                            'warning',
+                            8000
+                        );
+                    } else {
+                        window.notificationManager.warning(
+                            `Gửi hoàn tất: ${this.sendingState.success} thành công, ${this.sendingState.error} thất bại`,
+                            5000
+                        );
+                    }
                 }
             }
 
@@ -1027,6 +1047,17 @@ class MessageTemplateManager {
 
         if (!responseData.success) {
             this.log('❌ API Error Details:', responseData);
+
+            // Check for 24-hour policy error
+            const is24HourError = (responseData.e_code === 10 && responseData.e_subcode === 2018278) ||
+                (responseData.message && responseData.message.includes('khoảng thời gian cho phép'));
+            if (is24HourError) {
+                const error24h = new Error('24H_POLICY_ERROR');
+                error24h.is24HourError = true;
+                error24h.originalMessage = responseData.message;
+                throw error24h;
+            }
+
             throw new Error(responseData.error || responseData.message || `API returned success: false - ${JSON.stringify(responseData)}`);
         }
 

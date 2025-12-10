@@ -960,6 +960,14 @@ class QuickReplyManager {
                 // Check API success field
                 if (!imageResult.success) {
                     console.error('[QUICK-REPLY] ❌ Image send API failed:', imageResult.message || imageResult.error);
+
+                    // Check for 24-hour policy error
+                    const is24HourError = (imageResult.e_code === 10 && imageResult.e_subcode === 2018278) ||
+                        (imageResult.message && imageResult.message.includes('khoảng thời gian cho phép'));
+                    if (is24HourError) {
+                        return { success: false, error: '24H_POLICY_ERROR', is24HourError: true };
+                    }
+
                     return { success: false, error: imageResult.message || 'Gửi hình ảnh thất bại (API)' };
                 }
 
@@ -1003,6 +1011,14 @@ class QuickReplyManager {
                 // Check API success field
                 if (!textResult.success) {
                     console.error('[QUICK-REPLY] ❌ Text send API failed:', textResult.message || textResult.error);
+
+                    // Check for 24-hour policy error
+                    const is24HourError = (textResult.e_code === 10 && textResult.e_subcode === 2018278) ||
+                        (textResult.message && textResult.message.includes('khoảng thời gian cho phép'));
+                    if (is24HourError) {
+                        return { success: false, error: '24H_POLICY_ERROR', is24HourError: true };
+                    }
+
                     return { success: false, error: textResult.message || 'Gửi tin nhắn thất bại (API)' };
                 }
 
@@ -1015,6 +1031,20 @@ class QuickReplyManager {
 
             // Check results
             if (!imageResult.success || !textResult.success) {
+                // Check for 24-hour policy errors specifically
+                const has24HourError = imageResult.is24HourError || textResult.is24HourError;
+                if (has24HourError) {
+                    console.warn('[QUICK-REPLY] ⚠️ 24-hour policy violation detected');
+                    if (window.notificationManager) {
+                        window.notificationManager.show(
+                            '⚠️ Không thể gửi Inbox (đã quá 24h). Vui lòng dùng COMMENT để liên hệ với khách hàng!',
+                            'warning',
+                            8000
+                        );
+                    }
+                    return; // Don't throw error for 24-hour case
+                }
+
                 const errors = [];
                 if (!imageResult.success) errors.push(imageResult.error);
                 if (!textResult.success) errors.push(textResult.error);
