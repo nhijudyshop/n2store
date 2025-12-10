@@ -1097,6 +1097,112 @@ function closeCreateTagModal() {
     }
 }
 
+// Generate Random Color for auto-create tag
+function generateRandomColor() {
+    const colors = [
+        '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
+        '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
+        '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
+        '#ec4899', '#f43f5e', '#78716c', '#737373', '#71717a'
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
+// Auto-create tag when search yields no results and user presses Enter
+async function autoCreateAndAddTag(tagName) {
+    if (!tagName || tagName.trim() === '') return;
+
+    const name = tagName.trim().toUpperCase(); // Convert to uppercase for consistency
+    const color = generateRandomColor();
+
+    try {
+        // Show loading notification
+        if (window.notificationManager) {
+            window.notificationManager.info(`Đang tạo tag "${name}"...`);
+        }
+
+        console.log('[AUTO-CREATE-TAG] Creating tag:', { name, color });
+
+        // Get auth headers
+        const headers = await window.tokenManager.getAuthHeader();
+
+        // Create tag via API
+        const response = await API_CONFIG.smartFetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
+            {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'accept': 'application/json, text/plain, */*',
+                    'content-type': 'application/json;charset=UTF-8',
+                },
+                body: JSON.stringify({
+                    Name: name,
+                    Color: color
+                })
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const newTag = await response.json();
+        console.log('[AUTO-CREATE-TAG] Tag created successfully:', newTag);
+
+        // Remove @odata.context from newTag (Firebase doesn't allow keys with dots)
+        if (newTag['@odata.context']) {
+            delete newTag['@odata.context'];
+        }
+
+        // Update local tags list
+        if (Array.isArray(availableTags)) {
+            availableTags.push(newTag);
+            window.availableTags = availableTags;
+            window.cacheManager.set("tags", availableTags, "tags");
+        }
+
+        // Save to Firebase
+        if (database) {
+            await database.ref('settings/tags').set(availableTags);
+            console.log('[AUTO-CREATE-TAG] Saved updated tags to Firebase');
+        }
+
+        // Update filter dropdowns
+        populateTagFilter();
+        populateBulkTagDropdown();
+
+        // Add the new tag to current selection
+        currentOrderTags.push({
+            Id: newTag.Id,
+            Name: newTag.Name,
+            Color: newTag.Color
+        });
+
+        // Clear search input and update UI
+        const searchInput = document.getElementById("tagSearchInput");
+        if (searchInput) {
+            searchInput.value = "";
+        }
+        updateSelectedTagsDisplay();
+        renderTagList("");
+
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã tạo và thêm tag "${name}"!`);
+        }
+
+        console.log('[AUTO-CREATE-TAG] Tag added to order selection');
+
+    } catch (error) {
+        console.error('[AUTO-CREATE-TAG] Error creating tag:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi tạo tag: ' + error.message);
+        }
+    }
+}
+
 // Update Color Preview
 function updateColorPreview() {
     const hexInput = document.getElementById('newTagColorHex');
@@ -1515,6 +1621,9 @@ function handleTagInputKeydown(event) {
                 renderTagList("");
                 pendingDeleteTagIndex = -1;
             }
+        } else if (inputValue.trim() !== '') {
+            // No matching tag found - auto-create new tag with the search term
+            autoCreateAndAddTag(inputValue);
         }
     } else if (event.key === 'Backspace' && inputValue === '') {
         event.preventDefault();
