@@ -1,8 +1,7 @@
 {
-	"update_url": "https://clients2.google.com/service/update2/crx",
 	"name": "__MSG_appName__",
 	"short_name": "Pancake v2",
-	"version": "0.5.39",
+	"version": "0.5.34",
 	"manifest_version": 3,
 	"description": "__MSG_appDescription__",
 	"icons": {
@@ -53,13 +52,7 @@
 		"wss://edge-chat.facebook.com/",
 		"wss://edge-chat.instagram.com/",
 		"*://oa.zalo.me/",
-		"*://zalo.me/",
-		"*://*.nhijudyshop.workers.dev/*",
-		"*://*.nhijudyshop.com/*",
-		"*://*.nhijudyshop.github.io/*",
-		"*://127.0.0.1/*",
-		"*://localhost/*",
-		"file:///*"
+		"*://zalo.me/"
 	],
 	"action": {
 		"default_icon": "images/icon-128-gray.png"
@@ -89,13 +82,7 @@
 				"https://pos.pancake.vn/*",
 				"https://pos.pancake.net/*",
 				"https://dev.pancake.vn/*",
-				"https://dev.pancake.vn:3600/*",
-				"https://*.nhijudyshop.workers.dev/*",
-				"https://*.nhijudyshop.com/*",
-				"https://nhijudyshop.github.io/*",
-				"http://127.0.0.1/*",
-				"http://localhost/*",
-				"file:///*"
+				"https://dev.pancake.vn:3600/*"
 			],
 			"js": [
 				"scripts/contentscript.js"
