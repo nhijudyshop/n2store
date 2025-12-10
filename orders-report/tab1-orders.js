@@ -8240,35 +8240,35 @@ async function sendMessageInternal(messageData) {
         formData.append('action', 'reply_inbox');
         formData.append('message', message);
 
-        // Add send_by_platform (optional, but Pancake might expect it)
-        // Note: Real Pancake doesn't seem to use this field, but keeping for compatibility
-        // formData.append('send_by_platform', 'web');
-
-        // Add multiple images data
+        // Add image data - Pancake API dùng format field riêng lẻ, không phải array
         if (imagesDataArray.length > 0) {
             console.log('[MESSAGE] Adding', imagesDataArray.length, 'images to FormData');
 
-            // For multiple images, we need to append arrays as JSON strings or individual fields
-            // Based on Pancake API, images might be sent differently
-            // Let's try appending as comma-separated values or individual entries
-            const contentUrls = [];
-            const contentIds = [];
-            const dimensions = [];
+            // Pancake API format cho single image:
+            // content_url, content_id (optional), attachment_id, width, height, send_by_platform
+            // Nếu có nhiều ảnh, gửi ảnh đầu tiên (hoặc cần gửi nhiều request)
+            const imageData = imagesDataArray[0];
 
-            imagesDataArray.forEach((imageData) => {
-                contentUrls.push(imageData.content_url);
-                contentIds.push(imageData.content_id || imageData.id || '');
-                // Không JSON.stringify ở đây, vì sẽ stringify cả array sau
-                dimensions.push({
-                    width: imageData.image_data?.width || imageData.width || 0,
-                    height: imageData.image_data?.height || imageData.height || 0
-                });
-            });
+            formData.append('content_url', imageData.content_url || '');
+            formData.append('content_id', imageData.content_id || imageData.id || '');
 
-            // Append as arrays (check if Pancake accepts this format)
-            formData.append('content_urls', JSON.stringify(contentUrls));
-            formData.append('content_ids', JSON.stringify(contentIds));
-            formData.append('dimensions', JSON.stringify(dimensions));
+            // attachment_id từ upload response (nếu có)
+            if (imageData.attachment_id) {
+                formData.append('attachment_id', imageData.attachment_id);
+            }
+
+            // width và height riêng lẻ, không phải object
+            const width = imageData.image_data?.width || imageData.width || 0;
+            const height = imageData.image_data?.height || imageData.height || 0;
+            formData.append('width', String(width));
+            formData.append('height', String(height));
+
+            formData.append('send_by_platform', 'web');
+
+            // Log warning nếu có nhiều hơn 1 ảnh
+            if (imagesDataArray.length > 1) {
+                console.warn('[MESSAGE] ⚠️ Multiple images detected, only first image will be sent. Total:', imagesDataArray.length);
+            }
         }
 
         // Add replied_message_id if exists
@@ -8513,17 +8513,20 @@ async function sendCommentInternal(commentData) {
         replyInboxFormData.append('thread_id', 'null');
 
         if (imageData) {
-            const contentUrls = [imageData.content_url];
-            const contentIds = [imageData.id || imageData.content_id || ''];
-            // Không JSON.stringify object trước, vì sẽ stringify cả array sau
-            const dimensions = [{
-                width: imageData.image_data?.width || imageData.width || 0,
-                height: imageData.image_data?.height || imageData.height || 0
-            }];
+            // Pancake API format: field riêng lẻ, không phải array
+            replyInboxFormData.append('content_url', imageData.content_url || '');
+            replyInboxFormData.append('content_id', imageData.id || imageData.content_id || '');
 
-            replyInboxFormData.append('content_urls', JSON.stringify(contentUrls));
-            replyInboxFormData.append('content_ids', JSON.stringify(contentIds));
-            replyInboxFormData.append('dimensions', JSON.stringify(dimensions));
+            if (imageData.attachment_id) {
+                replyInboxFormData.append('attachment_id', imageData.attachment_id);
+            }
+
+            const width = imageData.image_data?.width || imageData.width || 0;
+            const height = imageData.image_data?.height || imageData.height || 0;
+            replyInboxFormData.append('width', String(width));
+            replyInboxFormData.append('height', String(height));
+
+            replyInboxFormData.append('send_by_platform', 'web');
         }
 
         console.log('[COMMENT] Sending BOTH actions in parallel...');

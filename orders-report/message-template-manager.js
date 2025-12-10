@@ -998,15 +998,12 @@ class MessageTemplateManager {
                 this.log('♻️ Using cached image - skip upload');
             }
 
-            // Add image data to FormData (like sendMessageInternal)
-            const contentUrls = [contentUrl];
-            const contentIds = [contentId || ''];
-            // Không JSON.stringify object trước, vì sẽ stringify cả array sau
-            const dimensions = [{ width: 0, height: 0 }];
-
-            formData.append('content_urls', JSON.stringify(contentUrls));
-            formData.append('content_ids', JSON.stringify(contentIds));
-            formData.append('dimensions', JSON.stringify(dimensions));
+            // Add image data to FormData - Pancake API format: field riêng lẻ
+            formData.append('content_url', contentUrl || '');
+            formData.append('content_id', contentId || '');
+            formData.append('width', '0');
+            formData.append('height', '0');
+            formData.append('send_by_platform', 'web');
 
             this.log('📷 Image added to FormData:', contentUrl);
         }
