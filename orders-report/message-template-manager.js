@@ -1001,7 +1001,8 @@ class MessageTemplateManager {
             // Add image data to FormData (like sendMessageInternal)
             const contentUrls = [contentUrl];
             const contentIds = [contentId || ''];
-            const dimensions = [JSON.stringify({ width: 0, height: 0 })];
+            // Không JSON.stringify object trước, vì sẽ stringify cả array sau
+            const dimensions = [{ width: 0, height: 0 }];
 
             formData.append('content_urls', JSON.stringify(contentUrls));
             formData.append('content_ids', JSON.stringify(contentIds));
