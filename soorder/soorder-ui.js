@@ -28,7 +28,12 @@ window.SoOrderUI = {
         }
 
         // Single day mode
-        const orders = state.currentDayData?.orders || [];
+        let orders = state.currentDayData?.orders || [];
+
+        // Apply unpaid filter if enabled
+        if (state.showOnlyUnpaid) {
+            orders = orders.filter(order => !order.isPaid);
+        }
 
         // Update table header for single day mode (no date column)
         if (thead) {
@@ -114,7 +119,12 @@ window.SoOrderUI = {
 
         // Render rows grouped by date
         rangeData.forEach((dayData) => {
-            const orders = dayData.orders || [];
+            let orders = dayData.orders || [];
+
+            // Apply unpaid filter if enabled
+            if (state.showOnlyUnpaid) {
+                orders = orders.filter(order => !order.isPaid);
+            }
 
             if (orders.length === 0) return;
 
@@ -716,6 +726,11 @@ window.SoOrderUI = {
             });
         } else {
             orders = state.currentDayData?.orders || [];
+        }
+
+        // Apply unpaid filter if enabled
+        if (state.showOnlyUnpaid) {
+            orders = orders.filter(order => !order.isPaid);
         }
 
         if (orders.length === 0) {
