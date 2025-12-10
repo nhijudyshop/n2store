@@ -12598,8 +12598,9 @@ function generateVietQRUrl(uniqueCode, amount = 0) {
 /**
  * Show QR Modal for a phone number
  * @param {string} phone - Phone number
+ * @param {number} amount - Transfer amount (optional)
  */
-function showOrderQRModal(phone) {
+function showOrderQRModal(phone, amount = 0) {
     const normalizedPhone = normalizePhoneForQR(phone);
     if (!normalizedPhone) {
         showNotification('Không có số điện thoại', 'warning');
@@ -12613,12 +12614,15 @@ function showOrderQRModal(phone) {
         return;
     }
 
-    // Generate QR URL
-    const qrUrl = generateVietQRUrl(uniqueCode);
+    // Generate QR URL with amount
+    const qrUrl = generateVietQRUrl(uniqueCode, amount);
 
     // Get modal elements
     const modal = document.getElementById('orderQRModal');
     const modalBody = document.getElementById('orderQRModalBody');
+
+    // Format amount for display
+    const amountText = amount > 0 ? `<strong>Số tiền:</strong> <span style="color: #059669; font-weight: 700;">${amount.toLocaleString('vi-VN')}đ</span><br>` : '';
 
     // Render modal content
     modalBody.innerHTML = `
@@ -12628,7 +12632,8 @@ function showOrderQRModal(phone) {
             <div style="margin-bottom: 8px;">
                 <strong>Ngân hàng:</strong> ${QR_BANK_CONFIG.name}<br>
                 <strong>Số TK:</strong> ${QR_BANK_CONFIG.accountNo}<br>
-                <strong>Chủ TK:</strong> ${QR_BANK_CONFIG.accountName}
+                <strong>Chủ TK:</strong> ${QR_BANK_CONFIG.accountName}<br>
+                ${amountText}
             </div>
             <div style="padding: 8px; background: white; border: 2px dashed #dee2e6; border-radius: 6px; font-family: monospace; font-size: 13px; font-weight: bold; color: #495057; text-align: center;">
                 ${uniqueCode}
@@ -12712,7 +12717,7 @@ document.addEventListener('click', function(event) {
 
 /**
  * Copy QR image from chat modal to clipboard
- * Gets the current order's phone and copies the VietQR image
+ * Gets the current order's phone and copies the VietQR image with total amount
  */
 async function copyQRImageFromChat() {
     if (!currentOrder || !currentOrder.Telephone) {
@@ -12735,8 +12740,11 @@ async function copyQRImageFromChat() {
         return;
     }
 
-    // Generate QR URL
-    const qrUrl = generateVietQRUrl(uniqueCode);
+    // Get order total amount
+    const amount = currentOrder.TotalAmount || 0;
+
+    // Generate QR URL with amount
+    const qrUrl = generateVietQRUrl(uniqueCode, amount);
 
     try {
         // Fetch the image and copy to clipboard
@@ -12781,8 +12789,11 @@ function showQRFromChat() {
         return;
     }
 
-    // Use existing QR modal function
-    showOrderQRModal(normalizedPhone);
+    // Get order total amount
+    const amount = currentOrder.TotalAmount || 0;
+
+    // Use existing QR modal function with amount
+    showOrderQRModal(normalizedPhone, amount);
 }
 
 // Export functions globally
