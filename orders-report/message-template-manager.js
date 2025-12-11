@@ -698,10 +698,12 @@ class MessageTemplateManager {
                         this.sendingState.success++;
                         this.log(`✅ Sent successfully to order ${order.code || order.Id}`);
                     } catch (err) {
-                        // Try extension fallback for 24H errors
-                        // Extension uses Facebook's internal API which can bypass 24h rule
-                        if (err.is24HourError && window.extensionBridge && window.extensionBridge.isAvailable()) {
-                            this.log(`[${order.code}] 🔄 Trying extension bypass for 24H error...`);
+                        // Try extension fallback for 24H errors and user unavailable (551) errors
+                        // Extension uses Facebook's internal API which can bypass these restrictions
+                        const needsExtensionFallback = err.is24HourError || err.isUserUnavailable;
+                        if (needsExtensionFallback && window.extensionBridge && window.extensionBridge.isAvailable()) {
+                            const errorType = err.is24HourError ? '24H error' : 'user unavailable (551)';
+                            this.log(`[${order.code}] 🔄 Trying extension bypass for ${errorType}...`);
                             try {
                                 const extResult = await window.extensionBridge.sendMessage({
                                     pageId: order.rawOrder?.Facebook_PageId || order.channelId,
@@ -724,11 +726,14 @@ class MessageTemplateManager {
 
                         this.sendingState.error++;
 
-                        // Track 24-hour policy errors specially
+                        // Track 24-hour policy errors and user unavailable errors specially
                         const errorInfo = { order: order.code || order.Id, error: err.message };
                         if (err.is24HourError) {
                             errorInfo.is24HourError = true;
                             errorInfo.error = 'Đã quá 24h - Extension cũng không gửi được';
+                        } else if (err.isUserUnavailable) {
+                            errorInfo.isUserUnavailable = true;
+                            errorInfo.error = 'Người dùng không có mặt (551) - Extension cũng không gửi được';
                         }
                         this.sendingState.errors.push(errorInfo);
 
@@ -779,13 +784,23 @@ class MessageTemplateManager {
                 }
 
                 if (this.sendingState.error > 0) {
-                    // Check if any 24-hour policy errors
+                    // Check if any 24-hour policy errors or user unavailable errors
                     const has24HErrors = this.sendingState.errors.some(e => e.is24HourError);
                     const num24HErrors = this.sendingState.errors.filter(e => e.is24HourError).length;
+                    const hasUserUnavailable = this.sendingState.errors.some(e => e.isUserUnavailable);
+                    const numUserUnavailable = this.sendingState.errors.filter(e => e.isUserUnavailable).length;
 
-                    if (has24HErrors) {
+                    if (has24HErrors || hasUserUnavailable) {
                         const extensionAvailable = window.extensionBridge && window.extensionBridge.isAvailable();
-                        let msg = `⚠️ ${num24HErrors} đơn hàng không thể gửi (quá 24h).`;
+                        let msg = '⚠️ ';
+
+                        if (has24HErrors && hasUserUnavailable) {
+                            msg += `${num24HErrors} đơn quá 24h, ${numUserUnavailable} đơn người dùng không có mặt.`;
+                        } else if (has24HErrors) {
+                            msg += `${num24HErrors} đơn hàng không thể gửi (quá 24h).`;
+                        } else {
+                            msg += `${numUserUnavailable} đơn hàng không thể gửi (người dùng không có mặt).`;
+                        }
 
                         if (extensionAvailable) {
                             msg += ' Extension cũng không gửi được. Vui lòng dùng COMMENT!';
@@ -1085,6 +1100,16 @@ class MessageTemplateManager {
                 error24h.is24HourError = true;
                 error24h.originalMessage = responseData.message;
                 throw error24h;
+            }
+
+            // Check for user unavailable error (551)
+            const isUserUnavailable = (responseData.e_code === 551) ||
+                (responseData.message && responseData.message.includes('không có mặt'));
+            if (isUserUnavailable) {
+                const error551 = new Error('USER_UNAVAILABLE');
+                error551.isUserUnavailable = true;
+                error551.originalMessage = responseData.message;
+                throw error551;
             }
 
             throw new Error(responseData.error || responseData.message || `API returned success: false - ${JSON.stringify(responseData)}`);

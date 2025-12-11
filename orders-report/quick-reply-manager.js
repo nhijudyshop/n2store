@@ -968,6 +968,13 @@ class QuickReplyManager {
                         return { success: false, error: '24H_POLICY_ERROR', is24HourError: true };
                     }
 
+                    // Check for user unavailable error (551)
+                    const isUserUnavailable = (imageResult.e_code === 551) ||
+                        (imageResult.message && imageResult.message.includes('không có mặt'));
+                    if (isUserUnavailable) {
+                        return { success: false, error: 'USER_UNAVAILABLE', isUserUnavailable: true };
+                    }
+
                     return { success: false, error: imageResult.message || 'Gửi hình ảnh thất bại (API)' };
                 }
 
@@ -1019,6 +1026,13 @@ class QuickReplyManager {
                         return { success: false, error: '24H_POLICY_ERROR', is24HourError: true };
                     }
 
+                    // Check for user unavailable error (551)
+                    const isUserUnavailable = (textResult.e_code === 551) ||
+                        (textResult.message && textResult.message.includes('không có mặt'));
+                    if (isUserUnavailable) {
+                        return { success: false, error: 'USER_UNAVAILABLE', isUserUnavailable: true };
+                    }
+
                     return { success: false, error: textResult.message || 'Gửi tin nhắn thất bại (API)' };
                 }
 
@@ -1031,16 +1045,23 @@ class QuickReplyManager {
 
             // Check results
             if (!imageResult.success || !textResult.success) {
-                // Check for 24-hour policy errors specifically
+                // Check for errors that can be handled with extension fallback
                 const has24HourError = imageResult.is24HourError || textResult.is24HourError;
-                if (has24HourError) {
-                    console.warn('[QUICK-REPLY] ⚠️ 24-hour policy violation detected');
+                const hasUserUnavailable = imageResult.isUserUnavailable || textResult.isUserUnavailable;
+                const needsExtensionFallback = has24HourError || hasUserUnavailable;
 
-                    // Try extension fallback - it uses Facebook's internal API which can bypass 24h rule
+                if (needsExtensionFallback) {
+                    const errorType = has24HourError ? '24h policy' : 'user unavailable (551)';
+                    console.warn(`[QUICK-REPLY] ⚠️ ${errorType} error detected`);
+
+                    // Try extension fallback - it uses Facebook's internal API which can bypass these restrictions
                     if (window.extensionBridge && window.extensionBridge.isAvailable()) {
-                        console.log('[QUICK-REPLY] 🔄 Trying extension fallback to bypass 24h...');
+                        const notifyMsg = has24HourError
+                            ? '🔄 Đang thử gửi qua Extension (bypass 24h)...'
+                            : '🔄 Đang thử gửi qua Extension (người dùng không có mặt)...';
+                        console.log(`[QUICK-REPLY] 🔄 Trying extension fallback for ${errorType}...`);
                         if (window.notificationManager) {
-                            window.notificationManager.show('🔄 Đang thử gửi qua Extension (bypass 24h)...', 'info', 3000);
+                            window.notificationManager.show(notifyMsg, 'info', 3000);
                         }
 
                         try {
@@ -1074,14 +1095,14 @@ class QuickReplyManager {
                         }
                     } else {
                         // No extension available
+                        const noExtMsg = has24HourError
+                            ? '⚠️ Không thể gửi (quá 24h). Cài Extension Pancake v2 hoặc dùng COMMENT!'
+                            : '⚠️ Người dùng không có mặt. Cài Extension Pancake v2 hoặc dùng COMMENT!';
                         if (window.notificationManager) {
-                            window.notificationManager.show(
-                                '⚠️ Không thể gửi (quá 24h). Cài Extension Pancake v2 hoặc dùng COMMENT!',
-                                'warning', 8000
-                            );
+                            window.notificationManager.show(noExtMsg, 'warning', 8000);
                         }
                     }
-                    return; // Don't throw error for 24-hour case
+                    return; // Don't throw error for these cases
                 }
 
                 const errors = [];
