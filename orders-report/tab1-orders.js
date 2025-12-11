@@ -15184,6 +15184,26 @@ async function confirmAndPrintSale() {
             throw new Error('Không tìm thấy token xác thực');
         }
 
+        // Step 0: Fetch default data if not already loaded (to get User, Company, etc.)
+        if (!window.lastDefaultSaleData) {
+            console.log('[SALE-CONFIRM] Step 0: Fetching default data first...');
+            const defaultResponse = await fetch('https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.DefaultGet?$expand=Warehouse,User,PriceList,Company,Journal,PaymentJournal,Partner,Carrier,Tax,SaleOrder,DestConvertCurrencyUnit', {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json, text/plain, */*',
+                    'authorization': `Bearer ${token}`,
+                    'content-type': 'application/json;charset=UTF-8',
+                    'tposappversion': '5.11.16.1',
+                    'x-tpos-lang': 'vi'
+                },
+                body: JSON.stringify({ model: { Type: 'invoice' } })
+            });
+            if (defaultResponse.ok) {
+                window.lastDefaultSaleData = await defaultResponse.json();
+                console.log('[SALE-CONFIRM] Default data loaded:', window.lastDefaultSaleData);
+            }
+        }
+
         // Step 1: Build and POST FastSaleOrder
         console.log('[SALE-CONFIRM] Step 1: Creating FastSaleOrder...');
         const payload = buildFastSaleOrderPayload();
@@ -15286,27 +15306,50 @@ async function confirmAndPrintSale() {
 }
 
 /**
+ * Format date with timezone like: 2025-12-11T21:58:53.4497898+07:00
+ */
+function formatDateWithTimezone(date) {
+    const pad = (n, len = 2) => n.toString().padStart(len, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    const seconds = pad(date.getSeconds());
+    const ms = pad(date.getMilliseconds(), 3);
+
+    // Get timezone offset in hours and minutes
+    const tzOffset = -date.getTimezoneOffset();
+    const tzHours = pad(Math.floor(Math.abs(tzOffset) / 60));
+    const tzMinutes = pad(Math.abs(tzOffset) % 60);
+    const tzSign = tzOffset >= 0 ? '+' : '-';
+
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}0000${tzSign}${tzHours}:${tzMinutes}`;
+}
+
+/**
  * Build FastSaleOrder payload from current form data
  */
 function buildFastSaleOrderPayload() {
     const order = currentSaleOrderData;
     const partner = currentSalePartnerData;
+    const defaultData = window.lastDefaultSaleData || {};
 
     // Get form values
     const receiverName = document.getElementById('saleReceiverName')?.value || order.PartnerName || '';
     const receiverPhone = document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
-    const receiverAddress = document.getElementById('saleReceiverAddress')?.value || '';
+    const receiverAddressRaw = document.getElementById('saleReceiverAddress')?.value || '';
+    const receiverAddress = receiverAddressRaw || null; // Use null instead of empty string
     const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
     const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 35000;
     const cod = parseFloat(document.getElementById('saleCOD')?.value) || 0;
-    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
 
     // Get carrier
     const carrierSelect = document.getElementById('saleCarrier');
     const carrierId = carrierSelect?.value ? parseInt(carrierSelect.value) : 7;
     const carrierName = carrierSelect?.selectedOptions[0]?.text || 'SHIP TỈNH';
 
-    // Build order lines from current products
+    // Build order lines from current products (with full Product data)
     const orderLines = buildOrderLines();
 
     // Calculate totals
@@ -15315,6 +15358,13 @@ function buildFastSaleOrderPayload() {
 
     const now = new Date();
     const dateInvoice = now.toISOString();
+    // Format DateCreated with timezone like: 2025-12-11T21:58:53.4497898+07:00
+    const dateCreated = formatDateWithTimezone(now);
+
+    // Get User from defaultData (from ODataService.DefaultGet)
+    const user = defaultData.User || null;
+    const userId = user?.Id || null;
+    const userName = user?.Name || null;
 
     // Build payload matching the sample from fetchFastSaleOrder.text
     const payload = {
@@ -15343,10 +15393,10 @@ function buildFastSaleOrderPayload() {
         AmountUntaxed: amountTotal,
         TaxId: null,
         MoveId: null,
-        UserId: partner?.UserId || null,
-        UserName: null,
+        UserId: userId,
+        UserName: userName,
         DateInvoice: dateInvoice,
-        DateCreated: now.toISOString(),
+        DateCreated: dateCreated,
         CreatedById: null,
         State: 'draft',
         ShowState: 'Nháp',
@@ -15373,7 +15423,7 @@ function buildFastSaleOrderPayload() {
         ReceiverName: receiverName,
         ReceiverPhone: receiverPhone,
         ReceiverAddress: receiverAddress,
-        ReceiverDate: now.toISOString(),
+        ReceiverDate: dateCreated,
         ReceiverNote: null,
         CashOnDelivery: cod,
         TrackingRef: null,
@@ -15388,7 +15438,7 @@ function buildFastSaleOrderPayload() {
         SaleOnlineName: '',
         PartnerShippingId: null,
         PaymentJournalId: 1,
-        PaymentAmount: prepaidAmount,
+        PaymentAmount: 0,
         SaleOrderId: null,
         SaleOrderIds: [],
         FacebookName: receiverName,
@@ -15408,7 +15458,7 @@ function buildFastSaleOrderPayload() {
         Origin: null,
         AmountDeposit: 0,
         CompanyName: 'NJD Live',
-        PreviousBalance: 0,
+        PreviousBalance: cod,
         ToPay: null,
         NotModifyPriceFromSO: false,
         Ship_ServiceId: null,
@@ -15460,12 +15510,12 @@ function buildFastSaleOrderPayload() {
             IsNewAddress: false,
             Name: receiverName,
             Phone: receiverPhone,
-            Street: receiverAddress,
+            Street: null,
             City: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
             District: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
             Ward: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
             ExtraAddress: {
-                Street: receiverAddress,
+                Street: null,
                 NewStreet: null,
                 City: { name: null, nameNoSign: null, code: null },
                 District: { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null },
@@ -15538,54 +15588,51 @@ function buildFastSaleOrderPayload() {
 }
 
 /**
- * Build order lines from current modal data
+ * Build order lines from current modal data (uses API data with full Product/ProductUOM)
  */
 function buildOrderLines() {
-    const orderLines = [];
     const order = currentSaleOrderData;
 
-    // Get from DOM table if available
-    const rows = document.querySelectorAll('#saleOrderItems tr[data-product-id]');
+    // Use orderLines from API (stored by populateSaleOrderLinesFromAPI)
+    if (order?.orderLines && order.orderLines.length > 0) {
+        return order.orderLines.map(item => {
+            const qty = item.ProductUOMQty || item.Quantity || 1;
+            const price = item.PriceUnit || item.Price || 0;
+            const total = qty * price;
 
-    if (rows.length > 0) {
-        rows.forEach(row => {
-            const productId = parseInt(row.dataset.productId);
-            const productName = row.querySelector('.product-name')?.textContent || '';
-            const quantity = parseInt(row.querySelector('.product-qty')?.textContent) || 1;
-            const price = parseFloat(row.querySelector('.product-price')?.textContent?.replace(/[^\d]/g, '')) || 0;
-            const total = quantity * price;
-
-            orderLines.push({
+            return {
                 Id: 0,
-                ProductId: productId,
-                ProductUOMId: 1,
+                ProductId: item.ProductId || item.Product?.Id || 0,
+                ProductUOMId: item.ProductUOMId || 1,
                 PriceUnit: price,
-                ProductUOMQty: quantity,
-                Discount: 0,
+                ProductUOMQty: qty,
+                Discount: item.Discount || 0,
                 PriceTotal: total,
                 PriceSubTotal: total,
-                AccountId: 5,
+                AccountId: item.AccountId || 5,
                 PriceRecent: price,
-                ProductName: productName,
-                ProductUOMName: 'Cái',
-                Weight: 0,
-                Note: null,
-                SaleOnlineDetailId: null,
-                Product: null,
-                ProductUOM: { Id: 1, Name: 'Cái', Factor: 1, FactorInv: 1 },
-                Discount_Fixed: 0,
-                Type: 'fixed',
-                WeightTotal: 0
-            });
+                ProductName: item.Product?.NameGet || item.ProductName || '',
+                ProductUOMName: item.ProductUOMName || item.ProductUOM?.Name || 'Cái',
+                Weight: item.Weight || 0,
+                Note: item.Note || null,
+                SaleOnlineDetailId: item.SaleOnlineDetailId || item.Id || null,
+                Product: item.Product || null, // Include full Product object
+                ProductUOM: item.ProductUOM || { Id: 1, Name: 'Cái', Factor: 1, FactorInv: 1 }, // Include full ProductUOM
+                Discount_Fixed: item.Discount_Fixed || 0,
+                Type: item.Type || 'fixed',
+                WeightTotal: item.WeightTotal || 0
+            };
         });
-    } else if (order?.Details && order.Details.length > 0) {
-        // Fallback to order.Details
-        order.Details.forEach(detail => {
+    }
+
+    // Fallback to order.Details if orderLines not available
+    if (order?.Details && order.Details.length > 0) {
+        return order.Details.map(detail => {
             const price = detail.Price || 0;
             const quantity = detail.Quantity || 1;
             const total = price * quantity;
 
-            orderLines.push({
+            return {
                 Id: 0,
                 ProductId: detail.ProductId || 0,
                 ProductUOMId: 1,
@@ -15606,11 +15653,11 @@ function buildOrderLines() {
                 Discount_Fixed: 0,
                 Type: 'fixed',
                 WeightTotal: 0
-            });
+            };
         });
     }
 
-    return orderLines;
+    return [];
 }
 
 /**
