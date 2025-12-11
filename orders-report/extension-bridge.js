@@ -14,12 +14,36 @@ class ExtensionBridge {
         this.pendingRequests = new Map();
         this.extensionId = 'oehooocookcnclgniepdgaiankfifmmn';
         this.timeout = 30000; // 30 seconds timeout for requests
-        this.initTimeout = 5000; // 5 seconds timeout for initialization
+        this.initTimeout = 8000; // 8 seconds timeout for initialization
+        this.contentscriptCheckTimeout = 3000; // 3 seconds for contentscript check (increased from 1s)
         this.requestIdCounter = 0;
         this.connectionMode = null; // 'contentscript' or 'iframe'
+        this.retryCount = 0;
+        this.maxRetries = 3;
+
+        // Matched domains where extension auto-injects contentscript
+        this.matchedDomains = [
+            'pancake.vn', 'pancake.ph', 'pancake.id', 'pancake.in', 'pancake.biz', 'pancake.net',
+            'pages.fm', 'botcake.io',
+            'nhijudyshop.workers.dev', 'nhijudyshop.com', 'nhijudyshop.github.io',
+            'localhost', '127.0.0.1'
+        ];
+
+        // Bridge page URL for iframe fallback (on matched domain)
+        this.bridgePageUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/extension-bridge';
 
         // Bind message handler
         this._handleMessage = this._handleMessage.bind(this);
+    }
+
+    /**
+     * Check if current page is on a matched domain
+     */
+    _isMatchedDomain() {
+        const hostname = window.location.hostname;
+        return this.matchedDomains.some(domain =>
+            hostname === domain || hostname.endsWith('.' + domain)
+        );
     }
 
     /**
@@ -33,7 +57,7 @@ class ExtensionBridge {
      * Initialize connection to extension
      * Priority:
      * 1. Check if contentscript is already injected (for matched domains)
-     * 2. Try iframe approach as fallback
+     * 2. Try iframe approach as fallback (loads bridge page on matched domain)
      * @returns {Promise<boolean>} true if extension is available
      */
     async init() {
@@ -55,40 +79,81 @@ class ExtensionBridge {
         }
 
         this.isInitializing = true;
-        console.log('[EXTENSION] Initializing extension bridge...');
+        const isMatched = this._isMatchedDomain();
+        console.log(`[EXTENSION] Initializing... (matched domain: ${isMatched}, hostname: ${window.location.hostname})`);
 
         // Start listening for messages
         window.addEventListener('message', this._handleMessage);
 
         // Step 1: Check if contentscript is already available (for matched domains)
-        const contentscriptReady = await this._checkContentscript();
-        if (contentscriptReady) {
-            console.log('[EXTENSION] ✅ Connected via contentscript (direct)');
-            this.connectionMode = 'contentscript';
-            this.isReady = true;
-            this.isInitializing = false;
-            return true;
+        // On matched domains, extension should auto-inject contentscript
+        if (isMatched) {
+            console.log('[EXTENSION] On matched domain - checking for contentscript with retries...');
+
+            // Try multiple times with increasing delays (extension might inject late)
+            for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+                console.log(`[EXTENSION] Contentscript check attempt ${attempt}/${this.maxRetries}...`);
+                const contentscriptReady = await this._checkContentscript();
+                if (contentscriptReady) {
+                    console.log('[EXTENSION] ✅ Connected via contentscript (direct)');
+                    this.connectionMode = 'contentscript';
+                    this.isReady = true;
+                    this.isInitializing = false;
+                    this._notifyStatusChange();
+                    return true;
+                }
+
+                // Wait before retry (500ms, 1000ms, 1500ms)
+                if (attempt < this.maxRetries) {
+                    await new Promise(r => setTimeout(r, attempt * 500));
+                }
+            }
+            console.warn('[EXTENSION] Contentscript not responding after retries');
         }
 
-        // Step 2: Try iframe approach
-        console.log('[EXTENSION] Contentscript not available, trying iframe approach...');
+        // Step 2: Try iframe approach - load bridge page on matched domain
+        // This page will have contentscript injected by extension
+        console.log('[EXTENSION] Trying iframe bridge approach...');
         const iframeReady = await this._initIframe();
         if (iframeReady) {
-            console.log('[EXTENSION] ✅ Connected via iframe');
+            console.log('[EXTENSION] ✅ Connected via iframe bridge');
             this.connectionMode = 'iframe';
             this.isReady = true;
             this.isInitializing = false;
+            this._notifyStatusChange();
             return true;
         }
 
         // Both methods failed
-        console.warn('[EXTENSION] ⚠️ Extension not available - both contentscript and iframe methods failed');
+        console.warn('[EXTENSION] ⚠️ Extension not available');
         console.warn('[EXTENSION] Please ensure:');
-        console.warn('[EXTENSION]   1. Pancake v2 extension is installed');
-        console.warn('[EXTENSION]   2. For iframe mode: pancake.vn tab is open');
+        console.warn('[EXTENSION]   1. Pancake v2 extension is installed and enabled');
+        console.warn('[EXTENSION]   2. You are logged into Facebook in this browser');
+        console.warn('[EXTENSION]   3. Try refreshing the page');
         this.isInitializing = false;
-        window.removeEventListener('message', this._handleMessage);
+        this._notifyStatusChange();
         return false;
+    }
+
+    /**
+     * Notify status change (for UI updates)
+     */
+    _notifyStatusChange() {
+        window.dispatchEvent(new CustomEvent('extensionBridgeStatusChange', {
+            detail: this.getStatus()
+        }));
+    }
+
+    /**
+     * Re-initialize (retry connection)
+     */
+    async reinit() {
+        console.log('[EXTENSION] Re-initializing...');
+        this.isReady = false;
+        this.isInitializing = false;
+        this.connectionMode = null;
+        this._cleanupIframe();
+        return this.init();
     }
 
     /**
@@ -98,10 +163,11 @@ class ExtensionBridge {
      */
     async _checkContentscript() {
         return new Promise((resolve) => {
-            // Set short timeout for contentscript check (1 second)
+            // Set timeout for contentscript check
             const checkTimeout = setTimeout(() => {
+                window.removeEventListener('message', tempHandler);
                 resolve(false);
-            }, 1000);
+            }, this.contentscriptCheckTimeout);
 
             // Temporary handler for EXTENSION_LOADED
             const tempHandler = (event) => {
@@ -114,14 +180,19 @@ class ExtensionBridge {
 
             window.addEventListener('message', tempHandler);
 
-            // If extension is already loaded, it should have sent EXTENSION_LOADED
-            // We can try to ping it by sending a CHECK_EXTENSION message
+            // Ping extension multiple times (contentscript might not be ready immediately)
             window.postMessage({ type: 'CHECK_EXTENSION' }, '*');
+
+            // Additional pings with delays
+            setTimeout(() => window.postMessage({ type: 'CHECK_EXTENSION' }, '*'), 200);
+            setTimeout(() => window.postMessage({ type: 'CHECK_EXTENSION' }, '*'), 500);
+            setTimeout(() => window.postMessage({ type: 'CHECK_EXTENSION' }, '*'), 1000);
         });
     }
 
     /**
      * Initialize iframe connection
+     * Uses a bridge page on matched domain (workers.dev) so extension auto-injects contentscript
      * @returns {Promise<boolean>}
      */
     async _initIframe() {
@@ -129,28 +200,30 @@ class ExtensionBridge {
             try {
                 // Create hidden iframe
                 this.iframe = document.createElement('iframe');
-                this.iframe.style.display = 'none';
-                this.iframe.style.width = '0';
-                this.iframe.style.height = '0';
-                this.iframe.style.border = 'none';
+                this.iframe.style.cssText = 'display:none;width:0;height:0;border:none;position:absolute;left:-9999px;';
                 this.iframe.id = 'pancake-extension-bridge';
 
-                // Set source to extension's pancext.html
-                this.iframe.src = `chrome-extension://${this.extensionId}/pancext.html`;
+                // KEY: Load bridge page on matched domain (extension will inject contentscript!)
+                // This is better than chrome-extension:// which doesn't have contentscript
+                this.iframe.src = this.bridgePageUrl;
+
+                console.log('[EXTENSION] Loading iframe bridge from:', this.bridgePageUrl);
 
                 // Timeout for initialization
                 const initTimeoutId = setTimeout(() => {
                     if (!this.isReady) {
                         console.warn('[EXTENSION] Iframe initialization timeout');
+                        window.removeEventListener('message', iframeMessageHandler);
                         this._cleanupIframe();
                         resolve(false);
                     }
                 }, this.initTimeout);
 
                 // Handle iframe load error
-                this.iframe.onerror = () => {
+                this.iframe.onerror = (err) => {
                     clearTimeout(initTimeoutId);
-                    console.warn('[EXTENSION] Failed to load extension iframe');
+                    console.warn('[EXTENSION] Failed to load iframe:', err);
+                    window.removeEventListener('message', iframeMessageHandler);
                     this._cleanupIframe();
                     resolve(false);
                 };
@@ -158,15 +231,33 @@ class ExtensionBridge {
                 // Store timeout ID for later cleanup
                 this._initTimeoutId = initTimeoutId;
 
-                // Listen for EXTENSION_LOADED from iframe
-                const iframeLoadHandler = (event) => {
-                    if (event.data?.type === 'EXTENSION_LOADED' && event.data?.from === 'EXTENSION') {
+                // Listen for messages from iframe
+                const iframeMessageHandler = (event) => {
+                    // Accept messages from our bridge page
+                    const isBridgeOrigin = event.origin?.includes('nhijudyshop.workers.dev') ||
+                        event.origin?.includes('nhijudyshop.github.io');
+
+                    if (!isBridgeOrigin && event.source !== this.iframe?.contentWindow) return;
+
+                    if (event.data?.type === 'EXTENSION_LOADED') {
                         clearTimeout(initTimeoutId);
                         this._initTimeoutId = null;
+                        window.removeEventListener('message', iframeMessageHandler);
+                        console.log('[EXTENSION] ✅ Iframe bridge connected!');
                         resolve(true);
                     }
+
+                    if (event.data?.type === 'EXTENSION_BRIDGE_ERROR') {
+                        clearTimeout(initTimeoutId);
+                        console.warn('[EXTENSION] Bridge error:', event.data.error);
+                        window.removeEventListener('message', iframeMessageHandler);
+                        this._cleanupIframe();
+                        resolve(false);
+                    }
                 };
-                window.addEventListener('message', iframeLoadHandler, { once: true });
+
+                window.addEventListener('message', iframeMessageHandler);
+                this._iframeMessageHandler = iframeMessageHandler;
 
                 // Append iframe to document
                 document.body.appendChild(this.iframe);
