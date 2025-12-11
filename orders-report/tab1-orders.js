@@ -14214,15 +14214,34 @@ function switchSaleTab(tabName) {
 function populateSaleModalWithOrder(order) {
     console.log('[SALE-MODAL] Populating order data:', order);
 
-    // Basic info
+    // Basic info - Tab "Thông tin"
     document.getElementById('saleCustomerName').textContent = order.PartnerName || order.Name || '';
     document.getElementById('saleReference').textContent = order.Code || '';
 
-    // Receiver info
+    // Customer status (will be updated by API)
+    document.getElementById('saleCustomerStatus').textContent = '';
+    document.getElementById('saleLoyaltyPoints').textContent = '0';
+    document.getElementById('saleOldDebt').textContent = '0';
+
+    // Tab "Thông tin người nhận"
     document.getElementById('saleReceiverName').value = order.PartnerName || order.Name || '';
     document.getElementById('saleReceiverPhone').value = order.PartnerPhone || order.Telephone || '';
     document.getElementById('saleReceiverAddress').value = order.PartnerAddress || order.Address || '';
     document.getElementById('saleReceiverNote').value = order.Note || '';
+
+    // Tab "Thông tin giao hàng"
+    const shippingFee = parseInt(document.getElementById('saleShippingFee').value) || 35000;
+    const totalAmount = order.TotalAmount || 0;
+
+    // COD = Tổng tiền hàng + phí ship (nếu khách trả ship)
+    document.getElementById('saleCOD').value = totalAmount + shippingFee;
+
+    // Ghi chú giao hàng mặc định
+    const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
+    document.getElementById('saleDeliveryNote').value = order.Comment || defaultDeliveryNote;
+
+    // Giá trị hàng hóa
+    document.getElementById('saleGoodsValue').value = totalAmount;
 
     // Set delivery date
     const now = new Date();
@@ -14495,8 +14514,12 @@ function updateSaleTotals(quantity, amount) {
     const finalTotal = amount - discount;
     document.getElementById('saleFinalTotal').textContent = formatNumber(finalTotal);
 
-    // Also update COD
-    document.getElementById('saleCOD').value = finalTotal;
+    // Update COD = Tổng tiền hàng + Phí ship
+    const shippingFee = parseInt(document.getElementById('saleShippingFee').value) || 0;
+    document.getElementById('saleCOD').value = finalTotal + shippingFee;
+
+    // Update Giá trị hàng hóa
+    document.getElementById('saleGoodsValue').value = finalTotal;
 }
 
 /**
