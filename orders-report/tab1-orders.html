@@ -246,6 +246,11 @@
             <select id="campaignFilter" style="min-width: 300px">
                 <option value="">Đang tải...</option>
             </select>
+            <!-- Custom Date Filter Input (Hidden by default) -->
+            <div id="customDateFilterContainer" style="display: none; align-items: center; gap: 8px;">
+                <label style="color: #8b5cf6; font-weight: 600;">Từ ngày custom:</label>
+                <input type="datetime-local" id="customStartDate" style="border: 2px solid #8b5cf6; border-radius: 6px;" />
+            </div>
             <label>Từ ngày:</label>
             <input type="datetime-local" id="startDate" />
             <label>Đến ngày:</label>
