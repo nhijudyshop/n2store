@@ -4005,17 +4005,17 @@ function renderByEmployee() {
                     <table class="table">
                         <thead>
                             <tr>
-                                <th><input type="checkbox" class="employee-select-all" data-employee="${employeeName}" /></th>
+                                <th data-column="checkbox"><input type="checkbox" class="employee-select-all" data-employee="${employeeName}" /></th>
                                 <th data-column="stt">STT</th>
-                                <th data-column="employee" style="width: 90px;">Nhân viên</th>
+                                <th data-column="employee">Nhân viên</th>
                                 <th data-column="tag">TAG</th>
                                 <th data-column="order-code">Mã ĐH</th>
                                 <th data-column="customer">Khách hàng</th>
                                 <th data-column="messages">Tin nhắn</th>
                                 <th data-column="comments">Bình luận</th>
                                 <th data-column="phone">SĐT</th>
-                                <th data-column="qr" style="width: 50px; text-align: center;">QR</th>
-                                <th data-column="debt" style="width: 100px; text-align: right;">Công Nợ</th>
+                                <th data-column="qr">QR</th>
+                                <th data-column="debt">Công Nợ</th>
                                 <th data-column="address">Địa chỉ</th>
                                 <th data-column="notes">Ghi chú</th>
                                 <th data-column="total">Tổng tiền</th>
@@ -4082,7 +4082,7 @@ function createRowHTML(order) {
 
     return `
         <tr class="${rowClass} ${mergedClass}">
-            <td><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
+            <td data-column="checkbox"><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
             <td data-column="stt">
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <span>${order.SessionIndex || ""}</span>
