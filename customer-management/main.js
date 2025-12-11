@@ -508,6 +508,9 @@ function createCustomerRow(customer) {
                 ${customer.carrier ? `<span class="carrier">${customer.carrier}</span>` : ''}
             </div>
         </td>
+        <td style="text-align: center;">
+            ${customer.tpos_id ? `<code style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${customer.tpos_id}</code>` : '<span style="color: #999;">-</span>'}
+        </td>
         <td>${escapeHtml(customer.email || '')}</td>
         <td style="white-space: pre-line; line-height: 1.4;">${displayAddress}</td>
         <td>
