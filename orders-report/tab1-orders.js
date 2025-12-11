@@ -13935,7 +13935,7 @@ let currentSaleOrderData = null;
 let currentSalePartnerData = null;
 
 /**
- * Open Sale Button Modal and fetch partner data
+ * Open Sale Button Modal and fetch order details from API
  */
 async function openSaleButtonModal() {
     console.log('[SALE-MODAL] Opening Sale Button Modal...');
@@ -13961,16 +13961,34 @@ async function openSaleButtonModal() {
     currentSaleOrderData = order;
     console.log('[SALE-MODAL] Selected order:', order);
 
-    // Show modal
+    // Show modal with loading state
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'flex';
 
-    // Populate order data first
+    // Populate basic order data first (from local data)
     populateSaleModalWithOrder(order);
 
-    // Fetch partner data if PartnerId exists
-    if (order.PartnerId) {
-        await fetchAndPopulatePartnerData(order.PartnerId);
+    // Fetch detailed order data from API (includes partner, orderLines)
+    const orderDetails = await fetchOrderDetailsForSale(orderId);
+
+    if (orderDetails) {
+        // Store partner data
+        currentSalePartnerData = orderDetails.partner;
+
+        // Populate partner data
+        if (orderDetails.partner) {
+            populatePartnerData(orderDetails.partner);
+        }
+
+        // Populate order lines if available
+        if (orderDetails.orderLines && orderDetails.orderLines.length > 0) {
+            populateSaleOrderLinesFromAPI(orderDetails.orderLines);
+        }
+
+        // Update reference
+        if (orderDetails.Reference) {
+            document.getElementById('saleReference').textContent = orderDetails.Reference;
+        }
     }
 }
 
@@ -14035,44 +14053,45 @@ function populateSaleModalWithOrder(order) {
 }
 
 /**
- * Fetch partner data and populate modal
+ * Fetch order details (partner, orderLines) from TPOS API
  */
-async function fetchAndPopulatePartnerData(partnerId) {
-    console.log('[SALE-MODAL] Fetching partner data for ID:', partnerId);
+async function fetchOrderDetailsForSale(orderUuid) {
+    console.log('[SALE-MODAL] Fetching order details for UUID:', orderUuid);
 
     try {
         const token = localStorage.getItem('tpos_token');
         if (!token) {
             console.warn('[SALE-MODAL] No auth token found');
-            return;
+            return null;
         }
 
-        const response = await fetch(`https://tomato.tpos.vn/odata/Partner(${partnerId})?$expand=Addresses`, {
-            method: 'GET',
+        const response = await fetch('https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetDetails?$expand=orderLines($expand=Product,ProductUOM),partner,warehouse', {
+            method: 'POST',
             headers: {
                 'accept': 'application/json, text/plain, */*',
                 'authorization': `Bearer ${token}`,
+                'content-type': 'application/json;charset=UTF-8',
                 'tposappversion': '5.11.16.1',
                 'x-tpos-lang': 'vi'
-            }
+            },
+            body: JSON.stringify({ ids: [orderUuid] })
         });
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const partnerData = await response.json();
-        currentSalePartnerData = partnerData;
-        console.log('[SALE-MODAL] Partner data:', partnerData);
+        const data = await response.json();
+        console.log('[SALE-MODAL] Order details response:', data);
 
-        // Populate partner data
-        populatePartnerData(partnerData);
+        return data;
 
     } catch (error) {
-        console.error('[SALE-MODAL] Error fetching partner data:', error);
+        console.error('[SALE-MODAL] Error fetching order details:', error);
         if (window.notificationManager) {
-            window.notificationManager.warning('Không thể tải thông tin khách hàng');
+            window.notificationManager.warning('Không thể tải thông tin đơn hàng');
         }
+        return null;
     }
 }
 
@@ -14162,6 +14181,102 @@ function populateSaleOrderItems(order) {
 
     container.innerHTML = itemsHTML;
     updateSaleTotals(totalQuantity, totalAmount);
+}
+
+/**
+ * Populate order lines from API response (orderLines with Product, ProductUOM)
+ */
+function populateSaleOrderLinesFromAPI(orderLines) {
+    const container = document.getElementById('saleOrderItems');
+
+    if (!orderLines || orderLines.length === 0) {
+        container.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <i class="fas fa-box-open"></i> Chưa có sản phẩm
+                </td>
+            </tr>
+        `;
+        updateSaleTotals(0, 0);
+        return;
+    }
+
+    // Store order lines for editing
+    currentSaleOrderData.orderLines = orderLines;
+
+    let totalQuantity = 0;
+    let totalAmount = 0;
+
+    const itemsHTML = orderLines.map((item, index) => {
+        const qty = item.ProductUOMQty || item.Quantity || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        const total = qty * price;
+
+        // Get product name from nested Product object or direct field
+        const productName = item.Product?.NameGet || item.Product?.Name || item.ProductNameGet || item.ProductName || '';
+        const productNote = item.Note || 'Ghi chú';
+
+        totalQuantity += qty;
+        totalAmount += total;
+
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td>
+                    <div class="sale-product-name">${productName}</div>
+                    <div style="font-size: 11px; color: #6b7280;">${productNote}</div>
+                </td>
+                <td>
+                    <input type="number" class="sale-input" value="${qty}" min="1"
+                        onchange="updateSaleItemQuantityFromAPI(${index}, this.value)"
+                        style="width: 60px; text-align: center;">
+                </td>
+                <td style="text-align: right;">${formatNumber(price)}</td>
+                <td style="text-align: right;">${formatNumber(total)}</td>
+                <td style="text-align: center;">
+                    <button onclick="removeSaleItemFromAPI(${index})" style="background: none; border: none; color: #ef4444; cursor: pointer;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = itemsHTML;
+    updateSaleTotals(totalQuantity, totalAmount);
+}
+
+/**
+ * Update item quantity from API order lines
+ */
+function updateSaleItemQuantityFromAPI(index, value) {
+    if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
+
+    const qty = parseInt(value) || 1;
+    currentSaleOrderData.orderLines[index].ProductUOMQty = qty;
+
+    // Recalculate totals
+    let totalQuantity = 0;
+    let totalAmount = 0;
+
+    currentSaleOrderData.orderLines.forEach(item => {
+        const itemQty = item.ProductUOMQty || item.Quantity || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        totalQuantity += itemQty;
+        totalAmount += itemQty * price;
+    });
+
+    updateSaleTotals(totalQuantity, totalAmount);
+}
+
+/**
+ * Remove item from API order lines
+ */
+function removeSaleItemFromAPI(index) {
+    if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
+
+    currentSaleOrderData.orderLines.splice(index, 1);
+    populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
 }
 
 /**
