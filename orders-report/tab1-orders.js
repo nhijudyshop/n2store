@@ -14437,19 +14437,35 @@ async function fetchDeliveryCarriers() {
         return cached;
     }
 
-    // Get auth token
+    // Get auth token from various possible localStorage keys
+    // Priority: bearer_token_data > auth > tpos_token
     let token = null;
     try {
-        const authData = localStorage.getItem('auth');
-        if (authData) {
-            const parsed = JSON.parse(authData);
-            token = parsed.AccessToken || parsed.access_token;
+        // Try bearer_token_data first (most common key used by TPOS)
+        const bearerData = localStorage.getItem('bearer_token_data');
+        if (bearerData) {
+            const parsed = JSON.parse(bearerData);
+            token = parsed.access_token || parsed.AccessToken;
+            console.log('[DELIVERY-CARRIER] Found token in bearer_token_data');
         }
+
+        // Fallback to auth
+        if (!token) {
+            const authData = localStorage.getItem('auth');
+            if (authData) {
+                const parsed = JSON.parse(authData);
+                token = parsed.AccessToken || parsed.access_token;
+                console.log('[DELIVERY-CARRIER] Found token in auth');
+            }
+        }
+
+        // Fallback to tpos_token
         if (!token) {
             const tokenData = localStorage.getItem('tpos_token');
             if (tokenData) {
                 const parsed = JSON.parse(tokenData);
                 token = parsed.AccessToken || parsed.access_token;
+                console.log('[DELIVERY-CARRIER] Found token in tpos_token');
             }
         }
     } catch (e) {
@@ -14457,7 +14473,7 @@ async function fetchDeliveryCarriers() {
     }
 
     if (!token) {
-        console.warn('[DELIVERY-CARRIER] No auth token found');
+        console.warn('[DELIVERY-CARRIER] No auth token found in: bearer_token_data, auth, tpos_token');
         return [];
     }
 
