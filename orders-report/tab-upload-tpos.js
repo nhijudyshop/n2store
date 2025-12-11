@@ -1,6 +1,88 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════════════════╗
+ * ║                         TAB-UPLOAD-TPOS.JS                                   ║
+ * ║              TPOS Upload Module - Product Assignment Upload                  ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                                                                              ║
+ * ║  📖 ĐỌC FILE ARCHITECTURE.md TRƯỚC ĐỂ HIỂU CẤU TRÚC TỔNG QUAN               ║
+ * ║                                                                              ║
+ * ║  📝 KHI THÊM HÀM MỚI:                                                        ║
+ * ║     1. Thêm vào đúng SECTION bên dưới                                        ║
+ * ║     2. Cập nhật TABLE OF CONTENTS nếu là hàm quan trọng                      ║
+ * ║     3. Cập nhật ARCHITECTURE.md nếu thêm section mới                         ║
+ * ║                                                                              ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                         TABLE OF CONTENTS                                     ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                                                                              ║
+ * ║  [SECTION 1]  STATE & FIREBASE CONFIG ..................... search: #STATE   ║
+ * ║               - assignments[], sessionIndexData{}, selectedSessionIndexes    ║
+ * ║               - Firebase initialization                                       ║
+ * ║                                                                              ║
+ * ║  [SECTION 2]  PRODUCT ENCODING/DECODING ................... search: #ENCODE  ║
+ * ║               - base64UrlEncode/Decode()                                      ║
+ * ║               - xorEncrypt/Decrypt()                                          ║
+ * ║               - encodeProductLine(), decodeProductLine()                      ║
+ * ║               - appendEncodedProducts(), extractEncodedProducts()             ║
+ * ║                                                                              ║
+ * ║  [SECTION 3]  FULL NOTE ENCODING .......................... search: #NOTE    ║
+ * ║               - encodeFullNote(), decodeFullNote()                            ║
+ * ║               - isNoteEncoded(), extractNoteComponents()                      ║
+ * ║               - processNoteForUpload()                                        ║
+ * ║                                                                              ║
+ * ║  [SECTION 4]  AUTH & API .................................. search: #AUTH    ║
+ * ║               - getAuthToken()                                                ║
+ * ║               - API calls to TPOS                                             ║
+ * ║                                                                              ║
+ * ║  [SECTION 5]  TABLE RENDERING ............................. search: #RENDER  ║
+ * ║               - renderTable() - Render by order (STT)                        ║
+ * ║               - renderTableByProduct() - Render grouped by product           ║
+ * ║               - createProductChipsHtml()                                      ║
+ * ║                                                                              ║
+ * ║  [SECTION 6]  VIEW MODE & SELECTION ....................... search: #VIEW    ║
+ * ║               - switchViewMode() - Toggle order/product view                 ║
+ * ║               - handleSTTCheckbox(), handleProductGroupCheckbox()            ║
+ * ║               - updateSelectedCount(), updateTotalCount()                    ║
+ * ║                                                                              ║
+ * ║  [SECTION 7]  EDIT MODAL .................................. search: #EDIT    ║
+ * ║               - openEditModal() - Open order edit modal                      ║
+ * ║               - renderEditModalContent()                                      ║
+ * ║               - preparePayload()                                              ║
+ * ║                                                                              ║
+ * ║  [SECTION 8]  UPLOAD TO TPOS .............................. search: #UPLOAD  ║
+ * ║               - uploadSelectedOrders()                                        ║
+ * ║               - processOrderUpload()                                          ║
+ * ║               - showUploadResults()                                           ║
+ * ║                                                                              ║
+ * ║  [SECTION 9]  UPLOAD HISTORY .............................. search: #HISTORY ║
+ * ║               - loadUploadHistory()                                           ║
+ * ║               - renderHistoryItem()                                           ║
+ * ║               - compareCartHistory()                                          ║
+ * ║                                                                              ║
+ * ║  [SECTION 10] COMMENT ANALYSIS ............................ search: #COMMENT ║
+ * ║               - analyzeCommentDiscrepancy()                                   ║
+ * ║               - renderCommentEntry()                                          ║
+ * ║                                                                              ║
+ * ║  [SECTION 11] PRODUCT DISCREPANCY ......................... search: #DISCREP ║
+ * ║               - analyzeProductDiscrepancy()                                   ║
+ * ║               - renderProductDiscrepancyDetails()                             ║
+ * ║                                                                              ║
+ * ║  [SECTION 12] FINALIZE HISTORY ............................ search: #FINALIZE║
+ * ║               - toggleHistoryCartDetails()                                    ║
+ * ║               - toggleHistoryProductDetails()                                 ║
+ * ║               - toggleHistoryCommentAnalysis()                                ║
+ * ║                                                                              ║
+ * ╚══════════════════════════════════════════════════════════════════════════════╝
+ */
+
 // Upload TPOS Tab JavaScript
 (function () {
     'use strict';
+
+    // #region ═══════════════════════════════════════════════════════════════════
+    // ║                    SECTION 1: STATE & FIREBASE CONFIG                   ║
+    // ║                            search: #STATE                               ║
+    // #endregion ════════════════════════════════════════════════════════════════
 
     // State
     let assignments = [];

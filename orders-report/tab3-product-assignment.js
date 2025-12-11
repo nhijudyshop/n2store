@@ -1,8 +1,88 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════════════════╗
+ * ║                      TAB3-PRODUCT-ASSIGNMENT.JS                              ║
+ * ║            Product Assignment Module - Assign Products to Orders             ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                                                                              ║
+ * ║  📖 ĐỌC FILE ARCHITECTURE.md TRƯỚC ĐỂ HIỂU CẤU TRÚC TỔNG QUAN               ║
+ * ║                                                                              ║
+ * ║  📝 KHI THÊM HÀM MỚI:                                                        ║
+ * ║     1. Thêm vào đúng SECTION bên dưới                                        ║
+ * ║     2. Cập nhật TABLE OF CONTENTS nếu là hàm quan trọng                      ║
+ * ║     3. Cập nhật ARCHITECTURE.md nếu thêm section mới                         ║
+ * ║                                                                              ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                         TABLE OF CONTENTS                                     ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                                                                              ║
+ * ║  [SECTION 1]  STATE & FIREBASE CONFIG ..................... search: #STATE   ║
+ * ║               - assignments[], productsData[], ordersData[]                  ║
+ * ║               - Firebase database reference                                   ║
+ * ║                                                                              ║
+ * ║  [SECTION 2]  AUTH & API .................................. search: #AUTH    ║
+ * ║               - getAuthToken() - Lấy bearer token                            ║
+ * ║               - getValidToken() - Token management                            ║
+ * ║               - authenticatedFetch() - API calls với auth                    ║
+ * ║                                                                              ║
+ * ║  [SECTION 3]  PRODUCT DATA ................................ search: #PRODUCT ║
+ * ║               - loadProductsData() - Tải danh sách sản phẩm                 ║
+ * ║               - searchProducts() - Tìm kiếm sản phẩm                        ║
+ * ║               - displayProductSuggestions()                                   ║
+ * ║               - sortVariants() - Sắp xếp biến thể                           ║
+ * ║                                                                              ║
+ * ║  [SECTION 4]  ORDER DATA .................................. search: #ORDER   ║
+ * ║               - loadOrdersData() - Tải danh sách đơn hàng                   ║
+ * ║               - requestOrdersDataFromTab1() - Lấy từ tab1                   ║
+ * ║                                                                              ║
+ * ║  [SECTION 5]  PRODUCT ASSIGNMENT .......................... search: #ASSIGN  ║
+ * ║               - addProductToAssignment() - Thêm SP vào assignment           ║
+ * ║               - renderAssignmentTable() - Render bảng assignment            ║
+ * ║               - saveAssignments() - Lưu assignment lên Firebase             ║
+ * ║               - loadAssignments() - Tải assignment từ Firebase              ║
+ * ║                                                                              ║
+ * ║  [SECTION 6]  UPLOAD PREVIEW .............................. search: #PREVIEW ║
+ * ║               - renderUploadTable() - Render bảng upload                    ║
+ * ║               - renderPreviewModal() - Modal xem trước upload               ║
+ * ║               - showPreviewBeforeUpload()                                     ║
+ * ║                                                                              ║
+ * ║  [SECTION 7]  UPLOAD FUNCTIONS ............................ search: #UPLOAD  ║
+ * ║               - uploadSelectedSTTs() - Upload các STT đã chọn              ║
+ * ║               - uploadSingleSTT() - Upload một STT                          ║
+ * ║               - prepareUploadDetails() - Chuẩn bị payload                   ║
+ * ║               - prepareUploadPayload()                                        ║
+ * ║                                                                              ║
+ * ║  [SECTION 8]  UPLOAD HISTORY .............................. search: #HISTORY ║
+ * ║               - loadUploadHistory() - Tải lịch sử upload                    ║
+ * ║               - filterUploadHistory() - Lọc lịch sử                         ║
+ * ║               - renderUploadHistoryList() - Render danh sách                ║
+ * ║               - formatHistoryCard() - Format card lịch sử                   ║
+ * ║                                                                              ║
+ * ║  [SECTION 9]  HISTORY DETAIL .............................. search: #DETAIL  ║
+ * ║               - viewUploadHistoryDetail() - Xem chi tiết                    ║
+ * ║               - renderHistoryDetailHTML()                                     ║
+ * ║                                                                              ║
+ * ║  [SECTION 10] HISTORY COMPARISON .......................... search: #COMPARE ║
+ * ║               - compareCartHistory() - So sánh giỏ hàng                     ║
+ * ║               - compareCartHistoryV2()                                        ║
+ * ║               - renderComparisonContent()                                     ║
+ * ║                                                                              ║
+ * ║  [SECTION 11] NOTE ENCODING ............................... search: #NOTE    ║
+ * ║               - processNoteForUpload() - Encode note                         ║
+ * ║               - formatNoteWithClickableEncoded()                              ║
+ * ║                                                                              ║
+ * ╚══════════════════════════════════════════════════════════════════════════════╝
+ */
+
 // Product Assignment Tab JavaScript
 (function () {
     'use strict';
 
-    // State
+    // #region ═══════════════════════════════════════════════════════════════════
+    // ║                    SECTION 1: STATE & FIREBASE CONFIG                   ║
+    // ║                            search: #STATE                               ║
+    // #endregion ════════════════════════════════════════════════════════════════
+
+    // State #STATE
     let productsData = [];
     let ordersData = [];
     let assignments = [];
