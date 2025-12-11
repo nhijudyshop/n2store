@@ -518,6 +518,11 @@ window.addEventListener("DOMContentLoaded", async function () {
         .getElementById("campaignFilter")
         .addEventListener("change", handleCampaignChange);
 
+    // 🎯 Event listener for custom date filter - auto-search when date changes
+    document
+        .getElementById("customStartDate")
+        .addEventListener("change", handleCustomDateChange);
+
     // Event listener for employee campaign selector
     const employeeCampaignSelector = document.getElementById('employeeCampaignSelector');
     if (employeeCampaignSelector) {
@@ -3299,6 +3304,14 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
 async function populateCampaignFilter(campaigns, autoLoad = false) {
     const select = document.getElementById("campaignFilter");
     select.innerHTML = '<option value="">-- Chọn chiến dịch --</option>';
+
+    // 🎯 Add Custom option for filtering by order creation date
+    const customOption = document.createElement("option");
+    customOption.value = "custom";
+    customOption.textContent = "🔮 Custom (lọc theo ngày tạo đơn)";
+    customOption.dataset.campaign = JSON.stringify({ isCustom: true });
+    select.appendChild(customOption);
+
     campaigns.forEach((campaign, index) => {
         const option = document.createElement("option");
         // Sử dụng index làm value vì campaignId giờ là array
@@ -3364,6 +3377,30 @@ async function handleCampaignChange() {
         ? JSON.parse(selectedOption.dataset.campaign)
         : null;
 
+    // 🎯 Handle Custom mode - show/hide custom date input
+    const customDateContainer = document.getElementById("customDateFilterContainer");
+    if (selectedCampaign?.isCustom) {
+        customDateContainer.style.display = "flex";
+        console.log('[CUSTOM-FILTER] Custom mode selected - showing custom date input');
+
+        // Set default custom date to start of today if empty
+        const customStartDateInput = document.getElementById("customStartDate");
+        if (!customStartDateInput.value) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            customStartDateInput.value = formatDateTimeLocal(today);
+        }
+
+        // Load employee ranges (general, no campaign)
+        console.log('[EMPLOYEE] Loading general employee ranges for custom mode');
+        await loadEmployeeRangesForCampaign(null);
+
+        // Don't auto-search yet, wait for user to confirm custom date
+        return;
+    } else {
+        customDateContainer.style.display = "none";
+    }
+
     // 🔥 Cleanup old Firebase TAG listeners
     cleanupTagRealtimeListeners();
 
@@ -3392,6 +3429,39 @@ async function handleCampaignChange() {
     }
 }
 
+// 🎯 Handle custom date filter change - auto-trigger search
+async function handleCustomDateChange() {
+    // Only proceed if in custom mode
+    if (!selectedCampaign?.isCustom) {
+        return;
+    }
+
+    const customStartDateValue = document.getElementById("customStartDate").value;
+    if (!customStartDateValue) {
+        console.log('[CUSTOM-FILTER] Custom date cleared, waiting for valid date...');
+        return;
+    }
+
+    console.log(`[CUSTOM-FILTER] Custom date changed to: ${customStartDateValue}`);
+
+    // Cleanup old listeners and data
+    cleanupTagRealtimeListeners();
+
+    // Notify user
+    if (window.notificationManager) {
+        window.notificationManager.info(
+            `Đang tải đơn hàng từ ngày: ${new Date(customStartDateValue).toLocaleString('vi-VN')}`,
+            2000
+        );
+    }
+
+    // Trigger search
+    await handleSearch();
+
+    // Setup new TAG listeners
+    setupTagRealtimeListeners();
+}
+
 async function reloadTableData() {
     const btn = document.getElementById('reloadTableBtn');
     const icon = btn ? btn.querySelector('i') : null;
@@ -3400,7 +3470,9 @@ async function reloadTableData() {
     if (icon) icon.classList.add('fa-spin');
 
     try {
-        if (!selectedCampaign?.campaignId && !selectedCampaign?.campaignIds) {
+        // 🎯 Also allow custom mode
+        const isCustomMode = selectedCampaign?.isCustom;
+        if (!isCustomMode && !selectedCampaign?.campaignId && !selectedCampaign?.campaignIds) {
             if (window.notificationManager) {
                 window.notificationManager.warning("Vui lòng chọn chiến dịch trước khi tải lại");
             } else {
@@ -3428,7 +3500,10 @@ async function reloadTableData() {
 }
 
 async function handleSearch() {
-    if (!selectedCampaign?.campaignId && !selectedCampaign?.campaignIds) {
+    // 🎯 Check for custom mode OR normal campaign mode
+    const isCustomMode = selectedCampaign?.isCustom;
+
+    if (!isCustomMode && !selectedCampaign?.campaignId && !selectedCampaign?.campaignIds) {
         alert("Vui lòng chọn chiến dịch");
         return;
     }
@@ -3440,6 +3515,19 @@ async function handleSearch() {
     if (!startDateValue || !endDateValue) {
         alert("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)");
         return;
+    }
+
+    // 🎯 Custom mode: validate custom start date
+    if (isCustomMode) {
+        const customStartDateValue = document.getElementById("customStartDate").value;
+        if (!customStartDateValue) {
+            if (window.notificationManager) {
+                window.notificationManager.error("Vui lòng chọn ngày bắt đầu custom", 3000);
+            } else {
+                alert("Vui lòng chọn ngày bắt đầu custom");
+            }
+            return;
+        }
     }
 
     // Abort any ongoing background loading
@@ -3467,26 +3555,38 @@ async function fetchOrders() {
         showLoading(true);
         loadingAborted = false;
 
-        const startDate = convertToUTC(
-            document.getElementById("startDate").value,
-        );
-        const endDate = convertToUTC(document.getElementById("endDate").value);
+        // 🎯 Check for custom mode
+        const isCustomMode = selectedCampaign?.isCustom;
+        let filter;
 
-        // Xử lý campaignId có thể là array (nhiều campaigns cùng ngày) hoặc single value
-        const campaignIds = selectedCampaign.campaignIds || (Array.isArray(selectedCampaign.campaignId) ? selectedCampaign.campaignId : [selectedCampaign.campaignId]);
-
-        // Tạo filter cho nhiều campaign IDs
-        let campaignFilter;
-        if (campaignIds.length === 1) {
-            campaignFilter = `LiveCampaignId eq ${campaignIds[0]}`;
+        if (isCustomMode) {
+            // 🎯 CUSTOM MODE: Filter only by DateCreated >= customStartDate
+            const customStartDate = convertToUTC(document.getElementById("customStartDate").value);
+            filter = `DateCreated ge ${customStartDate}`;
+            console.log(`[FETCH-CUSTOM] Fetching ALL orders with DateCreated >= ${customStartDate}`);
         } else {
-            // Tạo filter dạng: (LiveCampaignId eq 123 or LiveCampaignId eq 456 or ...)
-            const campaignConditions = campaignIds.map(id => `LiveCampaignId eq ${id}`).join(' or ');
-            campaignFilter = `(${campaignConditions})`;
-        }
+            // NORMAL MODE: Filter by date range AND campaign
+            const startDate = convertToUTC(
+                document.getElementById("startDate").value,
+            );
+            const endDate = convertToUTC(document.getElementById("endDate").value);
 
-        const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate}) and ${campaignFilter}`;
-        console.log(`[FETCH] Fetching orders for ${campaignIds.length} campaign(s): ${campaignIds.join(', ')}`);
+            // Xử lý campaignId có thể là array (nhiều campaigns cùng ngày) hoặc single value
+            const campaignIds = selectedCampaign.campaignIds || (Array.isArray(selectedCampaign.campaignId) ? selectedCampaign.campaignId : [selectedCampaign.campaignId]);
+
+            // Tạo filter cho nhiều campaign IDs
+            let campaignFilter;
+            if (campaignIds.length === 1) {
+                campaignFilter = `LiveCampaignId eq ${campaignIds[0]}`;
+            } else {
+                // Tạo filter dạng: (LiveCampaignId eq 123 or LiveCampaignId eq 456 or ...)
+                const campaignConditions = campaignIds.map(id => `LiveCampaignId eq ${id}`).join(' or ');
+                campaignFilter = `(${campaignConditions})`;
+            }
+
+            filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate}) and ${campaignFilter}`;
+            console.log(`[FETCH] Fetching orders for ${campaignIds.length} campaign(s): ${campaignIds.join(', ')}`);
+        }
 
         const PAGE_SIZE = 1000; // API fetch size for background loading
         const INITIAL_PAGE_SIZE = 50; // Smaller size for instant first load
