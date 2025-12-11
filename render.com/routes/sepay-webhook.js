@@ -608,13 +608,26 @@ router.get('/debt-summary', async (req, res) => {
         console.log('[DEBT-SUMMARY] QR codes found:', qrCodes);
 
         if (qrCodes.length === 0) {
+            // Fallback: Try to get debt from customers table
+            const customerResult = await db.query(
+                `SELECT debt FROM customers WHERE phone = $1 LIMIT 1`,
+                [phone]
+            );
+
+            const customerDebt = customerResult.rows.length > 0
+                ? (parseFloat(customerResult.rows[0].debt) || 0)
+                : 0;
+
+            console.log('[DEBT-SUMMARY] No QR codes, fallback to customers.debt:', customerDebt);
+
             return res.json({
                 success: true,
                 data: {
                     phone,
-                    total_debt: 0,
+                    total_debt: customerDebt,
                     transactions: [],
-                    transaction_count: 0
+                    transaction_count: 0,
+                    source: 'customers_table'
                 }
             });
         }
