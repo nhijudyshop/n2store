@@ -1,5 +1,115 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════════════════╗
+ * ║                           TAB1-ORDERS.JS                                      ║
+ * ║                   Order Management Module - Main Logic                        ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                                                                              ║
+ * ║  📖 ĐỌC FILE ARCHITECTURE.md TRƯỚC ĐỂ HIỂU CẤU TRÚC TỔNG QUAN               ║
+ * ║                                                                              ║
+ * ║  📝 KHI THÊM HÀM MỚI:                                                        ║
+ * ║     1. Thêm vào đúng SECTION/REGION bên dưới                                 ║
+ * ║     2. Cập nhật TABLE OF CONTENTS nếu là hàm quan trọng                      ║
+ * ║     3. Cập nhật ARCHITECTURE.md nếu thêm section mới                         ║
+ * ║                                                                              ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                         TABLE OF CONTENTS                                     ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                                                                              ║
+ * ║  [SECTION 1]  GLOBAL VARIABLES .......................... search: #GLOBAL    ║
+ * ║               - State: allData, filteredData, displayedData                  ║
+ * ║               - formatTimeVN() - Format thời gian Việt Nam                   ║
+ * ║                                                                              ║
+ * ║  [SECTION 2]  FIREBASE & REALTIME TAG SYNC .............. search: #FIREBASE  ║
+ * ║               - emitTagUpdateToFirebase() - Gửi tag lên Firebase             ║
+ * ║               - setupTagRealtimeListeners() - Lắng nghe tag realtime         ║
+ * ║               - handleRealtimeTagUpdate() - Xử lý cập nhật tag               ║
+ * ║                                                                              ║
+ * ║  [SECTION 3]  INITIALIZATION ............................ search: #INIT      ║
+ * ║               - DOMContentLoaded event                                        ║
+ * ║               - Auto-load campaigns                                           ║
+ * ║                                                                              ║
+ * ║  [SECTION 4]  EMPLOYEE RANGE MANAGEMENT ................. search: #EMPLOYEE  ║
+ * ║               - loadAndRenderEmployeeTable()                                  ║
+ * ║               - applyEmployeeRanges()                                         ║
+ * ║               - getEmployeeName()                                             ║
+ * ║                                                                              ║
+ * ║  [SECTION 5]  TAG MANAGEMENT ............................ search: #TAG       ║
+ * ║               - loadAvailableTags() - Tải danh sách tag                      ║
+ * ║               - openTagModal() - Mở modal gán tag                            ║
+ * ║               - saveOrderTags() - Lưu tag đơn hàng                           ║
+ * ║               - quickAssignTag() - Gán tag nhanh                             ║
+ * ║                                                                              ║
+ * ║  [SECTION 6]  BULK TAG ASSIGNMENT ....................... search: #BULK-TAG  ║
+ * ║               - parseBulkSTTInput() - Parse STT input                        ║
+ * ║               - executeBulkTagAssignment() - Gán tag hàng loạt              ║
+ * ║                                                                              ║
+ * ║  [SECTION 7]  TABLE SEARCH & FILTERING .................. search: #SEARCH    ║
+ * ║               - handleTableSearch() - Tìm kiếm bảng                          ║
+ * ║               - performTableSearch() - Thực hiện tìm kiếm                    ║
+ * ║                                                                              ║
+ * ║  [SECTION 8]  TABLE RENDERING ........................... search: #RENDER    ║
+ * ║               - renderTable() - Render bảng chính                            ║
+ * ║               - createRowHTML() - Tạo HTML hàng                              ║
+ * ║               - renderMessagesColumn() - Render cột tin nhắn                 ║
+ * ║               - renderCommentsColumn() - Render cột bình luận                ║
+ * ║                                                                              ║
+ * ║  [SECTION 9]  MERGED ORDER COLUMNS ...................... search: #MERGED    ║
+ * ║               - renderMergedMessagesColumn()                                  ║
+ * ║               - renderMergedQuantityColumn()                                  ║
+ * ║               - renderMergedTotalColumn()                                     ║
+ * ║                                                                              ║
+ * ║  [SECTION 10] EDIT MODAL ................................ search: #EDIT      ║
+ * ║               - openEditModal() - Mở modal sửa đơn                           ║
+ * ║               - saveOrderChanges() - Lưu thay đổi                            ║
+ * ║               - prepareOrderPayload() - Chuẩn bị payload API                 ║
+ * ║                                                                              ║
+ * ║  [SECTION 11] INLINE PRODUCT SEARCH ..................... search: #PRODUCT   ║
+ * ║               - initInlineProductSearch()                                     ║
+ * ║               - performInlineSearch()                                         ║
+ * ║               - addProductToOrderFromInline()                                 ║
+ * ║                                                                              ║
+ * ║  [SECTION 12] CHAT MODAL & MESSAGING .................... search: #CHAT      ║
+ * ║               - openChatModal() - Mở modal chat                              ║
+ * ║               - sendMessage() - Gửi tin nhắn                                 ║
+ * ║               - sendComment() - Gửi bình luận                                ║
+ * ║               - Image upload & paste handling                                 ║
+ * ║                                                                              ║
+ * ║  [SECTION 13] INFINITE SCROLL ........................... search: #SCROLL    ║
+ * ║               - setupChatInfiniteScroll()                                     ║
+ * ║               - loadMoreMessages()                                            ║
+ * ║               - loadMoreComments()                                            ║
+ * ║                                                                              ║
+ * ║  [SECTION 14] NOTE ENCODING/DECODING .................... search: #ENCODE    ║
+ * ║               - base64UrlDecode()                                             ║
+ * ║               - xorDecrypt()                                                  ║
+ * ║               - decodeProductLine()                                           ║
+ * ║               - hasValidEncodedProducts()                                     ║
+ * ║                                                                              ║
+ * ║  [SECTION 15] ORDER MERGE FUNCTIONS ..................... search: #MERGE     ║
+ * ║               - getOrderDetails()                                             ║
+ * ║               - executeMergeOrderProducts()                                   ║
+ * ║               - executeBulkMergeOrderProducts()                               ║
+ * ║                                                                              ║
+ * ║  [SECTION 16] ADDRESS LOOKUP ............................ search: #ADDRESS   ║
+ * ║               - handleAddressLookup()                                         ║
+ * ║               - handleFullAddressLookup()                                     ║
+ * ║                                                                              ║
+ * ║  [SECTION 17] QR CODE & DEBT FUNCTIONS .................. search: #QR-DEBT   ║
+ * ║               - renderQRColumn() - Render cột QR                             ║
+ * ║               - renderDebtColumn() - Render cột công nợ                      ║
+ * ║               - fetchDebtForPhone() - Lấy công nợ theo SĐT                   ║
+ * ║               - connectDebtRealtime() - Kết nối SSE cập nhật công nợ         ║
+ * ║                                                                              ║
+ * ╚══════════════════════════════════════════════════════════════════════════════╝
+ */
+
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                        SECTION 1: GLOBAL VARIABLES                          ║
+// ║                            search: #GLOBAL                                  ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// GLOBAL VARIABLES
+// GLOBAL VARIABLES #GLOBAL
 // =====================================================
 
 /**
@@ -102,8 +212,13 @@ window.purchaseCommentId = null; // Store the Facebook_CommentId from the order 
 window.purchaseFacebookPostId = null; // Store Facebook_PostId
 window.purchaseFacebookASUserId = null; // Store Facebook_ASUserId
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                   SECTION 2: FIREBASE & REALTIME TAG SYNC                   ║
+// ║                            search: #FIREBASE                                ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// FIREBASE DATABASE REFERENCE FOR NOTE TRACKING
+// FIREBASE DATABASE REFERENCE FOR NOTE TRACKING #FIREBASE
 // =====================================================
 // Note: Firebase is already initialized in config.js which loads before this file
 let database = null;
@@ -115,7 +230,7 @@ try {
 }
 
 // =====================================================
-// REALTIME TAG SYNC - Firebase & WebSocket
+// REALTIME TAG SYNC - Firebase & WebSocket #FIREBASE
 // =====================================================
 let tagListenersSetup = false; // Flag to prevent duplicate listener setup
 
@@ -366,8 +481,13 @@ window.testTagListeners = function () {
     console.log('\n=== TEST COMPLETE ===');
 };
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                        SECTION 3: INITIALIZATION                            ║
+// ║                            search: #INIT                                    ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// INITIALIZATION
+// INITIALIZATION #INIT
 // =====================================================
 window.addEventListener("DOMContentLoaded", async function () {
     console.log("[CACHE] Clearing all cache on page load...");
@@ -563,8 +683,13 @@ window.addEventListener("DOMContentLoaded", async function () {
     });
 });
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                   SECTION 4: EMPLOYEE RANGE MANAGEMENT                      ║
+// ║                            search: #EMPLOYEE                                ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// EMPLOYEE RANGE MANAGEMENT FUNCTIONS
+// EMPLOYEE RANGE MANAGEMENT FUNCTIONS #EMPLOYEE
 // =====================================================
 async function loadAndRenderEmployeeTable() {
     try {
@@ -921,8 +1046,13 @@ function syncEmployeeRanges() {
     });
 }
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                        SECTION 5: TAG MANAGEMENT                            ║
+// ║                            search: #TAG                                     ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// TAG MANAGEMENT FUNCTIONS
+// TAG MANAGEMENT FUNCTIONS #TAG
 // =====================================================
 async function loadAvailableTags() {
     try {
@@ -2031,8 +2161,13 @@ async function saveOrderTags() {
     }
 }
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                     SECTION 6: BULK TAG ASSIGNMENT                          ║
+// ║                            search: #BULK-TAG                                ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// BULK TAG ASSIGNMENT FUNCTIONS
+// BULK TAG ASSIGNMENT FUNCTIONS #BULK-TAG
 // =====================================================
 
 /**
@@ -2482,8 +2617,13 @@ async function executeBulkTagAssignment() {
     }
 }
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                   SECTION 7: TABLE SEARCH & FILTERING                       ║
+// ║                            search: #SEARCH                                  ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// TABLE SEARCH & FILTERING
+// TABLE SEARCH & FILTERING #SEARCH
 // =====================================================
 function handleTableSearch(query) {
     if (searchTimeout) clearTimeout(searchTimeout);
@@ -4344,8 +4484,13 @@ function renderCommentsColumn(order) {
     return renderChatColumnWithData(order, commentInfo, channelId, psid, 'comments');
 }
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                    SECTION 9: MERGED ORDER COLUMNS                          ║
+// ║                            search: #MERGED                                  ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// MERGED ORDER COLUMNS - Messages & Comments (STT-based)
+// MERGED ORDER COLUMNS - Messages & Comments (STT-based) #MERGED
 // =====================================================
 
 // Render merged messages/comments column with individual STT values
@@ -6002,8 +6147,13 @@ function prepareOrderPayload(orderData) {
     return payload;
 }
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                    SECTION 11: INLINE PRODUCT SEARCH                        ║
+// ║                            search: #PRODUCT                                 ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// INLINE PRODUCT SEARCH
+// INLINE PRODUCT SEARCH #PRODUCT
 // =====================================================
 let inlineSearchTimeout = null;
 
@@ -10025,8 +10175,13 @@ function setupNewMessageIndicatorListener() {
     });
 }
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                       SECTION 13: INFINITE SCROLL                           ║
+// ║                            search: #SCROLL                                  ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// INFINITE SCROLL FOR MESSAGES & COMMENTS
+// INFINITE SCROLL FOR MESSAGES & COMMENTS #SCROLL
 // =====================================================
 
 function setupChatInfiniteScroll() {
@@ -10222,8 +10377,13 @@ window.markChatAsRead = async function () {
     }
 }
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                   SECTION 14: NOTE ENCODING/DECODING                        ║
+// ║                            search: #ENCODE                                  ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// PRODUCT ENCODING/DECODING UTILITIES (for Note verification)
+// PRODUCT ENCODING/DECODING UTILITIES (for Note verification) #ENCODE
 // =====================================================
 const ENCODE_KEY = 'live';
 const BASE_TIME = 1704067200000; // 2024-01-01 00:00:00 UTC
@@ -12350,8 +12510,13 @@ window.executeBulkMergeOrderProducts = executeBulkMergeOrderProducts;
 
 
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                       SECTION 16: ADDRESS LOOKUP                            ║
+// ║                            search: #ADDRESS                                 ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// ADDRESS LOOKUP LOGIC
+// ADDRESS LOOKUP LOGIC #ADDRESS
 // =====================================================
 async function handleAddressLookup() {
     const input = document.getElementById('addressLookupInput');
@@ -13584,8 +13749,13 @@ function updateChatDebtDisplay(debt) {
 // Export chat debt function
 window.loadChatDebt = loadChatDebt;
 
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                   SECTION 17: QR CODE & DEBT FUNCTIONS                      ║
+// ║                            search: #QR-DEBT                                 ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
 // =====================================================
-// DEBT (CÔNG NỢ) FUNCTIONS
+// DEBT (CÔNG NỢ) FUNCTIONS #QR-DEBT
 // =====================================================
 
 const DEBT_CACHE_KEY = 'orders_phone_debt_cache';
