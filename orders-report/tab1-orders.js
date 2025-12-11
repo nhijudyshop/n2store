@@ -9303,6 +9303,111 @@ function getImageDimensions(blob) {
 // =====================================================
 
 /**
+ * Try to unlock Pancake conversation when 24h policy or user unavailable error occurs
+ * Calls 3 APIs in sequence: fill_admin_name, check_inbox, contents/touch
+ * @param {string} pageId - Page ID
+ * @param {string} conversationId - Conversation ID
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function tryPancakeUnlock(pageId, conversationId) {
+    console.log('[PANCAKE-UNLOCK] 🔓 Attempting to unlock conversation...');
+    console.log('[PANCAKE-UNLOCK] Page ID:', pageId, 'Conversation ID:', conversationId);
+
+    try {
+        // Get Pancake token (access_token)
+        const accessToken = await window.pancakeTokenManager.getToken();
+        if (!accessToken) {
+            console.error('[PANCAKE-UNLOCK] ❌ No Pancake access token');
+            return { success: false, error: 'No Pancake access token' };
+        }
+
+        // Get JWT token from access_token (they are the same for Pancake)
+        const jwtToken = accessToken;
+
+        // API 1: fill_admin_name
+        console.log('[PANCAKE-UNLOCK] Step 1/3: fill_admin_name...');
+        const fillAdminUrl = window.API_CONFIG.buildUrl.pancakeDirect(
+            `pages/${pageId}/conversations/${conversationId}/messages/fill_admin_name`,
+            pageId,
+            jwtToken,
+            accessToken
+        );
+
+        const fillAdminBody = JSON.stringify({
+            timestamp: Date.now(),
+            need_remove_lock_crawl_fb_messages: false
+        });
+
+        const fillAdminResponse = await fetch(fillAdminUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: fillAdminBody
+        });
+
+        console.log('[PANCAKE-UNLOCK] fill_admin_name response:', fillAdminResponse.status);
+
+        // API 2: check_inbox
+        console.log('[PANCAKE-UNLOCK] Step 2/3: check_inbox...');
+        const checkInboxUrl = window.API_CONFIG.buildUrl.pancakeDirect(
+            `pages/${pageId}/check_inbox`,
+            pageId,
+            jwtToken,
+            accessToken
+        );
+
+        const checkInboxResponse = await fetch(checkInboxUrl, {
+            method: 'POST'
+        });
+
+        console.log('[PANCAKE-UNLOCK] check_inbox response:', checkInboxResponse.status);
+
+        // API 3: contents/touch
+        console.log('[PANCAKE-UNLOCK] Step 3/3: contents/touch...');
+        const contentsTouchUrl = window.API_CONFIG.buildUrl.pancakeDirect(
+            `pages/${pageId}/contents/touch`,
+            pageId,
+            jwtToken,
+            accessToken
+        );
+
+        const contentsTouchBody = JSON.stringify({
+            content_ids: []
+        });
+
+        const contentsTouchResponse = await fetch(contentsTouchUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: contentsTouchBody
+        });
+
+        console.log('[PANCAKE-UNLOCK] contents/touch response:', contentsTouchResponse.status);
+
+        // Check if all APIs succeeded (2xx status)
+        const allSucceeded = fillAdminResponse.ok && checkInboxResponse.ok && contentsTouchResponse.ok;
+
+        if (allSucceeded) {
+            console.log('[PANCAKE-UNLOCK] ✅ All 3 APIs succeeded, conversation may be unlocked');
+            return { success: true };
+        } else {
+            console.warn('[PANCAKE-UNLOCK] ⚠️ Some APIs failed:', {
+                fill_admin_name: fillAdminResponse.status,
+                check_inbox: checkInboxResponse.status,
+                contents_touch: contentsTouchResponse.status
+            });
+            return { success: false, error: 'Some unlock APIs failed' };
+        }
+
+    } catch (error) {
+        console.error('[PANCAKE-UNLOCK] ❌ Error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Send message (MESSAGE modal only)
  * Called by queue processor
  */
@@ -9472,10 +9577,79 @@ async function sendMessageInternal(messageData) {
             apiError = err;
             console.warn('[MESSAGE] ⚠️ API failed:', err.message);
 
-            // Try extension fallback - extension uses Facebook's internal web API
+            // Check if this is a 24h policy or user unavailable error
+            const needsUnlockFallback = err.is24HourError || err.isUserUnavailable;
+
+            // Fallback 1: Try Pancake Unlock (fill_admin_name, check_inbox, contents/touch)
+            if (needsUnlockFallback) {
+                const errorType = err.is24HourError ? '24H policy' : 'user unavailable (551)';
+                console.log(`[MESSAGE] 🔓 ${errorType} error - attempting Pancake Unlock...`);
+                showChatSendingIndicator('Đang thử unlock conversation...');
+
+                const unlockResult = await tryPancakeUnlock(channelId, conversationId);
+
+                if (unlockResult.success) {
+                    console.log('[MESSAGE] 🔓 Pancake Unlock succeeded, retrying message send...');
+                    showChatSendingIndicator('Đang gửi lại tin nhắn...');
+
+                    // Retry sending the message
+                    try {
+                        const retryFormData = new FormData();
+                        retryFormData.append('action', 'reply_inbox');
+                        retryFormData.append('message', message);
+
+                        // Re-add image data if exists
+                        if (imagesDataArray && imagesDataArray.length > 0) {
+                            const imageData = imagesDataArray[0];
+                            if (imageData.content_url) retryFormData.append('content_url', imageData.content_url);
+                            if (imageData.content_id || imageData.id) retryFormData.append('content_id', imageData.content_id || imageData.id);
+                            if (imageData.attachment_id) retryFormData.append('attachment_id', imageData.attachment_id);
+                            const width = imageData.width || imageData.original_dimensions?.width || 800;
+                            const height = imageData.height || imageData.original_dimensions?.height || 600;
+                            retryFormData.append('width', String(width));
+                            retryFormData.append('height', String(height));
+                            retryFormData.append('send_by_platform', 'web');
+                        }
+
+                        if (repliedMessageId) {
+                            retryFormData.append('replied_message_id', repliedMessageId);
+                        }
+
+                        const retryToken = await window.pancakeTokenManager.getToken();
+                        let retryQueryParams = `access_token=${retryToken}`;
+                        if (customerId) {
+                            retryQueryParams += `&customer_id=${customerId}`;
+                        }
+                        const retryUrl = window.API_CONFIG.buildUrl.pancake(
+                            `pages/${channelId}/conversations/${conversationId}/messages`,
+                            retryQueryParams
+                        );
+
+                        const retryResponse = await API_CONFIG.smartFetch(retryUrl, {
+                            method: 'POST',
+                            body: retryFormData
+                        }, 1, true); // Only 1 retry, skip fallback
+
+                        if (retryResponse.ok) {
+                            const retryData = await retryResponse.json();
+                            if (retryData.success !== false) {
+                                console.log('[MESSAGE] ✅ Retry after unlock succeeded!');
+                                apiSuccess = true;
+                                apiError = null;
+                            }
+                        }
+                    } catch (retryErr) {
+                        console.warn('[MESSAGE] ⚠️ Retry after unlock failed:', retryErr.message);
+                        // Continue to extension fallback
+                    }
+                } else {
+                    console.warn('[MESSAGE] ⚠️ Pancake Unlock failed:', unlockResult.error);
+                }
+            }
+
+            // Fallback 2: Try extension fallback - extension uses Facebook's internal web API
             // which can bypass 24-hour policy and user unavailable errors (unlike Pancake API which uses Graph API)
-            const needsExtensionFallback = err.is24HourError || err.isUserUnavailable;
-            if (window.extensionBridge && window.extensionBridge.isAvailable()) {
+            if (!apiSuccess && window.extensionBridge && window.extensionBridge.isAvailable()) {
                 console.log('[MESSAGE] 🔄 Attempting extension fallback...');
 
                 if (err.is24HourError) {
@@ -9509,11 +9683,11 @@ async function sendMessageInternal(messageData) {
                     console.error('[MESSAGE] ❌ Extension fallback error:', extError);
                     // Keep original API error for user message
                 }
-            } else {
+            } else if (!apiSuccess) {
                 console.log('[MESSAGE] ⚠️ Extension not available for fallback');
 
                 // For 24H errors or user unavailable without extension, suggest using comment
-                if (needsExtensionFallback) {
+                if (needsUnlockFallback) {
                     console.log('[MESSAGE] 💡 Suggest using COMMENT as alternative');
                 }
             }

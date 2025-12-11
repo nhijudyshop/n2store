@@ -51,6 +51,23 @@ const API_CONFIG = {
         pancake: (endpoint, params = '') => {
             const baseUrl = `${WORKER_URL}/api/pancake/${endpoint}`;
             return params ? `${baseUrl}?${params}` : baseUrl;
+        },
+
+        /**
+         * Build Pancake Direct API URL (with custom Referer and JWT cookie)
+         * Used for 24h policy bypass - fill_admin_name, check_inbox, contents/touch
+         * @param {string} endpoint - e.g., "pages/123/check_inbox"
+         * @param {string} pageId - Page ID for Referer mapping
+         * @param {string} jwtToken - JWT token for Cookie header
+         * @param {string} accessToken - Pancake access token
+         * @returns {string} - Full URL via Cloudflare Worker proxy
+         */
+        pancakeDirect: (endpoint, pageId, jwtToken, accessToken) => {
+            const params = new URLSearchParams();
+            params.set('page_id', pageId);
+            params.set('jwt', jwtToken);
+            params.set('access_token', accessToken);
+            return `${WORKER_URL}/api/pancake-direct/${endpoint}?${params.toString()}`;
         }
     },
 
