@@ -7046,6 +7046,7 @@ let currentParentCommentId = null;  // Lưu parent comment ID
 let currentPostId = null; // Lưu post ID của comment đang reply
 window.availableChatPages = []; // Cache pages for selector
 window.currentSendPageId = null; // Page ID selected for SENDING messages (independent from view)
+window.allMatchingConversations = []; // Store all matching conversations for selector
 
 // =====================================================
 // PAGE SELECTOR FUNCTIONS
@@ -7344,6 +7345,255 @@ window.reloadChatForSelectedPage = async function (pageId) {
 };
 
 // =====================================================
+// CONVERSATION SELECTOR FUNCTIONS
+// =====================================================
+
+/**
+ * Format time ago for conversation selector
+ * @param {number} timestamp - Unix timestamp in seconds
+ * @returns {string} - Formatted time ago string
+ */
+function formatConversationTimeAgo(timestamp) {
+    if (!timestamp) return '';
+    const now = Date.now() / 1000;
+    const diff = now - timestamp;
+
+    if (diff < 60) return 'vừa xong';
+    if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`;
+    return `${Math.floor(diff / 604800)} tuần trước`;
+}
+
+/**
+ * Populate conversation selector with all matching conversations
+ * Sort by most recent (updated_time) and select the most recent by default
+ * @param {Array} conversations - Array of matching conversations
+ * @param {string} selectedConvId - Optional conversation ID to pre-select
+ */
+window.populateConversationSelector = function (conversations, selectedConvId = null) {
+    console.log('[CONV-SELECTOR] Populating with', conversations?.length || 0, 'conversations');
+
+    const selectorContainer = document.getElementById('chatConversationSelector');
+    const select = document.getElementById('chatConversationSelect');
+
+    if (!selectorContainer || !select) {
+        console.error('[CONV-SELECTOR] Selector elements not found');
+        return;
+    }
+
+    // Hide selector if only 1 or no conversations
+    if (!conversations || conversations.length <= 1) {
+        selectorContainer.style.display = 'none';
+        window.allMatchingConversations = conversations || [];
+        return;
+    }
+
+    // Store all conversations globally
+    window.allMatchingConversations = conversations;
+
+    // Sort by updated_time descending (most recent first)
+    const sortedConversations = [...conversations].sort((a, b) => {
+        const timeA = a.updated_time || a.last_message_at || 0;
+        const timeB = b.updated_time || b.last_message_at || 0;
+        return timeB - timeA;
+    });
+
+    // Build options HTML
+    let optionsHtml = '';
+    sortedConversations.forEach((conv, index) => {
+        const convId = conv.id || conv.conversation_id || `conv_${index}`;
+        const convType = conv.type || 'INBOX';
+        const typeIcon = convType === 'COMMENT' ? '💬' : '📨';
+        const timeAgo = formatConversationTimeAgo(conv.updated_time || conv.last_message_at);
+        const lastMessage = conv.last_message?.content || conv.snippet || '';
+        const preview = lastMessage.length > 30 ? lastMessage.substring(0, 30) + '...' : lastMessage;
+        const pageName = conv.page_name || '';
+
+        // Label format: [Type Icon] [Time] - [Preview] (Page)
+        let label = `${typeIcon} ${convType}`;
+        if (timeAgo) label += ` • ${timeAgo}`;
+        if (preview) label += ` - ${preview}`;
+        if (pageName) label += ` (${pageName})`;
+
+        const isSelected = selectedConvId ? (convId === selectedConvId) : (index === 0);
+        optionsHtml += `<option value="${convId}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+    });
+
+    select.innerHTML = optionsHtml;
+    selectorContainer.style.display = 'block';
+
+    console.log('[CONV-SELECTOR] ✅ Populated with', sortedConversations.length, 'conversations, default:', sortedConversations[0]?.id);
+
+    // Return the most recent conversation (for initial load)
+    return sortedConversations[0];
+};
+
+/**
+ * Handle conversation selection change
+ * @param {string} conversationId - Selected conversation ID
+ */
+window.onChatConversationChanged = async function (conversationId) {
+    console.log('[CONV-SELECTOR] Conversation changed to:', conversationId);
+
+    if (!conversationId) return;
+
+    // Find the selected conversation
+    const selectedConv = window.allMatchingConversations.find(c =>
+        (c.id || c.conversation_id) === conversationId
+    );
+
+    if (!selectedConv) {
+        console.error('[CONV-SELECTOR] Selected conversation not found:', conversationId);
+        return;
+    }
+
+    // Show notification
+    const convType = selectedConv.type || 'INBOX';
+    if (window.notificationManager) {
+        window.notificationManager.show(`Đang tải ${convType === 'COMMENT' ? 'bình luận' : 'tin nhắn'}...`, 'info', 2000);
+    }
+
+    // Reload chat for selected conversation
+    await window.reloadChatForSelectedConversation(selectedConv);
+};
+
+/**
+ * Reload messages/comments for selected conversation
+ * @param {Object} conversation - Selected conversation object
+ */
+window.reloadChatForSelectedConversation = async function (conversation) {
+    console.log('[CONV-RELOAD] Reloading chat for conversation:', conversation);
+
+    const modalBody = document.getElementById('chatModalBody');
+    if (!modalBody) return;
+
+    // Get customer UUID from conversation
+    const customerUuid = conversation.customers?.[0]?.id || conversation.customer_id;
+    const pageId = conversation.page_id || window.currentChatChannelId;
+    const convId = conversation.id || conversation.conversation_id;
+    const convType = conversation.type || 'INBOX';
+
+    if (!customerUuid) {
+        console.error('[CONV-RELOAD] No customer UUID in conversation');
+        return;
+    }
+
+    // Update global state
+    window.currentCustomerUUID = customerUuid;
+    window.currentConversationId = convId;
+    if (pageId) window.currentChatChannelId = pageId;
+
+    // Show loading
+    const loadingText = convType === 'COMMENT' ? 'Đang tải bình luận...' : 'Đang tải tin nhắn...';
+    modalBody.innerHTML = `
+        <div class="chat-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>${loadingText}</p>
+        </div>`;
+
+    try {
+        // Fetch inbox_preview to get correct conversationId
+        const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(pageId, customerUuid);
+
+        if (inboxPreview.success) {
+            // Use appropriate conversationId based on conversation type
+            if (convType === 'COMMENT') {
+                window.currentConversationId = inboxPreview.commentConversationId
+                    || inboxPreview.inboxConversationId
+                    || convId;
+            } else {
+                window.currentConversationId = inboxPreview.inboxConversationId
+                    || convId;
+            }
+            window.currentInboxConversationId = inboxPreview.inboxConversationId;
+            window.currentCommentConversationId = inboxPreview.commentConversationId;
+
+            console.log('[CONV-RELOAD] ✅ Got conversationIds from inbox_preview:', {
+                using: window.currentConversationId,
+                inbox: window.currentInboxConversationId,
+                comment: window.currentCommentConversationId
+            });
+        }
+
+        // Fetch messages based on type
+        if (convType === 'COMMENT' || currentChatType === 'comment') {
+            const response = await window.chatDataManager.fetchComments(
+                pageId,
+                window.currentChatPSID,
+                null,
+                conversation.post_id,
+                null
+            );
+            window.allChatComments = response.comments || [];
+            currentChatCursor = response.after;
+
+            console.log(`[CONV-RELOAD] Loaded ${window.allChatComments.length} comments`);
+
+            // Update parent comment ID
+            if (window.allChatComments.length > 0) {
+                const rootComment = window.allChatComments.find(c => !c.ParentId) || window.allChatComments[0];
+                if (rootComment && rootComment.Id) {
+                    currentParentCommentId = getFacebookCommentId(rootComment);
+                }
+            }
+
+            renderComments(window.allChatComments, true);
+        } else {
+            // Fetch messages for INBOX
+            const response = await window.chatDataManager.fetchMessages(
+                pageId,
+                window.currentChatPSID,
+                window.currentConversationId,
+                customerUuid
+            );
+            window.allChatMessages = response.messages || [];
+            currentChatCursor = response.after;
+
+            // Update conversationId from response if available
+            if (response.conversationId) {
+                window.currentConversationId = response.conversationId;
+            }
+
+            console.log(`[CONV-RELOAD] Loaded ${window.allChatMessages.length} messages`);
+
+            renderChatMessages(window.allChatMessages, true);
+        }
+
+        // Re-setup infinite scroll
+        setupChatInfiniteScroll();
+        setupNewMessageIndicatorListener();
+
+        // Show success notification
+        const convTypeLabel = convType === 'COMMENT' ? 'bình luận' : 'tin nhắn';
+        if (window.notificationManager) {
+            window.notificationManager.show(`✅ Đã tải ${convTypeLabel}`, 'success', 2000);
+        }
+
+    } catch (error) {
+        console.error('[CONV-RELOAD] Error loading chat:', error);
+        const errorText = convType === 'COMMENT' ? 'Lỗi khi tải bình luận' : 'Lỗi khi tải tin nhắn';
+        modalBody.innerHTML = `
+            <div class="chat-error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>${errorText}</p>
+                <p style="font-size: 12px; color: #9ca3af;">${error.message}</p>
+            </div>`;
+    }
+};
+
+/**
+ * Hide conversation selector
+ */
+window.hideConversationSelector = function () {
+    const selectorContainer = document.getElementById('chatConversationSelector');
+    if (selectorContainer) {
+        selectorContainer.style.display = 'none';
+    }
+    window.allMatchingConversations = [];
+};
+
+// =====================================================
 // AVATAR ZOOM MODAL
 // =====================================================
 window.openAvatarZoom = function (avatarUrl, senderName) {
@@ -7448,6 +7698,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     window.currentConversationId = null;
     currentParentCommentId = null;
     currentPostId = null;
+
+    // Hide conversation selector initially (will show if multiple conversations found)
+    window.hideConversationSelector();
 
     // Get order info
     // First try to find order by exact ID match
@@ -7840,8 +8093,8 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                     conversation = matchingConversations[0]; // Lấy conversation đầu tiên
                                 }
                             } else {
-                                // Cho INBOX: match theo fb_id/from_psid
-                                conversation = searchResult.conversations.find(conv => {
+                                // Cho INBOX: lấy TẤT CẢ matching conversations (không chỉ cái đầu tiên)
+                                const matchingInboxConversations = searchResult.conversations.filter(conv => {
                                     // Only match INBOX type for messages
                                     if (conv.type !== 'INBOX') return false;
 
@@ -7857,19 +8110,32 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                     return hasMatchingCustomer || hasMatchingFrom || hasMatchingPsid;
                                 });
 
-                                if (conversation && conversation.customers && conversation.customers.length > 0) {
-                                    pancakeCustomerUuid = conversation.customers[0].id;
-                                    window.currentCustomerUUID = pancakeCustomerUuid;
-                                    console.log('[CHAT-MODAL] ✅ Matched INBOX conversation - customer UUID:', pancakeCustomerUuid);
+                                console.log('[CHAT-MODAL] Found', matchingInboxConversations.length, 'matching INBOX conversations');
+
+                                if (matchingInboxConversations.length > 0) {
+                                    // Populate conversation selector và lấy conversation mới nhất (sort by updated_time)
+                                    const mostRecentConv = window.populateConversationSelector(matchingInboxConversations);
+
+                                    // Dùng conversation mới nhất làm mặc định
+                                    conversation = mostRecentConv || matchingInboxConversations[0];
+
+                                    if (conversation && conversation.customers && conversation.customers.length > 0) {
+                                        pancakeCustomerUuid = conversation.customers[0].id;
+                                        window.currentCustomerUUID = pancakeCustomerUuid;
+                                        console.log('[CHAT-MODAL] ✅ Using most recent INBOX conversation - customer UUID:', pancakeCustomerUuid);
+                                    }
                                 }
                             }
 
                             if (!pancakeCustomerUuid) {
                                 console.warn('[CHAT-MODAL] ⚠️ No conversation matched for type:', type, 'in', searchResult.conversations.length, 'results');
+                                // Ẩn conversation selector nếu không có matching conversation
+                                window.hideConversationSelector();
                             }
                         }
                     } catch (searchError) {
                         console.error('[CHAT-MODAL] ❌ Error searching conversations:', searchError);
+                        window.hideConversationSelector();
                     }
                 }
 
@@ -8015,6 +8281,9 @@ window.closeChatModal = async function () {
     window.currentConversationId = null;
     currentParentCommentId = null;
     currentPostId = null;
+
+    // Reset conversation selector
+    window.hideConversationSelector();
 
     // Reset image upload state
     currentPastedImage = null;
