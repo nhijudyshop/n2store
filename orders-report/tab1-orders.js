@@ -4912,6 +4912,7 @@ document.addEventListener('change', function (e) {
 function updateActionButtons() {
     const actionButtonsSection = document.getElementById('actionButtonsSection');
     const selectedCountSpan = document.getElementById('selectedOrdersCount');
+    const createSaleButtonBtn = document.getElementById('createSaleButtonBtn');
     const checkedCount = selectedOrderIds.size;
 
     if (checkedCount > 0) {
@@ -4919,6 +4920,11 @@ function updateActionButtons() {
         selectedCountSpan.textContent = checkedCount.toLocaleString('vi-VN');
     } else {
         actionButtonsSection.style.display = 'none';
+    }
+
+    // Show "Tạo nút bán hàng" button only when exactly 1 order is selected
+    if (createSaleButtonBtn) {
+        createSaleButtonBtn.style.display = checkedCount === 1 ? 'flex' : 'none';
     }
 }
 
