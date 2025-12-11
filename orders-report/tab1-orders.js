@@ -14478,14 +14478,17 @@ async function fetchDeliveryCarriers() {
     }
 
     try {
-        console.log('[DELIVERY-CARRIER] Fetching from API...');
-        const response = await fetch('https://tomato.tpos.vn/odata/DeliveryCarrier?$format=json&$orderby=DateCreated+desc&$filter=Active+eq+true&$count=true', {
+        // Use Cloudflare Worker proxy to bypass CORS
+        // Proxy: /api/odata/* → tomato.tpos.vn/odata/*
+        const proxyUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/DeliveryCarrier?$format=json&$orderby=DateCreated+desc&$filter=Active+eq+true&$count=true';
+        console.log('[DELIVERY-CARRIER] Fetching from proxy:', proxyUrl);
+
+        const response = await fetch(proxyUrl, {
             method: 'GET',
             headers: {
                 'accept': 'application/json, text/javascript, */*; q=0.01',
                 'authorization': `Bearer ${token}`,
-                'tposappversion': '5.11.16.1',
-                'x-requested-with': 'XMLHttpRequest'
+                'tposappversion': '5.11.16.1'
             }
         });
 

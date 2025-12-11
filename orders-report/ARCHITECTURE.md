@@ -213,4 +213,78 @@ Ctrl+F: #TAG
 
 ---
 
-*Cap nhat lan cuoi: 2024-12*
+## API Proxy Architecture
+
+### Cloudflare Worker Proxy
+
+**QUAN TRONG:** Tat ca TPOS API calls PHAI di qua Cloudflare Worker proxy de bypass CORS.
+
+**Proxy URL:** `https://chatomni-proxy.nhijudyshop.workers.dev`
+
+**Worker source:** `cloudflare-worker/worker.js`
+
+### Route Mapping
+
+| Client Request | Proxy Route | Target |
+|----------------|-------------|--------|
+| `/api/odata/*` | → | `tomato.tpos.vn/odata/*` |
+| `/api/token` | → | `tomato.tpos.vn/token` (có cache) |
+| `/api/pancake/*` | → | `pancake.vn/api/v1/*` |
+| `/api/sepay/*` | → | `n2store-fallback.onrender.com/api/sepay/*` |
+| `/api/customers/*` | → | `n2store-fallback.onrender.com/api/customers/*` |
+
+### Ví dụ sử dụng
+
+```javascript
+// ❌ SAI - Gọi trực tiếp sẽ bị CORS block
+fetch('https://tomato.tpos.vn/odata/DeliveryCarrier...')
+
+// ✅ ĐÚNG - Gọi qua proxy
+fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/DeliveryCarrier...')
+```
+
+### Auth Token
+
+Token được lấy từ localStorage theo thứ tự ưu tiên:
+
+1. `bearer_token_data` (key chính của TPOS)
+2. `auth` (fallback)
+3. `tpos_token` (fallback)
+
+```javascript
+// Cách lấy token
+const bearerData = localStorage.getItem('bearer_token_data');
+const { access_token } = JSON.parse(bearerData);
+```
+
+---
+
+## Sale Modal - Data Sources
+
+### Tab "Thông tin"
+
+| Field | ID | Data Source |
+|-------|-----|-------------|
+| Tên khách hàng | `saleCustomerName` | TPOS Partner |
+| Nợ cũ | `saleOldDebt` | **Realtime API** `/api/sepay/debt-summary` |
+| Reference | `saleReference` | TPOS Order |
+
+### Tab "Thông tin giao hàng"
+
+| Field | ID | Data Source |
+|-------|-----|-------------|
+| Đối tác giao hàng | `saleDeliveryPartner` | **TPOS API** `/api/odata/DeliveryCarrier` (cached 24h) |
+| Phí giao hàng | `saleShippingFee` | Auto từ carrier `Config_DefaultFee` |
+| Trả trước (Công nợ) | `salePrepaidAmount` | **Realtime API** `/api/sepay/debt-summary` |
+
+### Cache Keys (localStorage)
+
+| Key | TTL | Mô tả |
+|-----|-----|-------|
+| `tpos_delivery_carriers` | 24h | Danh sách đối tác giao hàng |
+| `orders_phone_debt_cache` | 5 phút | Công nợ theo SĐT |
+| `orders_phone_qr_cache` | Không hết hạn | QR code theo SĐT |
+
+---
+
+*Cap nhat lan cuoi: 2025-12*
