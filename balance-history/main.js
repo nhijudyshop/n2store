@@ -1452,6 +1452,9 @@ function renderCustomerList(customers, balanceStats = null, phone = null) {
         const isMerged = (customer.mergedIds && customer.mergedIds.length > 1);
         const mergedBadge = isMerged ? `<span style="background: #f59e0b; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${customer.mergedIds.length} trùng</span>` : '';
 
+        // Get TPOS ID
+        const tposId = customer.tpos_id || '';
+
         return `
         <tr>
             <td>${index + 1}</td>
@@ -1459,6 +1462,9 @@ function renderCustomerList(customers, balanceStats = null, phone = null) {
                 <strong>${escapeHtmlForCustomer(displayName || 'N/A')}</strong>
                 ${mergedBadge}
                 ${customer.email ? `<br><small style="color: #6b7280;">${escapeHtmlForCustomer(customer.email)}</small>` : ''}
+            </td>
+            <td style="text-align: center;">
+                ${tposId ? `<code style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${tposId}</code>` : '<span style="color: #9ca3af;">-</span>'}
             </td>
             <td>
                 <span class="badge ${getStatusBadgeClass(customer.status)}">
