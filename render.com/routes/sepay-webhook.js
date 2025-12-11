@@ -596,22 +596,31 @@ router.get('/debt-summary', async (req, res) => {
     }
 
     try {
-        console.log('[DEBT-SUMMARY] Fetching for phone:', phone);
+        // Normalize phone: remove non-digits, handle Vietnam country code, remove leading 0
+        let normalizedPhone = phone.replace(/\D/g, '');
+        if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+            normalizedPhone = normalizedPhone.substring(2); // Remove country code 84
+        }
+        if (normalizedPhone.startsWith('0')) {
+            normalizedPhone = normalizedPhone.substring(1); // Remove leading 0
+        }
 
-        // 1. Find all QR codes linked to this phone
+        console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
+
+        // 1. Find all QR codes linked to this phone (try both normalized and with leading 0)
         const qrResult = await db.query(
-            `SELECT unique_code FROM balance_customer_info WHERE customer_phone = $1`,
-            [phone]
+            `SELECT unique_code FROM balance_customer_info WHERE customer_phone = $1 OR customer_phone = $2`,
+            [normalizedPhone, '0' + normalizedPhone]
         );
 
         const qrCodes = qrResult.rows.map(r => (r.unique_code || '').toUpperCase()).filter(Boolean);
         console.log('[DEBT-SUMMARY] QR codes found:', qrCodes);
 
         if (qrCodes.length === 0) {
-            // Fallback: Try to get debt from customers table
+            // Fallback: Try to get debt from customers table (try both with and without leading 0)
             const customerResult = await db.query(
-                `SELECT debt FROM customers WHERE phone = $1 LIMIT 1`,
-                [phone]
+                `SELECT debt FROM customers WHERE phone = $1 OR phone = $2 LIMIT 1`,
+                [normalizedPhone, '0' + normalizedPhone]
             );
 
             const customerDebt = customerResult.rows.length > 0
