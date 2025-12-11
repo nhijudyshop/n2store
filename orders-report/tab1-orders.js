@@ -14212,9 +14212,16 @@ function populateSaleOrderLinesFromAPI(orderLines) {
         const price = item.PriceUnit || item.Price || 0;
         const total = qty * price;
 
-        // Get product name from nested Product object or direct field
-        const productName = item.Product?.NameGet || item.Product?.Name || item.ProductNameGet || item.ProductName || '';
+        // Get product info from nested Product object or direct field
+        const productName = item.Product?.NameGet || item.ProductName || '';
         const productNote = item.Note || 'Ghi chú';
+        const productUOM = item.ProductUOMName || item.ProductUOM?.Name || 'Cái';
+
+        // Get product image (prefer thumbnail 128x128, fallback to ImageUrl)
+        const productImage = item.Product?.Thumbnails?.[1] || item.Product?.ImageUrl || '';
+        const imageHTML = productImage
+            ? `<img src="${productImage}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb;">`
+            : `<div style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af;"></i></div>`;
 
         totalQuantity += qty;
         totalAmount += total;
@@ -14223,8 +14230,13 @@ function populateSaleOrderLinesFromAPI(orderLines) {
             <tr>
                 <td>${index + 1}</td>
                 <td>
-                    <div class="sale-product-name">${productName}</div>
-                    <div style="font-size: 11px; color: #6b7280;">${productNote}</div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        ${imageHTML}
+                        <div>
+                            <div class="sale-product-name">${productName}</div>
+                            <div style="font-size: 11px; color: #6b7280;">${productNote}</div>
+                        </div>
+                    </div>
                 </td>
                 <td>
                     <input type="number" class="sale-input" value="${qty}" min="1"
