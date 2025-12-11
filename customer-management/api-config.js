@@ -20,6 +20,7 @@ const API_ENDPOINTS = {
     CUSTOMERS_UPDATE: (id) => `${API_BASE_URL}/api/customers/${id}`,
     CUSTOMERS_DELETE: (id) => `${API_BASE_URL}/api/customers/${id}`,
     CUSTOMERS_BATCH: `${API_BASE_URL}/api/customers/batch`,
+    CUSTOMERS_DUPLICATES: `${API_BASE_URL}/api/customers/duplicates`,
 
     // Transaction History (existing)
     TRANSACTIONS_BY_PHONE: (phone) => `https://chatomni-proxy.nhijudyshop.workers.dev/api/sepay/transactions-by-phone?phone=${encodeURIComponent(phone)}&limit=100`
@@ -173,6 +174,24 @@ const API = {
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.message || 'Batch create failed');
+        }
+        return await response.json();
+    },
+
+    /**
+     * Get customers with duplicate phone numbers
+     * @param {number} page - Page number (default: 1)
+     * @param {number} limit - Items per page (default: 100)
+     * @returns {Promise<Object>} - Duplicate customers list with pagination
+     */
+    async getDuplicateCustomers(page = 1, limit = 100) {
+        const url = new URL(API_ENDPOINTS.CUSTOMERS_DUPLICATES);
+        url.searchParams.set('page', page);
+        url.searchParams.set('limit', limit);
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Get duplicate customers failed: ${response.statusText}`);
         }
         return await response.json();
     }

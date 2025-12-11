@@ -332,6 +332,95 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/customers/duplicates
+ * Get customers with duplicate phone numbers
+ * Query params:
+ *   - page: page number (default: 1)
+ *   - limit: items per page (default: 100)
+ */
+router.get('/duplicates', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        const {
+            page = 1,
+            limit = 100
+        } = req.query;
+
+        const pageNum = Math.max(1, parseInt(page));
+        const limitNum = Math.min(parseInt(limit) || 100, 500);
+        const offset = (pageNum - 1) * limitNum;
+
+        console.log(`[CUSTOMERS-DUPLICATES] Page: ${pageNum}, Limit: ${limitNum}`);
+
+        // Find phones that appear more than once
+        const duplicatePhonesQuery = `
+            SELECT phone, COUNT(*) as count
+            FROM customers
+            WHERE phone IS NOT NULL AND phone != ''
+            GROUP BY phone
+            HAVING COUNT(*) > 1
+        `;
+
+        const duplicatePhonesResult = await db.query(duplicatePhonesQuery);
+        const duplicatePhones = duplicatePhonesResult.rows.map(r => r.phone);
+
+        if (duplicatePhones.length === 0) {
+            return res.json({
+                success: true,
+                data: [],
+                pagination: {
+                    page: pageNum,
+                    limit: limitNum,
+                    total: 0,
+                    total_pages: 0,
+                    duplicate_phones_count: 0
+                }
+            });
+        }
+
+        // Get total count of customers with duplicate phones
+        const countQuery = `
+            SELECT COUNT(*) FROM customers
+            WHERE phone = ANY($1)
+        `;
+        const countResult = await db.query(countQuery, [duplicatePhones]);
+        const total = parseInt(countResult.rows[0].count);
+
+        // Get customers with duplicate phones
+        const customersQuery = `
+            SELECT c.*,
+                   (SELECT COUNT(*) FROM customers c2 WHERE c2.phone = c.phone) as duplicate_count
+            FROM customers c
+            WHERE c.phone = ANY($1)
+            ORDER BY c.phone, c.created_at DESC
+            LIMIT $2 OFFSET $3
+        `;
+
+        const result = await db.query(customersQuery, [duplicatePhones, limitNum, offset]);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total: total,
+                total_pages: Math.ceil(total / limitNum),
+                duplicate_phones_count: duplicatePhones.length
+            }
+        });
+
+    } catch (error) {
+        console.error('[CUSTOMERS-DUPLICATES] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi tải danh sách khách hàng trùng SĐT',
+            error: error.message
+        });
+    }
+});
+
+/**
  * GET /api/customers/:id
  * Get single customer by ID
  */
