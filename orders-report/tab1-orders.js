@@ -3560,10 +3560,12 @@ async function fetchOrders() {
         let filter;
 
         if (isCustomMode) {
-            // 🎯 CUSTOM MODE: Filter only by DateCreated >= customStartDate
+            // 🎯 CUSTOM MODE: Filter by DateCreated >= customStartDate and <= endDate
+            // API requires both ge and le with parentheses
             const customStartDate = convertToUTC(document.getElementById("customStartDate").value);
-            filter = `DateCreated ge ${customStartDate}`;
-            console.log(`[FETCH-CUSTOM] Fetching ALL orders with DateCreated >= ${customStartDate}`);
+            const endDate = convertToUTC(document.getElementById("endDate").value);
+            filter = `(DateCreated ge ${customStartDate} and DateCreated le ${endDate})`;
+            console.log(`[FETCH-CUSTOM] Fetching ALL orders with DateCreated >= ${customStartDate} and <= ${endDate}`);
         } else {
             // NORMAL MODE: Filter by date range AND campaign
             const startDate = convertToUTC(
