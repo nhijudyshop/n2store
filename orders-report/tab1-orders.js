@@ -14105,6 +14105,17 @@ let currentSaleOrderData = null;
 let currentSalePartnerData = null;
 
 /**
+ * Format currency in Vietnamese style
+ */
+function formatCurrencyVND(amount) {
+    if (!amount && amount !== 0) return '0đ';
+    return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND'
+    }).format(amount);
+}
+
+/**
  * Open Sale Button Modal and fetch order details from API
  */
 async function openSaleButtonModal() {
@@ -14287,7 +14298,7 @@ function populatePartnerData(partner) {
     document.getElementById('saleCustomerName').textContent = partner.DisplayName || partner.Name || '';
     document.getElementById('saleCustomerStatus').textContent = partner.StatusText || 'Bình thường';
     document.getElementById('saleLoyaltyPoints').textContent = partner.LoyaltyPoints || 0;
-    document.getElementById('saleOldDebt').textContent = formatCurrency(partner.Credit - partner.Debit);
+    document.getElementById('saleOldDebt').textContent = formatCurrencyVND(partner.Credit - partner.Debit);
 
     // Receiver info (update if not already set)
     const receiverName = document.getElementById('saleReceiverName');
