@@ -13928,6 +13928,330 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3000);
 });
 
+// =====================================================
+// SALE BUTTON MODAL FUNCTIONS
+// =====================================================
+let currentSaleOrderData = null;
+let currentSalePartnerData = null;
+
+/**
+ * Open Sale Button Modal and fetch partner data
+ */
+async function openSaleButtonModal() {
+    console.log('[SALE-MODAL] Opening Sale Button Modal...');
+
+    // Get the selected order ID (should be exactly 1)
+    if (selectedOrderIds.size !== 1) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Vui lòng chọn đúng 1 đơn hàng');
+        }
+        return;
+    }
+
+    const orderId = Array.from(selectedOrderIds)[0];
+    const order = allData.find(o => o.Id === orderId);
+
+    if (!order) {
+        if (window.notificationManager) {
+            window.notificationManager.error('Không tìm thấy đơn hàng');
+        }
+        return;
+    }
+
+    currentSaleOrderData = order;
+    console.log('[SALE-MODAL] Selected order:', order);
+
+    // Show modal
+    const modal = document.getElementById('saleButtonModal');
+    modal.style.display = 'flex';
+
+    // Populate order data first
+    populateSaleModalWithOrder(order);
+
+    // Fetch partner data if PartnerId exists
+    if (order.PartnerId) {
+        await fetchAndPopulatePartnerData(order.PartnerId);
+    }
+}
+
+/**
+ * Close Sale Button Modal
+ */
+function closeSaleButtonModal() {
+    const modal = document.getElementById('saleButtonModal');
+    modal.style.display = 'none';
+    currentSaleOrderData = null;
+    currentSalePartnerData = null;
+}
+
+/**
+ * Switch tabs in Sale Modal
+ */
+function switchSaleTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.sale-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.tab === tabName) {
+            tab.classList.add('active');
+        }
+    });
+
+    // Update tab contents
+    document.querySelectorAll('.sale-tab-content').forEach(content => {
+        content.classList.remove('active');
+        content.style.display = 'none';
+    });
+
+    const activeContent = document.getElementById(`saleTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+    if (activeContent) {
+        activeContent.classList.add('active');
+        activeContent.style.display = 'block';
+    }
+}
+
+/**
+ * Populate modal with order data
+ */
+function populateSaleModalWithOrder(order) {
+    console.log('[SALE-MODAL] Populating order data:', order);
+
+    // Basic info
+    document.getElementById('saleCustomerName').textContent = order.PartnerName || order.Name || '';
+    document.getElementById('saleReference').textContent = order.Code || '';
+
+    // Receiver info
+    document.getElementById('saleReceiverName').value = order.PartnerName || order.Name || '';
+    document.getElementById('saleReceiverPhone').value = order.PartnerPhone || order.Telephone || '';
+    document.getElementById('saleReceiverAddress').value = order.PartnerAddress || order.Address || '';
+    document.getElementById('saleReceiverNote').value = order.Note || '';
+
+    // Set delivery date
+    const now = new Date();
+    document.getElementById('saleDeliveryDate').value = formatDateTimeLocal(now);
+    document.getElementById('saleInvoiceDate').textContent = formatDateTimeDisplay(now);
+
+    // Populate order items (products)
+    populateSaleOrderItems(order);
+}
+
+/**
+ * Fetch partner data and populate modal
+ */
+async function fetchAndPopulatePartnerData(partnerId) {
+    console.log('[SALE-MODAL] Fetching partner data for ID:', partnerId);
+
+    try {
+        const token = localStorage.getItem('tpos_token');
+        if (!token) {
+            console.warn('[SALE-MODAL] No auth token found');
+            return;
+        }
+
+        const response = await fetch(`https://tomato.tpos.vn/odata/Partner(${partnerId})?$expand=Addresses`, {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'authorization': `Bearer ${token}`,
+                'tposappversion': '5.11.16.1',
+                'x-tpos-lang': 'vi'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const partnerData = await response.json();
+        currentSalePartnerData = partnerData;
+        console.log('[SALE-MODAL] Partner data:', partnerData);
+
+        // Populate partner data
+        populatePartnerData(partnerData);
+
+    } catch (error) {
+        console.error('[SALE-MODAL] Error fetching partner data:', error);
+        if (window.notificationManager) {
+            window.notificationManager.warning('Không thể tải thông tin khách hàng');
+        }
+    }
+}
+
+/**
+ * Populate partner data into modal
+ */
+function populatePartnerData(partner) {
+    if (!partner) return;
+
+    // Customer info
+    document.getElementById('saleCustomerName').textContent = partner.DisplayName || partner.Name || '';
+    document.getElementById('saleCustomerStatus').textContent = partner.StatusText || 'Bình thường';
+    document.getElementById('saleLoyaltyPoints').textContent = partner.LoyaltyPoints || 0;
+    document.getElementById('saleOldDebt').textContent = formatCurrency(partner.Credit - partner.Debit);
+
+    // Receiver info (update if not already set)
+    const receiverName = document.getElementById('saleReceiverName');
+    const receiverPhone = document.getElementById('saleReceiverPhone');
+    const receiverAddress = document.getElementById('saleReceiverAddress');
+
+    if (!receiverName.value) receiverName.value = partner.DisplayName || partner.Name || '';
+    if (!receiverPhone.value) receiverPhone.value = partner.Phone || partner.Mobile || '';
+
+    // Build address from ExtraAddress or FullAddress
+    if (!receiverAddress.value) {
+        let address = partner.FullAddress || partner.Street || '';
+        if (!address && partner.ExtraAddress) {
+            const ea = partner.ExtraAddress;
+            const parts = [ea.Street, ea.Ward?.name, ea.District?.name, ea.City?.name].filter(p => p);
+            address = parts.join(', ');
+        }
+        receiverAddress.value = address;
+    }
+}
+
+/**
+ * Populate order items (products) into the modal
+ */
+function populateSaleOrderItems(order) {
+    const container = document.getElementById('saleOrderItems');
+
+    if (!order.Details || order.Details.length === 0) {
+        container.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <i class="fas fa-box-open"></i> Chưa có sản phẩm
+                </td>
+            </tr>
+        `;
+        updateSaleTotals(0, 0);
+        return;
+    }
+
+    let totalQuantity = 0;
+    let totalAmount = 0;
+
+    const itemsHTML = order.Details.map((item, index) => {
+        const qty = item.Quantity || item.ProductUOMQty || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        const total = qty * price;
+
+        totalQuantity += qty;
+        totalAmount += total;
+
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td>
+                    <div class="sale-product-name">${item.ProductNameGet || item.ProductName || ''}</div>
+                    <div style="font-size: 11px; color: #6b7280;">${item.Note || 'Ghi chú'}</div>
+                </td>
+                <td>
+                    <input type="number" class="sale-input" value="${qty}" min="1"
+                        onchange="updateSaleItemQuantity(${index}, this.value)"
+                        style="width: 60px; text-align: center;">
+                </td>
+                <td style="text-align: right;">${formatNumber(price)}</td>
+                <td style="text-align: right;">${formatNumber(total)}</td>
+                <td style="text-align: center;">
+                    <button onclick="removeSaleItem(${index})" style="background: none; border: none; color: #ef4444; cursor: pointer;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = itemsHTML;
+    updateSaleTotals(totalQuantity, totalAmount);
+}
+
+/**
+ * Update totals in the modal
+ */
+function updateSaleTotals(quantity, amount) {
+    document.getElementById('saleTotalQuantity').textContent = quantity;
+    document.getElementById('saleTotalAmount').textContent = formatNumber(amount);
+
+    const discount = parseInt(document.getElementById('saleDiscount').value) || 0;
+    const finalTotal = amount - discount;
+    document.getElementById('saleFinalTotal').textContent = formatNumber(finalTotal);
+
+    // Also update COD
+    document.getElementById('saleCOD').value = finalTotal;
+}
+
+/**
+ * Update item quantity
+ */
+function updateSaleItemQuantity(index, value) {
+    if (!currentSaleOrderData || !currentSaleOrderData.Details) return;
+
+    const qty = parseInt(value) || 1;
+    currentSaleOrderData.Details[index].Quantity = qty;
+
+    // Recalculate totals
+    let totalQuantity = 0;
+    let totalAmount = 0;
+
+    currentSaleOrderData.Details.forEach(item => {
+        const itemQty = item.Quantity || item.ProductUOMQty || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        totalQuantity += itemQty;
+        totalAmount += itemQty * price;
+    });
+
+    updateSaleTotals(totalQuantity, totalAmount);
+}
+
+/**
+ * Remove item from order
+ */
+function removeSaleItem(index) {
+    if (!currentSaleOrderData || !currentSaleOrderData.Details) return;
+
+    currentSaleOrderData.Details.splice(index, 1);
+    populateSaleOrderItems(currentSaleOrderData);
+}
+
+/**
+ * Format date for datetime-local input
+ */
+function formatDateTimeLocal(date) {
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/**
+ * Format date for display
+ */
+function formatDateTimeDisplay(date) {
+    return date.toLocaleString('vi-VN');
+}
+
+/**
+ * Format number with thousand separator
+ */
+function formatNumber(num) {
+    return (num || 0).toLocaleString('vi-VN');
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('saleButtonModal');
+    if (e.target === modal) {
+        closeSaleButtonModal();
+    }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('saleButtonModal');
+        if (modal && modal.style.display === 'flex') {
+            closeSaleButtonModal();
+        }
+    }
+});
+
 // Disconnect when page unloads
 window.addEventListener('beforeunload', () => {
     disconnectDebtRealtime();
