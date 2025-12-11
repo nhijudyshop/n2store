@@ -15143,3 +15143,525 @@ window.addEventListener('beforeunload', () => {
 // Export realtime functions
 window.connectDebtRealtime = connectDebtRealtime;
 window.disconnectDebtRealtime = disconnectDebtRealtime;
+
+/**
+ * Confirm and Print Sale Order (F9)
+ * Flow: FastSaleOrder POST -> print1 GET -> ODataService.DefaultGet POST -> Open print popup
+ */
+async function confirmAndPrintSale() {
+    console.log('[SALE-CONFIRM] Starting confirm and print...');
+
+    // Validate we have order data
+    if (!currentSaleOrderData) {
+        if (window.notificationManager) {
+            window.notificationManager.error('Không có dữ liệu đơn hàng');
+        }
+        return;
+    }
+
+    // Show loading state
+    const confirmBtn = document.querySelector('.sale-btn-teal');
+    const originalText = confirmBtn?.textContent;
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Đang xử lý...';
+    }
+
+    try {
+        // Get auth token
+        let token;
+        if (window.tokenManager) {
+            token = await window.tokenManager.getToken();
+        } else {
+            const storedData = localStorage.getItem('bearer_token_data');
+            if (storedData) {
+                const data = JSON.parse(storedData);
+                token = data.access_token;
+            }
+        }
+
+        if (!token) {
+            throw new Error('Không tìm thấy token xác thực');
+        }
+
+        // Step 1: Build and POST FastSaleOrder
+        console.log('[SALE-CONFIRM] Step 1: Creating FastSaleOrder...');
+        const payload = buildFastSaleOrderPayload();
+
+        const createResponse = await fetch('https://tomato.tpos.vn/odata/FastSaleOrder', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'authorization': `Bearer ${token}`,
+                'content-type': 'application/json;charset=UTF-8',
+                'tposappversion': '5.11.16.1',
+                'x-tpos-lang': 'vi'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!createResponse.ok) {
+            const errorText = await createResponse.text();
+            throw new Error(`Lỗi tạo đơn: ${createResponse.status} - ${errorText}`);
+        }
+
+        const createResult = await createResponse.json();
+        console.log('[SALE-CONFIRM] FastSaleOrder created:', createResult);
+
+        const orderId = createResult.Id;
+        if (!orderId) {
+            throw new Error('Không nhận được ID đơn hàng');
+        }
+
+        // Step 2: GET print1 to get print HTML
+        console.log('[SALE-CONFIRM] Step 2: Fetching print HTML for ID:', orderId);
+        const printResponse = await fetch(`https://tomato.tpos.vn/fastsaleorder/print1?ids=${orderId}`, {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'authorization': `Bearer ${token}`,
+                'tposappversion': '5.11.16.1',
+                'x-requested-with': 'XMLHttpRequest'
+            }
+        });
+
+        if (!printResponse.ok) {
+            throw new Error(`Lỗi lấy phiếu in: ${printResponse.status}`);
+        }
+
+        const printResult = await printResponse.json();
+        console.log('[SALE-CONFIRM] Print HTML received');
+
+        // Step 3: POST ODataService.DefaultGet to reset form (parallel with print)
+        console.log('[SALE-CONFIRM] Step 3: Fetching default data for new order...');
+        fetch('https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.DefaultGet?$expand=Warehouse,User,PriceList,Company,Journal,PaymentJournal,Partner,Carrier,Tax,SaleOrder,DestConvertCurrencyUnit', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'authorization': `Bearer ${token}`,
+                'content-type': 'application/json;charset=UTF-8',
+                'tposappversion': '5.11.16.1',
+                'x-tpos-lang': 'vi'
+            },
+            body: JSON.stringify({ model: { Type: 'invoice' } })
+        }).then(res => res.json()).then(data => {
+            console.log('[SALE-CONFIRM] Default data received for next order');
+            // Store for next order if needed
+            window.lastDefaultSaleData = data;
+        }).catch(err => {
+            console.warn('[SALE-CONFIRM] Failed to fetch default data:', err);
+        });
+
+        // Step 4: Open print popup with HTML
+        if (printResult.html) {
+            openPrintPopup(printResult.html);
+        }
+
+        // Success notification
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã tạo đơn hàng ${createResult.Number || orderId}`);
+        }
+
+        // Close modal after successful creation
+        setTimeout(() => {
+            closeSaleButtonModal();
+            // Refresh the orders list if needed
+            if (typeof loadTab1Data === 'function') {
+                loadTab1Data();
+            }
+        }, 500);
+
+    } catch (error) {
+        console.error('[SALE-CONFIRM] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error(error.message || 'Lỗi xác nhận đơn hàng');
+        }
+    } finally {
+        // Restore button state
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = originalText || 'Xác nhận và in (F9)';
+        }
+    }
+}
+
+/**
+ * Build FastSaleOrder payload from current form data
+ */
+function buildFastSaleOrderPayload() {
+    const order = currentSaleOrderData;
+    const partner = currentSalePartnerData;
+
+    // Get form values
+    const receiverName = document.getElementById('saleReceiverName')?.value || order.PartnerName || '';
+    const receiverPhone = document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
+    const receiverAddress = document.getElementById('saleReceiverAddress')?.value || '';
+    const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
+    const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 35000;
+    const cod = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+
+    // Get carrier
+    const carrierSelect = document.getElementById('saleCarrier');
+    const carrierId = carrierSelect?.value ? parseInt(carrierSelect.value) : 7;
+    const carrierName = carrierSelect?.selectedOptions[0]?.text || 'SHIP TỈNH';
+
+    // Build order lines from current products
+    const orderLines = buildOrderLines();
+
+    // Calculate totals
+    const amountTotal = orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
+    const totalQuantity = orderLines.reduce((sum, line) => sum + (line.ProductUOMQty || 0), 0);
+
+    const now = new Date();
+    const dateInvoice = now.toISOString();
+
+    // Build payload matching the sample from fetchFastSaleOrder.text
+    const payload = {
+        Id: 0,
+        Name: null,
+        PrintShipCount: 0,
+        PrintDeliveryCount: 0,
+        PaymentMessageCount: 0,
+        MessageCount: 0,
+        PartnerId: partner?.Id || order.PartnerId || 0,
+        PartnerDisplayName: null,
+        PartnerEmail: null,
+        PartnerFacebookId: null,
+        PartnerFacebook: null,
+        PartnerPhone: null,
+        Reference: order.Code || '',
+        PriceListId: 1,
+        AmountTotal: amountTotal,
+        TotalQuantity: totalQuantity,
+        Discount: 0,
+        DiscountAmount: 0,
+        DecreaseAmount: 0,
+        DiscountLoyaltyTotal: null,
+        WeightTotal: 0,
+        AmountTax: 0,
+        AmountUntaxed: amountTotal,
+        TaxId: null,
+        MoveId: null,
+        UserId: partner?.UserId || null,
+        UserName: null,
+        DateInvoice: dateInvoice,
+        DateCreated: now.toISOString(),
+        CreatedById: null,
+        State: 'draft',
+        ShowState: 'Nháp',
+        CompanyId: 1,
+        Comment: '',
+        WarehouseId: 1,
+        SaleOnlineIds: order.Id ? [order.Id] : [],
+        SaleOnlineNames: [],
+        Residual: null,
+        Type: 'invoice',
+        RefundOrderId: null,
+        ReferenceNumber: null,
+        AccountId: 1,
+        JournalId: 3,
+        Number: null,
+        MoveName: null,
+        PartnerNameNoSign: null,
+        DeliveryPrice: shippingFee,
+        CustomerDeliveryPrice: null,
+        CarrierId: carrierId,
+        CarrierName: carrierName,
+        CarrierDeliveryType: null,
+        DeliveryNote: deliveryNote,
+        ReceiverName: receiverName,
+        ReceiverPhone: receiverPhone,
+        ReceiverAddress: receiverAddress,
+        ReceiverDate: now.toISOString(),
+        ReceiverNote: null,
+        CashOnDelivery: cod,
+        TrackingRef: null,
+        TrackingArea: null,
+        TrackingTransport: null,
+        TrackingSortLine: null,
+        TrackingUrl: '',
+        IsProductDefault: false,
+        TrackingRefSort: null,
+        ShipStatus: 'none',
+        ShowShipStatus: 'Chưa tiếp nhận',
+        SaleOnlineName: '',
+        PartnerShippingId: null,
+        PaymentJournalId: 1,
+        PaymentAmount: prepaidAmount,
+        SaleOrderId: null,
+        SaleOrderIds: [],
+        FacebookName: receiverName,
+        FacebookNameNosign: null,
+        FacebookId: null,
+        DisplayFacebookName: null,
+        Deliver: null,
+        ShipWeight: 100,
+        ShipPaymentStatus: null,
+        ShipPaymentStatusCode: null,
+        OldCredit: 0,
+        NewCredit: amountTotal,
+        Phone: null,
+        Address: null,
+        AmountTotalSigned: null,
+        ResidualSigned: null,
+        Origin: null,
+        AmountDeposit: 0,
+        CompanyName: 'NJD Live',
+        PreviousBalance: 0,
+        ToPay: null,
+        NotModifyPriceFromSO: false,
+        Ship_ServiceId: null,
+        Ship_ServiceName: null,
+        Ship_ServiceExtrasText: '[]',
+        Ship_ExtrasText: null,
+        Ship_InsuranceFee: 0,
+        CurrencyName: null,
+        TeamId: null,
+        TeamOrderCode: null,
+        TeamOrderId: null,
+        TeamType: null,
+        Revenue: null,
+        SaleOrderDeposit: 0,
+        Seri: null,
+        NumberOrder: null,
+        DateOrderRed: null,
+        ApplyPromotion: null,
+        TimeLock: null,
+        PageName: null,
+        Tags: null,
+        IRAttachmentUrl: null,
+        IRAttachmentUrls: [],
+        SaleOnlinesOfPartner: null,
+        IsDeposited: null,
+        LiveCampaignName: null,
+        LiveCampaignId: null,
+        Source: null,
+        CartNote: null,
+        ExtraPaymentAmount: null,
+        QuantityUpdateDeposit: null,
+        IsMergeCancel: null,
+        IsPickUpAtShop: null,
+        DateDeposit: null,
+        IsRefund: null,
+        StateCode: 'None',
+        ActualPaymentAmount: null,
+        RowVersion: null,
+        ExchangeRate: null,
+        DestConvertCurrencyUnitId: null,
+        WiPointQRCode: null,
+        WiInvoiceId: null,
+        WiInvoiceChannelId: null,
+        WiInvoiceStatus: null,
+        WiInvoiceTrackingUrl: '',
+        WiInvoiceIsReplate: false,
+        FormAction: 'SaveAndPrint',
+        Ship_Receiver: {
+            IsNewAddress: false,
+            Name: receiverName,
+            Phone: receiverPhone,
+            Street: receiverAddress,
+            City: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
+            District: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
+            Ward: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
+            ExtraAddress: {
+                Street: receiverAddress,
+                NewStreet: null,
+                City: { name: null, nameNoSign: null, code: null },
+                District: { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null },
+                Ward: { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null, districtName: null, districtCode: null },
+                NewCity: null,
+                NewWard: null
+            }
+        },
+        Ship_Extras: {
+            PickWorkShift: null,
+            PickWorkShiftName: null,
+            DeliverWorkShift: null,
+            DeliverWorkShiftName: null,
+            PaymentTypeId: null,
+            PosId: null,
+            IsDropoff: false,
+            IsInsurance: false,
+            InsuranceFee: null,
+            IsPackageViewable: false,
+            Is_Fragile: false,
+            PickupAccountId: null,
+            SoldToAccountId: null,
+            IsPartSign: null,
+            IsAllowTryout: false,
+            IsDeductCod: false,
+            IsCollectMoneyGoods: false,
+            CollectMoneyGoods: null,
+            ConfirmType: null,
+            PartialDelivery: null,
+            IsRefund: null,
+            ServiceCustoms: [],
+            IsInsuranceEqualTotalAmount: false,
+            IsReturn: false,
+            IsSenderAddress: false,
+            SenderAddress: { Street: null, City: null, District: null, Ward: null }
+        },
+        PaymentInfo: [],
+        Search: null,
+        ShipmentDetailsAship: {
+            ConfigsProvider: [],
+            PackageInfo: { PackageLength: 0, PackageWidth: 0, PackageHeight: 0 }
+        },
+        OrderMergeds: [],
+        OrderAfterMerged: null,
+        TPayment: null,
+        ExtraUpdateCODCarriers: [],
+        AppliedPromotionLoyalty: null,
+        FastSaleOrderOmniExtras: null,
+        Billing: null,
+        PackageInfo: { PackageLength: 0, PackageWidth: 0, PackageHeight: 0 },
+        Error: null,
+        Warehouse: window.lastDefaultSaleData?.Warehouse || { Id: 1, Code: 'WH', Name: 'Nhi Judy Store', CompanyId: 1, LocationId: 12, NameGet: '[WH] Nhi Judy Store', CompanyName: 'NJD Live', LocationActive: true },
+        User: window.lastDefaultSaleData?.User || null,
+        PriceList: window.lastDefaultSaleData?.PriceList || { Id: 1, Name: 'Bảng giá mặc định', CurrencyId: 1, CurrencyName: 'VND', Active: true },
+        Company: window.lastDefaultSaleData?.Company || { Id: 1, Name: 'NJD Live', Phone: '19003357' },
+        Journal: window.lastDefaultSaleData?.Journal || { Id: 3, Code: 'INV', Name: 'Nhật ký bán hàng', Type: 'sale' },
+        PaymentJournal: window.lastDefaultSaleData?.PaymentJournal || { Id: 1, Code: 'CSH1', Name: 'Tiền mặt', Type: 'cash' },
+        Partner: partner || null,
+        Carrier: window.lastDefaultSaleData?.Carrier || { Id: carrierId, Name: carrierName, DeliveryType: 'fixed', Config_DefaultFee: shippingFee },
+        Tax: null,
+        SaleOrder: null,
+        DestConvertCurrencyUnit: null,
+        Ship_ServiceExtras: [],
+        OrderLines: orderLines,
+        OfferAmountDetails: [],
+        Account: { Id: 1, Name: 'Phải thu của khách hàng', Code: '131' }
+    };
+
+    return payload;
+}
+
+/**
+ * Build order lines from current modal data
+ */
+function buildOrderLines() {
+    const orderLines = [];
+    const order = currentSaleOrderData;
+
+    // Get from DOM table if available
+    const rows = document.querySelectorAll('#saleOrderItems tr[data-product-id]');
+
+    if (rows.length > 0) {
+        rows.forEach(row => {
+            const productId = parseInt(row.dataset.productId);
+            const productName = row.querySelector('.product-name')?.textContent || '';
+            const quantity = parseInt(row.querySelector('.product-qty')?.textContent) || 1;
+            const price = parseFloat(row.querySelector('.product-price')?.textContent?.replace(/[^\d]/g, '')) || 0;
+            const total = quantity * price;
+
+            orderLines.push({
+                Id: 0,
+                ProductId: productId,
+                ProductUOMId: 1,
+                PriceUnit: price,
+                ProductUOMQty: quantity,
+                Discount: 0,
+                PriceTotal: total,
+                PriceSubTotal: total,
+                AccountId: 5,
+                PriceRecent: price,
+                ProductName: productName,
+                ProductUOMName: 'Cái',
+                Weight: 0,
+                Note: null,
+                SaleOnlineDetailId: null,
+                Product: null,
+                ProductUOM: { Id: 1, Name: 'Cái', Factor: 1, FactorInv: 1 },
+                Discount_Fixed: 0,
+                Type: 'fixed',
+                WeightTotal: 0
+            });
+        });
+    } else if (order?.Details && order.Details.length > 0) {
+        // Fallback to order.Details
+        order.Details.forEach(detail => {
+            const price = detail.Price || 0;
+            const quantity = detail.Quantity || 1;
+            const total = price * quantity;
+
+            orderLines.push({
+                Id: 0,
+                ProductId: detail.ProductId || 0,
+                ProductUOMId: 1,
+                PriceUnit: price,
+                ProductUOMQty: quantity,
+                Discount: 0,
+                PriceTotal: total,
+                PriceSubTotal: total,
+                AccountId: 5,
+                PriceRecent: price,
+                ProductName: detail.ProductName || detail.ProductNameGet || '',
+                ProductUOMName: 'Cái',
+                Weight: 0,
+                Note: detail.Note || null,
+                SaleOnlineDetailId: detail.Id || null,
+                Product: null,
+                ProductUOM: { Id: 1, Name: 'Cái', Factor: 1, FactorInv: 1 },
+                Discount_Fixed: 0,
+                Type: 'fixed',
+                WeightTotal: 0
+            });
+        });
+    }
+
+    return orderLines;
+}
+
+/**
+ * Open print popup with HTML content
+ */
+function openPrintPopup(html) {
+    console.log('[SALE-CONFIRM] Opening print popup...');
+
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
+
+    if (!printWindow) {
+        console.error('[SALE-CONFIRM] Failed to open print window - popup blocked?');
+        if (window.notificationManager) {
+            window.notificationManager.warning('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
+        }
+        return;
+    }
+
+    // Write the HTML content
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    // Wait for content to load, then trigger print
+    printWindow.onload = function() {
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+        }, 500);
+    };
+
+    // Fallback if onload doesn't fire
+    setTimeout(() => {
+        if (printWindow && !printWindow.closed) {
+            printWindow.focus();
+            printWindow.print();
+        }
+    }, 1500);
+}
+
+// Add keyboard shortcut F9 for confirm and print
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'F9') {
+        const modal = document.getElementById('saleButtonModal');
+        if (modal && modal.style.display === 'flex') {
+            e.preventDefault();
+            confirmAndPrintSale();
+        }
+    }
+});
+
+// Export functions
+window.confirmAndPrintSale = confirmAndPrintSale;
+window.openPrintPopup = openPrintPopup;
