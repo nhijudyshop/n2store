@@ -78,10 +78,6 @@
                         <i data-lucide="file-down"></i>
                         Export Excel
                     </button>
-                    <button class="btn btn-primary" id="addCustomerBtn">
-                        <i data-lucide="user-plus"></i>
-                        Thêm Khách Hàng
-                    </button>
                 </div>
             </header>
 
@@ -196,85 +192,6 @@
             </div>
         </div>
     </main>
-
-    <!-- Add/Edit Customer Modal -->
-    <div id="customerModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle">Thêm Khách Hàng</h2>
-                <button class="close-btn" onclick="closeCustomerModal()">
-                    <i data-lucide="x"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="customerForm">
-                    <input type="hidden" id="customerId">
-
-                    <div class="form-group">
-                        <label for="customerName">Tên khách hàng <span class="required">*</span></label>
-                        <input type="text" id="customerName" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="customerPhone">Điện thoại <span class="required">*</span></label>
-                        <input type="tel" id="customerPhone" required>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="customerCarrier">Nhà mạng</label>
-                            <select id="customerCarrier">
-                                <option value="">Chọn nhà mạng</option>
-                                <option value="Viettel">Viettel</option>
-                                <option value="Vinaphone">Vinaphone</option>
-                                <option value="Mobifone">Mobifone</option>
-                                <option value="Vietnamobile">Vietnamobile</option>
-                                <option value="Gmobile">Gmobile</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="customerStatus">Trạng thái <span class="required">*</span></label>
-                            <select id="customerStatus" required>
-                                <option value="Bình thường">Bình thường</option>
-                                <option value="Bom hàng">Bom hàng</option>
-                                <option value="Cảnh báo">Cảnh báo</option>
-                                <option value="Nguy hiểm">Nguy hiểm</option>
-                                <option value="VIP">VIP</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="customerEmail">Email</label>
-                        <input type="email" id="customerEmail">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="customerAddress">Địa chỉ</label>
-                        <textarea id="customerAddress" rows="3"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="customerDebt">Nợ hiện tại</label>
-                        <input type="number" id="customerDebt" value="0" min="0">
-                    </div>
-
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="customerActive" checked>
-                            Kích hoạt
-                        </label>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeCustomerModal()">Hủy</button>
-                        <button type="submit" class="btn btn-primary">Lưu</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
     <!-- Import Excel Modal -->
     <div id="importModal" class="modal">

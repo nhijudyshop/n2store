@@ -3,7 +3,6 @@
 
 let customers = [];
 let filteredCustomers = [];
-let editingCustomer = null; // Changed from editingCustomerId to store full customer object
 
 // Pagination state
 let currentPage = 1;
@@ -164,7 +163,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Initialize event listeners
 function initializeEventListeners() {
-    document.getElementById('addCustomerBtn').addEventListener('click', openAddCustomerModal);
     document.getElementById('importExcelBtn').addEventListener('click', openImportModal);
     document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
     document.getElementById('syncTPOSBtn').addEventListener('click', syncFromTPOS);
@@ -174,7 +172,6 @@ function initializeEventListeners() {
     document.getElementById('pageSizeSelect').addEventListener('change', handlePageSizeChange);
     document.getElementById('searchInput').addEventListener('input', handleSearch);
     document.getElementById('statusFilter').addEventListener('change', handleFilter);
-    document.getElementById('customerForm').addEventListener('submit', handleCustomerSubmit);
     document.getElementById('excelFile').addEventListener('change', handleFileSelect);
     document.getElementById('confirmImportBtn').addEventListener('click', handleImportConfirm);
 
@@ -531,9 +528,6 @@ function createCustomerRow(customer) {
                 <button class="icon-btn view" onclick="openTransactionHistory('${customer.id}', '${escapeHtml(customer.phone || '')}', '${escapeHtml(displayName)}')" title="Lịch sử giao dịch">
                     <i data-lucide="receipt"></i>
                 </button>
-                <button class="icon-btn edit" onclick="openEditCustomerModal(${customer.id})" title="Sửa">
-                    <i data-lucide="edit"></i>
-                </button>
                 <button class="icon-btn delete" onclick="deleteCustomer(${customer.id})" title="Xóa">
                     <i data-lucide="trash-2"></i>
                 </button>
@@ -648,100 +642,6 @@ function handleFilter() {
         // Reload with new filter
         currentPage = 1;
         loadCustomers();
-    }
-}
-
-// Open add customer modal
-function openAddCustomerModal() {
-    editingCustomer = null;
-    document.getElementById('modalTitle').textContent = 'Thêm Khách Hàng';
-    document.getElementById('customerForm').reset();
-    document.getElementById('customerId').value = '';
-    document.getElementById('customerActive').checked = true;
-    document.getElementById('customerStatus').value = 'Bình thường';
-    document.getElementById('customerModal').classList.add('active');
-}
-
-// Open edit customer modal
-async function openEditCustomerModal(customerId) {
-    const customer = customers.find(c => c.id === customerId);
-
-    if (!customer) {
-        showNotification('Không tìm thấy khách hàng', 'error');
-        return;
-    }
-
-    editingCustomer = customer;
-
-    document.getElementById('modalTitle').textContent = 'Sửa Thông Tin Khách Hàng';
-    document.getElementById('customerId').value = customer.id;
-    document.getElementById('customerName').value = customer.name || '';
-    document.getElementById('customerPhone').value = customer.phone || '';
-    document.getElementById('customerCarrier').value = customer.carrier || '';
-    document.getElementById('customerStatus').value = customer.status || 'Bình thường';
-    document.getElementById('customerEmail').value = customer.email || '';
-    document.getElementById('customerAddress').value = customer.address || '';
-    document.getElementById('customerDebt').value = customer.debt || 0;
-    document.getElementById('customerActive').checked = customer.active !== false;
-
-    document.getElementById('customerModal').classList.add('active');
-}
-
-// Close customer modal
-function closeCustomerModal() {
-    document.getElementById('customerModal').classList.remove('active');
-    document.getElementById('customerForm').reset();
-    editingCustomer = null;
-}
-
-// Handle customer form submit
-async function handleCustomerSubmit(e) {
-    e.preventDefault();
-
-    const customerData = {
-        name: document.getElementById('customerName').value.trim(),
-        phone: document.getElementById('customerPhone').value.trim(),
-        carrier: document.getElementById('customerCarrier').value,
-        status: document.getElementById('customerStatus').value,
-        email: document.getElementById('customerEmail').value.trim(),
-        address: document.getElementById('customerAddress').value.trim(),
-        debt: parseFloat(document.getElementById('customerDebt').value) || 0,
-        active: document.getElementById('customerActive').checked
-    };
-
-    try {
-        if (editingCustomer) {
-            // Update existing customer
-            const response = await API.updateCustomer(editingCustomer.id, customerData);
-
-            if (!response.success) {
-                throw new Error(response.message || 'Update failed');
-            }
-
-            showNotification('Cập nhật khách hàng thành công', 'success');
-        } else {
-            // Add new customer
-            const response = await API.createCustomer(customerData);
-
-            if (!response.success) {
-                throw new Error(response.message || 'Create failed');
-            }
-
-            showNotification('Thêm khách hàng thành công', 'success');
-            updateStatistics(); // Update stats in background
-        }
-
-        closeCustomerModal();
-
-        // Clear cache
-        await clearCache(CACHE_KEY);
-        await clearCache(STATS_CACHE_KEY);
-
-        // Reload
-        await loadCustomers(true);
-    } catch (error) {
-        console.error('Error saving customer:', error);
-        showNotification(error.message || 'Lỗi khi lưu khách hàng', 'error');
     }
 }
 
@@ -1468,8 +1368,6 @@ function formatCurrency(amount) {
 }
 
 // Make functions globally available
-window.openEditCustomerModal = openEditCustomerModal;
-window.closeCustomerModal = closeCustomerModal;
 window.closeImportModal = closeImportModal;
 window.deleteCustomer = deleteCustomer;
 window.openTransactionHistory = openTransactionHistory;
