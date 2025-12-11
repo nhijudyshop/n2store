@@ -3656,9 +3656,16 @@
                 <div id="saleTabDelivery" class="sale-tab-content" style="display: none;">
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
                         <div>
+                            <!--
+                                saleDeliveryPartner: Đối tác giao hàng
+                                Data source: TPOS API /odata/DeliveryCarrier
+                                Cached in localStorage (key: tpos_delivery_carriers, TTL: 24h)
+                                Populated by: populateDeliveryCarrierDropdown() in tab1-orders.js
+                                When changed: Updates saleShippingFee with carrier's Config_DefaultFee
+                            -->
                             <label class="sale-label">Đối tác giao hàng</label>
                             <select id="saleDeliveryPartner" class="sale-input">
-                                <option value="">SHIP TỈNH</option>
+                                <option value="">Đang tải...</option>
                             </select>
                         </div>
                         <div>

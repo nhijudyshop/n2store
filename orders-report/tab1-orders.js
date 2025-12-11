@@ -14383,6 +14383,175 @@ document.addEventListener('DOMContentLoaded', () => {
 let currentSaleOrderData = null;
 let currentSalePartnerData = null;
 
+// =====================================================
+// DELIVERY CARRIER MANAGEMENT
+// =====================================================
+const DELIVERY_CARRIER_CACHE_KEY = 'tpos_delivery_carriers';
+const DELIVERY_CARRIER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Get cached delivery carriers from localStorage
+ * @returns {Array|null} Cached carriers or null if expired/not found
+ */
+function getCachedDeliveryCarriers() {
+    try {
+        const cached = localStorage.getItem(DELIVERY_CARRIER_CACHE_KEY);
+        if (!cached) return null;
+
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp > DELIVERY_CARRIER_CACHE_TTL) {
+            localStorage.removeItem(DELIVERY_CARRIER_CACHE_KEY);
+            return null;
+        }
+        return data;
+    } catch (e) {
+        console.error('[DELIVERY-CARRIER] Error reading cache:', e);
+        return null;
+    }
+}
+
+/**
+ * Save delivery carriers to localStorage cache
+ * @param {Array} carriers - Array of carrier objects
+ */
+function saveDeliveryCarriersToCache(carriers) {
+    try {
+        localStorage.setItem(DELIVERY_CARRIER_CACHE_KEY, JSON.stringify({
+            data: carriers,
+            timestamp: Date.now()
+        }));
+    } catch (e) {
+        console.error('[DELIVERY-CARRIER] Error saving cache:', e);
+    }
+}
+
+/**
+ * Fetch delivery carriers from TPOS API
+ * @returns {Promise<Array>} Array of delivery carrier objects
+ */
+async function fetchDeliveryCarriers() {
+    // Check cache first
+    const cached = getCachedDeliveryCarriers();
+    if (cached) {
+        console.log('[DELIVERY-CARRIER] Using cached data:', cached.length, 'carriers');
+        return cached;
+    }
+
+    // Get auth token
+    let token = null;
+    try {
+        const authData = localStorage.getItem('auth');
+        if (authData) {
+            const parsed = JSON.parse(authData);
+            token = parsed.AccessToken || parsed.access_token;
+        }
+        if (!token) {
+            const tokenData = localStorage.getItem('tpos_token');
+            if (tokenData) {
+                const parsed = JSON.parse(tokenData);
+                token = parsed.AccessToken || parsed.access_token;
+            }
+        }
+    } catch (e) {
+        console.error('[DELIVERY-CARRIER] Error parsing auth:', e);
+    }
+
+    if (!token) {
+        console.warn('[DELIVERY-CARRIER] No auth token found');
+        return [];
+    }
+
+    try {
+        console.log('[DELIVERY-CARRIER] Fetching from API...');
+        const response = await fetch('https://tomato.tpos.vn/odata/DeliveryCarrier?$format=json&$orderby=DateCreated+desc&$filter=Active+eq+true&$count=true', {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'authorization': `Bearer ${token}`,
+                'tposappversion': '5.11.16.1',
+                'x-requested-with': 'XMLHttpRequest'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const carriers = data.value || [];
+
+        console.log('[DELIVERY-CARRIER] Fetched:', carriers.length, 'carriers');
+
+        // Save to cache
+        saveDeliveryCarriersToCache(carriers);
+
+        return carriers;
+    } catch (error) {
+        console.error('[DELIVERY-CARRIER] Error fetching:', error);
+        return [];
+    }
+}
+
+/**
+ * Populate delivery partner dropdown with carriers
+ * @param {string} selectedId - Optional: ID of carrier to select
+ */
+async function populateDeliveryCarrierDropdown(selectedId = null) {
+    const select = document.getElementById('saleDeliveryPartner');
+    if (!select) return;
+
+    // Show loading
+    select.innerHTML = '<option value="">Đang tải...</option>';
+    select.disabled = true;
+
+    const carriers = await fetchDeliveryCarriers();
+
+    // Build options
+    let optionsHtml = '<option value="">-- Chọn đối tác giao hàng --</option>';
+    carriers.forEach(carrier => {
+        const fee = carrier.Config_DefaultFee || carrier.FixedPrice || 0;
+        const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
+        const selected = selectedId && carrier.Id == selectedId ? 'selected' : '';
+        optionsHtml += `<option value="${carrier.Id}" data-fee="${fee}" data-name="${carrier.Name}"${selected}>${carrier.Name}${feeText}</option>`;
+    });
+
+    select.innerHTML = optionsHtml;
+    select.disabled = false;
+
+    // Add change event to update shipping fee
+    select.onchange = function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const fee = parseFloat(selectedOption.dataset.fee) || 0;
+        const shippingFeeInput = document.getElementById('saleShippingFee');
+        if (shippingFeeInput) {
+            shippingFeeInput.value = fee;
+            // Trigger recalculation of COD
+            updateSaleCOD();
+        }
+    };
+
+    // If a carrier was pre-selected, trigger the change event to set fee
+    if (selectedId) {
+        select.dispatchEvent(new Event('change'));
+    }
+}
+
+/**
+ * Update COD based on total amount, shipping fee, and prepaid amount
+ */
+function updateSaleCOD() {
+    const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+    const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
+    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    const codInput = document.getElementById('saleCOD');
+
+    if (codInput) {
+        // COD = Total + Shipping - Prepaid
+        const cod = Math.max(0, totalAmount + shippingFee - prepaidAmount);
+        codInput.value = cod;
+    }
+}
+
 /**
  * Format currency in Vietnamese style
  */
@@ -14433,6 +14602,9 @@ async function openSaleButtonModal() {
     if (phone) {
         fetchDebtForSaleModal(phone);
     }
+
+    // Populate delivery carrier dropdown (async, with localStorage cache)
+    populateDeliveryCarrierDropdown();
 
     // Fetch detailed order data from API (includes partner, orderLines)
     const orderDetails = await fetchOrderDetailsForSale(orderId);
