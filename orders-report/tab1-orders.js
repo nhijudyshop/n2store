@@ -9183,6 +9183,18 @@ async function sendMessageInternal(messageData) {
                     throw error24h;
                 }
 
+                // Check for user unavailable error (551)
+                const isUserUnavailable = (replyData.e_code === 551) ||
+                    (replyData.message && replyData.message.includes('không có mặt'));
+
+                if (isUserUnavailable) {
+                    console.warn('[MESSAGE] ⚠️ User unavailable (551) error detected');
+                    const error551 = new Error('USER_UNAVAILABLE');
+                    error551.isUserUnavailable = true;
+                    error551.originalMessage = replyData.message;
+                    throw error551;
+                }
+
                 const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
                 throw new Error('Gửi tin nhắn thất bại: ' + errorMessage);
             }
@@ -9193,13 +9205,17 @@ async function sendMessageInternal(messageData) {
             console.warn('[MESSAGE] ⚠️ API failed:', err.message);
 
             // Try extension fallback - extension uses Facebook's internal web API
-            // which can bypass 24-hour policy (unlike Pancake API which uses Graph API)
+            // which can bypass 24-hour policy and user unavailable errors (unlike Pancake API which uses Graph API)
+            const needsExtensionFallback = err.is24HourError || err.isUserUnavailable;
             if (window.extensionBridge && window.extensionBridge.isAvailable()) {
                 console.log('[MESSAGE] 🔄 Attempting extension fallback...');
 
                 if (err.is24HourError) {
                     console.log('[MESSAGE] 📝 24H policy error detected - extension may bypass this via internal API');
                     showChatSendingIndicator('Đang thử gửi qua Extension (bypass 24h)...');
+                } else if (err.isUserUnavailable) {
+                    console.log('[MESSAGE] 📝 User unavailable (551) error detected - extension may bypass this via internal API');
+                    showChatSendingIndicator('Đang thử gửi qua Extension (người dùng không có mặt)...');
                 } else {
                     showChatSendingIndicator('Đang thử gửi qua Extension...');
                 }
@@ -9228,8 +9244,8 @@ async function sendMessageInternal(messageData) {
             } else {
                 console.log('[MESSAGE] ⚠️ Extension not available for fallback');
 
-                // For 24H errors without extension, suggest using comment
-                if (err.is24HourError) {
+                // For 24H errors or user unavailable without extension, suggest using comment
+                if (needsExtensionFallback) {
                     console.log('[MESSAGE] 💡 Suggest using COMMENT as alternative');
                 }
             }
@@ -9292,20 +9308,23 @@ async function sendMessageInternal(messageData) {
     } catch (error) {
         console.error('[MESSAGE] ❌ Error:', error);
 
-        // Special handling for 24-hour policy error
-        if (error.is24HourError) {
-            console.log('[MESSAGE] 📝 Suggesting alternatives for 24H error');
+        // Special handling for 24-hour policy error or user unavailable (551) error
+        if (error.is24HourError || error.isUserUnavailable) {
+            const errorType = error.is24HourError ? '24H' : '551';
+            console.log(`[MESSAGE] 📝 Suggesting alternatives for ${errorType} error`);
 
             // Check if extension was available but still failed
             const extensionAvailable = window.extensionBridge && window.extensionBridge.isAvailable();
-            let message = '⚠️ Không thể gửi Inbox (đã quá 24h).';
+            let message = error.is24HourError
+                ? '⚠️ Không thể gửi Inbox (đã quá 24h).'
+                : '⚠️ Không thể gửi Inbox (người dùng không có mặt).';
 
             if (extensionAvailable) {
                 // Extension was available but still failed - suggest comment
                 message += ' Extension cũng không gửi được. Vui lòng dùng COMMENT!';
             } else {
                 // Extension not available - suggest installing it or using comment
-                message += ' Cài Extension Pancake v2 để bypass 24h hoặc dùng COMMENT!';
+                message += ' Cài Extension Pancake v2 để bypass hoặc dùng COMMENT!';
             }
 
             if (window.notificationManager) {
@@ -9313,7 +9332,7 @@ async function sendMessageInternal(messageData) {
             } else {
                 alert(message);
             }
-            // Don't throw error for 24-hour case - just notify user
+            // Don't throw error for these cases - just notify user
             return;
         }
 
