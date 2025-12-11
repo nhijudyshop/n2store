@@ -230,6 +230,61 @@ try {
 }
 
 // =====================================================
+// FILTER PREFERENCES - Firebase Sync #FIREBASE
+// =====================================================
+const FILTER_PREFS_PATH = 'settings/filter_preferences';
+
+/**
+ * Save filter preferences to Firebase
+ * @param {Object} prefs - { selectedCampaignValue, isCustomMode, customStartDate }
+ */
+async function saveFilterPreferencesToFirebase(prefs) {
+    if (!database) {
+        console.warn('[FILTER-PREFS] Firebase not available, skipping save');
+        return;
+    }
+
+    try {
+        const updateData = {
+            ...prefs,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        await database.ref(FILTER_PREFS_PATH).set(updateData);
+        console.log('[FILTER-PREFS] ✅ Saved to Firebase:', updateData);
+    } catch (error) {
+        console.error('[FILTER-PREFS] ❌ Error saving:', error);
+    }
+}
+
+/**
+ * Load filter preferences from Firebase
+ * @returns {Object|null} - { selectedCampaignValue, isCustomMode, customStartDate } or null
+ */
+async function loadFilterPreferencesFromFirebase() {
+    if (!database) {
+        console.warn('[FILTER-PREFS] Firebase not available, skipping load');
+        return null;
+    }
+
+    try {
+        const snapshot = await database.ref(FILTER_PREFS_PATH).once('value');
+        const prefs = snapshot.val();
+
+        if (prefs) {
+            console.log('[FILTER-PREFS] ✅ Loaded from Firebase:', prefs);
+            return prefs;
+        } else {
+            console.log('[FILTER-PREFS] No saved preferences found');
+            return null;
+        }
+    } catch (error) {
+        console.error('[FILTER-PREFS] ❌ Error loading:', error);
+        return null;
+    }
+}
+
+// =====================================================
 // REALTIME TAG SYNC - Firebase & WebSocket #FIREBASE
 // =====================================================
 let tagListenersSetup = false; // Flag to prevent duplicate listener setup
@@ -3322,50 +3377,149 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
     });
 
     if (campaigns.length > 0) {
-        // Select first campaign by default
-        select.value = 0;
+        // 🔥 Load saved preferences from Firebase
+        const savedPrefs = await loadFilterPreferencesFromFirebase();
+        const customDateContainer = document.getElementById("customDateFilterContainer");
+        const customStartDateInput = document.getElementById("customStartDate");
 
-        // Manually update selectedCampaign state without triggering search
-        const selectedOption = select.options[select.selectedIndex];
-        selectedCampaign = selectedOption?.dataset.campaign
-            ? JSON.parse(selectedOption.dataset.campaign)
-            : null;
+        if (savedPrefs && savedPrefs.isCustomMode) {
+            // 🎯 Restore CUSTOM mode from Firebase
+            console.log('[FILTER-PREFS] Restoring CUSTOM mode from Firebase');
+            select.value = 'custom';
 
-        // ⭐ Load employee ranges for the selected campaign TRƯỚC KHI load dữ liệu
-        if (selectedCampaign?.displayName) {
-            console.log(`[EMPLOYEE] Auto-loading employee ranges for: ${selectedCampaign.displayName}`);
-            await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
-
-            // ⭐ Re-render bảng nếu đã có dữ liệu (để apply employee ranges ngay)
-            if (allData.length > 0) {
-                console.log(`[EMPLOYEE] Re-rendering table with ${employeeRanges.length} employee ranges`);
-                performTableSearch();
+            // Set custom date from Firebase
+            if (savedPrefs.customStartDate) {
+                customStartDateInput.value = savedPrefs.customStartDate;
             }
-        }
+            customDateContainer.style.display = "flex";
 
-        if (autoLoad) {
-            // 🎯 TỰ ĐỘNG TẢI DỮ LIỆU NGAY LẬP TỨC
-            console.log('[AUTO-LOAD] Tự động tải dữ liệu chiến dịch:', campaigns[0].displayName);
+            // Update selectedCampaign
+            selectedCampaign = { isCustom: true };
 
-            // Hiển thị thông báo đang tải
-            if (window.notificationManager) {
-                window.notificationManager.info(
-                    `Đang tải dữ liệu chiến dịch: ${campaigns[0].displayName}`,
-                    2000,
-                    'Tự động tải'
-                );
+            // Load general employee ranges for custom mode
+            console.log('[EMPLOYEE] Loading general employee ranges for restored custom mode');
+            await loadEmployeeRangesForCampaign(null);
+
+            if (autoLoad && savedPrefs.customStartDate) {
+                // 🎯 Auto-load data with saved custom date
+                console.log('[AUTO-LOAD] Tự động tải dữ liệu với custom date:', savedPrefs.customStartDate);
+
+                if (window.notificationManager) {
+                    window.notificationManager.info(
+                        `Đang tải đơn hàng từ ngày: ${new Date(savedPrefs.customStartDate).toLocaleString('vi-VN')}`,
+                        2000,
+                        'Khôi phục từ Firebase'
+                    );
+                }
+
+                await handleSearch();
+
+                if (window.realtimeManager) {
+                    console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
+                    window.realtimeManager.connectServerMode();
+                }
+            }
+        } else if (savedPrefs && savedPrefs.selectedCampaignValue !== undefined && savedPrefs.selectedCampaignValue !== 'custom') {
+            // 🎯 Restore saved campaign selection from Firebase
+            const savedValue = savedPrefs.selectedCampaignValue;
+
+            // Check if the saved value exists in current options
+            let optionExists = false;
+            for (let i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === String(savedValue)) {
+                    optionExists = true;
+                    break;
+                }
             }
 
-            // Trigger search explicitly
-            await handleSearch();
+            if (optionExists) {
+                console.log('[FILTER-PREFS] Restoring saved campaign selection:', savedValue);
+                select.value = savedValue;
+                customDateContainer.style.display = "none";
+            } else {
+                // Saved campaign not in current list, use first campaign
+                console.log('[FILTER-PREFS] Saved campaign not found, using first campaign');
+                select.value = 0;
+                customDateContainer.style.display = "none";
+            }
 
-            // 🎯 AUTO-CONNECT REALTIME SERVER
-            if (window.realtimeManager) {
-                console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
-                window.realtimeManager.connectServerMode();
+            // Manually update selectedCampaign state
+            const selectedOption = select.options[select.selectedIndex];
+            selectedCampaign = selectedOption?.dataset.campaign
+                ? JSON.parse(selectedOption.dataset.campaign)
+                : null;
+
+            // ⭐ Load employee ranges for the selected campaign
+            if (selectedCampaign?.displayName) {
+                console.log(`[EMPLOYEE] Auto-loading employee ranges for: ${selectedCampaign.displayName}`);
+                await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
+
+                if (allData.length > 0) {
+                    console.log(`[EMPLOYEE] Re-rendering table with ${employeeRanges.length} employee ranges`);
+                    performTableSearch();
+                }
+            }
+
+            if (autoLoad) {
+                console.log('[AUTO-LOAD] Tự động tải dữ liệu chiến dịch:', selectedCampaign?.displayName || campaigns[0].displayName);
+
+                if (window.notificationManager) {
+                    window.notificationManager.info(
+                        `Đang tải dữ liệu chiến dịch: ${selectedCampaign?.displayName || campaigns[0].displayName}`,
+                        2000,
+                        'Khôi phục từ Firebase'
+                    );
+                }
+
+                await handleSearch();
+
+                if (window.realtimeManager) {
+                    console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
+                    window.realtimeManager.connectServerMode();
+                }
             }
         } else {
-            console.log('[MANUAL-SELECT] Đã chọn chiến dịch đầu tiên (chờ người dùng bấm Tải):', campaigns[0].displayName);
+            // 🎯 No saved preferences - use default (first campaign)
+            select.value = 0;
+            customDateContainer.style.display = "none";
+
+            // Manually update selectedCampaign state
+            const selectedOption = select.options[select.selectedIndex];
+            selectedCampaign = selectedOption?.dataset.campaign
+                ? JSON.parse(selectedOption.dataset.campaign)
+                : null;
+
+            // ⭐ Load employee ranges for the selected campaign
+            if (selectedCampaign?.displayName) {
+                console.log(`[EMPLOYEE] Auto-loading employee ranges for: ${selectedCampaign.displayName}`);
+                await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
+
+                if (allData.length > 0) {
+                    console.log(`[EMPLOYEE] Re-rendering table with ${employeeRanges.length} employee ranges`);
+                    performTableSearch();
+                }
+            }
+
+            if (autoLoad) {
+                console.log('[AUTO-LOAD] Tự động tải dữ liệu chiến dịch:', campaigns[0].displayName);
+
+                if (window.notificationManager) {
+                    window.notificationManager.info(
+                        `Đang tải dữ liệu chiến dịch: ${campaigns[0].displayName}`,
+                        2000,
+                        'Tự động tải'
+                    );
+                }
+
+                await handleSearch();
+
+                if (window.realtimeManager) {
+                    console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
+                    window.realtimeManager.connectServerMode();
+                }
+            } else {
+                console.log('[MANUAL-SELECT] Đã chọn chiến dịch đầu tiên (chờ người dùng bấm Tải):', campaigns[0].displayName);
+            }
         }
     }
 }
@@ -3391,6 +3545,13 @@ async function handleCampaignChange() {
             customStartDateInput.value = formatDateTimeLocal(today);
         }
 
+        // 🔥 Save custom mode preference to Firebase
+        saveFilterPreferencesToFirebase({
+            selectedCampaignValue: 'custom',
+            isCustomMode: true,
+            customStartDate: customStartDateInput.value
+        });
+
         // Load employee ranges (general, no campaign)
         console.log('[EMPLOYEE] Loading general employee ranges for custom mode');
         await loadEmployeeRangesForCampaign(null);
@@ -3399,6 +3560,15 @@ async function handleCampaignChange() {
         return;
     } else {
         customDateContainer.style.display = "none";
+
+        // 🔥 Save campaign selection to Firebase (not custom mode)
+        if (select.value && select.value !== '') {
+            saveFilterPreferencesToFirebase({
+                selectedCampaignValue: select.value,
+                isCustomMode: false,
+                customStartDate: null
+            });
+        }
     }
 
     // 🔥 Cleanup old Firebase TAG listeners
@@ -3443,6 +3613,13 @@ async function handleCustomDateChange() {
     }
 
     console.log(`[CUSTOM-FILTER] Custom date changed to: ${customStartDateValue}`);
+
+    // 🔥 Save custom date to Firebase
+    saveFilterPreferencesToFirebase({
+        selectedCampaignValue: 'custom',
+        isCustomMode: true,
+        customStartDate: customStartDateValue
+    });
 
     // Cleanup old listeners and data
     cleanupTagRealtimeListeners();
