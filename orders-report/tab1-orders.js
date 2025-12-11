@@ -15272,9 +15272,12 @@ async function confirmAndPrintSale() {
             console.warn('[SALE-CONFIRM] Failed to fetch default data:', err);
         });
 
-        // Step 4: Open print popup with HTML
+        // Step 4: Open print popup with HTML and VietQR
         if (printResult.html) {
-            openPrintPopup(printResult.html);
+            // Get phone and COD for VietQR
+            const phone = document.getElementById('saleReceiverPhone')?.value || currentSaleOrderData?.PartnerPhone || currentSaleOrderData?.Telephone;
+            const cod = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+            openPrintPopup(printResult.html, phone, cod);
         }
 
         // Success notification
@@ -15661,10 +15664,41 @@ function buildOrderLines() {
 }
 
 /**
- * Open print popup with HTML content
+ * Open print popup with HTML content and inject VietQR
+ * @param {string} html - HTML content from print1 API
+ * @param {string} phone - Customer phone number for QR
+ * @param {number} cod - Cash on delivery amount for QR
  */
-function openPrintPopup(html) {
+function openPrintPopup(html, phone = null, cod = 0) {
     console.log('[SALE-CONFIRM] Opening print popup...');
+
+    // Inject VietQR if phone is available
+    if (phone) {
+        const normalizedPhone = normalizePhoneForQR(phone);
+        if (normalizedPhone) {
+            const uniqueCode = getOrCreateQRForPhone(normalizedPhone);
+            if (uniqueCode) {
+                const qrUrl = generateVietQRUrl(uniqueCode, cod);
+
+                // Create VietQR HTML section
+                const vietQRHtml = `
+                    <div style="margin-top: 15px; text-align: center; border-top: 1px dashed black; padding-top: 10px;">
+                        <div style="font-weight: bold; margin-bottom: 8px;">Quét mã để chuyển khoản</div>
+                        <img src="${qrUrl}" alt="VietQR" style="width: 180px; height: auto;">
+                        <div style="margin-top: 6px; font-size: 11px;">
+                            <div><strong>ACB:</strong> 93616</div>
+                            <div><strong>CTK:</strong> LAI THUY YEN NHI</div>
+                            <div style="font-family: monospace; font-weight: bold; margin-top: 4px;">${uniqueCode}</div>
+                        </div>
+                    </div>
+                `;
+
+                // Inject before </body>
+                html = html.replace('</body>', vietQRHtml + '</body>');
+                console.log('[SALE-CONFIRM] VietQR injected into print HTML');
+            }
+        }
+    }
 
     // Create a new window for printing
     const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
