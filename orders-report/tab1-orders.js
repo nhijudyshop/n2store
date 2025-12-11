@@ -14313,11 +14313,22 @@ async function fetchOrderDetailsForSale(orderUuid) {
 function populatePartnerData(partner) {
     if (!partner) return;
 
+    // Calculate old debt (Nợ cũ): Debit - Credit
+    // Positive = customer owes, Negative = shop owes customer
+    const oldDebt = (partner.Debit || 0) - (partner.Credit || 0);
+
     // Customer info
     document.getElementById('saleCustomerName').textContent = partner.DisplayName || partner.Name || '';
     document.getElementById('saleCustomerStatus').textContent = partner.StatusText || 'Bình thường';
     document.getElementById('saleLoyaltyPoints').textContent = partner.LoyaltyPoints || 0;
-    document.getElementById('saleOldDebt').textContent = formatCurrencyVND(partner.Credit - partner.Debit);
+    document.getElementById('saleOldDebt').textContent = formatCurrencyVND(oldDebt);
+
+    // Populate prepaid amount with old debt (công nợ)
+    // This field is disabled - only admin can edit
+    const prepaidAmountField = document.getElementById('salePrepaidAmount');
+    if (prepaidAmountField) {
+        prepaidAmountField.value = oldDebt > 0 ? oldDebt : 0;
+    }
 
     // Receiver info (update if not already set)
     const receiverName = document.getElementById('saleReceiverName');
