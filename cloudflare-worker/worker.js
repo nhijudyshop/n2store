@@ -557,6 +557,91 @@ console.log('[BRIDGE] Extension bridge loaded on:', window.location.hostname);
         }
       }
 
+      // ========== PANCAKE DIRECT API (with custom Referer and JWT cookie) ==========
+      // Used for 24h policy bypass - calls fill_admin_name, check_inbox, contents/touch
+      if (pathname.startsWith('/api/pancake-direct/')) {
+        const apiPath = pathname.replace(/^\/api\/pancake-direct\//, '');
+        const pageId = url.searchParams.get('page_id');
+        const jwtToken = url.searchParams.get('jwt');
+
+        // Remove our custom params from the search string before forwarding
+        const forwardParams = new URLSearchParams(url.search);
+        forwardParams.delete('page_id');
+        forwardParams.delete('jwt');
+        const forwardSearch = forwardParams.toString() ? `?${forwardParams.toString()}` : '';
+
+        const targetUrl = `https://pancake.vn/api/v1/${apiPath}${forwardSearch}`;
+
+        console.log('[PANCAKE-DIRECT] Target URL:', targetUrl);
+        console.log('[PANCAKE-DIRECT] Page ID:', pageId);
+
+        // Determine Referer based on pageId
+        let refererUrl = 'https://pancake.vn/multi_pages'; // default
+        if (pageId === '117267091364524') {
+          refererUrl = 'https://pancake.vn/NhiJudyHouse.VietNam';
+        } else if (pageId === '270136663390370') {
+          refererUrl = 'https://pancake.vn/NhiJudyStore';
+        }
+
+        console.log('[PANCAKE-DIRECT] Referer:', refererUrl);
+
+        // Build headers with JWT cookie
+        const headers = new Headers();
+        headers.set('Accept', 'application/json, text/plain, */*');
+        headers.set('Accept-Language', 'en-US,en;q=0.9,vi;q=0.8');
+        headers.set('Origin', 'https://pancake.vn');
+        headers.set('Referer', refererUrl);
+        headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+        headers.set('sec-ch-ua', '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"');
+        headers.set('sec-ch-ua-mobile', '?0');
+        headers.set('sec-ch-ua-platform', '"macOS"');
+        headers.set('sec-fetch-dest', 'empty');
+        headers.set('sec-fetch-mode', 'cors');
+        headers.set('sec-fetch-site', 'same-origin');
+
+        // Set Content-Type from original request
+        const contentType = request.headers.get('Content-Type');
+        if (contentType) {
+          headers.set('Content-Type', contentType);
+        }
+
+        // Set Cookie with JWT if provided
+        if (jwtToken) {
+          headers.set('Cookie', `jwt=${jwtToken}; locale=vi`);
+        }
+
+        try {
+          const response = await fetch(targetUrl, {
+            method: request.method,
+            headers: headers,
+            body: request.method !== 'GET' && request.method !== 'HEAD'
+              ? await request.arrayBuffer()
+              : null,
+          });
+
+          console.log('[PANCAKE-DIRECT] Response status:', response.status);
+
+          const newResponse = new Response(response.body, response);
+          newResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+          newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+
+          return newResponse;
+        } catch (error) {
+          console.error('[PANCAKE-DIRECT] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Pancake direct API failed',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
       let isTPOSRequest = false;
