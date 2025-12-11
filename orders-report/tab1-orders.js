@@ -14497,14 +14497,22 @@ async function fetchDeliveryCarriers() {
  * @param {string} selectedId - Optional: ID of carrier to select
  */
 async function populateDeliveryCarrierDropdown(selectedId = null) {
+    console.log('[DELIVERY-CARRIER] populateDeliveryCarrierDropdown called');
+
     const select = document.getElementById('saleDeliveryPartner');
-    if (!select) return;
+    if (!select) {
+        console.error('[DELIVERY-CARRIER] Select element not found!');
+        return;
+    }
+
+    console.log('[DELIVERY-CARRIER] Found select element, showing loading...');
 
     // Show loading
     select.innerHTML = '<option value="">Đang tải...</option>';
     select.disabled = true;
 
     const carriers = await fetchDeliveryCarriers();
+    console.log('[DELIVERY-CARRIER] Got carriers:', carriers.length);
 
     // Build options
     let optionsHtml = '<option value="">-- Chọn đối tác giao hàng --</option>';
@@ -14551,6 +14559,11 @@ function updateSaleCOD() {
         codInput.value = cod;
     }
 }
+
+// Export delivery carrier functions to window for debugging
+window.fetchDeliveryCarriers = fetchDeliveryCarriers;
+window.populateDeliveryCarrierDropdown = populateDeliveryCarrierDropdown;
+window.getCachedDeliveryCarriers = getCachedDeliveryCarriers;
 
 /**
  * Format currency in Vietnamese style
