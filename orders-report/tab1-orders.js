@@ -14229,7 +14229,19 @@ async function fetchOrderDetailsForSale(orderUuid) {
     console.log('[SALE-MODAL] Fetching order details for UUID:', orderUuid);
 
     try {
-        const token = localStorage.getItem('tpos_token');
+        // Use tokenManager to get valid token (auto-refreshes if expired)
+        let token;
+        if (window.tokenManager) {
+            token = await window.tokenManager.getToken();
+        } else {
+            // Fallback: try to get from bearer_token_data storage
+            const storedData = localStorage.getItem('bearer_token_data');
+            if (storedData) {
+                const data = JSON.parse(storedData);
+                token = data.access_token;
+            }
+        }
+
         if (!token) {
             console.warn('[SALE-MODAL] No auth token found');
             return null;
