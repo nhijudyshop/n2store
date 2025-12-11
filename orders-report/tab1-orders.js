@@ -8093,36 +8093,35 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                     conversation = matchingConversations[0]; // Lấy conversation đầu tiên
                                 }
                             } else {
-                                // Cho INBOX: lấy TẤT CẢ matching conversations (không chỉ cái đầu tiên)
-                                const matchingInboxConversations = searchResult.conversations.filter(conv => {
-                                    // Only match INBOX type for messages
-                                    if (conv.type !== 'INBOX') return false;
+                                // Cho INBOX: lấy TẤT CẢ INBOX conversations tìm được theo tên
+                                // Không filter quá chặt theo fb_id để user có thể chọn conversation
+                                const allInboxConversations = searchResult.conversations.filter(conv => {
+                                    return conv.type === 'INBOX';
+                                });
 
-                                    // Check in customers array
+                                console.log('[CHAT-MODAL] Found', allInboxConversations.length, 'INBOX conversations');
+
+                                // Tìm conversation có fb_id khớp để ưu tiên làm default
+                                const preferredConversation = allInboxConversations.find(conv => {
                                     const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
-
-                                    // Check in from.id
                                     const hasMatchingFrom = conv.from?.id === facebookPsid;
-
-                                    // Check in from_psid
                                     const hasMatchingPsid = conv.from_psid === facebookPsid;
-
                                     return hasMatchingCustomer || hasMatchingFrom || hasMatchingPsid;
                                 });
 
-                                console.log('[CHAT-MODAL] Found', matchingInboxConversations.length, 'matching INBOX conversations');
+                                if (allInboxConversations.length > 0) {
+                                    // Populate conversation selector với TẤT CẢ INBOX conversations
+                                    // Nếu có preferred conversation (fb_id match), pre-select nó
+                                    const preferredConvId = preferredConversation?.id || null;
+                                    const mostRecentConv = window.populateConversationSelector(allInboxConversations, preferredConvId);
 
-                                if (matchingInboxConversations.length > 0) {
-                                    // Populate conversation selector và lấy conversation mới nhất (sort by updated_time)
-                                    const mostRecentConv = window.populateConversationSelector(matchingInboxConversations);
-
-                                    // Dùng conversation mới nhất làm mặc định
-                                    conversation = mostRecentConv || matchingInboxConversations[0];
+                                    // Dùng preferred conversation hoặc most recent
+                                    conversation = preferredConversation || mostRecentConv || allInboxConversations[0];
 
                                     if (conversation && conversation.customers && conversation.customers.length > 0) {
                                         pancakeCustomerUuid = conversation.customers[0].id;
                                         window.currentCustomerUUID = pancakeCustomerUuid;
-                                        console.log('[CHAT-MODAL] ✅ Using most recent INBOX conversation - customer UUID:', pancakeCustomerUuid);
+                                        console.log('[CHAT-MODAL] ✅ Using INBOX conversation - customer UUID:', pancakeCustomerUuid);
                                     }
                                 }
                             }
