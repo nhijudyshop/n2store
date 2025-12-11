@@ -11,6 +11,7 @@ let totalCustomers = 0;
 let isSearching = false;
 let currentSearchTerm = '';
 let searchDebounceTimer = null;
+let isDuplicateFilter = false;
 
 // TPOS API Configuration - using Cloudflare Worker proxy
 const CLOUDFLARE_PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -172,6 +173,7 @@ function initializeEventListeners() {
     document.getElementById('pageSizeSelect').addEventListener('change', handlePageSizeChange);
     document.getElementById('searchInput').addEventListener('input', handleSearch);
     document.getElementById('statusFilter').addEventListener('change', handleFilter);
+    document.getElementById('duplicateFilter').addEventListener('change', handleDuplicateFilter);
     document.getElementById('excelFile').addEventListener('change', handleFileSelect);
     document.getElementById('confirmImportBtn').addEventListener('click', handleImportConfirm);
 
@@ -350,7 +352,11 @@ function updatePaginationUI() {
 async function goToPreviousPage() {
     if (currentPage > 1) {
         currentPage--;
-        await loadCustomers();
+        if (isDuplicateFilter) {
+            await loadDuplicateCustomers();
+        } else {
+            await loadCustomers();
+        }
     }
 }
 
@@ -359,7 +365,11 @@ async function goToNextPage() {
     const totalPages = Math.ceil(totalCustomers / pageSize);
     if (currentPage < totalPages) {
         currentPage++;
-        await loadCustomers();
+        if (isDuplicateFilter) {
+            await loadDuplicateCustomers();
+        } else {
+            await loadCustomers();
+        }
     }
 }
 
@@ -367,7 +377,11 @@ async function goToNextPage() {
 async function handlePageSizeChange(e) {
     pageSize = parseInt(e.target.value);
     currentPage = 1;
-    await loadCustomers();
+    if (isDuplicateFilter) {
+        await loadDuplicateCustomers();
+    } else {
+        await loadCustomers();
+    }
 }
 
 // Merge customers with the same phone number
@@ -486,6 +500,11 @@ function createCustomerRow(customer) {
     const isMerged = (customer.mergedIds && customer.mergedIds.length > 1);
     const mergedBadge = isMerged ? `<span class="merged-badge" title="${customer.mergedIds.length} khách hàng trùng SĐT" style="background: #f59e0b; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${customer.mergedIds.length} trùng</span>` : '';
 
+    // Badge for duplicate phone count (from duplicates API)
+    const duplicateBadge = customer.duplicate_count && customer.duplicate_count > 1
+        ? `<span class="duplicate-badge" title="${customer.duplicate_count} khách hàng có cùng SĐT" style="background: #dc2626; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${customer.duplicate_count} trùng SĐT</span>`
+        : '';
+
     tr.innerHTML = `
         <td>
             <input type="checkbox" class="customer-checkbox" data-id="${customer.id}">
@@ -494,6 +513,7 @@ function createCustomerRow(customer) {
             <div class="customer-name">
                 <span class="name">${escapeHtml(displayName)}</span>
                 ${mergedBadge}
+                ${duplicateBadge}
                 <span class="status-badge ${getStatusClass(customer.status)}">${customer.status || 'Bình thường'}</span>
             </div>
         </td>
@@ -570,6 +590,12 @@ function handleSearch(e) {
         clearTimeout(searchDebounceTimer);
     }
 
+    // Turn off duplicate filter when searching
+    if (searchTerm !== '' && isDuplicateFilter) {
+        isDuplicateFilter = false;
+        document.getElementById('duplicateFilter').checked = false;
+    }
+
     // Show instant feedback
     if (searchTerm !== '') {
         const searchInput = document.getElementById('searchInput');
@@ -638,6 +664,12 @@ async function searchCustomers(searchTerm) {
 
 // Filter handler
 function handleFilter() {
+    if (isDuplicateFilter) {
+        // Turn off duplicate filter when changing status filter
+        isDuplicateFilter = false;
+        document.getElementById('duplicateFilter').checked = false;
+    }
+
     if (isSearching && currentSearchTerm) {
         // Re-search with new filter
         searchCustomers(currentSearchTerm);
@@ -645,6 +677,80 @@ function handleFilter() {
         // Reload with new filter
         currentPage = 1;
         loadCustomers();
+    }
+}
+
+/**
+ * Handle duplicate phone filter toggle
+ */
+async function handleDuplicateFilter() {
+    const checkbox = document.getElementById('duplicateFilter');
+    isDuplicateFilter = checkbox.checked;
+
+    // Reset search when toggling duplicate filter
+    if (isDuplicateFilter) {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = '';
+        isSearching = false;
+        currentSearchTerm = '';
+    }
+
+    currentPage = 1;
+
+    if (isDuplicateFilter) {
+        await loadDuplicateCustomers();
+    } else {
+        await loadCustomers();
+    }
+}
+
+/**
+ * Load customers with duplicate phone numbers
+ */
+async function loadDuplicateCustomers() {
+    showLoading(true);
+    showEmptyState(false);
+
+    try {
+        console.log(`[DUPLICATES] Loading page ${currentPage}, limit ${pageSize}`);
+
+        const response = await API.getDuplicateCustomers(currentPage, pageSize);
+
+        if (!response.success) {
+            throw new Error(response.message || 'Failed to load duplicate customers');
+        }
+
+        customers = response.data || [];
+        filteredCustomers = [...customers];
+
+        // Update pagination info from server
+        if (response.pagination) {
+            totalCustomers = response.pagination.total;
+
+            // Update duplicate count badge
+            const countEl = document.getElementById('duplicateCount');
+            if (countEl && response.pagination.duplicate_phones_count !== undefined) {
+                countEl.textContent = response.pagination.duplicate_phones_count;
+                countEl.style.display = response.pagination.duplicate_phones_count > 0 ? 'inline' : 'none';
+            }
+        }
+
+        renderCustomers();
+        updatePaginationUI();
+        showLoading(false);
+
+        if (customers.length === 0) {
+            showEmptyState(true);
+            showNotification('Không có khách hàng nào trùng số điện thoại', 'info');
+        } else {
+            console.log(`[DUPLICATES] ✅ Found ${customers.length} customers with duplicate phones`);
+        }
+
+    } catch (error) {
+        console.error('[DUPLICATES] Error:', error);
+        showNotification('Lỗi khi tải danh sách khách hàng trùng SĐT', 'error');
+        showLoading(false);
+        showEmptyState(true);
     }
 }
 
