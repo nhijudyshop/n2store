@@ -3636,6 +3636,12 @@
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div>
+                            <!--
+                                saleOldDebt: Nợ cũ (Công nợ) của khách hàng
+                                Data source: REALTIME từ API /api/sepay/debt-summary?phone=xxx
+                                (Tính tổng các giao dịch IN trong balance_history có chứa QR code của khách)
+                                Populated by: fetchDebtForSaleModal() in tab1-orders.js
+                            -->
                             <label class="sale-label">Nợ cũ</label>
                             <div id="saleOldDebt" class="sale-value">0</div>
                         </div>
@@ -3812,6 +3818,13 @@
                             <input type="datetime-local" id="salePrepaidDate" class="sale-input">
                         </div>
                         <div>
+                            <!--
+                                salePrepaidAmount: Trả trước (Công nợ) - Số tiền khách đã trả trước
+                                Data source: REALTIME từ API /api/sepay/debt-summary?phone=xxx
+                                (Cùng nguồn với cột "Công Nợ" trong bảng orders)
+                                Populated by: fetchDebtForSaleModal() in tab1-orders.js
+                                Field disabled: chỉ admin có thể sửa
+                            -->
                             <label class="sale-label">Trả trước (Công nợ)</label>
                             <input type="number" id="salePrepaidAmount" class="sale-input" value="0" style="width: 120px; background: #f3f4f6;" disabled>
                         </div>

@@ -14428,6 +14428,12 @@ async function openSaleButtonModal() {
     // Populate basic order data first (from local data)
     populateSaleModalWithOrder(order);
 
+    // Fetch realtime debt for the phone number (same as debt column in table)
+    const phone = order.Telephone || order.PartnerPhone;
+    if (phone) {
+        fetchDebtForSaleModal(phone);
+    }
+
     // Fetch detailed order data from API (includes partner, orderLines)
     const orderDetails = await fetchOrderDetailsForSale(orderId);
 
@@ -14592,22 +14598,15 @@ async function fetchOrderDetailsForSale(orderUuid) {
 function populatePartnerData(partner) {
     if (!partner) return;
 
-    // Calculate old debt (Nợ cũ): Debit - Credit
-    // Positive = customer owes, Negative = shop owes customer
-    const oldDebt = (partner.Debit || 0) - (partner.Credit || 0);
-
     // Customer info
     document.getElementById('saleCustomerName').textContent = partner.DisplayName || partner.Name || '';
     document.getElementById('saleCustomerStatus').textContent = partner.StatusText || 'Bình thường';
     document.getElementById('saleLoyaltyPoints').textContent = partner.LoyaltyPoints || 0;
-    document.getElementById('saleOldDebt').textContent = formatCurrencyVND(oldDebt);
 
-    // Populate prepaid amount with old debt (công nợ)
-    // This field is disabled - only admin can edit
-    const prepaidAmountField = document.getElementById('salePrepaidAmount');
-    if (prepaidAmountField) {
-        prepaidAmountField.value = oldDebt > 0 ? oldDebt : 0;
-    }
+    // NOTE: Prepaid amount (salePrepaidAmount) and Old Debt (saleOldDebt) are now
+    // populated by fetchDebtForSaleModal() using REALTIME debt from balance-history API
+    // instead of TPOS partner.Debit/Credit data. This ensures consistency with
+    // the "Công Nợ" column in the orders table.
 
     // Receiver info (update if not already set)
     const receiverName = document.getElementById('saleReceiverName');
@@ -14626,6 +14625,53 @@ function populatePartnerData(partner) {
             address = parts.join(', ');
         }
         receiverAddress.value = address;
+    }
+}
+
+/**
+ * Fetch realtime debt for sale modal (same source as debt column in table)
+ * @param {string} phone - Phone number
+ */
+async function fetchDebtForSaleModal(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return;
+
+    const prepaidAmountField = document.getElementById('salePrepaidAmount');
+    const oldDebtField = document.getElementById('saleOldDebt');
+
+    // Show loading state
+    if (prepaidAmountField) {
+        prepaidAmountField.value = '...';
+    }
+
+    try {
+        // Use the same API as the debt column in table
+        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(normalizedPhone)}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const totalDebt = result.data.total_debt || 0;
+            console.log('[SALE-MODAL] Realtime debt for phone:', normalizedPhone, '=', totalDebt);
+
+            // Update prepaid amount field
+            if (prepaidAmountField) {
+                prepaidAmountField.value = totalDebt > 0 ? totalDebt : 0;
+            }
+
+            // Also update the "Nợ cũ" display to show realtime debt
+            if (oldDebtField) {
+                oldDebtField.textContent = formatCurrencyVND(totalDebt);
+            }
+
+            // Cache it for later use
+            saveDebtToCache(normalizedPhone, totalDebt);
+        }
+    } catch (error) {
+        console.error('[SALE-MODAL] Error fetching realtime debt:', error);
+        // Fallback to 0 on error
+        if (prepaidAmountField) {
+            prepaidAmountField.value = 0;
+        }
     }
 }
 
