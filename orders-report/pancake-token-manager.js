@@ -1,5 +1,11 @@
 // =====================================================
-// PANCAKE TOKEN MANAGER - Quản lý JWT token với Firebase
+// PANCAKE TOKEN MANAGER - Quản lý JWT token với localStorage + Firebase
+// =====================================================
+// Priority order for token retrieval:
+// 1. In-memory cache (fastest)
+// 2. localStorage (fast, no network)
+// 3. Firebase (network required, backup)
+// 4. Cookie (fallback)
 // =====================================================
 
 class PancakeTokenManager {
@@ -12,6 +18,119 @@ class PancakeTokenManager {
         this.activeAccountId = null;
         this.accounts = {};
         this.pageAccessTokens = {}; // Cache for page_access_tokens
+
+        // localStorage keys
+        this.LOCAL_STORAGE_KEYS = {
+            JWT_TOKEN: 'pancake_jwt_token',
+            JWT_TOKEN_EXPIRY: 'pancake_jwt_token_expiry',
+            JWT_ACCOUNT_ID: 'pancake_active_account_id',
+            PAGE_ACCESS_TOKENS: 'pancake_page_access_tokens'
+        };
+    }
+
+    // =====================================================
+    // LOCAL STORAGE METHODS - Fast access without network
+    // =====================================================
+
+    /**
+     * Save JWT token to localStorage for fast access
+     * @param {string} token - JWT token
+     * @param {number} expiry - Token expiry timestamp (seconds)
+     */
+    saveTokenToLocalStorage(token, expiry) {
+        try {
+            localStorage.setItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN, token);
+            localStorage.setItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY, expiry.toString());
+            console.log('[PANCAKE-TOKEN] ✅ JWT token saved to localStorage');
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error saving token to localStorage:', error);
+        }
+    }
+
+    /**
+     * Get JWT token from localStorage
+     * @returns {Object|null} { token, expiry } or null
+     */
+    getTokenFromLocalStorage() {
+        try {
+            const token = localStorage.getItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN);
+            const expiry = localStorage.getItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY);
+
+            if (!token || !expiry) {
+                return null;
+            }
+
+            const exp = parseInt(expiry, 10);
+            if (this.isTokenExpired(exp)) {
+                console.log('[PANCAKE-TOKEN] localStorage token is expired, clearing...');
+                this.clearTokenFromLocalStorage();
+                return null;
+            }
+
+            console.log('[PANCAKE-TOKEN] ✅ Valid JWT token found in localStorage');
+            return { token, expiry: exp };
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error getting token from localStorage:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Clear JWT token from localStorage
+     */
+    clearTokenFromLocalStorage() {
+        try {
+            localStorage.removeItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN);
+            localStorage.removeItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY);
+            console.log('[PANCAKE-TOKEN] JWT token cleared from localStorage');
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error clearing token from localStorage:', error);
+        }
+    }
+
+    /**
+     * Save page_access_tokens to localStorage
+     * @param {Object} tokens - { pageId: { token, pageId, pageName, timestamp, savedAt }, ... }
+     */
+    savePageAccessTokensToLocalStorage(tokens = null) {
+        try {
+            const data = tokens || this.pageAccessTokens;
+            localStorage.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, JSON.stringify(data));
+            console.log('[PANCAKE-TOKEN] ✅ Page access tokens saved to localStorage:', Object.keys(data).length);
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error saving page access tokens to localStorage:', error);
+        }
+    }
+
+    /**
+     * Get page_access_tokens from localStorage
+     * @returns {Object} - { pageId: { token, ... }, ... }
+     */
+    getPageAccessTokensFromLocalStorage() {
+        try {
+            const data = localStorage.getItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+            if (!data) {
+                return {};
+            }
+            const parsed = JSON.parse(data);
+            console.log('[PANCAKE-TOKEN] ✅ Page access tokens loaded from localStorage:', Object.keys(parsed).length);
+            return parsed;
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error getting page access tokens from localStorage:', error);
+            return {};
+        }
+    }
+
+    /**
+     * Clear page_access_tokens from localStorage
+     */
+    clearPageAccessTokensFromLocalStorage() {
+        try {
+            localStorage.removeItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+            console.log('[PANCAKE-TOKEN] Page access tokens cleared from localStorage');
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error clearing page access tokens from localStorage:', error);
+        }
     }
 
     /**
@@ -19,9 +138,13 @@ class PancakeTokenManager {
      */
     async initialize() {
         try {
+            // PRIORITY 1: Load from localStorage first (instant, no network)
+            console.log('[PANCAKE-TOKEN] Loading from localStorage first...');
+            this.loadFromLocalStorage();
+
             if (!window.firebase || !window.firebase.database) {
-                console.warn('[PANCAKE-TOKEN] Firebase not available');
-                return false;
+                console.warn('[PANCAKE-TOKEN] Firebase not available, using localStorage only');
+                return true; // Still return true if we have localStorage data
             }
 
             // New multi-account structure
@@ -29,18 +152,42 @@ class PancakeTokenManager {
             this.accountsRef = this.firebaseRef.child('accounts');
             this.pageTokensRef = this.firebaseRef.child('page_access_tokens');
 
-            // Load accounts and active account
+            // Load accounts and active account from Firebase (may update localStorage)
             await this.loadAccounts();
 
-            // Load page access tokens
+            // Load page access tokens from Firebase (merge with localStorage)
             await this.loadPageAccessTokens();
 
             console.log('[PANCAKE-TOKEN] Firebase reference initialized');
             return true;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error initializing Firebase:', error);
-            return false;
+            // Even if Firebase fails, we might have localStorage data
+            return this.currentToken !== null;
         }
+    }
+
+    /**
+     * Load tokens from localStorage (fast, synchronous)
+     */
+    loadFromLocalStorage() {
+        // Load JWT token
+        const localToken = this.getTokenFromLocalStorage();
+        if (localToken) {
+            this.currentToken = localToken.token;
+            this.currentTokenExpiry = localToken.expiry;
+            console.log('[PANCAKE-TOKEN] ✅ JWT token loaded from localStorage');
+        }
+
+        // Load page access tokens
+        const localPageTokens = this.getPageAccessTokensFromLocalStorage();
+        if (Object.keys(localPageTokens).length > 0) {
+            this.pageAccessTokens = localPageTokens;
+            console.log('[PANCAKE-TOKEN] ✅ Page access tokens loaded from localStorage');
+        }
+
+        // Load active account ID
+        this.activeAccountId = localStorage.getItem(this.LOCAL_STORAGE_KEYS.JWT_ACCOUNT_ID);
     }
 
     /**
@@ -59,6 +206,9 @@ class PancakeTokenManager {
                 const account = this.accounts[this.activeAccountId];
                 this.currentToken = account.token;
                 this.currentTokenExpiry = account.exp;
+
+                // Sync to localStorage for fast access next time
+                this.saveTokenToLocalStorage(account.token, account.exp);
             } else if (Object.keys(this.accounts).length > 0) {
                 // Auto-select first account if no active account set
                 const firstAccountId = Object.keys(this.accounts)[0];
@@ -254,11 +404,6 @@ class PancakeTokenManager {
      */
     async saveTokenToFirebase(token, accountId = null) {
         try {
-            if (!this.accountsRef) {
-                console.warn('[PANCAKE-TOKEN] Firebase not initialized');
-                return null;
-            }
-
             // Clean token - remove jwt= prefix if exists
             let cleanedToken = token.trim();
             if (cleanedToken.startsWith('jwt=')) {
@@ -284,26 +429,30 @@ class PancakeTokenManager {
                 savedAt: Date.now()
             };
 
-            // Save account
-            await this.accountsRef.child(accountId).set(data);
-
-            // Set as active account (localStorage - per device)
-            localStorage.setItem('pancake_active_account_id', accountId);
-
-            // Update local state
+            // Update local state first
             this.accounts[accountId] = data;
             this.activeAccountId = accountId;
             this.currentToken = cleanedToken;
             this.currentTokenExpiry = payload.exp;
 
-            console.log('[PANCAKE-TOKEN] ✅ Token saved to Firebase as account:', accountId);
+            // Save to localStorage (fast, synchronous) - PRIMARY STORAGE
+            localStorage.setItem('pancake_active_account_id', accountId);
+            this.saveTokenToLocalStorage(cleanedToken, payload.exp);
+
+            // Save to Firebase (async, backup)
+            if (this.accountsRef) {
+                await this.accountsRef.child(accountId).set(data);
+                console.log('[PANCAKE-TOKEN] ✅ Token saved to Firebase as account:', accountId);
+            }
+
+            console.log('[PANCAKE-TOKEN] ✅ Token saved to localStorage');
             console.log('[PANCAKE-TOKEN] ✅ Active account set locally (this device only):', accountId);
             console.log('[PANCAKE-TOKEN] Token expires at:', new Date(payload.exp * 1000).toLocaleString());
 
             return accountId;
 
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] ❌ Error saving token to Firebase:', error);
+            console.error('[PANCAKE-TOKEN] ❌ Error saving token:', error);
             return null;
         }
     }
@@ -335,12 +484,14 @@ class PancakeTokenManager {
                 return false;
             }
 
-            // Save to localStorage (per device)
-            localStorage.setItem('pancake_active_account_id', accountId);
-
+            // Update in-memory state
             this.activeAccountId = accountId;
             this.currentToken = account.token;
             this.currentTokenExpiry = account.exp;
+
+            // Save to localStorage (per device) - fast access
+            localStorage.setItem('pancake_active_account_id', accountId);
+            this.saveTokenToLocalStorage(account.token, account.exp);
 
             console.log('[PANCAKE-TOKEN] ✅ Active account set locally (this device only):', accountId);
             return true;
@@ -419,33 +570,43 @@ class PancakeTokenManager {
 
     /**
      * Lấy token với priority:
-     * 1. Firebase (nếu còn hạn)
-     * 2. Cookie (nếu Firebase hết hạn)
-     * 3. Null (cần nhập manual)
+     * 1. In-memory cache (fastest)
+     * 2. localStorage (fast, no network)
+     * 3. Firebase (network required)
+     * 4. Cookie (fallback)
      *
-     * Tự động lưu token mới từ cookie vào Firebase
+     * Tự động lưu token mới vào localStorage và Firebase
      * @returns {Promise<string|null>}
      */
     async getToken() {
         // Priority 1: Check current token in memory
         if (this.currentToken && !this.isTokenExpired(this.currentTokenExpiry)) {
-            console.log('[PANCAKE-TOKEN] Using cached token');
+            console.log('[PANCAKE-TOKEN] Using cached token (memory)');
             return this.currentToken;
         }
 
-        // Priority 2: Check Firebase
+        // Priority 2: Check localStorage (fast, no network)
+        const localToken = this.getTokenFromLocalStorage();
+        if (localToken) {
+            console.log('[PANCAKE-TOKEN] Using token from localStorage');
+            this.currentToken = localToken.token;
+            this.currentTokenExpiry = localToken.expiry;
+            return localToken.token;
+        }
+
+        // Priority 3: Check Firebase (network required)
         const firebaseToken = await this.getTokenFromFirebase();
         if (firebaseToken) {
             console.log('[PANCAKE-TOKEN] Using token from Firebase');
             return firebaseToken;
         }
 
-        // Priority 3: Check cookie
+        // Priority 4: Check cookie
         const cookieToken = this.getTokenFromCookie();
         if (cookieToken) {
             const payload = this.decodeToken(cookieToken);
             if (payload && !this.isTokenExpired(payload.exp)) {
-                console.log('[PANCAKE-TOKEN] Using token from cookie, saving to Firebase...');
+                console.log('[PANCAKE-TOKEN] Using token from cookie, saving...');
                 await this.saveTokenToFirebase(cookieToken);
                 return cookieToken;
             } else {
@@ -591,17 +752,25 @@ class PancakeTokenManager {
      */
     async clearToken() {
         try {
+            // Clear Firebase
             if (this.firebaseRef) {
                 await this.firebaseRef.remove();
                 console.log('[PANCAKE-TOKEN] All tokens cleared from Firebase');
             }
-            // Clear local active account
-            localStorage.removeItem('pancake_active_account_id');
 
+            // Clear localStorage
+            localStorage.removeItem('pancake_active_account_id');
+            this.clearTokenFromLocalStorage();
+            this.clearPageAccessTokensFromLocalStorage();
+            console.log('[PANCAKE-TOKEN] All tokens cleared from localStorage');
+
+            // Clear in-memory cache
             this.accounts = {};
             this.activeAccountId = null;
             this.currentToken = null;
             this.currentTokenExpiry = null;
+            this.pageAccessTokens = {};
+
             return true;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error clearing token:', error);
@@ -692,7 +861,17 @@ class PancakeTokenManager {
             }
 
             const snapshot = await this.pageTokensRef.once('value');
-            this.pageAccessTokens = snapshot.val() || {};
+            const firebaseTokens = snapshot.val() || {};
+
+            // Merge Firebase tokens with existing localStorage tokens
+            // Firebase takes priority (more up-to-date)
+            this.pageAccessTokens = {
+                ...this.pageAccessTokens, // localStorage tokens (already loaded)
+                ...firebaseTokens         // Firebase tokens (override)
+            };
+
+            // Sync merged tokens back to localStorage
+            this.savePageAccessTokensToLocalStorage();
 
             console.log('[PANCAKE-TOKEN] Loaded page_access_tokens:', Object.keys(this.pageAccessTokens).length);
         } catch (error) {
@@ -733,11 +912,16 @@ class PancakeTokenManager {
                 savedAt: Date.now()
             };
 
-            // Save to Firebase
-            await this.pageTokensRef.child(pageId).set(data);
-
-            // Update cache
+            // Update in-memory cache first
             this.pageAccessTokens[pageId] = data;
+
+            // Save to localStorage (fast, synchronous)
+            this.savePageAccessTokensToLocalStorage();
+
+            // Save to Firebase (async, backup)
+            if (this.pageTokensRef) {
+                await this.pageTokensRef.child(pageId).set(data);
+            }
 
             console.log('[PANCAKE-TOKEN] ✅ page_access_token saved for page:', pageId);
             return true;
@@ -753,7 +937,20 @@ class PancakeTokenManager {
      * @returns {string|null} - Token or null
      */
     getPageAccessToken(pageId) {
-        const data = this.pageAccessTokens[pageId];
+        // Check in-memory cache first
+        let data = this.pageAccessTokens[pageId];
+
+        // If not in memory, try localStorage
+        if (!data) {
+            const localTokens = this.getPageAccessTokensFromLocalStorage();
+            if (localTokens[pageId]) {
+                data = localTokens[pageId];
+                // Update in-memory cache
+                this.pageAccessTokens[pageId] = data;
+                console.log('[PANCAKE-TOKEN] page_access_token found in localStorage for page:', pageId);
+            }
+        }
+
         return data ? data.token : null;
     }
 
