@@ -608,8 +608,9 @@ router.get('/debt-summary', async (req, res) => {
         console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
 
         // 1. FIRST: Check customers.debt (admin-adjusted value takes priority)
+        // ORDER BY debt DESC to get the highest value (admin-adjusted record)
         const customerResult = await db.query(
-            `SELECT debt, updated_at FROM customers WHERE phone = $1 OR phone = $2 LIMIT 1`,
+            `SELECT debt, updated_at FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
             [normalizedPhone, '0' + normalizedPhone]
         );
 
@@ -1035,9 +1036,9 @@ router.post('/update-debt', async (req, res) => {
 
         console.log('[UPDATE-DEBT] Updating debt for phone:', normalizedPhone, 'to:', newDebtValue, 'reason:', reason);
 
-        // Get current debt first
+        // Get current debt first - ORDER BY debt DESC to get the highest value (most relevant record)
         const currentResult = await db.query(
-            `SELECT id, phone, debt FROM customers WHERE phone = $1 OR phone = $2 LIMIT 1`,
+            `SELECT id, phone, debt FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
             [normalizedPhone, '0' + normalizedPhone]
         );
         const oldDebt = currentResult.rows.length > 0 ? (parseFloat(currentResult.rows[0].debt) || 0) : 0;
@@ -1046,13 +1047,14 @@ router.post('/update-debt', async (req, res) => {
 
         let updateResult;
         if (existingCustomerId) {
-            // Customer exists - UPDATE using the existing phone format
+            // Customer exists - UPDATE ALL matching records (both phone formats)
             updateResult = await db.query(`
                 UPDATE customers
                 SET debt = $1, updated_at = CURRENT_TIMESTAMP
-                WHERE id = $2
+                WHERE phone = $2 OR phone = $3
                 RETURNING *
-            `, [newDebtValue, existingCustomerId]);
+            `, [newDebtValue, normalizedPhone, '0' + normalizedPhone]);
+            console.log('[UPDATE-DEBT] Updated', updateResult.rowCount, 'customer records');
         } else {
             // Customer doesn't exist - INSERT new record
             updateResult = await db.query(`
