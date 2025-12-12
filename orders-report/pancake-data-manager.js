@@ -153,6 +153,10 @@ class PancakeDataManager {
                 this.lastPageFetchTime = Date.now();
                 console.log(`[PANCAKE] ✅ Fetched ${this.pages.length} pages`);
                 console.log('[PANCAKE] Page IDs:', this.pageIds);
+
+                // Extract and cache page_access_tokens from settings
+                this.extractAndCachePageAccessTokens(data.categorized.activated);
+
                 return this.pages;
             } else {
                 console.warn('[PANCAKE] Unexpected response format:', data);
@@ -164,6 +168,55 @@ class PancakeDataManager {
             return [];
         } finally {
             this.isLoadingPages = false;
+        }
+    }
+
+    /**
+     * Extract page_access_tokens from pages response and cache to localStorage
+     * Response chứa settings.page_access_token cho mỗi page
+     * Lưu trực tiếp vào localStorage mà không cần gọi API generate
+     * @param {Array} pages - Array of page objects from /api/v1/pages
+     */
+    extractAndCachePageAccessTokens(pages) {
+        try {
+            if (!window.pancakeTokenManager) {
+                console.warn('[PANCAKE] pancakeTokenManager not available');
+                return;
+            }
+
+            let extractedCount = 0;
+            const tokensToSave = {};
+
+            for (const page of pages) {
+                const pageId = page.id;
+                const pageAccessToken = page.settings?.page_access_token;
+                const pageName = page.name || pageId;
+
+                if (pageId && pageAccessToken) {
+                    // Prepare token data
+                    tokensToSave[pageId] = {
+                        token: pageAccessToken,
+                        pageId: pageId,
+                        pageName: pageName,
+                        savedAt: Date.now()
+                    };
+                    extractedCount++;
+                }
+            }
+
+            if (extractedCount > 0) {
+                // Merge with existing tokens and save to localStorage (synchronous, fast)
+                const existingTokens = window.pancakeTokenManager.pageAccessTokens || {};
+                window.pancakeTokenManager.pageAccessTokens = {
+                    ...existingTokens,
+                    ...tokensToSave
+                };
+                window.pancakeTokenManager.savePageAccessTokensToLocalStorage();
+
+                console.log(`[PANCAKE] ✅ Extracted and cached ${extractedCount} page_access_tokens from /pages response`);
+            }
+        } catch (error) {
+            console.error('[PANCAKE] Error extracting page_access_tokens:', error);
         }
     }
 
