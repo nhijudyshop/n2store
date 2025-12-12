@@ -15009,6 +15009,26 @@ async function confirmDebtUpdate() {
             setTimeout(() => {
                 prepaidAmountField.style.background = '#ffffff';
             }, 2000);
+
+            // 🔄 REALTIME UPDATE: Invalidate cache and update table cells immediately
+            const normalizedPhone = normalizePhoneForQR(phone);
+            if (normalizedPhone) {
+                // Invalidate debt cache for this phone
+                const cache = getDebtCache();
+                delete cache[normalizedPhone];
+                saveDebtCache(cache);
+                console.log('[DEBT-UPDATE] Cache invalidated for phone:', normalizedPhone);
+
+                // Update debt cells in the orders table immediately
+                updateDebtCellsInTable(normalizedPhone, newDebt);
+                console.log('[DEBT-UPDATE] Table cells updated for phone:', normalizedPhone);
+
+                // Also update "Nợ cũ" display in modal
+                const oldDebtField = document.getElementById('saleOldDebt');
+                if (oldDebtField) {
+                    oldDebtField.textContent = newDebt > 0 ? `${newDebt.toLocaleString('vi-VN')} đ` : '0';
+                }
+            }
         } else {
             throw new Error(result.error || 'Failed to update debt');
         }
