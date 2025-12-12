@@ -12,6 +12,7 @@ let commentModalParentId = null;
 let isLoadingMoreComments = false;
 let commentModalThreadId = null;
 let commentModalThreadKey = null;
+let commentModalInboxConvId = null; // Inbox conversation ID for private replies
 
 /**
  * Open the Comment Modal
@@ -544,11 +545,12 @@ window.handleCommentModalReply = async function (commentId, postId) {
     // Store the parent comment ID for reply
     commentModalParentId = getFacebookCommentIdForModal(comment);
 
-    // Reset thread IDs
+    // Reset thread IDs and inbox conversation ID
     commentModalThreadId = null;
     commentModalThreadKey = null;
+    commentModalInboxConvId = null;
 
-    // Fetch inbox_preview to get thread_id and thread_key
+    // Fetch inbox_preview to get thread_id, thread_key, and inbox_conv_id
     if (window.currentCustomerUUID && window.pancakeDataManager && commentModalChannelId) {
         try {
             console.log('[COMMENT MODAL] Fetching inbox_preview for thread IDs...');
@@ -556,9 +558,11 @@ window.handleCommentModalReply = async function (commentId, postId) {
             if (inboxPreview.success) {
                 commentModalThreadId = inboxPreview.threadId || null;
                 commentModalThreadKey = inboxPreview.threadKey || null;
-                console.log('[COMMENT MODAL] ✅ Got thread IDs from inbox_preview:', {
+                commentModalInboxConvId = inboxPreview.inboxConversationId || null;
+                console.log('[COMMENT MODAL] ✅ Got IDs from inbox_preview:', {
                     threadId: commentModalThreadId,
-                    threadKey: commentModalThreadKey
+                    threadKey: commentModalThreadKey,
+                    inboxConvId: commentModalInboxConvId
                 });
             } else {
                 console.warn('[COMMENT MODAL] ⚠️ inbox_preview returned unsuccessfully');
@@ -659,6 +663,12 @@ window.sendCommentReply = async function () {
         const pageId = commentModalChannelId;
         const commentId = commentModalParentId; // Facebook comment ID (e.g., "postId_commentId")
         const psid = commentModalPSID; // Customer Facebook ID
+        const inboxConvId = commentModalInboxConvId; // Inbox conversation ID from inbox_preview
+
+        // Check if we have the inbox conversation ID
+        if (!inboxConvId) {
+            throw new Error('Không có conversation ID để gửi tin nhắn. Vui lòng thử lại.');
+        }
 
         // Extract post ID from comment ID (format: postId_commentId)
         // The post_id for API should be: pageId_postId
@@ -669,15 +679,17 @@ window.sendCommentReply = async function () {
         console.log('[COMMENT MODAL] Sending private reply via Pancake API:', {
             pageId,
             commentId,
+            inboxConvId,
             psid,
             postId,
             message
         });
 
-        // Pancake API: conversation ID = comment ID for private replies
+        // Pancake API: conversation ID = inbox_conv_id (NOT comment ID) for private replies
+        // The inbox_conv_id is the messaging conversation between page and user
         // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
         const url = window.API_CONFIG.buildUrl.pancake(
-            `pages/${pageId}/conversations/${commentId}/messages`,
+            `pages/${pageId}/conversations/${inboxConvId}/messages`,
             `access_token=${pancakeToken}`
         );
 
