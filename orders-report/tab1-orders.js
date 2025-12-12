@@ -7049,6 +7049,78 @@ let currentPostId = null; // Lưu post ID của comment đang reply
 window.availableChatPages = []; // Cache pages for selector
 window.currentSendPageId = null; // Page ID selected for SENDING messages (independent from view)
 window.allMatchingConversations = []; // Store all matching conversations for selector
+let messageReplyType = 'reply_inbox'; // 'reply_inbox' or 'private_replies' for message modal
+
+// =====================================================
+// MESSAGE REPLY TYPE TOGGLE FUNCTIONS
+// =====================================================
+
+/**
+ * Set the message reply type (toggle between reply_inbox and private_replies)
+ * @param {string} type - 'reply_inbox' or 'private_replies'
+ */
+window.setMessageReplyType = function (type) {
+    messageReplyType = type;
+
+    const btnInbox = document.getElementById('btnMsgReplyInbox');
+    const btnPrivate = document.getElementById('btnMsgPrivateReply');
+    const hintText = document.getElementById('msgReplyTypeHint');
+
+    if (type === 'reply_inbox') {
+        // Messenger selected
+        if (btnInbox) {
+            btnInbox.style.borderColor = '#3b82f6';
+            btnInbox.style.background = '#eff6ff';
+            btnInbox.style.color = '#1d4ed8';
+        }
+        if (btnPrivate) {
+            btnPrivate.style.borderColor = '#e5e7eb';
+            btnPrivate.style.background = 'white';
+            btnPrivate.style.color = '#6b7280';
+        }
+        if (hintText) {
+            hintText.textContent = 'Gửi tin nhắn qua Messenger';
+        }
+    } else {
+        // Private reply from comment selected
+        if (btnInbox) {
+            btnInbox.style.borderColor = '#e5e7eb';
+            btnInbox.style.background = 'white';
+            btnInbox.style.color = '#6b7280';
+        }
+        if (btnPrivate) {
+            btnPrivate.style.borderColor = '#3b82f6';
+            btnPrivate.style.background = '#eff6ff';
+            btnPrivate.style.color = '#1d4ed8';
+        }
+        if (hintText) {
+            hintText.textContent = 'Gửi tin nhắn riêng từ comment đặt hàng';
+        }
+    }
+
+    console.log('[MESSAGE] Reply type set to:', type);
+};
+
+/**
+ * Show or hide message reply type toggle based on comment availability
+ */
+window.updateMessageReplyTypeToggle = function () {
+    const toggle = document.getElementById('messageReplyTypeToggle');
+    if (!toggle) return;
+
+    // Only show toggle for message type and when order has comment
+    const hasComment = window.purchaseCommentId && window.purchaseFacebookPostId;
+    const isMessageType = currentChatType === 'message';
+
+    if (isMessageType && hasComment) {
+        toggle.style.display = 'block';
+        console.log('[MESSAGE] Reply type toggle shown - order has comment:', window.purchaseCommentId);
+    } else {
+        toggle.style.display = 'none';
+        // Reset to default when hidden
+        messageReplyType = 'reply_inbox';
+    }
+};
 
 // =====================================================
 // PAGE SELECTOR FUNCTIONS
@@ -7767,6 +7839,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             // Render products table
             renderChatProductsTable();
+
+            // Update message reply type toggle (show if order has comment)
+            window.updateMessageReplyTypeToggle();
         }
     } catch (error) {
         console.error('[CHAT] Error loading order details:', error);
@@ -7777,6 +7852,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         // Reset order details
         currentChatOrderDetails = [];
         renderChatProductsTable();
+
+        // Hide message reply type toggle on error
+        window.updateMessageReplyTypeToggle();
     }
 
     // Show loading
@@ -8296,6 +8374,13 @@ window.closeChatModal = async function () {
     window.purchaseCommentId = null;
     window.purchaseFacebookPostId = null;
     window.purchaseFacebookASUserId = null;
+
+    // Reset message reply type and hide toggle
+    messageReplyType = 'reply_inbox';
+    const msgReplyToggle = document.getElementById('messageReplyTypeToggle');
+    if (msgReplyToggle) {
+        msgReplyToggle.style.display = 'none';
+    }
 
     // Hide reply preview
     const replyPreviewContainer = document.getElementById('chatReplyPreviewContainer');
@@ -9112,8 +9197,15 @@ window.sendMessage = async function () {
 
         // Add to queue - use currentSendPageId for sending (independent from view page)
         const sendPageId = window.currentSendPageId || window.currentChatChannelId;
-        console.log('[MESSAGE] Adding to queue', { repliedMessageId, imageCount: window.uploadedImagesData?.length || 0, sendPageId });
-        window.chatMessageQueue.push({
+        console.log('[MESSAGE] Adding to queue', {
+            repliedMessageId,
+            imageCount: window.uploadedImagesData?.length || 0,
+            sendPageId,
+            replyType: messageReplyType
+        });
+
+        // Build queue data
+        const queueData = {
             message,
             uploadedImagesData: window.uploadedImagesData || [],
             order: currentOrder,
@@ -9121,8 +9213,23 @@ window.sendMessage = async function () {
             channelId: sendPageId,
             chatType: 'message', // EXPLICITLY set to message
             repliedMessageId: repliedMessageId,
-            customerId: window.currentCustomerUUID // Add customer_id for Pancake API
-        });
+            customerId: window.currentCustomerUUID, // Add customer_id for Pancake API
+            messageReplyType: messageReplyType // Add reply type for private_replies support
+        };
+
+        // Add Facebook data if using private_replies
+        if (messageReplyType === 'private_replies') {
+            queueData.postId = window.purchaseFacebookPostId;
+            queueData.commentId = window.purchaseCommentId;
+            queueData.psid = window.currentChatPSID;
+            console.log('[MESSAGE] Private reply data:', {
+                postId: queueData.postId,
+                commentId: queueData.commentId,
+                psid: queueData.psid
+            });
+        }
+
+        window.chatMessageQueue.push(queueData);
 
         // Clear input
         messageInput.value = '';
@@ -9412,9 +9519,22 @@ async function tryPancakeUnlock(pageId, conversationId) {
 /**
  * Send message (MESSAGE modal only)
  * Called by queue processor
+ * Supports both reply_inbox and private_replies actions
  */
 async function sendMessageInternal(messageData) {
-    const { message, uploadedImagesData, order, conversationId, channelId, repliedMessageId, customerId } = messageData;
+    const {
+        message,
+        uploadedImagesData,
+        order,
+        conversationId,
+        channelId,
+        repliedMessageId,
+        customerId,
+        messageReplyType = 'reply_inbox', // Default to reply_inbox
+        postId,
+        commentId,
+        psid
+    } = messageData;
 
     try {
         // Get page_access_token for Official API (pages.fm)
@@ -9467,12 +9587,42 @@ async function sendMessageInternal(messageData) {
             console.log('[MESSAGE] All images processed:', imagesDataArray.length);
         }
 
-        // Step 2: Build JSON payload (Pancake API chính thức dùng application/json)
+        // Step 2: Build JSON payload based on reply type
         // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
-        const payload = {
-            action: 'reply_inbox',
-            message: message
-        };
+        let payload;
+        let actualConversationId = conversationId;
+
+        if (messageReplyType === 'private_replies') {
+            // ========== PRIVATE REPLIES (Reply to comment via private message) ==========
+            // Validate required data for private_replies
+            if (!postId || !commentId || !psid) {
+                throw new Error('Thiếu thông tin comment để gửi tin nhắn riêng. Vui lòng thử lại.');
+            }
+
+            // For private_replies, conversation_id stays the same (inbox conversation)
+            payload = {
+                action: 'private_replies',
+                post_id: postId,
+                message_id: commentId,
+                from_id: psid,
+                message: message
+            };
+
+            console.log('[MESSAGE] Building PRIVATE_REPLIES payload:', {
+                postId,
+                commentId,
+                psid,
+                conversationId: actualConversationId
+            });
+        } else {
+            // ========== REPLY INBOX (Standard Messenger reply) ==========
+            payload = {
+                action: 'reply_inbox',
+                message: message
+            };
+
+            console.log('[MESSAGE] Building REPLY_INBOX payload');
+        }
 
         // Add image data - Pancake API dùng content_ids (array)
         if (imagesDataArray.length > 0) {
@@ -9491,7 +9641,7 @@ async function sendMessageInternal(messageData) {
 
         // Step 3: Send message via Official API (pages.fm)
         const replyUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-            `pages/${channelId}/conversations/${conversationId}/messages`,
+            `pages/${channelId}/conversations/${actualConversationId}/messages`,
             pageAccessToken
         ) + (customerId ? `&customer_id=${customerId}` : '');
 

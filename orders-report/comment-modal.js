@@ -13,6 +13,7 @@ let isLoadingMoreComments = false;
 let commentModalThreadId = null;
 let commentModalThreadKey = null;
 let commentModalInboxConvId = null; // Inbox conversation ID for private replies
+let commentReplyType = 'private_replies'; // 'private_replies' or 'reply_comment'
 
 /**
  * Open the Comment Modal
@@ -622,15 +623,64 @@ window.cancelCommentReply = function () {
     }
 
     commentModalParentId = null;
+    commentReplyType = 'private_replies'; // Reset to default
 };
 
 /**
- * Send reply comment (Private Reply via Pancake API)
+ * Set the reply type (toggle between reply_comment and private_replies)
+ * @param {string} type - 'reply_comment' or 'private_replies'
+ */
+window.setCommentReplyType = function (type) {
+    commentReplyType = type;
+
+    const btnPublic = document.getElementById('btnReplyPublic');
+    const btnPrivate = document.getElementById('btnReplyPrivate');
+    const replyInput = document.getElementById('commentReplyInput');
+
+    if (type === 'reply_comment') {
+        // Public reply selected
+        btnPublic.style.border = '2px solid #22c55e';
+        btnPublic.style.background = '#f0fdf4';
+        btnPublic.style.color = '#16a34a';
+
+        btnPrivate.style.border = '2px solid #e5e7eb';
+        btnPrivate.style.background = 'white';
+        btnPrivate.style.color = '#374151';
+
+        if (replyInput) {
+            replyInput.placeholder = 'Nhập nội dung reply công khai trên post...';
+        }
+    } else {
+        // Private reply selected
+        btnPrivate.style.border = '2px solid #3b82f6';
+        btnPrivate.style.background = '#eff6ff';
+        btnPrivate.style.color = '#3b82f6';
+
+        btnPublic.style.border = '2px solid #e5e7eb';
+        btnPublic.style.background = 'white';
+        btnPublic.style.color = '#374151';
+
+        if (replyInput) {
+            replyInput.placeholder = 'Nhập tin nhắn riêng qua Messenger...';
+        }
+    }
+
+    console.log('[COMMENT MODAL] Reply type set to:', type);
+};
+
+/**
+ * Send reply comment (supports both reply_comment and private_replies)
  *
  * Pancake API format:
- * - URL: /pages/{pageId}/conversations/{commentId}/messages
- * - Body: JSON with action "private_replies"
- * - Required fields: message_id, from_id, message, post_id, need_thread_id
+ * - URL: /pages/{pageId}/conversations/{conversationId}/messages
+ * - Body: JSON with action "reply_comment" or "private_replies"
+ *
+ * reply_comment: Reply công khai trên post
+ * - Required: action, message_id (comment_id), message
+ * - Optional: content_url (image URL), mentions
+ *
+ * private_replies: Gửi tin nhắn riêng qua Messenger
+ * - Required: action, post_id, message_id, from_id, message
  */
 window.sendCommentReply = async function () {
     const replyInput = document.getElementById('commentReplyInput');
@@ -660,50 +710,79 @@ window.sendCommentReply = async function () {
         if (!pageAccessToken) {
             throw new Error('Không tìm thấy page_access_token. Vui lòng vào Pancake → Settings → Tools để tạo token.');
         }
-        const commentId = commentModalParentId; // Facebook comment ID (e.g., "postId_commentId")
-        const psid = commentModalPSID; // Customer Facebook ID
-        const inboxConvId = commentModalInboxConvId; // Inbox conversation ID from inbox_preview
 
-        // Check if we have the inbox conversation ID
-        if (!inboxConvId) {
-            throw new Error('Không có conversation ID để gửi tin nhắn. Vui lòng thử lại.');
-        }
+        const commentId = commentModalParentId; // Facebook comment ID
+        const psid = commentModalPSID; // Customer Facebook ID
 
         // Extract post ID from comment ID (format: postId_commentId)
-        // The post_id for API should be: pageId_postId
         const commentIdParts = commentId.split('_');
         const postIdPart = commentIdParts.length > 1 ? commentIdParts[0] : commentId;
         const postId = `${pageId}_${postIdPart}`;
 
-        console.log('[COMMENT MODAL] Sending private reply via Pancake API:', {
-            pageId,
-            commentId,
-            inboxConvId,
-            psid,
-            postId,
-            message
-        });
+        let url, payload, conversationId;
 
-        // Pancake Official API (pages.fm): conversation ID = inbox_conv_id (NOT comment ID) for private replies
-        // The inbox_conv_id is the messaging conversation between page and user
-        // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
-        const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-            `pages/${pageId}/conversations/${inboxConvId}/messages`,
-            pageAccessToken
-        );
+        if (commentReplyType === 'reply_comment') {
+            // ========== REPLY COMMENT (Public reply on post) ==========
+            // conversation_id = comment_id for reply_comment
+            conversationId = commentId;
 
-        // Build JSON payload theo Pancake API chính thức
-        // Required fields cho private_replies: action, post_id, message_id, from_id, message
-        const payload = {
-            action: 'private_replies',
-            post_id: postId,
-            message_id: commentId,
-            from_id: psid,
-            message: message
-        };
+            url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/messages`,
+                pageAccessToken
+            );
 
-        console.log('[COMMENT MODAL] Request payload:', payload);
+            // Build payload for reply_comment
+            payload = {
+                action: 'reply_comment',
+                message_id: commentId,
+                message: message
+                // Optional: content_url (image URL), mentions
+            };
+
+            console.log('[COMMENT MODAL] Sending PUBLIC reply_comment:', {
+                pageId,
+                conversationId,
+                commentId,
+                message
+            });
+
+        } else {
+            // ========== PRIVATE REPLIES (Private message via Messenger) ==========
+            const inboxConvId = commentModalInboxConvId;
+
+            if (!inboxConvId) {
+                throw new Error('Không có conversation ID để gửi tin nhắn riêng. Vui lòng thử lại.');
+            }
+
+            // conversation_id = inbox_conv_id for private_replies
+            conversationId = inboxConvId;
+
+            url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/messages`,
+                pageAccessToken
+            );
+
+            // Build payload for private_replies
+            payload = {
+                action: 'private_replies',
+                post_id: postId,
+                message_id: commentId,
+                from_id: psid,
+                message: message
+            };
+
+            console.log('[COMMENT MODAL] Sending PRIVATE private_replies:', {
+                pageId,
+                conversationId,
+                postId,
+                commentId,
+                psid,
+                message
+            });
+        }
+
         console.log('[COMMENT MODAL] Request URL:', url);
+        console.log('[COMMENT MODAL] Request payload:', payload);
 
         const response = await API_CONFIG.smartFetch(url, {
             method: 'POST',
@@ -717,19 +796,23 @@ window.sendCommentReply = async function () {
         const result = await response.json();
 
         if (!response.ok || result.success === false || result.error) {
-            const errorMsg = result.message || result.error?.message || result.error || 'Lỗi gửi private reply';
+            const errorMsg = result.message || result.error?.message || result.error || 'Lỗi gửi reply';
             throw new Error(errorMsg);
         }
 
-        console.log('[COMMENT MODAL] Private reply sent:', result);
+        console.log('[COMMENT MODAL] Reply sent successfully:', result);
 
         // Clear input and refresh comments
         replyInput.value = '';
         cancelCommentReply();
 
         // Show success notification
+        const successMsg = commentReplyType === 'reply_comment'
+            ? '✅ Đã reply công khai thành công'
+            : '✅ Đã gửi tin nhắn riêng thành công';
+
         if (window.notificationManager) {
-            window.notificationManager.show('✅ Đã gửi trả lời thành công', 'success');
+            window.notificationManager.show(successMsg, 'success');
         }
 
         // Refresh comments
@@ -745,7 +828,7 @@ window.sendCommentReply = async function () {
         renderCommentModalComments(commentModalComments, false);
 
     } catch (error) {
-        console.error('[COMMENT MODAL] Error sending private reply:', error);
+        console.error('[COMMENT MODAL] Error sending reply:', error);
         if (window.notificationManager) {
             window.notificationManager.show('❌ Lỗi gửi trả lời: ' + error.message, 'error');
         } else {
