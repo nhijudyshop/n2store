@@ -1020,20 +1020,30 @@ router.post('/update-debt', async (req, res) => {
 
         // Get current debt first
         const currentResult = await db.query(
-            `SELECT debt FROM customers WHERE phone = $1 OR phone = $2 LIMIT 1`,
+            `SELECT id, phone, debt FROM customers WHERE phone = $1 OR phone = $2 LIMIT 1`,
             [normalizedPhone, '0' + normalizedPhone]
         );
         const oldDebt = currentResult.rows.length > 0 ? (parseFloat(currentResult.rows[0].debt) || 0) : 0;
+        const existingCustomerId = currentResult.rows.length > 0 ? currentResult.rows[0].id : null;
+        const existingPhone = currentResult.rows.length > 0 ? currentResult.rows[0].phone : null;
 
-        // Update or insert customer debt
-        const updateResult = await db.query(`
-            INSERT INTO customers (phone, debt, updated_at)
-            VALUES ($1, $2, CURRENT_TIMESTAMP)
-            ON CONFLICT (phone) DO UPDATE SET
-                debt = $2,
-                updated_at = CURRENT_TIMESTAMP
-            RETURNING *
-        `, [normalizedPhone, newDebtValue]);
+        let updateResult;
+        if (existingCustomerId) {
+            // Customer exists - UPDATE using the existing phone format
+            updateResult = await db.query(`
+                UPDATE customers
+                SET debt = $1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $2
+                RETURNING *
+            `, [newDebtValue, existingCustomerId]);
+        } else {
+            // Customer doesn't exist - INSERT new record
+            updateResult = await db.query(`
+                INSERT INTO customers (phone, debt, created_at, updated_at)
+                VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                RETURNING *
+            `, [normalizedPhone, newDebtValue]);
+        }
 
         // Log the change to debt_adjustment_log table (if exists) or just log
         console.log('[UPDATE-DEBT] ✅ Debt updated:', {
