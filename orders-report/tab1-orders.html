@@ -943,6 +943,22 @@
                     <!-- Image Preview Container -->
                     <div id="chatImagePreviewContainer"
                         style="display: none; padding: 8px 16px; border-bottom: 1px solid #f0f0f0;"></div>
+                    <!-- Message Reply Type Toggle (only for message modal when order has comment) -->
+                    <div id="messageReplyTypeToggle" style="display: none; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                        <div style="display: flex; gap: 8px;">
+                            <button id="btnMsgReplyInbox" onclick="setMessageReplyType('reply_inbox')"
+                                style="flex: 1; padding: 8px 12px; border: 2px solid #3b82f6; border-radius: 8px; background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+                                <i class="fab fa-facebook-messenger"></i> Messenger
+                            </button>
+                            <button id="btnMsgPrivateReply" onclick="setMessageReplyType('private_replies')"
+                                style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 8px; background: white; color: #6b7280; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+                                <i class="fas fa-comment-dots"></i> Reply từ comment
+                            </button>
+                        </div>
+                        <p id="msgReplyTypeHint" style="font-size: 11px; color: #6b7280; margin: 6px 0 0 0; text-align: center;">
+                            Gửi tin nhắn qua Messenger
+                        </p>
+                    </div>
                     <!-- Input Row -->
                     <div style="display: flex; gap: 8px; align-items: flex-end; padding: 12px 16px;">
                         <textarea id="chatReplyInput" placeholder="Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)"
@@ -2234,6 +2250,18 @@
                         <button onclick="cancelCommentReply()"
                             style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; border-radius: 4px;">
                             <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Reply Type Toggle -->
+                    <div id="commentReplyTypeToggle" style="display: flex; gap: 8px; margin-top: 8px;">
+                        <button id="btnReplyPublic" onclick="setCommentReplyType('reply_comment')"
+                            style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 8px; background: white; cursor: pointer; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; color: #374151;">
+                            <i class="fas fa-comment"></i> Reply công khai
+                        </button>
+                        <button id="btnReplyPrivate" onclick="setCommentReplyType('private_replies')"
+                            style="flex: 1; padding: 8px 12px; border: 2px solid #3b82f6; border-radius: 8px; background: #eff6ff; color: #3b82f6; cursor: pointer; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+                            <i class="fas fa-envelope"></i> Tin nhắn riêng
                         </button>
                     </div>
                 </div>
