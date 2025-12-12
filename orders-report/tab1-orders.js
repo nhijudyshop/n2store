@@ -14884,24 +14884,28 @@ async function openSaleButtonModal() {
 
     // Check if user is admin and enable/disable Công nợ field accordingly
     const prepaidAmountField = document.getElementById('salePrepaidAmount');
-    if (prepaidAmountField) {
-        let isAdmin = window.authManager && window.authManager.hasPermission(0);
-        // Fallback: Check username for admin
-        if (!isAdmin) {
-            const currentUserType = window.authManager?.getCurrentUser?.()?.name || localStorage.getItem('current_user_name') || '';
-            const lowerName = currentUserType.toLowerCase();
-            if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
-                isAdmin = true;
-            }
-        }
+    const confirmDebtBtn = document.getElementById('confirmDebtBtn');
 
+    let isAdmin = window.authManager && window.authManager.hasPermission(0);
+    // Fallback: Check username for admin
+    if (!isAdmin) {
+        const currentUserType = window.authManager?.getCurrentUser?.()?.name || localStorage.getItem('current_user_name') || '';
+        const lowerName = currentUserType.toLowerCase();
+        if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
+            isAdmin = true;
+        }
+    }
+
+    if (prepaidAmountField) {
         if (isAdmin) {
             prepaidAmountField.disabled = false;
             prepaidAmountField.style.background = '#ffffff';
-            console.log('[SALE-MODAL] Admin detected - Công nợ field enabled');
+            if (confirmDebtBtn) confirmDebtBtn.style.display = 'inline-flex';
+            console.log('[SALE-MODAL] Admin detected - Công nợ field enabled with confirm button');
         } else {
             prepaidAmountField.disabled = true;
             prepaidAmountField.style.background = '#f3f4f6';
+            if (confirmDebtBtn) confirmDebtBtn.style.display = 'none';
         }
     }
 
@@ -14944,6 +14948,83 @@ function closeSaleButtonModal() {
     modal.style.display = 'none';
     currentSaleOrderData = null;
     currentSalePartnerData = null;
+}
+
+/**
+ * Confirm debt update - Admin only
+ * Updates the debt value in the database (customers.debt field on SQL Render)
+ */
+async function confirmDebtUpdate() {
+    const prepaidAmountField = document.getElementById('salePrepaidAmount');
+    const confirmBtn = document.getElementById('confirmDebtBtn');
+
+    if (!prepaidAmountField || !currentSaleOrderData) {
+        if (window.notificationManager) {
+            window.notificationManager.error('Không có dữ liệu để cập nhật');
+        }
+        return;
+    }
+
+    const phone = currentSaleOrderData.Telephone || currentSaleOrderData.PartnerPhone;
+    if (!phone) {
+        if (window.notificationManager) {
+            window.notificationManager.error('Không tìm thấy số điện thoại khách hàng');
+        }
+        return;
+    }
+
+    const newDebt = parseFloat(prepaidAmountField.value) || 0;
+
+    // Show loading state
+    const originalText = confirmBtn?.textContent;
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '...';
+    }
+
+    try {
+        console.log('[DEBT-UPDATE] Updating debt for phone:', phone, 'to:', newDebt);
+
+        const response = await fetch(`${QR_API_URL}/api/sepay/update-debt`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                phone: phone,
+                new_debt: newDebt,
+                reason: 'Admin manual adjustment from Sale Modal'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('[DEBT-UPDATE] ✅ Success:', result);
+            if (window.notificationManager) {
+                window.notificationManager.success(`Đã cập nhật Công nợ: ${newDebt.toLocaleString('vi-VN')}đ`);
+            }
+            // Update the field background to indicate saved
+            prepaidAmountField.style.background = '#d1fae5'; // Light green
+            setTimeout(() => {
+                prepaidAmountField.style.background = '#ffffff';
+            }, 2000);
+        } else {
+            throw new Error(result.error || 'Failed to update debt');
+        }
+
+    } catch (error) {
+        console.error('[DEBT-UPDATE] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi cập nhật Công nợ: ' + error.message);
+        }
+    } finally {
+        // Restore button state
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = originalText || 'Xác nhận';
+        }
+    }
 }
 
 /**
@@ -16034,4 +16115,5 @@ document.addEventListener('keydown', function(e) {
 
 // Export functions
 window.confirmAndPrintSale = confirmAndPrintSale;
+window.confirmDebtUpdate = confirmDebtUpdate;
 window.openPrintPopup = openPrintPopup;

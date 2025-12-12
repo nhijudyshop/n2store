@@ -988,4 +988,81 @@ router.get('/transactions-by-phone', async (req, res) => {
     }
 });
 
+/**
+ * 🆕 POST /api/sepay/update-debt
+ * Admin endpoint to manually update customer debt
+ * This updates the customers.debt field directly
+ */
+router.post('/update-debt', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone, new_debt, reason } = req.body;
+
+    if (!phone || new_debt === undefined) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required parameters: phone, new_debt'
+        });
+    }
+
+    try {
+        // Normalize phone
+        let normalizedPhone = phone.replace(/\D/g, '');
+        if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+            normalizedPhone = normalizedPhone.substring(2);
+        }
+        if (normalizedPhone.startsWith('0')) {
+            normalizedPhone = normalizedPhone.substring(1);
+        }
+
+        const newDebtValue = parseFloat(new_debt) || 0;
+
+        console.log('[UPDATE-DEBT] Updating debt for phone:', normalizedPhone, 'to:', newDebtValue, 'reason:', reason);
+
+        // Get current debt first
+        const currentResult = await db.query(
+            `SELECT debt FROM customers WHERE phone = $1 OR phone = $2 LIMIT 1`,
+            [normalizedPhone, '0' + normalizedPhone]
+        );
+        const oldDebt = currentResult.rows.length > 0 ? (parseFloat(currentResult.rows[0].debt) || 0) : 0;
+
+        // Update or insert customer debt
+        const updateResult = await db.query(`
+            INSERT INTO customers (phone, debt, updated_at)
+            VALUES ($1, $2, CURRENT_TIMESTAMP)
+            ON CONFLICT (phone) DO UPDATE SET
+                debt = $2,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING *
+        `, [normalizedPhone, newDebtValue]);
+
+        // Log the change to debt_adjustment_log table (if exists) or just log
+        console.log('[UPDATE-DEBT] ✅ Debt updated:', {
+            phone: normalizedPhone,
+            old_debt: oldDebt,
+            new_debt: newDebtValue,
+            change: newDebtValue - oldDebt,
+            reason: reason || 'Admin manual adjustment'
+        });
+
+        res.json({
+            success: true,
+            data: {
+                phone: normalizedPhone,
+                old_debt: oldDebt,
+                new_debt: newDebtValue,
+                change: newDebtValue - oldDebt
+            },
+            message: 'Debt updated successfully'
+        });
+
+    } catch (error) {
+        console.error('[UPDATE-DEBT] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update debt',
+            message: error.message
+        });
+    }
+});
+
 module.exports = router;

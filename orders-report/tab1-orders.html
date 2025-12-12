@@ -3825,10 +3825,13 @@
                                 Data source: REALTIME từ API /api/sepay/debt-summary?phone=xxx
                                 (Cùng nguồn với cột "Công Nợ" trong bảng orders)
                                 Populated by: fetchDebtForSaleModal() in tab1-orders.js
-                                Field disabled: chỉ admin có thể sửa
+                                Field disabled: chỉ admin có thể sửa, có nút xác nhận để cập nhật DB
                             -->
                             <label class="sale-label">Trả trước (Công nợ)</label>
-                            <input type="number" id="salePrepaidAmount" class="sale-input" value="0" style="width: 120px; background: #f3f4f6;" disabled>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="number" id="salePrepaidAmount" class="sale-input" value="0" style="width: 120px; background: #f3f4f6;" disabled>
+                                <button id="confirmDebtBtn" class="sale-btn sale-btn-teal" style="display: none; padding: 6px 12px; font-size: 12px;" onclick="confirmDebtUpdate()">Xác nhận</button>
+                            </div>
                         </div>
                     </div>
                     <table class="sale-product-table">
