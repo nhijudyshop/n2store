@@ -926,8 +926,9 @@ class MessageTemplateManager {
             this.log(`⚠️ Conversation not in cache, using fallback: ${conversationId}`);
         }
 
-        // Build API URL with customer_id in query params (like sendMessageInternal)
-        let queryParams = `access_token=${token}`;
+        // Build API URL with customer_id in query params
+        // Pancake API chính thức dùng page_access_token
+        let queryParams = `page_access_token=${token}`;
         if (customerId) {
             queryParams += `&customer_id=${customerId}`;
         }
@@ -948,10 +949,11 @@ class MessageTemplateManager {
                 this.log(`📤 Sending part ${partIndex + 1}/${messageParts.length} (${messagePart.length} chars)`);
             }
 
-        // Build FormData payload (like sendMessageInternal uses multipart/form-data)
-        const formData = new FormData();
-        formData.append('action', 'reply_inbox');
-        formData.append('message', messagePart);
+        // Build JSON payload (Pancake API chính thức dùng application/json)
+        const payload = {
+            action: 'reply_inbox',
+            message: messagePart
+        };
 
         // Chỉ gửi ảnh ở phần cuối cùng
         if (sendMode === 'image' && isLastPart) {
@@ -1031,23 +1033,27 @@ class MessageTemplateManager {
                 this.log('♻️ Using cached image - skip upload');
             }
 
-            // Add image data to FormData - Pancake API format: field riêng lẻ
-            formData.append('content_url', contentUrl || '');
-            formData.append('content_id', contentId || '');
-            formData.append('width', '0');
-            formData.append('height', '0');
-            formData.append('send_by_platform', 'web');
+            // Add image data to payload - Pancake API dùng content_ids (array)
+            if (contentId) {
+                payload.content_ids = [contentId];
+                payload.attachment_type = 'PHOTO';
+            }
 
-            this.log('📷 Image added to FormData:', contentUrl);
+            this.log('📷 Image added to payload, content_id:', contentId);
         }
 
-        // Send using FormData (like sendMessageInternal)
-        this.log('📤 Sending message via FormData...');
+        // Send using JSON (Pancake API chính thức)
+        this.log('📤 Sending message via JSON...');
         this.log('📡 API URL:', apiUrl);
+        this.log('📦 Payload:', JSON.stringify(payload));
 
         const response = await API_CONFIG.smartFetch(apiUrl, {
             method: 'POST',
-            body: formData // FormData automatically sets Content-Type with boundary
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {

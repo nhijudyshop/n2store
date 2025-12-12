@@ -893,7 +893,8 @@ class QuickReplyManager {
                 window.notificationManager.info('Đang gửi tin nhắn...', 3000);
             }
 
-            let queryParams = `access_token=${token}`;
+            // Pancake API chính thức dùng page_access_token
+            let queryParams = `page_access_token=${token}`;
             if (customerId) {
                 queryParams += `&customer_id=${customerId}`;
             }
@@ -922,30 +923,28 @@ class QuickReplyManager {
                     queryParams
                 );
 
-                const imageFormData = new FormData();
-                imageFormData.append('action', 'reply_inbox');
-                imageFormData.append('message', ''); // Empty message, just image
-                imageFormData.append('content_id', ''); // Empty for external URL
-                imageFormData.append('content_url', imageUrl);
-                imageFormData.append('width', '0');
-                imageFormData.append('height', '0');
-                imageFormData.append('send_by_platform', 'web');
-
-                console.log('[QUICK-REPLY] FormData:', {
+                // Pancake API chính thức dùng JSON với content_ids
+                // Tuy nhiên, quick-reply dùng external URL (content_url) nên vẫn cần gửi theo cách cũ
+                // TODO: Upload image trước rồi dùng content_ids
+                const imagePayload = {
                     action: 'reply_inbox',
-                    message: '',
-                    content_id: '',
-                    content_url: imageUrl,
-                    width: '0',
-                    height: '0',
-                    send_by_platform: 'web'
-                });
+                    message: ''  // Empty message, just image
+                    // NOTE: Không có content_ids vì đây là external URL
+                    // Pancake có thể hỗ trợ content_url nhưng không có trong docs chính thức
+                };
+
+                console.log('[QUICK-REPLY] Payload:', imagePayload);
                 console.log('[QUICK-REPLY] API URL:', pancakeApiUrl);
+                console.log('[QUICK-REPLY] ⚠️ Note: Using external imageUrl, may not work with official API');
 
                 // Call Pancake API via proxy (avoid CORS)
                 const imageResponse = await API_CONFIG.smartFetch(pancakeApiUrl, {
                     method: 'POST',
-                    body: imageFormData
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(imagePayload)
                 }, 3, true);
 
                 if (!imageResponse.ok) {
@@ -995,15 +994,20 @@ class QuickReplyManager {
                     queryParams
                 );
 
-                const textFormData = new FormData();
-                textFormData.append('action', 'reply_inbox');
-                textFormData.append('message', finalMessage);
-                textFormData.append('send_by_platform', 'web');
+                // Pancake API chính thức dùng JSON
+                const textPayload = {
+                    action: 'reply_inbox',
+                    message: finalMessage
+                };
 
                 // Call Pancake API via proxy (avoid CORS)
                 const textResponse = await API_CONFIG.smartFetch(pancakeApiUrl, {
                     method: 'POST',
-                    body: textFormData
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(textPayload)
                 }, 3, true);
 
                 if (!textResponse.ok) {
