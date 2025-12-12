@@ -14882,6 +14882,29 @@ async function openSaleButtonModal() {
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'flex';
 
+    // Check if user is admin and enable/disable Công nợ field accordingly
+    const prepaidAmountField = document.getElementById('salePrepaidAmount');
+    if (prepaidAmountField) {
+        let isAdmin = window.authManager && window.authManager.hasPermission(0);
+        // Fallback: Check username for admin
+        if (!isAdmin) {
+            const currentUserType = window.authManager?.getCurrentUser?.()?.name || localStorage.getItem('current_user_name') || '';
+            const lowerName = currentUserType.toLowerCase();
+            if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
+                isAdmin = true;
+            }
+        }
+
+        if (isAdmin) {
+            prepaidAmountField.disabled = false;
+            prepaidAmountField.style.background = '#ffffff';
+            console.log('[SALE-MODAL] Admin detected - Công nợ field enabled');
+        } else {
+            prepaidAmountField.disabled = true;
+            prepaidAmountField.style.background = '#f3f4f6';
+        }
+    }
+
     // Populate basic order data first (from local data)
     populateSaleModalWithOrder(order);
 
@@ -15405,6 +15428,22 @@ async function confirmAndPrintSale() {
     if (!currentSaleOrderData) {
         if (window.notificationManager) {
             window.notificationManager.error('Không có dữ liệu đơn hàng');
+        }
+        return;
+    }
+
+    // Validate: Total amount cannot exceed Công nợ (prepaid amount)
+    const finalTotalText = document.getElementById('saleFinalTotal')?.textContent || '0';
+    const finalTotal = parseFloat(finalTotalText.replace(/[,.]/g, '')) || 0;
+    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+
+    console.log('[SALE-CONFIRM] Validation - Total:', finalTotal, 'Công nợ:', prepaidAmount);
+
+    if (finalTotal > prepaidAmount) {
+        if (window.notificationManager) {
+            window.notificationManager.error(`Tổng tiền (${finalTotal.toLocaleString('vi-VN')}đ) lớn hơn Công nợ (${prepaidAmount.toLocaleString('vi-VN')}đ). Không thể xác nhận!`);
+        } else {
+            alert(`Tổng tiền (${finalTotal.toLocaleString('vi-VN')}đ) lớn hơn Công nợ (${prepaidAmount.toLocaleString('vi-VN')}đ). Không thể xác nhận!`);
         }
         return;
     }
