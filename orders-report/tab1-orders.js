@@ -9599,7 +9599,10 @@ async function sendMessageInternal(messageData) {
                 throw new Error('Thiếu thông tin comment để gửi tin nhắn riêng. Vui lòng thử lại.');
             }
 
-            // For private_replies, conversation_id stays the same (inbox conversation)
+            // IMPORTANT: For private_replies, conversationId MUST equal message_id (comment_id)!
+            // This matches the real Pancake API format (same as sendCommentInternal)
+            actualConversationId = commentId;
+
             payload = {
                 action: 'private_replies',
                 post_id: postId,
