@@ -926,15 +926,24 @@ class MessageTemplateManager {
             this.log(`⚠️ Conversation not in cache, using fallback: ${conversationId}`);
         }
 
-        // Build API URL with customer_id in query params
-        let queryParams = `access_token=${token}`;
-        if (customerId) {
-            queryParams += `&customer_id=${customerId}`;
+        // Build API URL - try page_access_token first (official API), fallback to access_token
+        const pageToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+        let queryParams;
+
+        if (pageToken) {
+            queryParams = `page_access_token=${pageToken}`;
+            this.log('Using Official Page API with page_access_token');
+        } else {
+            queryParams = `access_token=${token}`;
+            if (customerId) {
+                queryParams += `&customer_id=${customerId}`;
+            }
+            this.log('Using Internal API with access_token');
         }
-        const apiUrl = window.API_CONFIG.buildUrl.pancake(
-            `pages/${channelId}/conversations/${conversationId}/messages`,
-            queryParams
-        );
+
+        const apiUrl = pageToken
+            ? window.API_CONFIG.buildUrl.pancakePageApi(channelId, `conversations/${conversationId}/messages`, queryParams)
+            : window.API_CONFIG.buildUrl.pancakeUserApi(`pages/${channelId}/conversations/${conversationId}/messages`, queryParams);
 
         // Cắt tin nhắn thành nhiều phần nếu quá dài
         const messageParts = this.splitMessageIntoParts(messageContent);

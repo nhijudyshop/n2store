@@ -102,6 +102,8 @@ class PancakeDataManager {
 
     /**
      * Lấy danh sách pages từ Pancake API
+     * Official API: GET https://pages.fm/api/v1/pages
+     * Authentication: access_token (User token)
      * @param {boolean} forceRefresh - Bắt buộc refresh
      * @returns {Promise<Array>}
      */
@@ -122,12 +124,12 @@ class PancakeDataManager {
             }
 
             this.isLoadingPages = true;
-            console.log('[PANCAKE] Fetching pages from API via Cloudflare...');
+            console.log('[PANCAKE] Fetching pages from User API (pages.fm/api/v1/pages)...');
 
             const token = await this.getToken();
 
-            // Use Cloudflare Worker proxy
-            const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${token}`);
+            // Official API: GET /api/v1/pages với access_token
+            const url = window.API_CONFIG.buildUrl.pancakeUserApi('pages', `access_token=${token}`);
 
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',
@@ -169,7 +171,8 @@ class PancakeDataManager {
 
     /**
      * Lấy danh sách pages với số lượng unread conversations
-     * Endpoint: /api/v1/pages/unread_conv_pages_count
+     * Endpoint: /api/v1/pages/unread_conv_pages_count (Internal API - không có trong docs chính thức)
+     * Authentication: access_token (User token)
      * @returns {Promise<Array>} Array of { page_id, unread_conv_count }
      */
     async fetchPagesWithUnreadCount() {
@@ -181,8 +184,8 @@ class PancakeDataManager {
                 throw new Error('No Pancake token available');
             }
 
-            // Use Cloudflare Worker proxy to bypass CORS
-            const url = window.API_CONFIG.buildUrl.pancake('pages/unread_conv_pages_count', `access_token=${token}`);
+            // Internal API (không có trong docs chính thức) - dùng User API
+            const url = window.API_CONFIG.buildUrl.pancakeUserApi('pages/unread_conv_pages_count', `access_token=${token}`);
 
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',
@@ -234,7 +237,8 @@ class PancakeDataManager {
 
     /**
      * Search conversations theo query (tên khách hàng, fb_id, etc.)
-     * Tối ưu hơn fetchConversations() vì chỉ search những gì cần
+     * Internal API (không có trong docs chính thức): POST /api/v1/conversations/search
+     * Authentication: access_token (User token)
      * @param {string} query - Search query (tên hoặc fb_id)
      * @param {Array<string>} pageIds - Danh sách page IDs để search (optional)
      * @returns {Promise<Object>} { conversations: Array, customerId: string|null }
@@ -264,13 +268,12 @@ class PancakeDataManager {
                 }
             }
 
-            // Build search URL with query parameter
-            // Format: /conversations/search?q={query}&page_ids={pageIds}&access_token={token}
+            // Internal API: POST /api/v1/conversations/search
             const pageIdsParam = (searchPageIds || this.pageIds).join(',');
             const encodedQuery = encodeURIComponent(query);
             const queryString = `q=${encodedQuery}&access_token=${token}&cursor_mode=true`;
 
-            const url = window.API_CONFIG.buildUrl.pancake('conversations/search', queryString);
+            const url = window.API_CONFIG.buildUrl.pancakeUserApi('conversations/search', queryString);
 
             console.log('[PANCAKE] Search URL:', url);
 
@@ -397,6 +400,15 @@ class PancakeDataManager {
 
     /**
      * Lấy danh sách conversations từ Pancake API
+     *
+     * INTERNAL API (không có trong docs chính thức):
+     * - GET /api/v1/conversations với pages[pageId]=offset cho multi-page fetch
+     *
+     * OFFICIAL API (từ docs - chỉ hỗ trợ từng page):
+     * - GET https://pages.fm/api/public_api/v2/pages/{page_id}/conversations
+     * - Dùng page_access_token
+     * - Returns max 60 conversations per request
+     *
      * @param {boolean} forceRefresh - Bắt buộc refresh
      * @returns {Promise<Array>}
      */
@@ -427,16 +439,17 @@ class PancakeDataManager {
             }
 
             this.isLoading = true;
-            console.log('[PANCAKE] Fetching conversations from API via Cloudflare...');
+            console.log('[PANCAKE] Fetching conversations from User API (internal multi-page endpoint)...');
 
             const token = await this.getToken();
 
-            // Build query params - format: pages[pageId]=offset
+            // Internal API: GET /api/v1/conversations với format pages[pageId]=offset
+            // Cho phép fetch từ nhiều pages cùng lúc (không có trong official docs)
             const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=0`).join('&');
             const queryString = `${pagesParams}&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
 
-            // Use Cloudflare Worker proxy
-            const url = window.API_CONFIG.buildUrl.pancake('conversations', queryString);
+            // Use User API proxy (internal endpoint)
+            const url = window.API_CONFIG.buildUrl.pancakeUserApi('conversations', queryString);
 
             console.log('[PANCAKE] Conversations URL:', url);
 
@@ -708,6 +721,10 @@ class PancakeDataManager {
 
     /**
      * Lấy messages chi tiết của một conversation từ Pancake API
+     *
+     * Official API: GET https://pages.fm/api/public_api/v1/pages/{page_id}/conversations/{conversation_id}/messages
+     * Authentication: page_access_token
+     *
      * @param {string} pageId - Facebook Page ID
      * @param {string} conversationId - Pancake Conversation ID
      * @param {number} currentCount - Vị trí message (optional, for pagination)
@@ -718,25 +735,45 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Fetching messages for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`);
 
-            const token = await this.getToken();
-            if (!token) {
+            // Try to get page_access_token first (official API), fallback to access_token
+            let pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+            const userToken = await this.getToken();
+
+            if (!pageToken && !userToken) {
                 throw new Error('No Pancake token available');
             }
 
-            // Build URL: GET /api/v1/pages/{pageId}/conversations/{conversationId}/messages
-            let queryString = `access_token=${token}&user_view=true&is_new_api=true&separate_pos=true`;
-            if (currentCount !== null) {
-                queryString += `&current_count=${currentCount}`;
-            }
-            // FIX: Add customer_id to prevent "Thiếu mã khách hàng" error
-            if (customerId !== null) {
-                queryString += `&customer_id=${customerId}`;
-            }
+            // Build query string - prefer page_access_token for official API
+            let queryString;
+            let url;
 
-            const url = window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/conversations/${conversationId}/messages`,
-                queryString
-            );
+            if (pageToken) {
+                // Official API: GET /api/public_api/v1/pages/{pageId}/conversations/{conversationId}/messages
+                queryString = `page_access_token=${pageToken}`;
+                if (currentCount !== null) {
+                    queryString += `&current_count=${currentCount}`;
+                }
+                url = window.API_CONFIG.buildUrl.pancakePageApi(
+                    pageId,
+                    `conversations/${conversationId}/messages`,
+                    queryString
+                );
+                console.log('[PANCAKE] Using Official Page API with page_access_token');
+            } else {
+                // Fallback: Internal API with access_token
+                queryString = `access_token=${userToken}&user_view=true&is_new_api=true&separate_pos=true`;
+                if (currentCount !== null) {
+                    queryString += `&current_count=${currentCount}`;
+                }
+                if (customerId !== null) {
+                    queryString += `&customer_id=${customerId}`;
+                }
+                url = window.API_CONFIG.buildUrl.pancakeUserApi(
+                    `pages/${pageId}/conversations/${conversationId}/messages`,
+                    queryString
+                );
+                console.log('[PANCAKE] Using Internal API with access_token (no page_access_token)');
+            }
 
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',
@@ -777,6 +814,8 @@ class PancakeDataManager {
 
     /**
      * Lấy inbox preview và conversationId cho một customer
+     * Internal API (không có trong docs chính thức): GET /api/v1/pages/{pageId}/customers/{customerId}/inbox_preview
+     * Authentication: access_token (User token)
      * @param {string} pageId - Facebook Page ID
      * @param {string} customerId - Customer ID (PartnerId UUID)
      * @returns {Promise<Object>} { conversationId, messages, success }
@@ -790,9 +829,9 @@ class PancakeDataManager {
                 throw new Error('No Pancake token available');
             }
 
-            // Build URL: GET /api/v1/pages/{pageId}/customers/{customerId}/inbox_preview
+            // Internal API: GET /api/v1/pages/{pageId}/customers/{customerId}/inbox_preview
             const queryString = `access_token=${token}`;
-            const url = window.API_CONFIG.buildUrl.pancake(
+            const url = window.API_CONFIG.buildUrl.pancakeUserApi(
                 `pages/${pageId}/customers/${customerId}/inbox_preview`,
                 queryString
             );
@@ -1696,27 +1735,43 @@ class PancakeDataManager {
     }
 
     /**
-     * Upload image to Pancake API (2-step process)
-     * Upload file trực tiếp qua Pancake API chính thức
-     * Ref: https://developer.pancake.biz/#/ - Upload Content API
-     * POST /pages/{page_id}/upload_contents
+     * Upload image to Pancake API
+     * Official API: POST https://pages.fm/api/public_api/v1/pages/{page_id}/upload_contents
+     * Authentication: page_access_token
+     * Content-Type: multipart/form-data
      * @param {string} pageId
      * @param {File} file
-     * @returns {Promise<{content_url: string, id: string}>}
+     * @returns {Promise<{content_url: string, id: string, attachment_type: string}>}
      */
     async uploadImage(pageId, file) {
         try {
             console.log(`[PANCAKE] Uploading image: ${file.name}, size: ${file.size}`);
-            const token = await this.getToken();
-            if (!token) throw new Error('No Pancake token available');
 
-            // Pancake API chính thức: POST /pages/{page_id}/upload_contents
-            // Content-Type: multipart/form-data
-            // Body: file=@image.jpg
-            const url = window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/upload_contents`,
-                `access_token=${token}`
-            );
+            // Try page_access_token first (official), fallback to access_token
+            let pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+            const userToken = await this.getToken();
+
+            if (!pageToken && !userToken) {
+                throw new Error('No Pancake token available');
+            }
+
+            let url;
+            if (pageToken) {
+                // Official API: POST /api/public_api/v1/pages/{pageId}/upload_contents
+                url = window.API_CONFIG.buildUrl.pancakePageApi(
+                    pageId,
+                    'upload_contents',
+                    `page_access_token=${pageToken}`
+                );
+                console.log('[PANCAKE] Using Official Page API for upload');
+            } else {
+                // Fallback: Internal API with access_token
+                url = window.API_CONFIG.buildUrl.pancakeUserApi(
+                    `pages/${pageId}/upload_contents`,
+                    `access_token=${userToken}`
+                );
+                console.log('[PANCAKE] Using Internal API for upload (no page_access_token)');
+            }
 
             const formData = new FormData();
             formData.append('file', file);
@@ -1757,6 +1812,7 @@ class PancakeDataManager {
 
     /**
      * Xóa ảnh trên Pancake server
+     * Internal API (không có trong docs chính thức): DELETE /api/v1/pages/{pageId}/contents
      * @param {string} pageId - Facebook Page ID
      * @param {string} contentId - ID của ảnh (content ID)
      * @returns {Promise<boolean>}
@@ -1773,8 +1829,8 @@ class PancakeDataManager {
             const token = await this.getToken();
             if (!token) throw new Error('No Pancake token available');
 
-            // URL: https://pancake.vn/api/v1/pages/{pageId}/contents?ids={contentId}&access_token={token}
-            const url = window.API_CONFIG.buildUrl.pancake(
+            // Internal API: DELETE /api/v1/pages/{pageId}/contents
+            const url = window.API_CONFIG.buildUrl.pancakeUserApi(
                 `pages/${pageId}/contents`,
                 `ids=${contentId}&access_token=${token}`
             );
@@ -1800,6 +1856,482 @@ class PancakeDataManager {
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error deleting image:', error);
+            return false;
+        }
+    }
+
+    // =====================================================
+    // OFFICIAL PANCAKE API METHODS (theo documentation)
+    // Dùng page_access_token cho Page API
+    // =====================================================
+
+    /**
+     * Lấy conversations cho một page (Official API v2)
+     * GET https://pages.fm/api/public_api/v2/pages/{page_id}/conversations
+     * Authentication: page_access_token
+     * @param {string} pageId - Facebook Page ID
+     * @param {Object} options - Filter options
+     * @param {string} options.lastConversationId - ID conversation cuối để phân trang
+     * @param {string} options.tags - Filter theo tag IDs (comma-separated)
+     * @param {Array} options.type - Filter theo loại: 'INBOX', 'COMMENT'
+     * @param {number} options.since - Filter từ timestamp (seconds)
+     * @param {number} options.until - Filter đến timestamp (seconds)
+     * @param {boolean} options.unreadFirst - Ưu tiên conversations chưa đọc
+     * @param {string} options.orderBy - 'inserted_at' hoặc 'updated_at'
+     * @returns {Promise<Array>} conversations (max 60 per request)
+     */
+    async fetchConversationsForPage(pageId, options = {}) {
+        try {
+            const pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+            if (!pageToken) {
+                console.warn(`[PANCAKE] No page_access_token for page ${pageId}, falling back to internal API`);
+                // Fallback to internal multi-page API
+                return this.conversations.filter(c => c.page_id === pageId);
+            }
+
+            console.log(`[PANCAKE] Fetching conversations for page ${pageId} via Official API v2...`);
+
+            // Build query params
+            const params = new URLSearchParams();
+            params.set('page_access_token', pageToken);
+
+            if (options.lastConversationId) params.set('last_conversation_id', options.lastConversationId);
+            if (options.tags) params.set('tags', options.tags);
+            if (options.type) params.set('type', options.type.join(','));
+            if (options.since) params.set('since', options.since);
+            if (options.until) params.set('until', options.until);
+            if (options.unreadFirst) params.set('unread_first', 'true');
+            if (options.orderBy) params.set('order_by', options.orderBy);
+
+            const url = window.API_CONFIG.buildUrl.pancakePageApiV2(pageId, 'conversations', params.toString());
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            }, 3, true);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log(`[PANCAKE] ✅ Fetched ${data.conversations?.length || 0} conversations for page ${pageId}`);
+            return data.conversations || [];
+
+        } catch (error) {
+            console.error(`[PANCAKE] ❌ Error fetching conversations for page ${pageId}:`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Lấy danh sách Tags của một page (Official API)
+     * GET https://pages.fm/api/public_api/v1/pages/{page_id}/tags
+     * Authentication: page_access_token
+     * @param {string} pageId - Facebook Page ID
+     * @returns {Promise<Array>} tags
+     */
+    async fetchTags(pageId) {
+        try {
+            const pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+            const userToken = await this.getToken();
+
+            if (!pageToken && !userToken) {
+                throw new Error('No Pancake token available');
+            }
+
+            let url;
+            if (pageToken) {
+                url = window.API_CONFIG.buildUrl.pancakePageApi(pageId, 'tags', `page_access_token=${pageToken}`);
+                console.log('[PANCAKE] Fetching tags via Official Page API...');
+            } else {
+                url = window.API_CONFIG.buildUrl.pancakeUserApi(`pages/${pageId}/tags`, `access_token=${userToken}`);
+                console.log('[PANCAKE] Fetching tags via Internal API...');
+            }
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            }, 3, true);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log(`[PANCAKE] ✅ Fetched ${data.tags?.length || 0} tags`);
+            return data.tags || [];
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error fetching tags:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Lấy danh sách Posts của một page (Official API)
+     * GET https://pages.fm/api/public_api/v1/pages/{page_id}/posts
+     * Authentication: page_access_token
+     * @param {string} pageId - Facebook Page ID
+     * @param {Object} options - Filter options
+     * @param {number} options.since - Start time (Unix timestamp UTC+0)
+     * @param {number} options.until - End time (Unix timestamp UTC+0)
+     * @param {number} options.pageNumber - Số trang (minimum: 1)
+     * @param {number} options.pageSize - Số records/trang (maximum: 30)
+     * @param {string} options.type - 'video', 'photo', 'text', 'livestream'
+     * @returns {Promise<Object>} { total, posts }
+     */
+    async fetchPosts(pageId, options = {}) {
+        try {
+            const pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+            const userToken = await this.getToken();
+
+            if (!pageToken && !userToken) {
+                throw new Error('No Pancake token available');
+            }
+
+            // Build query params
+            const params = new URLSearchParams();
+            if (pageToken) {
+                params.set('page_access_token', pageToken);
+            } else {
+                params.set('access_token', userToken);
+            }
+
+            // Required params
+            params.set('since', options.since || Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000)); // Default: 30 days ago
+            params.set('until', options.until || Math.floor(Date.now() / 1000)); // Default: now
+            params.set('page_number', options.pageNumber || 1);
+            params.set('page_size', options.pageSize || 30);
+
+            if (options.type) params.set('type', options.type);
+
+            let url;
+            if (pageToken) {
+                url = window.API_CONFIG.buildUrl.pancakePageApi(pageId, 'posts', params.toString());
+                console.log('[PANCAKE] Fetching posts via Official Page API...');
+            } else {
+                url = window.API_CONFIG.buildUrl.pancakeUserApi(`pages/${pageId}/posts`, params.toString());
+                console.log('[PANCAKE] Fetching posts via Internal API...');
+            }
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            }, 3, true);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log(`[PANCAKE] ✅ Fetched ${data.posts?.length || 0} posts (total: ${data.total || 0})`);
+            return { total: data.total || 0, posts: data.posts || [] };
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error fetching posts:', error);
+            return { total: 0, posts: [] };
+        }
+    }
+
+    /**
+     * Lấy danh sách Customers của một page (Official API)
+     * GET https://pages.fm/api/public_api/v1/pages/{page_id}/page_customers
+     * Authentication: page_access_token
+     * @param {string} pageId - Facebook Page ID
+     * @param {Object} options - Filter options
+     * @param {number} options.since - Start time (Unix timestamp UTC+0)
+     * @param {number} options.until - End time (Unix timestamp UTC+0)
+     * @param {number} options.pageNumber - Số trang (minimum: 1)
+     * @param {number} options.pageSize - Số records/trang (maximum: 100)
+     * @param {string} options.orderBy - 'inserted_at' hoặc 'updated_at'
+     * @returns {Promise<Object>} { total, customers }
+     */
+    async fetchCustomers(pageId, options = {}) {
+        try {
+            const pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+            const userToken = await this.getToken();
+
+            if (!pageToken && !userToken) {
+                throw new Error('No Pancake token available');
+            }
+
+            // Build query params
+            const params = new URLSearchParams();
+            if (pageToken) {
+                params.set('page_access_token', pageToken);
+            } else {
+                params.set('access_token', userToken);
+            }
+
+            // Required params
+            params.set('since', options.since || Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000));
+            params.set('until', options.until || Math.floor(Date.now() / 1000));
+            params.set('page_number', options.pageNumber || 1);
+            params.set('page_size', Math.min(options.pageSize || 100, 100)); // Max 100
+
+            if (options.orderBy) params.set('order_by', options.orderBy);
+
+            let url;
+            if (pageToken) {
+                url = window.API_CONFIG.buildUrl.pancakePageApi(pageId, 'page_customers', params.toString());
+                console.log('[PANCAKE] Fetching customers via Official Page API...');
+            } else {
+                url = window.API_CONFIG.buildUrl.pancakeUserApi(`pages/${pageId}/page_customers`, params.toString());
+                console.log('[PANCAKE] Fetching customers via Internal API...');
+            }
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            }, 3, true);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log(`[PANCAKE] ✅ Fetched ${data.customers?.length || 0} customers (total: ${data.total || 0})`);
+            return { total: data.total || 0, customers: data.customers || [] };
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error fetching customers:', error);
+            return { total: 0, customers: [] };
+        }
+    }
+
+    /**
+     * Lấy danh sách Users (nhân viên) của một page (Official API)
+     * GET https://pages.fm/api/public_api/v1/pages/{page_id}/users
+     * Authentication: page_access_token
+     * @param {string} pageId - Facebook Page ID
+     * @returns {Promise<Object>} { users, disabled_users, round_robin_users }
+     */
+    async fetchUsers(pageId) {
+        try {
+            const pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+            const userToken = await this.getToken();
+
+            if (!pageToken && !userToken) {
+                throw new Error('No Pancake token available');
+            }
+
+            let url;
+            if (pageToken) {
+                url = window.API_CONFIG.buildUrl.pancakePageApi(pageId, 'users', `page_access_token=${pageToken}`);
+                console.log('[PANCAKE] Fetching users via Official Page API...');
+            } else {
+                url = window.API_CONFIG.buildUrl.pancakeUserApi(`pages/${pageId}/users`, `access_token=${userToken}`);
+                console.log('[PANCAKE] Fetching users via Internal API...');
+            }
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            }, 3, true);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log(`[PANCAKE] ✅ Fetched ${data.users?.length || 0} users`);
+            return {
+                users: data.users || [],
+                disabledUsers: data.disabled_users || [],
+                roundRobinUsers: data.round_robin_users || {}
+            };
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error fetching users:', error);
+            return { users: [], disabledUsers: [], roundRobinUsers: {} };
+        }
+    }
+
+    /**
+     * Gửi tin nhắn (Official API)
+     * POST https://pages.fm/api/public_api/v1/pages/{page_id}/conversations/{conversation_id}/messages
+     * Authentication: page_access_token
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} conversationId - Conversation ID
+     * @param {Object} messageData - Message data
+     * @param {string} messageData.action - 'reply_inbox', 'reply_comment', 'private_replies'
+     * @param {string} messageData.message - Nội dung tin nhắn
+     * @param {Array} messageData.contentIds - Content IDs từ upload API (optional)
+     * @param {string} messageData.attachmentType - 'PHOTO', 'VIDEO', 'DOCUMENT' (optional)
+     * @param {string} messageData.messageId - ID comment cần reply (cho reply_comment)
+     * @param {string} messageData.postId - Post ID (cho private_replies)
+     * @param {string} messageData.fromId - Sender ID (cho private_replies)
+     * @returns {Promise<Object>} { success, id, message }
+     */
+    async sendMessage(pageId, conversationId, messageData) {
+        try {
+            const pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+            const userToken = await this.getToken();
+
+            if (!pageToken && !userToken) {
+                throw new Error('No Pancake token available');
+            }
+
+            let url;
+            if (pageToken) {
+                url = window.API_CONFIG.buildUrl.pancakePageApi(
+                    pageId,
+                    `conversations/${conversationId}/messages`,
+                    `page_access_token=${pageToken}`
+                );
+                console.log('[PANCAKE] Sending message via Official Page API...');
+            } else {
+                url = window.API_CONFIG.buildUrl.pancakeUserApi(
+                    `pages/${pageId}/conversations/${conversationId}/messages`,
+                    `access_token=${userToken}`
+                );
+                console.log('[PANCAKE] Sending message via Internal API...');
+            }
+
+            // Build request body based on action type
+            const body = {
+                action: messageData.action || 'reply_inbox',
+                message: messageData.message
+            };
+
+            // Add optional fields based on action type
+            if (messageData.contentIds && messageData.contentIds.length > 0) {
+                body.content_ids = messageData.contentIds;
+                body.attachment_type = messageData.attachmentType || 'PHOTO';
+            }
+
+            if (messageData.action === 'reply_comment' && messageData.messageId) {
+                body.message_id = messageData.messageId;
+                if (messageData.contentUrl) body.content_url = messageData.contentUrl;
+            }
+
+            if (messageData.action === 'private_replies') {
+                body.post_id = messageData.postId;
+                body.message_id = messageData.messageId;
+                body.from_id = messageData.fromId;
+            }
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }, 3, true);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Message sent:', data);
+            return data;
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error sending message:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Thêm/Xóa tag cho conversation (Official API)
+     * POST https://pages.fm/api/public_api/v1/pages/{page_id}/conversations/{conversation_id}/tags
+     * Authentication: page_access_token
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} conversationId - Conversation ID
+     * @param {string} tagId - Tag ID
+     * @param {string} action - 'add' hoặc 'remove'
+     * @returns {Promise<Object>}
+     */
+    async updateConversationTag(pageId, conversationId, tagId, action = 'add') {
+        try {
+            const pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+            const userToken = await this.getToken();
+
+            if (!pageToken && !userToken) {
+                throw new Error('No Pancake token available');
+            }
+
+            let url;
+            if (pageToken) {
+                url = window.API_CONFIG.buildUrl.pancakePageApi(
+                    pageId,
+                    `conversations/${conversationId}/tags`,
+                    `page_access_token=${pageToken}`
+                );
+            } else {
+                url = window.API_CONFIG.buildUrl.pancakeUserApi(
+                    `pages/${pageId}/conversations/${conversationId}/tags`,
+                    `access_token=${userToken}`
+                );
+            }
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, tag_id: tagId })
+            }, 3, true);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log(`[PANCAKE] ✅ Tag ${action}ed:`, data);
+            return data;
+
+        } catch (error) {
+            console.error(`[PANCAKE] ❌ Error ${action}ing tag:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Mark conversation as read (Official API)
+     * POST https://pages.fm/api/public_api/v1/pages/{page_id}/conversations/{conversation_id}/read
+     * Authentication: page_access_token
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} conversationId - Conversation ID
+     * @returns {Promise<boolean>}
+     */
+    async markConversationAsRead(pageId, conversationId) {
+        try {
+            const pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+            const userToken = await this.getToken();
+
+            if (!pageToken && !userToken) {
+                throw new Error('No Pancake token available');
+            }
+
+            let url;
+            if (pageToken) {
+                url = window.API_CONFIG.buildUrl.pancakePageApi(
+                    pageId,
+                    `conversations/${conversationId}/read`,
+                    `page_access_token=${pageToken}`
+                );
+            } else {
+                url = window.API_CONFIG.buildUrl.pancakeUserApi(
+                    `pages/${pageId}/conversations/${conversationId}/read`,
+                    `access_token=${userToken}`
+                );
+            }
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            }, 3, true);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Marked conversation as read');
+            return data.success || true;
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error marking conversation as read:', error);
             return false;
         }
     }
