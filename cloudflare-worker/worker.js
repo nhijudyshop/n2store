@@ -560,6 +560,68 @@ export default {
         }
       }
 
+      // ========== PANCAKE OFFICIAL API (pages.fm Public API) ==========
+      // For official Pancake Public API that requires page_access_token
+      // URL format: /api/pancake-official/{path}?page_access_token=xxx
+      // Forwards to: https://pages.fm/api/public_api/v1/{path}?page_access_token=xxx
+      if (pathname.startsWith('/api/pancake-official/')) {
+        const apiPath = pathname.replace(/^\/api\/pancake-official\//, '');
+        const targetUrl = `https://pages.fm/api/public_api/v1/${apiPath}${url.search}`;
+
+        console.log('[PANCAKE-OFFICIAL] Target URL:', targetUrl);
+
+        // Build headers for pages.fm
+        const headers = new Headers();
+        headers.set('Accept', 'application/json, text/plain, */*');
+        headers.set('Accept-Language', 'en-US,en;q=0.9,vi;q=0.8');
+        headers.set('Origin', 'https://pages.fm');
+        headers.set('Referer', 'https://pages.fm/');
+        headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+        headers.set('sec-ch-ua', '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"');
+        headers.set('sec-ch-ua-mobile', '?0');
+        headers.set('sec-ch-ua-platform', '"macOS"');
+        headers.set('sec-fetch-dest', 'empty');
+        headers.set('sec-fetch-mode', 'cors');
+        headers.set('sec-fetch-site', 'same-origin');
+
+        // Set Content-Type from original request
+        const contentType = request.headers.get('Content-Type');
+        if (contentType) {
+          headers.set('Content-Type', contentType);
+        }
+
+        try {
+          const response = await fetch(targetUrl, {
+            method: request.method,
+            headers: headers,
+            body: request.method !== 'GET' && request.method !== 'HEAD'
+              ? await request.arrayBuffer()
+              : null,
+          });
+
+          console.log('[PANCAKE-OFFICIAL] Response status:', response.status);
+
+          const newResponse = new Response(response.body, response);
+          newResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+          newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+
+          return newResponse;
+        } catch (error) {
+          console.error('[PANCAKE-OFFICIAL] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Pancake Official API failed',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
       let isTPOSRequest = false;

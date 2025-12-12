@@ -68,6 +68,18 @@ const API_CONFIG = {
             params.set('jwt', jwtToken);
             params.set('access_token', accessToken);
             return `${WORKER_URL}/api/pancake-direct/${endpoint}?${params.toString()}`;
+        },
+
+        /**
+         * Build Pancake Official API URL (pages.fm Public API)
+         * Uses page_access_token (from Settings → Tools, never expires)
+         * @param {string} endpoint - e.g., "pages/123/conversations/456/messages"
+         * @param {string} pageAccessToken - Page access token (from Pancake Settings → Tools)
+         * @returns {string} - Full URL via Cloudflare Worker proxy
+         */
+        pancakeOfficial: (endpoint, pageAccessToken) => {
+            const baseUrl = `${WORKER_URL}/api/pancake-official/${endpoint}`;
+            return pageAccessToken ? `${baseUrl}?page_access_token=${pageAccessToken}` : baseUrl;
         }
     },
 
