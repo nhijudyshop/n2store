@@ -654,13 +654,12 @@ window.sendCommentReply = async function () {
         sendBtn.disabled = true;
         sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
 
-        // Get Pancake JWT token
-        const pancakeToken = await window.pancakeDataManager?.getToken();
-        if (!pancakeToken) {
-            throw new Error('Không tìm thấy Pancake token');
-        }
-
+        // Get page_access_token for Official API (pages.fm)
         const pageId = commentModalChannelId;
+        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+        if (!pageAccessToken) {
+            throw new Error('Không tìm thấy page_access_token. Vui lòng vào Pancake → Settings → Tools để tạo token.');
+        }
         const commentId = commentModalParentId; // Facebook comment ID (e.g., "postId_commentId")
         const psid = commentModalPSID; // Customer Facebook ID
         const inboxConvId = commentModalInboxConvId; // Inbox conversation ID from inbox_preview
@@ -685,12 +684,12 @@ window.sendCommentReply = async function () {
             message
         });
 
-        // Pancake API: conversation ID = inbox_conv_id (NOT comment ID) for private replies
+        // Pancake Official API (pages.fm): conversation ID = inbox_conv_id (NOT comment ID) for private replies
         // The inbox_conv_id is the messaging conversation between page and user
         // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
-        const url = window.API_CONFIG.buildUrl.pancake(
+        const url = window.API_CONFIG.buildUrl.pancakeOfficial(
             `pages/${pageId}/conversations/${inboxConvId}/messages`,
-            `access_token=${pancakeToken}`
+            pageAccessToken
         );
 
         // Build JSON payload theo Pancake API chính thức
