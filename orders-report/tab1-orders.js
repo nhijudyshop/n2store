@@ -611,8 +611,8 @@ window.addEventListener("DOMContentLoaded", async function () {
     if (window.pancakeTokenManager && window.pancakeDataManager) {
         console.log('[PANCAKE] Initializing Pancake managers...');
 
-        // Initialize token manager first
-        window.pancakeTokenManager.initialize();
+        // Initialize token manager first and WAIT for it
+        await window.pancakeTokenManager.initialize();
 
         // Then initialize data manager and WAIT for it
         try {

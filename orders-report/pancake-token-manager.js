@@ -16,11 +16,28 @@ class PancakeTokenManager {
 
     /**
      * Initialize Firebase reference
+     * Waits for Firebase to be both loaded and initialized before accessing database
      */
     async initialize() {
         try {
-            if (!window.firebase || !window.firebase.database) {
-                console.warn('[PANCAKE-TOKEN] Firebase not available');
+            // Wait for Firebase SDK to be loaded and initialized
+            const maxRetries = 50; // 5 seconds max (50 * 100ms)
+            let retries = 0;
+
+            while (retries < maxRetries) {
+                if (window.firebase &&
+                    window.firebase.database &&
+                    typeof window.firebase.database === 'function' &&
+                    window.firebase.apps &&
+                    window.firebase.apps.length > 0) {
+                    break;
+                }
+                await new Promise(resolve => setTimeout(resolve, 100));
+                retries++;
+            }
+
+            if (!window.firebase || !window.firebase.database || !window.firebase.apps || window.firebase.apps.length === 0) {
+                console.warn('[PANCAKE-TOKEN] Firebase not available or not initialized after waiting');
                 return false;
             }
 

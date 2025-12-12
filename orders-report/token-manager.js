@@ -61,7 +61,7 @@ class TokenManager {
     }
 
     /**
-     * Wait for Firebase SDK to be available
+     * Wait for Firebase SDK to be available AND initialized
      * @returns {Promise<void>}
      */
     async waitForFirebase() {
@@ -69,10 +69,14 @@ class TokenManager {
         let retries = 0;
 
         while (retries < maxRetries) {
+            // Check if Firebase SDK is loaded
             if (window.firebase && window.firebase.database && typeof window.firebase.database === 'function') {
-                console.log('[TOKEN] Firebase SDK is ready');
-                this.firebaseReady = true;
-                return;
+                // Also check if Firebase has been initialized (has apps)
+                if (window.firebase.apps && window.firebase.apps.length > 0) {
+                    console.log('[TOKEN] Firebase SDK is ready');
+                    this.firebaseReady = true;
+                    return;
+                }
             }
 
             // Wait 100ms before checking again
@@ -80,7 +84,7 @@ class TokenManager {
             retries++;
         }
 
-        console.warn('[TOKEN] Firebase SDK not available after 5 seconds, will use localStorage only');
+        console.warn('[TOKEN] Firebase SDK not available or not initialized after 5 seconds, will use localStorage only');
     }
 
     initFirebase() {
