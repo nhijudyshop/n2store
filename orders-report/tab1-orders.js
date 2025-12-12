@@ -15863,6 +15863,7 @@ function buildFastSaleOrderPayload() {
     const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
     const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 35000;
     const cod = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
 
     // Get carrier
     const carrierSelect = document.getElementById('saleCarrier');
@@ -15958,7 +15959,7 @@ function buildFastSaleOrderPayload() {
         SaleOnlineName: '',
         PartnerShippingId: null,
         PaymentJournalId: 1,
-        PaymentAmount: 0,
+        PaymentAmount: prepaidAmount, // Công nợ (debt) từ balance-history API
         SaleOrderId: null,
         SaleOrderIds: [],
         FacebookName: receiverName,
