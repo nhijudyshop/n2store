@@ -1055,7 +1055,7 @@ class MessageTemplateManager {
                 'Accept': 'application/json'
             },
             body: JSON.stringify(payload)
-        }, 3, true); // skipFallback=true: nếu Cloudflare fail thì không retry Render (cùng logic)
+        }, 1, true); // maxRetries=1, skipFallback=true: chỉ gọi 1 lần, không retry
 
         if (!response.ok) {
             const errorText = await response.text();
