@@ -1292,6 +1292,217 @@
         }
     };
 
+    // ============================================================
+    // EXPORT EXCEL FUNCTIONALITY
+    // Xuất danh sách đơn hàng từ TPOS ra file Excel
+    // ============================================================
+
+    let exportExcelModal = null;
+
+    /**
+     * Open Export Excel Modal
+     */
+    window.openExportExcelModal = function() {
+        console.log('[EXPORT] 📊 Opening Export Excel Modal...');
+
+        // Initialize Bootstrap modal if not exists
+        if (!exportExcelModal) {
+            const modalEl = document.getElementById('exportExcelModal');
+            if (modalEl) {
+                exportExcelModal = new bootstrap.Modal(modalEl);
+            }
+        }
+
+        // Reset UI
+        const progressEl = document.getElementById('exportProgress');
+        const footerEl = document.getElementById('exportModalFooter');
+        const exportBtn = document.getElementById('exportExcelBtn');
+
+        if (progressEl) progressEl.style.display = 'none';
+        if (footerEl) footerEl.style.display = 'flex';
+        if (exportBtn) exportBtn.disabled = false;
+
+        // Reset progress bar
+        const progressBar = document.getElementById('exportProgressBar');
+        if (progressBar) progressBar.style.width = '0%';
+
+        // Show modal
+        if (exportExcelModal) {
+            exportExcelModal.show();
+        }
+    };
+
+    /**
+     * Close Export Excel Modal
+     */
+    window.closeExportExcelModal = function() {
+        if (exportExcelModal) {
+            exportExcelModal.hide();
+        }
+    };
+
+    /**
+     * Format date to DD/MM/YYYY HH:mm
+     * @param {string} dateString - ISO date string
+     * @returns {string} Formatted date
+     */
+    function formatDateForExcel(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
+    }
+
+    /**
+     * Format date for filename (DD-MM-YYYY)
+     * @param {string} dateString - ISO date string
+     * @returns {string} Formatted date for filename
+     */
+    function formatDateForFilename(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+    }
+
+    /**
+     * Export Orders to Excel
+     * Load 3000 orders from TPOS and export to Excel file
+     */
+    window.exportOrdersToExcel = async function() {
+        console.log('[EXPORT] 📊 Starting export to Excel...');
+
+        const skipRange = document.getElementById('exportSkipRange');
+        const skip = parseInt(skipRange?.value || '0', 10);
+
+        console.log(`[EXPORT] Skip value: ${skip}`);
+
+        // Show progress
+        const progressEl = document.getElementById('exportProgress');
+        const exportBtn = document.getElementById('exportExcelBtn');
+        const progressText = document.getElementById('exportProgressText');
+        const progressBar = document.getElementById('exportProgressBar');
+
+        if (progressEl) progressEl.style.display = 'block';
+        if (exportBtn) exportBtn.disabled = true;
+        if (progressText) progressText.textContent = 'Đang tải đơn hàng từ TPOS...';
+        if (progressBar) progressBar.style.width = '20%';
+
+        try {
+            // Get auth headers
+            const headers = await window.tokenManager.getAuthHeader();
+
+            // Build API URL - Load 3000 orders without any campaign filter
+            const url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$count=true`;
+
+            console.log(`[EXPORT] Fetching from: ${url}`);
+            if (progressBar) progressBar.style.width = '40%';
+
+            // Fetch orders
+            const response = await API_CONFIG.smartFetch(url, {
+                headers: { ...headers, accept: 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            const orders = data.value || [];
+            const totalCount = data['@odata.count'] || orders.length;
+
+            console.log(`[EXPORT] Loaded ${orders.length} orders (total: ${totalCount})`);
+            if (progressText) progressText.textContent = `Đã tải ${orders.length} đơn hàng. Đang tạo file Excel...`;
+            if (progressBar) progressBar.style.width = '70%';
+
+            if (orders.length === 0) {
+                alert('Không có đơn hàng nào để xuất!');
+                if (progressEl) progressEl.style.display = 'none';
+                if (exportBtn) exportBtn.disabled = false;
+                return;
+            }
+
+            // Find min and max DateCreated for filename
+            let minDate = orders[0].DateCreated;
+            let maxDate = orders[0].DateCreated;
+
+            orders.forEach(order => {
+                if (order.DateCreated < minDate) minDate = order.DateCreated;
+                if (order.DateCreated > maxDate) maxDate = order.DateCreated;
+            });
+
+            // Prepare Excel data
+            const excelData = orders.map((order, index) => ({
+                'STT': index + 1,
+                'Khách hàng': order.Name || '',
+                'SĐT': order.Telephone || '',
+                'Địa Chỉ': order.Address || '',
+                'Tổng tiền': order.TotalAmount || 0,
+                'SL': order.TotalQuantity || 0,
+                'Trạng thái': order.StatusText || order.Status || '',
+                'Ngày Tạo': formatDateForExcel(order.DateCreated)
+            }));
+
+            if (progressBar) progressBar.style.width = '85%';
+
+            // Create workbook and worksheet
+            const ws = XLSX.utils.json_to_sheet(excelData);
+
+            // Auto-fit column widths
+            const colWidths = [];
+            const headerKeys = Object.keys(excelData[0] || {});
+            headerKeys.forEach((header, i) => {
+                const maxLength = Math.max(
+                    header.length,
+                    ...excelData.map(row => String(row[header] || '').length)
+                );
+                colWidths[i] = { width: Math.min(maxLength + 2, 50) };
+            });
+            ws['!cols'] = colWidths;
+
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Đơn hàng');
+
+            // Generate filename with date range
+            const minDateStr = formatDateForFilename(minDate);
+            const maxDateStr = formatDateForFilename(maxDate);
+            const fileName = `Đơn hàng ${minDateStr} - ${maxDateStr}.xlsx`;
+
+            if (progressBar) progressBar.style.width = '100%';
+            if (progressText) progressText.textContent = 'Hoàn thành! Đang tải file...';
+
+            // Download file
+            XLSX.writeFile(wb, fileName);
+
+            console.log(`[EXPORT] ✅ Excel file exported: ${fileName}`);
+
+            // Close modal after short delay
+            setTimeout(() => {
+                closeExportExcelModal();
+                // Reset UI
+                if (progressEl) progressEl.style.display = 'none';
+                if (exportBtn) exportBtn.disabled = false;
+                if (progressBar) progressBar.style.width = '0%';
+            }, 1000);
+
+        } catch (error) {
+            console.error('[EXPORT] ❌ Error exporting to Excel:', error);
+            alert(`Lỗi xuất Excel: ${error.message}`);
+
+            // Reset UI
+            if (progressEl) progressEl.style.display = 'none';
+            if (exportBtn) exportBtn.disabled = false;
+            if (progressBar) progressBar.style.width = '0%';
+        }
+    };
+
     // Load assignments from LocalStorage
     function loadAssignmentsFromLocalStorage() {
         try {
