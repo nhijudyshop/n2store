@@ -15746,8 +15746,47 @@ async function confirmAndPrintSale() {
         console.log('[SALE-CONFIRM] FastSaleOrder created:', createResult);
 
         const orderId = createResult.Id;
+        const orderNumber = createResult.Number || orderId;
         if (!orderId) {
             throw new Error('Không nhận được ID đơn hàng');
+        }
+
+        // Step 1.5: Reset debt to 0 if customer had debt (prepaidAmount > 0)
+        const paidDebt = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+        if (paidDebt > 0) {
+            const customerPhone = document.getElementById('saleReceiverPhone')?.value || currentSaleOrderData?.PartnerPhone || currentSaleOrderData?.Telephone;
+            if (customerPhone) {
+                console.log('[SALE-CONFIRM] Step 1.5: Resetting debt to 0, paid:', paidDebt);
+                // Call API to reset debt and save history (async, don't block)
+                fetch(`${QR_API_URL}/api/sepay/update-debt`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: customerPhone,
+                        new_debt: 0,
+                        old_debt: paidDebt,
+                        reason: `Thanh toán công nợ ${paidDebt.toLocaleString('vi-VN')}đ qua đơn hàng #${orderNumber}`
+                    })
+                }).then(res => res.json()).then(result => {
+                    if (result.success) {
+                        console.log('[SALE-CONFIRM] ✅ Debt reset to 0, history saved');
+                        // Update UI: reset debt cells in table
+                        const normalizedPhone = normalizePhoneForQR(customerPhone);
+                        if (normalizedPhone) {
+                            // Invalidate cache
+                            const cache = getDebtCache();
+                            delete cache[normalizedPhone];
+                            saveDebtCache(cache);
+                            // Update table cells
+                            updateDebtCellsInTable(normalizedPhone, 0);
+                        }
+                    } else {
+                        console.error('[SALE-CONFIRM] Failed to reset debt:', result.error);
+                    }
+                }).catch(err => {
+                    console.error('[SALE-CONFIRM] Error resetting debt:', err);
+                });
+            }
         }
 
         // Step 2: GET print1 to get print HTML
