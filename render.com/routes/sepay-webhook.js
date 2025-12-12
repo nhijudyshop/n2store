@@ -581,8 +581,15 @@ async function processDebtUpdate(db, transactionId) {
 
 /**
  * GET /api/sepay/debt-summary
- * Get total debt and transaction list for a phone number
- * Calculates from balance_history instead of reading from customers.debt
+ * Get total debt for a phone number
+ *
+ * Logic:
+ * - If admin has adjusted debt (debt_adjusted_at exists):
+ *   total_debt = customers.debt (baseline) + sum(transactions AFTER debt_adjusted_at)
+ * - If no admin adjustment:
+ *   total_debt = sum(ALL transactions)
+ *
+ * This ensures both admin adjustments AND new bank transfers are reflected correctly.
  */
 router.get('/debt-summary', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -607,33 +614,22 @@ router.get('/debt-summary', async (req, res) => {
 
         console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
 
-        // 1. FIRST: Check customers.debt (admin-adjusted value takes priority)
-        // ORDER BY debt DESC to get the highest value (admin-adjusted record)
+        // 1. Get customer record with debt and debt_adjusted_at
         const customerResult = await db.query(
-            `SELECT debt, updated_at FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
+            `SELECT debt, debt_adjusted_at FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
             [normalizedPhone, '0' + normalizedPhone]
         );
 
         const customerDebt = customerResult.rows.length > 0
             ? (parseFloat(customerResult.rows[0].debt) || 0)
+            : 0;
+        const debtAdjustedAt = customerResult.rows.length > 0
+            ? customerResult.rows[0].debt_adjusted_at
             : null;
 
-        // If admin has set debt in customers table, use that value
-        if (customerDebt !== null && customerDebt > 0) {
-            console.log('[DEBT-SUMMARY] Using admin-adjusted debt from customers.debt:', customerDebt);
-            return res.json({
-                success: true,
-                data: {
-                    phone,
-                    total_debt: customerDebt,
-                    transactions: [],
-                    transaction_count: 0,
-                    source: 'customers_table_admin'
-                }
-            });
-        }
+        console.log('[DEBT-SUMMARY] Customer debt:', customerDebt, 'adjusted_at:', debtAdjustedAt);
 
-        // 2. Find all QR codes linked to this phone (try both normalized and with leading 0)
+        // 2. Find all QR codes linked to this phone
         const qrResult = await db.query(
             `SELECT unique_code FROM balance_customer_info WHERE customer_phone = $1 OR customer_phone = $2`,
             [normalizedPhone, '0' + normalizedPhone]
@@ -642,55 +638,73 @@ router.get('/debt-summary', async (req, res) => {
         const qrCodes = qrResult.rows.map(r => (r.unique_code || '').toUpperCase()).filter(Boolean);
         console.log('[DEBT-SUMMARY] QR codes found:', qrCodes);
 
-        if (qrCodes.length === 0) {
-            // No QR codes and no admin-set debt
-            console.log('[DEBT-SUMMARY] No QR codes, no admin debt, returning 0');
+        // 3. Calculate transactions
+        let transactions = [];
+        let transactionsAfterAdjustment = 0;
+        let allTransactionsTotal = 0;
 
-            return res.json({
-                success: true,
-                data: {
-                    phone,
-                    total_debt: 0,
-                    transactions: [],
-                    transaction_count: 0,
-                    source: 'no_data'
-                }
-            });
+        if (qrCodes.length > 0) {
+            const placeholders = qrCodes.map((_, i) => `$${i + 1}`).join(', ');
+
+            // Get ALL transactions for display
+            const txQuery = `
+                SELECT
+                    id,
+                    transfer_amount,
+                    transaction_date,
+                    content,
+                    debt_added
+                FROM balance_history
+                WHERE transfer_type = 'in'
+                  AND UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) IN (${placeholders})
+                ORDER BY transaction_date DESC
+                LIMIT 100
+            `;
+            const txResult = await db.query(txQuery, qrCodes);
+            transactions = txResult.rows;
+
+            // Calculate total of ALL transactions
+            allTransactionsTotal = transactions.reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
+
+            // If admin has adjusted, calculate transactions AFTER the adjustment
+            if (debtAdjustedAt) {
+                transactionsAfterAdjustment = transactions
+                    .filter(t => new Date(t.transaction_date) > new Date(debtAdjustedAt))
+                    .reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
+
+                console.log('[DEBT-SUMMARY] Transactions after adjustment:', transactionsAfterAdjustment);
+            }
         }
 
-        // 3. Find ALL incoming transactions with these QR codes (calculate total from transactions)
-        const placeholders = qrCodes.map((_, i) => `$${i + 1}`).join(', ');
-        const txQuery = `
-            SELECT
-                id,
-                transfer_amount,
-                transaction_date,
-                content,
-                debt_added
-            FROM balance_history
-            WHERE transfer_type = 'in'
-              AND UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) IN (${placeholders})
-            ORDER BY transaction_date DESC
-            LIMIT 100
-        `;
+        // 4. Calculate total debt
+        let totalDebt;
+        let source;
 
-        const txResult = await db.query(txQuery, qrCodes);
-        const transactions = txResult.rows;
-
-        // 4. Calculate total debt from transactions
-        const totalDebt = transactions.reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
-
-        console.log('[DEBT-SUMMARY] Found:', {
-            phone,
-            transactionCount: transactions.length,
-            totalDebt
-        });
+        if (debtAdjustedAt) {
+            // Admin has adjusted: baseline + new transactions
+            totalDebt = customerDebt + transactionsAfterAdjustment;
+            source = 'admin_adjusted_plus_new';
+            console.log('[DEBT-SUMMARY] Using admin baseline + new transactions:', customerDebt, '+', transactionsAfterAdjustment, '=', totalDebt);
+        } else if (qrCodes.length > 0) {
+            // No adjustment: use all transactions
+            totalDebt = allTransactionsTotal;
+            source = 'balance_history';
+            console.log('[DEBT-SUMMARY] Using all transactions:', totalDebt);
+        } else {
+            // No QR codes, no adjustment: use customers.debt as fallback
+            totalDebt = customerDebt;
+            source = customerDebt > 0 ? 'customers_table' : 'no_data';
+            console.log('[DEBT-SUMMARY] Fallback to customers.debt:', totalDebt);
+        }
 
         res.json({
             success: true,
             data: {
                 phone,
                 total_debt: totalDebt,
+                baseline_debt: debtAdjustedAt ? customerDebt : null,
+                new_transactions: debtAdjustedAt ? transactionsAfterAdjustment : null,
+                debt_adjusted_at: debtAdjustedAt,
                 transactions: transactions.map(t => ({
                     id: t.id,
                     amount: parseInt(t.transfer_amount) || 0,
@@ -699,7 +713,7 @@ router.get('/debt-summary', async (req, res) => {
                     debt_added: t.debt_added
                 })),
                 transaction_count: transactions.length,
-                source: 'balance_history'
+                source
             }
         });
 
@@ -1048,18 +1062,19 @@ router.post('/update-debt', async (req, res) => {
         let updateResult;
         if (existingCustomerId) {
             // Customer exists - UPDATE ALL matching records (both phone formats)
+            // Set debt_adjusted_at to mark when admin adjusted (for calculating new transactions after)
             updateResult = await db.query(`
                 UPDATE customers
-                SET debt = $1, updated_at = CURRENT_TIMESTAMP
+                SET debt = $1, updated_at = CURRENT_TIMESTAMP, debt_adjusted_at = CURRENT_TIMESTAMP
                 WHERE phone = $2 OR phone = $3
                 RETURNING *
             `, [newDebtValue, normalizedPhone, '0' + normalizedPhone]);
             console.log('[UPDATE-DEBT] Updated', updateResult.rowCount, 'customer records');
         } else {
-            // Customer doesn't exist - INSERT new record
+            // Customer doesn't exist - INSERT new record with debt_adjusted_at
             updateResult = await db.query(`
-                INSERT INTO customers (phone, debt, created_at, updated_at)
-                VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                INSERT INTO customers (phone, debt, created_at, updated_at, debt_adjusted_at)
+                VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 RETURNING *
             `, [normalizedPhone, newDebtValue]);
         }
