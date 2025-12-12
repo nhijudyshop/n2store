@@ -791,7 +791,7 @@ window.sendCommentReply = async function () {
                 'Accept': 'application/json'
             },
             body: JSON.stringify(payload)
-        });
+        }, 3, true); // skipFallback=true: nếu Cloudflare fail thì không retry Render (cùng logic)
 
         const result = await response.json();
 
