@@ -768,31 +768,43 @@ class PancakeTokenManager {
                 throw new Error('Cần đăng nhập Pancake trước');
             }
 
-            console.log('[PANCAKE-TOKEN] Generating page_access_token for:', pageId);
+            console.log('[PANCAKE-TOKEN] ========================================');
+            console.log('[PANCAKE-TOKEN] Generating page_access_token for page:', pageId);
+            console.log('[PANCAKE-TOKEN] Using access_token (JWT):', this.currentToken.substring(0, 50) + '...');
 
-            const response = await fetch(
-                `https://pancake.vn/api/v1/pages/${pageId}/generate_page_access_token?access_token=${this.currentToken}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    }
-                }
+            // Use worker proxy to avoid CORS
+            // API: POST https://pages.fm/api/v1/pages/{page_id}/generate_page_access_token?access_token=xxx
+            const url = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/generate_page_access_token`,
+                `access_token=${this.currentToken}`
             );
 
+            console.log('[PANCAKE-TOKEN] API URL:', url);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+
             const result = await response.json();
+            console.log('[PANCAKE-TOKEN] API Response:', result);
 
             if (result.success && result.page_access_token) {
+                console.log('[PANCAKE-TOKEN] ✅ page_access_token generated:', result.page_access_token.substring(0, 50) + '...');
+                console.log('[PANCAKE-TOKEN] ========================================');
+
                 // Save to Firebase
                 await this.savePageAccessToken(pageId, result.page_access_token);
-                console.log('[PANCAKE-TOKEN] ✅ page_access_token generated and saved');
                 return result.page_access_token;
             } else {
                 throw new Error(result.message || 'Failed to generate token');
             }
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error generating page_access_token:', error);
+            console.error('[PANCAKE-TOKEN] ❌ Error generating page_access_token:', error);
+            console.log('[PANCAKE-TOKEN] ========================================');
             return null;
         }
     }
@@ -804,16 +816,26 @@ class PancakeTokenManager {
      * @returns {Promise<string|null>}
      */
     async getOrGeneratePageAccessToken(pageId) {
+        console.log('[PANCAKE-TOKEN] getOrGeneratePageAccessToken called for page:', pageId);
+
         // Check cache first
         const cached = this.getPageAccessToken(pageId);
         if (cached) {
-            console.log('[PANCAKE-TOKEN] Using cached page_access_token for:', pageId);
+            console.log('[PANCAKE-TOKEN] ✅ Using CACHED page_access_token:', cached.substring(0, 50) + '...');
             return cached;
         }
 
         // Generate new token
-        console.log('[PANCAKE-TOKEN] No cached token, generating new one for:', pageId);
-        return await this.generatePageAccessToken(pageId);
+        console.log('[PANCAKE-TOKEN] ⚠️ No cached token, generating new one...');
+        const newToken = await this.generatePageAccessToken(pageId);
+
+        if (newToken) {
+            console.log('[PANCAKE-TOKEN] ✅ NEW page_access_token:', newToken.substring(0, 50) + '...');
+        } else {
+            console.error('[PANCAKE-TOKEN] ❌ Failed to generate page_access_token');
+        }
+
+        return newToken;
     }
 
     /**
