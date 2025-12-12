@@ -675,22 +675,20 @@ window.sendCommentReply = async function () {
         });
 
         // Pancake API: conversation ID = comment ID for private replies
-        // Use API_CONFIG.buildUrl.pancake to get correct URL format
+        // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
         const url = window.API_CONFIG.buildUrl.pancake(
             `pages/${pageId}/conversations/${commentId}/messages`,
-            `access_token=${pancakeToken}`
+            `page_access_token=${pancakeToken}`  // Pancake API chính thức dùng page_access_token
         );
 
-        // Build JSON payload matching Pancake API format
+        // Build JSON payload theo Pancake API chính thức
+        // Required fields cho private_replies: action, post_id, message_id, from_id, message
         const payload = {
-            action: 'private_replies',  // Note: has 's' at the end
-            message_id: commentId,      // The comment being replied to
-            from_id: psid,              // Customer's Facebook ID
-            message: message,           // Reply content
-            post_id: postId,            // Format: pageId_postId
-            need_thread_id: false,
-            thread_id_preview: commentModalThreadId,   // From inbox_preview fetch
-            thread_key_preview: commentModalThreadKey  // From inbox_preview fetch
+            action: 'private_replies',
+            post_id: postId,
+            message_id: commentId,
+            from_id: psid,
+            message: message
         };
 
         console.log('[COMMENT MODAL] Request payload:', payload);
@@ -700,7 +698,7 @@ window.sendCommentReply = async function () {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json, text/plain, */*'
+                'Accept': 'application/json'
             },
             body: JSON.stringify(payload)
         });

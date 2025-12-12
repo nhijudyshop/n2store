@@ -1697,11 +1697,12 @@ class PancakeDataManager {
 
     /**
      * Upload image to Pancake API (2-step process)
-     * 1. Listing: Check if file exists/needs upload
-     * 2. Uploading: Upload file content if needed
-     * @param {string} pageId 
-     * @param {File} file 
-     * @returns {Promise<string>} content_url
+     * Upload file trực tiếp qua Pancake API chính thức
+     * Ref: https://developer.pancake.biz/#/ - Upload Content API
+     * POST /pages/{page_id}/upload_contents
+     * @param {string} pageId
+     * @param {File} file
+     * @returns {Promise<{content_url: string, id: string}>}
      */
     async uploadImage(pageId, file) {
         try {
@@ -1709,91 +1710,44 @@ class PancakeDataManager {
             const token = await this.getToken();
             if (!token) throw new Error('No Pancake token available');
 
-            // Step 1: Calculate SHA-1
-            const sha = await this.calculateSHA1(file);
-            console.log(`[PANCAKE] File SHA-1: ${sha}`);
+            // Pancake API chính thức: POST /pages/{page_id}/upload_contents
+            // Content-Type: multipart/form-data
+            // Body: file=@image.jpg
+            const url = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/upload_contents`,
+                `page_access_token=${token}`
+            );
 
-            // Step 2: Listing request
-            const url = window.API_CONFIG.buildUrl.pancake(`pages/${pageId}/contents`, `access_token=${token}`);
+            const formData = new FormData();
+            formData.append('file', file);
 
-            // Boundary for multipart/form-data is handled automatically by browser if we use FormData,
-            // but for "listing" action with specific boundary in fetch.txt, it seems they use FormData manually or just standard FormData.
-            // Let's use standard FormData for simplicity and browser compatibility.
-
-            const listingFormData = new FormData();
-            listingFormData.append('action', 'listing');
-            listingFormData.append('contents', JSON.stringify([{
-                sha: sha,
-                needsCompress: true,
-                name: file.name
-            }]));
-
-            console.log('[PANCAKE] Step 1: Listing...');
-            const listingResponse = await API_CONFIG.smartFetch(url, {
+            console.log('[PANCAKE] Uploading to:', url);
+            const response = await API_CONFIG.smartFetch(url, {
                 method: 'POST',
-                body: listingFormData
-            }, 3, true); // skipFallback = true for image listing
+                body: formData
+            }, 3, true); // skipFallback = true for image upload
 
-            if (!listingResponse.ok) {
-                throw new Error(`Listing failed: ${listingResponse.statusText}`);
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText}`);
             }
 
-            const listingData = await listingResponse.json();
-            console.log('[PANCAKE] Listing response:', listingData);
+            const data = await response.json();
+            console.log('[PANCAKE] Upload response:', data);
 
-            if (!listingData.success || !listingData.data || listingData.data.length === 0) {
-                throw new Error('Invalid listing response');
-            }
-
-            const fileInfo = listingData.data[0];
-
-            // If content_url is already available (file exists), return it
-            if (fileInfo.content_url) {
-                console.log('[PANCAKE] File already exists, returning content_url');
-                return {
-                    content_url: fileInfo.content_url,
-                    id: fileInfo.id
-                };
-            }
-
-            // Helper to extract ID and URL
-            const extractResult = (data) => {
-                // Try to find ID
-                const id = data.id || (data.data && data.data.id) || (Array.isArray(data) && data[0] ? data[0].id : null);
-                // Try to find URL
-                const url = data.content_url || (data.data && data.data.content_url) || (Array.isArray(data) && data[0] ? data[0].content_url : null);
-
-                return { content_url: url, id: id };
+            // Extract content_id và content_url từ response
+            const result = {
+                content_url: data.content_url || data.url || null,
+                content_id: data.id || data.content_id || null,
+                id: data.id || data.content_id || null  // Alias for compatibility
             };
 
-            // Step 3: Uploading if needed
-            if (fileInfo.need_create) {
-                console.log('[PANCAKE] Step 2: Uploading file content...');
-                const uploadFormData = new FormData();
-                uploadFormData.append('file', file);
-
-                const uploadResponse = await API_CONFIG.smartFetch(url, {
-                    method: 'POST',
-                    body: uploadFormData
-                }, 3, true); // skipFallback = true for image upload
-
-                if (!uploadResponse.ok) {
-                    throw new Error(`Upload failed: ${uploadResponse.statusText}`);
-                }
-
-                const uploadData = await uploadResponse.json();
-                console.log('[PANCAKE] Upload response:', uploadData);
-                console.log('[PANCAKE] Upload response FULL:', JSON.stringify(uploadData, null, 2));
-
-                return uploadData; // Return full response instead of extractResult
-            } else {
-                // Should have content_url if need_create is false
-                // fileInfo usually has 'id' as well
-                return {
-                    content_url: fileInfo.content_url,
-                    id: fileInfo.id
-                };
+            if (!result.content_id && !result.content_url) {
+                console.warn('[PANCAKE] Upload response missing id/url, returning full data');
+                return data;
             }
+
+            console.log('[PANCAKE] ✅ Upload success:', result);
+            return result;
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error uploading image:', error);

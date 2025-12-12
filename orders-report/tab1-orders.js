@@ -9465,51 +9465,31 @@ async function sendMessageInternal(messageData) {
             console.log('[MESSAGE] All images processed:', imagesDataArray.length);
         }
 
-        // Step 2: Build FormData payload (INBOX uses multipart/form-data)
-        const formData = new FormData();
-        formData.append('action', 'reply_inbox');
-        formData.append('message', message);
+        // Step 2: Build JSON payload (Pancake API chính thức dùng application/json)
+        // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
+        const payload = {
+            action: 'reply_inbox',
+            message: message
+        };
 
-        // Add image data - Pancake API dùng format field riêng lẻ, không phải array
+        // Add image data - Pancake API dùng content_ids (array)
         if (imagesDataArray.length > 0) {
-            console.log('[MESSAGE] Adding', imagesDataArray.length, 'images to FormData');
+            console.log('[MESSAGE] Adding', imagesDataArray.length, 'images to payload');
 
-            // Pancake API format cho single image:
-            // content_url, content_id (optional), attachment_id, width, height, send_by_platform
-            // Nếu có nhiều ảnh, gửi ảnh đầu tiên (hoặc cần gửi nhiều request)
-            const imageData = imagesDataArray[0];
+            // Pancake API format: content_ids là array of content IDs từ upload API
+            payload.content_ids = imagesDataArray
+                .map(img => img.content_id || img.id)
+                .filter(id => id); // Lọc bỏ null/undefined
 
-            formData.append('content_url', imageData.content_url || '');
-            formData.append('content_id', imageData.content_id || imageData.id || '');
+            // attachment_type bắt buộc khi có ảnh: PHOTO, VIDEO, DOCUMENT, AUDIO_ATTACHMENT_ID
+            payload.attachment_type = 'PHOTO';
 
-            // attachment_id từ upload response (nếu có)
-            if (imageData.attachment_id) {
-                formData.append('attachment_id', imageData.attachment_id);
-            }
-
-            // width và height riêng lẻ, không phải object
-            const width = imageData.image_data?.width || imageData.width || 0;
-            const height = imageData.image_data?.height || imageData.height || 0;
-            formData.append('width', String(width));
-            formData.append('height', String(height));
-
-            formData.append('send_by_platform', 'web');
-
-            // Log warning nếu có nhiều hơn 1 ảnh
-            if (imagesDataArray.length > 1) {
-                console.warn('[MESSAGE] ⚠️ Multiple images detected, only first image will be sent. Total:', imagesDataArray.length);
-            }
-        }
-
-        // Add replied_message_id if exists
-        if (repliedMessageId) {
-            formData.append('replied_message_id', repliedMessageId);
-            console.log('[MESSAGE] Adding replied_message_id:', repliedMessageId);
+            console.log('[MESSAGE] content_ids:', payload.content_ids);
         }
 
         // Step 3: Send message
-        // IMPORTANT: customer_id is REQUIRED by Pancake API (as shown in real browser network request)
-        let queryParams = `access_token=${token}`;
+        // Pancake API chính thức dùng page_access_token
+        let queryParams = `page_access_token=${token}`;
         if (customerId) {
             queryParams += `&customer_id=${customerId}`;
         }
@@ -9520,7 +9500,7 @@ async function sendMessageInternal(messageData) {
 
         console.log('[MESSAGE] Sending message...');
         console.log('[MESSAGE] URL:', replyUrl);
-        console.log('[MESSAGE] FormData fields:', Array.from(formData.entries()).map(([k, v]) => `${k}: ${v}`).join(', '));
+        console.log('[MESSAGE] Payload:', JSON.stringify(payload));
 
         // Try API first, then fallback to extension if available
         let apiSuccess = false;
@@ -9529,7 +9509,11 @@ async function sendMessageInternal(messageData) {
         try {
             const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
                 method: 'POST',
-                body: formData // FormData automatically sets Content-Type with boundary
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
             });
 
             if (!replyResponse.ok) {
@@ -9592,31 +9576,23 @@ async function sendMessageInternal(messageData) {
                     console.log('[MESSAGE] 🔓 Pancake Unlock succeeded, retrying message send...');
                     showChatSendingIndicator('Đang gửi lại tin nhắn...');
 
-                    // Retry sending the message
+                    // Retry sending the message với JSON payload (Pancake API chính thức)
                     try {
-                        const retryFormData = new FormData();
-                        retryFormData.append('action', 'reply_inbox');
-                        retryFormData.append('message', message);
+                        const retryPayload = {
+                            action: 'reply_inbox',
+                            message: message
+                        };
 
                         // Re-add image data if exists
                         if (imagesDataArray && imagesDataArray.length > 0) {
-                            const imageData = imagesDataArray[0];
-                            if (imageData.content_url) retryFormData.append('content_url', imageData.content_url);
-                            if (imageData.content_id || imageData.id) retryFormData.append('content_id', imageData.content_id || imageData.id);
-                            if (imageData.attachment_id) retryFormData.append('attachment_id', imageData.attachment_id);
-                            const width = imageData.width || imageData.original_dimensions?.width || 800;
-                            const height = imageData.height || imageData.original_dimensions?.height || 600;
-                            retryFormData.append('width', String(width));
-                            retryFormData.append('height', String(height));
-                            retryFormData.append('send_by_platform', 'web');
-                        }
-
-                        if (repliedMessageId) {
-                            retryFormData.append('replied_message_id', repliedMessageId);
+                            retryPayload.content_ids = imagesDataArray
+                                .map(img => img.content_id || img.id)
+                                .filter(id => id);
+                            retryPayload.attachment_type = 'PHOTO';
                         }
 
                         const retryToken = await window.pancakeTokenManager.getToken();
-                        let retryQueryParams = `access_token=${retryToken}`;
+                        let retryQueryParams = `page_access_token=${retryToken}`;
                         if (customerId) {
                             retryQueryParams += `&customer_id=${customerId}`;
                         }
@@ -9627,7 +9603,11 @@ async function sendMessageInternal(messageData) {
 
                         const retryResponse = await API_CONFIG.smartFetch(retryUrl, {
                             method: 'POST',
-                            body: retryFormData
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(retryPayload)
                         }, 1, true); // Only 1 retry, skip fallback
 
                         if (retryResponse.ok) {
@@ -9852,11 +9832,13 @@ async function sendCommentInternal(commentData) {
             threadKey: threadKey || 'null'
         });
 
-        // Step 4: Send both private_replies and reply_inbox in parallel
-        showChatSendingIndicator('Đang gửi bình luận và tin nhắn...');
+        // Step 4: Send private_replies (Pancake API chính thức)
+        // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
+        // private_replies: gửi tin nhắn riêng từ comment (chỉ Facebook/Instagram)
+        showChatSendingIndicator('Đang gửi tin nhắn riêng...');
 
-        // IMPORTANT: customer_id is REQUIRED by Pancake API (as shown in real browser network request)
-        let queryParams = `access_token=${token}`;
+        // Pancake API chính thức dùng page_access_token
+        let queryParams = `page_access_token=${token}`;
         if (customerId) {
             queryParams += `&customer_id=${customerId}`;
         }
@@ -9865,139 +9847,63 @@ async function sendCommentInternal(commentData) {
             queryParams
         );
 
-        // Prepare private_replies payload (JSON)
+        // Prepare private_replies payload (JSON) - theo API chính thức
+        // Required fields: action, post_id, message_id, from_id, message
         const privateRepliesPayload = {
             action: 'private_replies',
+            post_id: facebookPostId,
             message_id: messageId,
-            thread_id_preview: threadId,
-            thread_key_preview: threadKey,
             from_id: fromId,
-            need_thread_id: false,
-            message: message,
-            post_id: facebookPostId
+            message: message
         };
 
+        // Add image nếu có - dùng content_ids (array) theo API chính thức
         if (imageData) {
-            privateRepliesPayload.content_url = imageData.content_url;
-            privateRepliesPayload.content_id = imageData.id || imageData.content_id;
-            privateRepliesPayload.width = imageData.image_data?.width || imageData.width || 0;
-            privateRepliesPayload.height = imageData.image_data?.height || imageData.height || 0;
+            const contentId = imageData.content_id || imageData.id;
+            if (contentId) {
+                privateRepliesPayload.content_ids = [contentId];
+                privateRepliesPayload.attachment_type = 'PHOTO';
+            }
         }
 
-        // Prepare reply_inbox payload (FormData)
-        const replyInboxFormData = new FormData();
-        replyInboxFormData.append('action', 'reply_inbox');
-        replyInboxFormData.append('message', message);
-        replyInboxFormData.append('thread_id', 'null');
+        console.log('[COMMENT] Sending private_replies...');
+        console.log('[COMMENT] Payload:', JSON.stringify(privateRepliesPayload));
 
-        if (imageData) {
-            // Pancake API format: field riêng lẻ, không phải array
-            replyInboxFormData.append('content_url', imageData.content_url || '');
-            replyInboxFormData.append('content_id', imageData.id || imageData.content_id || '');
+        // Send single request (không cần gửi 2 API song song như trước)
+        let privateRepliesSuccess = false;
 
-            if (imageData.attachment_id) {
-                replyInboxFormData.append('attachment_id', imageData.attachment_id);
+        try {
+            const response = await API_CONFIG.smartFetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(privateRepliesPayload)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`private_replies failed: ${response.status} - ${errorText}`);
             }
 
-            const width = imageData.image_data?.width || imageData.width || 0;
-            const height = imageData.image_data?.height || imageData.height || 0;
-            replyInboxFormData.append('width', String(width));
-            replyInboxFormData.append('height', String(height));
+            const data = await response.json();
+            if (data.success === false) {
+                throw new Error(`private_replies API error: ${data.error || data.message || 'Unknown'}`);
+            }
 
-            replyInboxFormData.append('send_by_platform', 'web');
-        }
-
-        console.log('[COMMENT] Sending BOTH actions in parallel...');
-        console.log('[COMMENT] 1. private_replies payload:', privateRepliesPayload);
-        console.log('[COMMENT] 2. reply_inbox with thread_id=null');
-
-        // Send both requests in parallel (non-blocking)
-        const results = await Promise.allSettled([
-            // Request 1: private_replies (JSON)
-            API_CONFIG.smartFetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(privateRepliesPayload)
-            }).then(async (response) => {
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`private_replies failed: ${response.status} - ${errorText}`);
-                }
-                const data = await response.json();
-                if (!data.success) {
-                    throw new Error(`private_replies API error: ${data.error || data.message || 'Unknown'}`);
-                }
-                return { action: 'private_replies', success: true, data };
-            }),
-
-            // Request 2: reply_inbox (FormData)
-            API_CONFIG.smartFetch(apiUrl, {
-                method: 'POST',
-                body: replyInboxFormData
-            }).then(async (response) => {
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`reply_inbox failed: ${response.status} - ${errorText}`);
-                }
-                const data = await response.json();
-                if (!data.success) {
-                    throw new Error(`reply_inbox API error: ${data.error || data.message || 'Unknown'}`);
-                }
-                return { action: 'reply_inbox', success: true, data };
-            })
-        ]);
-
-        // Check results
-        const privateRepliesResult = results[0];
-        const replyInboxResult = results[1];
-
-        let privateRepliesSuccess = false;
-        let replyInboxSuccess = false;
-
-        console.log('[COMMENT] === Results ===');
-
-        if (privateRepliesResult.status === 'fulfilled') {
-            console.log('[COMMENT] ✅ private_replies succeeded:', privateRepliesResult.value);
+            console.log('[COMMENT] ✅ private_replies succeeded:', data);
             privateRepliesSuccess = true;
-        } else {
-            console.warn('[COMMENT] ❌ private_replies failed:', privateRepliesResult.reason?.message || privateRepliesResult.reason);
+        } catch (err) {
+            console.warn('[COMMENT] ❌ private_replies failed:', err.message);
         }
 
-        if (replyInboxResult.status === 'fulfilled') {
-            console.log('[COMMENT] ✅ reply_inbox succeeded:', replyInboxResult.value);
-            replyInboxSuccess = true;
-        } else {
-            console.warn('[COMMENT] ❌ reply_inbox failed:', replyInboxResult.reason?.message || replyInboxResult.reason);
+        // Check result
+        if (!privateRepliesSuccess) {
+            throw new Error('Gửi tin nhắn riêng thất bại (private_replies)');
         }
 
-        // At least one must succeed
-        if (!privateRepliesSuccess && !replyInboxSuccess) {
-            throw new Error('Cả 2 actions đều thất bại: private_replies và reply_inbox');
-        }
-
-        console.log('[COMMENT] ✅ At least one action succeeded (private_replies:', privateRepliesSuccess, ', reply_inbox:', replyInboxSuccess, ')');
-
-        // Step 6: Sync comments (ONLY for comments!)
-        console.log('[COMMENT] Syncing comments...');
-        const syncUrl = window.API_CONFIG.buildUrl.pancake(
-            `pages/${pageId}/sync_comments`,
-            `access_token=${token}`
-        );
-
-        const syncFormData = new FormData();
-        syncFormData.append('post_id', facebookPostId);
-
-        const syncResponse = await API_CONFIG.smartFetch(syncUrl, {
-            method: 'POST',
-            body: syncFormData
-        });
-
-        if (!syncResponse.ok) {
-            console.warn('[COMMENT] Sync comments failed, but comment was sent');
-        } else {
-            const syncData = await syncResponse.json();
-            console.log('[COMMENT] Sync response:', syncData);
-        }
+        console.log('[COMMENT] ✅ private_replies succeeded!');
 
         // Step 6: Optimistic UI update
         const now = new Date().toISOString();
@@ -10046,16 +9952,10 @@ async function sendCommentInternal(commentData) {
 
         // Success notification
         if (window.notificationManager) {
-            if (privateRepliesSuccess && replyInboxSuccess) {
-                window.notificationManager.show('✅ Đã gửi cả bình luận và tin nhắn inbox thành công!', 'success');
-            } else if (privateRepliesSuccess) {
-                window.notificationManager.show('✅ Đã gửi bình luận thành công! (Inbox message lỗi)', 'success');
-            } else if (replyInboxSuccess) {
-                window.notificationManager.show('✅ Đã gửi tin nhắn inbox thành công! (Comment reply lỗi)', 'success');
-            }
+            window.notificationManager.show('✅ Đã gửi tin nhắn riêng thành công!', 'success');
         }
 
-        console.log('[COMMENT] ✅ Sent successfully (private_replies:', privateRepliesSuccess, ', reply_inbox:', replyInboxSuccess, ')');
+        console.log('[COMMENT] ✅ Sent successfully!');
 
     } catch (error) {
         console.error('[COMMENT] ❌ Error:', error);
