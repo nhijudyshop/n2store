@@ -675,22 +675,11 @@ window.sendCommentReply = async function () {
         });
 
         // Pancake API: conversation ID = comment ID for private replies
-        // Official API: POST /api/public_api/v1/pages/{page_id}/conversations/{conversation_id}/messages
-        // Try page_access_token first (official), fallback to access_token
-        const pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
-        let queryParams;
-
-        if (pageToken) {
-            queryParams = `page_access_token=${pageToken}`;
-            console.log('[COMMENT MODAL] Using Official Page API with page_access_token');
-        } else {
-            queryParams = `access_token=${pancakeToken}`;
-            console.log('[COMMENT MODAL] Using Internal API with access_token');
-        }
-
-        const url = pageToken
-            ? window.API_CONFIG.buildUrl.pancakePageApi(pageId, `conversations/${commentId}/messages`, queryParams)
-            : window.API_CONFIG.buildUrl.pancakeUserApi(`pages/${pageId}/conversations/${commentId}/messages`, queryParams);
+        // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
+        const url = window.API_CONFIG.buildUrl.pancake(
+            `pages/${pageId}/conversations/${commentId}/messages`,
+            `access_token=${pancakeToken}`
+        );
 
         // Build JSON payload theo Pancake API chính thức
         // Required fields cho private_replies: action, post_id, message_id, from_id, message

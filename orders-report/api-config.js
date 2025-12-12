@@ -26,14 +26,8 @@ const API_CONFIG = {
     // TPOS OData API (SaleOnline_Order, AuditLog, etc.)
     TPOS_ODATA: `${WORKER_URL}/api/odata`,
 
-    // Pancake API Servers (theo documentation chính thức)
-    // User API: https://pages.fm/api/v1 - dùng access_token
-    // Page API v1: https://pages.fm/api/public_api/v1 - dùng page_access_token
-    // Page API v2: https://pages.fm/api/public_api/v2 - dùng page_access_token
+    // Pancake API (Pages, Conversations) - Via Cloudflare Worker proxy
     PANCAKE: `${WORKER_URL}/api/pancake`,
-    PANCAKE_USER_API: `${WORKER_URL}/api/pancake-user`,      // → pages.fm/api/v1
-    PANCAKE_PAGE_API: `${WORKER_URL}/api/pancake-page`,      // → pages.fm/api/public_api/v1
-    PANCAKE_PAGE_API_V2: `${WORKER_URL}/api/pancake-page-v2`, // → pages.fm/api/public_api/v2
 
     // Helper functions
     buildUrl: {
@@ -49,55 +43,13 @@ const API_CONFIG = {
         },
 
         /**
-         * Build Pancake API URL (legacy - maps to User API v1)
+         * Build Pancake API URL
          * @param {string} endpoint - e.g., "pages", "conversations"
          * @param {string} params - Query string (optional)
          * @returns {string} - Full URL via Cloudflare Worker proxy
-         * @deprecated Use pancakeUserApi or pancakePageApi instead
          */
         pancake: (endpoint, params = '') => {
             const baseUrl = `${WORKER_URL}/api/pancake/${endpoint}`;
-            return params ? `${baseUrl}?${params}` : baseUrl;
-        },
-
-        /**
-         * Build Pancake User API URL (pages.fm/api/v1)
-         * Dùng cho: List Pages, Generate Page Access Token
-         * Authentication: access_token (User token)
-         * @param {string} endpoint - e.g., "pages", "pages/{id}/generate_page_access_token"
-         * @param {string} params - Query string (must include access_token)
-         * @returns {string}
-         */
-        pancakeUserApi: (endpoint, params = '') => {
-            const baseUrl = `${WORKER_URL}/api/pancake-user/${endpoint}`;
-            return params ? `${baseUrl}?${params}` : baseUrl;
-        },
-
-        /**
-         * Build Pancake Page API v1 URL (pages.fm/api/public_api/v1)
-         * Dùng cho: Messages, Tags, Posts, Customers, Statistics, Export
-         * Authentication: page_access_token (Page token - không hết hạn)
-         * @param {string} pageId - Page ID
-         * @param {string} endpoint - e.g., "conversations/{id}/messages", "tags"
-         * @param {string} params - Query string (must include page_access_token)
-         * @returns {string}
-         */
-        pancakePageApi: (pageId, endpoint, params = '') => {
-            const baseUrl = `${WORKER_URL}/api/pancake-page/pages/${pageId}/${endpoint}`;
-            return params ? `${baseUrl}?${params}` : baseUrl;
-        },
-
-        /**
-         * Build Pancake Page API v2 URL (pages.fm/api/public_api/v2)
-         * Dùng cho: Get Conversations (với filter options mới)
-         * Authentication: page_access_token
-         * @param {string} pageId - Page ID
-         * @param {string} endpoint - e.g., "conversations"
-         * @param {string} params - Query string (must include page_access_token)
-         * @returns {string}
-         */
-        pancakePageApiV2: (pageId, endpoint, params = '') => {
-            const baseUrl = `${WORKER_URL}/api/pancake-page-v2/pages/${pageId}/${endpoint}`;
             return params ? `${baseUrl}?${params}` : baseUrl;
         },
 
@@ -266,8 +218,5 @@ console.log('[API-CONFIG] API configuration loaded:', {
     worker: WORKER_URL,
     fallback: FALLBACK_URL,
     tposOData: API_CONFIG.TPOS_ODATA,
-    pancake: API_CONFIG.PANCAKE,
-    pancakeUserApi: API_CONFIG.PANCAKE_USER_API,
-    pancakePageApi: API_CONFIG.PANCAKE_PAGE_API,
-    pancakePageApiV2: API_CONFIG.PANCAKE_PAGE_API_V2
+    pancake: API_CONFIG.PANCAKE
 });
