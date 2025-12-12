@@ -718,25 +718,26 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Fetching messages for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`);
 
-            const token = await this.getToken();
-            if (!token) {
-                throw new Error('No Pancake token available');
+            // Get page_access_token for Official API (pages.fm)
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
             }
 
-            // Build URL: GET /api/v1/pages/{pageId}/conversations/{conversationId}/messages
-            let queryString = `access_token=${token}&user_view=true&is_new_api=true&separate_pos=true`;
+            // Build URL: GET /pages/{pageId}/conversations/{conversationId}/messages (Official API)
+            let extraParams = '';
             if (currentCount !== null) {
-                queryString += `&current_count=${currentCount}`;
+                extraParams += `&current_count=${currentCount}`;
             }
             // FIX: Add customer_id to prevent "Thiếu mã khách hàng" error
             if (customerId !== null) {
-                queryString += `&customer_id=${customerId}`;
+                extraParams += `&customer_id=${customerId}`;
             }
 
-            const url = window.API_CONFIG.buildUrl.pancake(
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
                 `pages/${pageId}/conversations/${conversationId}/messages`,
-                queryString
-            );
+                pageAccessToken
+            ) + extraParams;
 
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',
@@ -1707,15 +1708,17 @@ class PancakeDataManager {
     async uploadImage(pageId, file) {
         try {
             console.log(`[PANCAKE] Uploading image: ${file.name}, size: ${file.size}`);
-            const token = await this.getToken();
-            if (!token) throw new Error('No Pancake token available');
 
-            // Pancake API chính thức: POST /pages/{page_id}/upload_contents
+            // Get page_access_token for Official API (pages.fm)
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) throw new Error('No page_access_token available');
+
+            // Official API: POST /pages/{page_id}/upload_contents
             // Content-Type: multipart/form-data
             // Body: file=@image.jpg
-            const url = window.API_CONFIG.buildUrl.pancake(
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
                 `pages/${pageId}/upload_contents`,
-                `access_token=${token}`
+                pageAccessToken
             );
 
             const formData = new FormData();

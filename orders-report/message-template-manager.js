@@ -926,15 +926,17 @@ class MessageTemplateManager {
             this.log(`⚠️ Conversation not in cache, using fallback: ${conversationId}`);
         }
 
-        // Build API URL with customer_id in query params
-        let queryParams = `access_token=${token}`;
-        if (customerId) {
-            queryParams += `&customer_id=${customerId}`;
+        // Get page_access_token for Official API (pages.fm)
+        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+        if (!pageAccessToken) {
+            throw new Error(`Không tìm thấy page_access_token cho page ${channelId}`);
         }
-        const apiUrl = window.API_CONFIG.buildUrl.pancake(
+
+        // Build API URL with customer_id in query params
+        const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
             `pages/${channelId}/conversations/${conversationId}/messages`,
-            queryParams
-        );
+            pageAccessToken
+        ) + (customerId ? `&customer_id=${customerId}` : '');
 
         // Cắt tin nhắn thành nhiều phần nếu quá dài
         const messageParts = this.splitMessageIntoParts(messageContent);
