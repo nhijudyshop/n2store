@@ -927,8 +927,7 @@ class MessageTemplateManager {
         }
 
         // Build API URL with customer_id in query params
-        // Pancake API chính thức dùng page_access_token
-        let queryParams = `page_access_token=${token}`;
+        let queryParams = `access_token=${token}`;
         if (customerId) {
             queryParams += `&customer_id=${customerId}`;
         }

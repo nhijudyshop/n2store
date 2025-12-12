@@ -9488,8 +9488,7 @@ async function sendMessageInternal(messageData) {
         }
 
         // Step 3: Send message
-        // Pancake API chính thức dùng page_access_token
-        let queryParams = `page_access_token=${token}`;
+        let queryParams = `access_token=${token}`;
         if (customerId) {
             queryParams += `&customer_id=${customerId}`;
         }
@@ -9592,7 +9591,7 @@ async function sendMessageInternal(messageData) {
                         }
 
                         const retryToken = await window.pancakeTokenManager.getToken();
-                        let retryQueryParams = `page_access_token=${retryToken}`;
+                        let retryQueryParams = `access_token=${retryToken}`;
                         if (customerId) {
                             retryQueryParams += `&customer_id=${customerId}`;
                         }
@@ -9837,8 +9836,7 @@ async function sendCommentInternal(commentData) {
         // private_replies: gửi tin nhắn riêng từ comment (chỉ Facebook/Instagram)
         showChatSendingIndicator('Đang gửi tin nhắn riêng...');
 
-        // Pancake API chính thức dùng page_access_token
-        let queryParams = `page_access_token=${token}`;
+        let queryParams = `access_token=${token}`;
         if (customerId) {
             queryParams += `&customer_id=${customerId}`;
         }
