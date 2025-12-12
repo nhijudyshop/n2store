@@ -3594,13 +3594,6 @@
             <!-- Action Buttons -->
             <div style="background: white; padding: 12px 20px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 8px; flex-wrap: wrap;">
                 <button class="sale-btn sale-btn-teal" onclick="confirmAndPrintSale()">Xác nhận và in (F9)</button>
-                <button class="sale-btn sale-btn-green">Xác nhận và in ship</button>
-                <button class="sale-btn sale-btn-purple">Xác nhận và xem (F8)</button>
-                <button class="sale-btn sale-btn-blue">Lưu</button>
-                <button class="sale-btn sale-btn-default">Trở lại</button>
-                <div style="flex: 1;"></div>
-                <button class="sale-btn sale-btn-orange">Áp dụng coupon</button>
-                <button class="sale-btn sale-btn-pink">Áp dụng khuyến mãi</button>
             </div>
 
             <!-- Tabs -->
@@ -3640,7 +3633,7 @@
                             <input type="text" id="saleShipper" class="sale-input" placeholder="Người giao hàng">
                         </div>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
                         <div>
                             <!--
                                 saleOldDebt: Nợ cũ (Công nợ) của khách hàng
@@ -3650,10 +3643,6 @@
                             -->
                             <label class="sale-label">Nợ cũ</label>
                             <div id="saleOldDebt" class="sale-value">0</div>
-                        </div>
-                        <div>
-                            <label class="sale-label">Reference</label>
-                            <div id="saleReference" class="sale-value"></div>
                         </div>
                     </div>
                 </div>
