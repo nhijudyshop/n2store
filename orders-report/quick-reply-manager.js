@@ -945,7 +945,7 @@ class QuickReplyManager {
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify(imagePayload)
-                }, 3, true);
+                }, 1, true); // maxRetries=1, skipFallback=true: chỉ gọi 1 lần, không retry
 
                 if (!imageResponse.ok) {
                     const errorText = await imageResponse.text();
@@ -1008,7 +1008,7 @@ class QuickReplyManager {
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify(textPayload)
-                }, 3, true);
+                }, 1, true); // maxRetries=1, skipFallback=true: chỉ gọi 1 lần, không retry
 
                 if (!textResponse.ok) {
                     const errorText = await textResponse.text();
