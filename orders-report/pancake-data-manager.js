@@ -128,6 +128,12 @@ class PancakeDataManager {
 
             const token = await this.getToken();
 
+            // Check if token is available
+            if (!token) {
+                console.warn('[PANCAKE] ⚠️ No valid token available. Please login to Pancake.vn or set token in settings.');
+                return [];
+            }
+
             // Official API: GET /api/v1/pages với access_token
             const url = window.API_CONFIG.buildUrl.pancakeUserApi('pages', `access_token=${token}`);
 
@@ -442,6 +448,12 @@ class PancakeDataManager {
             console.log('[PANCAKE] Fetching conversations from User API (internal multi-page endpoint)...');
 
             const token = await this.getToken();
+
+            // Check if token is available
+            if (!token) {
+                console.warn('[PANCAKE] ⚠️ No valid token available for fetching conversations');
+                return [];
+            }
 
             // Internal API: GET /api/v1/conversations với format pages[pageId]=offset
             // Cho phép fetch từ nhiều pages cùng lúc (không có trong official docs)
@@ -1464,17 +1476,22 @@ class PancakeDataManager {
                 console.log('[PANCAKE] Still no customer_id, fetching conversation info from API...');
                 try {
                     const token = await this.getToken();
-                    const convInfoUrl = window.API_CONFIG.buildUrl.pancake(
-                        `pages/${pageId}/conversations/${convId}`,
-                        `access_token=${token}`
-                    );
-                    const convResponse = await API_CONFIG.smartFetch(convInfoUrl, { method: 'GET' }, 2, true);
-                    if (convResponse.ok) {
-                        const convData = await convResponse.json();
-                        custId = convData.customers?.[0]?.id || convData.conversation?.customers?.[0]?.id || null;
-                        if (custId) {
-                            console.log('[PANCAKE] ✅ Got customer_id from API:', custId);
+                    // Only fetch if token is available
+                    if (token) {
+                        const convInfoUrl = window.API_CONFIG.buildUrl.pancake(
+                            `pages/${pageId}/conversations/${convId}`,
+                            `access_token=${token}`
+                        );
+                        const convResponse = await API_CONFIG.smartFetch(convInfoUrl, { method: 'GET' }, 2, true);
+                        if (convResponse.ok) {
+                            const convData = await convResponse.json();
+                            custId = convData.customers?.[0]?.id || convData.conversation?.customers?.[0]?.id || null;
+                            if (custId) {
+                                console.log('[PANCAKE] ✅ Got customer_id from API:', custId);
+                            }
                         }
+                    } else {
+                        console.warn('[PANCAKE] ⚠️ No token available for customer_id fallback lookup');
                     }
                 } catch (convError) {
                     console.warn('[PANCAKE] Could not fetch conversation info:', convError.message);
@@ -1703,10 +1720,11 @@ class PancakeDataManager {
         try {
             console.log('[PANCAKE] Initializing...');
 
-            // Try to get token
-            if (!this.getToken()) {
-                console.error('[PANCAKE] Cannot initialize - no JWT token');
-                return false;
+            // Try to get token (must await since getToken is async)
+            const token = await this.getToken();
+            if (!token) {
+                console.warn('[PANCAKE] ⚠️ Cannot initialize - no JWT token. Please login to Pancake.vn or set token in settings.');
+                // Continue anyway to allow page loading without Pancake
             }
 
             // Fetch pages and conversations
