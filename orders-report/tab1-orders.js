@@ -9417,10 +9417,10 @@ async function sendMessageInternal(messageData) {
     const { message, uploadedImagesData, order, conversationId, channelId, repliedMessageId, customerId } = messageData;
 
     try {
-        // Get Pancake token
-        const token = await window.pancakeTokenManager.getToken();
-        if (!token) {
-            throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
+        // Get page_access_token for Official API (pages.fm)
+        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+        if (!pageAccessToken) {
+            throw new Error('Không tìm thấy page_access_token. Vui lòng vào Pancake Settings → Tools để tạo token.');
         }
 
         showChatSendingIndicator('Đang gửi tin nhắn...');
@@ -9489,15 +9489,11 @@ async function sendMessageInternal(messageData) {
             console.log('[MESSAGE] content_ids:', payload.content_ids);
         }
 
-        // Step 3: Send message
-        let queryParams = `access_token=${token}`;
-        if (customerId) {
-            queryParams += `&customer_id=${customerId}`;
-        }
-        const replyUrl = window.API_CONFIG.buildUrl.pancake(
+        // Step 3: Send message via Official API (pages.fm)
+        const replyUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
             `pages/${channelId}/conversations/${conversationId}/messages`,
-            queryParams
-        );
+            pageAccessToken
+        ) + (customerId ? `&customer_id=${customerId}` : '');
 
         console.log('[MESSAGE] Sending message...');
         console.log('[MESSAGE] URL:', replyUrl);
@@ -9592,15 +9588,11 @@ async function sendMessageInternal(messageData) {
                             retryPayload.attachment_type = 'PHOTO';
                         }
 
-                        const retryToken = await window.pancakeTokenManager.getToken();
-                        let retryQueryParams = `access_token=${retryToken}`;
-                        if (customerId) {
-                            retryQueryParams += `&customer_id=${customerId}`;
-                        }
-                        const retryUrl = window.API_CONFIG.buildUrl.pancake(
+                        // Use same pageAccessToken for retry (Official API)
+                        const retryUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
                             `pages/${channelId}/conversations/${conversationId}/messages`,
-                            retryQueryParams
-                        );
+                            pageAccessToken
+                        ) + (customerId ? `&customer_id=${customerId}` : '');
 
                         const retryResponse = await API_CONFIG.smartFetch(retryUrl, {
                             method: 'POST',
@@ -9725,10 +9717,10 @@ async function sendCommentInternal(commentData) {
     const { message, uploadedImagesData, order, conversationId, channelId, parentCommentId, postId, customerId } = commentData;
 
     try {
-        // Get Pancake token
-        const token = await window.pancakeTokenManager.getToken();
-        if (!token) {
-            throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
+        // Get page_access_token for Official API (pages.fm)
+        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+        if (!pageAccessToken) {
+            throw new Error('Không tìm thấy page_access_token. Vui lòng vào Pancake Settings → Tools để tạo token.');
         }
 
         showChatSendingIndicator('Đang gửi bình luận...');
@@ -9833,19 +9825,15 @@ async function sendCommentInternal(commentData) {
             threadKey: threadKey || 'null'
         });
 
-        // Step 4: Send private_replies (Pancake API chính thức)
+        // Step 4: Send private_replies via Official API (pages.fm)
         // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
         // private_replies: gửi tin nhắn riêng từ comment (chỉ Facebook/Instagram)
         showChatSendingIndicator('Đang gửi tin nhắn riêng...');
 
-        let queryParams = `access_token=${token}`;
-        if (customerId) {
-            queryParams += `&customer_id=${customerId}`;
-        }
-        const apiUrl = window.API_CONFIG.buildUrl.pancake(
+        const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
             `pages/${pageId}/conversations/${finalConversationId}/messages`,
-            queryParams
-        );
+            pageAccessToken
+        ) + (customerId ? `&customer_id=${customerId}` : '');
 
         // Prepare private_replies payload (JSON) - theo API chính thức
         // Required fields: action, post_id, message_id, from_id, message
