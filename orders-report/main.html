@@ -399,8 +399,19 @@
                 if (overviewFrame && overviewFrame.contentWindow) {
                     overviewFrame.contentWindow.postMessage(e.data, "*");
                 }
+            } else if (e.data.type === "RELOAD_TAB1_ONLY") {
+                // Tab3 requested reload Tab1 only - Tab3 will receive data via ORDERS_DATA_RESPONSE
+                console.log('[MAIN] 🔄 Reloading Tab1 only (Tab3 will receive data when ready)...');
+
+                // Reload Tab1 để fetch fresh data từ API
+                const ordersFrame = document.getElementById("ordersFrame");
+                if (ordersFrame) {
+                    ordersFrame.src = ordersFrame.src;
+                    console.log('[MAIN] ✅ Tab1 (ordersFrame) reloading...');
+                }
+                // Tab3 KHÔNG reload - sẽ tự động nhận data khi Tab1 load xong
             } else if (e.data.type === "RELOAD_TAB1_AND_TAB3") {
-                // Tab3 requested reload with cache clear
+                // Legacy: Tab3 requested reload with cache clear (kept for backward compatibility)
                 console.log('[MAIN] 🔄 Reloading Tab1 and Tab3 (cache already cleared)...');
 
                 // Reload Tab1 trước để fetch fresh data từ API

@@ -1268,7 +1268,8 @@
 
     /**
      * Reload Page with Cache Clear
-     * Clear cache và reload cả Tab1 + Tab3 để lấy dữ liệu mới nhất
+     * Clear cache và reload Tab1, sau đó nhận dữ liệu mới khi Tab1 load xong
+     * Tab3 KHÔNG reload - chỉ nhận data mới từ Tab1
      */
     window.reloadWithCacheClear = function() {
         console.log('[RELOAD] 🔄 Reload with cache clear requested...');
@@ -1280,12 +1281,18 @@
             console.log('[RELOAD] ✅ Cache cleared (orders + campaigns)');
         }
 
-        // 2. Gửi message lên main.html để reload cả 2 tabs
+        // 2. Clear current orders data và show loading state
+        ordersData = [];
+        updateOrdersCount();
+        showNotification('🔄 Đang tải lại dữ liệu từ Tab Quản Lý...', 'info');
+
+        // 3. Gửi message lên main.html để reload CHỈ Tab1
+        // Tab3 sẽ tự động nhận data mới khi Tab1 load xong (via ORDERS_DATA_RESPONSE)
         if (window.parent) {
             window.parent.postMessage({
-                type: 'RELOAD_TAB1_AND_TAB3'
+                type: 'RELOAD_TAB1_ONLY'
             }, '*');
-            console.log('[RELOAD] 📤 Sent RELOAD_TAB1_AND_TAB3 message to parent');
+            console.log('[RELOAD] 📤 Sent RELOAD_TAB1_ONLY message to parent');
         } else {
             // Fallback nếu không có parent
             window.location.reload();
