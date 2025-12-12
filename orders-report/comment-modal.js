@@ -748,14 +748,9 @@ window.sendCommentReply = async function () {
 
         } else {
             // ========== PRIVATE REPLIES (Private message via Messenger) ==========
-            const inboxConvId = commentModalInboxConvId;
-
-            if (!inboxConvId) {
-                throw new Error('Không có conversation ID để gửi tin nhắn riêng. Vui lòng thử lại.');
-            }
-
-            // conversation_id = inbox_conv_id for private_replies
-            conversationId = inboxConvId;
+            // IMPORTANT: For private_replies, conversationId MUST equal message_id (comment_id)!
+            // This matches the real Pancake API format (same as sendCommentInternal in tab1-orders.js)
+            conversationId = commentId;
 
             url = window.API_CONFIG.buildUrl.pancakeOfficial(
                 `pages/${pageId}/conversations/${conversationId}/messages`,
