@@ -15535,22 +15535,6 @@ async function confirmAndPrintSale() {
         return;
     }
 
-    // Validate: Total amount cannot exceed Công nợ (prepaid amount)
-    const finalTotalText = document.getElementById('saleFinalTotal')?.textContent || '0';
-    const finalTotal = parseFloat(finalTotalText.replace(/[,.]/g, '')) || 0;
-    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
-
-    console.log('[SALE-CONFIRM] Validation - Total:', finalTotal, 'Công nợ:', prepaidAmount);
-
-    if (finalTotal > prepaidAmount) {
-        if (window.notificationManager) {
-            window.notificationManager.error(`Tổng tiền (${finalTotal.toLocaleString('vi-VN')}đ) lớn hơn Công nợ (${prepaidAmount.toLocaleString('vi-VN')}đ). Không thể xác nhận!`);
-        } else {
-            alert(`Tổng tiền (${finalTotal.toLocaleString('vi-VN')}đ) lớn hơn Công nợ (${prepaidAmount.toLocaleString('vi-VN')}đ). Không thể xác nhận!`);
-        }
-        return;
-    }
-
     // Show loading state
     const confirmBtn = document.querySelector('.sale-btn-teal');
     const originalText = confirmBtn?.textContent;
