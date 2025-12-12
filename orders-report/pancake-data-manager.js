@@ -1715,7 +1715,7 @@ class PancakeDataManager {
             // Body: file=@image.jpg
             const url = window.API_CONFIG.buildUrl.pancake(
                 `pages/${pageId}/upload_contents`,
-                `page_access_token=${token}`
+                `access_token=${token}`
             );
 
             const formData = new FormData();

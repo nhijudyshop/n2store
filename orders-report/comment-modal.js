@@ -678,7 +678,7 @@ window.sendCommentReply = async function () {
         // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
         const url = window.API_CONFIG.buildUrl.pancake(
             `pages/${pageId}/conversations/${commentId}/messages`,
-            `page_access_token=${pancakeToken}`  // Pancake API chính thức dùng page_access_token
+            `access_token=${pancakeToken}`
         );
 
         // Build JSON payload theo Pancake API chính thức

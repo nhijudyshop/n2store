@@ -893,8 +893,7 @@ class QuickReplyManager {
                 window.notificationManager.info('Đang gửi tin nhắn...', 3000);
             }
 
-            // Pancake API chính thức dùng page_access_token
-            let queryParams = `page_access_token=${token}`;
+            let queryParams = `access_token=${token}`;
             if (customerId) {
                 queryParams += `&customer_id=${customerId}`;
             }
