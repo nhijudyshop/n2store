@@ -565,7 +565,32 @@ export default {
       let isTPOSRequest = false;
       let isPancakeRequest = false;
 
-      if (pathname.startsWith('/api/pancake/')) {
+      // ========== PANCAKE USER API (pages.fm/api/v1) ==========
+      // Official User API - uses access_token
+      if (pathname.startsWith('/api/pancake-user/')) {
+        const apiPath = pathname.replace(/^\/api\/pancake-user\//, '');
+        targetUrl = `https://pages.fm/api/v1/${apiPath}${url.search}`;
+        isPancakeRequest = true;
+        console.log('[PANCAKE-USER] Proxying to:', targetUrl);
+      }
+      // ========== PANCAKE PAGE API v1 (pages.fm/api/public_api/v1) ==========
+      // Official Page API v1 - uses page_access_token
+      else if (pathname.startsWith('/api/pancake-page/')) {
+        const apiPath = pathname.replace(/^\/api\/pancake-page\//, '');
+        targetUrl = `https://pages.fm/api/public_api/v1/${apiPath}${url.search}`;
+        isPancakeRequest = true;
+        console.log('[PANCAKE-PAGE-V1] Proxying to:', targetUrl);
+      }
+      // ========== PANCAKE PAGE API v2 (pages.fm/api/public_api/v2) ==========
+      // Official Page API v2 - uses page_access_token
+      else if (pathname.startsWith('/api/pancake-page-v2/')) {
+        const apiPath = pathname.replace(/^\/api\/pancake-page-v2\//, '');
+        targetUrl = `https://pages.fm/api/public_api/v2/${apiPath}${url.search}`;
+        isPancakeRequest = true;
+        console.log('[PANCAKE-PAGE-V2] Proxying to:', targetUrl);
+      }
+      // ========== LEGACY PANCAKE API (pancake.vn/api/v1) ==========
+      else if (pathname.startsWith('/api/pancake/')) {
         // Pancake API
         const apiPath = pathname.replace(/^\/api\/pancake\//, '');
         targetUrl = `https://pancake.vn/api/v1/${apiPath}${url.search}`;
@@ -607,6 +632,9 @@ export default {
       // Build headers based on target API
       let headers;
 
+      // Detect if this is a pages.fm request
+      const isPagesRequest = targetUrl && targetUrl.includes('pages.fm');
+
       if (isTPOSRequest) {
         // TPOS API headers - copy from original request
         headers = new Headers(request.headers);
@@ -622,12 +650,20 @@ export default {
           headers.set('Content-Type', contentType);
         }
 
-        // Set Pancake-specific headers
+        // Set Pancake-specific headers based on target domain
         headers.set('Accept', 'application/json, text/plain, */*');
         headers.set('Accept-Language', 'vi,en-US;q=0.9,en;q=0.8');
-        headers.set('Origin', 'https://pancake.vn');
-        headers.set('Referer', 'https://pancake.vn/multi_pages');
         headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36');
+
+        if (isPagesRequest) {
+          // Official Pancake API (pages.fm)
+          headers.set('Origin', 'https://pages.fm');
+          headers.set('Referer', 'https://pages.fm/');
+        } else {
+          // Legacy Pancake API (pancake.vn)
+          headers.set('Origin', 'https://pancake.vn');
+          headers.set('Referer', 'https://pancake.vn/multi_pages');
+        }
       } else {
         // Other APIs - copy all headers
         headers = new Headers(request.headers);
