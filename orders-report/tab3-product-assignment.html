@@ -35,6 +35,10 @@
                         title="Xóa cache và reload Tab1 + Tab3 để lấy dữ liệu mới nhất">
                         <i class="fas fa-redo"></i> Reload Page
                     </button>
+                    <button class="btn btn-sm btn-success me-2" onclick="openExportExcelModal()"
+                        title="Xuất danh sách đơn hàng từ TPOS ra file Excel">
+                        <i class="fas fa-file-excel"></i> Xuất Excel
+                    </button>
                     <span class="badge bg-info ms-2" id="ordersCountBadge">
                         <i class="fas fa-database"></i> <span id="ordersCount">0</span> đơn hàng
                     </span>
@@ -476,6 +480,56 @@
 
     <!-- Order Info Tooltip (Hidden by default) -->
     <div class="order-tooltip" id="orderTooltip"></div>
+
+    <!-- Export Excel Modal -->
+    <div class="modal fade" id="exportExcelModal" tabindex="-1" aria-labelledby="exportExcelModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="exportExcelModalLabel">
+                        <i class="fas fa-file-excel"></i> Xuất Excel Đơn Hàng
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="exportSkipRange" class="form-label fw-bold">Chọn khoảng tải:</label>
+                        <select class="form-select form-select-lg" id="exportSkipRange">
+                            <option value="0" selected>3000 đơn đầu tiên</option>
+                            <option value="3000">3000 đơn tiếp theo (3001 - 6000)</option>
+                            <option value="6000">3000 đơn thứ 3 (6001 - 9000)</option>
+                            <option value="9000">3000 đơn thứ 4 (9001 - 12000)</option>
+                            <option value="12000">3000 đơn thứ 5 (12001 - 15000)</option>
+                        </select>
+                        <div class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle"></i> Dữ liệu được tải trực tiếp từ TPOS, sắp xếp theo ngày tạo mới nhất.
+                        </div>
+                    </div>
+                    <!-- Export Progress -->
+                    <div id="exportProgress" style="display: none;">
+                        <div class="d-flex align-items-center justify-content-center py-3">
+                            <div class="spinner-border text-success me-3" role="status">
+                                <span class="visually-hidden">Đang tải...</span>
+                            </div>
+                            <span id="exportProgressText">Đang tải đơn hàng từ TPOS...</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success progress-bar-striped progress-bar-animated"
+                                 role="progressbar" id="exportProgressBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" id="exportModalFooter">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Hủy
+                    </button>
+                    <button type="button" class="btn btn-success" id="exportExcelBtn" onclick="exportOrdersToExcel()">
+                        <i class="fas fa-download"></i> Xuất Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
