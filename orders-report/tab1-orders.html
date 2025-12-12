@@ -893,6 +893,13 @@
                             <option value="">Chọn cuộc hội thoại...</option>
                         </select>
                     </div>
+                    <!-- Open in Pancake Dashboard (for extension features like 24h bypass) -->
+                    <button id="openInPancakeBtn" onclick="openCurrentChatInPancake()" title="Mở trong Pancake (dùng Extension bypass 24h)"
+                        style="background: rgba(255, 140, 0, 0.8); border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: white; font-size: 12px; font-weight: 500; transition: all 0.2s; margin-right: 8px;"
+                        onmouseover="this.style.background='rgba(255, 140, 0, 1)';"
+                        onmouseout="this.style.background='rgba(255, 140, 0, 0.8)';">
+                        <i class="fas fa-external-link-alt"></i> Pancake
+                    </button>
                     <button class="chat-modal-close" onclick="closeChatModal()"
                         style="background: rgba(255, 255, 255, 0.2); border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;"
                         onmouseover="this.style.background='rgba(255, 255, 255, 0.3)';"

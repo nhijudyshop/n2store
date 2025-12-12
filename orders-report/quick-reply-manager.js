@@ -1056,11 +1056,24 @@ class QuickReplyManager {
                     const errorType = has24HourError ? '24h policy' : 'user unavailable (551)';
                     console.warn(`[QUICK-REPLY] ⚠️ ${errorType} error detected`);
 
+                    // Build "Open in Pancake" link for extension bypass
+                    const pancakeUrl = typeof buildPancakeDashboardUrl === 'function'
+                        ? buildPancakeDashboardUrl(channelId, conversationId)
+                        : `https://pages.fm/multi_pages/${channelId}/conversations/${conversationId}`;
+
                     const warningMsg = has24HourError
-                        ? '⚠️ Không thể gửi (quá 24h). Vui lòng dùng COMMENT!'
-                        : '⚠️ Người dùng không có mặt. Vui lòng dùng COMMENT!';
+                        ? '⚠️ Không thể gửi (quá 24h). Dùng COMMENT hoặc Pancake Extension!'
+                        : '⚠️ Người dùng không có mặt. Dùng COMMENT hoặc Pancake Extension!';
+
                     if (window.notificationManager) {
-                        window.notificationManager.show(warningMsg, 'warning', 8000);
+                        const notificationHtml = `
+                            ${warningMsg}
+                            <br><a href="${pancakeUrl}" target="_blank"
+                                style="color: #fff; text-decoration: underline; font-weight: bold;">
+                                🔗 Mở trong Pancake (Extension)
+                            </a>
+                        `;
+                        window.notificationManager.show(notificationHtml, 'warning', 12000);
                     }
                     return; // Don't throw error for these cases
                 }

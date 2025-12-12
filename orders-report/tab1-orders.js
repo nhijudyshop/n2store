@@ -9303,6 +9303,58 @@ function getImageDimensions(blob) {
 // =====================================================
 
 /**
+ * Build Pancake dashboard URL (pages.fm - whitelisted domain for Pancake extension)
+ * Use this when 24h policy error occurs and user needs to use Pancake extension
+ * @param {string} pageId - Page ID
+ * @param {string} conversationId - Conversation ID (optional)
+ * @returns {string} Dashboard URL
+ */
+function buildPancakeDashboardUrl(pageId, conversationId = null) {
+    // pages.fm is in extension whitelist: *://*.pages.fm/*
+    // URL format: https://pages.fm/multi_pages/{page_id}/conversations/{conv_id}
+    if (conversationId) {
+        return `https://pages.fm/multi_pages/${pageId}/conversations/${conversationId}`;
+    }
+    return `https://pages.fm/multi_pages/${pageId}`;
+}
+
+/**
+ * Open conversation in Pancake dashboard (new tab)
+ * Allows using Pancake extension features like 24h bypass
+ * @param {string} pageId - Page ID
+ * @param {string} conversationId - Conversation ID
+ */
+function openInPancakeDashboard(pageId, conversationId) {
+    const url = buildPancakeDashboardUrl(pageId, conversationId);
+    console.log('[PANCAKE] 🔗 Opening in Pancake dashboard:', url);
+    window.open(url, '_blank');
+}
+
+/**
+ * Open current chat conversation in Pancake dashboard
+ * Called from the "Pancake" button in chat modal header
+ * Useful for using Pancake extension features (24h bypass, etc.)
+ */
+function openCurrentChatInPancake() {
+    const pageId = window.currentChatChannelId;
+    const conversationId = window.currentConversationId;
+
+    if (!pageId) {
+        if (window.notificationManager) {
+            window.notificationManager.show('Không tìm thấy Page ID. Vui lòng mở lại cuộc chat.', 'warning');
+        }
+        return;
+    }
+
+    // Open in Pancake dashboard (pages.fm - whitelisted domain for extension)
+    openInPancakeDashboard(pageId, conversationId);
+
+    if (window.notificationManager) {
+        window.notificationManager.show('Đang mở trong Pancake... Extension sẽ hoạt động tại đây!', 'info', 3000);
+    }
+}
+
+/**
  * Try to unlock Pancake conversation when 24h policy or user unavailable error occurs
  * Calls 3 APIs in sequence: fill_admin_name, check_inbox, contents/touch
  * @param {string} pageId - Page ID
@@ -9689,14 +9741,25 @@ async function sendMessageInternal(messageData) {
             const errorType = error.is24HourError ? '24H' : '551';
             console.log(`[MESSAGE] 📝 Suggesting alternatives for ${errorType} error`);
 
+            // Build "Open in Pancake" link for extension bypass
+            const pancakeUrl = buildPancakeDashboardUrl(channelId, conversationId);
+
             let message = error.is24HourError
-                ? '⚠️ Không thể gửi Inbox (đã quá 24h). Vui lòng dùng COMMENT!'
-                : '⚠️ Không thể gửi Inbox (người dùng không có mặt). Vui lòng dùng COMMENT!';
+                ? '⚠️ Không thể gửi Inbox (đã quá 24h). Dùng COMMENT hoặc mở Pancake để dùng Extension!'
+                : '⚠️ Không thể gửi Inbox (người dùng không có mặt). Dùng COMMENT hoặc mở Pancake!';
 
             if (window.notificationManager) {
-                window.notificationManager.show(message, 'warning', 8000);
+                // Show notification with "Open in Pancake" button
+                const notificationHtml = `
+                    ${message}
+                    <br><a href="${pancakeUrl}" target="_blank"
+                        style="color: #fff; text-decoration: underline; font-weight: bold;">
+                        🔗 Mở trong Pancake (Extension)
+                    </a>
+                `;
+                window.notificationManager.show(notificationHtml, 'warning', 12000);
             } else {
-                alert(message);
+                alert(message + '\n\nLink Pancake: ' + pancakeUrl);
             }
             // Don't throw error for these cases - just notify user
             return;
