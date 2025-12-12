@@ -3905,6 +3905,8 @@ async function fetchOrders() {
                             `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
                         );
                         sendDataToTab2();
+                        // Auto-update Tab3 with full data after background loading completes
+                        sendOrdersDataToTab3();
                     }
 
                 } catch (error) {
