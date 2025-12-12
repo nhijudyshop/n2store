@@ -287,4 +287,134 @@ const { access_token } = JSON.parse(bearerData);
 
 ---
 
-*Cap nhat lan cuoi: 2025-12*
+---
+
+## 🥞 Pancake API Reference
+
+> **Nguồn**: [https://developer.pancake.biz/#/](https://developer.pancake.biz/#/)
+
+### Base URLs
+
+| Server | URL | Sử dụng |
+|--------|-----|---------|
+| **User's API** | `https://pages.fm/api/v1` | List pages, generate token |
+| **Page's API v1** | `https://pages.fm/api/public_api/v1` | Hầu hết operations |
+| **Page's API v2** | `https://pages.fm/api/public_api/v2` | Conversations |
+
+### Authentication
+
+| Type | Parameter | Thời hạn | Lấy từ |
+|------|-----------|----------|--------|
+| **User Access Token** | `?access_token=` | 90 ngày | Account → Personal Settings |
+| **Page Access Token** | `?page_access_token=` | Không hết hạn | Settings → Tools |
+
+### API Endpoints Chính
+
+#### Messages
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| `GET` | `/pages/{page_id}/conversations/{conv_id}/messages` | Lấy tin nhắn |
+| `POST` | `/pages/{page_id}/conversations/{conv_id}/messages` | Gửi tin nhắn |
+
+**Các loại gửi tin nhắn:**
+
+```javascript
+// 1️⃣ Inbox Message
+{ "action": "reply_inbox", "message": "Nội dung", "content_ids": ["id"], "attachment_type": "PHOTO" }
+
+// 2️⃣ Reply Comment
+{ "action": "reply_comment", "message_id": "comment_id", "message": "Nội dung" }
+
+// 3️⃣ Private Reply (Facebook/Instagram only)
+{ "action": "private_replies", "post_id": "...", "message_id": "...", "from_id": "...", "message": "..." }
+```
+
+#### Conversations
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| `GET` | `/pages/{page_id}/conversations` | Lấy 60 conversations (v2) |
+| `POST` | `.../{conv_id}/tags` | Thêm/xóa tag |
+| `POST` | `.../{conv_id}/assign` | Assign nhân viên |
+| `POST` | `.../{conv_id}/read` | Đánh dấu đã đọc |
+
+**Query params:**
+- `last_conversation_id` - Phân trang
+- `tags` - Lọc theo tag (comma-separated)
+- `type` - `INBOX` hoặc `COMMENT`
+- `since/until` - Timestamp range
+
+#### Upload Content
+
+```
+POST /pages/{page_id}/upload_contents
+Content-Type: multipart/form-data
+Body: file=@image.jpg
+```
+
+**Giới hạn video:** Shopee 30MB, Whatsapp 16MB, Lazada 100MB, Khác 25MB
+
+#### Customers
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| `GET` | `/pages/{page_id}/page_customers` | Lấy danh sách (page_number, page_size max 100) |
+| `PUT` | `.../{customer_id}` | Cập nhật thông tin |
+| `POST/PUT/DELETE` | `.../{customer_id}/notes` | Quản lý ghi chú |
+
+#### Statistics
+
+| Endpoint | Mô tả |
+|----------|-------|
+| `/statistics/pages_campaign` | Thống kê campaign |
+| `/statistics/ads` | Thống kê ads (by_id/by_time) |
+| `/statistics/customer_engagements` | Engagement (date_range, by_hour) |
+| `/statistics/users` | Staff performance |
+| `/statistics/tags` | Tag usage |
+
+#### Other
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| `GET` | `/pages` | Lấy danh sách pages |
+| `GET` | `/pages/{page_id}/tags` | Lấy tags |
+| `GET` | `/pages/{page_id}/posts` | Lấy posts |
+| `GET` | `/pages/{page_id}/users` | Lấy users |
+
+### Code Example
+
+```javascript
+// Gửi tin nhắn inbox với ảnh
+async function sendMessageWithImage(pageId, convId, token, file, message) {
+  // 1. Upload file
+  const formData = new FormData();
+  formData.append('file', file);
+  const { id: contentId } = await fetch(
+    `https://pages.fm/api/public_api/v1/pages/${pageId}/upload_contents?page_access_token=${token}`,
+    { method: 'POST', body: formData }
+  ).then(r => r.json());
+
+  // 2. Send message
+  return fetch(
+    `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations/${convId}/messages?page_access_token=${token}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reply_inbox', message, content_ids: [contentId], attachment_type: 'PHOTO' })
+    }
+  ).then(r => r.json());
+}
+```
+
+### Pagination
+
+| API | Method |
+|-----|--------|
+| Conversations | `last_conversation_id` |
+| Messages | `current_count` |
+| Customers/Posts | `page_number` + `page_size` |
+
+---
+
+*Cập nhật lần cuối: 2025-12-12*
