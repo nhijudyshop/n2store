@@ -6,10 +6,12 @@ class PancakeTokenManager {
     constructor() {
         this.firebaseRef = null;
         this.accountsRef = null;
+        this.pageTokensRef = null;  // NEW: Firebase ref for page_access_tokens
         this.currentToken = null;
         this.currentTokenExpiry = null;
         this.activeAccountId = null;
         this.accounts = {};
+        this.pageAccessTokens = {};  // NEW: { pageId: { token, pageName, savedAt } }
     }
 
     /**
@@ -25,9 +27,13 @@ class PancakeTokenManager {
             // New multi-account structure
             this.firebaseRef = window.firebase.database().ref('pancake_jwt_tokens');
             this.accountsRef = this.firebaseRef.child('accounts');
+            this.pageTokensRef = this.firebaseRef.child('page_access_tokens');  // NEW
 
             // Load accounts and active account
             await this.loadAccounts();
+
+            // NEW: Load page access tokens
+            await this.loadPageAccessTokens();
 
             console.log('[PANCAKE-TOKEN] Firebase reference initialized');
             return true;
@@ -66,6 +72,196 @@ class PancakeTokenManager {
             console.error('[PANCAKE-TOKEN] Error loading accounts:', error);
             return false;
         }
+    }
+
+    // =====================================================
+    // PAGE ACCESS TOKEN METHODS (Official Pancake API)
+    // page_access_token: Không hết hạn, dùng cho Page API
+    // =====================================================
+
+    /**
+     * Load all page access tokens from Firebase
+     * @returns {Promise<boolean>}
+     */
+    async loadPageAccessTokens() {
+        try {
+            if (!this.pageTokensRef) {
+                console.warn('[PANCAKE-TOKEN] pageTokensRef not initialized');
+                return false;
+            }
+
+            const snapshot = await this.pageTokensRef.once('value');
+            this.pageAccessTokens = snapshot.val() || {};
+
+            console.log('[PANCAKE-TOKEN] Loaded page_access_tokens:', Object.keys(this.pageAccessTokens).length);
+            return true;
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error loading page access tokens:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Lấy page_access_token cho một page
+     * @param {string} pageId - Facebook Page ID
+     * @returns {string|null} - page_access_token hoặc null
+     */
+    getPageAccessToken(pageId) {
+        if (!pageId) return null;
+
+        const pageToken = this.pageAccessTokens[pageId];
+        if (pageToken && pageToken.token) {
+            console.log(`[PANCAKE-TOKEN] Found page_access_token for page ${pageId}`);
+            return pageToken.token;
+        }
+
+        console.warn(`[PANCAKE-TOKEN] No page_access_token found for page ${pageId}`);
+        return null;
+    }
+
+    /**
+     * Lưu page_access_token vào Firebase
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} token - page_access_token
+     * @param {string} pageName - Page name (optional)
+     * @returns {Promise<boolean>}
+     */
+    async savePageAccessToken(pageId, token, pageName = '') {
+        try {
+            if (!this.pageTokensRef) {
+                console.warn('[PANCAKE-TOKEN] pageTokensRef not initialized');
+                return false;
+            }
+
+            if (!pageId || !token) {
+                console.error('[PANCAKE-TOKEN] pageId and token are required');
+                return false;
+            }
+
+            const data = {
+                token: token.trim(),
+                pageName: pageName,
+                savedAt: Date.now()
+            };
+
+            await this.pageTokensRef.child(pageId).set(data);
+
+            // Update local cache
+            this.pageAccessTokens[pageId] = data;
+
+            console.log(`[PANCAKE-TOKEN] ✅ Saved page_access_token for page ${pageId}`);
+            return true;
+
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error saving page access token:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Xóa page_access_token
+     * @param {string} pageId - Facebook Page ID
+     * @returns {Promise<boolean>}
+     */
+    async deletePageAccessToken(pageId) {
+        try {
+            if (!this.pageTokensRef) return false;
+
+            await this.pageTokensRef.child(pageId).remove();
+            delete this.pageAccessTokens[pageId];
+
+            console.log(`[PANCAKE-TOKEN] ✅ Deleted page_access_token for page ${pageId}`);
+            return true;
+
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error deleting page access token:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Generate page_access_token từ Pancake API
+     * Endpoint: POST /api/v1/pages/{page_id}/generate_page_access_token
+     * Requires: access_token (user token) với quyền admin
+     * @param {string} pageId - Facebook Page ID
+     * @returns {Promise<string|null>} - New page_access_token hoặc null
+     */
+    async generatePageAccessToken(pageId) {
+        try {
+            const userToken = await this.getToken();
+            if (!userToken) {
+                throw new Error('No user access_token available');
+            }
+
+            console.log(`[PANCAKE-TOKEN] Generating page_access_token for page ${pageId}...`);
+
+            // Use the official API endpoint
+            const url = window.API_CONFIG.buildUrl.pancakeUserApi(
+                `pages/${pageId}/generate_page_access_token`,
+                `access_token=${userToken}`
+            );
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            }, 3, true);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.page_access_token) {
+                // Save to Firebase
+                await this.savePageAccessToken(pageId, data.page_access_token, data.page_name || '');
+                console.log(`[PANCAKE-TOKEN] ✅ Generated new page_access_token for page ${pageId}`);
+                return data.page_access_token;
+            } else {
+                console.error('[PANCAKE-TOKEN] API did not return page_access_token:', data);
+                return null;
+            }
+
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error generating page access token:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Lấy page_access_token, tự động generate nếu chưa có
+     * @param {string} pageId - Facebook Page ID
+     * @param {boolean} autoGenerate - Tự động generate nếu chưa có (default: false)
+     * @returns {Promise<string|null>}
+     */
+    async getOrGeneratePageAccessToken(pageId, autoGenerate = false) {
+        // Check cache first
+        let token = this.getPageAccessToken(pageId);
+        if (token) return token;
+
+        // Auto generate if requested
+        if (autoGenerate) {
+            token = await this.generatePageAccessToken(pageId);
+            return token;
+        }
+
+        return null;
+    }
+
+    /**
+     * Get all page access tokens info (for display)
+     * @returns {Array<Object>}
+     */
+    getAllPageAccessTokensInfo() {
+        return Object.entries(this.pageAccessTokens).map(([pageId, data]) => ({
+            pageId,
+            pageName: data.pageName || pageId,
+            hasToken: !!data.token,
+            savedAt: data.savedAt ? new Date(data.savedAt).toLocaleString() : 'N/A'
+        }));
     }
 
     /**

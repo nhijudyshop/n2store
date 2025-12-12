@@ -9489,15 +9489,25 @@ async function sendMessageInternal(messageData) {
             console.log('[MESSAGE] content_ids:', payload.content_ids);
         }
 
-        // Step 3: Send message
-        let queryParams = `access_token=${token}`;
-        if (customerId) {
-            queryParams += `&customer_id=${customerId}`;
+        // Step 3: Send message (try page_access_token first, fallback to access_token)
+        let pageToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+        let queryParams;
+
+        if (pageToken) {
+            queryParams = `page_access_token=${pageToken}`;
+            console.log('[MESSAGE] Using Official Page API with page_access_token');
+        } else {
+            queryParams = `access_token=${token}`;
+            if (customerId) {
+                queryParams += `&customer_id=${customerId}`;
+            }
+            console.log('[MESSAGE] Using Internal API with access_token');
         }
-        const replyUrl = window.API_CONFIG.buildUrl.pancake(
-            `pages/${channelId}/conversations/${conversationId}/messages`,
-            queryParams
-        );
+
+        // Use appropriate API endpoint based on token type
+        const replyUrl = pageToken
+            ? window.API_CONFIG.buildUrl.pancakePageApi(channelId, `conversations/${conversationId}/messages`, queryParams)
+            : window.API_CONFIG.buildUrl.pancakeUserApi(`pages/${channelId}/conversations/${conversationId}/messages`, queryParams);
 
         console.log('[MESSAGE] Sending message...');
         console.log('[MESSAGE] URL:', replyUrl);
@@ -9593,14 +9603,21 @@ async function sendMessageInternal(messageData) {
                         }
 
                         const retryToken = await window.pancakeTokenManager.getToken();
-                        let retryQueryParams = `access_token=${retryToken}`;
-                        if (customerId) {
-                            retryQueryParams += `&customer_id=${customerId}`;
+                        const retryPageToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+                        let retryQueryParams;
+
+                        if (retryPageToken) {
+                            retryQueryParams = `page_access_token=${retryPageToken}`;
+                        } else {
+                            retryQueryParams = `access_token=${retryToken}`;
+                            if (customerId) {
+                                retryQueryParams += `&customer_id=${customerId}`;
+                            }
                         }
-                        const retryUrl = window.API_CONFIG.buildUrl.pancake(
-                            `pages/${channelId}/conversations/${conversationId}/messages`,
-                            retryQueryParams
-                        );
+
+                        const retryUrl = retryPageToken
+                            ? window.API_CONFIG.buildUrl.pancakePageApi(channelId, `conversations/${conversationId}/messages`, retryQueryParams)
+                            : window.API_CONFIG.buildUrl.pancakeUserApi(`pages/${channelId}/conversations/${conversationId}/messages`, retryQueryParams);
 
                         const retryResponse = await API_CONFIG.smartFetch(retryUrl, {
                             method: 'POST',
@@ -9834,18 +9851,28 @@ async function sendCommentInternal(commentData) {
         });
 
         // Step 4: Send private_replies (Pancake API chính thức)
-        // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
+        // Official API: POST /api/public_api/v1/pages/{page_id}/conversations/{conversation_id}/messages
         // private_replies: gửi tin nhắn riêng từ comment (chỉ Facebook/Instagram)
         showChatSendingIndicator('Đang gửi tin nhắn riêng...');
 
-        let queryParams = `access_token=${token}`;
-        if (customerId) {
-            queryParams += `&customer_id=${customerId}`;
+        // Try page_access_token first (official), fallback to access_token
+        const pageToken = window.pancakeTokenManager?.getPageAccessToken(pageId);
+        let queryParams;
+
+        if (pageToken) {
+            queryParams = `page_access_token=${pageToken}`;
+            console.log('[COMMENT] Using Official Page API with page_access_token');
+        } else {
+            queryParams = `access_token=${token}`;
+            if (customerId) {
+                queryParams += `&customer_id=${customerId}`;
+            }
+            console.log('[COMMENT] Using Internal API with access_token');
         }
-        const apiUrl = window.API_CONFIG.buildUrl.pancake(
-            `pages/${pageId}/conversations/${finalConversationId}/messages`,
-            queryParams
-        );
+
+        const apiUrl = pageToken
+            ? window.API_CONFIG.buildUrl.pancakePageApi(pageId, `conversations/${finalConversationId}/messages`, queryParams)
+            : window.API_CONFIG.buildUrl.pancakeUserApi(`pages/${pageId}/conversations/${finalConversationId}/messages`, queryParams);
 
         // Prepare private_replies payload (JSON) - theo API chính thức
         // Required fields: action, post_id, message_id, from_id, message

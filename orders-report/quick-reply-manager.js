@@ -893,15 +893,24 @@ class QuickReplyManager {
                 window.notificationManager.info('Đang gửi tin nhắn...', 3000);
             }
 
-            let queryParams = `access_token=${token}`;
-            if (customerId) {
-                queryParams += `&customer_id=${customerId}`;
+            // Try page_access_token first (official API), fallback to access_token
+            const pageToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+            let queryParams;
+
+            if (pageToken) {
+                queryParams = `page_access_token=${pageToken}`;
+                console.log('[QUICK-REPLY] Using Official Page API with page_access_token');
+            } else {
+                queryParams = `access_token=${token}`;
+                if (customerId) {
+                    queryParams += `&customer_id=${customerId}`;
+                }
+                console.log('[QUICK-REPLY] Using Internal API with access_token');
             }
 
-            const apiUrl = window.API_CONFIG.buildUrl.pancake(
-                `pages/${channelId}/conversations/${conversationId}/messages`,
-                queryParams
-            );
+            const apiUrl = pageToken
+                ? window.API_CONFIG.buildUrl.pancakePageApi(channelId, `conversations/${conversationId}/messages`, queryParams)
+                : window.API_CONFIG.buildUrl.pancakeUserApi(`pages/${channelId}/conversations/${conversationId}/messages`, queryParams);
 
             // Add employee signature
             let finalMessage = message;
@@ -916,11 +925,8 @@ class QuickReplyManager {
             const sendImage = async () => {
                 console.log('[QUICK-REPLY] 📤 Sending image...');
 
-                // Build Pancake API URL via proxy (avoid CORS issues)
-                const pancakeApiUrl = window.API_CONFIG.buildUrl.pancake(
-                    `pages/${channelId}/conversations/${conversationId}/messages`,
-                    queryParams
-                );
+                // Use the same apiUrl with page_access_token or access_token
+                const pancakeApiUrl = apiUrl;
 
                 // Pancake API chính thức dùng JSON với content_ids
                 // Tuy nhiên, quick-reply dùng external URL (content_url) nên vẫn cần gửi theo cách cũ
@@ -987,11 +993,8 @@ class QuickReplyManager {
 
                 console.log('[QUICK-REPLY] 📤 Sending text message...');
 
-                // Build Pancake API URL via proxy (avoid CORS issues)
-                const pancakeApiUrl = window.API_CONFIG.buildUrl.pancake(
-                    `pages/${channelId}/conversations/${conversationId}/messages`,
-                    queryParams
-                );
+                // Use the same apiUrl with page_access_token or access_token
+                const pancakeApiUrl = apiUrl;
 
                 // Pancake API chính thức dùng JSON
                 const textPayload = {
