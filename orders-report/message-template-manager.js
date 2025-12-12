@@ -698,42 +698,16 @@ class MessageTemplateManager {
                         this.sendingState.success++;
                         this.log(`✅ Sent successfully to order ${order.code || order.Id}`);
                     } catch (err) {
-                        // Try extension fallback for 24H errors and user unavailable (551) errors
-                        // Extension uses Facebook's internal API which can bypass these restrictions
-                        const needsExtensionFallback = err.is24HourError || err.isUserUnavailable;
-                        if (needsExtensionFallback && window.extensionBridge && window.extensionBridge.isAvailable()) {
-                            const errorType = err.is24HourError ? '24H error' : 'user unavailable (551)';
-                            this.log(`[${order.code}] 🔄 Trying extension bypass for ${errorType}...`);
-                            try {
-                                const extResult = await window.extensionBridge.sendMessage({
-                                    pageId: order.rawOrder?.Facebook_PageId || order.channelId,
-                                    threadId: order.conversationId,
-                                    recipientId: order.rawOrder?.Facebook_ASUserId,
-                                    message: context.templateContent,
-                                    imageData: null
-                                });
-
-                                if (extResult.success) {
-                                    this.sendingState.success++;
-                                    this.log(`[${order.code}] ✅ Extension bypass succeeded!`);
-                                    continue; // Skip to next order
-                                }
-                                this.log(`[${order.code}] ❌ Extension bypass failed:`, extResult.error);
-                            } catch (extErr) {
-                                this.log(`[${order.code}] ❌ Extension error:`, extErr);
-                            }
-                        }
-
                         this.sendingState.error++;
 
                         // Track 24-hour policy errors and user unavailable errors specially
                         const errorInfo = { order: order.code || order.Id, error: err.message };
                         if (err.is24HourError) {
                             errorInfo.is24HourError = true;
-                            errorInfo.error = 'Đã quá 24h - Extension cũng không gửi được';
+                            errorInfo.error = 'Đã quá 24h - Vui lòng dùng COMMENT';
                         } else if (err.isUserUnavailable) {
                             errorInfo.isUserUnavailable = true;
-                            errorInfo.error = 'Người dùng không có mặt (551) - Extension cũng không gửi được';
+                            errorInfo.error = 'Người dùng không có mặt (551) - Vui lòng dùng COMMENT';
                         }
                         this.sendingState.errors.push(errorInfo);
 
@@ -791,7 +765,6 @@ class MessageTemplateManager {
                     const numUserUnavailable = this.sendingState.errors.filter(e => e.isUserUnavailable).length;
 
                     if (has24HErrors || hasUserUnavailable) {
-                        const extensionAvailable = window.extensionBridge && window.extensionBridge.isAvailable();
                         let msg = '⚠️ ';
 
                         if (has24HErrors && hasUserUnavailable) {
@@ -802,11 +775,7 @@ class MessageTemplateManager {
                             msg += `${numUserUnavailable} đơn hàng không thể gửi (người dùng không có mặt).`;
                         }
 
-                        if (extensionAvailable) {
-                            msg += ' Extension cũng không gửi được. Vui lòng dùng COMMENT!';
-                        } else {
-                            msg += ' Cài Extension Pancake v2 để bypass hoặc dùng COMMENT!';
-                        }
+                        msg += ' Vui lòng dùng COMMENT!';
 
                         window.notificationManager.show(msg, 'warning', 8000);
                     } else {

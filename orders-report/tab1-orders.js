@@ -9646,54 +9646,9 @@ async function sendMessageInternal(messageData) {
                     console.warn('[MESSAGE] ⚠️ Pancake Unlock failed:', unlockResult.error);
                 }
             }
-
-            // Fallback 2: Try extension fallback - extension uses Facebook's internal web API
-            // which can bypass 24-hour policy and user unavailable errors (unlike Pancake API which uses Graph API)
-            if (!apiSuccess && window.extensionBridge && window.extensionBridge.isAvailable()) {
-                console.log('[MESSAGE] 🔄 Attempting extension fallback...');
-
-                if (err.is24HourError) {
-                    console.log('[MESSAGE] 📝 24H policy error detected - extension may bypass this via internal API');
-                    showChatSendingIndicator('Đang thử gửi qua Extension (bypass 24h)...');
-                } else if (err.isUserUnavailable) {
-                    console.log('[MESSAGE] 📝 User unavailable (551) error detected - extension may bypass this via internal API');
-                    showChatSendingIndicator('Đang thử gửi qua Extension (người dùng không có mặt)...');
-                } else {
-                    showChatSendingIndicator('Đang thử gửi qua Extension...');
-                }
-
-                try {
-                    const extensionResult = await window.extensionBridge.sendMessage({
-                        pageId: channelId,
-                        threadId: conversationId,
-                        recipientId: order.Facebook_ASUserId || window.currentChatPSID,
-                        message: message,
-                        imageData: imagesDataArray.length > 0 ? imagesDataArray[0] : null
-                    });
-
-                    if (extensionResult.success) {
-                        console.log('[MESSAGE] ✅ Extension fallback succeeded!');
-                        apiSuccess = true;
-                        apiError = null;
-                    } else {
-                        console.error('[MESSAGE] ❌ Extension fallback failed:', extensionResult.error);
-                        // Keep original API error for user message
-                    }
-                } catch (extError) {
-                    console.error('[MESSAGE] ❌ Extension fallback error:', extError);
-                    // Keep original API error for user message
-                }
-            } else if (!apiSuccess) {
-                console.log('[MESSAGE] ⚠️ Extension not available for fallback');
-
-                // For 24H errors or user unavailable without extension, suggest using comment
-                if (needsUnlockFallback) {
-                    console.log('[MESSAGE] 💡 Suggest using COMMENT as alternative');
-                }
-            }
         }
 
-        // If both API and extension failed, throw error
+        // If API failed, throw error
         if (!apiSuccess && apiError) {
             throw apiError;
         }
@@ -9755,19 +9710,9 @@ async function sendMessageInternal(messageData) {
             const errorType = error.is24HourError ? '24H' : '551';
             console.log(`[MESSAGE] 📝 Suggesting alternatives for ${errorType} error`);
 
-            // Check if extension was available but still failed
-            const extensionAvailable = window.extensionBridge && window.extensionBridge.isAvailable();
             let message = error.is24HourError
-                ? '⚠️ Không thể gửi Inbox (đã quá 24h).'
-                : '⚠️ Không thể gửi Inbox (người dùng không có mặt).';
-
-            if (extensionAvailable) {
-                // Extension was available but still failed - suggest comment
-                message += ' Extension cũng không gửi được. Vui lòng dùng COMMENT!';
-            } else {
-                // Extension not available - suggest installing it or using comment
-                message += ' Cài Extension Pancake v2 để bypass hoặc dùng COMMENT!';
-            }
+                ? '⚠️ Không thể gửi Inbox (đã quá 24h). Vui lòng dùng COMMENT!'
+                : '⚠️ Không thể gửi Inbox (người dùng không có mặt). Vui lòng dùng COMMENT!';
 
             if (window.notificationManager) {
                 window.notificationManager.show(message, 'warning', 8000);
@@ -10025,57 +9970,9 @@ async function sendCommentInternal(commentData) {
             console.warn('[COMMENT] ❌ reply_inbox failed:', replyInboxResult.reason?.message || replyInboxResult.reason);
         }
 
-        // At least one must succeed - try extension fallback if both failed
+        // At least one must succeed
         if (!privateRepliesSuccess && !replyInboxSuccess) {
-            console.error('[COMMENT] ❌ Both actions failed! Attempting extension fallback...');
-
-            // Try extension fallback
-            if (window.extensionBridge && window.extensionBridge.isAvailable()) {
-                showChatSendingIndicator('Đang thử gửi qua Extension...');
-
-                try {
-                    // Try SEND_COMMENT via extension
-                    console.log('[COMMENT] 🔄 Trying SEND_COMMENT via extension...');
-                    const commentResult = await window.extensionBridge.sendComment({
-                        pageId: pageId,
-                        commentId: messageId,
-                        message: message,
-                        imageData: imageData
-                    });
-
-                    if (commentResult.success) {
-                        console.log('[COMMENT] ✅ Extension SEND_COMMENT succeeded!');
-                        privateRepliesSuccess = true;
-                    } else {
-                        console.warn('[COMMENT] ❌ Extension SEND_COMMENT failed:', commentResult.error);
-                    }
-
-                    // Also try SEND_PRIVATE_REPLY via extension
-                    console.log('[COMMENT] 🔄 Trying SEND_PRIVATE_REPLY via extension...');
-                    const privateResult = await window.extensionBridge.sendPrivateReply({
-                        pageId: pageId,
-                        commentId: messageId,
-                        message: message
-                    });
-
-                    if (privateResult.success) {
-                        console.log('[COMMENT] ✅ Extension SEND_PRIVATE_REPLY succeeded!');
-                        replyInboxSuccess = true;
-                    } else {
-                        console.warn('[COMMENT] ❌ Extension SEND_PRIVATE_REPLY failed:', privateResult.error);
-                    }
-
-                } catch (extError) {
-                    console.error('[COMMENT] ❌ Extension fallback error:', extError);
-                }
-            } else {
-                console.log('[COMMENT] ⚠️ Extension not available for fallback');
-            }
-
-            // Final check - if still no success, throw error
-            if (!privateRepliesSuccess && !replyInboxSuccess) {
-                throw new Error('Cả 2 actions đều thất bại: private_replies và reply_inbox (kể cả fallback extension)');
-            }
+            throw new Error('Cả 2 actions đều thất bại: private_replies và reply_inbox');
         }
 
         console.log('[COMMENT] ✅ At least one action succeeded (private_replies:', privateRepliesSuccess, ', reply_inbox:', replyInboxSuccess, ')');

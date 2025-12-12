@@ -1045,62 +1045,19 @@ class QuickReplyManager {
 
             // Check results
             if (!imageResult.success || !textResult.success) {
-                // Check for errors that can be handled with extension fallback
+                // Check for 24h or user unavailable errors
                 const has24HourError = imageResult.is24HourError || textResult.is24HourError;
                 const hasUserUnavailable = imageResult.isUserUnavailable || textResult.isUserUnavailable;
-                const needsExtensionFallback = has24HourError || hasUserUnavailable;
 
-                if (needsExtensionFallback) {
+                if (has24HourError || hasUserUnavailable) {
                     const errorType = has24HourError ? '24h policy' : 'user unavailable (551)';
                     console.warn(`[QUICK-REPLY] ⚠️ ${errorType} error detected`);
 
-                    // Try extension fallback - it uses Facebook's internal API which can bypass these restrictions
-                    if (window.extensionBridge && window.extensionBridge.isAvailable()) {
-                        const notifyMsg = has24HourError
-                            ? '🔄 Đang thử gửi qua Extension (bypass 24h)...'
-                            : '🔄 Đang thử gửi qua Extension (người dùng không có mặt)...';
-                        console.log(`[QUICK-REPLY] 🔄 Trying extension fallback for ${errorType}...`);
-                        if (window.notificationManager) {
-                            window.notificationManager.show(notifyMsg, 'info', 3000);
-                        }
-
-                        try {
-                            const extResult = await window.extensionBridge.sendMessage({
-                                pageId: channelId,
-                                threadId: conversationId,
-                                recipientId: window.currentChatPSID,
-                                message: finalMessage,
-                                imageData: imageUrl ? { content_url: imageUrl } : null
-                            });
-
-                            if (extResult.success) {
-                                console.log('[QUICK-REPLY] ✅ Extension bypass succeeded!');
-                                if (window.notificationManager) {
-                                    window.notificationManager.success('✅ Đã gửi qua Extension!', 3000);
-                                }
-                                return; // Success via extension
-                            } else {
-                                console.warn('[QUICK-REPLY] ❌ Extension bypass failed:', extResult.error);
-                            }
-                        } catch (extErr) {
-                            console.error('[QUICK-REPLY] ❌ Extension error:', extErr);
-                        }
-
-                        // Extension also failed
-                        if (window.notificationManager) {
-                            window.notificationManager.show(
-                                '⚠️ Extension cũng không gửi được. Vui lòng dùng COMMENT!',
-                                'warning', 8000
-                            );
-                        }
-                    } else {
-                        // No extension available
-                        const noExtMsg = has24HourError
-                            ? '⚠️ Không thể gửi (quá 24h). Cài Extension Pancake v2 hoặc dùng COMMENT!'
-                            : '⚠️ Người dùng không có mặt. Cài Extension Pancake v2 hoặc dùng COMMENT!';
-                        if (window.notificationManager) {
-                            window.notificationManager.show(noExtMsg, 'warning', 8000);
-                        }
+                    const warningMsg = has24HourError
+                        ? '⚠️ Không thể gửi (quá 24h). Vui lòng dùng COMMENT!'
+                        : '⚠️ Người dùng không có mặt. Vui lòng dùng COMMENT!';
+                    if (window.notificationManager) {
+                        window.notificationManager.show(warningMsg, 'warning', 8000);
                     }
                     return; // Don't throw error for these cases
                 }
