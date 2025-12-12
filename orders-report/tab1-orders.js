@@ -14910,11 +14910,6 @@ async function openSaleButtonModal() {
         if (orderDetails.orderLines && orderDetails.orderLines.length > 0) {
             populateSaleOrderLinesFromAPI(orderDetails.orderLines);
         }
-
-        // Update reference
-        if (orderDetails.Reference) {
-            document.getElementById('saleReference').textContent = orderDetails.Reference;
-        }
     }
 }
 
@@ -14961,7 +14956,6 @@ function populateSaleModalWithOrder(order) {
 
     // Basic info - Tab "Thông tin"
     document.getElementById('saleCustomerName').textContent = order.PartnerName || order.Name || '';
-    document.getElementById('saleReference').textContent = order.Code || '';
 
     // Customer status (will be updated by API)
     document.getElementById('saleCustomerStatus').textContent = '';
