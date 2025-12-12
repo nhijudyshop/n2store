@@ -1062,12 +1062,24 @@ router.post('/update-debt', async (req, res) => {
             `, [normalizedPhone, newDebtValue]);
         }
 
-        // Log the change to debt_adjustment_log table (if exists) or just log
+        // Log the change to debt_adjustment_log table
+        const changeAmount = newDebtValue - oldDebt;
+        try {
+            await db.query(`
+                INSERT INTO debt_adjustment_log (phone, old_debt, new_debt, change_amount, reason, adjusted_by)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            `, [normalizedPhone, oldDebt, newDebtValue, changeAmount, reason || 'Admin manual adjustment', 'admin']);
+            console.log('[UPDATE-DEBT] ✅ History logged to debt_adjustment_log');
+        } catch (logError) {
+            // Table might not exist yet, just log to console
+            console.warn('[UPDATE-DEBT] Could not log to debt_adjustment_log:', logError.message);
+        }
+
         console.log('[UPDATE-DEBT] ✅ Debt updated:', {
             phone: normalizedPhone,
             old_debt: oldDebt,
             new_debt: newDebtValue,
-            change: newDebtValue - oldDebt,
+            change: changeAmount,
             reason: reason || 'Admin manual adjustment'
         });
 
@@ -1077,7 +1089,7 @@ router.post('/update-debt', async (req, res) => {
                 phone: normalizedPhone,
                 old_debt: oldDebt,
                 new_debt: newDebtValue,
-                change: newDebtValue - oldDebt
+                change: changeAmount
             },
             message: 'Debt updated successfully'
         });
