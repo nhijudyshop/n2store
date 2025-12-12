@@ -607,7 +607,32 @@ router.get('/debt-summary', async (req, res) => {
 
         console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
 
-        // 1. Find all QR codes linked to this phone (try both normalized and with leading 0)
+        // 1. FIRST: Check customers.debt (admin-adjusted value takes priority)
+        const customerResult = await db.query(
+            `SELECT debt, updated_at FROM customers WHERE phone = $1 OR phone = $2 LIMIT 1`,
+            [normalizedPhone, '0' + normalizedPhone]
+        );
+
+        const customerDebt = customerResult.rows.length > 0
+            ? (parseFloat(customerResult.rows[0].debt) || 0)
+            : null;
+
+        // If admin has set debt in customers table, use that value
+        if (customerDebt !== null && customerDebt > 0) {
+            console.log('[DEBT-SUMMARY] Using admin-adjusted debt from customers.debt:', customerDebt);
+            return res.json({
+                success: true,
+                data: {
+                    phone,
+                    total_debt: customerDebt,
+                    transactions: [],
+                    transaction_count: 0,
+                    source: 'customers_table_admin'
+                }
+            });
+        }
+
+        // 2. Find all QR codes linked to this phone (try both normalized and with leading 0)
         const qrResult = await db.query(
             `SELECT unique_code FROM balance_customer_info WHERE customer_phone = $1 OR customer_phone = $2`,
             [normalizedPhone, '0' + normalizedPhone]
@@ -617,31 +642,22 @@ router.get('/debt-summary', async (req, res) => {
         console.log('[DEBT-SUMMARY] QR codes found:', qrCodes);
 
         if (qrCodes.length === 0) {
-            // Fallback: Try to get debt from customers table (try both with and without leading 0)
-            const customerResult = await db.query(
-                `SELECT debt FROM customers WHERE phone = $1 OR phone = $2 LIMIT 1`,
-                [normalizedPhone, '0' + normalizedPhone]
-            );
-
-            const customerDebt = customerResult.rows.length > 0
-                ? (parseFloat(customerResult.rows[0].debt) || 0)
-                : 0;
-
-            console.log('[DEBT-SUMMARY] No QR codes, fallback to customers.debt:', customerDebt);
+            // No QR codes and no admin-set debt
+            console.log('[DEBT-SUMMARY] No QR codes, no admin debt, returning 0');
 
             return res.json({
                 success: true,
                 data: {
                     phone,
-                    total_debt: customerDebt,
+                    total_debt: 0,
                     transactions: [],
                     transaction_count: 0,
-                    source: 'customers_table'
+                    source: 'no_data'
                 }
             });
         }
 
-        // 2. Find ALL incoming transactions with these QR codes (calculate total from transactions)
+        // 3. Find ALL incoming transactions with these QR codes (calculate total from transactions)
         const placeholders = qrCodes.map((_, i) => `$${i + 1}`).join(', ');
         const txQuery = `
             SELECT
@@ -660,7 +676,7 @@ router.get('/debt-summary', async (req, res) => {
         const txResult = await db.query(txQuery, qrCodes);
         const transactions = txResult.rows;
 
-        // 3. Calculate total debt from transactions
+        // 4. Calculate total debt from transactions
         const totalDebt = transactions.reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
 
         console.log('[DEBT-SUMMARY] Found:', {
@@ -681,7 +697,8 @@ router.get('/debt-summary', async (req, res) => {
                     content: t.content,
                     debt_added: t.debt_added
                 })),
-                transaction_count: transactions.length
+                transaction_count: transactions.length,
+                source: 'balance_history'
             }
         });
 
