@@ -168,6 +168,17 @@ main.html
 - **State variable:** camelCase - `allData`, `selectedOrderIds`
 - **DOM ID:** kebab-case - `edit-modal`, `chat-modal-body`
 
+### 4. Tag Functions (QUAN TRONG)
+
+Trong `tab1-orders.js` co 2 ham xu ly tag KHAC NHAU:
+
+| Ham | Dong | Input | Output | Muc dich |
+|-----|------|-------|--------|----------|
+| `parseOrderTags(tagsJson, orderId, orderCode)` | ~4969 | JSON string + IDs | **HTML string** | Render tag trong bang |
+| `getOrderTagsArray(order)` | ~14854 | Order object | **Array** | Parse tags cho merge |
+
+**LUU Y:** KHONG duoc dat trung ten 2 ham nay! Neu trung ten, ham sau se ghi de ham truoc va gay loi hien thi tag.
+
 ---
 
 ## Tim Code Nhanh
