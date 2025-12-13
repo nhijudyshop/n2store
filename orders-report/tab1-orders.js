@@ -12904,10 +12904,24 @@ async function executeMergeOrderProducts(mergedOrder) {
 
     } catch (error) {
         console.error('[MERGE-API] Error during merge:', error);
+
+        // Extract error response for history logging
+        let errorResponse = null;
+        if (error.message) {
+            // Try to extract HTTP response from error message (format: "HTTP XXX: {response}")
+            const httpMatch = error.message.match(/^HTTP \d+:\s*(.+)$/s);
+            if (httpMatch) {
+                errorResponse = httpMatch[1];
+            } else {
+                errorResponse = error.message;
+            }
+        }
+
         return {
             success: false,
             message: 'Lỗi: ' + error.message,
-            error: error
+            error: error,
+            errorResponse: errorResponse
         };
     }
 }
@@ -13476,6 +13490,9 @@ async function confirmMergeSelectedClusters() {
         const result = await executeMergeOrderProducts(mergeData);
         results.push({ cluster, result });
 
+        // Save merge history to Firebase
+        await saveMergeHistory(cluster, result, result.errorResponse || null);
+
         // Small delay to avoid rate limiting
         if (i < selectedClusters.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -13521,6 +13538,390 @@ window.toggleMergeClusterSelection = toggleMergeClusterSelection;
 window.toggleSelectAllMergeClusters = toggleSelectAllMergeClusters;
 window.confirmMergeSelectedClusters = confirmMergeSelectedClusters;
 
+// =====================================================
+// MERGE HISTORY FUNCTIONS (Firebase Storage)
+// =====================================================
+
+// Firebase collection for merge history
+const MERGE_HISTORY_COLLECTION = 'merge_orders_history';
+
+/**
+ * Get current user info for history tracking
+ */
+function getMergeHistoryUserInfo() {
+    let userId = 'guest';
+    let userName = 'Unknown';
+
+    try {
+        // Try userStorageManager first
+        if (window.userStorageManager && typeof window.userStorageManager.getUserIdentifier === 'function') {
+            userId = window.userStorageManager.getUserIdentifier() || 'guest';
+        }
+
+        // Try to get display name from auth
+        const authStr = localStorage.getItem('loginindex_auth');
+        if (authStr) {
+            const auth = JSON.parse(authStr);
+            userName = auth.displayName || auth.name || auth.email || 'Unknown';
+            if (!userId || userId === 'guest') {
+                userId = auth.uid || auth.id || auth.email || 'guest';
+            }
+        }
+    } catch (e) {
+        console.warn('[MERGE-HISTORY] Error getting user info:', e);
+    }
+
+    return { userId, userName };
+}
+
+/**
+ * Save merge history to Firebase
+ */
+async function saveMergeHistory(cluster, result, errorResponse = null) {
+    if (!db) {
+        console.warn('[MERGE-HISTORY] Firebase not available, cannot save history');
+        return;
+    }
+
+    try {
+        const { userId, userName } = getMergeHistoryUserInfo();
+        const timestamp = new Date();
+
+        // Build source orders data
+        const sourceOrdersData = cluster.sourceOrders.map(order => ({
+            orderId: order.Id,
+            stt: order.SessionIndex,
+            partnerName: order.PartnerName || '',
+            products: (order.Details || []).map(p => ({
+                productId: p.ProductId,
+                productCode: p.ProductCode || '',
+                productName: p.ProductName || '',
+                productImage: p.ProductImageUrl || p.ImageUrl || '',
+                quantity: p.Quantity || 0,
+                price: p.Price || 0,
+                note: p.Note || ''
+            }))
+        }));
+
+        // Build target order data
+        const targetOrderData = {
+            orderId: cluster.targetOrder.Id,
+            stt: cluster.targetOrder.SessionIndex,
+            partnerName: cluster.targetOrder.PartnerName || '',
+            products: (cluster.targetOrder.Details || []).map(p => ({
+                productId: p.ProductId,
+                productCode: p.ProductCode || '',
+                productName: p.ProductName || '',
+                productImage: p.ProductImageUrl || p.ImageUrl || '',
+                quantity: p.Quantity || 0,
+                price: p.Price || 0,
+                note: p.Note || ''
+            }))
+        };
+
+        // Build merged products data
+        const mergedProductsData = (cluster.mergedProducts || []).map(p => ({
+            productId: p.ProductId,
+            productCode: p.ProductCode || '',
+            productName: p.ProductName || '',
+            productImage: p.ProductImageUrl || p.ImageUrl || '',
+            quantity: p.Quantity || 0,
+            price: p.Price || 0,
+            note: p.Note || ''
+        }));
+
+        const historyEntry = {
+            phone: cluster.phone,
+            timestamp: firebase.firestore.Timestamp.fromDate(timestamp),
+            timestampISO: timestamp.toISOString(),
+            userId: userId,
+            userName: userName,
+            success: result.success,
+            errorMessage: result.success ? null : (result.message || 'Unknown error'),
+            errorResponse: errorResponse ? JSON.stringify(errorResponse) : null,
+            sourceOrders: sourceOrdersData,
+            targetOrder: targetOrderData,
+            mergedProducts: mergedProductsData,
+            totalSourceOrders: sourceOrdersData.length,
+            totalMergedProducts: mergedProductsData.length
+        };
+
+        await db.collection(MERGE_HISTORY_COLLECTION).add(historyEntry);
+        console.log('[MERGE-HISTORY] Saved history entry for phone:', cluster.phone);
+
+    } catch (error) {
+        console.error('[MERGE-HISTORY] Error saving history:', error);
+    }
+}
+
+/**
+ * Load merge history from Firebase
+ */
+async function loadMergeHistory(limit = 50) {
+    if (!db) {
+        console.warn('[MERGE-HISTORY] Firebase not available');
+        return [];
+    }
+
+    try {
+        const snapshot = await db.collection(MERGE_HISTORY_COLLECTION)
+            .orderBy('timestamp', 'desc')
+            .limit(limit)
+            .get();
+
+        const history = [];
+        snapshot.forEach(doc => {
+            history.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+
+        console.log(`[MERGE-HISTORY] Loaded ${history.length} history entries`);
+        return history;
+
+    } catch (error) {
+        console.error('[MERGE-HISTORY] Error loading history:', error);
+        return [];
+    }
+}
+
+/**
+ * Show merge history modal
+ */
+async function showMergeHistoryModal() {
+    const modal = document.getElementById('mergeHistoryModal');
+    const modalBody = document.getElementById('mergeHistoryModalBody');
+    const subtitle = document.getElementById('mergeHistoryModalSubtitle');
+
+    // Show modal with loading state
+    modal.classList.add('show');
+    modalBody.innerHTML = `
+        <div class="merge-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Đang tải lịch sử gộp đơn...</p>
+        </div>
+    `;
+
+    try {
+        const history = await loadMergeHistory(100);
+
+        if (history.length === 0) {
+            modalBody.innerHTML = `
+                <div class="merge-no-history">
+                    <i class="fas fa-inbox"></i>
+                    <p>Chưa có lịch sử gộp đơn nào.</p>
+                </div>
+            `;
+            subtitle.textContent = 'Không có lịch sử';
+            return;
+        }
+
+        // Render history entries
+        const html = history.map((entry, index) => renderHistoryEntry(entry, index)).join('');
+        modalBody.innerHTML = html;
+
+        const successCount = history.filter(e => e.success).length;
+        const failedCount = history.length - successCount;
+        subtitle.textContent = `${history.length} lần gộp (${successCount} thành công, ${failedCount} thất bại)`;
+
+    } catch (error) {
+        console.error('[MERGE-HISTORY] Error showing history:', error);
+        modalBody.innerHTML = `
+            <div class="merge-no-history">
+                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                <p>Lỗi khi tải lịch sử: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Render a single history entry
+ */
+function renderHistoryEntry(entry, index) {
+    const timestamp = entry.timestamp?.toDate ? entry.timestamp.toDate() : new Date(entry.timestampISO);
+    const timeStr = timestamp.toLocaleString('vi-VN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    const statusClass = entry.success ? 'success' : 'failed';
+    const statusText = entry.success ? 'Thành công' : 'Thất bại';
+
+    // Build order titles for header
+    const allSTTs = [
+        ...entry.sourceOrders.map(o => `STT ${o.stt}`),
+        `STT ${entry.targetOrder.stt} (Đích)`
+    ].join(' | ');
+
+    // Build table for details
+    const tableHtml = renderHistoryTable(entry);
+
+    // Error section if failed
+    const errorHtml = !entry.success && entry.errorResponse ? `
+        <div class="merge-history-error">
+            <div class="merge-history-error-title">
+                <i class="fas fa-exclamation-circle"></i> Chi tiết lỗi từ TPOS
+            </div>
+            <div class="merge-history-error-content">${escapeHtml(entry.errorResponse)}</div>
+        </div>
+    ` : (!entry.success ? `
+        <div class="merge-history-error">
+            <div class="merge-history-error-title">
+                <i class="fas fa-exclamation-circle"></i> Lỗi
+            </div>
+            <div class="merge-history-error-content">${escapeHtml(entry.errorMessage || 'Unknown error')}</div>
+        </div>
+    ` : '');
+
+    return `
+        <div class="merge-history-entry" id="history-entry-${index}">
+            <div class="merge-history-header ${statusClass}" onclick="toggleHistoryEntry(${index})">
+                <div class="merge-history-info">
+                    <span class="merge-history-time"><i class="fas fa-clock"></i> ${timeStr}</span>
+                    <span class="merge-history-user"><i class="fas fa-user"></i> ${escapeHtml(entry.userName)}</span>
+                    <span class="merge-history-phone"><i class="fas fa-phone"></i> ${escapeHtml(entry.phone)}</span>
+                    <span class="merge-history-orders">${entry.totalSourceOrders + 1} đơn → ${entry.totalMergedProducts} SP</span>
+                </div>
+                <span class="merge-history-status ${statusClass}">${statusText}</span>
+                <i class="fas fa-chevron-down merge-history-toggle"></i>
+            </div>
+            <div class="merge-history-details">
+                ${errorHtml}
+                <div class="merge-history-orders-title" style="font-weight: 600; margin-bottom: 12px; color: #374151;">
+                    # ${allSTTs}
+                </div>
+                ${tableHtml}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render history table (similar to merge preview)
+ */
+function renderHistoryTable(entry) {
+    // Build headers
+    const headers = [
+        `<th class="merged-col">Sau Khi Gộp<br><small>(STT ${entry.targetOrder.stt})</small></th>`
+    ];
+
+    // Source orders headers
+    entry.sourceOrders.forEach(order => {
+        headers.push(`<th>STT ${order.stt} - ${escapeHtml(order.partnerName)}</th>`);
+    });
+
+    // Target order header
+    headers.push(`<th class="target-col">STT ${entry.targetOrder.stt} - ${escapeHtml(entry.targetOrder.partnerName)} (Đích)</th>`);
+
+    // Find max products
+    const allProductCounts = [
+        entry.mergedProducts.length,
+        ...entry.sourceOrders.map(o => o.products.length),
+        entry.targetOrder.products.length
+    ];
+    const maxProducts = Math.max(...allProductCounts, 1);
+
+    // Build rows
+    const rows = [];
+    for (let i = 0; i < maxProducts; i++) {
+        const cells = [];
+
+        // Merged column
+        const mergedProduct = entry.mergedProducts[i];
+        cells.push(`<td class="merged-col">${mergedProduct ? renderHistoryProductItem(mergedProduct) : ''}</td>`);
+
+        // Source order columns
+        entry.sourceOrders.forEach(order => {
+            const product = order.products[i];
+            cells.push(`<td>${product ? renderHistoryProductItem(product) : ''}</td>`);
+        });
+
+        // Target order column
+        const targetProduct = entry.targetOrder.products[i];
+        cells.push(`<td class="target-col">${targetProduct ? renderHistoryProductItem(targetProduct) : ''}</td>`);
+
+        rows.push(`<tr>${cells.join('')}</tr>`);
+    }
+
+    return `
+        <div class="merge-cluster-table-wrapper">
+            <table class="merge-cluster-table">
+                <thead>
+                    <tr>${headers.join('')}</tr>
+                </thead>
+                <tbody>
+                    ${rows.join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+/**
+ * Render a product item for history
+ */
+function renderHistoryProductItem(product) {
+    const imgUrl = product.productImage || '';
+    const imgHtml = imgUrl
+        ? `<img src="${imgUrl}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
+        : `<div class="merge-product-img" style="display: flex; align-items: center; justify-content: center; color: #9ca3af;"><i class="fas fa-box"></i></div>`;
+
+    const price = product.price ? `${product.price.toLocaleString('vi-VN')}đ` : '';
+
+    return `
+        <div class="merge-product-item">
+            ${imgHtml}
+            <div class="merge-product-info">
+                <div class="merge-product-name" title="${escapeHtml(product.productName)}">${escapeHtml(product.productName)}</div>
+                ${product.productCode ? `<span class="merge-product-code">${escapeHtml(product.productCode)}</span>` : ''}
+                <div class="merge-product-details">
+                    <span class="qty">SL: ${product.quantity || 0}</span>
+                    ${price ? ` | <span class="price">${price}</span>` : ''}
+                </div>
+                ${product.note ? `<div class="merge-product-note">Note: ${escapeHtml(product.note)}</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Toggle history entry expand/collapse
+ */
+function toggleHistoryEntry(index) {
+    const entry = document.getElementById(`history-entry-${index}`);
+    if (entry) {
+        entry.classList.toggle('expanded');
+    }
+}
+
+/**
+ * Close merge history modal
+ */
+function closeMergeHistoryModal() {
+    const modal = document.getElementById('mergeHistoryModal');
+    modal.classList.remove('show');
+}
+
+/**
+ * Helper: Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Make history functions globally accessible
+window.showMergeHistoryModal = showMergeHistoryModal;
+window.closeMergeHistoryModal = closeMergeHistoryModal;
+window.toggleHistoryEntry = toggleHistoryEntry;
+window.saveMergeHistory = saveMergeHistory;
 
 
 // #region ═══════════════════════════════════════════════════════════════════════
