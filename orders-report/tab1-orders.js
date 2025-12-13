@@ -2811,15 +2811,32 @@ function populateBulkTagModalDropdown() {
     const dropdown = document.getElementById('bulkTagModalSearchDropdown');
     const searchValue = document.getElementById('bulkTagModalSearchInput').value.toLowerCase().trim();
 
+    console.log("[BULK-TAG-MODAL] Populating dropdown, availableTags count:", availableTags ? availableTags.length : 0);
+
+    // Check if availableTags is loaded
+    if (!availableTags || availableTags.length === 0) {
+        dropdown.innerHTML = `
+            <div style="padding: 16px; text-align: center; color: #9ca3af;">
+                <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>
+                Đang tải danh sách tag...
+                <br><br>
+                <button onclick="refreshBulkTagDropdown()" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    <i class="fas fa-sync-alt"></i> Tải lại
+                </button>
+            </div>
+        `;
+        return;
+    }
+
     // Filter tags by search
     const filteredTags = availableTags.filter(tag =>
-        tag.Name.toLowerCase().includes(searchValue)
+        tag.Name && tag.Name.toLowerCase().includes(searchValue)
     );
 
     if (filteredTags.length === 0) {
         dropdown.innerHTML = `
             <div style="padding: 16px; text-align: center; color: #9ca3af;">
-                Không tìm thấy tag nào
+                Không tìm thấy tag "${searchValue}"
             </div>
         `;
         return;
@@ -2828,30 +2845,44 @@ function populateBulkTagModalDropdown() {
     // Check which tags are already added
     const addedTagIds = new Set(bulkTagModalData.map(t => t.tagId));
 
-    dropdown.innerHTML = filteredTags.map(tag => {
+    // Limit display to first 100 tags for performance
+    const displayTags = filteredTags.slice(0, 100);
+
+    dropdown.innerHTML = displayTags.map(tag => {
         const isAdded = addedTagIds.has(tag.Id);
+        const tagName = tag.Name.replace(/'/g, "\\'").replace(/"/g, "&quot;");
         return `
             <div class="bulk-tag-search-option ${isAdded ? 'disabled' : ''}"
-                 onclick="${isAdded ? '' : `addTagToBulkTagModal('${tag.Id}', '${tag.Name.replace(/'/g, "\\'")}', '${tag.Color}')`}">
-                <span class="tag-color-dot" style="background-color: ${tag.Color}"></span>
+                 onclick="${isAdded ? '' : `addTagToBulkTagModal('${tag.Id}', '${tagName}', '${tag.Color}')`}">
+                <span class="tag-color-dot" style="background-color: ${tag.Color || '#6b7280'}"></span>
                 <span class="tag-name">${tag.Name}</span>
                 ${isAdded ? '<span class="tag-added">Đã thêm</span>' : ''}
             </div>
         `;
     }).join('');
+
+    // Show count if there are more tags
+    if (filteredTags.length > 100) {
+        dropdown.innerHTML += `
+            <div style="padding: 10px 14px; text-align: center; color: #9ca3af; font-size: 12px; border-top: 1px solid #e5e7eb;">
+                Hiển thị 100/${filteredTags.length} tag. Nhập từ khóa để lọc.
+            </div>
+        `;
+    }
+}
+
+// Show bulk tag modal dropdown (on focus)
+function showBulkTagModalDropdown() {
+    const dropdown = document.getElementById('bulkTagModalSearchDropdown');
+    populateBulkTagModalDropdown();
+    dropdown.classList.add('show');
 }
 
 // Filter bulk tag modal options based on search input
 function filterBulkTagModalOptions() {
-    const searchInput = document.getElementById('bulkTagModalSearchInput');
     const dropdown = document.getElementById('bulkTagModalSearchDropdown');
-
-    if (searchInput.value.trim()) {
-        dropdown.classList.add('show');
-        populateBulkTagModalDropdown();
-    } else {
-        dropdown.classList.remove('show');
-    }
+    populateBulkTagModalDropdown();
+    dropdown.classList.add('show');
 }
 
 // Handle keydown on search input
