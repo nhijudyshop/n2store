@@ -622,6 +622,121 @@ export default {
         }
       }
 
+      // ========== FACEBOOK GRAPH API - SEND MESSAGE WITH TAG ==========
+      // For sending messages outside 24h window using POST_PURCHASE_UPDATE tag
+      // POST /api/facebook-send
+      // Body: { pageId, psid, message, pageToken, useTag: true }
+      if (pathname === '/api/facebook-send' && request.method === 'POST') {
+        console.log('[FACEBOOK-SEND] ========================================');
+        console.log('[FACEBOOK-SEND] Received request to send message via Facebook Graph API');
+
+        try {
+          const body = await request.json();
+          const { pageId, psid, message, pageToken, useTag } = body;
+
+          // Validate required fields
+          if (!pageId || !psid || !message || !pageToken) {
+            console.error('[FACEBOOK-SEND] Missing required fields:', { pageId: !!pageId, psid: !!psid, message: !!message, pageToken: !!pageToken });
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'Missing required fields',
+              required: ['pageId', 'psid', 'message', 'pageToken'],
+              usage: 'POST /api/facebook-send with JSON body { pageId, psid, message, pageToken, useTag: true }'
+            }), {
+              status: 400,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+
+          // Build Facebook Graph API URL
+          const graphApiUrl = `https://graph.facebook.com/v21.0/${pageId}/messages`;
+          console.log('[FACEBOOK-SEND] Graph API URL:', graphApiUrl);
+
+          // Build request body for Facebook API
+          const fbBody = {
+            recipient: { id: psid },
+            message: { text: message },
+          };
+
+          // Add message tag for 24h bypass
+          if (useTag) {
+            fbBody.messaging_type = 'MESSAGE_TAG';
+            fbBody.tag = 'POST_PURCHASE_UPDATE';
+            console.log('[FACEBOOK-SEND] Using MESSAGE_TAG with POST_PURCHASE_UPDATE');
+          } else {
+            fbBody.messaging_type = 'RESPONSE';
+            console.log('[FACEBOOK-SEND] Using standard RESPONSE messaging_type');
+          }
+
+          console.log('[FACEBOOK-SEND] Request body:', JSON.stringify(fbBody, null, 2));
+
+          // Make request to Facebook Graph API
+          const fbResponse = await fetch(`${graphApiUrl}?access_token=${pageToken}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify(fbBody),
+          });
+
+          const fbResult = await fbResponse.json();
+          console.log('[FACEBOOK-SEND] Facebook API response:', JSON.stringify(fbResult));
+          console.log('[FACEBOOK-SEND] Response status:', fbResponse.status);
+          console.log('[FACEBOOK-SEND] ========================================');
+
+          // Check for errors
+          if (fbResult.error) {
+            console.error('[FACEBOOK-SEND] Facebook API error:', fbResult.error);
+            return new Response(JSON.stringify({
+              success: false,
+              error: fbResult.error.message || 'Facebook API error',
+              error_code: fbResult.error.code,
+              error_subcode: fbResult.error.error_subcode,
+              error_type: fbResult.error.type,
+              fb_trace_id: fbResult.error.fbtrace_id,
+            }), {
+              status: fbResponse.status,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+
+          // Success
+          return new Response(JSON.stringify({
+            success: true,
+            recipient_id: fbResult.recipient_id,
+            message_id: fbResult.message_id,
+            used_tag: useTag ? 'POST_PURCHASE_UPDATE' : null,
+          }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+
+        } catch (error) {
+          console.error('[FACEBOOK-SEND] Error:', error.message);
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Failed to send message via Facebook',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
       let isTPOSRequest = false;

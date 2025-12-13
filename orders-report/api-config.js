@@ -80,6 +80,15 @@ const API_CONFIG = {
         pancakeOfficial: (endpoint, pageAccessToken) => {
             const baseUrl = `${WORKER_URL}/api/pancake-official/${endpoint}`;
             return pageAccessToken ? `${baseUrl}?page_access_token=${pageAccessToken}` : baseUrl;
+        },
+
+        /**
+         * Get Facebook Send API URL (for sending messages with message_tag)
+         * Used to bypass 24h policy with POST_PURCHASE_UPDATE tag
+         * @returns {string} - Full URL via Cloudflare Worker proxy
+         */
+        facebookSend: () => {
+            return `${WORKER_URL}/api/facebook-send`;
         }
     },
 
