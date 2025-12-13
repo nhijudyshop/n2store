@@ -13575,10 +13575,24 @@ async function showMergeDuplicateOrdersModal() {
 
         // Build clusters with full product details
         mergeClustersData = clusters.map((cluster, index) => {
-            const ordersWithDetails = cluster.orders.map(order => ({
-                ...order,
-                Details: orderDetailsMap.get(order.Id)?.Details || []
-            }));
+            const ordersWithDetails = cluster.orders.map(order => {
+                const apiOrderData = orderDetailsMap.get(order.Id);
+                const finalTags = apiOrderData?.Tags !== undefined ? apiOrderData.Tags : order.Tags;
+
+                // Debug logging for tag sources
+                if (apiOrderData?.Tags !== undefined) {
+                    console.log(`[MERGE-MODAL] Order STT ${order.SessionIndex}: Using Tags from API: ${apiOrderData.Tags || '(empty)'}`);
+                } else {
+                    console.log(`[MERGE-MODAL] Order STT ${order.SessionIndex}: Using Tags from displayedData: ${order.Tags || '(empty)'}`);
+                }
+
+                return {
+                    ...order,
+                    Details: apiOrderData?.Details || [],
+                    // FIX: Lấy Tags từ API (fresh data) thay vì từ displayedData (có thể stale)
+                    Tags: finalTags
+                };
+            });
 
             // Calculate merged products preview
             const mergedProducts = calculateMergedProductsPreview(ordersWithDetails);
@@ -14519,17 +14533,32 @@ async function assignTagsAfterMerge(cluster) {
         // Step 3: Collect all tags from all orders (for target order)
         const allTags = new Map(); // Use Map to dedupe by tag Id
 
-        // Add tags from target order
+        // Helper function: Check if a tag should be excluded (merge-related tags)
+        const shouldExcludeTag = (tagName) => {
+            if (!tagName) return false;
+            // Exclude "ĐÃ GỘP KO CHỐT" tag - this is for source orders only
+            if (tagName === MERGED_ORDER_TAG_NAME) return true;
+            // Exclude old "Gộp X Y Z" tags from previous merges
+            if (tagName.startsWith('Gộp ')) return true;
+            return false;
+        };
+
+        // Add tags from target order (exclude merge-related tags)
         const targetTags = parseOrderTags(cluster.targetOrder);
         targetTags.forEach(t => {
-            if (t.Id) allTags.set(t.Id, t);
+            if (t.Id && !shouldExcludeTag(t.Name)) {
+                allTags.set(t.Id, t);
+            }
         });
+        console.log(`[MERGE-TAG] Target order tags after filter: ${targetTags.filter(t => !shouldExcludeTag(t.Name)).map(t => t.Name).join(', ') || '(none)'}`);
 
-        // Add tags from source orders
+        // Add tags from source orders (exclude merge-related tags)
         cluster.sourceOrders.forEach(sourceOrder => {
             const sourceTags = parseOrderTags(sourceOrder);
-            sourceTags.forEach(t => {
-                if (t.Id) allTags.set(t.Id, t);
+            const filteredTags = sourceTags.filter(t => t.Id && !shouldExcludeTag(t.Name));
+            console.log(`[MERGE-TAG] Source order STT ${sourceOrder.SessionIndex} tags after filter: ${filteredTags.map(t => t.Name).join(', ') || '(none)'}`);
+            filteredTags.forEach(t => {
+                allTags.set(t.Id, t);
             });
         });
 
@@ -14539,7 +14568,7 @@ async function assignTagsAfterMerge(cluster) {
         // Convert to array
         const targetOrderNewTags = Array.from(allTags.values());
 
-        console.log(`[MERGE-TAG] Target order STT ${cluster.targetOrder.SessionIndex} will have ${targetOrderNewTags.length} tags`);
+        console.log(`[MERGE-TAG] Target order STT ${cluster.targetOrder.SessionIndex} will have ${targetOrderNewTags.length} tags: ${targetOrderNewTags.map(t => t.Name).join(', ')}`);
 
         // Step 4: Assign tags to target order
         await assignTagsToOrder(cluster.targetOrder.Id, targetOrderNewTags);
