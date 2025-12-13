@@ -3749,6 +3749,10 @@
                     <label class="sale-label">Giao hàng thu tiền</label>
                     <input type="number" id="saleCOD" class="sale-input" value="0" style="width: 100%;">
                 </div>
+                <div style="min-width: 120px;">
+                    <label class="sale-label">Còn phải trả</label>
+                    <span id="saleRemainingBalance" style="display: block; font-weight: 600; font-size: 14px; color: #ef4444; padding: 8px 12px; background: #fef2f2; border-radius: 4px; border: 1px solid #fecaca;">0</span>
+                </div>
             </div>
 
             <!-- Tabs (only Receiver tab visible) -->
@@ -3889,18 +3893,6 @@
                                 <button id="confirmDebtBtn" class="sale-btn sale-btn-teal"
                                     style="display: none; padding: 6px 12px; font-size: 12px;"
                                     onclick="confirmDebtUpdate()">Xác nhận</button>
-                            </div>
-                        </div>
-                        <div>
-                            <!--
-                                saleRemainingBalance: Còn lại - Số tiền còn lại cần thu
-                                Logic:
-                                - Nếu Trả trước > COD: Còn lại = 0
-                                - Nếu Trả trước < COD: Còn lại = COD - Trả trước
-                            -->
-                            <label class="sale-label">Còn lại</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <span id="saleRemainingBalance" style="font-weight: 600; font-size: 14px; color: #ef4444; min-width: 100px;">0</span>
                             </div>
                         </div>
                     </div>
