@@ -957,9 +957,10 @@ class PancakeTokenManager {
     /**
      * Generate new page_access_token via Pancake API
      * @param {string} pageId - Page ID
+     * @param {boolean} isRetry - Is this a retry attempt
      * @returns {Promise<string|null>} - New token or null
      */
-    async generatePageAccessToken(pageId) {
+    async generatePageAccessToken(pageId, isRetry = false) {
         try {
             if (!this.currentToken) {
                 throw new Error('Cần đăng nhập Pancake trước');
@@ -997,6 +998,27 @@ class PancakeTokenManager {
                 await this.savePageAccessToken(pageId, result.page_access_token);
                 return result.page_access_token;
             } else {
+                // Check if session expired - try to refresh token and retry once
+                const errorMsg = (result.message || '').toLowerCase();
+                if (!isRetry && (errorMsg.includes('session expired') || errorMsg.includes('login') || errorMsg.includes('unauthorized'))) {
+                    console.log('[PANCAKE-TOKEN] ⚠️ Session expired, attempting to refresh token...');
+
+                    // Clear memory cache
+                    this.currentToken = null;
+                    this.currentTokenExpiry = null;
+
+                    // Clear localStorage cache
+                    try {
+                        localStorage.removeItem('pancake_token');
+                    } catch (e) {}
+
+                    // Try to get fresh token from cookie or Firebase
+                    const freshToken = await this.getToken();
+                    if (freshToken) {
+                        console.log('[PANCAKE-TOKEN] 🔄 Got fresh token, retrying...');
+                        return await this.generatePageAccessToken(pageId, true);
+                    }
+                }
                 throw new Error(result.message || 'Failed to generate token');
             }
         } catch (error) {
