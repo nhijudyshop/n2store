@@ -4479,7 +4479,7 @@ function createRowHTML(order) {
         try {
             const tags = JSON.parse(order.Tags);
             if (Array.isArray(tags)) {
-                tagsHTML = renderOrderTagsHTML(order.Tags, order.Id, order.Code);
+                tagsHTML = parseOrderTags(order.Tags, order.Id, order.Code);
             }
         } catch (e) { }
     }
@@ -4966,7 +4966,7 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
         </td>`;
 }
 
-function renderOrderTagsHTML(tagsJson, orderId, orderCode) {
+function parseOrderTags(tagsJson, orderId, orderCode) {
     try {
         const tags = JSON.parse(tagsJson);
         if (!Array.isArray(tags) || tags.length === 0) return "";
@@ -14899,69 +14899,22 @@ async function assignTagsToOrder(orderId, tags) {
 
 /**
  * Assign tags after successful merge
- * IMPORTANT: This function fetches FRESH order data from API to avoid stale data issues.
- * Tags are assigned to TARGET order FIRST, then SOURCE orders, to ensure all tags
- * from source orders are transferred to target before source orders are modified.
- *
  * @param {Object} cluster - Cluster data with orders, targetOrder, sourceOrders
  * @returns {Promise<Object>} Result of tag assignment
  */
 async function assignTagsAfterMerge(cluster) {
     try {
-        console.log('[MERGE-TAG] ═══════════════════════════════════════════════════════');
         console.log('[MERGE-TAG] Starting tag assignment for cluster:', cluster.phone);
-        console.log('[MERGE-TAG] Target order ID:', cluster.targetOrder.Id, 'STT:', cluster.targetOrder.SessionIndex);
-        console.log('[MERGE-TAG] Source order IDs:', cluster.sourceOrders.map(o => `${o.Id} (STT ${o.SessionIndex})`).join(', '));
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // STEP 1: Fetch FRESH order data from API for ALL orders (target + sources)
-        // This ensures we have the latest Tags, avoiding stale data from modal
-        // ═══════════════════════════════════════════════════════════════════════════
-        console.log('[MERGE-TAG] Step 1: Fetching fresh order data from API...');
-
-        const allOrderIds = [cluster.targetOrder.Id, ...cluster.sourceOrders.map(o => o.Id)];
-        const freshOrdersMap = new Map();
-
-        for (const orderId of allOrderIds) {
-            try {
-                const freshData = await getOrderDetails(orderId);
-                freshOrdersMap.set(orderId, freshData);
-                console.log(`[MERGE-TAG] ✓ Fetched fresh data for order ${orderId}: Tags = ${freshData.Tags || '(empty)'}`);
-            } catch (fetchError) {
-                console.warn(`[MERGE-TAG] ⚠ Could not fetch fresh data for order ${orderId}, using cached data`);
-                // Fallback to cluster data
-                const cachedOrder = cluster.orders.find(o => o.Id === orderId);
-                if (cachedOrder) {
-                    freshOrdersMap.set(orderId, cachedOrder);
-                }
-            }
-        }
-
-        // Get fresh order objects
-        const freshTargetOrder = freshOrdersMap.get(cluster.targetOrder.Id) || cluster.targetOrder;
-        const freshSourceOrders = cluster.sourceOrders.map(o => freshOrdersMap.get(o.Id) || o);
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // STEP 2: Ensure required tags exist
-        // ═══════════════════════════════════════════════════════════════════════════
-        console.log('[MERGE-TAG] Step 2: Ensuring required tags exist...');
-
-        // Ensure "ĐÃ GỘP KO CHỐT" tag exists
+        // Step 1: Ensure "ĐÃ GỘP KO CHỐT" tag exists
         const mergedTag = await ensureMergeTagExists(MERGED_ORDER_TAG_NAME, MERGE_TAG_COLOR);
-        console.log(`[MERGE-TAG] ✓ "${MERGED_ORDER_TAG_NAME}" tag ready, Id: ${mergedTag.Id}`);
 
-        // Create "Gộp X Y Z" tag
+        // Step 2: Create "Gộp X Y Z" tag
         const allSTTs = cluster.orders.map(o => o.SessionIndex).sort((a, b) => a - b);
         const mergeTagName = `Gộp ${allSTTs.join(' ')}`;
         const mergeGroupTag = await ensureMergeTagExists(mergeTagName, MERGE_TAG_COLOR);
-        console.log(`[MERGE-TAG] ✓ "${mergeTagName}" tag ready, Id: ${mergeGroupTag.Id}`);
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // STEP 3: Collect all tags from ALL orders (using FRESH data)
-        // Target order will receive all tags from target + all sources
-        // ═══════════════════════════════════════════════════════════════════════════
-        console.log('[MERGE-TAG] Step 3: Collecting tags from all orders (fresh data)...');
-
+        // Step 3: Collect all tags from all orders (for target order)
         const allTags = new Map(); // Use Map to dedupe by tag Id
 
         // Helper function: Check if a tag should be excluded (merge-related tags)
@@ -14974,21 +14927,20 @@ async function assignTagsAfterMerge(cluster) {
             return false;
         };
 
-        // Add tags from FRESH target order data (exclude merge-related tags)
-        const targetTags = parseOrderTags(freshTargetOrder);
-        const filteredTargetTags = targetTags.filter(t => t.Id && !shouldExcludeTag(t.Name));
-        filteredTargetTags.forEach(t => {
-            allTags.set(t.Id, t);
+        // Add tags from target order (exclude merge-related tags)
+        const targetTags = parseOrderTags(cluster.targetOrder);
+        targetTags.forEach(t => {
+            if (t.Id && !shouldExcludeTag(t.Name)) {
+                allTags.set(t.Id, t);
+            }
         });
-        console.log(`[MERGE-TAG] Target STT ${cluster.targetOrder.SessionIndex} tags (fresh): ${filteredTargetTags.map(t => t.Name).join(', ') || '(none)'}`);
+        console.log(`[MERGE-TAG] Target order tags after filter: ${targetTags.filter(t => !shouldExcludeTag(t.Name)).map(t => t.Name).join(', ') || '(none)'}`);
 
-        // Add tags from FRESH source orders data (exclude merge-related tags)
-        // CRITICAL: Collect all tags from ALL source orders BEFORE modifying any of them
-        freshSourceOrders.forEach((sourceOrder, idx) => {
-            const originalSourceOrder = cluster.sourceOrders[idx];
+        // Add tags from source orders (exclude merge-related tags)
+        cluster.sourceOrders.forEach(sourceOrder => {
             const sourceTags = parseOrderTags(sourceOrder);
             const filteredTags = sourceTags.filter(t => t.Id && !shouldExcludeTag(t.Name));
-            console.log(`[MERGE-TAG] Source STT ${originalSourceOrder.SessionIndex} tags (fresh): ${filteredTags.map(t => t.Name).join(', ') || '(none)'}`);
+            console.log(`[MERGE-TAG] Source order STT ${sourceOrder.SessionIndex} tags after filter: ${filteredTags.map(t => t.Name).join(', ') || '(none)'}`);
             filteredTags.forEach(t => {
                 allTags.set(t.Id, t);
             });
@@ -15000,42 +14952,22 @@ async function assignTagsAfterMerge(cluster) {
         // Convert to array
         const targetOrderNewTags = Array.from(allTags.values());
 
-        console.log('[MERGE-TAG] ───────────────────────────────────────────────────────');
-        console.log(`[MERGE-TAG] FINAL: Target STT ${cluster.targetOrder.SessionIndex} will receive ${targetOrderNewTags.length} tags:`);
-        targetOrderNewTags.forEach((t, i) => {
-            console.log(`[MERGE-TAG]   ${i + 1}. "${t.Name}" (Id: ${t.Id})`);
-        });
-        console.log('[MERGE-TAG] ───────────────────────────────────────────────────────');
+        console.log(`[MERGE-TAG] Target order STT ${cluster.targetOrder.SessionIndex} will have ${targetOrderNewTags.length} tags: ${targetOrderNewTags.map(t => t.Name).join(', ')}`);
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // STEP 4: Assign tags to TARGET order FIRST
-        // IMPORTANT: Target must be assigned BEFORE any source modifications
-        // This ensures all tags from sources are captured before sources change
-        // ═══════════════════════════════════════════════════════════════════════════
-        console.log('[MERGE-TAG] Step 4: Assigning tags to TARGET order FIRST...');
-
+        // Step 4: Assign tags to target order
         await assignTagsToOrder(cluster.targetOrder.Id, targetOrderNewTags);
-        console.log(`[MERGE-TAG] ✅ SUCCESS: Assigned ${targetOrderNewTags.length} tags to TARGET order STT ${cluster.targetOrder.SessionIndex}`);
+        console.log(`[MERGE-TAG] ✅ Assigned ${targetOrderNewTags.length} tags to target order STT ${cluster.targetOrder.SessionIndex}`);
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // STEP 5: Assign "ĐÃ GỘP KO CHỐT" tag to SOURCE orders AFTER target is done
-        // This clears all existing tags from sources and replaces with merge marker
-        // ═══════════════════════════════════════════════════════════════════════════
-        console.log('[MERGE-TAG] Step 5: Assigning tags to SOURCE orders (after target done)...');
-
+        // Step 5: Assign only "ĐÃ GỘP KO CHỐT" tag to source orders (clear all existing)
         const sourceOnlyTags = [mergedTag];
 
         for (const sourceOrder of cluster.sourceOrders) {
             await assignTagsToOrder(sourceOrder.Id, sourceOnlyTags);
-            console.log(`[MERGE-TAG] ✅ SUCCESS: Assigned "${MERGED_ORDER_TAG_NAME}" to SOURCE order STT ${sourceOrder.SessionIndex}`);
+            console.log(`[MERGE-TAG] ✅ Assigned "${MERGED_ORDER_TAG_NAME}" to source order STT ${sourceOrder.SessionIndex}`);
         }
 
         // Clear cache
         window.cacheManager.clear("orders");
-
-        console.log('[MERGE-TAG] ═══════════════════════════════════════════════════════');
-        console.log('[MERGE-TAG] ✅ Tag assignment completed successfully for cluster:', cluster.phone);
-        console.log('[MERGE-TAG] ═══════════════════════════════════════════════════════');
 
         return {
             success: true,
@@ -15045,7 +14977,7 @@ async function assignTagsAfterMerge(cluster) {
         };
 
     } catch (error) {
-        console.error('[MERGE-TAG] ❌ Error assigning tags:', error);
+        console.error('[MERGE-TAG] Error assigning tags:', error);
         return {
             success: false,
             error: error.message
