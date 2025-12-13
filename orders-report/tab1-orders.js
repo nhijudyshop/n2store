@@ -3232,14 +3232,17 @@ async function executeBulkTagModalAssignment() {
                     }
                 ];
 
-                // Call API to assign tag
+                // Call API to assign tag (using tokenManager and smartFetch like the existing bulk tag)
                 try {
-                    const response = await fetch(
+                    const headers = await window.tokenManager.getAuthHeader();
+                    const response = await API_CONFIG.smartFetch(
                         "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
                         {
                             method: "POST",
                             headers: {
+                                ...headers,
                                 "Content-Type": "application/json",
+                                Accept: "application/json"
                             },
                             body: JSON.stringify({
                                 Tags: updatedTags,
