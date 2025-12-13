@@ -430,10 +430,16 @@ function handleRealtimeTagUpdate(updateData, source) {
 
     console.log('[TAG-REALTIME] Normalized tags:', normalizedTags);
 
-    // Check if this order is in current view
-    const orderExists = allData.find(o => o.Id === orderId);
-    if (!orderExists) {
-        console.log('[TAG-REALTIME] Order not in current view, skipping update');
+    // ✅ FIX SCROLL ISSUE: Check if order is in DISPLAYED data (after employee filter)
+    // This prevents unnecessary re-renders for orders not in current user's view
+    const orderInDisplayed = displayedData.find(o => o.Id === orderId);
+    if (!orderInDisplayed) {
+        console.log('[TAG-REALTIME] Order not in displayed data (not my range), skipping update');
+        // Still update allData silently for data consistency
+        const indexInAll = allData.findIndex(o => o.Id === orderId);
+        if (indexInAll !== -1) {
+            allData[indexInAll].Tags = JSON.stringify(normalizedTags);
+        }
         return;
     }
 
@@ -445,41 +451,111 @@ function handleRealtimeTagUpdate(updateData, source) {
         const modal = document.getElementById('tagModal');
         if (modal && modal.style.display !== 'none') {
             closeTagModal();
-
-            // DISABLED: Removed notification
-            // if (window.notificationManager) {
-            //     window.notificationManager.show(
-            //         `⚠️ ${updatedBy} vừa cập nhật TAG cho đơn ${orderCode} (STT: ${STT}). Modal đã được đóng để tránh conflict.`,
-            //         'warning',
-            //         6000
-            //     );
-            // }
         }
     }
 
-    // Update order in table (use normalizedTags)
-    const updatedOrderData = { Tags: JSON.stringify(normalizedTags) };
-    updateOrderInTable(orderId, updatedOrderData);
+    // ✅ Check if user is filtering by TAG
+    const tagFilter = document.getElementById('tagFilter')?.value || 'all';
+    if (tagFilter !== 'all') {
+        // User is filtering by specific tag - show notification instead of re-rendering
+        console.log('[TAG-REALTIME] User is filtering by TAG, showing refresh notification');
 
-    // DISABLED: Removed notification
-    // Show notification
-    // const sourceIcon = source === 'firebase' ? '🔥' : '⚡';
-    // let message;
+        // Update data arrays silently
+        const tagsJson = JSON.stringify(normalizedTags);
+        const indexInAll = allData.findIndex(o => o.Id === orderId);
+        if (indexInAll !== -1) allData[indexInAll].Tags = tagsJson;
+        const indexInFiltered = filteredData.findIndex(o => o.Id === orderId);
+        if (indexInFiltered !== -1) filteredData[indexInFiltered].Tags = tagsJson;
+        const indexInDisplayed = displayedData.findIndex(o => o.Id === orderId);
+        if (indexInDisplayed !== -1) displayedData[indexInDisplayed].Tags = tagsJson;
 
-    // if (normalizedTags.length === 0) {
-    //     // Case: All tags removed
-    //     message = `${sourceIcon} ${updatedBy} đã xóa hết TAG cho đơn ${orderCode} (STT: ${STT})`;
-    // } else {
-    //     // Case: Tags added/updated
-    //     const tagNames = normalizedTags.map(t => t.Name).join(', ');
-    //     message = `${sourceIcon} ${updatedBy} đã cập nhật TAG cho đơn ${orderCode} (STT: ${STT}): ${tagNames}`;
-    // }
+        // Show notification to refresh
+        if (window.notificationManager) {
+            window.notificationManager.show(
+                `Có nhân viên cập nhật tag mới, vui lòng F5 lại bảng để xem thay đổi.`,
+                'warning',
+                5000
+            );
+        }
+        return;
+    }
 
-    // if (window.notificationManager) {
-    //     window.notificationManager.show(message, 'info', 4000);
-    // } else {
-    //     console.log('[TAG-REALTIME] Notification:', message);
-    // }
+    // ✅ Order is in displayed data and no TAG filter active
+    // Update only the TAG cell without re-rendering entire table (preserves scroll)
+    updateTagCellOnly(orderId, orderCode, normalizedTags);
+}
+
+/**
+ * Update only the TAG cell in DOM without re-rendering entire table
+ * This preserves scroll position when realtime tag updates occur
+ */
+function updateTagCellOnly(orderId, orderCode, tags) {
+    console.log('[TAG-REALTIME] Updating only TAG cell for order:', orderId);
+
+    // 1. Update data arrays first
+    const tagsJson = JSON.stringify(tags);
+
+    const indexInAll = allData.findIndex(order => order.Id === orderId);
+    if (indexInAll !== -1) {
+        allData[indexInAll].Tags = tagsJson;
+    }
+
+    const indexInFiltered = filteredData.findIndex(order => order.Id === orderId);
+    if (indexInFiltered !== -1) {
+        filteredData[indexInFiltered].Tags = tagsJson;
+    }
+
+    const indexInDisplayed = displayedData.findIndex(order => order.Id === orderId);
+    if (indexInDisplayed !== -1) {
+        displayedData[indexInDisplayed].Tags = tagsJson;
+    }
+
+    // 2. Find the row in DOM by checkbox value
+    const checkbox = document.querySelector(`#tableBody input[type="checkbox"][value="${orderId}"]`);
+    if (!checkbox) {
+        // Order might be in employee section tables
+        const allCheckboxes = document.querySelectorAll(`input[type="checkbox"][value="${orderId}"]`);
+        if (allCheckboxes.length === 0) {
+            console.log('[TAG-REALTIME] Row not found in DOM, skipping cell update');
+            return;
+        }
+    }
+
+    const row = checkbox ? checkbox.closest('tr') : document.querySelector(`input[type="checkbox"][value="${orderId}"]`)?.closest('tr');
+    if (!row) {
+        console.log('[TAG-REALTIME] Row not found in DOM');
+        return;
+    }
+
+    // 3. Find the TAG cell
+    const tagCell = row.querySelector('td[data-column="tag"]');
+    if (!tagCell) {
+        console.log('[TAG-REALTIME] TAG cell not found');
+        return;
+    }
+
+    // 4. Generate new tag HTML
+    const tagsHTML = parseOrderTags(tagsJson, orderId, orderCode);
+
+    // 5. Update only the tag cell content (preserve buttons)
+    tagCell.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+            <div style="display: flex; gap: 2px;">
+                <button class="tag-icon-btn" onclick="openTagModal('${orderId}', '${orderCode}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
+                    <i class="fas fa-tags"></i>
+                </button>
+                <button class="quick-tag-btn" onclick="quickAssignTag('${orderId}', '${orderCode}', 'xử lý'); event.stopPropagation();" title="Xử lý + định danh">
+                    <i class="fas fa-clock"></i>
+                </button>
+                <button class="quick-tag-btn quick-tag-ok" onclick="quickAssignTag('${orderId}', '${orderCode}', 'ok'); event.stopPropagation();" title="OK + định danh">
+                    <i class="fas fa-check"></i>
+                </button>
+            </div>
+            ${tagsHTML}
+        </div>
+    `;
+
+    console.log('[TAG-REALTIME] ✓ TAG cell updated successfully (no scroll change)');
 }
 
 /**
