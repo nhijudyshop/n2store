@@ -1,5 +1,0 @@
-{
-  "name": "chatomni-proxy",
-  "compatibility_date": "2025-11-27",
-  "main": "worker.js"
-}

@@ -957,10 +957,9 @@ class PancakeTokenManager {
     /**
      * Generate new page_access_token via Pancake API
      * @param {string} pageId - Page ID
-     * @param {boolean} isRetry - Is this a retry attempt
      * @returns {Promise<string|null>} - New token or null
      */
-    async generatePageAccessToken(pageId, isRetry = false) {
+    async generatePageAccessToken(pageId) {
         try {
             if (!this.currentToken) {
                 throw new Error('Cần đăng nhập Pancake trước');
@@ -998,52 +997,6 @@ class PancakeTokenManager {
                 await this.savePageAccessToken(pageId, result.page_access_token);
                 return result.page_access_token;
             } else {
-                // Check if session expired - try to refresh token and retry once
-                const errorMsg = (result.message || '').toLowerCase();
-                if (!isRetry && (errorMsg.includes('session expired') || errorMsg.includes('login') || errorMsg.includes('unauthorized'))) {
-                    console.log('[PANCAKE-TOKEN] ⚠️ Session expired, attempting to refresh token...');
-
-                    // Clear memory cache
-                    this.currentToken = null;
-                    this.currentTokenExpiry = null;
-
-                    // Clear localStorage cache
-                    try {
-                        localStorage.removeItem('pancake_token');
-                    } catch (e) {}
-
-                    // Try to get fresh token - prioritize COOKIE first (may have newer token if user re-logged in)
-                    let freshToken = null;
-
-                    // 1. Check cookie first (most likely to have fresh token)
-                    const cookieToken = this.getTokenFromCookie();
-                    if (cookieToken) {
-                        const payload = this.decodeToken(cookieToken);
-                        if (payload && !this.isTokenExpired(payload.exp)) {
-                            console.log('[PANCAKE-TOKEN] 🔄 Got fresh token from COOKIE');
-                            this.currentToken = cookieToken;
-                            this.currentTokenExpiry = payload.exp;
-                            freshToken = cookieToken;
-                            // Save to Firebase for future use
-                            await this.saveTokenToFirebase(cookieToken);
-                        }
-                    }
-
-                    // 2. If no cookie token, try Firebase
-                    if (!freshToken) {
-                        freshToken = await this.getTokenFromFirebase();
-                        if (freshToken) {
-                            console.log('[PANCAKE-TOKEN] 🔄 Got fresh token from FIREBASE');
-                        }
-                    }
-
-                    if (freshToken) {
-                        console.log('[PANCAKE-TOKEN] 🔄 Retrying with fresh token...');
-                        return await this.generatePageAccessToken(pageId, true);
-                    } else {
-                        console.error('[PANCAKE-TOKEN] ❌ No fresh token available. Please login to Pancake again.');
-                    }
-                }
                 throw new Error(result.message || 'Failed to generate token');
             }
         } catch (error) {
