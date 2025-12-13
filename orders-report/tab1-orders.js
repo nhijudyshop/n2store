@@ -11158,12 +11158,14 @@ function setupRealtimeMessages() {
     window.addEventListener('realtimeConversationUpdate', window.realtimeMessagesHandler);
     console.log('[REALTIME-MSG] WebSocket event listener added');
 
-    // 2. Start polling as backup (Facebook Graph API)
-    startRealtimePolling();
+    // 2. Start polling as backup (only if WebSocket is not connected)
+    // Polling is disabled by default since we have WebSocket realtime
+    // startRealtimePolling();
 }
 
 /**
  * Handle realtime conversation update from WebSocket
+ * Trực tiếp lấy tin nhắn từ WebSocket payload, không cần gọi API
  * @param {CustomEvent} event - Event with conversation data
  */
 async function handleRealtimeConversationEvent(event) {
@@ -11181,14 +11183,57 @@ async function handleRealtimeConversationEvent(event) {
          (conversation.from?.id === currentPSID || conversation.from_psid === currentPSID));
 
     if (!isMatchingConv) {
-        console.log('[REALTIME-MSG] Update for different conversation, ignoring');
+        // Log quietly - this is expected for updates to other conversations
         return;
     }
 
-    console.log('[REALTIME-MSG] Received update for current conversation:', conversation.id);
+    console.log('[REALTIME-MSG] ⚡ Received realtime update for current conversation:', conversation.id);
 
-    // Fetch latest messages
-    await fetchAndUpdateMessages();
+    // Try to get the new message directly from WebSocket payload
+    const lastMessage = conversation.last_message || conversation.message;
+
+    if (lastMessage && lastMessage.id) {
+        // Check if this message already exists
+        const existingIds = new Set(window.allChatMessages.map(m => m.id || m.Id));
+
+        if (!existingIds.has(lastMessage.id)) {
+            console.log('[REALTIME-MSG] ⚡ Adding message directly from WebSocket:', lastMessage.id);
+
+            // Add the new message directly (instant realtime!)
+            window.allChatMessages.push(lastMessage);
+
+            // Update timestamp
+            window.lastMessageTimestamp = lastMessage.inserted_at || lastMessage.created_time;
+
+            // Check if user is at bottom before updating
+            const modalBody = document.getElementById('chatModalBody');
+            const wasAtBottom = modalBody &&
+                (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
+
+            // Re-render messages
+            renderChatMessages(window.allChatMessages, wasAtBottom);
+
+            // Show indicator if not at bottom
+            if (!wasAtBottom) {
+                showNewMessageIndicator();
+            }
+
+            // Play notification sound
+            playNewMessageSound();
+
+            return; // Done - no need to call API
+        } else {
+            console.log('[REALTIME-MSG] Message already exists:', lastMessage.id);
+            return;
+        }
+    }
+
+    // Fallback: If last_message not in payload, check snippet
+    // This means we only got a notification, need to fetch the full message
+    if (conversation.snippet) {
+        console.log('[REALTIME-MSG] WebSocket has snippet but not full message, fetching via API...');
+        await fetchAndUpdateMessages();
+    }
 }
 
 /**
