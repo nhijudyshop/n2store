@@ -278,6 +278,12 @@
                 <i class="fas fa-compress-arrows-alt"></i>
                 Gộp sản phẩm đơn trùng SĐT
             </button>
+            <button class="btn-primary" id="bulkTagModalBtn" onclick="showBulkTagModal()"
+                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%)"
+                title="Gán tag hàng loạt cho nhiều đơn hàng">
+                <i class="fas fa-tags"></i>
+                Gán Tag Hàng Loạt
+            </button>
             <div
                 style="display: flex; align-items: center; gap: 8px; margin-left: 12px; background: #f3f4f6; padding: 4px 8px; border-radius: 8px; border: 1px solid #e5e7eb;">
                 <div style="display: flex; align-items: center; gap: 6px;">
@@ -2365,6 +2371,111 @@
             <!-- Footer -->
             <div class="merge-modal-footer">
                 <button class="merge-btn-cancel" onclick="closeMergeHistoryModal()">
+                    <i class="fas fa-times"></i> Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Tag Modal -->
+    <div class="bulk-tag-modal" id="bulkTagModal">
+        <div class="bulk-tag-modal-content">
+            <!-- Header -->
+            <div class="bulk-tag-modal-header">
+                <div class="bulk-tag-header-info">
+                    <h3><i class="fas fa-tags"></i> Gán Tag Hàng Loạt</h3>
+                    <p id="bulkTagModalSubtitle">Thêm tag và nhập STT đơn hàng tương ứng</p>
+                </div>
+                <div class="bulk-tag-header-actions">
+                    <button class="bulk-tag-history-btn" onclick="showBulkTagHistoryModal()" title="Xem lịch sử gán tag">
+                        <i class="fas fa-history"></i> Lịch sử
+                    </button>
+                    <button class="bulk-tag-modal-close" onclick="closeBulkTagModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search and Controls -->
+            <div class="bulk-tag-search-section">
+                <div class="bulk-tag-search-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="bulkTagModalSearchInput" placeholder="Tìm kiếm tag (nhập tên tag)..."
+                        oninput="filterBulkTagModalOptions()" onkeydown="handleBulkTagModalSearchKeydown(event)">
+                    <div class="bulk-tag-search-dropdown" id="bulkTagModalSearchDropdown">
+                        <!-- Tag options will be populated here -->
+                    </div>
+                </div>
+                <button class="bulk-tag-clear-all-btn" onclick="clearAllBulkTagRows()" title="Xóa tất cả tag">
+                    <i class="fas fa-trash-alt"></i> Xóa tất cả
+                </button>
+            </div>
+
+            <!-- Select All Checkbox -->
+            <div class="bulk-tag-select-all-row">
+                <label class="bulk-tag-select-all-label">
+                    <input type="checkbox" id="bulkTagSelectAllCheckbox" onchange="toggleBulkTagSelectAll(this.checked)">
+                    <span>Chọn tất cả</span>
+                </label>
+                <span class="bulk-tag-count" id="bulkTagRowCount">0 tag đã thêm</span>
+            </div>
+
+            <!-- Body - Tag Table -->
+            <div class="bulk-tag-modal-body" id="bulkTagModalBody">
+                <div class="bulk-tag-table">
+                    <div class="bulk-tag-table-header">
+                        <div class="bulk-tag-col-tag">Tag cần gán</div>
+                        <div class="bulk-tag-col-stt">STT Đơn Hàng</div>
+                        <div class="bulk-tag-col-action">Thao tác</div>
+                    </div>
+                    <div class="bulk-tag-table-body" id="bulkTagTableBody">
+                        <div class="bulk-tag-empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>Chưa có tag nào được thêm. Hãy tìm kiếm và thêm tag.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bulk-tag-modal-footer">
+                <button class="bulk-tag-btn-cancel" onclick="closeBulkTagModal()">
+                    <i class="fas fa-times"></i> Hủy
+                </button>
+                <button class="bulk-tag-btn-confirm" id="bulkTagConfirmBtn" onclick="executeBulkTagModalAssignment()">
+                    <i class="fas fa-check"></i> Gán Tag Đã Chọn
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Tag History Modal -->
+    <div class="bulk-tag-modal" id="bulkTagHistoryModal">
+        <div class="bulk-tag-modal-content" style="max-width: 1000px;">
+            <!-- Header -->
+            <div class="bulk-tag-modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                <div class="bulk-tag-header-info">
+                    <h3><i class="fas fa-history"></i> Lịch Sử Gán Tag Hàng Loạt</h3>
+                    <p id="bulkTagHistoryModalSubtitle">Xem lại các lần gán tag trước đây</p>
+                </div>
+                <div class="bulk-tag-header-actions">
+                    <button class="bulk-tag-modal-close" onclick="closeBulkTagHistoryModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body - History List -->
+            <div class="bulk-tag-modal-body" id="bulkTagHistoryModalBody">
+                <div class="bulk-tag-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Đang tải lịch sử...</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bulk-tag-modal-footer">
+                <button class="bulk-tag-btn-cancel" onclick="closeBulkTagHistoryModal()">
                     <i class="fas fa-times"></i> Đóng
                 </button>
             </div>
