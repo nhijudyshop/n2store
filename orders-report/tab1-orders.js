@@ -4479,7 +4479,7 @@ function createRowHTML(order) {
         try {
             const tags = JSON.parse(order.Tags);
             if (Array.isArray(tags)) {
-                tagsHTML = parseOrderTags(order.Tags, order.Id, order.Code);
+                tagsHTML = renderOrderTagsHTML(order.Tags, order.Id, order.Code);
             }
         } catch (e) { }
     }
@@ -4966,7 +4966,7 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
         </td>`;
 }
 
-function parseOrderTags(tagsJson, orderId, orderCode) {
+function renderOrderTagsHTML(tagsJson, orderId, orderCode) {
     try {
         const tags = JSON.parse(tagsJson);
         if (!Array.isArray(tags) || tags.length === 0) return "";
