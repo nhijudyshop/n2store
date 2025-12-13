@@ -7833,6 +7833,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 CommentId: window.purchaseCommentId
             });
 
+            // Store CRMTeam for Facebook_PageToken access (for 24h bypass)
+            window.currentCRMTeam = fullOrderData.CRMTeam || null;
+            if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
+                console.log('[CHAT] CRMTeam loaded with Facebook_PageToken');
+            }
+
             // Store order details for products display
             currentChatOrderDetails = fullOrderData.Details ? JSON.parse(JSON.stringify(fullOrderData.Details)) : [];
             console.log('[CHAT] Order details loaded:', currentChatOrderDetails.length, 'products');
@@ -9517,6 +9523,258 @@ async function tryPancakeUnlock(pageId, conversationId) {
 }
 
 /**
+ * Send message via Facebook Graph API with POST_PURCHASE_UPDATE message tag
+ * Used to bypass 24h policy when normal Pancake API fails
+ * @param {object} params - Message parameters
+ * @param {string} params.pageId - Facebook Page ID
+ * @param {string} params.psid - Facebook PSID of recipient
+ * @param {string} params.message - Message text to send
+ * @returns {Promise<{success: boolean, error?: string, messageId?: string}>}
+ */
+async function sendMessageViaFacebookTag(params) {
+    const { pageId, psid, message } = params;
+
+    console.log('[FB-TAG-SEND] ========================================');
+    console.log('[FB-TAG-SEND] Attempting to send message via Facebook Graph API with POST_PURCHASE_UPDATE tag');
+    console.log('[FB-TAG-SEND] Page ID:', pageId, 'PSID:', psid);
+
+    try {
+        // Get Facebook Page Token from TPOS CRMTeam data (expanded in order)
+        // This token is different from Pancake's page_access_token
+        let facebookPageToken = null;
+
+        // Source 1: Try from window.currentCRMTeam (set when chat modal opens)
+        if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
+            facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
+            console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from window.currentCRMTeam');
+        }
+
+        // Source 2: Try to get from current order's CRMTeam (if already loaded)
+        if (!facebookPageToken && window.currentOrder && window.currentOrder.CRMTeam && window.currentOrder.CRMTeam.Facebook_PageToken) {
+            facebookPageToken = window.currentOrder.CRMTeam.Facebook_PageToken;
+            console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from currentOrder.CRMTeam');
+        }
+
+        // Source 3: Try from cachedChannelsData
+        if (!facebookPageToken && window.cachedChannelsData) {
+            const channel = window.cachedChannelsData.find(ch =>
+                String(ch.ChannelId) === String(pageId) ||
+                String(ch.Facebook_AccountId) === String(pageId)
+            );
+            if (channel && channel.Facebook_PageToken) {
+                facebookPageToken = channel.Facebook_PageToken;
+                console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from cached channels');
+            }
+        }
+
+        // Source 4: Fetch order data with CRMTeam expand (fallback)
+        if (!facebookPageToken && window.currentOrder && window.currentOrder.Id) {
+            console.log('[FB-TAG-SEND] Token not in cache, fetching from order API...');
+            try {
+                const orderId = window.currentOrder.Id;
+                const orderUrl = `${window.API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=CRMTeam`;
+                const response = await fetch(orderUrl, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.CRMTeam && data.CRMTeam.Facebook_PageToken) {
+                        facebookPageToken = data.CRMTeam.Facebook_PageToken;
+                        console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from order API');
+                    }
+                }
+            } catch (fetchError) {
+                console.warn('[FB-TAG-SEND] ⚠️ Could not fetch order from TPOS:', fetchError.message);
+            }
+        }
+
+        if (!facebookPageToken) {
+            console.error('[FB-TAG-SEND] ❌ No Facebook Page Token found for page:', pageId);
+            return {
+                success: false,
+                error: 'Không tìm thấy Facebook Page Token. Token này khác với Pancake token và cần được thiết lập trong TPOS.'
+            };
+        }
+
+        // Call Facebook Send API via our worker proxy
+        const facebookSendUrl = window.API_CONFIG.buildUrl.facebookSend();
+        console.log('[FB-TAG-SEND] Calling:', facebookSendUrl);
+
+        const requestBody = {
+            pageId: pageId,
+            psid: psid,
+            message: message,
+            pageToken: facebookPageToken,
+            useTag: true // Use POST_PURCHASE_UPDATE tag
+        };
+
+        const response = await fetch(facebookSendUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        const result = await response.json();
+        console.log('[FB-TAG-SEND] Response:', result);
+        console.log('[FB-TAG-SEND] ========================================');
+
+        if (result.success) {
+            console.log('[FB-TAG-SEND] ✅ Message sent successfully via Facebook Graph API!');
+            console.log('[FB-TAG-SEND] Message ID:', result.message_id);
+            console.log('[FB-TAG-SEND] Used tag:', result.used_tag);
+            return {
+                success: true,
+                messageId: result.message_id,
+                recipientId: result.recipient_id,
+                usedTag: result.used_tag
+            };
+        } else {
+            console.error('[FB-TAG-SEND] ❌ Facebook API error:', result.error);
+            return {
+                success: false,
+                error: result.error || 'Facebook API error',
+                errorCode: result.error_code,
+                errorSubcode: result.error_subcode
+            };
+        }
+
+    } catch (error) {
+        console.error('[FB-TAG-SEND] ❌ Error:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+
+// Global flag to track if 24h policy fallback UI should be shown
+window.current24hPolicyStatus = {
+    isExpired: false,
+    hoursSinceLastMessage: null,
+    canUseFacebookTag: false
+};
+
+/**
+ * Show 24h policy fallback prompt with option to send via Facebook tag
+ */
+window.show24hFallbackPrompt = function (messageText, pageId, psid) {
+    const modalContent = `
+        <div style="padding: 20px; max-width: 400px;">
+            <h3 style="margin: 0 0 16px; color: #ef4444; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-clock"></i>
+                Đã quá 24 giờ
+            </h3>
+            <p style="color: #6b7280; margin: 0 0 16px; line-height: 1.5;">
+                Khách hàng chưa tương tác trong 24 giờ qua. Chọn cách gửi tin nhắn:
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button onclick="window.sendViaFacebookTagFromModal('${encodeURIComponent(messageText)}', '${pageId}', '${psid}')"
+                    style="padding: 12px 16px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fab fa-facebook"></i>
+                    Gửi với Message Tag (POST_PURCHASE_UPDATE)
+                </button>
+                <p style="font-size: 12px; color: #9ca3af; margin: 0; padding: 0 8px;">
+                    ⚠️ Chỉ dùng cho thông báo liên quan đơn hàng (xác nhận, vận chuyển, yêu cầu hành động)
+                </p>
+                <button onclick="window.switchToCommentMode()"
+                    style="padding: 12px 16px; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fas fa-comment"></i>
+                    Chuyển sang reply Comment
+                </button>
+                <button onclick="window.close24hFallbackModal()"
+                    style="padding: 10px 16px; background: transparent; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer;">
+                    Hủy
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Create modal
+    let modal = document.getElementById('fb24hFallbackModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'fb24hFallbackModal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10001; display: flex; align-items: center; justify-content: center;';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `<div style="background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);">${modalContent}</div>`;
+    modal.style.display = 'flex';
+};
+
+window.close24hFallbackModal = function () {
+    const modal = document.getElementById('fb24hFallbackModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.sendViaFacebookTagFromModal = async function (encodedMessage, pageId, psid) {
+    window.close24hFallbackModal();
+
+    const message = decodeURIComponent(encodedMessage);
+
+    if (window.notificationManager) {
+        window.notificationManager.show('🔄 Đang gửi qua Facebook Graph API...', 'info');
+    }
+
+    const result = await sendMessageViaFacebookTag({ pageId, psid, message });
+
+    if (result.success) {
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã gửi tin nhắn thành công qua Facebook!', 'success', 5000);
+        }
+
+        // Add optimistic UI update
+        const now = new Date().toISOString();
+        const tempMessage = {
+            Id: `fb_${Date.now()}`,
+            id: `fb_${Date.now()}`,
+            Message: message + '\n\n[Gửi qua Facebook Message Tag]',
+            CreatedTime: now,
+            IsOwner: true,
+            is_temp: true
+        };
+        window.allChatMessages.push(tempMessage);
+        renderChatMessages(window.allChatMessages, true);
+
+        // Refresh messages after a delay
+        setTimeout(async () => {
+            try {
+                if (window.currentChatPSID && window.currentChatChannelId) {
+                    const response = await window.chatDataManager.fetchMessages(
+                        window.currentChatChannelId,
+                        window.currentChatPSID
+                    );
+                    if (response.messages && response.messages.length > 0) {
+                        window.allChatMessages = response.messages;
+                        renderChatMessages(window.allChatMessages, false);
+                    }
+                }
+            } catch (e) {
+                console.error('[FB-TAG-SEND] Error refreshing messages:', e);
+            }
+        }, 1000);
+    } else {
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi gửi qua Facebook: ' + result.error, 'error', 8000);
+        } else {
+            alert('❌ Lỗi gửi qua Facebook: ' + result.error);
+        }
+    }
+};
+
+window.switchToCommentMode = function () {
+    window.close24hFallbackModal();
+    if (window.notificationManager) {
+        window.notificationManager.show('💡 Vui lòng mở lại modal Comment để reply', 'info', 5000);
+    }
+};
+
+/**
  * Send message (MESSAGE modal only)
  * Called by queue processor
  * Supports both reply_inbox and private_replies actions
@@ -9710,68 +9968,6 @@ async function sendMessageInternal(messageData) {
         } catch (err) {
             apiError = err;
             console.warn('[MESSAGE] ⚠️ API failed:', err.message);
-
-            // Check if this is a 24h policy or user unavailable error
-            const needsUnlockFallback = err.is24HourError || err.isUserUnavailable;
-
-            // Fallback 1: Try Pancake Unlock (fill_admin_name, check_inbox, contents/touch)
-            if (needsUnlockFallback) {
-                const errorType = err.is24HourError ? '24H policy' : 'user unavailable (551)';
-                console.log(`[MESSAGE] 🔓 ${errorType} error - attempting Pancake Unlock...`);
-                showChatSendingIndicator('Đang thử unlock conversation...');
-
-                const unlockResult = await tryPancakeUnlock(channelId, conversationId);
-
-                if (unlockResult.success) {
-                    console.log('[MESSAGE] 🔓 Pancake Unlock succeeded, retrying message send...');
-                    showChatSendingIndicator('Đang gửi lại tin nhắn...');
-
-                    // Retry sending the message với JSON payload (Pancake API chính thức)
-                    try {
-                        const retryPayload = {
-                            action: 'reply_inbox',
-                            message: message
-                        };
-
-                        // Re-add image data if exists
-                        if (imagesDataArray && imagesDataArray.length > 0) {
-                            retryPayload.content_ids = imagesDataArray
-                                .map(img => img.content_id || img.id)
-                                .filter(id => id);
-                            retryPayload.attachment_type = 'PHOTO';
-                        }
-
-                        // Use same pageAccessToken for retry (Official API)
-                        const retryUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                            `pages/${channelId}/conversations/${conversationId}/messages`,
-                            pageAccessToken
-                        ) + (customerId ? `&customer_id=${customerId}` : '');
-
-                        const retryResponse = await API_CONFIG.smartFetch(retryUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify(retryPayload)
-                        }, 1, true); // Only 1 retry, skip fallback
-
-                        if (retryResponse.ok) {
-                            const retryData = await retryResponse.json();
-                            if (retryData.success !== false) {
-                                console.log('[MESSAGE] ✅ Retry after unlock succeeded!');
-                                apiSuccess = true;
-                                apiError = null;
-                            }
-                        }
-                    } catch (retryErr) {
-                        console.warn('[MESSAGE] ⚠️ Retry after unlock failed:', retryErr.message);
-                        // Continue to extension fallback
-                    }
-                } else {
-                    console.warn('[MESSAGE] ⚠️ Pancake Unlock failed:', unlockResult.error);
-                }
-            }
         }
 
         // If API failed, throw error
@@ -9834,16 +10030,27 @@ async function sendMessageInternal(messageData) {
         // Special handling for 24-hour policy error or user unavailable (551) error
         if (error.is24HourError || error.isUserUnavailable) {
             const errorType = error.is24HourError ? '24H' : '551';
-            console.log(`[MESSAGE] 📝 Suggesting alternatives for ${errorType} error`);
+            console.log(`[MESSAGE] 📝 Showing Facebook Tag fallback for ${errorType} error`);
 
-            let message = error.is24HourError
-                ? '⚠️ Không thể gửi Inbox (đã quá 24h). Vui lòng dùng COMMENT!'
-                : '⚠️ Không thể gửi Inbox (người dùng không có mặt). Vui lòng dùng COMMENT!';
+            // Get the original message text from the messageData
+            const originalMessage = messageData.message || '';
+            const pageId = messageData.channelId || window.currentChatChannelId;
+            const psid = window.currentChatPSID;
 
-            if (window.notificationManager) {
-                window.notificationManager.show(message, 'warning', 8000);
+            // Show the fallback prompt modal with Facebook Tag option
+            if (error.is24HourError && originalMessage && pageId && psid) {
+                window.show24hFallbackPrompt(originalMessage, pageId, psid);
             } else {
-                alert(message);
+                // For 551 error or missing data, just show notification
+                let message = error.is24HourError
+                    ? '⚠️ Không thể gửi Inbox (đã quá 24h). Thử gửi qua Facebook Message Tag hoặc dùng COMMENT!'
+                    : '⚠️ Không thể gửi Inbox (người dùng không có mặt). Vui lòng dùng COMMENT!';
+
+                if (window.notificationManager) {
+                    window.notificationManager.show(message, 'warning', 8000);
+                } else {
+                    alert(message);
+                }
             }
             // Don't throw error for these cases - just notify user
             return;
