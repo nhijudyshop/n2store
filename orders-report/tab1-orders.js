@@ -13043,7 +13043,483 @@ async function executeBulkMergeOrderProducts() {
 window.executeMergeOrderProducts = executeMergeOrderProducts;
 window.executeBulkMergeOrderProducts = executeBulkMergeOrderProducts;
 
+// =====================================================
+// MERGE DUPLICATE ORDERS MODAL FUNCTIONS
+// =====================================================
 
+// Store merge clusters data for modal
+let mergeClustersData = [];
+let selectedMergeClusters = new Set();
+
+/**
+ * Show modal with duplicate orders preview
+ */
+async function showMergeDuplicateOrdersModal() {
+    const modal = document.getElementById('mergeDuplicateOrdersModal');
+    const modalBody = document.getElementById('mergeDuplicateModalBody');
+    const subtitle = document.getElementById('mergeDuplicateModalSubtitle');
+    const selectAllCheckbox = document.getElementById('mergeSelectAllCheckbox');
+
+    // Reset state
+    mergeClustersData = [];
+    selectedMergeClusters.clear();
+    selectAllCheckbox.checked = false;
+
+    // Show modal with loading state
+    modal.classList.add('show');
+    modalBody.innerHTML = `
+        <div class="merge-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Đang tải dữ liệu đơn hàng...</p>
+        </div>
+    `;
+
+    try {
+        // Group orders by phone number to find duplicates
+        const phoneGroups = new Map();
+        displayedData.forEach(order => {
+            const phone = order.Telephone?.trim();
+            if (phone) {
+                if (!phoneGroups.has(phone)) {
+                    phoneGroups.set(phone, []);
+                }
+                phoneGroups.get(phone).push(order);
+            }
+        });
+
+        // Find phone numbers with multiple orders (need merging)
+        const clusters = [];
+        phoneGroups.forEach((orders, phone) => {
+            if (orders.length > 1) {
+                // Sort by SessionIndex (STT) ascending for display
+                orders.sort((a, b) => (a.SessionIndex || 0) - (b.SessionIndex || 0));
+
+                // Target is highest STT (last after sort)
+                const targetOrder = orders[orders.length - 1];
+                const sourceOrders = orders.slice(0, -1);
+
+                clusters.push({
+                    phone,
+                    orders: orders,
+                    targetOrder,
+                    sourceOrders,
+                    minSTT: orders[0].SessionIndex || 0
+                });
+            }
+        });
+
+        if (clusters.length === 0) {
+            modalBody.innerHTML = `
+                <div class="merge-no-duplicates">
+                    <i class="fas fa-check-circle"></i>
+                    <p>Không có đơn hàng nào trùng SĐT cần gộp.</p>
+                </div>
+            `;
+            subtitle.textContent = 'Không tìm thấy đơn trùng';
+            return;
+        }
+
+        // Sort clusters by minSTT
+        clusters.sort((a, b) => a.minSTT - b.minSTT);
+
+        // Fetch full details for all orders in all clusters
+        const allOrderIds = clusters.flatMap(c => c.orders.map(o => o.Id));
+        const orderDetailsMap = new Map();
+
+        // Update loading message
+        modalBody.innerHTML = `
+            <div class="merge-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Đang tải chi tiết ${allOrderIds.length} đơn hàng...</p>
+            </div>
+        `;
+
+        // Fetch details in batches to avoid rate limiting
+        const batchSize = 5;
+        for (let i = 0; i < allOrderIds.length; i += batchSize) {
+            const batch = allOrderIds.slice(i, i + batchSize);
+            const results = await Promise.all(batch.map(id => getOrderDetails(id)));
+            results.forEach((detail, idx) => {
+                orderDetailsMap.set(batch[idx], detail);
+            });
+
+            // Small delay between batches
+            if (i + batchSize < allOrderIds.length) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
+
+        // Build clusters with full product details
+        mergeClustersData = clusters.map((cluster, index) => {
+            const ordersWithDetails = cluster.orders.map(order => ({
+                ...order,
+                Details: orderDetailsMap.get(order.Id)?.Details || []
+            }));
+
+            // Calculate merged products preview
+            const mergedProducts = calculateMergedProductsPreview(ordersWithDetails);
+
+            return {
+                id: `cluster_${index}`,
+                phone: cluster.phone,
+                orders: ordersWithDetails,
+                targetOrder: ordersWithDetails[ordersWithDetails.length - 1],
+                sourceOrders: ordersWithDetails.slice(0, -1),
+                mergedProducts
+            };
+        });
+
+        // Render clusters
+        renderMergeClusters();
+
+        const totalSourceOrders = mergeClustersData.reduce((sum, c) => sum + c.sourceOrders.length, 0);
+        subtitle.textContent = `Tìm thấy ${mergeClustersData.length} SĐT trùng (${totalSourceOrders + mergeClustersData.length} đơn)`;
+
+    } catch (error) {
+        console.error('[MERGE-MODAL] Error loading data:', error);
+        modalBody.innerHTML = `
+            <div class="merge-no-duplicates">
+                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                <p>Lỗi khi tải dữ liệu: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Calculate merged products preview for a cluster
+ */
+function calculateMergedProductsPreview(orders) {
+    const productMap = new Map(); // key: ProductId, value: merged product
+
+    orders.forEach(order => {
+        (order.Details || []).forEach(detail => {
+            const key = detail.ProductId;
+            if (productMap.has(key)) {
+                const existing = productMap.get(key);
+                existing.Quantity = (existing.Quantity || 0) + (detail.Quantity || 0);
+                // Keep the note from all orders
+                if (detail.Note && !existing.Note?.includes(detail.Note)) {
+                    existing.Note = existing.Note ? `${existing.Note}, ${detail.Note}` : detail.Note;
+                }
+            } else {
+                productMap.set(key, { ...detail });
+            }
+        });
+    });
+
+    return Array.from(productMap.values());
+}
+
+/**
+ * Render all merge clusters in modal
+ */
+function renderMergeClusters() {
+    const modalBody = document.getElementById('mergeDuplicateModalBody');
+
+    if (mergeClustersData.length === 0) {
+        modalBody.innerHTML = `
+            <div class="merge-no-duplicates">
+                <i class="fas fa-check-circle"></i>
+                <p>Không có đơn hàng nào trùng SĐT cần gộp.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const html = mergeClustersData.map(cluster => renderClusterCard(cluster)).join('');
+    modalBody.innerHTML = html;
+
+    updateConfirmButtonState();
+}
+
+/**
+ * Render a single cluster card
+ */
+function renderClusterCard(cluster) {
+    const isSelected = selectedMergeClusters.has(cluster.id);
+    const orderTitles = cluster.orders.map(o => `STT ${o.SessionIndex} - ${o.PartnerName || 'N/A'}`).join(' | ');
+
+    // Build table headers
+    const headers = [
+        `<th class="merged-col">Sau Khi Gộp<br><small>(STT ${cluster.targetOrder.SessionIndex})</small></th>`
+    ];
+
+    cluster.orders.forEach(order => {
+        const isTarget = order.Id === cluster.targetOrder.Id;
+        const className = isTarget ? 'target-col' : '';
+        const targetLabel = isTarget ? ' (Đích)' : '';
+        headers.push(`<th class="${className}">STT ${order.SessionIndex} - ${order.PartnerName || 'N/A'}${targetLabel}</th>`);
+    });
+
+    // Find max products count for rows
+    const maxProducts = Math.max(
+        cluster.mergedProducts.length,
+        ...cluster.orders.map(o => (o.Details || []).length)
+    );
+
+    // Build table rows
+    const rows = [];
+    for (let i = 0; i < maxProducts; i++) {
+        const cells = [];
+
+        // Merged column
+        const mergedProduct = cluster.mergedProducts[i];
+        cells.push(`<td class="merged-col">${mergedProduct ? renderProductItem(mergedProduct) : ''}</td>`);
+
+        // Order columns
+        cluster.orders.forEach(order => {
+            const isTarget = order.Id === cluster.targetOrder.Id;
+            const className = isTarget ? 'target-col' : '';
+            const product = (order.Details || [])[i];
+            cells.push(`<td class="${className}">${product ? renderProductItem(product) : ''}</td>`);
+        });
+
+        rows.push(`<tr>${cells.join('')}</tr>`);
+    }
+
+    // If no products at all
+    if (maxProducts === 0) {
+        const emptyCells = ['<td class="merged-col"><div class="merge-empty-cell">Trống</div></td>'];
+        cluster.orders.forEach(order => {
+            const isTarget = order.Id === cluster.targetOrder.Id;
+            const className = isTarget ? 'target-col' : '';
+            emptyCells.push(`<td class="${className}"><div class="merge-empty-cell">Trống</div></td>`);
+        });
+        rows.push(`<tr>${emptyCells.join('')}</tr>`);
+    }
+
+    return `
+        <div class="merge-cluster-card ${isSelected ? 'selected' : ''}" data-cluster-id="${cluster.id}">
+            <div class="merge-cluster-header">
+                <input type="checkbox" class="merge-cluster-checkbox"
+                    ${isSelected ? 'checked' : ''}
+                    onchange="toggleMergeClusterSelection('${cluster.id}', this.checked)">
+                <div class="merge-cluster-title"># ${orderTitles}</div>
+                <div class="merge-cluster-phone"><i class="fas fa-phone"></i> ${cluster.phone}</div>
+            </div>
+            <div class="merge-cluster-table-wrapper">
+                <table class="merge-cluster-table">
+                    <thead>
+                        <tr>${headers.join('')}</tr>
+                    </thead>
+                    <tbody>
+                        ${rows.join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render a single product item
+ */
+function renderProductItem(product) {
+    const imgUrl = product.ProductImageUrl || product.ImageUrl || '';
+    const imgHtml = imgUrl
+        ? `<img src="${imgUrl}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
+        : `<div class="merge-product-img" style="display: flex; align-items: center; justify-content: center; color: #9ca3af;"><i class="fas fa-box"></i></div>`;
+
+    const productCode = product.ProductCode || product.ProductName?.match(/\[([^\]]+)\]/)?.[1] || '';
+    const productName = product.ProductName || product.ProductNameGet || 'Sản phẩm';
+    const price = product.Price ? `${(product.Price).toLocaleString('vi-VN')}đ` : '';
+    const note = product.Note || '';
+
+    return `
+        <div class="merge-product-item">
+            ${imgHtml}
+            <div class="merge-product-info">
+                <div class="merge-product-name" title="${productName}">${productName}</div>
+                ${productCode ? `<span class="merge-product-code">${productCode}</span>` : ''}
+                <div class="merge-product-details">
+                    <span class="qty">SL: ${product.Quantity || 0}</span>
+                    ${price ? ` | <span class="price">${price}</span>` : ''}
+                </div>
+                ${note ? `<div class="merge-product-note">Note: ${note}</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Toggle selection for a single cluster
+ */
+function toggleMergeClusterSelection(clusterId, checked) {
+    if (checked) {
+        selectedMergeClusters.add(clusterId);
+    } else {
+        selectedMergeClusters.delete(clusterId);
+    }
+
+    // Update card visual
+    const card = document.querySelector(`.merge-cluster-card[data-cluster-id="${clusterId}"]`);
+    if (card) {
+        card.classList.toggle('selected', checked);
+    }
+
+    // Update select all checkbox
+    updateSelectAllCheckbox();
+    updateConfirmButtonState();
+}
+
+/**
+ * Toggle select all clusters
+ */
+function toggleSelectAllMergeClusters(checked) {
+    if (checked) {
+        mergeClustersData.forEach(cluster => {
+            selectedMergeClusters.add(cluster.id);
+        });
+    } else {
+        selectedMergeClusters.clear();
+    }
+
+    // Update all checkboxes and cards
+    document.querySelectorAll('.merge-cluster-checkbox').forEach(checkbox => {
+        checkbox.checked = checked;
+    });
+    document.querySelectorAll('.merge-cluster-card').forEach(card => {
+        card.classList.toggle('selected', checked);
+    });
+
+    updateConfirmButtonState();
+}
+
+/**
+ * Update select all checkbox state based on individual selections
+ */
+function updateSelectAllCheckbox() {
+    const selectAllCheckbox = document.getElementById('mergeSelectAllCheckbox');
+    if (mergeClustersData.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (selectedMergeClusters.size === mergeClustersData.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else if (selectedMergeClusters.size === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
+}
+
+/**
+ * Update confirm button state
+ */
+function updateConfirmButtonState() {
+    const confirmBtn = document.getElementById('confirmMergeBtn');
+    confirmBtn.disabled = selectedMergeClusters.size === 0;
+}
+
+/**
+ * Close the merge modal
+ */
+function closeMergeDuplicateOrdersModal() {
+    const modal = document.getElementById('mergeDuplicateOrdersModal');
+    modal.classList.remove('show');
+
+    // Reset state
+    mergeClustersData = [];
+    selectedMergeClusters.clear();
+}
+
+/**
+ * Confirm and execute merge for selected clusters
+ */
+async function confirmMergeSelectedClusters() {
+    if (selectedMergeClusters.size === 0) {
+        if (window.notificationManager) {
+            window.notificationManager.show('Vui lòng chọn ít nhất một cụm đơn hàng để gộp.', 'warning');
+        }
+        return;
+    }
+
+    const selectedClusters = mergeClustersData.filter(c => selectedMergeClusters.has(c.id));
+    const totalSourceOrders = selectedClusters.reduce((sum, c) => sum + c.sourceOrders.length, 0);
+
+    const confirmMsg = `Bạn sắp gộp ${selectedClusters.length} cụm đơn hàng (${totalSourceOrders + selectedClusters.length} đơn).\n\n` +
+        `Hành động này sẽ:\n` +
+        `- Gộp sản phẩm từ đơn STT nhỏ → đơn STT lớn\n` +
+        `- Xóa sản phẩm khỏi ${totalSourceOrders} đơn nguồn\n\n` +
+        `Tiếp tục?`;
+
+    const confirmed = await window.notificationManager.confirm(confirmMsg, "Xác nhận gộp đơn");
+    if (!confirmed) {
+        return;
+    }
+
+    // Close modal and show loading
+    closeMergeDuplicateOrdersModal();
+
+    if (window.notificationManager) {
+        window.notificationManager.show(`Đang gộp sản phẩm cho ${selectedClusters.length} cụm...`, 'info');
+    }
+
+    // Execute merge for each selected cluster
+    const results = [];
+    for (let i = 0; i < selectedClusters.length; i++) {
+        const cluster = selectedClusters[i];
+        console.log(`[MERGE-MODAL] Processing ${i + 1}/${selectedClusters.length}: Phone ${cluster.phone}`);
+
+        const mergeData = {
+            Telephone: cluster.phone,
+            TargetOrderId: cluster.targetOrder.Id,
+            TargetSTT: cluster.targetOrder.SessionIndex,
+            SourceOrderIds: cluster.sourceOrders.map(o => o.Id),
+            SourceSTTs: cluster.sourceOrders.map(o => o.SessionIndex),
+            IsMerged: true
+        };
+
+        const result = await executeMergeOrderProducts(mergeData);
+        results.push({ cluster, result });
+
+        // Small delay to avoid rate limiting
+        if (i < selectedClusters.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
+
+    // Count successes and failures
+    const successCount = results.filter(r => r.result.success).length;
+    const failureCount = results.length - successCount;
+
+    // Show summary
+    if (window.notificationManager) {
+        if (failureCount > 0) {
+            const failedPhones = results.filter(r => !r.result.success).map(r => r.cluster.phone).join(', ');
+            window.notificationManager.show(
+                `Gộp ${successCount}/${results.length} cụm. Thất bại: ${failedPhones}`,
+                'warning',
+                8000
+            );
+        } else {
+            window.notificationManager.show(
+                `Đã gộp sản phẩm thành công cho ${successCount} cụm đơn hàng!`,
+                'success',
+                5000
+            );
+        }
+    }
+
+    // Refresh table
+    try {
+        await fetchOrders();
+    } catch (refreshError) {
+        console.warn('[MERGE-MODAL] Could not auto-refresh, please reload manually:', refreshError);
+        renderTable();
+        updateStats();
+    }
+}
+
+// Make modal functions globally accessible
+window.showMergeDuplicateOrdersModal = showMergeDuplicateOrdersModal;
+window.closeMergeDuplicateOrdersModal = closeMergeDuplicateOrdersModal;
+window.toggleMergeClusterSelection = toggleMergeClusterSelection;
+window.toggleSelectAllMergeClusters = toggleSelectAllMergeClusters;
+window.confirmMergeSelectedClusters = confirmMergeSelectedClusters;
 
 
 
