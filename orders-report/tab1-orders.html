@@ -3891,6 +3891,18 @@
                                     onclick="confirmDebtUpdate()">Xác nhận</button>
                             </div>
                         </div>
+                        <div>
+                            <!--
+                                saleRemainingBalance: Còn lại - Số tiền còn lại cần thu
+                                Logic:
+                                - Nếu Trả trước > COD: Còn lại = 0
+                                - Nếu Trả trước < COD: Còn lại = COD - Trả trước
+                            -->
+                            <label class="sale-label">Còn lại</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <span id="saleRemainingBalance" style="font-weight: 600; font-size: 14px; color: #ef4444; min-width: 100px;">0</span>
+                            </div>
+                        </div>
                     </div>
                     <table class="sale-product-table">
                         <thead>

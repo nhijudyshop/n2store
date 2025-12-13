@@ -16858,7 +16858,34 @@ function updateSaleCOD() {
         const cod = Math.max(0, totalAmount + shippingFee - prepaidAmount);
         codInput.value = cod;
     }
+
+    // Update remaining balance after COD changes
+    updateSaleRemainingBalance();
 }
+
+/**
+ * Update Remaining Balance (Còn lại) in the modal
+ * Logic:
+ * - If Prepaid >= COD: Remaining = 0
+ * - If Prepaid < COD: Remaining = COD - Prepaid
+ */
+function updateSaleRemainingBalance() {
+    const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    const remainingElement = document.getElementById('saleRemainingBalance');
+
+    if (remainingElement) {
+        let remaining = 0;
+        if (prepaidAmount < codValue) {
+            remaining = codValue - prepaidAmount;
+        }
+        // Format the remaining balance
+        remainingElement.textContent = formatNumber(remaining);
+    }
+}
+
+// Export remaining balance function to window for debugging
+window.updateSaleRemainingBalance = updateSaleRemainingBalance;
 
 // Export delivery carrier functions to window for debugging
 window.fetchDeliveryCarriers = fetchDeliveryCarriers;
@@ -17178,6 +17205,19 @@ async function openSaleButtonModal() {
             prepaidAmountField.style.background = '#f3f4f6';
             if (confirmDebtBtn) confirmDebtBtn.style.display = 'none';
         }
+
+        // Add event listener for prepaid amount changes (for admin)
+        prepaidAmountField.oninput = function() {
+            updateSaleRemainingBalance();
+        };
+    }
+
+    // Add event listener for COD input changes
+    const codInput = document.getElementById('saleCOD');
+    if (codInput) {
+        codInput.oninput = function() {
+            updateSaleRemainingBalance();
+        };
     }
 
     // Populate basic order data first (from local data)
@@ -17544,6 +17584,9 @@ async function fetchDebtForSaleModal(phone) {
 
             // Cache it for later use
             saveDebtToCache(normalizedPhone, totalDebt);
+
+            // Update remaining balance after prepaid amount changes
+            updateSaleRemainingBalance();
         }
     } catch (error) {
         console.error('[SALE-MODAL] Error fetching realtime debt:', error);
@@ -17551,6 +17594,8 @@ async function fetchDebtForSaleModal(phone) {
         if (prepaidAmountField) {
             prepaidAmountField.value = 0;
         }
+        // Update remaining balance even on error
+        updateSaleRemainingBalance();
     }
 }
 
@@ -17735,6 +17780,9 @@ function updateSaleTotals(quantity, amount) {
 
     // Update Giá trị hàng hóa
     document.getElementById('saleGoodsValue').value = finalTotal;
+
+    // Update remaining balance after COD changes
+    updateSaleRemainingBalance();
 }
 
 /**
