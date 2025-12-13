@@ -9968,68 +9968,6 @@ async function sendMessageInternal(messageData) {
         } catch (err) {
             apiError = err;
             console.warn('[MESSAGE] ⚠️ API failed:', err.message);
-
-            // Check if this is a 24h policy or user unavailable error
-            const needsUnlockFallback = err.is24HourError || err.isUserUnavailable;
-
-            // Fallback 1: Try Pancake Unlock (fill_admin_name, check_inbox, contents/touch)
-            if (needsUnlockFallback) {
-                const errorType = err.is24HourError ? '24H policy' : 'user unavailable (551)';
-                console.log(`[MESSAGE] 🔓 ${errorType} error - attempting Pancake Unlock...`);
-                showChatSendingIndicator('Đang thử unlock conversation...');
-
-                const unlockResult = await tryPancakeUnlock(channelId, conversationId);
-
-                if (unlockResult.success) {
-                    console.log('[MESSAGE] 🔓 Pancake Unlock succeeded, retrying message send...');
-                    showChatSendingIndicator('Đang gửi lại tin nhắn...');
-
-                    // Retry sending the message với JSON payload (Pancake API chính thức)
-                    try {
-                        const retryPayload = {
-                            action: 'reply_inbox',
-                            message: message
-                        };
-
-                        // Re-add image data if exists
-                        if (imagesDataArray && imagesDataArray.length > 0) {
-                            retryPayload.content_ids = imagesDataArray
-                                .map(img => img.content_id || img.id)
-                                .filter(id => id);
-                            retryPayload.attachment_type = 'PHOTO';
-                        }
-
-                        // Use same pageAccessToken for retry (Official API)
-                        const retryUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                            `pages/${channelId}/conversations/${conversationId}/messages`,
-                            pageAccessToken
-                        ) + (customerId ? `&customer_id=${customerId}` : '');
-
-                        const retryResponse = await API_CONFIG.smartFetch(retryUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify(retryPayload)
-                        }, 1, true); // Only 1 retry, skip fallback
-
-                        if (retryResponse.ok) {
-                            const retryData = await retryResponse.json();
-                            if (retryData.success !== false) {
-                                console.log('[MESSAGE] ✅ Retry after unlock succeeded!');
-                                apiSuccess = true;
-                                apiError = null;
-                            }
-                        }
-                    } catch (retryErr) {
-                        console.warn('[MESSAGE] ⚠️ Retry after unlock failed:', retryErr.message);
-                        // Continue to extension fallback
-                    }
-                } else {
-                    console.warn('[MESSAGE] ⚠️ Pancake Unlock failed:', unlockResult.error);
-                }
-            }
         }
 
         // If API failed, throw error
