@@ -14414,7 +14414,7 @@ async function saveMergeHistory(cluster, result, errorResponse = null) {
             orderId: order.Id,
             stt: order.SessionIndex,
             partnerName: order.PartnerName || '',
-            originalTags: parseOrderTags(order).map(t => ({
+            originalTags: getOrderTagsArray(order).map(t => ({
                 id: t.Id,
                 name: t.Name || '',
                 color: t.Color || ''
@@ -14435,7 +14435,7 @@ async function saveMergeHistory(cluster, result, errorResponse = null) {
             orderId: cluster.targetOrder.Id,
             stt: cluster.targetOrder.SessionIndex,
             partnerName: cluster.targetOrder.PartnerName || '',
-            originalTags: parseOrderTags(cluster.targetOrder).map(t => ({
+            originalTags: getOrderTagsArray(cluster.targetOrder).map(t => ({
                 id: t.Id,
                 name: t.Name || '',
                 color: t.Color || ''
@@ -14845,11 +14845,13 @@ async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
 }
 
 /**
- * Parse tags from order
+ * Get tags array from order object
+ * NOTE: This function was renamed from parseOrderTags to avoid collision
+ *       with the parseOrderTags() function at line ~4969 that renders HTML
  * @param {Object} order - Order object
  * @returns {Array} Array of tag objects
  */
-function parseOrderTags(order) {
+function getOrderTagsArray(order) {
     if (!order || !order.Tags) return [];
     try {
         const tags = JSON.parse(order.Tags);
@@ -14928,7 +14930,7 @@ async function assignTagsAfterMerge(cluster) {
         };
 
         // Add tags from target order (exclude merge-related tags)
-        const targetTags = parseOrderTags(cluster.targetOrder);
+        const targetTags = getOrderTagsArray(cluster.targetOrder);
         targetTags.forEach(t => {
             if (t.Id && !shouldExcludeTag(t.Name)) {
                 allTags.set(t.Id, t);
@@ -14938,7 +14940,7 @@ async function assignTagsAfterMerge(cluster) {
 
         // Add tags from source orders (exclude merge-related tags)
         cluster.sourceOrders.forEach(sourceOrder => {
-            const sourceTags = parseOrderTags(sourceOrder);
+            const sourceTags = getOrderTagsArray(sourceOrder);
             const filteredTags = sourceTags.filter(t => t.Id && !shouldExcludeTag(t.Name));
             console.log(`[MERGE-TAG] Source order STT ${sourceOrder.SessionIndex} tags after filter: ${filteredTags.map(t => t.Name).join(', ') || '(none)'}`);
             filteredTags.forEach(t => {
