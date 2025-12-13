@@ -2756,6 +2756,714 @@ async function executeBulkTagAssignment() {
     }
 }
 
+// =====================================================
+// BULK TAG MODAL FUNCTIONS
+// =====================================================
+
+// State variables for bulk tag modal
+let bulkTagModalData = []; // Array of {tagId, tagName, tagColor, sttSet: Set()}
+let selectedBulkTagModalRows = new Set(); // Set of selected tag IDs
+
+// Show bulk tag modal
+async function showBulkTagModal() {
+    console.log("[BULK-TAG-MODAL] Opening bulk tag modal");
+
+    // Reset state
+    bulkTagModalData = [];
+    selectedBulkTagModalRows.clear();
+
+    // Update UI
+    updateBulkTagModalTable();
+    updateBulkTagModalRowCount();
+    document.getElementById('bulkTagSelectAllCheckbox').checked = false;
+    document.getElementById('bulkTagModalSearchInput').value = '';
+
+    // Load tags for dropdown
+    await loadBulkTagModalOptions();
+
+    // Show modal
+    document.getElementById('bulkTagModal').classList.add('show');
+}
+
+// Close bulk tag modal
+function closeBulkTagModal() {
+    document.getElementById('bulkTagModal').classList.remove('show');
+    document.getElementById('bulkTagModalSearchDropdown').classList.remove('show');
+    bulkTagModalData = [];
+    selectedBulkTagModalRows.clear();
+}
+
+// Load tag options for search dropdown
+async function loadBulkTagModalOptions() {
+    try {
+        // Use existing availableTags or fetch from API
+        if (!availableTags || availableTags.length === 0) {
+            await loadAvailableTags();
+        }
+        populateBulkTagModalDropdown();
+    } catch (error) {
+        console.error("[BULK-TAG-MODAL] Error loading tags:", error);
+    }
+}
+
+// Populate dropdown with tag options
+function populateBulkTagModalDropdown() {
+    const dropdown = document.getElementById('bulkTagModalSearchDropdown');
+    const searchValue = document.getElementById('bulkTagModalSearchInput').value.toLowerCase().trim();
+
+    // Filter tags by search
+    const filteredTags = availableTags.filter(tag =>
+        tag.Name.toLowerCase().includes(searchValue)
+    );
+
+    if (filteredTags.length === 0) {
+        dropdown.innerHTML = `
+            <div style="padding: 16px; text-align: center; color: #9ca3af;">
+                Không tìm thấy tag nào
+            </div>
+        `;
+        return;
+    }
+
+    // Check which tags are already added
+    const addedTagIds = new Set(bulkTagModalData.map(t => t.tagId));
+
+    dropdown.innerHTML = filteredTags.map(tag => {
+        const isAdded = addedTagIds.has(tag.Id);
+        return `
+            <div class="bulk-tag-search-option ${isAdded ? 'disabled' : ''}"
+                 onclick="${isAdded ? '' : `addTagToBulkTagModal('${tag.Id}', '${tag.Name.replace(/'/g, "\\'")}', '${tag.Color}')`}">
+                <span class="tag-color-dot" style="background-color: ${tag.Color}"></span>
+                <span class="tag-name">${tag.Name}</span>
+                ${isAdded ? '<span class="tag-added">Đã thêm</span>' : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// Filter bulk tag modal options based on search input
+function filterBulkTagModalOptions() {
+    const searchInput = document.getElementById('bulkTagModalSearchInput');
+    const dropdown = document.getElementById('bulkTagModalSearchDropdown');
+
+    if (searchInput.value.trim()) {
+        dropdown.classList.add('show');
+        populateBulkTagModalDropdown();
+    } else {
+        dropdown.classList.remove('show');
+    }
+}
+
+// Handle keydown on search input
+function handleBulkTagModalSearchKeydown(event) {
+    if (event.key === 'Escape') {
+        document.getElementById('bulkTagModalSearchDropdown').classList.remove('show');
+        document.getElementById('bulkTagModalSearchInput').blur();
+    }
+}
+
+// Add tag to bulk tag modal
+function addTagToBulkTagModal(tagId, tagName, tagColor) {
+    console.log("[BULK-TAG-MODAL] Adding tag:", tagName);
+
+    // Check if already exists
+    if (bulkTagModalData.some(t => t.tagId === tagId)) {
+        return;
+    }
+
+    // Add to data
+    bulkTagModalData.push({
+        tagId: tagId,
+        tagName: tagName,
+        tagColor: tagColor,
+        sttSet: new Set()
+    });
+
+    // Update UI
+    updateBulkTagModalTable();
+    updateBulkTagModalRowCount();
+    populateBulkTagModalDropdown();
+
+    // Clear search input
+    document.getElementById('bulkTagModalSearchInput').value = '';
+    document.getElementById('bulkTagModalSearchDropdown').classList.remove('show');
+}
+
+// Remove tag row from modal
+function removeTagFromBulkTagModal(tagId) {
+    bulkTagModalData = bulkTagModalData.filter(t => t.tagId !== tagId);
+    selectedBulkTagModalRows.delete(tagId);
+
+    updateBulkTagModalTable();
+    updateBulkTagModalRowCount();
+    populateBulkTagModalDropdown();
+}
+
+// Clear all tag rows
+function clearAllBulkTagRows() {
+    if (bulkTagModalData.length === 0) return;
+
+    if (confirm('Bạn có chắc muốn xóa tất cả tag đã thêm?')) {
+        bulkTagModalData = [];
+        selectedBulkTagModalRows.clear();
+        document.getElementById('bulkTagSelectAllCheckbox').checked = false;
+
+        updateBulkTagModalTable();
+        updateBulkTagModalRowCount();
+        populateBulkTagModalDropdown();
+    }
+}
+
+// Update row count display
+function updateBulkTagModalRowCount() {
+    const countEl = document.getElementById('bulkTagRowCount');
+    countEl.textContent = `${bulkTagModalData.length} tag đã thêm`;
+}
+
+// Toggle select all
+function toggleBulkTagSelectAll(checked) {
+    if (checked) {
+        bulkTagModalData.forEach(tag => {
+            if (tag.sttSet.size > 0) {
+                selectedBulkTagModalRows.add(tag.tagId);
+            }
+        });
+    } else {
+        selectedBulkTagModalRows.clear();
+    }
+
+    updateBulkTagModalTable();
+}
+
+// Toggle individual row selection
+function toggleBulkTagRowSelection(tagId) {
+    const tagData = bulkTagModalData.find(t => t.tagId === tagId);
+    if (!tagData || tagData.sttSet.size === 0) return;
+
+    if (selectedBulkTagModalRows.has(tagId)) {
+        selectedBulkTagModalRows.delete(tagId);
+    } else {
+        selectedBulkTagModalRows.add(tagId);
+    }
+
+    updateBulkTagModalTable();
+    updateSelectAllCheckbox();
+}
+
+// Update select all checkbox state
+function updateSelectAllCheckbox() {
+    const selectAllCheckbox = document.getElementById('bulkTagSelectAllCheckbox');
+    const tagsWithSTT = bulkTagModalData.filter(t => t.sttSet.size > 0);
+
+    if (tagsWithSTT.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (selectedBulkTagModalRows.size === tagsWithSTT.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else if (selectedBulkTagModalRows.size > 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+}
+
+// Add STT to a tag
+function addSTTToBulkTagRow(tagId, inputElement) {
+    const sttValue = inputElement.value.trim();
+    if (!sttValue) return;
+
+    const stt = parseInt(sttValue);
+    if (isNaN(stt) || stt <= 0) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('STT phải là số nguyên dương', 2000);
+        }
+        return;
+    }
+
+    const tagData = bulkTagModalData.find(t => t.tagId === tagId);
+    if (!tagData) return;
+
+    // Check if STT exists in current data
+    const order = displayedData.find(o => o.SessionIndex === stt);
+    if (!order) {
+        if (window.notificationManager) {
+            window.notificationManager.warning(`STT ${stt} không tồn tại trong danh sách hiện tại`, 2000);
+        }
+        return;
+    }
+
+    // Check if already added
+    if (tagData.sttSet.has(stt)) {
+        if (window.notificationManager) {
+            window.notificationManager.warning(`STT ${stt} đã được thêm`, 2000);
+        }
+        inputElement.value = '';
+        return;
+    }
+
+    // Add STT
+    tagData.sttSet.add(stt);
+    inputElement.value = '';
+
+    updateBulkTagModalTable();
+}
+
+// Handle Enter key on STT input
+function handleBulkTagSTTInputKeydown(event, tagId) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        addSTTToBulkTagRow(tagId, event.target);
+    }
+}
+
+// Remove STT from a tag
+function removeSTTFromBulkTagRow(tagId, stt) {
+    const tagData = bulkTagModalData.find(t => t.tagId === tagId);
+    if (!tagData) return;
+
+    tagData.sttSet.delete(stt);
+
+    // If no more STTs, deselect the row
+    if (tagData.sttSet.size === 0) {
+        selectedBulkTagModalRows.delete(tagId);
+    }
+
+    updateBulkTagModalTable();
+    updateSelectAllCheckbox();
+}
+
+// Update the bulk tag modal table
+function updateBulkTagModalTable() {
+    const tableBody = document.getElementById('bulkTagTableBody');
+
+    if (bulkTagModalData.length === 0) {
+        tableBody.innerHTML = `
+            <div class="bulk-tag-empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>Chưa có tag nào được thêm. Hãy tìm kiếm và thêm tag.</p>
+            </div>
+        `;
+        return;
+    }
+
+    tableBody.innerHTML = bulkTagModalData.map(tagData => {
+        const isSelected = selectedBulkTagModalRows.has(tagData.tagId);
+        const sttArray = Array.from(tagData.sttSet).sort((a, b) => a - b);
+
+        // Get customer names for STTs
+        const sttPillsHtml = sttArray.map(stt => {
+            const order = displayedData.find(o => o.SessionIndex === stt);
+            const customerName = order ? (order.Name || order.PartnerName || 'N/A') : 'N/A';
+            return `
+                <div class="bulk-tag-stt-pill">
+                    <span class="stt-number">STT ${stt}</span>
+                    <span class="customer-name">${customerName}</span>
+                    <button class="remove-stt" onclick="removeSTTFromBulkTagRow('${tagData.tagId}', ${stt})" title="Xóa STT">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="bulk-tag-row ${isSelected ? 'selected' : ''}" data-tag-id="${tagData.tagId}">
+                <div class="bulk-tag-row-tag">
+                    <input type="checkbox"
+                           ${isSelected ? 'checked' : ''}
+                           ${tagData.sttSet.size === 0 ? 'disabled' : ''}
+                           onchange="toggleBulkTagRowSelection('${tagData.tagId}')"
+                           title="${tagData.sttSet.size === 0 ? 'Thêm STT trước khi chọn' : 'Chọn để gán tag'}">
+                    <div class="bulk-tag-row-tag-info">
+                        <span class="tag-color-dot" style="background-color: ${tagData.tagColor}"></span>
+                        <span class="tag-name">${tagData.tagName}</span>
+                    </div>
+                </div>
+                <div class="bulk-tag-row-stt">
+                    <div class="bulk-tag-stt-pills">
+                        ${sttPillsHtml || '<span style="color: #9ca3af; font-size: 13px;">Chưa có STT nào</span>'}
+                    </div>
+                    <div class="bulk-tag-stt-input-wrapper">
+                        <input type="number"
+                               class="bulk-tag-stt-input"
+                               placeholder="Nhập STT và Enter"
+                               onkeydown="handleBulkTagSTTInputKeydown(event, '${tagData.tagId}')">
+                    </div>
+                </div>
+                <div class="bulk-tag-row-action">
+                    <button class="bulk-tag-remove-row-btn" onclick="removeTagFromBulkTagModal('${tagData.tagId}')" title="Xóa tag này">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Execute bulk tag modal assignment
+async function executeBulkTagModalAssignment() {
+    console.log("[BULK-TAG-MODAL] Executing bulk tag assignment");
+
+    // Get selected rows with STTs
+    const selectedTags = bulkTagModalData.filter(t =>
+        selectedBulkTagModalRows.has(t.tagId) && t.sttSet.size > 0
+    );
+
+    if (selectedTags.length === 0) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Vui lòng chọn ít nhất một tag có STT để gán', 3000);
+        }
+        return;
+    }
+
+    // Confirm action
+    const totalOrders = selectedTags.reduce((sum, t) => sum + t.sttSet.size, 0);
+    if (!confirm(`Bạn có chắc muốn gán ${selectedTags.length} tag cho ${totalOrders} đơn hàng?`)) {
+        return;
+    }
+
+    showLoading(true);
+
+    const results = [];
+    const BLOCKED_TAG_NAME = "ĐÃ GỘP KO CHỐT";
+
+    try {
+        for (const tagData of selectedTags) {
+            const tagResult = {
+                tag: {
+                    id: tagData.tagId,
+                    name: tagData.tagName,
+                    color: tagData.tagColor
+                },
+                success: [],
+                failed: []
+            };
+
+            const sttArray = Array.from(tagData.sttSet);
+
+            for (const stt of sttArray) {
+                const order = displayedData.find(o => o.SessionIndex === stt);
+
+                if (!order) {
+                    tagResult.failed.push({
+                        stt: stt,
+                        orderId: null,
+                        reason: 'STT không tồn tại',
+                        customerName: 'N/A'
+                    });
+                    continue;
+                }
+
+                // Parse current tags
+                let currentTags = [];
+                try {
+                    currentTags = order.Tags ? JSON.parse(order.Tags) : [];
+                } catch (e) {
+                    currentTags = [];
+                }
+
+                // Check for blocked tag "ĐÃ GỘP KO CHỐT"
+                const hasBlockedTag = currentTags.some(t =>
+                    t.Name && t.Name.toUpperCase() === BLOCKED_TAG_NAME
+                );
+
+                if (hasBlockedTag) {
+                    tagResult.failed.push({
+                        stt: stt,
+                        orderId: order.Id,
+                        reason: BLOCKED_TAG_NAME,
+                        customerName: order.Name || order.PartnerName || 'N/A'
+                    });
+                    continue;
+                }
+
+                // Check if tag already exists
+                const tagExists = currentTags.some(t => t.Id === tagData.tagId);
+                if (tagExists) {
+                    tagResult.failed.push({
+                        stt: stt,
+                        orderId: order.Id,
+                        reason: 'Tag đã tồn tại',
+                        customerName: order.Name || order.PartnerName || 'N/A'
+                    });
+                    continue;
+                }
+
+                // Prepare updated tags
+                const updatedTags = [
+                    ...currentTags,
+                    {
+                        Id: tagData.tagId,
+                        Name: tagData.tagName,
+                        Color: tagData.tagColor
+                    }
+                ];
+
+                // Call API to assign tag
+                try {
+                    const response = await fetch(
+                        "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                                Tags: updatedTags,
+                                OrderId: order.Id
+                            }),
+                        }
+                    );
+
+                    if (response.ok) {
+                        // Update local data
+                        const updatedData = { Tags: JSON.stringify(updatedTags) };
+                        updateOrderInTable(order.Id, updatedData);
+
+                        // Emit to Firebase
+                        if (typeof emitTagUpdateToFirebase === 'function') {
+                            await emitTagUpdateToFirebase(order.Id, updatedTags);
+                        }
+
+                        tagResult.success.push({
+                            stt: stt,
+                            orderId: order.Id,
+                            customerName: order.Name || order.PartnerName || 'N/A'
+                        });
+                    } else {
+                        const errorText = await response.text();
+                        tagResult.failed.push({
+                            stt: stt,
+                            orderId: order.Id,
+                            reason: `API Error: ${response.status} - ${errorText.substring(0, 100)}`,
+                            customerName: order.Name || order.PartnerName || 'N/A'
+                        });
+                    }
+                } catch (apiError) {
+                    tagResult.failed.push({
+                        stt: stt,
+                        orderId: order.Id,
+                        reason: `Network Error: ${apiError.message}`,
+                        customerName: order.Name || order.PartnerName || 'N/A'
+                    });
+                }
+            }
+
+            results.push(tagResult);
+        }
+
+        // Clear cache
+        if (window.cacheManager) {
+            window.cacheManager.clear("orders");
+        }
+
+        // Save history to Firebase
+        await saveBulkTagHistory(results);
+
+        // Calculate totals
+        const totalSuccess = results.reduce((sum, r) => sum + r.success.length, 0);
+        const totalFailed = results.reduce((sum, r) => sum + r.failed.length, 0);
+
+        showLoading(false);
+
+        // Show result notification
+        if (totalFailed === 0) {
+            if (window.notificationManager) {
+                window.notificationManager.success(`Gán tag thành công cho ${totalSuccess} đơn hàng!`, 3000);
+            }
+            closeBulkTagModal();
+        } else if (totalSuccess > 0) {
+            if (window.notificationManager) {
+                window.notificationManager.warning(`Thành công: ${totalSuccess} đơn | Thất bại: ${totalFailed} đơn. Xem chi tiết trong Lịch sử.`, 5000);
+            }
+            // Don't close modal so user can see which failed
+        } else {
+            if (window.notificationManager) {
+                window.notificationManager.error(`Tất cả ${totalFailed} đơn đều thất bại. Xem chi tiết trong Lịch sử.`, 5000);
+            }
+        }
+
+        // Refresh table
+        renderTable();
+
+    } catch (error) {
+        console.error("[BULK-TAG-MODAL] Error:", error);
+        showLoading(false);
+
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi gán tag: ${error.message}`, 5000);
+        }
+    }
+}
+
+// Save bulk tag history to Firebase
+async function saveBulkTagHistory(results) {
+    try {
+        const timestamp = Date.now();
+        const dateFormatted = new Date(timestamp).toLocaleString('vi-VN');
+
+        const historyEntry = {
+            timestamp: timestamp,
+            dateFormatted: dateFormatted,
+            results: results,
+            summary: {
+                totalTags: results.length,
+                totalSuccess: results.reduce((sum, r) => sum + r.success.length, 0),
+                totalFailed: results.reduce((sum, r) => sum + r.failed.length, 0)
+            }
+        };
+
+        // Save to Firebase
+        const historyRef = database.ref(`bulkTagHistory/${timestamp}`);
+        await historyRef.set(historyEntry);
+
+        console.log("[BULK-TAG-MODAL] History saved to Firebase");
+    } catch (error) {
+        console.error("[BULK-TAG-MODAL] Error saving history:", error);
+    }
+}
+
+// Show bulk tag history modal
+async function showBulkTagHistoryModal() {
+    console.log("[BULK-TAG-MODAL] Opening history modal");
+
+    const historyBody = document.getElementById('bulkTagHistoryModalBody');
+    historyBody.innerHTML = `
+        <div class="bulk-tag-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Đang tải lịch sử...</p>
+        </div>
+    `;
+
+    document.getElementById('bulkTagHistoryModal').classList.add('show');
+
+    try {
+        // Load history from Firebase
+        const historyRef = database.ref('bulkTagHistory');
+        const snapshot = await historyRef.orderByKey().limitToLast(50).once('value');
+        const historyData = snapshot.val();
+
+        if (!historyData) {
+            historyBody.innerHTML = `
+                <div class="bulk-tag-history-empty">
+                    <i class="fas fa-history"></i>
+                    <p>Chưa có lịch sử gán tag nào</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Convert to array and sort by timestamp descending
+        const historyArray = Object.values(historyData).sort((a, b) => b.timestamp - a.timestamp);
+
+        historyBody.innerHTML = `
+            <div class="bulk-tag-history-list">
+                ${historyArray.map((entry, index) => renderBulkTagHistoryItem(entry, index)).join('')}
+            </div>
+        `;
+
+    } catch (error) {
+        console.error("[BULK-TAG-MODAL] Error loading history:", error);
+        historyBody.innerHTML = `
+            <div class="bulk-tag-history-empty">
+                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                <p>Lỗi tải lịch sử: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Render a single history item
+function renderBulkTagHistoryItem(entry, index) {
+    const { dateFormatted, results, summary } = entry;
+
+    const tagSectionsHtml = results.map(tagResult => {
+        const successHtml = tagResult.success.length > 0 ? `
+            <div class="bulk-tag-history-success">
+                <div class="bulk-tag-history-success-title">
+                    <i class="fas fa-check-circle"></i>
+                    Thành công (${tagResult.success.length}):
+                </div>
+                <div class="bulk-tag-history-stt-list">
+                    ${tagResult.success.map(s => `STT ${s.stt}`).join(', ')}
+                </div>
+            </div>
+        ` : '';
+
+        const failedHtml = tagResult.failed.length > 0 ? `
+            <div class="bulk-tag-history-failed">
+                <div class="bulk-tag-history-failed-title">
+                    <i class="fas fa-times-circle"></i>
+                    Thất bại (${tagResult.failed.length}):
+                </div>
+                <div class="bulk-tag-history-failed-list">
+                    ${tagResult.failed.map(f => `
+                        <div class="bulk-tag-history-failed-item">
+                            <span class="stt">STT ${f.stt}</span>
+                            <span class="reason">${f.reason}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+
+        return `
+            <div class="bulk-tag-history-tag-section">
+                <div class="bulk-tag-history-tag-header">
+                    <span class="tag-color-dot" style="background-color: ${tagResult.tag.color}"></span>
+                    <span class="tag-name">${tagResult.tag.name}</span>
+                </div>
+                ${successHtml}
+                ${failedHtml}
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="bulk-tag-history-item" id="bulkTagHistoryItem${index}">
+            <div class="bulk-tag-history-header" onclick="toggleBulkTagHistoryItem(${index})">
+                <div class="history-time">
+                    <i class="fas fa-clock"></i>
+                    ${dateFormatted}
+                </div>
+                <div class="history-summary">
+                    <span class="success-count"><i class="fas fa-check"></i> ${summary.totalSuccess}</span>
+                    <span class="failed-count"><i class="fas fa-times"></i> ${summary.totalFailed}</span>
+                    <i class="fas fa-chevron-down expand-icon"></i>
+                </div>
+            </div>
+            <div class="bulk-tag-history-body">
+                ${tagSectionsHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Toggle history item expand/collapse
+function toggleBulkTagHistoryItem(index) {
+    const item = document.getElementById(`bulkTagHistoryItem${index}`);
+    if (item) {
+        item.classList.toggle('expanded');
+    }
+}
+
+// Close bulk tag history modal
+function closeBulkTagHistoryModal() {
+    document.getElementById('bulkTagHistoryModal').classList.remove('show');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const searchWrapper = document.querySelector('.bulk-tag-search-wrapper');
+    const dropdown = document.getElementById('bulkTagModalSearchDropdown');
+
+    if (searchWrapper && dropdown && !searchWrapper.contains(event.target)) {
+        dropdown.classList.remove('show');
+    }
+});
+
 // #region ═══════════════════════════════════════════════════════════════════════
 // ║                   SECTION 7: TABLE SEARCH & FILTERING                       ║
 // ║                            search: #SEARCH                                  ║
