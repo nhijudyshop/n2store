@@ -271,7 +271,7 @@
                 <i class="fas fa-exchange-alt"></i>
                 <span id="chatApiSourceLabel">Pancake API</span>
             </button>
-            <button class="btn-primary" id="mergeProductsBtn" onclick="executeBulkMergeOrderProducts()"
+            <button class="btn-primary" id="mergeProductsBtn" onclick="showMergeDuplicateOrdersModal()"
                 style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)"
                 title="Gộp sản phẩm từ các đơn có cùng SĐT vào đơn STT lớn nhất">
                 <i class="fas fa-compress-arrows-alt"></i>
@@ -2283,6 +2283,46 @@
             <div class="comment-modal-footer">
                 <button class="comment-btn-close" onclick="closeCommentModal()">
                     <i class="fas fa-times"></i> Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Merge Duplicate Orders Modal -->
+    <div class="merge-modal" id="mergeDuplicateOrdersModal">
+        <div class="merge-modal-content">
+            <!-- Header -->
+            <div class="merge-modal-header">
+                <div class="merge-header-info">
+                    <h3><i class="fas fa-compress-arrows-alt"></i> Gộp Sản Phẩm Đơn Trùng SĐT</h3>
+                    <p id="mergeDuplicateModalSubtitle">Chọn các cụm đơn hàng cần gộp</p>
+                </div>
+                <div class="merge-header-actions">
+                    <label class="merge-select-all-label">
+                        <input type="checkbox" id="mergeSelectAllCheckbox" onchange="toggleSelectAllMergeClusters(this.checked)">
+                        <span>Chọn tất cả</span>
+                    </label>
+                    <button class="merge-modal-close" onclick="closeMergeDuplicateOrdersModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body - Clusters List -->
+            <div class="merge-modal-body" id="mergeDuplicateModalBody">
+                <div class="merge-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Đang tải dữ liệu...</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="merge-modal-footer">
+                <button class="merge-btn-cancel" onclick="closeMergeDuplicateOrdersModal()">
+                    <i class="fas fa-times"></i> Hủy
+                </button>
+                <button class="merge-btn-confirm" id="confirmMergeBtn" onclick="confirmMergeSelectedClusters()">
+                    <i class="fas fa-check"></i> Xác nhận Gộp Đơn
                 </button>
             </div>
         </div>
