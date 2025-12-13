@@ -1,0 +1,1417 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>API Tester - Postman Clone</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                padding: 20px;
+            }
+
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+                overflow: hidden;
+            }
+
+            .header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 25px 30px;
+                text-align: center;
+            }
+
+            .header h1 {
+                font-size: 28px;
+                margin-bottom: 5px;
+            }
+
+            .header p {
+                font-size: 14px;
+                opacity: 0.9;
+            }
+
+            .content {
+                padding: 30px;
+            }
+
+            .request-section {
+                margin-bottom: 30px;
+            }
+
+            .request-line {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+
+            .method-select {
+                padding: 12px 15px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 600;
+                background: white;
+                cursor: pointer;
+                min-width: 120px;
+                transition: all 0.3s;
+            }
+
+            .method-select:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+
+            .url-input {
+                flex: 1;
+                padding: 12px 15px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                transition: all 0.3s;
+            }
+
+            .url-input:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+
+            .send-btn {
+                padding: 12px 30px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+                min-width: 100px;
+            }
+
+            .send-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            }
+
+            .send-btn:active {
+                transform: translateY(0);
+            }
+
+            .send-btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .tabs {
+                display: flex;
+                gap: 10px;
+                border-bottom: 2px solid #e0e0e0;
+                margin-bottom: 20px;
+            }
+
+            .tab {
+                padding: 10px 20px;
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 600;
+                color: #666;
+                border-bottom: 3px solid transparent;
+                transition: all 0.3s;
+            }
+
+            .tab.active {
+                color: #667eea;
+                border-bottom-color: #667eea;
+            }
+
+            .tab-content {
+                display: none;
+            }
+
+            .tab-content.active {
+                display: block;
+            }
+
+            .headers-container,
+            .params-container {
+                margin-bottom: 15px;
+            }
+
+            .header-row,
+            .param-row {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+
+            .header-row input,
+            .param-row input {
+                flex: 1;
+                padding: 10px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+            }
+
+            .header-row input:focus,
+            .param-row input:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+
+            .remove-btn {
+                padding: 10px 15px;
+                background: #ff4757;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: all 0.3s;
+            }
+
+            .remove-btn:hover {
+                background: #ff3838;
+            }
+
+            .add-btn {
+                padding: 10px 20px;
+                background: #2ed573;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 600;
+                transition: all 0.3s;
+            }
+
+            .add-btn:hover {
+                background: #26d069;
+            }
+
+            .body-textarea {
+                width: 100%;
+                min-height: 200px;
+                padding: 15px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-family: "Courier New", monospace;
+                font-size: 14px;
+                resize: vertical;
+            }
+
+            .body-textarea:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+
+            .response-section {
+                margin-top: 30px;
+                padding-top: 30px;
+                border-top: 2px solid #e0e0e0;
+            }
+
+            .response-info {
+                display: flex;
+                gap: 20px;
+                margin-bottom: 20px;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 6px;
+            }
+
+            .info-item {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .info-label {
+                font-size: 12px;
+                color: #666;
+                margin-bottom: 5px;
+            }
+
+            .info-value {
+                font-size: 16px;
+                font-weight: 600;
+            }
+
+            .status-success {
+                color: #2ed573;
+            }
+
+            .status-error {
+                color: #ff4757;
+            }
+
+            .response-body {
+                background: #1e1e1e;
+                color: #d4d4d4;
+                padding: 20px;
+                border-radius: 6px;
+                font-family: "Courier New", monospace;
+                font-size: 13px;
+                overflow-x: auto;
+                max-height: 500px;
+                overflow-y: auto;
+            }
+
+            .response-headers {
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 6px;
+                font-family: "Courier New", monospace;
+                font-size: 13px;
+                max-height: 300px;
+                overflow-y: auto;
+            }
+
+            .loading {
+                text-align: center;
+                padding: 40px;
+                color: #667eea;
+                font-size: 16px;
+            }
+
+            .spinner {
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #667eea;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 15px;
+            }
+
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .error-message {
+                background: #ffe0e0;
+                color: #ff4757;
+                padding: 15px;
+                border-radius: 6px;
+                margin-top: 15px;
+            }
+
+            pre {
+                margin: 0;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🚀 API Tester</h1>
+                <p>Test API endpoints giống như Postman</p>
+            </div>
+
+            <div class="content">
+                <div class="request-section">
+                    <h2 style="margin-bottom: 20px; color: #333">Request</h2>
+
+                    <div
+                        style="
+                            margin-bottom: 20px;
+                            padding: 15px;
+                            background: #f0f8ff;
+                            border-radius: 6px;
+                            border-left: 4px solid #667eea;
+                        "
+                    >
+                        <div
+                            style="
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 10px;
+                            "
+                        >
+                            <strong style="color: #667eea"
+                                >📋 Import nhanh từ Browser DevTools
+                                (F12)</strong
+                            >
+                            <button
+                                onclick="toggleImport()"
+                                id="toggleImportBtn"
+                                style="
+                                    padding: 5px 15px;
+                                    background: #667eea;
+                                    color: white;
+                                    border: none;
+                                    border-radius: 4px;
+                                    cursor: pointer;
+                                    font-size: 12px;
+                                "
+                            >
+                                Hiện
+                            </button>
+                        </div>
+                        <div id="importSection" style="display: none">
+                            <textarea
+                                id="importText"
+                                placeholder="Paste cURL hoặc fetch command từ Chrome DevTools (F12 > Network > Right click > Copy as cURL / Copy as fetch)&#10;&#10;Ví dụ cURL:&#10;curl 'https://api.example.com/data' -H 'Authorization: Bearer token123'&#10;&#10;Ví dụ fetch:&#10;fetch('https://api.example.com/data', {method: 'POST', headers: {'Content-Type': 'application/json'}})"
+                                style="
+                                    width: 100%;
+                                    min-height: 120px;
+                                    padding: 10px;
+                                    border: 2px solid #667eea;
+                                    border-radius: 6px;
+                                    font-family: monospace;
+                                    font-size: 12px;
+                                    resize: vertical;
+                                "
+                            ></textarea>
+                            <div
+                                style="
+                                    margin-top: 10px;
+                                    display: flex;
+                                    gap: 10px;
+                                "
+                            >
+                                <button
+                                    onclick="importRequest()"
+                                    class="send-btn"
+                                    style="min-width: auto; padding: 8px 20px"
+                                >
+                                    Import
+                                </button>
+                                <button
+                                    onclick="clearImport()"
+                                    style="
+                                        padding: 8px 20px;
+                                        background: #ddd;
+                                        color: #333;
+                                        border: none;
+                                        border-radius: 6px;
+                                        cursor: pointer;
+                                        font-weight: 600;
+                                    "
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="request-line">
+                        <select class="method-select" id="method">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                            <option value="PATCH">PATCH</option>
+                            <option value="HEAD">HEAD</option>
+                            <option value="OPTIONS">OPTIONS</option>
+                        </select>
+                        <input
+                            type="text"
+                            class="url-input"
+                            id="url"
+                            placeholder="Nhập URL (ví dụ: https://jsonplaceholder.typicode.com/posts/1)"
+                        />
+                        <button
+                            class="send-btn"
+                            id="sendBtn"
+                            onclick="sendRequest()"
+                        >
+                            Gửi
+                        </button>
+                    </div>
+
+                    <div class="tabs">
+                        <button
+                            class="tab active"
+                            onclick="switchTab('params')"
+                        >
+                            Params
+                        </button>
+                        <button class="tab" onclick="switchTab('headers')">
+                            Headers
+                        </button>
+                        <button class="tab" onclick="switchTab('body')">
+                            Body
+                        </button>
+                    </div>
+
+                    <div id="params" class="tab-content active">
+                        <div class="params-container" id="paramsContainer">
+                            <div class="param-row">
+                                <input
+                                    type="text"
+                                    placeholder="Key"
+                                    class="param-key"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Value"
+                                    class="param-value"
+                                />
+                                <button
+                                    class="remove-btn"
+                                    onclick="removeParamRow(this)"
+                                >
+                                    Xóa
+                                </button>
+                            </div>
+                        </div>
+                        <button class="add-btn" onclick="addParamRow()">
+                            + Thêm Param
+                        </button>
+                    </div>
+
+                    <div id="headers" class="tab-content">
+                        <div
+                            style="
+                                margin-bottom: 15px;
+                                display: flex;
+                                gap: 10px;
+                                align-items: center;
+                            "
+                        >
+                            <select
+                                id="headerPreset"
+                                style="
+                                    padding: 8px;
+                                    border: 2px solid #e0e0e0;
+                                    border-radius: 6px;
+                                    font-size: 13px;
+                                "
+                            >
+                                <option value="">
+                                    -- Chọn header nhanh --
+                                </option>
+                                <option value="Authorization:Bearer YOUR_TOKEN">
+                                    Authorization (Bearer)
+                                </option>
+                                <option value="Content-Type:application/json">
+                                    Content-Type: JSON
+                                </option>
+                                <option
+                                    value="Content-Type:application/x-www-form-urlencoded"
+                                >
+                                    Content-Type: Form
+                                </option>
+                                <option
+                                    value="Content-Type:multipart/form-data"
+                                >
+                                    Content-Type: Multipart
+                                </option>
+                                <option value="Accept:application/json">
+                                    Accept: JSON
+                                </option>
+                                <option value="User-Agent:Custom-Agent/1.0">
+                                    User-Agent
+                                </option>
+                                <option value="X-API-Key:YOUR_API_KEY">
+                                    X-API-Key
+                                </option>
+                                <option value="Cookie:session=YOUR_SESSION">
+                                    Cookie
+                                </option>
+                            </select>
+                            <button
+                                class="add-btn"
+                                onclick="addPresetHeader()"
+                                style="padding: 8px 15px"
+                            >
+                                + Thêm
+                            </button>
+                        </div>
+                        <div class="headers-container" id="headersContainer">
+                            <div class="header-row">
+                                <input
+                                    type="text"
+                                    placeholder="Header Key"
+                                    class="header-key"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Header Value"
+                                    class="header-value"
+                                />
+                                <button
+                                    class="remove-btn"
+                                    onclick="removeHeaderRow(this)"
+                                >
+                                    Xóa
+                                </button>
+                            </div>
+                        </div>
+                        <button class="add-btn" onclick="addHeaderRow()">
+                            + Thêm Header
+                        </button>
+                    </div>
+
+                    <div id="body" class="tab-content">
+                        <textarea
+                            class="body-textarea"
+                            id="bodyContent"
+                            placeholder='Nhập JSON body (ví dụ: {"title": "test", "body": "content", "userId": 1})'
+                        ></textarea>
+                    </div>
+                </div>
+
+                <div
+                    class="response-section"
+                    id="responseSection"
+                    style="display: none"
+                >
+                    <h2 style="margin-bottom: 20px; color: #333">Response</h2>
+
+                    <div class="response-info" id="responseInfo"></div>
+
+                    <div class="tabs">
+                        <button
+                            class="tab active"
+                            onclick="switchResponseTab('response-body')"
+                        >
+                            Body
+                        </button>
+                        <button
+                            class="tab"
+                            onclick="switchResponseTab('response-headers')"
+                        >
+                            Response Headers
+                        </button>
+                        <button
+                            class="tab"
+                            onclick="switchResponseTab('request-headers')"
+                        >
+                            Request Headers
+                        </button>
+                    </div>
+
+                    <div id="response-body" class="tab-content active">
+                        <div
+                            style="
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 10px;
+                            "
+                        >
+                            <span style="font-size: 14px; color: #666"
+                                ><strong>Response Body</strong></span
+                            >
+                            <button
+                                onclick="copyResponseBody(this)"
+                                class="add-btn"
+                                style="padding: 6px 15px; font-size: 12px"
+                            >
+                                📋 Copy Body
+                            </button>
+                        </div>
+                        <div class="response-body" id="responseBody"></div>
+                    </div>
+
+                    <div id="response-headers" class="tab-content">
+                        <div
+                            style="
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 10px;
+                            "
+                        >
+                            <span style="font-size: 14px; color: #666"
+                                ><strong>Response Headers</strong></span
+                            >
+                            <button
+                                onclick="copyResponseHeaders(this)"
+                                class="add-btn"
+                                style="padding: 6px 15px; font-size: 12px"
+                            >
+                                📋 Copy Headers
+                            </button>
+                        </div>
+                        <div
+                            class="response-headers"
+                            id="responseHeaders"
+                        ></div>
+                    </div>
+
+                    <div id="request-headers" class="tab-content">
+                        <div
+                            style="
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 10px;
+                            "
+                        >
+                            <span style="font-size: 14px; color: #666"
+                                ><strong>Request Headers</strong></span
+                            >
+                            <button
+                                onclick="copyRequestHeaders(this)"
+                                class="add-btn"
+                                style="padding: 6px 15px; font-size: 12px"
+                            >
+                                📋 Copy Headers
+                            </button>
+                        </div>
+                        <div class="response-headers" id="requestHeaders"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function switchTab(tabName) {
+                document.querySelectorAll(".tabs .tab").forEach((tab) => {
+                    tab.classList.remove("active");
+                });
+                document.querySelectorAll(".tab-content").forEach((content) => {
+                    content.classList.remove("active");
+                });
+
+                event.target.classList.add("active");
+                document.getElementById(tabName).classList.add("active");
+            }
+
+            function switchResponseTab(tabName) {
+                const responseTabs = document.querySelector(
+                    ".response-section .tabs",
+                );
+                responseTabs.querySelectorAll(".tab").forEach((tab) => {
+                    tab.classList.remove("active");
+                });
+                document
+                    .querySelectorAll(".response-section .tab-content")
+                    .forEach((content) => {
+                        content.classList.remove("active");
+                    });
+
+                event.target.classList.add("active");
+                document.getElementById(tabName).classList.add("active");
+            }
+
+            function addHeaderRow() {
+                const container = document.getElementById("headersContainer");
+                const row = document.createElement("div");
+                row.className = "header-row";
+                row.innerHTML = `
+                <input type="text" placeholder="Header Key" class="header-key">
+                <input type="text" placeholder="Header Value" class="header-value">
+                <button class="remove-btn" onclick="removeHeaderRow(this)">Xóa</button>
+            `;
+                container.appendChild(row);
+            }
+
+            function addPresetHeader() {
+                const select = document.getElementById("headerPreset");
+                const value = select.value;
+
+                if (!value) {
+                    alert("Vui lòng chọn một header!");
+                    return;
+                }
+
+                const [key, val] = value.split(":");
+                const container = document.getElementById("headersContainer");
+
+                // Check if header already exists
+                const existingRows = container.querySelectorAll(".header-row");
+                let exists = false;
+                existingRows.forEach((row) => {
+                    const existingKey = row.querySelector(".header-key").value;
+                    if (existingKey === key) {
+                        row.querySelector(".header-value").value = val;
+                        exists = true;
+                    }
+                });
+
+                if (!exists) {
+                    const row = document.createElement("div");
+                    row.className = "header-row";
+                    row.innerHTML = `
+                    <input type="text" placeholder="Header Key" class="header-key" value="${key}">
+                    <input type="text" placeholder="Header Value" class="header-value" value="${val}">
+                    <button class="remove-btn" onclick="removeHeaderRow(this)">Xóa</button>
+                `;
+                    container.appendChild(row);
+                }
+
+                // Reset select
+                select.selectedIndex = 0;
+            }
+
+            function removeHeaderRow(btn) {
+                const container = document.getElementById("headersContainer");
+                if (container.children.length > 1) {
+                    btn.parentElement.remove();
+                }
+            }
+
+            function addParamRow() {
+                const container = document.getElementById("paramsContainer");
+                const row = document.createElement("div");
+                row.className = "param-row";
+                row.innerHTML = `
+                <input type="text" placeholder="Key" class="param-key">
+                <input type="text" placeholder="Value" class="param-value">
+                <button class="remove-btn" onclick="removeParamRow(this)">Xóa</button>
+            `;
+                container.appendChild(row);
+            }
+
+            function removeParamRow(btn) {
+                const container = document.getElementById("paramsContainer");
+                if (container.children.length > 1) {
+                    btn.parentElement.remove();
+                }
+            }
+
+            function getHeaders() {
+                const headers = {};
+                document.querySelectorAll(".header-row").forEach((row) => {
+                    const key = row.querySelector(".header-key").value.trim();
+                    const value = row
+                        .querySelector(".header-value")
+                        .value.trim();
+                    if (key) {
+                        headers[key] = value;
+                    }
+                });
+                return headers;
+            }
+
+            function getParams() {
+                const params = {};
+                document.querySelectorAll(".param-row").forEach((row) => {
+                    const key = row.querySelector(".param-key").value.trim();
+                    const value = row
+                        .querySelector(".param-value")
+                        .value.trim();
+                    if (key) {
+                        params[key] = value;
+                    }
+                });
+                return params;
+            }
+
+            function buildUrlWithParams(baseUrl, params) {
+                const url = new URL(baseUrl);
+                Object.keys(params).forEach((key) => {
+                    url.searchParams.append(key, params[key]);
+                });
+                return url.toString();
+            }
+
+            async function sendRequest() {
+                const method = document.getElementById("method").value;
+                const url = document.getElementById("url").value.trim();
+                const body = document
+                    .getElementById("bodyContent")
+                    .value.trim();
+                const sendBtn = document.getElementById("sendBtn");
+
+                if (!url) {
+                    alert("Vui lòng nhập URL!");
+                    return;
+                }
+
+                // Disable button
+                sendBtn.disabled = true;
+                sendBtn.textContent = "Đang gửi...";
+
+                // Show response section with loading
+                const responseSection =
+                    document.getElementById("responseSection");
+                responseSection.style.display = "block";
+                document.getElementById("responseInfo").innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Đang gửi request...</div>
+                </div>
+            `;
+                document.getElementById("responseBody").innerHTML = "";
+                document.getElementById("responseHeaders").innerHTML = "";
+
+                try {
+                    const startTime = performance.now();
+
+                    // Build URL with params
+                    const params = getParams();
+                    const finalUrl =
+                        Object.keys(params).length > 0
+                            ? buildUrlWithParams(url, params)
+                            : url;
+
+                    // Build request options
+                    const options = {
+                        method: method,
+                        headers: getHeaders(),
+                    };
+
+                    // Add body for POST, PUT, PATCH
+                    if (["POST", "PUT", "PATCH"].includes(method) && body) {
+                        options.body = body;
+                        if (!options.headers["Content-Type"]) {
+                            options.headers["Content-Type"] =
+                                "application/json";
+                        }
+                    }
+
+                    // Send request
+                    const response = await fetch(finalUrl, options);
+                    const endTime = performance.now();
+                    const duration = Math.round(endTime - startTime);
+
+                    // Get response body
+                    const contentType = response.headers.get("content-type");
+                    let responseBody;
+
+                    if (
+                        contentType &&
+                        contentType.includes("application/json")
+                    ) {
+                        responseBody = await response.json();
+                        responseBody = JSON.stringify(responseBody, null, 2);
+                    } else {
+                        responseBody = await response.text();
+                    }
+
+                    // Display response info
+                    const statusClass = response.ok
+                        ? "status-success"
+                        : "status-error";
+                    document.getElementById("responseInfo").innerHTML = `
+                    <div class="info-item">
+                        <span class="info-label">Status</span>
+                        <span class="info-value ${statusClass}">${response.status} ${response.statusText}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Time</span>
+                        <span class="info-value">${duration} ms</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Size</span>
+                        <span class="info-value">${new Blob([responseBody]).size} bytes</span>
+                    </div>
+                `;
+
+                    // Display response body
+                    document.getElementById("responseBody").innerHTML =
+                        `<pre>${escapeHtml(responseBody)}</pre>`;
+
+                    // Store response body for copy function
+                    window.currentResponseBody = responseBody;
+
+                    // Display response headers
+                    let responseHeadersHtml = "";
+                    let responseHeadersText = "";
+                    response.headers.forEach((value, key) => {
+                        responseHeadersHtml += `<div><strong>${key}:</strong> ${value}</div>`;
+                        responseHeadersText += `${key}: ${value}\n`;
+                    });
+                    document.getElementById("responseHeaders").innerHTML =
+                        responseHeadersHtml || "<div>Không có headers</div>";
+
+                    // Store response headers for copy function
+                    window.currentResponseHeaders = responseHeadersText;
+
+                    // Display request headers
+                    let requestHeadersHtml =
+                        '<div style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border-radius: 6px; font-size: 13px;">';
+                    requestHeadersHtml +=
+                        "<strong>⚠️ Lưu ý:</strong> Do hạn chế bảo mật của trình duyệt, không thể đọc chính xác 100% headers thực tế. ";
+                    requestHeadersHtml +=
+                        "Dưới đây là headers bạn đã cấu hình + headers ước tính mà trình duyệt thêm.</div>";
+
+                    requestHeadersHtml +=
+                        '<div style="margin-top: 15px;"><strong style="color: #ff6b6b;">🎯 Request URL:</strong></div>';
+                    requestHeadersHtml += `<div style="background: #f8f9fa; padding: 10px; border-radius: 4px; word-break: break-all; font-family: monospace;">${method} ${finalUrl}</div>`;
+
+                    // Build request headers text for copy
+                    let requestHeadersText = `Request URL: ${method} ${finalUrl}\n\n`;
+                    requestHeadersText += `=== Headers bạn đã cấu hình ===\n`;
+
+                    // Generate cURL command
+                    let curlCommand = `curl -X ${method} '${finalUrl}'`;
+                    for (const [key, value] of Object.entries(
+                        options.headers,
+                    )) {
+                        curlCommand += ` \\\n  -H '${key}: ${value}'`;
+                        requestHeadersText += `${key}: ${value}\n`;
+                    }
+                    if (options.body) {
+                        curlCommand += ` \\\n  -d '${options.body.replace(/'/g, "'\\''")}'`;
+                    }
+
+                    requestHeadersText += `\n=== Headers trình duyệt tự động thêm (ước tính) ===\n`;
+                    requestHeadersText += `User-Agent: ${navigator.userAgent}\n`;
+                    requestHeadersText += `Accept: */*\n`;
+                    requestHeadersText += `Accept-Language: ${navigator.language || "en-US,en;q=0.9"}\n`;
+                    requestHeadersText += `Accept-Encoding: gzip, deflate, br\n`;
+                    requestHeadersText += `Connection: keep-alive\n`;
+
+                    if (finalUrl.startsWith("http")) {
+                        requestHeadersText += `Origin: ${window.location.origin}\n`;
+                        requestHeadersText += `Referer: ${window.location.href}\n`;
+                    }
+
+                    if (method !== "GET" && method !== "HEAD" && options.body) {
+                        requestHeadersText += `Content-Length: ${new Blob([options.body]).size} bytes\n`;
+                    }
+
+                    // Store for copy function
+                    window.currentRequestHeaders = requestHeadersText;
+
+                    requestHeadersHtml +=
+                        '<div style="margin-top: 15px;"><strong style="color: #ff6b6b;">🔧 cURL Command:</strong> <button onclick="copyCurl(this)" style="margin-left: 10px; padding: 5px 10px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">📋 Copy</button></div>';
+                    requestHeadersHtml += `<div style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 4px; word-break: break-all; font-family: monospace; font-size: 12px; overflow-x: auto;"><pre style="margin: 0; white-space: pre-wrap;">${escapeHtml(curlCommand)}</pre></div>`;
+
+                    requestHeadersHtml +=
+                        '<div style="margin-top: 15px;"><strong style="color: #667eea;">📤 Headers bạn đã cấu hình:</strong></div>';
+                    let hasCustomHeaders = false;
+                    for (const [key, value] of Object.entries(
+                        options.headers,
+                    )) {
+                        requestHeadersHtml += `<div>✓ <strong>${key}:</strong> ${value}</div>`;
+                        hasCustomHeaders = true;
+                    }
+                    if (!hasCustomHeaders) {
+                        requestHeadersHtml +=
+                            '<div style="color: #999; font-style: italic;">Không có headers tùy chỉnh</div>';
+                    }
+
+                    requestHeadersHtml +=
+                        '<div style="margin-top: 15px;"><strong style="color: #2ed573;">🌐 Headers trình duyệt tự động thêm (ước tính):</strong></div>';
+                    requestHeadersHtml += `<div>• <strong>User-Agent:</strong> ${navigator.userAgent}</div>`;
+                    requestHeadersHtml += `<div>• <strong>Accept:</strong> */*</div>`;
+                    requestHeadersHtml += `<div>• <strong>Accept-Language:</strong> ${navigator.language || "en-US,en;q=0.9"}</div>`;
+                    requestHeadersHtml += `<div>• <strong>Accept-Encoding:</strong> gzip, deflate, br</div>`;
+                    requestHeadersHtml += `<div>• <strong>Connection:</strong> keep-alive</div>`;
+
+                    if (finalUrl.startsWith("http")) {
+                        requestHeadersHtml += `<div>• <strong>Origin:</strong> ${window.location.origin}</div>`;
+                        requestHeadersHtml += `<div>• <strong>Referer:</strong> ${window.location.href}</div>`;
+                    }
+
+                    if (method !== "GET" && method !== "HEAD") {
+                        requestHeadersHtml += `<div>• <strong>Content-Length:</strong> ${options.body ? new Blob([options.body]).size : 0} bytes</div>`;
+                    }
+
+                    requestHeadersHtml +=
+                        '<div style="margin-top: 10px; font-size: 12px; color: #666; font-style: italic;">💡 Headers được đánh dấu • là ước tính, giá trị thực tế có thể khác một chút</div>';
+
+                    document.getElementById("requestHeaders").innerHTML =
+                        requestHeadersHtml;
+
+                    // Store curl command for copy function
+                    window.currentCurlCommand = curlCommand;
+                } catch (error) {
+                    document.getElementById("responseInfo").innerHTML = `
+                    <div class="error-message">
+                        <strong>Lỗi:</strong> ${error.message}
+                    </div>
+                `;
+                    document.getElementById("responseBody").innerHTML =
+                        `<pre>Không thể gửi request. Vui lòng kiểm tra lại URL và kết nối mạng.
+
+Một số nguyên nhân có thể:
+- URL không hợp lệ
+- Server không phản hồi
+- CORS policy chặn request (nếu gọi từ domain khác)
+- Kết nối mạng bị gián đoạn</pre>`;
+
+                    // Display request headers even on error
+                    const params = getParams();
+                    const finalUrl =
+                        Object.keys(params).length > 0
+                            ? buildUrlWithParams(url, params)
+                            : url;
+                    const method = document.getElementById("method").value;
+                    const body = document
+                        .getElementById("bodyContent")
+                        .value.trim();
+
+                    const options = {
+                        method: method,
+                        headers: getHeaders(),
+                    };
+
+                    if (["POST", "PUT", "PATCH"].includes(method) && body) {
+                        if (!options.headers["Content-Type"]) {
+                            options.headers["Content-Type"] =
+                                "application/json";
+                        }
+                    }
+
+                    let requestHeadersHtml =
+                        '<div style="margin-bottom: 15px; padding: 10px; background: #ffe0e0; border-radius: 6px; font-size: 13px;">';
+                    requestHeadersHtml +=
+                        "<strong>❌ Request bị lỗi!</strong> Nhưng đây là thông tin request đã được cấu hình để gửi.</div>";
+
+                    requestHeadersHtml +=
+                        '<div style="margin-top: 15px;"><strong style="color: #ff6b6b;">🎯 Request URL:</strong></div>';
+                    requestHeadersHtml += `<div style="background: #f8f9fa; padding: 10px; border-radius: 4px; word-break: break-all; font-family: monospace;">${method} ${finalUrl}</div>`;
+
+                    // Build request headers text for copy
+                    let requestHeadersText = `Request URL: ${method} ${finalUrl}\n\n`;
+                    requestHeadersText += `=== Headers đã cấu hình ===\n`;
+
+                    requestHeadersHtml +=
+                        '<div style="margin-top: 15px;"><strong style="color: #667eea;">📤 Headers đã cấu hình:</strong></div>';
+                    let hasCustomHeaders = false;
+                    for (const [key, value] of Object.entries(
+                        options.headers,
+                    )) {
+                        requestHeadersHtml += `<div>✓ <strong>${key}:</strong> ${value}</div>`;
+                        requestHeadersText += `${key}: ${value}\n`;
+                        hasCustomHeaders = true;
+                    }
+                    if (!hasCustomHeaders) {
+                        requestHeadersHtml +=
+                            '<div style="color: #999; font-style: italic;">Không có headers tùy chỉnh</div>';
+                    }
+
+                    // Store for copy function
+                    window.currentRequestHeaders = requestHeadersText;
+
+                    document.getElementById("requestHeaders").innerHTML =
+                        requestHeadersHtml;
+                } finally {
+                    sendBtn.disabled = false;
+                    sendBtn.textContent = "Gửi";
+                }
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            function copyCurl(btn) {
+                if (window.currentCurlCommand) {
+                    navigator.clipboard
+                        .writeText(window.currentCurlCommand)
+                        .then(() => {
+                            const originalText = btn.innerHTML;
+                            btn.innerHTML = "✓ Đã copy!";
+                            btn.style.background = "#2ed573";
+                            setTimeout(() => {
+                                btn.innerHTML = originalText;
+                                btn.style.background = "#667eea";
+                            }, 2000);
+                        })
+                        .catch((err) => {
+                            alert("Không thể copy: " + err);
+                        });
+                } else {
+                    alert("Chưa có cURL command để copy!");
+                }
+            }
+
+            function copyResponseBody(btn) {
+                if (window.currentResponseBody) {
+                    navigator.clipboard
+                        .writeText(window.currentResponseBody)
+                        .then(() => {
+                            const originalText = btn.innerHTML;
+                            btn.innerHTML = "✓ Đã copy!";
+                            btn.style.background = "#2ed573";
+                            setTimeout(() => {
+                                btn.innerHTML = originalText;
+                                btn.style.background = "#2ed573";
+                            }, 2000);
+                        })
+                        .catch((err) => {
+                            alert("Không thể copy: " + err);
+                        });
+                } else {
+                    alert("Chưa có response body để copy!");
+                }
+            }
+
+            function copyResponseHeaders(btn) {
+                if (window.currentResponseHeaders) {
+                    navigator.clipboard
+                        .writeText(window.currentResponseHeaders)
+                        .then(() => {
+                            const originalText = btn.innerHTML;
+                            btn.innerHTML = "✓ Đã copy!";
+                            btn.style.background = "#2ed573";
+                            setTimeout(() => {
+                                btn.innerHTML = originalText;
+                                btn.style.background = "#2ed573";
+                            }, 2000);
+                        })
+                        .catch((err) => {
+                            alert("Không thể copy: " + err);
+                        });
+                } else {
+                    alert("Chưa có response headers để copy!");
+                }
+            }
+
+            function copyRequestHeaders(btn) {
+                if (window.currentRequestHeaders) {
+                    navigator.clipboard
+                        .writeText(window.currentRequestHeaders)
+                        .then(() => {
+                            const originalText = btn.innerHTML;
+                            btn.innerHTML = "✓ Đã copy!";
+                            btn.style.background = "#2ed573";
+                            setTimeout(() => {
+                                btn.innerHTML = originalText;
+                                btn.style.background = "#2ed573";
+                            }, 2000);
+                        })
+                        .catch((err) => {
+                            alert("Không thể copy: " + err);
+                        });
+                } else {
+                    alert("Chưa có request headers để copy!");
+                }
+            }
+
+            function toggleImport() {
+                const section = document.getElementById("importSection");
+                const btn = document.getElementById("toggleImportBtn");
+                if (section.style.display === "none") {
+                    section.style.display = "block";
+                    btn.textContent = "Ẩn";
+                } else {
+                    section.style.display = "none";
+                    btn.textContent = "Hiện";
+                }
+            }
+
+            function clearImport() {
+                document.getElementById("importText").value = "";
+            }
+
+            function parseCurl(curlCommand) {
+                const result = {
+                    method: "GET",
+                    url: "",
+                    headers: {},
+                    body: "",
+                };
+
+                // Extract method
+                const methodMatch = curlCommand.match(
+                    /-X\s+(\w+)|--request\s+(\w+)/i,
+                );
+                if (methodMatch) {
+                    result.method = (
+                        methodMatch[1] || methodMatch[2]
+                    ).toUpperCase();
+                }
+
+                // Extract URL - handle both quoted and unquoted URLs
+                const urlMatch = curlCommand.match(
+                    /curl\s+['"]([^'"]+)['"]|curl\s+(\S+)/,
+                );
+                if (urlMatch) {
+                    result.url = urlMatch[1] || urlMatch[2];
+                    result.url = result.url.replace(/^['"]|['"]$/g, "");
+                }
+
+                // Extract headers
+                const headerRegex = /-H\s+['"]([^:]+):\s*([^'"]+)['"]/g;
+                let headerMatch;
+                while ((headerMatch = headerRegex.exec(curlCommand)) !== null) {
+                    result.headers[headerMatch[1].trim()] =
+                        headerMatch[2].trim();
+                }
+
+                // Extract data/body
+                const dataMatch = curlCommand.match(
+                    /--data-raw\s+['"](.+?)['"]|--data\s+['"](.+?)['"]|-d\s+['"](.+?)['"]/s,
+                );
+                if (dataMatch) {
+                    result.body = dataMatch[1] || dataMatch[2] || dataMatch[3];
+                    result.body = result.body
+                        .replace(/\\'/g, "'")
+                        .replace(/\\"/g, '"');
+                }
+
+                return result;
+            }
+
+            function parseFetch(fetchCommand) {
+                const result = {
+                    method: "GET",
+                    url: "",
+                    headers: {},
+                    body: "",
+                };
+
+                try {
+                    // Extract URL
+                    const urlMatch = fetchCommand.match(
+                        /fetch\s*\(\s*['"]([^'"]+)['"]/,
+                    );
+                    if (urlMatch) {
+                        result.url = urlMatch[1];
+                    }
+
+                    // Extract method
+                    const methodMatch = fetchCommand.match(
+                        /method\s*:\s*['"](\w+)['"]/i,
+                    );
+                    if (methodMatch) {
+                        result.method = methodMatch[1].toUpperCase();
+                    }
+
+                    // Extract headers - handle both single line and multi-line
+                    const headersMatch = fetchCommand.match(
+                        /headers\s*:\s*({[^}]+})/s,
+                    );
+                    if (headersMatch) {
+                        const headersStr = headersMatch[1];
+                        const headerRegex =
+                            /['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g;
+                        let headerMatch;
+                        while (
+                            (headerMatch = headerRegex.exec(headersStr)) !==
+                            null
+                        ) {
+                            result.headers[headerMatch[1]] = headerMatch[2];
+                        }
+                    }
+
+                    // Extract body
+                    const bodyMatch =
+                        fetchCommand.match(/body\s*:\s*['"](.+?)['"]/s) ||
+                        fetchCommand.match(
+                            /body\s*:\s*JSON\.stringify\((.+?)\)/s,
+                        );
+                    if (bodyMatch) {
+                        result.body = bodyMatch[1];
+                        // Try to parse and re-stringify if it's JSON
+                        try {
+                            const parsed = JSON.parse(result.body);
+                            result.body = JSON.stringify(parsed, null, 2);
+                        } catch (e) {
+                            // Keep as is if not valid JSON
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error parsing fetch:", e);
+                }
+
+                return result;
+            }
+
+            function importRequest() {
+                const importText = document
+                    .getElementById("importText")
+                    .value.trim();
+
+                if (!importText) {
+                    alert("Vui lòng paste cURL hoặc fetch command!");
+                    return;
+                }
+
+                let parsed;
+
+                // Detect if it's cURL or fetch
+                if (importText.startsWith("curl")) {
+                    parsed = parseCurl(importText);
+                } else if (importText.includes("fetch(")) {
+                    parsed = parseFetch(importText);
+                } else {
+                    alert(
+                        "Không nhận diện được format! Vui lòng paste cURL hoặc fetch command.",
+                    );
+                    return;
+                }
+
+                // Populate form
+                if (parsed.url) {
+                    document.getElementById("url").value = parsed.url;
+                }
+
+                if (parsed.method) {
+                    document.getElementById("method").value = parsed.method;
+                }
+
+                // Clear existing headers
+                const headersContainer =
+                    document.getElementById("headersContainer");
+                headersContainer.innerHTML = "";
+
+                // Add parsed headers
+                if (Object.keys(parsed.headers).length > 0) {
+                    for (const [key, value] of Object.entries(parsed.headers)) {
+                        const row = document.createElement("div");
+                        row.className = "header-row";
+                        row.innerHTML = `
+                        <input type="text" placeholder="Header Key" class="header-key" value="${escapeHtml(key)}">
+                        <input type="text" placeholder="Header Value" class="header-value" value="${escapeHtml(value)}">
+                        <button class="remove-btn" onclick="removeHeaderRow(this)">Xóa</button>
+                    `;
+                        headersContainer.appendChild(row);
+                    }
+                } else {
+                    // Add one empty row if no headers
+                    addHeaderRow();
+                }
+
+                // Populate body
+                if (parsed.body) {
+                    document.getElementById("bodyContent").value = parsed.body;
+                }
+
+                // Switch to appropriate tab
+                if (parsed.body) {
+                    switchTab("body");
+                    document.querySelectorAll(".tabs .tab")[2].click();
+                } else if (Object.keys(parsed.headers).length > 0) {
+                    switchTab("headers");
+                    document.querySelectorAll(".tabs .tab")[1].click();
+                }
+
+                // Hide import section
+                document.getElementById("importSection").style.display = "none";
+                document.getElementById("toggleImportBtn").textContent = "Hiện";
+
+                //alert('✓ Đã import thành công! Kiểm tra lại thông tin và nhấn Gửi.');
+            }
+
+            // Allow Enter key to send request
+            document
+                .getElementById("url")
+                .addEventListener("keypress", function (e) {
+                    if (e.key === "Enter") {
+                        sendRequest();
+                    }
+                });
+
+            // Set default example URL
+            document.getElementById("url").value =
+                "https://jsonplaceholder.typicode.com/posts/1";
+        </script>
+    </body>
+</html>
