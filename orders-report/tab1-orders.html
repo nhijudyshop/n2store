@@ -2401,7 +2401,9 @@
                 <div class="bulk-tag-search-wrapper">
                     <i class="fas fa-search"></i>
                     <input type="text" id="bulkTagModalSearchInput" placeholder="Tìm kiếm tag (nhập tên tag)..."
-                        oninput="filterBulkTagModalOptions()" onkeydown="handleBulkTagModalSearchKeydown(event)">
+                        oninput="filterBulkTagModalOptions()"
+                        onfocus="showBulkTagModalDropdown()"
+                        onkeydown="handleBulkTagModalSearchKeydown(event)">
                     <div class="bulk-tag-search-dropdown" id="bulkTagModalSearchDropdown">
                         <!-- Tag options will be populated here -->
                     </div>
