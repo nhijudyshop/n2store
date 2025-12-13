@@ -13882,6 +13882,9 @@ async function confirmMergeSelectedClusters() {
         window.notificationManager.show(`Đang gộp sản phẩm cho ${selectedClusters.length} cụm...`, 'info');
     }
 
+    // Load available tags before merge (needed for tag assignment)
+    await loadAvailableTags();
+
     // Execute merge for each selected cluster
     const results = [];
     for (let i = 0; i < selectedClusters.length; i++) {
@@ -13900,8 +13903,19 @@ async function confirmMergeSelectedClusters() {
         const result = await executeMergeOrderProducts(mergeData);
         results.push({ cluster, result });
 
-        // Save merge history to Firebase
+        // Save merge history to Firebase (before tag assignment to capture original tags)
         await saveMergeHistory(cluster, result, result.errorResponse || null);
+
+        // If merge successful, assign tags
+        if (result.success) {
+            console.log(`[MERGE-MODAL] Merge successful, assigning tags for cluster ${cluster.phone}`);
+            const tagResult = await assignTagsAfterMerge(cluster);
+            if (tagResult.success) {
+                console.log(`[MERGE-MODAL] ✅ Tags assigned successfully for cluster ${cluster.phone}`);
+            } else {
+                console.warn(`[MERGE-MODAL] ⚠️ Tag assignment failed for cluster ${cluster.phone}:`, tagResult.error);
+            }
+        }
 
         // Small delay to avoid rate limiting
         if (i < selectedClusters.length - 1) {
@@ -13997,11 +14011,16 @@ async function saveMergeHistory(cluster, result, errorResponse = null) {
         const { userId, userName } = getMergeHistoryUserInfo();
         const timestamp = new Date();
 
-        // Build source orders data
+        // Build source orders data with original tags
         const sourceOrdersData = cluster.sourceOrders.map(order => ({
             orderId: order.Id,
             stt: order.SessionIndex,
             partnerName: order.PartnerName || '',
+            originalTags: parseOrderTags(order).map(t => ({
+                id: t.Id,
+                name: t.Name || '',
+                color: t.Color || ''
+            })),
             products: (order.Details || []).map(p => ({
                 productId: p.ProductId,
                 productCode: p.ProductCode || '',
@@ -14013,11 +14032,16 @@ async function saveMergeHistory(cluster, result, errorResponse = null) {
             }))
         }));
 
-        // Build target order data
+        // Build target order data with original tags
         const targetOrderData = {
             orderId: cluster.targetOrder.Id,
             stt: cluster.targetOrder.SessionIndex,
             partnerName: cluster.targetOrder.PartnerName || '',
+            originalTags: parseOrderTags(cluster.targetOrder).map(t => ({
+                id: t.Id,
+                name: t.Name || '',
+                color: t.Color || ''
+            })),
             products: (cluster.targetOrder.Details || []).map(p => ({
                 productId: p.ProductId,
                 productCode: p.ProductCode || '',
@@ -14212,21 +14236,33 @@ function renderHistoryEntry(entry, index) {
 }
 
 /**
+ * Render tag pills for history display
+ */
+function renderHistoryTagPills(tags) {
+    if (!tags || tags.length === 0) return '';
+    return `<div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px;">
+        ${tags.map(t => `<span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; color: white; background: ${t.color || '#6b7280'};">${escapeHtml(t.name)}</span>`).join('')}
+    </div>`;
+}
+
+/**
  * Render history table (similar to merge preview)
  */
 function renderHistoryTable(entry) {
-    // Build headers
+    // Build headers with original tags
     const headers = [
         `<th class="merged-col">Sau Khi Gộp<br><small>(STT ${entry.targetOrder.stt})</small></th>`
     ];
 
-    // Source orders headers
+    // Source orders headers with original tags
     entry.sourceOrders.forEach(order => {
-        headers.push(`<th>STT ${order.stt} - ${escapeHtml(order.partnerName)}</th>`);
+        const tagsHtml = renderHistoryTagPills(order.originalTags);
+        headers.push(`<th>STT ${order.stt} - ${escapeHtml(order.partnerName)}${tagsHtml}</th>`);
     });
 
-    // Target order header
-    headers.push(`<th class="target-col">STT ${entry.targetOrder.stt} - ${escapeHtml(entry.targetOrder.partnerName)} (Đích)</th>`);
+    // Target order header with original tags
+    const targetTagsHtml = renderHistoryTagPills(entry.targetOrder.originalTags);
+    headers.push(`<th class="target-col">STT ${entry.targetOrder.stt} - ${escapeHtml(entry.targetOrder.partnerName)} (Đích)${targetTagsHtml}</th>`);
 
     // Find max products
     const allProductCounts = [
@@ -14325,6 +14361,215 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// =====================================================
+// MERGE TAG ASSIGNMENT FUNCTIONS
+// =====================================================
+
+const MERGE_TAG_COLOR = '#E3A21A';
+const MERGED_ORDER_TAG_NAME = 'ĐÃ GỘP KO CHỐT';
+
+/**
+ * Ensure a tag exists, create if not found
+ * @param {string} tagName - Tag name to ensure exists
+ * @param {string} color - Hex color for new tag
+ * @returns {Promise<Object>} Tag object with Id, Name, Color
+ */
+async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
+    try {
+        // Load available tags if not loaded
+        if (!availableTags || availableTags.length === 0) {
+            await loadAvailableTags();
+        }
+
+        // Check if tag already exists
+        const existingTag = availableTags.find(t =>
+            t.Name && t.Name.toLowerCase() === tagName.toLowerCase()
+        );
+
+        if (existingTag) {
+            console.log(`[MERGE-TAG] Tag "${tagName}" already exists:`, existingTag);
+            return existingTag;
+        }
+
+        // Create new tag
+        console.log(`[MERGE-TAG] Creating new tag: "${tagName}" with color ${color}`);
+        const headers = await window.tokenManager.getAuthHeader();
+
+        const response = await API_CONFIG.smartFetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
+            {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'accept': 'application/json, text/plain, */*',
+                    'content-type': 'application/json;charset=UTF-8',
+                },
+                body: JSON.stringify({
+                    Name: tagName,
+                    Color: color
+                })
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const newTag = await response.json();
+        console.log('[MERGE-TAG] Tag created successfully:', newTag);
+
+        // Remove @odata.context
+        if (newTag['@odata.context']) {
+            delete newTag['@odata.context'];
+        }
+
+        // Update local tags list
+        if (Array.isArray(availableTags)) {
+            availableTags.push(newTag);
+            window.availableTags = availableTags;
+            window.cacheManager.set("tags", availableTags, "tags");
+        }
+
+        // Save to Firebase
+        if (database) {
+            await database.ref('settings/tags').set(availableTags);
+        }
+
+        return newTag;
+
+    } catch (error) {
+        console.error('[MERGE-TAG] Error ensuring tag exists:', error);
+        throw error;
+    }
+}
+
+/**
+ * Parse tags from order
+ * @param {Object} order - Order object
+ * @returns {Array} Array of tag objects
+ */
+function parseOrderTags(order) {
+    if (!order || !order.Tags) return [];
+    try {
+        const tags = JSON.parse(order.Tags);
+        return Array.isArray(tags) ? tags : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+/**
+ * Assign tags to an order via API
+ * @param {string} orderId - Order ID
+ * @param {Array} tags - Array of tag objects
+ */
+async function assignTagsToOrder(orderId, tags) {
+    const headers = await window.tokenManager.getAuthHeader();
+
+    const response = await API_CONFIG.smartFetch(
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
+        {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                Tags: tags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                OrderId: orderId
+            })
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`Lỗi gán tag: ${response.status}`);
+    }
+
+    // Update order in table
+    const updatedData = { Tags: JSON.stringify(tags) };
+    updateOrderInTable(orderId, updatedData);
+
+    // Emit Firebase realtime update
+    await emitTagUpdateToFirebase(orderId, tags);
+
+    return true;
+}
+
+/**
+ * Assign tags after successful merge
+ * @param {Object} cluster - Cluster data with orders, targetOrder, sourceOrders
+ * @returns {Promise<Object>} Result of tag assignment
+ */
+async function assignTagsAfterMerge(cluster) {
+    try {
+        console.log('[MERGE-TAG] Starting tag assignment for cluster:', cluster.phone);
+
+        // Step 1: Ensure "ĐÃ GỘP KO CHỐT" tag exists
+        const mergedTag = await ensureMergeTagExists(MERGED_ORDER_TAG_NAME, MERGE_TAG_COLOR);
+
+        // Step 2: Create "Gộp X Y Z" tag
+        const allSTTs = cluster.orders.map(o => o.SessionIndex).sort((a, b) => a - b);
+        const mergeTagName = `Gộp ${allSTTs.join(' ')}`;
+        const mergeGroupTag = await ensureMergeTagExists(mergeTagName, MERGE_TAG_COLOR);
+
+        // Step 3: Collect all tags from all orders (for target order)
+        const allTags = new Map(); // Use Map to dedupe by tag Id
+
+        // Add tags from target order
+        const targetTags = parseOrderTags(cluster.targetOrder);
+        targetTags.forEach(t => {
+            if (t.Id) allTags.set(t.Id, t);
+        });
+
+        // Add tags from source orders
+        cluster.sourceOrders.forEach(sourceOrder => {
+            const sourceTags = parseOrderTags(sourceOrder);
+            sourceTags.forEach(t => {
+                if (t.Id) allTags.set(t.Id, t);
+            });
+        });
+
+        // Add merge group tag
+        allTags.set(mergeGroupTag.Id, mergeGroupTag);
+
+        // Convert to array
+        const targetOrderNewTags = Array.from(allTags.values());
+
+        console.log(`[MERGE-TAG] Target order STT ${cluster.targetOrder.SessionIndex} will have ${targetOrderNewTags.length} tags`);
+
+        // Step 4: Assign tags to target order
+        await assignTagsToOrder(cluster.targetOrder.Id, targetOrderNewTags);
+        console.log(`[MERGE-TAG] ✅ Assigned ${targetOrderNewTags.length} tags to target order STT ${cluster.targetOrder.SessionIndex}`);
+
+        // Step 5: Assign only "ĐÃ GỘP KO CHỐT" tag to source orders (clear all existing)
+        const sourceOnlyTags = [mergedTag];
+
+        for (const sourceOrder of cluster.sourceOrders) {
+            await assignTagsToOrder(sourceOrder.Id, sourceOnlyTags);
+            console.log(`[MERGE-TAG] ✅ Assigned "${MERGED_ORDER_TAG_NAME}" to source order STT ${sourceOrder.SessionIndex}`);
+        }
+
+        // Clear cache
+        window.cacheManager.clear("orders");
+
+        return {
+            success: true,
+            targetTags: targetOrderNewTags,
+            sourceTag: mergedTag,
+            mergeGroupTag: mergeGroupTag
+        };
+
+    } catch (error) {
+        console.error('[MERGE-TAG] Error assigning tags:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
 }
 
 // Make history functions globally accessible
