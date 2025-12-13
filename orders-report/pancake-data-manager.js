@@ -1110,11 +1110,20 @@ class PancakeDataManager {
     /**
      * Lấy comment cuối cùng cho order từ Pancake conversation
      * CHỈ LẤY COMMENT conversations (type === "COMMENT")
-     * @param {Object} order - Order object
+     * Supports both signatures for backwards compatibility:
+     * - getLastCommentForOrder(order) - direct order
+     * - getLastCommentForOrder(channelId, psid, order) - legacy 3-param signature
+     * @param {Object|string} channelIdOrOrder - Order object OR channelId (ignored)
+     * @param {string} [psid] - Optional psid (ignored when using 3-param signature)
+     * @param {Object} [order] - Optional order when using 3-param signature
      * @returns {Object} { message, messageType, hasUnread, unreadCount, type }
      */
-    getLastCommentForOrder(order) {
-        const userId = order.Facebook_ASUserId;
+    getLastCommentForOrder(channelIdOrOrder, psid, order) {
+        // Handle flexible parameters for backwards compatibility
+        // If called with 1 param (order), channelIdOrOrder is the actual order
+        // If called with 3 params (channelId, psid, order), order is the actual order
+        const actualOrder = order || channelIdOrOrder;
+        const userId = actualOrder?.Facebook_ASUserId;
 
         if (!userId) {
             return {
@@ -1317,110 +1326,6 @@ class PancakeDataManager {
             channelId,
             psid,
             hasChat
-        };
-    }
-
-    /**
-     * Lấy tin nhắn cuối cùng cho một order (INBOX only)
-     * @param {Object} order - Order object
-     * @returns {Object} { message, hasUnread, unreadCount, attachments }
-     */
-    getLastMessageForOrder(order) {
-        if (!order || !order.Facebook_ASUserId) {
-            return {
-                message: '',
-                hasUnread: false,
-                unreadCount: 0,
-                attachments: []
-            };
-        }
-
-        // Find conversation in INBOX map
-        const userId = order.Facebook_ASUserId;
-        let conversation = this.inboxMapByPSID.get(userId);
-        if (!conversation) {
-            conversation = this.inboxMapByFBID.get(userId);
-        }
-
-        if (!conversation) {
-            return {
-                message: '',
-                hasUnread: false,
-                unreadCount: 0,
-                attachments: []
-            };
-        }
-
-        // Extract last message info from conversation
-        const lastMessage = conversation.last_message || conversation.snippet || '';
-        const hasUnread = conversation.seen === false && conversation.unread_count > 0;
-        const unreadCount = conversation.unread_count || 0;
-
-        // Check for attachments in last message
-        let attachments = [];
-        if (conversation.last_message_attachments) {
-            attachments = conversation.last_message_attachments;
-        }
-
-        return {
-            message: lastMessage,
-            hasUnread,
-            unreadCount,
-            attachments
-        };
-    }
-
-    /**
-     * Lấy bình luận cuối cùng cho một order (COMMENT only)
-     * @param {string} channelId - Page ID
-     * @param {string} psid - Customer PSID
-     * @param {Object} order - Order object
-     * @returns {Object} { message, hasUnread, unreadCount, attachments }
-     */
-    getLastCommentForOrder(channelId, psid, order) {
-        if (!order || !order.Facebook_ASUserId) {
-            return {
-                message: '',
-                hasUnread: false,
-                unreadCount: 0,
-                attachments: []
-            };
-        }
-
-        // Find conversation in COMMENT map
-        const userId = order.Facebook_ASUserId;
-        let conversation = this.commentMapByFBID.get(userId);
-        if (!conversation) {
-            conversation = this.commentMapByPSID.get(userId);
-        }
-        // Also try customers fb_id map for COMMENT type
-        if (!conversation) {
-            conversation = this.conversationsByCustomerFbId.get(userId);
-            // Make sure it's a COMMENT type
-            if (conversation && conversation.type !== 'COMMENT') {
-                conversation = null;
-            }
-        }
-
-        if (!conversation) {
-            return {
-                message: '',
-                hasUnread: false,
-                unreadCount: 0,
-                attachments: []
-            };
-        }
-
-        // Extract last comment info
-        const lastMessage = conversation.last_message || conversation.snippet || '';
-        const hasUnread = conversation.seen === false && conversation.unread_count > 0;
-        const unreadCount = conversation.unread_count || 0;
-
-        return {
-            message: lastMessage,
-            hasUnread,
-            unreadCount,
-            attachments: []
         };
     }
 
