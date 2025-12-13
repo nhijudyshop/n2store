@@ -1012,11 +1012,36 @@ class PancakeTokenManager {
                         localStorage.removeItem('pancake_token');
                     } catch (e) {}
 
-                    // Try to get fresh token from cookie or Firebase
-                    const freshToken = await this.getToken();
+                    // Try to get fresh token - prioritize COOKIE first (may have newer token if user re-logged in)
+                    let freshToken = null;
+
+                    // 1. Check cookie first (most likely to have fresh token)
+                    const cookieToken = this.getTokenFromCookie();
+                    if (cookieToken) {
+                        const payload = this.decodeToken(cookieToken);
+                        if (payload && !this.isTokenExpired(payload.exp)) {
+                            console.log('[PANCAKE-TOKEN] 🔄 Got fresh token from COOKIE');
+                            this.currentToken = cookieToken;
+                            this.currentTokenExpiry = payload.exp;
+                            freshToken = cookieToken;
+                            // Save to Firebase for future use
+                            await this.saveTokenToFirebase(cookieToken);
+                        }
+                    }
+
+                    // 2. If no cookie token, try Firebase
+                    if (!freshToken) {
+                        freshToken = await this.getTokenFromFirebase();
+                        if (freshToken) {
+                            console.log('[PANCAKE-TOKEN] 🔄 Got fresh token from FIREBASE');
+                        }
+                    }
+
                     if (freshToken) {
-                        console.log('[PANCAKE-TOKEN] 🔄 Got fresh token, retrying...');
+                        console.log('[PANCAKE-TOKEN] 🔄 Retrying with fresh token...');
                         return await this.generatePageAccessToken(pageId, true);
+                    } else {
+                        console.error('[PANCAKE-TOKEN] ❌ No fresh token available. Please login to Pancake again.');
                     }
                 }
                 throw new Error(result.message || 'Failed to generate token');
