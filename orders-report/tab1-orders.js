@@ -14984,6 +14984,252 @@ window.populateDeliveryCarrierDropdown = populateDeliveryCarrierDropdown;
 window.getCachedDeliveryCarriers = getCachedDeliveryCarriers;
 
 /**
+ * Smart select delivery partner based on customer address
+ * Parses the carrier names to find matching district/ward
+ * @param {string} address - Full customer address string
+ * @param {object} extraAddress - Optional ExtraAddress object with District, Ward, City
+ */
+function smartSelectDeliveryPartner(address, extraAddress = null) {
+    console.log('[SMART-DELIVERY] Starting smart selection...');
+    console.log('[SMART-DELIVERY] Address:', address);
+    console.log('[SMART-DELIVERY] ExtraAddress:', extraAddress);
+
+    const select = document.getElementById('saleDeliveryPartner');
+    if (!select || select.options.length <= 1) {
+        console.log('[SMART-DELIVERY] Dropdown not ready, skipping');
+        return;
+    }
+
+    // Extract district info from address or ExtraAddress
+    let districtInfo = extractDistrictFromAddress(address, extraAddress);
+    console.log('[SMART-DELIVERY] Extracted district info:', districtInfo);
+
+    if (!districtInfo) {
+        console.log('[SMART-DELIVERY] Could not extract district, selecting SHIP TỈNH as fallback');
+        selectCarrierByName(select, 'SHIP TỈNH', true);
+        return;
+    }
+
+    // Try to find matching carrier based on district
+    const matchedCarrier = findMatchingCarrier(select, districtInfo);
+
+    if (matchedCarrier) {
+        console.log('[SMART-DELIVERY] ✅ Found matching carrier:', matchedCarrier.name);
+        select.value = matchedCarrier.id;
+        select.dispatchEvent(new Event('change'));
+
+        // Show success notification (subtle)
+        if (window.notificationManager) {
+            window.notificationManager.success(`Tự động chọn: ${matchedCarrier.name}`, 2000);
+        }
+    } else {
+        console.log('[SMART-DELIVERY] ⚠️ No matching carrier found, selecting SHIP TỈNH');
+        selectCarrierByName(select, 'SHIP TỈNH', true);
+    }
+}
+
+/**
+ * Extract district information from address string or ExtraAddress object
+ * @returns {object|null} - { districtName, districtNumber, wardName, cityName }
+ */
+function extractDistrictFromAddress(address, extraAddress) {
+    let result = {
+        districtName: null,
+        districtNumber: null,
+        wardName: null,
+        cityName: null,
+        originalText: address
+    };
+
+    // Try to get structured data from ExtraAddress first
+    if (extraAddress) {
+        if (extraAddress.District?.name) {
+            result.districtName = extraAddress.District.name;
+            // Extract number from district name like "Quận 1", "Quận 12", etc.
+            const numMatch = extraAddress.District.name.match(/(\d+)/);
+            if (numMatch) {
+                result.districtNumber = numMatch[1];
+            }
+        }
+        if (extraAddress.Ward?.name) {
+            result.wardName = extraAddress.Ward.name;
+        }
+        if (extraAddress.City?.name) {
+            result.cityName = extraAddress.City.name;
+        }
+    }
+
+    // Also parse from address string as fallback/supplement
+    if (address) {
+        const normalizedAddress = address.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove Vietnamese diacritics for matching
+
+        // Try to match district patterns
+        // "Quận 1", "Q1", "Q.1", "Quan 1", "District 1"
+        const districtPatterns = [
+            /quan\s*(\d+)/i,
+            /q\.?\s*(\d+)/i,
+            /district\s*(\d+)/i
+        ];
+
+        for (const pattern of districtPatterns) {
+            const match = normalizedAddress.match(pattern);
+            if (match) {
+                result.districtNumber = match[1];
+                break;
+            }
+        }
+
+        // Match named districts (without diacritics)
+        const namedDistricts = [
+            { normalized: 'binh chanh', original: 'Bình Chánh' },
+            { normalized: 'binh tan', original: 'Bình Tân' },
+            { normalized: 'binh thanh', original: 'Bình Thạnh' },
+            { normalized: 'go vap', original: 'Gò Vấp' },
+            { normalized: 'phu nhuan', original: 'Phú Nhuận' },
+            { normalized: 'tan binh', original: 'Tân Bình' },
+            { normalized: 'tan phu', original: 'Tân Phú' },
+            { normalized: 'thu duc', original: 'Thủ Đức' },
+            { normalized: 'nha be', original: 'Nhà Bè' },
+            { normalized: 'hoc mon', original: 'Hóc Môn' },
+            { normalized: 'cu chi', original: 'Củ Chi' },
+            { normalized: 'can gio', original: 'Cần Giờ' }
+        ];
+
+        for (const district of namedDistricts) {
+            if (normalizedAddress.includes(district.normalized)) {
+                result.districtName = district.original;
+                break;
+            }
+        }
+    }
+
+    // Return null if we couldn't extract any district info
+    if (!result.districtName && !result.districtNumber) {
+        return null;
+    }
+
+    return result;
+}
+
+/**
+ * Find matching carrier based on district information
+ * Parses carrier names to find coverage areas in parentheses
+ * @param {HTMLSelectElement} select - The delivery partner dropdown
+ * @param {object} districtInfo - Extracted district information
+ * @returns {object|null} - { id, name } of matching carrier
+ */
+function findMatchingCarrier(select, districtInfo) {
+    console.log('[SMART-DELIVERY] Searching for carrier matching:', districtInfo);
+
+    let bestMatch = null;
+    let bestMatchScore = 0;
+
+    for (let i = 0; i < select.options.length; i++) {
+        const option = select.options[i];
+        if (!option.value) continue; // Skip placeholder
+
+        const carrierName = option.dataset.name || option.text;
+
+        // Skip non-matching carriers (GỘP, BÁN HÀNG SHOP)
+        if (carrierName.includes('GỘP') || carrierName === 'BÁN HÀNG SHOP') {
+            continue;
+        }
+
+        // Extract coverage area from carrier name (text in parentheses)
+        const coverageMatch = carrierName.match(/\(([^)]+)\)/);
+        if (!coverageMatch) continue;
+
+        const coverageArea = coverageMatch[1].toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        let matchScore = 0;
+
+        // Check if district number matches
+        if (districtInfo.districtNumber) {
+            // Look for the number in coverage area
+            // Need to be careful: "1" shouldn't match "10" or "11"
+            const districtNum = districtInfo.districtNumber;
+
+            // Pattern to match standalone numbers or numbers at word boundaries
+            // For coverage like "1 3 4 5 6 7 8 10 11" or "Q2-12-Bình Tân"
+            const numPatterns = [
+                new RegExp(`\\b${districtNum}\\b`),           // Word boundary
+                new RegExp(`^${districtNum}\\s`),             // Start of string
+                new RegExp(`\\s${districtNum}\\s`),           // Space surrounded
+                new RegExp(`\\s${districtNum}$`),             // End of string
+                new RegExp(`-${districtNum}-`),               // Dash surrounded
+                new RegExp(`^${districtNum}-`),               // Start with dash
+                new RegExp(`-${districtNum}$`),               // End with dash
+                new RegExp(`q${districtNum}\\b`, 'i'),        // Q prefix (Q9, Q2)
+            ];
+
+            for (const pattern of numPatterns) {
+                if (pattern.test(coverageArea) || pattern.test(carrierName)) {
+                    matchScore = 10;
+                    console.log(`[SMART-DELIVERY] District number ${districtNum} matched in: ${carrierName}`);
+                    break;
+                }
+            }
+        }
+
+        // Check if district name matches
+        if (districtInfo.districtName && matchScore === 0) {
+            const normalizedDistrictName = districtInfo.districtName.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+            if (coverageArea.includes(normalizedDistrictName)) {
+                matchScore = 8;
+                console.log(`[SMART-DELIVERY] District name "${districtInfo.districtName}" matched in: ${carrierName}`);
+            }
+        }
+
+        // Update best match
+        if (matchScore > bestMatchScore) {
+            bestMatchScore = matchScore;
+            bestMatch = {
+                id: option.value,
+                name: carrierName
+            };
+        }
+    }
+
+    return bestMatch;
+}
+
+/**
+ * Select carrier by name pattern (fallback selection)
+ * @param {HTMLSelectElement} select - The delivery partner dropdown
+ * @param {string} namePattern - Name to search for
+ * @param {boolean} showWarning - Whether to show a warning notification
+ */
+function selectCarrierByName(select, namePattern, showWarning = false) {
+    for (let i = 0; i < select.options.length; i++) {
+        const option = select.options[i];
+        const carrierName = option.dataset.name || option.text;
+
+        if (carrierName.includes(namePattern)) {
+            select.value = option.value;
+            select.dispatchEvent(new Event('change'));
+
+            if (showWarning && window.notificationManager) {
+                window.notificationManager.info(
+                    `Không xác định được quận/huyện, đã chọn: ${carrierName}`,
+                    3000
+                );
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+// Export smart delivery functions for debugging
+window.smartSelectDeliveryPartner = smartSelectDeliveryPartner;
+window.extractDistrictFromAddress = extractDistrictFromAddress;
+window.findMatchingCarrier = findMatchingCarrier;
+
+/**
  * Format currency in Vietnamese style
  */
 function formatCurrencyVND(amount) {
@@ -15062,7 +15308,8 @@ async function openSaleButtonModal() {
     }
 
     // Populate delivery carrier dropdown (async, with localStorage cache)
-    populateDeliveryCarrierDropdown();
+    // Must await to ensure dropdown is ready for smart selection
+    await populateDeliveryCarrierDropdown();
 
     // Fetch detailed order data from API (includes partner, orderLines)
     const orderDetails = await fetchOrderDetailsForSale(orderId);
@@ -15074,11 +15321,22 @@ async function openSaleButtonModal() {
         // Populate partner data
         if (orderDetails.partner) {
             populatePartnerData(orderDetails.partner);
+
+            // Smart select delivery partner based on customer address
+            const receiverAddress = document.getElementById('saleReceiverAddress')?.value || '';
+            const extraAddress = orderDetails.partner.ExtraAddress || null;
+            smartSelectDeliveryPartner(receiverAddress, extraAddress);
         }
 
         // Populate order lines if available
         if (orderDetails.orderLines && orderDetails.orderLines.length > 0) {
             populateSaleOrderLinesFromAPI(orderDetails.orderLines);
+        }
+    } else {
+        // Fallback: try smart selection with basic order address if no partner details
+        const receiverAddress = order.PartnerAddress || order.Address || '';
+        if (receiverAddress) {
+            smartSelectDeliveryPartner(receiverAddress, null);
         }
     }
 }
