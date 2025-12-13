@@ -17283,12 +17283,18 @@ function switchSaleTab(tabName) {
 function populateSaleModalWithOrder(order) {
     console.log('[SALE-MODAL] Populating order data:', order);
 
-    // Basic info - Tab "Thông tin"
-    document.getElementById('saleCustomerName').textContent = order.PartnerName || order.Name || '';
+    // Basic info - Update header (moved from Tab "Thông tin")
+    const customerName = order.PartnerName || order.Name || '';
+    document.getElementById('saleCustomerName').textContent = customerName;
+    document.getElementById('saleCustomerNameHeader').textContent = customerName;
 
     // Customer status (will be updated by API)
     document.getElementById('saleCustomerStatus').textContent = '';
+    document.getElementById('saleCustomerStatusHeader').textContent = '';
     document.getElementById('saleLoyaltyPoints').textContent = '0';
+    document.getElementById('saleLoyaltyPointsHeader').textContent = '0';
+    document.getElementById('saleUsedPointsHeader').textContent = '0';
+    document.getElementById('saleRemainingPointsHeader').textContent = '0';
     document.getElementById('saleOldDebt').textContent = '0';
 
     // Tab "Thông tin người nhận"
@@ -17381,10 +17387,22 @@ async function fetchOrderDetailsForSale(orderUuid) {
 function populatePartnerData(partner) {
     if (!partner) return;
 
-    // Customer info
-    document.getElementById('saleCustomerName').textContent = partner.DisplayName || partner.Name || '';
-    document.getElementById('saleCustomerStatus').textContent = partner.StatusText || 'Bình thường';
-    document.getElementById('saleLoyaltyPoints').textContent = partner.LoyaltyPoints || 0;
+    // Customer info - Update both hidden elements and header
+    const customerName = partner.DisplayName || partner.Name || '';
+    const customerStatus = partner.StatusText || 'Bình thường';
+    const loyaltyPoints = partner.LoyaltyPoints || 0;
+    
+    // Hidden elements (for JS compatibility)
+    document.getElementById('saleCustomerName').textContent = customerName;
+    document.getElementById('saleCustomerStatus').textContent = customerStatus;
+    document.getElementById('saleLoyaltyPoints').textContent = loyaltyPoints;
+    
+    // Header elements (visible)
+    document.getElementById('saleCustomerNameHeader').textContent = customerName;
+    document.getElementById('saleCustomerStatusHeader').textContent = customerStatus;
+    document.getElementById('saleLoyaltyPointsHeader').textContent = loyaltyPoints;
+    document.getElementById('saleUsedPointsHeader').textContent = '0';
+    document.getElementById('saleRemainingPointsHeader').textContent = loyaltyPoints;
 
     // NOTE: Prepaid amount (salePrepaidAmount) and Old Debt (saleOldDebt) are now
     // populated by fetchDebtForSaleModal() using REALTIME debt from balance-history API
