@@ -2298,6 +2298,9 @@
                     <p id="mergeDuplicateModalSubtitle">Chọn các cụm đơn hàng cần gộp</p>
                 </div>
                 <div class="merge-header-actions">
+                    <button class="merge-history-btn" onclick="showMergeHistoryModal()" title="Xem lịch sử gộp đơn">
+                        <i class="fas fa-history"></i> Lịch sử
+                    </button>
                     <label class="merge-select-all-label">
                         <input type="checkbox" id="mergeSelectAllCheckbox" onchange="toggleSelectAllMergeClusters(this.checked)">
                         <span>Chọn tất cả</span>
@@ -2323,6 +2326,39 @@
                 </button>
                 <button class="merge-btn-confirm" id="confirmMergeBtn" onclick="confirmMergeSelectedClusters()">
                     <i class="fas fa-check"></i> Xác nhận Gộp Đơn
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Merge History Modal -->
+    <div class="merge-modal" id="mergeHistoryModal">
+        <div class="merge-modal-content" style="max-width: 1400px;">
+            <!-- Header -->
+            <div class="merge-modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                <div class="merge-header-info">
+                    <h3><i class="fas fa-history"></i> Lịch Sử Gộp Đơn Hàng</h3>
+                    <p id="mergeHistoryModalSubtitle">Xem lại các lần gộp đơn trước đây</p>
+                </div>
+                <div class="merge-header-actions">
+                    <button class="merge-modal-close" onclick="closeMergeHistoryModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body - History List -->
+            <div class="merge-modal-body" id="mergeHistoryModalBody">
+                <div class="merge-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Đang tải lịch sử...</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="merge-modal-footer">
+                <button class="merge-btn-cancel" onclick="closeMergeHistoryModal()">
+                    <i class="fas fa-times"></i> Đóng
                 </button>
             </div>
         </div>

@@ -3660,6 +3660,174 @@ button[onclick*="showAddProductForm"] {
     font-size: 15px;
 }
 
+/* History Button in Header */
+.merge-history-btn {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.merge-history-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* History Entry Card */
+.merge-history-entry {
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.merge-history-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.merge-history-header:hover {
+    background: #f9fafb;
+}
+
+.merge-history-header.success {
+    border-left: 4px solid #22c55e;
+}
+
+.merge-history-header.failed {
+    border-left: 4px solid #ef4444;
+}
+
+.merge-history-info {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.merge-history-time {
+    font-size: 13px;
+    color: #374151;
+    font-weight: 600;
+}
+
+.merge-history-user {
+    font-size: 12px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.merge-history-phone {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.merge-history-phone i {
+    margin-right: 4px;
+    color: #9ca3af;
+}
+
+.merge-history-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 12px;
+}
+
+.merge-history-status.success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.merge-history-status.failed {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.merge-history-toggle {
+    font-size: 14px;
+    color: #9ca3af;
+    transition: transform 0.2s;
+}
+
+.merge-history-entry.expanded .merge-history-toggle {
+    transform: rotate(180deg);
+}
+
+.merge-history-details {
+    display: none;
+    padding: 16px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.merge-history-entry.expanded .merge-history-details {
+    display: block;
+}
+
+/* Error Message in History */
+.merge-history-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.merge-history-error-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #991b1b;
+    margin-bottom: 8px;
+}
+
+.merge-history-error-content {
+    font-size: 12px;
+    color: #7f1d1d;
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 200px;
+    overflow-y: auto;
+    background: #fff5f5;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+/* No history message */
+.merge-no-history {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6b7280;
+}
+
+.merge-no-history i {
+    font-size: 48px;
+    color: #d1d5db;
+    margin-bottom: 16px;
+}
+
+.merge-no-history p {
+    margin: 0;
+    font-size: 15px;
+}
+
 /* Chat Loading/Empty/Error States */
 .chat-loading,
 .chat-empty,
