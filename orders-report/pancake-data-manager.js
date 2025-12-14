@@ -1496,14 +1496,27 @@ class PancakeDataManager {
     /**
      * Wrapper function for fetchMessages - tương thích với tab1-orders.js
      * @param {string} pageId - Page ID (channelId)
-     * @param {string} psid - Customer PSID  
-     * @param {string} conversationId - Optional conversation ID (passed from caller)
+     * @param {string} psid - Customer PSID
+     * @param {string|number} cursorOrCount - Cursor string (old) or currentCount number (new) for pagination
      * @param {string} customerId - Optional customer UUID (passed from caller)
      * @returns {Promise<Object>} { messages, conversation }
      */
-    async fetchMessages(pageId, psid, conversationId = null, customerId = null) {
+    async fetchMessages(pageId, psid, cursorOrCount = null, customerId = null) {
         try {
-            console.log(`[PANCAKE] fetchMessages called: pageId=${pageId}, psid=${psid}, convId=${conversationId}, customerId=${customerId}`);
+            console.log(`[PANCAKE] fetchMessages called: pageId=${pageId}, psid=${psid}, cursorOrCount=${cursorOrCount}, customerId=${customerId}`);
+
+            // Determine if cursorOrCount is a number (currentCount) or null/conversationId (old behavior)
+            let currentCount = null;
+            let conversationId = null;
+
+            if (typeof cursorOrCount === 'number') {
+                // New behavior: count-based pagination
+                currentCount = cursorOrCount;
+                console.log('[PANCAKE] Using count-based pagination, currentCount:', currentCount);
+            } else {
+                // Old behavior: conversationId passed
+                conversationId = cursorOrCount;
+            }
 
             // Use passed conversationId or try to find from conversation map
             let convId = conversationId;
@@ -1565,7 +1578,7 @@ class PancakeDataManager {
                 }
             }
 
-            const result = await this.fetchMessagesForConversation(pageId, convId, null, custId);
+            const result = await this.fetchMessagesForConversation(pageId, convId, currentCount, custId);
             // Trả về thêm conversationId và customerId để caller có thể update state
             return {
                 ...result,
