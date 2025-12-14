@@ -3571,6 +3571,28 @@ button[onclick*="showAddProductForm"] {
     background: #f0fdf4;
 }
 
+/* Tags pills in merge modal headers */
+.merge-header-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 6px;
+    justify-content: center;
+}
+
+.merge-tag-pill {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    color: white;
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Product Item in Table */
 .merge-product-item {
     display: flex;

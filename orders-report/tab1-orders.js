@@ -15521,20 +15521,15 @@ async function showMergeDuplicateOrdersModal() {
         mergeClustersData = clusters.map((cluster, index) => {
             const ordersWithDetails = cluster.orders.map(order => {
                 const apiOrderData = orderDetailsMap.get(order.Id);
-                const finalTags = apiOrderData?.Tags !== undefined ? apiOrderData.Tags : order.Tags;
 
-                // Debug logging for tag sources
-                if (apiOrderData?.Tags !== undefined) {
-                    console.log(`[MERGE-MODAL] Order STT ${order.SessionIndex}: Using Tags from API: ${apiOrderData.Tags || '(empty)'}`);
-                } else {
-                    console.log(`[MERGE-MODAL] Order STT ${order.SessionIndex}: Using Tags from displayedData: ${order.Tags || '(empty)'}`);
-                }
+                // Tags lấy từ displayedData (đã có sẵn, không cần từ API)
+                // Chỉ cần Details từ API vì displayedData không có chi tiết sản phẩm
+                console.log(`[MERGE-MODAL] Order STT ${order.SessionIndex}: Tags from displayedData: ${order.Tags || '(empty)'}`);
 
                 return {
                     ...order,
-                    Details: apiOrderData?.Details || [],
-                    // FIX: Lấy Tags từ API (fresh data) thay vì từ displayedData (có thể stale)
-                    Tags: finalTags
+                    Details: apiOrderData?.Details || []
+                    // Tags giữ nguyên từ ...order (displayedData)
                 };
             });
 
@@ -15594,6 +15589,37 @@ function calculateMergedProductsPreview(orders) {
 }
 
 /**
+ * Render tag pills for merge modal headers
+ * @param {string|Array} tags - Tags as JSON string or array
+ * @returns {string} HTML string of tag pills
+ */
+function renderMergeTagPills(tags) {
+    let tagsArray = [];
+
+    if (!tags) return '';
+
+    // Parse tags if string
+    if (typeof tags === 'string' && tags.trim() !== '') {
+        try {
+            tagsArray = JSON.parse(tags);
+        } catch (e) {
+            console.warn('[renderMergeTagPills] Failed to parse tags:', tags);
+            return '';
+        }
+    } else if (Array.isArray(tags)) {
+        tagsArray = tags;
+    }
+
+    if (!Array.isArray(tagsArray) || tagsArray.length === 0) return '';
+
+    const pillsHtml = tagsArray.map(t =>
+        `<span class="merge-tag-pill" style="background: ${t.Color || '#6b7280'};" title="${escapeHtml(t.Name || '')}">${escapeHtml(t.Name || '')}</span>`
+    ).join('');
+
+    return `<div class="merge-header-tags">${pillsHtml}</div>`;
+}
+
+/**
  * Render all merge clusters in modal
  */
 function renderMergeClusters() {
@@ -15631,7 +15657,14 @@ function renderClusterCard(cluster) {
         const isTarget = order.Id === cluster.targetOrder.Id;
         const className = isTarget ? 'target-col' : '';
         const targetLabel = isTarget ? ' (Đích)' : '';
-        headers.push(`<th class="${className}">STT ${order.SessionIndex} - ${order.PartnerName || 'N/A'}${targetLabel}</th>`);
+
+        // Render tags pills cho header (hiển thị dưới STT - Tên)
+        const tagsHtml = renderMergeTagPills(order.Tags);
+
+        headers.push(`<th class="${className}">
+            STT ${order.SessionIndex} - ${order.PartnerName || 'N/A'}${targetLabel}
+            ${tagsHtml}
+        </th>`);
     });
 
     // Find max products count for rows
@@ -16413,12 +16446,26 @@ async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
  */
 function getOrderTagsArray(order) {
     if (!order || !order.Tags) return [];
-    try {
-        const tags = JSON.parse(order.Tags);
-        return Array.isArray(tags) ? tags : [];
-    } catch (e) {
-        return [];
+
+    const tagsData = order.Tags;
+
+    // Case 1: Tags đã là array (đã parse sẵn)
+    if (Array.isArray(tagsData)) {
+        return tagsData;
     }
+
+    // Case 2: Tags là JSON string
+    if (typeof tagsData === 'string' && tagsData.trim() !== '') {
+        try {
+            const parsed = JSON.parse(tagsData);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.warn('[getOrderTagsArray] Failed to parse Tags:', tagsData);
+            return [];
+        }
+    }
+
+    return [];
 }
 
 /**
