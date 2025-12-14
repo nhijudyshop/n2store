@@ -9303,16 +9303,50 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         console.log('[CHAT-MODAL] ✅ Got customer UUID:', window.currentCustomerUUID);
 
                         // Filter COMMENT conversations
-                        // If we have post_id, filter by it. Otherwise, get all COMMENT conversations
+                        // Note: COMMENT conversations don't have post_id field, but their ID format is:
+                        // conversation.id = "POST_ID_COMMENT_ID" (e.g., "1300821062062414_1636143350714534")
+                        // order.Facebook_PostId = "PAGE_ID_POST_ID" (e.g., "270136663390370_1300821062062414")
+                        // Match by: extract POST_ID from order.Facebook_PostId and match with first part of conversation.id
+
                         let commentConversations;
-                        if (facebookPostId) {
-                            commentConversations = result.conversations.filter(conv => {
-                                return conv.type === 'COMMENT' && conv.post_id === facebookPostId;
+
+                        // First, get all COMMENT conversations
+                        const allCommentConvs = result.conversations.filter(conv => conv.type === 'COMMENT');
+
+                        // Log all COMMENT conversations for debugging
+                        console.log('[CHAT-MODAL] All COMMENT conversations:', allCommentConvs.map(c => ({
+                            id: c.id,
+                            snippet: c.snippet,
+                            updated_at: c.updated_at
+                        })));
+
+                        if (facebookPostId && allCommentConvs.length > 0) {
+                            // Extract POST_ID from order.Facebook_PostId (format: "PAGE_ID_POST_ID")
+                            const postIdParts = facebookPostId.split('_');
+                            const postId = postIdParts.length > 1 ? postIdParts[postIdParts.length - 1] : facebookPostId;
+
+                            console.log('[CHAT-MODAL] Extracted POST_ID from order:', postId);
+
+                            // Match conversation where conversation.id starts with POST_ID
+                            commentConversations = allCommentConvs.filter(conv => {
+                                const convIdFirstPart = conv.id.split('_')[0];
+                                const match = convIdFirstPart === postId;
+                                if (match) {
+                                    console.log('[CHAT-MODAL] ✓ Match found:', conv.id, 'starts with', postId);
+                                }
+                                return match;
                             });
+
+                            // If no match, use most recent COMMENT conversation
+                            if (commentConversations.length === 0) {
+                                console.warn('[CHAT-MODAL] ⚠️ No match by post_id, using most recent COMMENT conversation');
+                                commentConversations = allCommentConvs;
+                            }
+
                             console.log('[CHAT-MODAL] Filtered COMMENT conversations by post_id:', facebookPostId, '→', commentConversations.length, 'found');
                         } else {
-                            commentConversations = result.conversations.filter(conv => conv.type === 'COMMENT');
-                            console.log('[CHAT-MODAL] No post_id, getting all COMMENT conversations →', commentConversations.length, 'found');
+                            commentConversations = allCommentConvs;
+                            console.log('[CHAT-MODAL] No post_id or no COMMENT conversations, getting all →', commentConversations.length, 'found');
                         }
 
                         if (commentConversations.length > 0) {
