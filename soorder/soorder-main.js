@@ -122,6 +122,7 @@ function initDOMElements() {
 
     // Filter elements
     elements.unpaidFilterCheckbox = document.getElementById("unpaidFilterCheckbox");
+    elements.discrepancyFilterCheckbox = document.getElementById("discrepancyFilterCheckbox");
 
     // Toast
     elements.toastContainer = document.getElementById("toastContainer");
@@ -435,6 +436,18 @@ function setupEventListeners() {
         elements.unpaidFilterCheckbox.addEventListener("change", (e) => {
             const state = window.SoOrderState;
             state.showOnlyUnpaid = e.target.checked;
+
+            // Re-render the table with the filter applied
+            ui.renderTable();
+            ui.updateFooterSummary();
+        });
+    }
+
+    // Discrepancy filter checkbox
+    if (elements.discrepancyFilterCheckbox) {
+        elements.discrepancyFilterCheckbox.addEventListener("change", (e) => {
+            const state = window.SoOrderState;
+            state.showOnlyWithDiscrepancy = e.target.checked;
 
             // Re-render the table with the filter applied
             ui.renderTable();

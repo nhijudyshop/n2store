@@ -35,6 +35,11 @@ window.SoOrderUI = {
             orders = orders.filter(order => !order.isPaid);
         }
 
+        // Apply discrepancy filter if enabled
+        if (state.showOnlyWithDiscrepancy) {
+            orders = orders.filter(order => (Number(order.difference) || 0) !== 0);
+        }
+
         // Update table header for single day mode (no date column)
         if (thead) {
             thead.innerHTML = `
@@ -124,6 +129,11 @@ window.SoOrderUI = {
             // Apply unpaid filter if enabled
             if (state.showOnlyUnpaid) {
                 orders = orders.filter(order => !order.isPaid);
+            }
+
+            // Apply discrepancy filter if enabled
+            if (state.showOnlyWithDiscrepancy) {
+                orders = orders.filter(order => (Number(order.difference) || 0) !== 0);
             }
 
             if (orders.length === 0) return;
@@ -731,6 +741,11 @@ window.SoOrderUI = {
         // Apply unpaid filter if enabled
         if (state.showOnlyUnpaid) {
             orders = orders.filter(order => !order.isPaid);
+        }
+
+        // Apply discrepancy filter if enabled
+        if (state.showOnlyWithDiscrepancy) {
+            orders = orders.filter(order => (Number(order.difference) || 0) !== 0);
         }
 
         if (orders.length === 0) {
