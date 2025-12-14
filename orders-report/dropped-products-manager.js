@@ -897,6 +897,7 @@
                         const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
 
                         await ref.set({
+                            productId: productId,  // Store productId for easy comparison
                             displayName: auth.displayName || auth.userType || 'Unknown',
                             quantity: heldQuantity,
                             isDraft: true,  // Persist held products (user must explicitly confirm or delete)
@@ -1431,6 +1432,7 @@
             if (quantity > 0) {
                 // Update quantity
                 await ref.update({
+                    productId: productId,  // Store productId for easy comparison
                     quantity: quantity,
                     timestamp: Date.now()
                 });
