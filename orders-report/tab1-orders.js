@@ -9184,6 +9184,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             // Render products table
             renderChatProductsTable();
 
+            // Setup realtime listener for held products (multi-user collaboration)
+            if (typeof window.setupHeldProductsListener === 'function') {
+                window.setupHeldProductsListener();
+            }
+
             // Update message reply type toggle (show if order has comment)
             window.updateMessageReplyTypeToggle();
         }
@@ -9594,6 +9599,11 @@ window.closeChatModal = async function () {
     // Cleanup unsaved held products
     if (typeof window.cleanupHeldProducts === 'function') {
         await window.cleanupHeldProducts();
+    }
+
+    // Cleanup held products listener
+    if (typeof window.cleanupHeldProductsListener === 'function') {
+        window.cleanupHeldProductsListener();
     }
 
     // Cleanup realtime messages (stop polling, remove event listeners)
@@ -15062,6 +15072,7 @@ async function addChatProductFromSearch(productId) {
 /**
  * Update product quantity in chat order
  * Works with both currentChatOrderDetails and window.currentChatOrderData.Details
+ * Syncs held products to Firebase for multi-user collaboration
  */
 function updateChatProductQuantity(index, delta, specificValue = null) {
     // Get the correct data source
@@ -15071,12 +15082,20 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
 
     if (index < 0 || index >= productsArray.length) return;
 
+    const product = productsArray[index];
+    const isHeldProduct = product.IsHeld === true;
+
     if (specificValue !== null) {
         const val = parseInt(specificValue);
-        if (val > 0) productsArray[index].Quantity = val;
+        if (val > 0) product.Quantity = val;
     } else {
-        const newQty = (productsArray[index].Quantity || 0) + delta;
-        if (newQty > 0) productsArray[index].Quantity = newQty;
+        const newQty = (product.Quantity || 0) + delta;
+        if (newQty > 0) product.Quantity = newQty;
+    }
+
+    // If it's a held product, sync to Firebase
+    if (isHeldProduct && typeof window.updateHeldProductQuantity === 'function') {
+        window.updateHeldProductQuantity(product.ProductId, product.Quantity);
     }
 
     // Sync both arrays if needed
@@ -15091,6 +15110,7 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
 /**
  * Remove product from chat order
  * Works with both currentChatOrderDetails and window.currentChatOrderData.Details
+ * Removes held products from Firebase for multi-user sync
  */
 function removeChatProduct(index) {
     if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
@@ -15101,6 +15121,14 @@ function removeChatProduct(index) {
         : currentChatOrderDetails;
 
     if (index < 0 || index >= productsArray.length) return;
+
+    const product = productsArray[index];
+    const isHeldProduct = product.IsHeld === true;
+
+    // If it's a held product, remove from Firebase
+    if (isHeldProduct && typeof window.removeHeldProduct === 'function') {
+        window.removeHeldProduct(product.ProductId);
+    }
 
     productsArray.splice(index, 1);
 
