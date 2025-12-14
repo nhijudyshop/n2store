@@ -9063,7 +9063,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 console.log('[CHAT-MODAL] ⚠️ Using default conversationId format:', window.currentConversationId);
             }
 
-            if (chatInfo.hasUnread) {
+            if (chatInfo.hasUnread && markReadBtn) {
                 markReadBtn.style.display = 'inline-flex';
             }
 
