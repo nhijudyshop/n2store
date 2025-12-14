@@ -8322,84 +8322,189 @@ window.switchConversationType = async function (type) {
     // Fetch messages or comments based on type
     try {
         if (type === 'COMMENT') {
-            // Fetch comments using chatDataManager
-            const postId = window.purchaseFacebookPostId;
-            const customerName = currentOrder.Facebook_UserName;
+            // Fetch COMMENT conversations from Pancake first
+            const facebookPsid = currentOrder.Facebook_ASUserId;
+            const facebookPostId = currentOrder.Facebook_PostId;
 
-            const response = await window.chatDataManager.fetchComments(
-                window.currentChatChannelId,
-                window.currentChatPSID,
-                null,
-                postId,
-                customerName
-            );
+            console.log('[CONV-TYPE] 🔍 Fetching COMMENT conversations by fb_id:', facebookPsid, 'post_id:', facebookPostId);
 
-            window.allChatComments = response.comments || [];
-            currentChatCursor = response.after;
+            if (window.pancakeDataManager && facebookPsid && facebookPostId) {
+                try {
+                    // Fetch all conversations for this customer
+                    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
+                        window.currentChatChannelId,
+                        facebookPsid
+                    );
 
-            // Update customer UUID from response if available
-            if (response.customerId && !window.currentCustomerUUID) {
-                window.currentCustomerUUID = response.customerId;
-                console.log('[CONV-TYPE] ✅ Updated currentCustomerUUID:', window.currentCustomerUUID);
-            }
+                    if (result.success && result.conversations.length > 0) {
+                        console.log('[CONV-TYPE] ✅ Found', result.conversations.length, 'total conversations');
 
-            // Get parent comment ID from first comment
-            if (window.allChatComments.length > 0) {
-                const rootComment = window.allChatComments.find(c => !c.ParentId) || window.allChatComments[0];
-                if (rootComment && rootComment.Id) {
-                    currentParentCommentId = getFacebookCommentId(rootComment);
-                    console.log('[CONV-TYPE] Got parent comment ID:', currentParentCommentId);
+                        // Update customer UUID
+                        window.currentCustomerUUID = result.customerUuid;
+                        console.log('[CONV-TYPE] ✅ Got customer UUID:', window.currentCustomerUUID);
+
+                        // Filter COMMENT conversations matching post_id
+                        const commentConversations = result.conversations.filter(conv => {
+                            return conv.type === 'COMMENT' && conv.post_id === facebookPostId;
+                        });
+
+                        if (commentConversations.length > 0) {
+                            console.log('[CONV-TYPE] ✅ Found', commentConversations.length, 'COMMENT conversations for post:', facebookPostId);
+
+                            // Use the first COMMENT conversation (or most recent)
+                            const commentConv = commentConversations[0];
+                            window.currentConversationId = commentConv.id;
+                            window.currentCommentConversationId = commentConv.id;
+
+                            console.log('[CONV-TYPE] ✅ Using COMMENT conversationId:', window.currentConversationId);
+
+                            // Populate conversation selector if multiple conversations
+                            if (commentConversations.length > 1) {
+                                window.populateConversationSelector(commentConversations, window.currentConversationId);
+                            } else {
+                                window.hideConversationSelector();
+                            }
+
+                            // Now fetch messages for this COMMENT conversation using Pancake API
+                            console.log('[CONV-TYPE] 📥 Fetching messages for COMMENT conversation:', window.currentConversationId);
+
+                            const messagesResponse = await window.pancakeDataManager.fetchMessagesForConversation(
+                                window.currentChatChannelId,
+                                window.currentConversationId,
+                                null,
+                                window.currentCustomerUUID
+                            );
+
+                            // Store as comments (they are actually messages from COMMENT conversation)
+                            window.allChatComments = messagesResponse.messages || [];
+                            currentChatCursor = messagesResponse.after;
+
+                            console.log('[CONV-TYPE] ✅ Loaded', window.allChatComments.length, 'comments/messages');
+
+                            // Render comments
+                            renderComments(window.allChatComments, true);
+
+                        } else {
+                            console.warn('[CONV-TYPE] ⚠️ No COMMENT conversation found for post:', facebookPostId);
+                            modalBody.innerHTML = `
+                                <div class="chat-error">
+                                    <i class="fas fa-info-circle"></i>
+                                    <p>Không tìm thấy bình luận cho bài viết này</p>
+                                </div>`;
+                        }
+
+                        // Also save INBOX conversation ID for later use
+                        const inboxConv = result.conversations.find(conv => conv.type === 'INBOX');
+                        if (inboxConv) {
+                            window.currentInboxConversationId = inboxConv.id;
+                            console.log('[CONV-TYPE] ℹ️ Also found INBOX conversationId:', window.currentInboxConversationId);
+                        }
+
+                    } else {
+                        console.warn('[CONV-TYPE] ⚠️ No conversations found for fb_id:', facebookPsid);
+                        modalBody.innerHTML = `
+                            <div class="chat-error">
+                                <i class="fas fa-info-circle"></i>
+                                <p>Không tìm thấy cuộc hội thoại</p>
+                            </div>`;
+                    }
+                } catch (fetchError) {
+                    console.error('[CONV-TYPE] ❌ Error fetching COMMENT conversations:', fetchError);
+                    modalBody.innerHTML = `
+                        <div class="chat-error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Lỗi khi tải bình luận</p>
+                            <p style="font-size: 12px; color: #6b7280;">${fetchError.message}</p>
+                        </div>`;
                 }
+            } else {
+                console.warn('[CONV-TYPE] ⚠️ Missing required data for COMMENT fetch');
+                modalBody.innerHTML = `
+                    <div class="chat-error">
+                        <i class="fas fa-info-circle"></i>
+                        <p>Thiếu thông tin để tải bình luận</p>
+                    </div>`;
             }
-
-            // Construct conversationId for comments
-            const facebookPostId = currentOrder.Facebook_PostId || currentPostId;
-            if (facebookPostId && currentParentCommentId) {
-                if (currentParentCommentId.includes('_')) {
-                    window.currentConversationId = currentParentCommentId;
-                } else {
-                    const postIdOnly = extractPostId(facebookPostId);
-                    window.currentConversationId = `${postIdOnly}_${currentParentCommentId}`;
-                }
-                console.log('[CONV-TYPE] Constructed conversationId:', window.currentConversationId);
-            }
-
-            console.log('[CONV-TYPE] Loaded', window.allChatComments.length, 'comments');
-            renderComments(window.allChatComments, true);
 
             // Setup infinite scroll
             setupChatInfiniteScroll();
             setupNewMessageIndicatorListener();
 
         } else {
-            // Fetch inbox messages using chatDataManager
-            // Ensure conversationId is set, use fallback if needed
-            if (!window.currentConversationId) {
+            // Fetch INBOX messages
+            const facebookPsid = currentOrder.Facebook_ASUserId;
+
+            console.log('[CONV-TYPE] 🔍 Fetching INBOX messages for fb_id:', facebookPsid);
+
+            // If we don't have conversations data yet, fetch it
+            if (!window.currentInboxConversationId && window.pancakeDataManager && facebookPsid) {
+                try {
+                    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
+                        window.currentChatChannelId,
+                        facebookPsid
+                    );
+
+                    if (result.success && result.conversations.length > 0) {
+                        console.log('[CONV-TYPE] ✅ Found', result.conversations.length, 'total conversations');
+
+                        // Update customer UUID
+                        window.currentCustomerUUID = result.customerUuid;
+
+                        // Find INBOX conversation
+                        const inboxConversations = result.conversations.filter(conv => conv.type === 'INBOX');
+
+                        if (inboxConversations.length > 0) {
+                            window.currentInboxConversationId = inboxConversations[0].id;
+                            window.currentConversationId = window.currentInboxConversationId;
+                            console.log('[CONV-TYPE] ✅ Found INBOX conversationId:', window.currentConversationId);
+
+                            // Populate conversation selector if multiple INBOX conversations
+                            if (inboxConversations.length > 1) {
+                                window.populateConversationSelector(inboxConversations, window.currentConversationId);
+                            } else {
+                                window.hideConversationSelector();
+                            }
+                        }
+
+                        // Also save COMMENT conversation for later
+                        const commentConv = result.conversations.find(conv => conv.type === 'COMMENT');
+                        if (commentConv) {
+                            window.currentCommentConversationId = commentConv.id;
+                        }
+                    }
+                } catch (fetchError) {
+                    console.error('[CONV-TYPE] ❌ Error fetching conversations:', fetchError);
+                }
+            }
+
+            // Use INBOX conversation ID if available, otherwise use fallback
+            if (window.currentInboxConversationId) {
+                window.currentConversationId = window.currentInboxConversationId;
+            } else if (!window.currentConversationId) {
                 window.currentConversationId = `${window.currentChatChannelId}_${window.currentChatPSID}`;
                 console.log('[CONV-TYPE] Using fallback conversationId:', window.currentConversationId);
             }
 
-            const response = await window.chatDataManager.fetchMessages(
+            // Fetch messages using Pancake API
+            console.log('[CONV-TYPE] 📥 Fetching INBOX messages for conversation:', window.currentConversationId);
+
+            const response = await window.pancakeDataManager.fetchMessagesForConversation(
                 window.currentChatChannelId,
-                window.currentChatPSID,
                 window.currentConversationId,
+                null,
                 window.currentCustomerUUID
             );
 
             window.allChatMessages = response.messages || [];
             currentChatCursor = response.after;
 
-            // Update conversationId and customerUUID from response
+            // Update conversationId from response if available
             if (response.conversationId) {
                 window.currentConversationId = response.conversationId;
-                console.log('[CONV-TYPE] ✅ Updated conversationId:', window.currentConversationId);
-            }
-            if (response.customerId && !window.currentCustomerUUID) {
-                window.currentCustomerUUID = response.customerId;
-                console.log('[CONV-TYPE] ✅ Updated currentCustomerUUID:', window.currentCustomerUUID);
+                console.log('[CONV-TYPE] ✅ Updated conversationId from response:', window.currentConversationId);
             }
 
-            console.log('[CONV-TYPE] Loaded', window.allChatMessages.length, 'messages');
+            console.log('[CONV-TYPE] ✅ Loaded', window.allChatMessages.length, 'messages');
             renderChatMessages(window.allChatMessages, true);
 
             // Setup infinite scroll and realtime
