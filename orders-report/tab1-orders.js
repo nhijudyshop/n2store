@@ -15326,8 +15326,11 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
 
 /**
  * Remove product from chat order
- * Works with both currentChatOrderDetails and window.currentChatOrderData.Details
- * Removes held products from Firebase for multi-user sync
+ * - Shows confirmation dialog
+ * - Adds product to Dropped Products tab (with held status if applicable)
+ * - Updates order on backend (for non-held products)
+ * - Removes held products from Firebase
+ * - Rollback on error
  */
 async function removeChatProduct(index) {
     // Show confirmation using CustomPopup
@@ -15347,20 +15350,89 @@ async function removeChatProduct(index) {
     const product = productsArray[index];
     const isHeldProduct = product.IsHeld === true;
 
-    // If it's a held product, remove from Firebase
-    if (isHeldProduct && typeof window.removeHeldProduct === 'function') {
-        window.removeHeldProduct(product.ProductId);
+    // Show loading notification (non-blocking)
+    if (window.notificationManager) {
+        window.notificationManager.show("Đang xóa sản phẩm...", "info");
     }
 
-    productsArray.splice(index, 1);
+    // Remove from local array (save for rollback)
+    const removedProduct = productsArray.splice(index, 1)[0];
 
-    // Sync both arrays if needed
-    if (window.currentChatOrderData && window.currentChatOrderData.Details) {
-        currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+    try {
+        // 1. Add to Dropped Products tab (with held status)
+        if (typeof window.addToDroppedProducts === 'function') {
+            await window.addToDroppedProducts(
+                removedProduct,
+                removedProduct.Quantity,
+                'removed',
+                isHeldProduct ? removedProduct.HeldBy : null  // Pass holder name if held
+            );
+        }
+
+        // 2. If held product, remove from Firebase held_products
+        if (isHeldProduct && typeof window.removeHeldProduct === 'function') {
+            await window.removeHeldProduct(removedProduct.ProductId);
+        }
+
+        // 3. Update order on backend (only for non-held products)
+        if (!isHeldProduct && window.currentChatOrderData) {
+            const newDetails = productsArray.filter(p => !p.IsHeld);
+            const totalQuantity = newDetails.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+            const totalAmount = newDetails.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+
+            console.log('[REMOVE-PRODUCT] Updating order on backend:', {
+                orderId: window.currentChatOrderData.Id,
+                newDetailsCount: newDetails.length,
+                totalQuantity,
+                totalAmount
+            });
+
+            await updateOrderWithFullPayload(
+                window.currentChatOrderData,
+                newDetails,
+                totalAmount,
+                totalQuantity
+            );
+
+            console.log('[REMOVE-PRODUCT] ✓ Order updated successfully');
+        }
+
+        // 4. Sync both arrays if needed
+        if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+            currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+        }
+
+        // 5. Re-render UI
+        renderChatProductsTable();
+        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+
+        // 6. Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.show("✅ Đã xóa sản phẩm", "success");
+        }
+
+    } catch (error) {
+        // ROLLBACK on error
+        console.error('[REMOVE-PRODUCT] Error:', error);
+
+        // Restore product at original position
+        productsArray.splice(index, 0, removedProduct);
+
+        // Sync arrays
+        if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+            currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+        }
+
+        // Re-render to show restored product
+        renderChatProductsTable();
+
+        // Show error notification
+        if (window.notificationManager) {
+            window.notificationManager.error("❌ Lỗi khi xóa: " + error.message);
+        } else {
+            alert("❌ Lỗi khi xóa: " + error.message);
+        }
     }
-
-    renderChatProductsTable();
-    saveChatProductsToFirebase('shared', currentChatOrderDetails);
 }
 
 // =====================================================
