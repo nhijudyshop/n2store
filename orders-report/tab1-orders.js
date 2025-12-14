@@ -17089,7 +17089,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /**
  * Copy QR image from chat modal to clipboard
- * Gets the current order's phone and copies the VietQR image with total amount (if enabled)
+ * Gets the current order's phone and copies the VietQR image with account name text below
+ * The copied image includes QR code + "Chủ TK: [Account Name]" text
  */
 async function copyQRImageFromChat() {
     if (!currentOrder || !currentOrder.Telephone) {
@@ -17119,29 +17120,67 @@ async function copyQRImageFromChat() {
     const qrUrl = generateVietQRUrl(uniqueCode, amount);
 
     try {
-        // Fetch the image and copy to clipboard
+        // Fetch the QR image
         const response = await fetch(qrUrl);
         const blob = await response.blob();
 
-        // Create ClipboardItem with the image
+        // Create an image element from the blob
+        const img = new Image();
+        const imageUrl = URL.createObjectURL(blob);
+
+        // Wait for image to load
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = imageUrl;
+        });
+
+        // Create canvas to draw QR + text
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Canvas dimensions (QR image width + padding + text area)
+        const padding = 20;
+        const textHeight = 60;
+        canvas.width = img.width + (padding * 2);
+        canvas.height = img.height + textHeight + (padding * 2);
+
+        // Fill white background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw QR image
+        ctx.drawImage(img, padding, padding, img.width, img.height);
+
+        // Draw account name text below QR
+        ctx.fillStyle = '#1f2937';
+        ctx.font = 'bold 16px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        const accountNameText = `Chủ TK: ${QR_BANK_CONFIG.accountName}`;
+        ctx.fillText(accountNameText, canvas.width / 2, img.height + padding + 30);
+
+        // Convert canvas to blob
+        const canvasBlob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/png');
+        });
+
+        // Copy to clipboard
         const clipboardItem = new ClipboardItem({
-            [blob.type]: blob
+            'image/png': canvasBlob
         });
 
         await navigator.clipboard.write([clipboardItem]);
-        showNotification('Đã copy ảnh QR', 'success');
-        console.log(`[QR-CHAT] Copied QR image for ${normalizedPhone}: ${uniqueCode}`);
+        showNotification('Đã copy ảnh QR (có tên Chủ TK)', 'success');
+        console.log(`[QR-CHAT] Copied QR image with account name for ${normalizedPhone}: ${uniqueCode}`);
 
-        // Show QR modal with only account name (Chủ TK)
-        showOrderQRModal(normalizedPhone, amount, { showAccountNameOnly: true });
+        // Clean up
+        URL.revokeObjectURL(imageUrl);
     } catch (error) {
         console.error('[QR-CHAT] Failed to copy image:', error);
         // Fallback: copy URL instead
         try {
             await navigator.clipboard.writeText(qrUrl);
             showNotification('Đã copy URL ảnh QR', 'success');
-            // Still show modal even if copy failed
-            showOrderQRModal(normalizedPhone, amount, { showAccountNameOnly: true });
         } catch (fallbackError) {
             showNotification('Không thể copy ảnh QR', 'error');
         }
