@@ -2401,6 +2401,13 @@ ${encodedString}
                         continue;
                     }
 
+                    // Validate sale price (only use PriceVariant or ListPrice, never StandardPrice)
+                    const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
+                    if (salePrice == null || salePrice < 0) {
+                        console.error(`   ❌ Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+                        throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+                    }
+
                     // ============================================
                     // CREATE NEW DETAIL WITH COMPUTED FIELDS
                     // EXACTLY like tab1-orders.js (dòng 2284-2322)
@@ -2412,11 +2419,7 @@ ${encodedString}
                         // ✅ KHÔNG có Id: để API tự tạo cho sản phẩm mới
                         ProductId: fullProduct.Id,
                         Quantity: assignedData.count,  // Use counted quantity
-                        Price:
-                            fullProduct.PriceVariant ||
-                            fullProduct.ListPrice ||
-                            fullProduct.StandardPrice ||
-                            0,
+                        Price: salePrice,
                         Note: note && note.trim() !== '' ? note : null, // Add note from input
                         UOMId: fullProduct.UOM?.Id || 1,
                         Factor: 1,

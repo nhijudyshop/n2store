@@ -7559,6 +7559,13 @@ async function addProductToOrderFromInline(productId) {
             // ============================================
             // QUAN TRỌNG: Product mới - THÊM ĐẦY ĐỦ COMPUTED FIELDS
             // ============================================
+            // Validate sale price (only use PriceVariant or ListPrice, never StandardPrice)
+            const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
+            if (salePrice == null || salePrice < 0) {
+                showSaveIndicator("error", `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+                throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+            }
+
             const newProduct = {
                 // ============================================
                 // REQUIRED FIELDS
@@ -7566,11 +7573,7 @@ async function addProductToOrderFromInline(productId) {
                 // ✅ KHÔNG có Id: null cho sản phẩm mới
                 ProductId: fullProduct.Id,
                 Quantity: 1,
-                Price:
-                    fullProduct.PriceVariant ||
-                    fullProduct.ListPrice ||
-                    fullProduct.StandardPrice ||
-                    0,
+                Price: salePrice,
                 Note: null,
                 UOMId: fullProduct.UOM?.Id || 1,
                 Factor: 1,
@@ -14232,11 +14235,18 @@ async function addChatProductFromSearch(productId) {
             // Increase quantity
             currentChatOrderDetails[existingIndex].Quantity = (currentChatOrderDetails[existingIndex].Quantity || 0) + 1;
         } else {
+            // Validate sale price (only use PriceVariant or ListPrice, never StandardPrice)
+            const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
+            if (salePrice == null || salePrice < 0) {
+                console.error(`[CHAT-ADD] ❌ Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+                throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+            }
+
             // 3. Create new product object using EXACT logic from addProductToOrderFromInline
             const newProduct = {
                 ProductId: fullProduct.Id,
                 Quantity: 1,
-                Price: fullProduct.PriceVariant || fullProduct.ListPrice || fullProduct.StandardPrice || 0,
+                Price: salePrice,
                 Note: null,
                 UOMId: fullProduct.UOM?.Id || 1,
                 Factor: 1,
