@@ -12184,7 +12184,8 @@ function renderComments(comments, scrollToBottom = false) {
     };
 
     const commentsHTML = sortedComments.map(comment => {
-        const isOwner = comment.IsOwner;
+        // Handle both old format (IsOwner) and Pancake API format (is_owner)
+        const isOwner = comment.IsOwner || comment.is_owner || false;
         const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
         const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
@@ -12194,8 +12195,10 @@ function renderComments(comments, scrollToBottom = false) {
         const purchaseBadge = isPurchase ? '<span class="purchase-badge"><i class="fas fa-shopping-cart"></i> Bình luận đặt hàng</span>' : '';
 
         let content = '';
-        if (comment.Message) {
-            content = `<p class="chat-message-text">${comment.Message}</p>`;
+        // Handle both old format (Message) and Pancake API format (message)
+        const messageText = comment.Message || comment.message || '';
+        if (messageText) {
+            content = `<p class="chat-message-text">${messageText}</p>`;
         }
 
         // Handle attachments (images and audio) for comments
@@ -12243,13 +12246,16 @@ function renderComments(comments, scrollToBottom = false) {
         let repliesHTML = '';
         if (comment.Messages && comment.Messages.length > 0) {
             repliesHTML = comment.Messages.map(reply => {
-                const replyIsOwner = reply.IsOwner;
+                // Handle both old format (IsOwner) and Pancake API format (is_owner)
+                const replyIsOwner = reply.IsOwner || reply.is_owner || false;
                 const replyAlignClass = replyIsOwner ? 'chat-message-right' : 'chat-message-left';
                 const replyBgClass = replyIsOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
                 let replyContent = '';
-                if (reply.Message) {
-                    replyContent = `<p class="chat-message-text">${reply.Message}</p>`;
+                // Handle both old format (Message) and Pancake API format (message)
+                const replyMessageText = reply.Message || reply.message || '';
+                if (replyMessageText) {
+                    replyContent = `<p class="chat-message-text">${replyMessageText}</p>`;
                 }
 
                 // Handle attachments in replies
@@ -12288,15 +12294,21 @@ function renderComments(comments, scrollToBottom = false) {
                     });
                 }
 
+                // Handle both old format (CreatedTime) and Pancake API format (created_at/updated_at)
+                const replyTimestamp = reply.CreatedTime || reply.created_at || reply.updated_at || new Date();
+
                 return `
                     <div class="chat-message ${replyAlignClass}" style="margin-left: 24px; margin-top: 8px;">
                         <div class="chat-bubble ${replyBgClass}" style="font-size: 13px;">
                             ${replyContent}
-                            <p class="chat-message-time">${formatTime(reply.CreatedTime)}</p>
+                            <p class="chat-message-time">${formatTime(replyTimestamp)}</p>
                         </div>
                     </div>`;
             }).join('');
         }
+
+        // Handle both old format (CreatedTime) and Pancake API format (created_at/updated_at)
+        const timestamp = comment.CreatedTime || comment.created_at || comment.updated_at || new Date();
 
         return `
             <div class="chat-message ${alignClass} ${purchaseHighlightClass}" data-comment-id="${comment.Id || comment.id || ''}">
@@ -12304,7 +12316,7 @@ function renderComments(comments, scrollToBottom = false) {
                 <div class="chat-bubble ${bgClass}">
                     ${content}
                     <p class="chat-message-time">
-                        ${formatTime(comment.CreatedTime)} ${statusBadge}
+                        ${formatTime(timestamp)} ${statusBadge}
                         ${!isOwner ? `<span class="reply-btn" onclick="handleReplyToComment('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
                     </p>
                 </div>
