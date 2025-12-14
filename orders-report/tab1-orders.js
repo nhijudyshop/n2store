@@ -16973,6 +16973,7 @@ async function copyQRImageFromChat() {
 /**
  * Show QR modal from chat modal
  * Opens the same QR modal as the table button
+ * Always shows with amount = 0 to allow customer to customize
  */
 function showQRFromChat() {
     if (!currentOrder || !currentOrder.Telephone) {
@@ -16988,10 +16989,10 @@ function showQRFromChat() {
         return;
     }
 
-    // Get order total amount (only if toggle is enabled)
-    const amount = qrShowAmountEnabled ? (currentOrder.TotalAmount || 0) : 0;
+    // Always use 0 amount to allow customer to customize
+    const amount = 0;
 
-    // Use existing QR modal function with amount
+    // Use existing QR modal function with amount = 0
     showOrderQRModal(normalizedPhone, amount);
 }
 
