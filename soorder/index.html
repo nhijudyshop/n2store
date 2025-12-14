@@ -352,6 +352,35 @@
             </div>
         </div>
 
+        <!-- Difference Note Modal -->
+        <div class="modal" id="differenceNoteModal" style="display: none;">
+            <div class="modal-overlay" id="differenceNoteModalOverlay"></div>
+            <div class="modal-content modal-small">
+                <div class="modal-header">
+                    <h3>
+                        <i data-lucide="file-check"></i>
+                        Ghi chú xử lý chênh lệch
+                    </h3>
+                    <button class="btn-icon" id="btnCloseDifferenceNoteModal">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Ghi chú cách xử lý <span class="required-mark">*</span></label>
+                        <textarea id="differenceNoteInput" class="form-control" rows="3" placeholder="Nhập ghi chú về cách xử lý chênh lệch..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" id="btnCancelDifferenceNote">Hủy</button>
+                    <button class="btn-primary" id="btnSaveDifferenceNote">
+                        <i data-lucide="check"></i>
+                        Lưu
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Date Range Picker Modal -->
         <div class="modal" id="dateRangeModal" style="display: none;">
             <div class="modal-overlay" id="dateRangeModalOverlay"></div>
