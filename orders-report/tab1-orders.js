@@ -14966,10 +14966,12 @@ async function addChatProductFromSearch(productId) {
 
 // --- Action Logic ---
 
-/* LEGACY CODE REMOVED
+/**
+ * Update product quantity in chat order
+ */
 function updateChatProductQuantity(index, delta, specificValue = null) {
     if (index < 0 || index >= currentChatOrderDetails.length) return;
- 
+
     if (specificValue !== null) {
         const val = parseInt(specificValue);
         if (val > 0) currentChatOrderDetails[index].Quantity = val;
@@ -14977,21 +14979,21 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
         const newQty = (currentChatOrderDetails[index].Quantity || 0) + delta;
         if (newQty > 0) currentChatOrderDetails[index].Quantity = newQty;
     }
- 
-    renderChatProductsPanel();
+
+    renderChatProductsTable();
     saveChatProductsToFirebase('shared', currentChatOrderDetails);
 }
-*/
 
-/* LEGACY CODE REMOVED
+/**
+ * Remove product from chat order
+ */
 function removeChatProduct(index) {
     if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
         currentChatOrderDetails.splice(index, 1);
-        renderChatProductsPanel();
+        renderChatProductsTable();
         saveChatProductsToFirebase('shared', currentChatOrderDetails);
     }
 }
-*/
 
 // =====================================================
 // MERGE ORDER PRODUCTS API FUNCTIONS
@@ -20177,3 +20179,5 @@ window.confirmDebtUpdate = confirmDebtUpdate;
 window.openPrintPopup = openPrintPopup;
 window.toggleChatRightPanel = toggleChatRightPanel;
 window.switchChatPanelTab = switchChatPanelTab;
+window.removeChatProduct = removeChatProduct;
+window.updateChatProductQuantity = updateChatProductQuantity;
