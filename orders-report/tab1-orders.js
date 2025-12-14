@@ -19161,6 +19161,42 @@ function buildOrderLines() {
 function openPrintPopup(html, phone = null, cod = 0) {
     console.log('[SALE-CONFIRM] Opening print popup...');
 
+    // Inject STT into bill
+    if (currentSaleOrderData) {
+        let sttDisplay = '';
+
+        // Check if merged order with multiple original orders
+        if (currentSaleOrderData.IsMerged && currentSaleOrderData.OriginalOrders && currentSaleOrderData.OriginalOrders.length > 1) {
+            // Get all STTs from original orders, sorted ascending
+            const allSTTs = currentSaleOrderData.OriginalOrders
+                .map(o => o.SessionIndex)
+                .filter(stt => stt)
+                .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
+            sttDisplay = allSTTs.join(', ');
+            console.log('[SALE-CONFIRM] Merged order STTs:', sttDisplay);
+        } else {
+            // Single order - use SessionIndex directly
+            sttDisplay = currentSaleOrderData.SessionIndex || '';
+            console.log('[SALE-CONFIRM] Single order STT:', sttDisplay);
+        }
+
+        if (sttDisplay) {
+            // Create STT HTML to inject after "Người bán:" line
+            const sttHtml = `<div style="font-weight: bold; margin: 5px 0;">STT: ${sttDisplay}</div>`;
+
+            // Try to inject after "Người bán:" line
+            const nguoiBanRegex = /(<div[^>]*>Người bán:[^<]*<\/div>)/i;
+            if (nguoiBanRegex.test(html)) {
+                html = html.replace(nguoiBanRegex, `$1${sttHtml}`);
+                console.log('[SALE-CONFIRM] STT injected after Người bán');
+            } else {
+                // Fallback: inject after <body> tag
+                html = html.replace(/<body[^>]*>/i, `$&${sttHtml}`);
+                console.log('[SALE-CONFIRM] STT injected after body tag (fallback)');
+            }
+        }
+    }
+
     // Create a new window for printing
     const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
 
