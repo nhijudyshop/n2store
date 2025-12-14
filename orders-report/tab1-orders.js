@@ -8856,9 +8856,20 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         });
 
                         if (matchingConversations.length > 0) {
+                            // Lấy conversationId từ COMMENT conversation
+                            window.currentConversationId = matchingConversations[0].id;
+                            window.currentCommentConversationId = matchingConversations[0].id;
                             console.log('[CHAT-MODAL] ✅ Found', matchingConversations.length, 'COMMENT conversations matching post_id:', facebookPostId);
+                            console.log('[CHAT-MODAL] ✅ Using conversationId:', window.currentConversationId);
                         } else {
                             console.warn('[CHAT-MODAL] ⚠️ No COMMENT conversation matched post_id:', facebookPostId);
+                        }
+
+                        // Also get INBOX conversation if exists
+                        const inboxConv = result.conversations.find(conv => conv.type === 'INBOX');
+                        if (inboxConv) {
+                            window.currentInboxConversationId = inboxConv.id;
+                            console.log('[CHAT-MODAL] ✅ Found INBOX conversationId:', window.currentInboxConversationId);
                         }
                     } else {
                         console.warn('[CHAT-MODAL] ⚠️ No conversations found for fb_id:', facebookPsid);
@@ -8872,36 +8883,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             // Nếu vẫn chưa có customer UUID, log warning
             if (!pancakeCustomerUuid) {
-                console.warn('[CHAT-MODAL] ⚠️ No customer UUID found after search');
-            }
-
-            // Fetch inbox_preview nếu có customer UUID và lưu conversationId
-            if (pancakeCustomerUuid) {
-                try {
-                    const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(channelId, pancakeCustomerUuid);
-                    if (inboxPreview.success) {
-                        // Cho COMMENT: ưu tiên dùng commentConversationId
-                        // Fallback: inboxConversationId hoặc conversationId (backwards compatible)
-                        window.currentConversationId = inboxPreview.commentConversationId
-                            || inboxPreview.inboxConversationId
-                            || inboxPreview.conversationId;
-
-                        // Store cả 2 loại để linh hoạt sử dụng
-                        window.currentInboxConversationId = inboxPreview.inboxConversationId;
-                        window.currentCommentConversationId = inboxPreview.commentConversationId;
-
-                        console.log('[CHAT-MODAL] ✅ Got conversationIds from inbox_preview:');
-                        console.log('  - inbox_conv_id:', window.currentInboxConversationId);
-                        console.log('  - comment_conv_id:', window.currentCommentConversationId);
-                        console.log('  - Using for COMMENT:', window.currentConversationId);
-                    } else {
-                        console.warn('[CHAT-MODAL] ⚠️ Failed to get conversationId from inbox_preview');
-                    }
-                } catch (inboxError) {
-                    console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
-                }
-            } else {
-                console.warn('[CHAT-MODAL] ⚠️ Cannot fetch inbox_preview - missing customer UUID');
+                console.warn('[CHAT-MODAL] ⚠️ No customer UUID found after fetch');
             }
 
             // Setup infinite scroll for comments
@@ -8987,7 +8969,19 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
                                     // Dùng conversation đầu tiên hoặc most recent
                                     conversation = mostRecentConv || allInboxConversations[0];
+
+                                    // Lấy conversationId từ INBOX conversation
+                                    window.currentConversationId = conversation.id;
+                                    window.currentInboxConversationId = conversation.id;
                                     console.log('[CHAT-MODAL] ✅ Using INBOX conversation - customer UUID:', pancakeCustomerUuid);
+                                    console.log('[CHAT-MODAL] ✅ Using conversationId:', window.currentConversationId);
+                                }
+
+                                // Also get COMMENT conversation if exists
+                                const commentConv = result.conversations.find(conv => conv.type === 'COMMENT');
+                                if (commentConv) {
+                                    window.currentCommentConversationId = commentConv.id;
+                                    console.log('[CHAT-MODAL] ✅ Found COMMENT conversationId:', window.currentCommentConversationId);
                                 }
                             }
 
@@ -9003,34 +8997,6 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         console.error('[CHAT-MODAL] ❌ Error fetching conversations:', fetchError);
                         window.hideConversationSelector();
                     }
-                }
-
-                // Fetch inbox_preview nếu có customer UUID
-                if (pancakeCustomerUuid) {
-                    try {
-                        const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(channelId, pancakeCustomerUuid);
-                        if (inboxPreview.success) {
-                            // Cho MESSAGE: ưu tiên dùng inboxConversationId
-                            // Fallback: conversationId (backwards compatible)
-                            window.currentConversationId = inboxPreview.inboxConversationId
-                                || inboxPreview.conversationId;
-
-                            // Store cả 2 loại để linh hoạt sử dụng
-                            window.currentInboxConversationId = inboxPreview.inboxConversationId;
-                            window.currentCommentConversationId = inboxPreview.commentConversationId;
-
-                            console.log('[CHAT-MODAL] ✅ Got conversationIds from inbox_preview:');
-                            console.log('  - inbox_conv_id:', window.currentInboxConversationId);
-                            console.log('  - comment_conv_id:', window.currentCommentConversationId);
-                            console.log('  - Using for MESSAGE:', window.currentConversationId);
-                        } else {
-                            console.log(`[CHAT-MODAL] ℹ️ Could not get conversationId from inbox_preview`);
-                        }
-                    } catch (inboxError) {
-                        console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
-                    }
-                } else {
-                    console.warn('[CHAT-MODAL] ⚠️ Cannot fetch inbox_preview - missing customer UUID after search');
                 }
             } else {
                 console.log('[CHAT-MODAL] ℹ️ PancakeDataManager not available');
