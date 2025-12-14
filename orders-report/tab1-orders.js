@@ -9305,14 +9305,44 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         // Filter COMMENT conversations
                         // If we have post_id, filter by it. Otherwise, get all COMMENT conversations
                         let commentConversations;
-                        if (facebookPostId) {
-                            commentConversations = result.conversations.filter(conv => {
-                                return conv.type === 'COMMENT' && conv.post_id === facebookPostId;
-                            });
+
+                        // First, get all COMMENT conversations
+                        const allCommentConvs = result.conversations.filter(conv => conv.type === 'COMMENT');
+
+                        // Log all COMMENT conversations for debugging
+                        console.log('[CHAT-MODAL] All COMMENT conversations:', allCommentConvs.map(c => ({
+                            id: c.id,
+                            post_id: c.post_id,
+                            updated_at: c.updated_at
+                        })));
+
+                        if (facebookPostId && allCommentConvs.length > 0) {
+                            // Try exact match first
+                            commentConversations = allCommentConvs.filter(conv => conv.post_id === facebookPostId);
+
+                            // If no exact match, try flexible matching (post_id contains or is contained in facebookPostId)
+                            if (commentConversations.length === 0) {
+                                commentConversations = allCommentConvs.filter(conv => {
+                                    if (!conv.post_id) return false;
+                                    // Check if either contains the other
+                                    return conv.post_id.includes(facebookPostId) ||
+                                           facebookPostId.includes(conv.post_id) ||
+                                           // Or check if the part after _ matches
+                                           conv.post_id.split('_').some(part => facebookPostId.includes(part));
+                                });
+                                console.log('[CHAT-MODAL] No exact match, trying flexible match →', commentConversations.length, 'found');
+                            }
+
+                            // If still no match, just use the most recent COMMENT conversation
+                            if (commentConversations.length === 0) {
+                                console.warn('[CHAT-MODAL] ⚠️ No match by post_id, using most recent COMMENT conversation');
+                                commentConversations = allCommentConvs;
+                            }
+
                             console.log('[CHAT-MODAL] Filtered COMMENT conversations by post_id:', facebookPostId, '→', commentConversations.length, 'found');
                         } else {
-                            commentConversations = result.conversations.filter(conv => conv.type === 'COMMENT');
-                            console.log('[CHAT-MODAL] No post_id, getting all COMMENT conversations →', commentConversations.length, 'found');
+                            commentConversations = allCommentConvs;
+                            console.log('[CHAT-MODAL] No post_id or no COMMENT conversations, getting all →', commentConversations.length, 'found');
                         }
 
                         if (commentConversations.length > 0) {
