@@ -158,6 +158,9 @@ function setupEventListeners() {
             const value = e.target.value;
 
             switch (value) {
+                case "current":
+                    // Stay on current date (do nothing, just reset selection)
+                    break;
                 case "today":
                     // Navigate to today (single day mode)
                     utils.navigateToDate(new Date());
@@ -182,19 +185,29 @@ function setupEventListeners() {
                     await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr);
                     break;
                 }
+                case "10days": {
+                    // Show last 10 days (including today)
+                    const today = new Date();
+                    const startDate = new Date(today);
+                    startDate.setDate(startDate.getDate() - 9);
+                    const startDateStr = utils.formatDate(startDate);
+                    const endDateStr = utils.formatDate(today);
+                    await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr);
+                    break;
+                }
                 case "single":
                     // Show date picker for single day
                     if (elements.dateInput) {
                         elements.dateInput.showPicker();
                     }
                     // Reset to current selection after picker closes
-                    e.target.value = "today";
+                    e.target.value = "current";
                     break;
                 case "custom":
                     // Show date range picker modal
                     ui.showDateRangeModal();
                     // Reset to current selection after modal closes
-                    e.target.value = "today";
+                    e.target.value = "current";
                     break;
             }
         });

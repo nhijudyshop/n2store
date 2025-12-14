@@ -121,11 +121,11 @@ window.SoOrderUtils = {
 
         // Update the date selector dropdown - show date as first option text
         if (elements.dateSelector) {
-            const todayOption = elements.dateSelector.querySelector('option[value="today"]');
-            if (todayOption) {
-                todayOption.textContent = this.formatDateDisplay(date);
+            const currentOption = elements.dateSelector.querySelector('option[value="current"]');
+            if (currentOption) {
+                currentOption.textContent = this.formatDateDisplay(date);
             }
-            elements.dateSelector.value = "today";
+            elements.dateSelector.value = "current";
         }
 
         // Load data for this date
