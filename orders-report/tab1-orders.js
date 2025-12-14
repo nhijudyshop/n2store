@@ -8838,10 +8838,16 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                     if (searchResult.conversations.length > 0) {
                         console.log('[CHAT-MODAL] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
 
-                        // Cho COMMENT: match theo post_id để lấy đúng customer UUID
-                        // Lấy TẤT CẢ conversations matching post_id (có thể có nhiều)
+                        // Cho COMMENT: match theo post_id VÀ fb_id để lấy đúng customer UUID
+                        // Lấy TẤT CẢ conversations matching post_id VÀ fb_id (có thể có nhiều)
                         const matchingConversations = searchResult.conversations.filter(conv => {
-                            return conv.type === 'COMMENT' && conv.post_id === facebookPostId;
+                            if (conv.type !== 'COMMENT' || conv.post_id !== facebookPostId) {
+                                return false;
+                            }
+                            // Check fb_id in customers array
+                            const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
+                            const hasMatchingFrom = conv.from?.id === facebookPsid;
+                            return hasMatchingCustomer || hasMatchingFrom;
                         });
 
                         console.log('[CHAT-MODAL] Matching conversations with post_id:', matchingConversations.length);
@@ -8965,11 +8971,17 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
                             // Match logic khác nhau cho INBOX vs COMMENT
                             if (type === 'comment' && facebookPostId) {
-                                // Cho COMMENT: match theo post_id để lấy đúng customer UUID
+                                // Cho COMMENT: match theo post_id VÀ fb_id để lấy đúng customer UUID
                                 // post_id format: pageId_postId (e.g., "270136663390370_1672237127083024")
-                                // Lấy TẤT CẢ conversations matching post_id (có thể có nhiều)
+                                // Lấy TẤT CẢ conversations matching post_id VÀ fb_id (có thể có nhiều)
                                 const matchingConversations = searchResult.conversations.filter(conv => {
-                                    return conv.type === 'COMMENT' && conv.post_id === facebookPostId;
+                                    if (conv.type !== 'COMMENT' || conv.post_id !== facebookPostId) {
+                                        return false;
+                                    }
+                                    // Check fb_id in customers array
+                                    const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
+                                    const hasMatchingFrom = conv.from?.id === facebookPsid;
+                                    return hasMatchingCustomer || hasMatchingFrom;
                                 });
 
                                 if (matchingConversations.length > 0) {
