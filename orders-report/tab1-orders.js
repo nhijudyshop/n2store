@@ -13038,7 +13038,13 @@ async function handleChatScroll(event) {
 }
 
 async function loadMoreMessages() {
-    if (!window.currentChatChannelId || !window.currentChatPSID || !currentChatCursor) {
+    if (!window.currentChatChannelId || !window.currentChatPSID) {
+        return;
+    }
+
+    // Stop if already loading
+    if (isLoadingMoreMessages) {
+        console.log('[CHAT] Already loading messages, skipping...');
         return;
     }
 
@@ -13057,13 +13063,16 @@ async function loadMoreMessages() {
             loadMoreIndicator.style.background = 'linear-gradient(to bottom, #eff6ff 0%, transparent 100%)';
         }
 
-        console.log(`[CHAT] Loading more messages with cursor: ${currentChatCursor}`);
+        // Use count-based pagination (current_count parameter)
+        const currentCount = window.allChatMessages.length;
+        console.log(`[CHAT] Loading more messages with current_count: ${currentCount}`);
 
-        // Fetch more messages using the cursor
+        // Fetch more messages using count-based pagination
         const response = await window.chatDataManager.fetchMessages(
             window.currentChatChannelId,
             window.currentChatPSID,
-            currentChatCursor
+            currentCount,  // Pass number for count-based pagination
+            window.currentCustomerUUID  // Pass customerId
         );
 
         // Get scroll height before updating
@@ -13076,15 +13085,7 @@ async function loadMoreMessages() {
             window.allChatMessages = [...window.allChatMessages, ...newMessages];
             console.log(`[CHAT] ✅ Loaded ${newMessages.length} more messages. Total: ${window.allChatMessages.length}`);
         } else {
-            console.log(`[CHAT] ⚠️ No new messages loaded. Reached end or empty batch.`);
-        }
-
-        // Update cursor for next page (null = no more messages)
-        currentChatCursor = response.after;
-        if (currentChatCursor) {
-            console.log(`[CHAT] 📄 Next cursor available: ${currentChatCursor.substring(0, 20)}...`);
-        } else {
-            console.log(`[CHAT] 🏁 No more messages. Reached the beginning of conversation.`);
+            console.log(`[CHAT] 🏁 No new messages loaded. Reached the beginning of conversation.`);
         }
 
         // Re-render with all messages, don't scroll to bottom
