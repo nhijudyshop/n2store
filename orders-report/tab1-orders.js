@@ -8830,10 +8830,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             if (window.pancakeDataManager && facebookPostId) {
                 const facebookName = order.Facebook_UserName;
-                console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName, 'post_id:', facebookPostId);
+                const facebookPsid = order.Facebook_ASUserId;
+                console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook PSID:', facebookPsid, 'post_id:', facebookPostId);
                 try {
-                    // Dùng searchConversations() để tìm conversation
-                    const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
+                    // Dùng searchConversations() với fb_id thay vì tên để tránh nhầm lẫn
+                    const searchResult = await window.pancakeDataManager.searchConversations(facebookPsid);
 
                     if (searchResult.conversations.length > 0) {
                         console.log('[CHAT-MODAL] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
@@ -8956,15 +8957,15 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                     console.log('[CHAT-MODAL] ✅ Got customer UUID from cache:', pancakeCustomerUuid);
                 }
 
-                // Nếu không tìm thấy trong cache, search trực tiếp theo tên Facebook (giống logic của comment modal)
+                // Nếu không tìm thấy trong cache, search trực tiếp theo fb_id (giống logic của comment modal)
                 if (!pancakeCustomerUuid) {
                     const facebookName = order.Facebook_UserName;
                     const facebookPsid = order.Facebook_ASUserId;
                     const facebookPostId = order.Facebook_PostId; // Format: pageId_postId
-                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName, 'fb_id:', facebookPsid, 'post_id:', facebookPostId);
+                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook PSID:', facebookPsid, 'post_id:', facebookPostId);
                     try {
-                        // Dùng searchConversations() để tìm conversation
-                        const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
+                        // Dùng searchConversations() với fb_id thay vì tên để tránh nhầm lẫn
+                        const searchResult = await window.pancakeDataManager.searchConversations(facebookPsid);
 
                         if (searchResult.conversations.length > 0) {
                             console.log('[CHAT-MODAL] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
