@@ -3921,7 +3921,8 @@
                                 note: record.note || '',
                                 committedAt: record.committedAt || null,
                                 restoredAt: record.restoredAt || null,
-                                userId: record.userId || userId
+                                userId: record.userId || userId,
+                                beforeSnapshot: record.beforeSnapshot || null
                             });
                         });
                     }
@@ -3941,7 +3942,8 @@
                         note: record.note || '',
                         committedAt: record.committedAt || null,
                         restoredAt: record.restoredAt || null,
-                        userId: record.userId || (selectedUser !== 'current' ? selectedUser : undefined)
+                        userId: record.userId || (selectedUser !== 'current' ? selectedUser : undefined),
+                        beforeSnapshot: record.beforeSnapshot || null
                     };
                 });
             }
