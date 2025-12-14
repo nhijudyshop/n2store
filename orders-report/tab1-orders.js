@@ -11418,6 +11418,15 @@ function renderChatMessages(messages, scrollToBottom = false) {
         const avatarUrl = window.pancakeDataManager?.getAvatarUrl(fromId, pageId, cachedToken, directAvatar) ||
             'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
         const senderName = msg.from?.name || msg.FromName || '';
+
+        // Debug: log first message reactions to see structure
+        if (sortedMessages.indexOf(msg) === 0 && (msg.reactions || msg.reaction_summary)) {
+            console.log('[CHAT MESSAGES DEBUG] First message reactions:', {
+                reactions: msg.reactions,
+                reaction_summary: msg.reaction_summary,
+                fullMessage: msg
+            });
+        }
         // Admin name for page messages (Pancake API returns from.admin_name for staff-sent messages)
         const adminName = msg.from?.admin_name || null;
 
@@ -11558,7 +11567,8 @@ function renderChatMessages(messages, scrollToBottom = false) {
 
         // Handle reactions display
         let reactionsHTML = '';
-        if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+        const reactions = msg.reactions || msg.reaction_summary;
+        if (reactions && Object.keys(reactions).length > 0) {
             const reactionIcons = {
                 'LIKE': '👍',
                 'LOVE': '❤️',
@@ -11569,11 +11579,11 @@ function renderChatMessages(messages, scrollToBottom = false) {
                 'CARE': '🤗'
             };
 
-            const reactionsArray = Object.entries(msg.reactions)
+            const reactionsArray = Object.entries(reactions)
                 .filter(([type, count]) => count > 0)
                 .map(([type, count]) => {
                     const emoji = reactionIcons[type] || '👍';
-                    return `<span style="display: inline-flex; align-items: center; background: #f3f4f6; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 4px;">
+                    return `<span style="display: inline-flex; align-items: center; background: #fef3c7; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 4px;">
                         ${emoji} ${count > 1 ? count : ''}
                     </span>`;
                 });
