@@ -41,6 +41,7 @@ window.SoOrderState = {
 
     // Filter state
     showOnlyUnpaid: false, // Whether to show only unpaid orders
+    showOnlyWithDiscrepancy: false, // Whether to show only orders with discrepancy != 0
 };
 
 // DOM elements (will be set after DOM ready)
@@ -124,6 +125,7 @@ window.SoOrderElements = {
 
     // Filter elements
     unpaidFilterCheckbox: null,
+    discrepancyFilterCheckbox: null,
 
     // Toast
     toastContainer: null,
