@@ -16857,8 +16857,9 @@ function generateVietQRUrl(uniqueCode, amount = 0) {
  * Show QR Modal for a phone number
  * @param {string} phone - Phone number
  * @param {number} amount - Transfer amount (optional)
+ * @param {object} options - Display options { hideAccountNumber: boolean, showAccountNameOnly: boolean }
  */
-function showOrderQRModal(phone, amount = 0) {
+function showOrderQRModal(phone, amount = 0, options = {}) {
     const normalizedPhone = normalizePhoneForQR(phone);
     if (!normalizedPhone) {
         showNotification('Không có số điện thoại', 'warning');
@@ -16882,15 +16883,26 @@ function showOrderQRModal(phone, amount = 0) {
     // Format amount for display
     const amountText = amount > 0 ? `<strong>Số tiền:</strong> <span style="color: #059669; font-weight: 700;">${amount.toLocaleString('vi-VN')}đ</span><br>` : '';
 
+    // Build account info based on options
+    let accountInfoHTML = '';
+    if (options.showAccountNameOnly) {
+        // Only show account name (for copyQRImageFromChat)
+        accountInfoHTML = `<strong>Chủ TK:</strong> ${QR_BANK_CONFIG.accountName}<br>`;
+    } else {
+        // Show full info or hide account number based on hideAccountNumber option
+        const bankLine = `<strong>Ngân hàng:</strong> ${QR_BANK_CONFIG.name}<br>`;
+        const accountNoLine = options.hideAccountNumber ? '' : `<strong>Số TK:</strong> ${QR_BANK_CONFIG.accountNo}<br>`;
+        const accountNameLine = `<strong>Chủ TK:</strong> ${QR_BANK_CONFIG.accountName}<br>`;
+        accountInfoHTML = bankLine + accountNoLine + accountNameLine;
+    }
+
     // Render modal content
     modalBody.innerHTML = `
         <img src="${qrUrl}" alt="QR Code" style="width: 280px; max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
 
         <div style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; text-align: left; font-size: 13px;">
             <div style="margin-bottom: 8px;">
-                <strong>Ngân hàng:</strong> ${QR_BANK_CONFIG.name}<br>
-                <strong>Số TK:</strong> ${QR_BANK_CONFIG.accountNo}<br>
-                <strong>Chủ TK:</strong> ${QR_BANK_CONFIG.accountName}<br>
+                ${accountInfoHTML}
                 ${amountText}
             </div>
             <div style="padding: 8px; background: white; border: 2px dashed #dee2e6; border-radius: 6px; font-family: monospace; font-size: 13px; font-weight: bold; color: #495057; text-align: center;">
@@ -17119,12 +17131,17 @@ async function copyQRImageFromChat() {
         await navigator.clipboard.write([clipboardItem]);
         showNotification('Đã copy ảnh QR', 'success');
         console.log(`[QR-CHAT] Copied QR image for ${normalizedPhone}: ${uniqueCode}`);
+
+        // Show QR modal with only account name (Chủ TK)
+        showOrderQRModal(normalizedPhone, amount, { showAccountNameOnly: true });
     } catch (error) {
         console.error('[QR-CHAT] Failed to copy image:', error);
         // Fallback: copy URL instead
         try {
             await navigator.clipboard.writeText(qrUrl);
             showNotification('Đã copy URL ảnh QR', 'success');
+            // Still show modal even if copy failed
+            showOrderQRModal(normalizedPhone, amount, { showAccountNameOnly: true });
         } catch (fallbackError) {
             showNotification('Không thể copy ảnh QR', 'error');
         }
@@ -17153,8 +17170,8 @@ function showQRFromChat() {
     // Always use 0 amount to allow customer to customize
     const amount = 0;
 
-    // Use existing QR modal function with amount = 0
-    showOrderQRModal(normalizedPhone, amount);
+    // Use existing QR modal function with amount = 0, hide account number (Số TK)
+    showOrderQRModal(normalizedPhone, amount, { hideAccountNumber: true });
 }
 
 // Export functions globally
