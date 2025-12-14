@@ -861,6 +861,11 @@
                     <!-- QR Buttons -->
                     <div class="chat-qr-buttons" id="chatQRButtons"
                         style="display: flex; gap: 6px; margin-right: 12px; align-items: center;">
+                        <button onclick="toggleChatRightPanel()" title="Mở/Đóng panel thông tin"
+                            style="background: rgba(255, 255, 255, 0.2); border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: white; font-size: 11px; font-weight: 600; transition: all 0.2s;"
+                            onmouseover="this.style.background='rgba(255, 255, 255, 0.3)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.2)';">
+                            <i class="fas fa-info-circle"></i>
+                        </button>
                         <button id="qrAmountToggle" onclick="toggleQRAmountSetting()"
                             title="Bật/tắt hiện số tiền trong QR"
                             style="background: rgba(16, 185, 129, 0.8); border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: white; font-size: 11px; font-weight: 600; transition: all 0.2s;"
@@ -1072,15 +1077,6 @@
                             </button>
                         </div>
                     </div>
-                </div>
-                <div class="chat-modal-footer">
-                    <button class="chat-btn-close" onclick="closeChatModal()">
-                        <i class="fas fa-times"></i> Đóng
-                    </button>
-                    <button class="chat-btn-mark-read" id="chatMarkReadBtn" onclick="markChatAsRead()"
-                        style="display: none;">
-                        <i class="fas fa-check"></i> Đánh dấu đã đọc
-                    </button>
                 </div>
             </div>
 
