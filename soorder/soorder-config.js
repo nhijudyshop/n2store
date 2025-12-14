@@ -47,6 +47,7 @@ window.SoOrderState = {
     // Filter state
     showOnlyUnpaid: false, // Whether to show only unpaid orders
     showOnlyWithDiscrepancy: false, // Whether to show only orders with discrepancy != 0
+    nccFilter: "", // Filter orders by NCC name
 
     // NCC names state
     nccNames: [], // Array of { code: "A1", name: "A1 Tên gợi nhớ" }

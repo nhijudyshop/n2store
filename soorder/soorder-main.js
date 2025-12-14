@@ -489,6 +489,55 @@ function setupEventListeners() {
         });
     }
 
+    // NCC filter input
+    const nccFilterInput = document.getElementById("nccFilterInput");
+    const btnClearNCCFilter = document.getElementById("btnClearNCCFilter");
+
+    if (nccFilterInput) {
+        nccFilterInput.addEventListener("input", (e) => {
+            const state = window.SoOrderState;
+            state.nccFilter = e.target.value.trim();
+
+            // Show/hide clear button
+            if (btnClearNCCFilter) {
+                btnClearNCCFilter.style.display = state.nccFilter ? "flex" : "none";
+            }
+
+            // Add/remove has-value class
+            if (state.nccFilter) {
+                nccFilterInput.classList.add("has-value");
+            } else {
+                nccFilterInput.classList.remove("has-value");
+            }
+
+            // Re-render the table with the filter applied
+            ui.renderTable();
+            ui.updateFooterSummary();
+        });
+    }
+
+    if (btnClearNCCFilter) {
+        btnClearNCCFilter.addEventListener("click", () => {
+            const state = window.SoOrderState;
+            state.nccFilter = "";
+
+            if (nccFilterInput) {
+                nccFilterInput.value = "";
+                nccFilterInput.classList.remove("has-value");
+            }
+            btnClearNCCFilter.style.display = "none";
+
+            // Re-render the table
+            ui.renderTable();
+            ui.updateFooterSummary();
+
+            // Reinitialize Lucide icons
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        });
+    }
+
     // =====================================================
     // DIFFERENCE NOTE MODAL
     // =====================================================

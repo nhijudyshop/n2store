@@ -40,6 +40,14 @@ window.SoOrderUI = {
             orders = orders.filter(order => (Number(order.difference) || 0) !== 0);
         }
 
+        // Apply NCC filter if set
+        if (state.nccFilter) {
+            const filterLower = state.nccFilter.toLowerCase();
+            orders = orders.filter(order =>
+                order.supplier && order.supplier.toLowerCase().includes(filterLower)
+            );
+        }
+
         // Update table header for single day mode (no date column)
         if (thead) {
             thead.innerHTML = `
@@ -134,6 +142,14 @@ window.SoOrderUI = {
             // Apply discrepancy filter if enabled
             if (state.showOnlyWithDiscrepancy) {
                 orders = orders.filter(order => (Number(order.difference) || 0) !== 0);
+            }
+
+            // Apply NCC filter if set
+            if (state.nccFilter) {
+                const filterLower = state.nccFilter.toLowerCase();
+                orders = orders.filter(order =>
+                    order.supplier && order.supplier.toLowerCase().includes(filterLower)
+                );
             }
 
             if (orders.length === 0) return;
@@ -1019,6 +1035,7 @@ window.SoOrderUI = {
     // Show NCC suggestions dropdown
     showNCCSuggestions(inputElement, suggestionsElement) {
         const state = window.SoOrderState;
+        const crud = window.SoOrderCRUD;
         const value = inputElement.value.trim().toLowerCase();
 
         if (!suggestionsElement) return;
@@ -1026,26 +1043,67 @@ window.SoOrderUI = {
         // Clear previous suggestions
         suggestionsElement.innerHTML = "";
 
-        if (!value || state.nccNames.length === 0) {
+        if (!value) {
             suggestionsElement.classList.remove("active");
             return;
         }
 
-        // Filter matching NCC names
-        const matches = state.nccNames.filter((ncc) =>
+        // Filter matching NCC names from saved list
+        const savedMatches = state.nccNames.filter((ncc) =>
             ncc.name.toLowerCase().includes(value)
         );
 
-        if (matches.length === 0) {
+        // Also search orders for matching Ax codes (when not found in saved list)
+        const orderMatches = new Map(); // Use Map to avoid duplicates
+        const inputCode = crud.parseNCCCode(value);
+
+        // Get all orders from current view
+        let allOrders = [];
+        if (state.isRangeMode && state.rangeData) {
+            state.rangeData.forEach(dayData => {
+                if (dayData.orders) {
+                    allOrders = allOrders.concat(dayData.orders);
+                }
+            });
+        } else if (state.currentDayData?.orders) {
+            allOrders = state.currentDayData.orders;
+        }
+
+        // Search orders for matching suppliers
+        allOrders.forEach(order => {
+            if (!order.supplier) return;
+            const orderCode = crud.parseNCCCode(order.supplier);
+
+            // Match by Ax code if input has a valid code
+            if (inputCode && orderCode && orderCode === inputCode) {
+                // Check if not already in saved list
+                const isInSaved = savedMatches.some(s => s.name === order.supplier);
+                if (!isInSaved) {
+                    orderMatches.set(order.supplier, { code: orderCode, name: order.supplier, fromOrder: true });
+                }
+            }
+            // Or match by text search
+            else if (order.supplier.toLowerCase().includes(value)) {
+                const isInSaved = savedMatches.some(s => s.name === order.supplier);
+                if (!isInSaved && orderCode) {
+                    orderMatches.set(order.supplier, { code: orderCode, name: order.supplier, fromOrder: true });
+                }
+            }
+        });
+
+        const allMatches = [...savedMatches, ...orderMatches.values()];
+
+        if (allMatches.length === 0) {
             suggestionsElement.classList.remove("active");
             return;
         }
 
         // Create suggestion items
-        matches.forEach((ncc) => {
+        allMatches.forEach((ncc) => {
             const item = document.createElement("div");
             item.className = "ncc-suggestion-item";
-            item.innerHTML = `<span class="ncc-code">${ncc.code}</span><span class="ncc-name">${this.escapeHtml(ncc.name.substring(ncc.code.length))}</span>`;
+            const label = ncc.fromOrder ? ' <span class="ncc-from-order">(từ đơn)</span>' : '';
+            item.innerHTML = `<span class="ncc-code">${ncc.code}</span><span class="ncc-name">${this.escapeHtml(ncc.name.substring(ncc.code.length))}</span>${label}`;
             item.addEventListener("click", () => {
                 inputElement.value = ncc.name;
                 suggestionsElement.classList.remove("active");
