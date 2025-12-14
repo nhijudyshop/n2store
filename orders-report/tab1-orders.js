@@ -17003,8 +17003,8 @@ async function copyQRImageFromChat() {
         return;
     }
 
-    // Get order total amount (only if toggle is enabled)
-    const amount = qrShowAmountEnabled ? (currentOrder.TotalAmount || 0) : 0;
+    // Always use 0 amount to allow customer to customize
+    const amount = 0;
 
     // Generate QR URL with amount
     const qrUrl = generateVietQRUrl(uniqueCode, amount);
