@@ -623,10 +623,10 @@
                 const productHolders = orderProducts[String(productId)];
                 if (!productHolders) continue;
 
-                // Check if any holder has quantity > 0
+                // Check if any holder has quantity > 0 and isDraft === true (persisted)
                 for (const userId in productHolders) {
                     const holderData = productHolders[userId];
-                    if (holderData && (parseInt(holderData.quantity) || 0) > 0) {
+                    if (holderData && holderData.isDraft === true && (parseInt(holderData.quantity) || 0) > 0) {
                         console.log('[DROPPED-PRODUCTS] Product still held by:', holderData.displayName, 'in order:', orderId);
                         return true;
                     }
@@ -895,12 +895,9 @@
                         await ref.set({
                             displayName: auth.displayName || auth.userType || 'Unknown',
                             quantity: heldQuantity,
-                            isDraft: false,  // Not a draft, will be removed on disconnect
+                            isDraft: true,  // Persist held products (user must explicitly confirm or delete)
                             timestamp: window.firebase.database.ServerValue.TIMESTAMP
                         });
-
-                        // Remove on disconnect (not a saved draft)
-                        ref.onDisconnect().remove();
 
                         console.log('[DROPPED-PRODUCTS] ✓ Synced to Firebase held_products:', {
                             orderId,
@@ -1509,7 +1506,8 @@
 
                     for (const userId in productHolders) {
                         const holderData = productHolders[userId];
-                        if (holderData && !holderData.isDraft) {
+                        // Only show persisted held products (isDraft: true means saved, not temporary)
+                        if (holderData && holderData.isDraft === true) {
                             totalQuantity += parseInt(holderData.quantity) || 0;
                             holders.push(holderData.displayName);
                         }
