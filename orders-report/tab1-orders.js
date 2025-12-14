@@ -12189,6 +12189,15 @@ function renderComments(comments, scrollToBottom = false) {
         const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
         const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
+        // Get avatar URL for comments (same logic as messages)
+        const cachedToken = window.pancakeTokenManager?.token || null;
+        const pageId = window.currentChatChannelId || comment.page_id || null;
+        const fromId = comment.from?.id || comment.FromId || null;
+        const directAvatar = comment.from?.avatar || comment.from?.picture || comment.from?.profile_picture || comment.avatar || null;
+        const avatarUrl = window.pancakeDataManager?.getAvatarUrl(fromId, pageId, cachedToken, directAvatar) ||
+            'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
+        const senderName = comment.from?.name || comment.FromName || '';
+
         // Check if this is the purchase comment (comment where user made the order)
         const isPurchase = isPurchaseComment(comment);
         const purchaseHighlightClass = isPurchase ? 'purchase-comment-highlight' : '';
@@ -12251,6 +12260,13 @@ function renderComments(comments, scrollToBottom = false) {
                 const replyAlignClass = replyIsOwner ? 'chat-message-right' : 'chat-message-left';
                 const replyBgClass = replyIsOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
+                // Get avatar URL for reply
+                const replyFromId = reply.from?.id || reply.FromId || null;
+                const replyDirectAvatar = reply.from?.avatar || reply.from?.picture || reply.from?.profile_picture || reply.avatar || null;
+                const replyAvatarUrl = window.pancakeDataManager?.getAvatarUrl(replyFromId, pageId, cachedToken, replyDirectAvatar) ||
+                    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
+                const replySenderName = reply.from?.name || reply.FromName || '';
+
                 let replyContent = '';
                 // Handle both old format (Message) and Pancake API format (message)
                 const replyMessageText = reply.Message || reply.message || '';
@@ -12294,31 +12310,63 @@ function renderComments(comments, scrollToBottom = false) {
                     });
                 }
 
-                // Handle both old format (CreatedTime) and Pancake API format (created_at/updated_at)
-                const replyTimestamp = reply.CreatedTime || reply.created_at || reply.updated_at || new Date();
+                // Handle both old format (CreatedTime) and Pancake API format (inserted_at/created_at/updated_at)
+                const replyTimestamp = reply.inserted_at || reply.CreatedTime || reply.created_at || reply.updated_at || new Date();
+
+                // Avatar HTML for reply
+                const replyAvatarHTML = !replyIsOwner ? `
+                    <img src="${replyAvatarUrl}"
+                         alt="${replySenderName}"
+                         style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 8px; border: 2px solid #e5e7eb; background: #f3f4f6;"
+                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><circle cx=%2216%22 cy=%2216%22 r=%2216%22 fill=%22%23e5e7eb%22/><circle cx=%2216%22 cy=%2212%22 r=%225%22 fill=%22%239ca3af%22/><ellipse cx=%2216%22 cy=%2224%22 rx=%228%22 ry=%226%22 fill=%22%239ca3af%22/></svg>'"
+                    />
+                ` : '';
 
                 return `
-                    <div class="chat-message ${replyAlignClass}" style="margin-left: 24px; margin-top: 8px;">
-                        <div class="chat-bubble ${replyBgClass}" style="font-size: 13px;">
-                            ${replyContent}
-                            <p class="chat-message-time">${formatTime(replyTimestamp)}</p>
+                    <div class="chat-message ${replyAlignClass}" style="margin-left: 24px; margin-top: 8px; display: flex; align-items: flex-start;">
+                        ${!replyIsOwner ? replyAvatarHTML : ''}
+                        <div style="flex: 1; ${replyIsOwner ? 'display: flex; justify-content: flex-end;' : ''}">
+                            <div class="chat-bubble ${replyBgClass}" style="font-size: 13px;">
+                                ${!replyIsOwner && replySenderName ? `<p style="font-size: 10px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${replySenderName}</p>` : ''}
+                                ${replyContent}
+                                <p class="chat-message-time">${formatTime(replyTimestamp)}</p>
+                            </div>
                         </div>
                     </div>`;
             }).join('');
         }
 
-        // Handle both old format (CreatedTime) and Pancake API format (created_at/updated_at)
-        const timestamp = comment.CreatedTime || comment.created_at || comment.updated_at || new Date();
+        // Handle both old format (CreatedTime) and Pancake API format (inserted_at/created_at/updated_at)
+        const timestamp = comment.inserted_at || comment.CreatedTime || comment.created_at || comment.updated_at || new Date();
+
+        // Avatar HTML - only show for customer comments (not owner)
+        const avatarHTML = !isOwner ? `
+            <img src="${avatarUrl}"
+                 alt="${senderName}"
+                 title="Click để phóng to - ${senderName}"
+                 class="avatar-loading chat-avatar-clickable"
+                 style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-right: 12px; border: 2px solid #e5e7eb; background: #f3f4f6; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;"
+                 onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'"
+                 onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'"
+                 onclick="openAvatarZoom('${avatarUrl}', '${senderName.replace(/'/g, "\\'")}'); event.stopPropagation();"
+                 onload="this.classList.remove('avatar-loading')"
+                 onerror="this.classList.remove('avatar-loading'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22><circle cx=%2224%22 cy=%2224%22 r=%2224%22 fill=%22%23e5e7eb%22/><circle cx=%2224%22 cy=%2218%22 r=%228%22 fill=%22%239ca3af%22/><ellipse cx=%2224%22 cy=%2238%22 rx=%2213%22 ry=%2210%22 fill=%22%239ca3af%22/></svg>'"
+            />
+        ` : '';
 
         return `
-            <div class="chat-message ${alignClass} ${purchaseHighlightClass}" data-comment-id="${comment.Id || comment.id || ''}">
-                ${purchaseBadge}
-                <div class="chat-bubble ${bgClass}">
-                    ${content}
-                    <p class="chat-message-time">
-                        ${formatTime(timestamp)} ${statusBadge}
-                        ${!isOwner ? `<span class="reply-btn" onclick="handleReplyToComment('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
-                    </p>
+            <div class="chat-message ${alignClass} ${purchaseHighlightClass}" data-comment-id="${comment.Id || comment.id || ''}" style="display: flex; align-items: flex-start;">
+                ${!isOwner ? avatarHTML : ''}
+                <div style="flex: 1; ${isOwner ? 'display: flex; justify-content: flex-end;' : ''}">
+                    ${purchaseBadge}
+                    <div class="chat-bubble ${bgClass}">
+                        ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
+                        ${content}
+                        <p class="chat-message-time">
+                            ${formatTime(timestamp)} ${statusBadge}
+                            ${!isOwner ? `<span class="reply-btn" onclick="handleReplyToComment('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
+                        </p>
+                    </div>
                 </div>
             </div>
             ${repliesHTML}`;
