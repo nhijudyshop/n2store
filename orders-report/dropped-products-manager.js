@@ -1055,7 +1055,8 @@
         }
 
         const productsHTML = productsWithHolders.map((p, i) => {
-            const actualIndex = droppedProducts.indexOf(p);
+            // Find actual index by ProductId instead of object reference
+            const actualIndex = droppedProducts.findIndex(orig => orig.ProductId === p.ProductId);
             const isOutOfStock = (p.Quantity || 0) === 0;
             const rowOpacity = isOutOfStock ? '0.6' : '1';
             const nameColor = isOutOfStock ? '#94a3b8' : '#1e293b';
