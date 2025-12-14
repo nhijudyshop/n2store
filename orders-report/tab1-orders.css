@@ -5099,6 +5099,7 @@ td[data-column].hidden {
     flex-shrink: 0;
 }
 
+<<<<<<< HEAD
 /* =====================================================
    BULK TAG MODAL STYLES
    ===================================================== */
@@ -5827,4 +5828,30 @@ td[data-column].hidden {
 .bulk-tag-history-empty p {
     margin: 0;
     font-size: 14px;
+}
+
+/* Message Reaction Badge */
+.message-reaction-badge {
+    position: absolute;
+    bottom: -8px;
+    right: 8px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 2px 6px;
+    font-size: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    z-index: 1;
+    animation: reactionPop 0.2s ease-out;
+}
+
+@keyframes reactionPop {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.chat-bubble {
+    position: relative;
+    margin-bottom: 12px;
 }

@@ -16,6 +16,18 @@ let commentModalInboxConvId = null; // Inbox conversation ID for private replies
 let commentReplyType = 'private_replies'; // 'private_replies' or 'reply_comment'
 
 /**
+ * Get reaction emoji from message attachments
+ * Pancake API trả về reaction trong attachments với type = 'reaction'
+ * @param {Array} attachments - Array attachments từ message
+ * @returns {string|null} - Emoji reaction hoặc null
+ */
+function getReactionFromAttachmentsComment(attachments) {
+    if (!attachments || !Array.isArray(attachments)) return null;
+    const reactionAtt = attachments.find(att => att.type === 'reaction');
+    return reactionAtt ? reactionAtt.emoji : null;
+}
+
+/**
  * Open the Comment Modal
  */
 window.openCommentModal = async function (orderId, channelId, psid) {
@@ -523,12 +535,58 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
             />
         ` : '';
 
+        // Handle reactions display - Support cả 2 format:
+        // 1. Format mới (Pancake API): attachments có type='reaction' với emoji
+        // 2. Format cũ: comment.reactions = { "LIKE": 1, "LOVE": 2 }
+        let reactionsHTML = '';
+        const reactionEmoji = getReactionFromAttachmentsComment(comment.attachments);
+        if (reactionEmoji) {
+            reactionsHTML = `
+                <div class="message-reaction-badge" style="
+                    position: absolute;
+                    bottom: -8px;
+                    right: 8px;
+                    background: #fff;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 12px;
+                    padding: 2px 6px;
+                    font-size: 14px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    z-index: 1;
+                ">${reactionEmoji}</div>`;
+        } else {
+            // Fallback: format cũ
+            const reactions = comment.reactions || comment.reaction_summary;
+            if (reactions && Object.keys(reactions).length > 0) {
+                const reactionIcons = {
+                    'LIKE': '👍',
+                    'LOVE': '❤️',
+                    'HAHA': '😆',
+                    'WOW': '😮',
+                    'SAD': '😢',
+                    'ANGRY': '😠',
+                    'CARE': '🤗'
+                };
+                const reactionsArray = Object.entries(reactions)
+                    .filter(([type, count]) => count > 0)
+                    .map(([type, count]) => {
+                        const emoji = reactionIcons[type] || '👍';
+                        return `<span style="display: inline-flex; align-items: center; background: #fef3c7; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 4px;">
+                            ${emoji} ${count > 1 ? count : ''}
+                        </span>`;
+                    });
+                if (reactionsArray.length > 0) {
+                    reactionsHTML = `<div class="message-reaction-badge" style="position: absolute; bottom: -8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px; z-index: 1;">${reactionsArray.join('')}</div>`;
+                }
+            }
+        }
+
         return `
             <div class="chat-message ${alignClass} ${purchaseHighlightClass}" data-comment-id="${comment.Id || comment.id || ''}" style="display: flex; align-items: flex-start;">
                 ${!isOwner ? avatarHTML : ''}
                 <div style="flex: 1; ${isOwner ? 'display: flex; justify-content: flex-end;' : ''}">
                     ${purchaseBadge}
-                    <div class="chat-bubble ${bgClass}">
+                    <div class="chat-bubble ${bgClass}" style="position: relative;">
                         ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
                         ${content}
                         ${reactionsHTML}
@@ -536,6 +594,7 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
                             ${formatTime(comment.inserted_at || comment.CreatedTime)} ${statusBadge}
                             ${!isOwner ? `<span class="comment-reply-btn" onclick="handleCommentModalReply('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
                         </p>
+                        ${reactionsHTML}
                     </div>
                 </div>
             </div>
