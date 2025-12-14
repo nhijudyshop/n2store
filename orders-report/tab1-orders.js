@@ -8839,7 +8839,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 const facebookPsid = order.Facebook_ASUserId;
                 console.log('[CHAT-MODAL] 🔍 Fetching conversations by fb_id:', facebookPsid, 'channelId:', channelId, 'post_id:', facebookPostId);
                 try {
-                    // Dùng API trực tiếp: GET /pages/{pageId}/customers/{fb_id}/conversations
+                    // Dùng API trực tiếp: GET /conversations/customer/{fb_id}?pages[{pageId}]=0
                     const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid);
 
                     if (result.success && result.conversations.length > 0) {
@@ -8856,9 +8856,15 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         });
 
                         if (matchingConversations.length > 0) {
+                            // Populate conversation selector với TẤT CẢ COMMENT conversations
+                            const mostRecentConv = window.populateConversationSelector(matchingConversations, matchingConversations[0]?.id);
+
+                            // Dùng conversation đầu tiên hoặc most recent
+                            const selectedConv = mostRecentConv || matchingConversations[0];
+
                             // Lấy conversationId từ COMMENT conversation
-                            window.currentConversationId = matchingConversations[0].id;
-                            window.currentCommentConversationId = matchingConversations[0].id;
+                            window.currentConversationId = selectedConv.id;
+                            window.currentCommentConversationId = selectedConv.id;
                             console.log('[CHAT-MODAL] ✅ Found', matchingConversations.length, 'COMMENT conversations matching post_id:', facebookPostId);
                             console.log('[CHAT-MODAL] ✅ Using conversationId:', window.currentConversationId);
                         } else {
@@ -8931,7 +8937,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                     const facebookPostId = order.Facebook_PostId; // Format: pageId_postId
                     console.log('[CHAT-MODAL] 🔍 Fetching conversations by fb_id:', facebookPsid, 'channelId:', channelId);
                     try {
-                        // Dùng API trực tiếp: GET /pages/{pageId}/customers/{fb_id}/conversations
+                        // Dùng API trực tiếp: GET /conversations/customer/{fb_id}?pages[{pageId}]=0
                         const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid);
 
                         if (result.success && result.conversations.length > 0) {
