@@ -9066,7 +9066,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 console.log('[CHAT-MODAL] ⚠️ Using default conversationId format:', window.currentConversationId);
             }
 
-            if (chatInfo.hasUnread) {
+            if (chatInfo.hasUnread && markReadBtn) {
                 markReadBtn.style.display = 'inline-flex';
             }
 
@@ -11419,19 +11419,19 @@ function renderChatMessages(messages, scrollToBottom = false) {
 
         let content = '';
         if (messageText) {
-            // Escape HTML to prevent XSS and display issues
+            // Escape HTML to prevent XSS but preserve emoji and special characters
+            // Only escape < and > to prevent HTML injection
             let escapedMessage = messageText
-                .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/\n/g, '<br>')
                 .replace(/\r/g, '');
 
             // Convert URLs to clickable links
-            const urlRegex = /(https?:\/\/[^\s<]+)/g;
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
             escapedMessage = escapedMessage.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">$1</a>');
 
-            content = `<p class="chat-message-text">${escapedMessage}</p>`;
+            content = `<p class="chat-message-text" style="word-wrap: break-word; white-space: pre-wrap;">${escapedMessage}</p>`;
         }
 
         // Handle attachments (images and audio)
@@ -11504,6 +11504,33 @@ function renderChatMessages(messages, scrollToBottom = false) {
             });
         }
 
+        // Handle reactions display
+        let reactionsHTML = '';
+        if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+            const reactionIcons = {
+                'LIKE': '👍',
+                'LOVE': '❤️',
+                'HAHA': '😆',
+                'WOW': '😮',
+                'SAD': '😢',
+                'ANGRY': '😠',
+                'CARE': '🤗'
+            };
+
+            const reactionsArray = Object.entries(msg.reactions)
+                .filter(([type, count]) => count > 0)
+                .map(([type, count]) => {
+                    const emoji = reactionIcons[type] || '👍';
+                    return `<span style="display: inline-flex; align-items: center; background: #f3f4f6; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 4px;">
+                        ${emoji} ${count > 1 ? count : ''}
+                    </span>`;
+                });
+
+            if (reactionsArray.length > 0) {
+                reactionsHTML = `<div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">${reactionsArray.join('')}</div>`;
+            }
+        }
+
         // Reply button for customer messages
         const messageId = msg.id || msg.Id || null;
         const replyButton = !isOwner && messageId ? `
@@ -11537,6 +11564,7 @@ function renderChatMessages(messages, scrollToBottom = false) {
                         ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
                         ${isOwner && adminName ? `<p style="font-size: 10px; font-weight: 500; color: #9ca3af; margin: 0 0 4px 0; text-align: right;"><i class="fas fa-user-tie" style="margin-right: 4px; font-size: 9px;"></i>${adminName}</p>` : ''}
                         ${content}
+                        ${reactionsHTML}
                         <p class="chat-message-time">
                             ${formatTime(msg.inserted_at || msg.CreatedTime)}
                             ${replyButton}
