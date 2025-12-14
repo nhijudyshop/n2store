@@ -16369,12 +16369,31 @@ const MERGED_ORDER_TAG_NAME = 'ĐÃ GỘP KO CHỐT';
  */
 async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
     try {
-        // Load available tags if not loaded
-        if (!availableTags || availableTags.length === 0) {
-            await loadAvailableTags();
+        // IMPORTANT: Fetch fresh tags from API (không dùng cache để tránh duplicate)
+        console.log(`[MERGE-TAG] Fetching fresh tags from API before checking "${tagName}"...`);
+        const headers = await window.tokenManager.getAuthHeader();
+
+        const tagsResponse = await API_CONFIG.smartFetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=500&$count=true',
+            {
+                method: 'GET',
+                headers: {
+                    ...headers,
+                    'accept': 'application/json',
+                    'content-type': 'application/json',
+                },
+            }
+        );
+
+        if (tagsResponse.ok) {
+            const tagsData = await tagsResponse.json();
+            availableTags = tagsData.value || [];
+            window.availableTags = availableTags;
+            window.cacheManager.set("tags", availableTags, "tags");
+            console.log(`[MERGE-TAG] Refreshed ${availableTags.length} tags from API`);
         }
 
-        // Check if tag already exists
+        // Check if tag already exists (case-insensitive)
         const existingTag = availableTags.find(t =>
             t.Name && t.Name.toLowerCase() === tagName.toLowerCase()
         );
@@ -16386,7 +16405,6 @@ async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
 
         // Create new tag
         console.log(`[MERGE-TAG] Creating new tag: "${tagName}" with color ${color}`);
-        const headers = await window.tokenManager.getAuthHeader();
 
         const response = await API_CONFIG.smartFetch(
             'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
