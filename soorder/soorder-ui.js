@@ -45,8 +45,8 @@ window.SoOrderUI = {
             thead.innerHTML = `
                 <th style="width: 50px;">STT</th>
                 <th style="width: 300px;">NCC</th>
-                <th style="width: 200px;">Thành Tiền</th>
-                <th style="width: 130px;">Chênh Lệch</th>
+                <th style="width: 200px; text-align: left;">Thành Tiền</th>
+                <th style="width: 130px; text-align: right;">Chênh Lệch</th>
                 <th>Ghi Chú</th>
                 <th style="width: 150px;" class="holiday-col">Người thực hiện</th>
                 <th style="width: 100px; text-align: center;" class="holiday-col">Đối soát</th>
@@ -96,8 +96,8 @@ window.SoOrderUI = {
                 <th style="width: 120px;">Ngày</th>
                 <th style="width: 50px;">STT</th>
                 <th style="width: 300px;">NCC</th>
-                <th style="width: 200px;">Thành Tiền</th>
-                <th style="width: 130px;">Chênh Lệch</th>
+                <th style="width: 200px; text-align: left;">Thành Tiền</th>
+                <th style="width: 130px; text-align: right;">Chênh Lệch</th>
                 <th>Ghi Chú</th>
                 <th style="width: 150px;" class="holiday-col">Người thực hiện</th>
                 <th style="width: 100px; text-align: center;" class="holiday-col">Đối soát</th>
@@ -202,6 +202,7 @@ window.SoOrderUI = {
 
         // Thành Tiền (với checkbox thanh toán)
         const tdAmount = document.createElement("td");
+        tdAmount.style.textAlign = "left";
         const amountCheckbox = document.createElement("input");
         amountCheckbox.type = "checkbox";
         amountCheckbox.checked = order.isPaid;
@@ -224,6 +225,7 @@ window.SoOrderUI = {
 
         // Chênh Lệch
         const tdDifference = document.createElement("td");
+        tdDifference.style.textAlign = "right";
         tdDifference.textContent = utils.formatCurrency(order.difference);
         // Color based on positive/negative
         if (order.difference > 0) {

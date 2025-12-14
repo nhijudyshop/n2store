@@ -534,17 +534,16 @@ textarea.form-control {
     white-space: nowrap;
 }
 
-/* Thành tiền column */
+/* Thành tiền column - alignment set via inline style in JS for consistency across modes */
 .order-table td:nth-child(3) {
     font-weight: 600;
     min-width: 160px;
 }
 
-/* Chênh lệch column */
+/* Chênh lệch column - alignment set via inline style in JS for consistency across modes */
 .order-table td:nth-child(4) {
     font-weight: 600;
     min-width: 120px;
-    text-align: right;
 }
 
 /* Ghi chú column */
