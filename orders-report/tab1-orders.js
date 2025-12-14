@@ -19104,7 +19104,7 @@ function buildFastSaleOrderPayload() {
         SaleOnlineName: '',
         PartnerShippingId: null,
         PaymentJournalId: 1,
-        PaymentAmount: prepaidAmount, // Số tiền đã trả trước
+        PaymentAmount: prepaidAmount < cod ? (cod - prepaidAmount) : cod, // Nếu trả trước < COD thì PaymentAmount = COD - trả trước, ngược lại = COD
         SaleOrderId: null,
         SaleOrderIds: [],
         FacebookName: receiverName,
