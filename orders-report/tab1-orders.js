@@ -10939,9 +10939,11 @@ async function sendMessageInternal(messageData) {
             const pageId = messageData.channelId || window.currentChatChannelId;
             const psid = window.currentChatPSID;
 
-            // Show the fallback prompt modal with Facebook Tag option
+            // Auto-send via Facebook Tag (POST_PURCHASE_UPDATE) for 24h error
             if (error.is24HourError && originalMessage && pageId && psid) {
-                window.show24hFallbackPrompt(originalMessage, pageId, psid);
+                console.log('[MESSAGE] 🔄 Auto-sending via Facebook Tag for 24h error');
+                // Auto-send without showing modal
+                window.sendViaFacebookTagFromModal(encodeURIComponent(originalMessage), pageId, psid);
             } else {
                 // For 551 error or missing data, just show notification
                 let message = error.is24HourError
