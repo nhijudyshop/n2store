@@ -14480,15 +14480,25 @@ function renderChatProductsTable() {
         return;
     }
 
-    // Update Count & Total
-    const totalQty = currentChatOrderDetails.reduce((sum, p) => sum + (p.Quantity || 0), 0);
-    const totalAmount = currentChatOrderDetails.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+    // Get products from window.currentChatOrderData if available (includes held products)
+    // Otherwise fallback to currentChatOrderDetails
+    const productsToRender = (window.currentChatOrderData && window.currentChatOrderData.Details)
+        ? window.currentChatOrderData.Details
+        : currentChatOrderDetails;
+
+    // Separate normal and held products
+    const normalProducts = productsToRender.filter(p => !p.IsHeld);
+    const heldProducts = productsToRender.filter(p => p.IsHeld);
+
+    // Update Count & Total (all products)
+    const totalQty = productsToRender.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+    const totalAmount = productsToRender.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
 
     if (countBadge) countBadge.textContent = totalQty;
     if (totalEl) totalEl.textContent = `${totalAmount.toLocaleString("vi-VN")}đ`;
 
     // Empty State
-    if (currentChatOrderDetails.length === 0) {
+    if (productsToRender.length === 0) {
         listContainer.innerHTML = `
             <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
                 <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
@@ -14498,11 +14508,72 @@ function renderChatProductsTable() {
         return;
     }
 
-    // Render List
-    listContainer.innerHTML = currentChatOrderDetails.map((p, index) => `
+    // Render sections
+    let htmlContent = '';
+
+    // Render Held Products Section (if any)
+    if (heldProducts.length > 0) {
+        htmlContent += `
+            <div style="margin-bottom: 16px;">
+                <div style="
+                    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    margin-bottom: 8px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                ">
+                    <i class="fas fa-hand-paper" style="color: #d97706;"></i>
+                    <span style="font-size: 12px; font-weight: 600; color: #92400e;">
+                        Sản phẩm giữ (${heldProducts.length})
+                    </span>
+                </div>
+                ${heldProducts.map((p, index) => renderProductCard(p, index, true)).join('')}
+            </div>
+        `;
+    }
+
+    // Render Normal Products Section
+    if (normalProducts.length > 0) {
+        if (heldProducts.length > 0) {
+            htmlContent += `
+                <div style="
+                    background: #f1f5f9;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    margin-bottom: 8px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                ">
+                    <i class="fas fa-box" style="color: #3b82f6;"></i>
+                    <span style="font-size: 12px; font-weight: 600; color: #1e293b;">
+                        Sản phẩm chính (${normalProducts.length})
+                    </span>
+                </div>
+            `;
+        }
+        htmlContent += normalProducts.map((p, index) => renderProductCard(p, index, false)).join('');
+    }
+
+    listContainer.innerHTML = htmlContent;
+
+    console.log('[CHAT] Rendered', normalProducts.length, 'normal +', heldProducts.length, 'held products');
+}
+
+/**
+ * Render a single product card
+ */
+function renderProductCard(p, index, isHeld) {
+    const borderColor = isHeld ? '#fbbf24' : '#e2e8f0';
+    const bgColor = isHeld ? '#fffbeb' : 'white';
+    const heldBadge = isHeld ? `<span style="font-size: 10px; background: #fbbf24; color: #78350f; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Giữ</span>` : '';
+
+    return `
         <div class="chat-product-card" style="
-            background: white;
-            border: 1px solid #e2e8f0;
+            background: ${bgColor};
+            border: 2px solid ${borderColor};
             border-radius: 8px;
             padding: 12px;
             margin-bottom: 8px;
@@ -14530,8 +14601,8 @@ function renderChatProductsTable() {
             <!-- Content -->
             <div style="flex: 1; min-width: 0;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
-                    <div style="font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
-                        ${p.ProductName || p.Name || 'Sản phẩm'}
+                    <div style="font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.4;">
+                        ${p.ProductName || p.Name || 'Sản phẩm'}${heldBadge}
                     </div>
                     <button onclick="removeChatProduct(${index})" style="
                         background: none;
@@ -14597,9 +14668,7 @@ function renderChatProductsTable() {
                 </div>
             </div>
         </div>
-    `).join("");
-
-    console.log('[CHAT] Rendered', currentChatOrderDetails.length, 'products in chat panel');
+    `;
 }
 
 // Expose to window for external usage
@@ -14946,7 +15015,17 @@ async function addChatProductFromSearch(productId) {
                 Code: fullProduct.DefaultCode || fullProduct.Barcode
             };
 
-            currentChatOrderDetails.push(newProduct);
+            // Add to the correct data source
+            if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+                window.currentChatOrderData.Details.push(newProduct);
+            } else {
+                currentChatOrderDetails.push(newProduct);
+            }
+        }
+
+        // Sync arrays if needed
+        if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+            currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
         }
 
         renderChatProductsTable();
@@ -14982,16 +15061,27 @@ async function addChatProductFromSearch(productId) {
 
 /**
  * Update product quantity in chat order
+ * Works with both currentChatOrderDetails and window.currentChatOrderData.Details
  */
 function updateChatProductQuantity(index, delta, specificValue = null) {
-    if (index < 0 || index >= currentChatOrderDetails.length) return;
+    // Get the correct data source
+    const productsArray = (window.currentChatOrderData && window.currentChatOrderData.Details)
+        ? window.currentChatOrderData.Details
+        : currentChatOrderDetails;
+
+    if (index < 0 || index >= productsArray.length) return;
 
     if (specificValue !== null) {
         const val = parseInt(specificValue);
-        if (val > 0) currentChatOrderDetails[index].Quantity = val;
+        if (val > 0) productsArray[index].Quantity = val;
     } else {
-        const newQty = (currentChatOrderDetails[index].Quantity || 0) + delta;
-        if (newQty > 0) currentChatOrderDetails[index].Quantity = newQty;
+        const newQty = (productsArray[index].Quantity || 0) + delta;
+        if (newQty > 0) productsArray[index].Quantity = newQty;
+    }
+
+    // Sync both arrays if needed
+    if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+        currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
     }
 
     renderChatProductsTable();
@@ -15000,13 +15090,27 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
 
 /**
  * Remove product from chat order
+ * Works with both currentChatOrderDetails and window.currentChatOrderData.Details
  */
 function removeChatProduct(index) {
-    if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
-        currentChatOrderDetails.splice(index, 1);
-        renderChatProductsTable();
-        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+    if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
+
+    // Get the correct data source
+    const productsArray = (window.currentChatOrderData && window.currentChatOrderData.Details)
+        ? window.currentChatOrderData.Details
+        : currentChatOrderDetails;
+
+    if (index < 0 || index >= productsArray.length) return;
+
+    productsArray.splice(index, 1);
+
+    // Sync both arrays if needed
+    if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+        currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
     }
+
+    renderChatProductsTable();
+    saveChatProductsToFirebase('shared', currentChatOrderDetails);
 }
 
 // =====================================================
