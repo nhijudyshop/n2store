@@ -17,37 +17,14 @@ let commentReplyType = 'private_replies'; // 'private_replies' or 'reply_comment
 
 /**
  * Open the Comment Modal
+ * Now redirects to unified chat modal with COMMENT type
  */
 window.openCommentModal = async function (orderId, channelId, psid) {
-    console.log('[COMMENT MODAL] Opening:', { orderId, channelId, psid });
+    console.log('[COMMENT MODAL] Redirecting to unified chat modal with COMMENT type:', { orderId, channelId, psid });
 
-    if (!channelId || !psid) {
-        alert('Không có thông tin bình luận cho đơn hàng này');
-        return;
-    }
-
-    // Reset state
-    commentModalChannelId = channelId;
-    commentModalPSID = psid;
-    commentModalComments = [];
-    commentModalCursor = null;
-    commentModalParentId = null;
-    isLoadingMoreComments = false;
-    window.purchaseCommentId = null;
-    window.purchaseFacebookPostId = null;
-    window.purchaseFacebookASUserId = null;
-
-    // Find order
-    let order = allData.find(o => o.Id === orderId);
-    if (!order) {
-        order = allData.find(o => o.IsMerged && o.OriginalIds && o.OriginalIds.includes(orderId));
-    }
-    if (!order) {
-        alert('Không tìm thấy đơn hàng');
-        return;
-    }
-
-    commentModalOrder = order;
+    // Use the unified chat modal with 'comment' type
+    // This allows users to toggle between INBOX and COMMENT views
+    return window.openChatModal(orderId, channelId, psid, 'comment');
 
     // Update modal title
     document.getElementById('commentModalTitle').textContent = `Bình luận với ${order.Name}`;

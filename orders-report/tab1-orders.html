@@ -857,6 +857,17 @@
                             Khách hàng</h3>
                         <p id="chatModalSubtitle" style="color: rgba(255, 255, 255, 0.9); font-size: 13px; margin: 0;">
                             Đang tải...</p>
+                        <!-- Conversation Type Toggle -->
+                        <div id="conversationTypeToggle" style="display: flex; gap: 6px; margin-top: 10px;">
+                            <button id="btnViewInbox" onclick="switchConversationType('INBOX')"
+                                style="padding: 6px 14px; border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 6px; background: rgba(255, 255, 255, 0.2); color: white; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                                <i class="fab fa-facebook-messenger"></i> Tin nhắn
+                            </button>
+                            <button id="btnViewComment" onclick="switchConversationType('COMMENT')"
+                                style="padding: 6px 14px; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 6px; background: transparent; color: rgba(255, 255, 255, 0.7); font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                                <i class="fas fa-comment-dots"></i> Bình luận
+                            </button>
+                        </div>
                     </div>
                     <!-- QR Buttons -->
                     <div class="chat-qr-buttons" id="chatQRButtons"
