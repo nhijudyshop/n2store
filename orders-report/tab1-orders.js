@@ -9290,7 +9290,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             console.log('[CHAT-MODAL] 🔍 Fetching COMMENT conversations by fb_id:', facebookPsid, 'post_id:', facebookPostId);
 
-            if (window.pancakeDataManager && facebookPsid && facebookPostId) {
+            if (window.pancakeDataManager && facebookPsid) {
                 try {
                     // Fetch all conversations for this customer
                     const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid);
