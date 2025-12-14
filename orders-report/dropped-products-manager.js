@@ -1325,6 +1325,246 @@
         }
     };
 
+    // =====================================================
+    // HELD PRODUCTS MANAGEMENT
+    // =====================================================
+
+    /**
+     * Cleanup held products for current user when closing modal or disconnecting
+     * Removes all held products from Firebase held_products collection
+     */
+    window.cleanupHeldProducts = async function () {
+        if (!window.firebase || !window.authManager) {
+            console.log('[HELD-PRODUCTS] Firebase/AuthManager not available');
+            return;
+        }
+
+        const auth = window.authManager.getAuthState();
+        if (!auth) {
+            console.log('[HELD-PRODUCTS] No auth state');
+            return;
+        }
+
+        // Get userId
+        let userId = auth.id || auth.Id || auth.username || auth.userType;
+        if (!userId && auth.displayName) {
+            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+        }
+
+        if (!userId) {
+            console.warn('[HELD-PRODUCTS] No userId found');
+            return;
+        }
+
+        const orderId = window.currentChatOrderData?.Id;
+        if (!orderId) {
+            console.log('[HELD-PRODUCTS] No current order');
+            return;
+        }
+
+        try {
+            console.log('[HELD-PRODUCTS] Cleaning up held products for user:', userId, 'order:', orderId);
+
+            // Get all held products for this user in this order
+            const heldRef = window.firebase.database().ref(`held_products/${orderId}`);
+            const snapshot = await heldRef.once('value');
+            const orderProducts = snapshot.val() || {};
+
+            let cleanupCount = 0;
+
+            for (const productId in orderProducts) {
+                const productHolders = orderProducts[productId];
+                if (productHolders && productHolders[userId]) {
+                    // Remove this user's hold
+                    await window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`).remove();
+                    cleanupCount++;
+
+                    // Clear heldBy from dropped products if no one else is holding
+                    if (window.clearHeldByIfNotHeld) {
+                        await window.clearHeldByIfNotHeld(productId);
+                    }
+                }
+            }
+
+            console.log(`[HELD-PRODUCTS] ✓ Cleaned up ${cleanupCount} held products`);
+
+        } catch (error) {
+            console.error('[HELD-PRODUCTS] ❌ Error cleaning up:', error);
+        }
+    };
+
+    /**
+     * Update held product quantity in Firebase
+     * @param {number} productId - Product ID
+     * @param {number} quantity - New quantity
+     */
+    window.updateHeldProductQuantity = async function (productId, quantity) {
+        if (!window.firebase || !window.authManager) return;
+
+        const auth = window.authManager.getAuthState();
+        if (!auth) return;
+
+        let userId = auth.id || auth.Id || auth.username || auth.userType;
+        if (!userId && auth.displayName) {
+            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+        }
+
+        const orderId = window.currentChatOrderData?.Id;
+        if (!userId || !orderId) return;
+
+        try {
+            const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
+
+            if (quantity > 0) {
+                // Update quantity
+                await ref.update({
+                    quantity: quantity,
+                    timestamp: Date.now()
+                });
+                console.log('[HELD-PRODUCTS] ✓ Updated quantity to', quantity);
+            } else {
+                // Remove if quantity is 0
+                await ref.remove();
+                console.log('[HELD-PRODUCTS] ✓ Removed (quantity = 0)');
+
+                // Clear heldBy if no one else is holding
+                if (window.clearHeldByIfNotHeld) {
+                    await window.clearHeldByIfNotHeld(productId);
+                }
+            }
+
+        } catch (error) {
+            console.error('[HELD-PRODUCTS] ❌ Error updating quantity:', error);
+        }
+    };
+
+    /**
+     * Remove held product from Firebase
+     * @param {number} productId - Product ID to remove
+     */
+    window.removeHeldProduct = async function (productId) {
+        if (!window.firebase || !window.authManager) return;
+
+        const auth = window.authManager.getAuthState();
+        if (!auth) return;
+
+        let userId = auth.id || auth.Id || auth.username || auth.userType;
+        if (!userId && auth.displayName) {
+            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+        }
+
+        const orderId = window.currentChatOrderData?.Id;
+        if (!userId || !orderId) return;
+
+        try {
+            console.log('[HELD-PRODUCTS] Removing held product:', productId);
+
+            const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
+            await ref.remove();
+
+            console.log('[HELD-PRODUCTS] ✓ Removed from Firebase');
+
+            // Clear heldBy from dropped products if no one else is holding
+            if (window.clearHeldByIfNotHeld) {
+                await window.clearHeldByIfNotHeld(productId);
+            }
+
+        } catch (error) {
+            console.error('[HELD-PRODUCTS] ❌ Error removing:', error);
+        }
+    };
+
+    /**
+     * Setup realtime listener for held products changes
+     * Syncs changes from other users in real-time
+     */
+    window.setupHeldProductsListener = function () {
+        if (!window.firebase) return;
+
+        const orderId = window.currentChatOrderData?.Id;
+        if (!orderId) return;
+
+        console.log('[HELD-PRODUCTS] Setting up realtime listener for order:', orderId);
+
+        const heldRef = window.firebase.database().ref(`held_products/${orderId}`);
+
+        // Listen for changes
+        heldRef.on('value', (snapshot) => {
+            const heldData = snapshot.val() || {};
+
+            console.log('[HELD-PRODUCTS] Realtime update received:', Object.keys(heldData).length, 'products');
+
+            // Update window.currentChatOrderData.Details with held products
+            if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+                // Remove old held products
+                window.currentChatOrderData.Details = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+
+                // Add current held products from Firebase
+                for (const productId in heldData) {
+                    const productHolders = heldData[productId];
+
+                    // Sum quantities from all holders
+                    let totalQuantity = 0;
+                    let holders = [];
+
+                    for (const userId in productHolders) {
+                        const holderData = productHolders[userId];
+                        if (holderData && !holderData.isDraft) {
+                            totalQuantity += parseInt(holderData.quantity) || 0;
+                            holders.push(holderData.displayName);
+                        }
+                    }
+
+                    if (totalQuantity > 0) {
+                        // Find product in dropped products for details
+                        const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
+
+                        if (droppedProduct) {
+                            window.currentChatOrderData.Details.push({
+                                ProductId: parseInt(productId),
+                                ProductName: droppedProduct.ProductName,
+                                ProductCode: droppedProduct.ProductCode,
+                                ProductNameGet: droppedProduct.ProductNameGet,
+                                ImageUrl: droppedProduct.ImageUrl,
+                                Price: droppedProduct.Price,
+                                Quantity: totalQuantity,
+                                UOMId: 1,
+                                UOMName: droppedProduct.UOMName || 'Cái',
+                                Factor: 1,
+                                Priority: 0,
+                                OrderId: window.currentChatOrderData.Id,
+                                LiveCampaign_DetailId: null,
+                                ProductWeight: 0,
+                                Note: null,
+                                IsHeld: true,
+                                HeldBy: holders.join(', ')
+                            });
+                        }
+                    }
+                }
+
+                // Re-render Orders tab
+                if (typeof window.renderChatProductsTable === 'function') {
+                    window.renderChatProductsTable();
+                }
+            }
+        });
+
+        // Store reference for cleanup
+        window.heldProductsListener = heldRef;
+    };
+
+    /**
+     * Cleanup held products listener
+     */
+    window.cleanupHeldProductsListener = function () {
+        if (window.heldProductsListener) {
+            console.log('[HELD-PRODUCTS] Cleaning up listener');
+            window.heldProductsListener.off();
+            window.heldProductsListener = null;
+        }
+    };
+
     // Auto-initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
