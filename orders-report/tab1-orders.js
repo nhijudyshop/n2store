@@ -11578,7 +11578,21 @@ function renderChatMessages(messages, scrollToBottom = false) {
 
         // Handle reactions display
         let reactionsHTML = '';
+
+        // Collect reactions from attachments (Pancake API format)
+        const reactionAttachments = [];
+        if (msg.attachments && msg.attachments.length > 0) {
+            msg.attachments.forEach(att => {
+                if (att.type === 'reaction' && att.emoji) {
+                    reactionAttachments.push(att.emoji);
+                }
+            });
+        }
+
+        // Collect reactions from msg.reactions or msg.reaction_summary
         const reactions = msg.reactions || msg.reaction_summary;
+        const reactionsArray = [];
+
         if (reactions && Object.keys(reactions).length > 0) {
             const reactionIcons = {
                 'LIKE': '👍',
@@ -11590,18 +11604,28 @@ function renderChatMessages(messages, scrollToBottom = false) {
                 'CARE': '🤗'
             };
 
-            const reactionsArray = Object.entries(reactions)
+            Object.entries(reactions)
                 .filter(([type, count]) => count > 0)
-                .map(([type, count]) => {
+                .forEach(([type, count]) => {
                     const emoji = reactionIcons[type] || '👍';
-                    return `<span style="display: inline-flex; align-items: center; background: #fef3c7; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 4px;">
+                    reactionsArray.push(`<span style="display: inline-flex; align-items: center; background: #fef3c7; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 4px;">
                         ${emoji} ${count > 1 ? count : ''}
-                    </span>`;
+                    </span>`);
                 });
+        }
 
-            if (reactionsArray.length > 0) {
-                reactionsHTML = `<div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">${reactionsArray.join('')}</div>`;
-            }
+        // Add reactions from attachments
+        if (reactionAttachments.length > 0) {
+            reactionAttachments.forEach(emoji => {
+                reactionsArray.push(`<span style="display: inline-flex; align-items: center; background: #fef3c7; padding: 2px 8px; border-radius: 12px; font-size: 14px; margin-right: 4px;">
+                    ${emoji}
+                </span>`);
+            });
+        }
+
+        // Build final reactions HTML
+        if (reactionsArray.length > 0) {
+            reactionsHTML = `<div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">${reactionsArray.join('')}</div>`;
         }
 
         // Reply button for customer messages
