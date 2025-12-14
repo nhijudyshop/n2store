@@ -3165,12 +3165,12 @@ async function executeBulkTagModalAssignment() {
         const allErrors = [];
 
         for (const selectedTag of selectedTags) {
-            // Get tag info from availableTags
-            const tagInfo = availableTags.find(t => t.Id === selectedTag.tagId);
-            if (!tagInfo) {
-                console.warn(`[BULK-TAG-MODAL] Tag ${selectedTag.tagId} not found in availableTags`);
-                continue;
-            }
+            // Use tag info directly from bulkTagModalData (already has all info: tagId, tagName, tagColor)
+            const tagInfo = {
+                Id: selectedTag.tagId,
+                Name: selectedTag.tagName,
+                Color: selectedTag.tagColor
+            };
 
             // Get STT array for this tag
             const sttArray = Array.from(selectedTag.sttSet);
