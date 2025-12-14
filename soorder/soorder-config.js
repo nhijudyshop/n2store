@@ -28,6 +28,7 @@ window.SoOrderState = {
     currentDayData: null, // { date, isHoliday, orders }
     editingOrderId: null,
     deleteOrderId: null,
+    differenceNoteOrderId: null, // Order ID for difference note modal
 
     // Date range state
     isRangeMode: false, // Whether we're viewing a date range

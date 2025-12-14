@@ -226,15 +226,80 @@ window.SoOrderUI = {
         // Chênh Lệch
         const tdDifference = document.createElement("td");
         tdDifference.style.textAlign = "right";
-        tdDifference.textContent = utils.formatCurrency(order.difference);
-        // Color based on positive/negative
-        if (order.difference > 0) {
-            tdDifference.style.color = "#10b981"; // Green for profit
-            tdDifference.style.fontWeight = "600";
-        } else if (order.difference < 0) {
-            tdDifference.style.color = "#ef4444"; // Red for loss
-            tdDifference.style.fontWeight = "600";
+
+        const difference = Number(order.difference) || 0;
+        const hasDifference = difference !== 0;
+
+        if (hasDifference) {
+            // Create wrapper for checkbox and amount
+            const wrapper = document.createElement("div");
+            wrapper.className = "difference-cell-wrapper";
+
+            // Add checkbox for marking as resolved
+            const diffCheckbox = document.createElement("input");
+            diffCheckbox.type = "checkbox";
+            diffCheckbox.className = "difference-checkbox";
+            diffCheckbox.checked = order.differenceResolved || false;
+            diffCheckbox.title = order.differenceResolved ? "Bỏ đánh dấu đã xử lý" : "Đánh dấu đã xử lý";
+            diffCheckbox.onclick = (e) => {
+                e.stopPropagation();
+                if (diffCheckbox.checked) {
+                    // Show modal for adding note
+                    this.showDifferenceNoteModal(order.id);
+                    // Temporarily uncheck until confirmed
+                    diffCheckbox.checked = false;
+                } else {
+                    // Ask for confirmation before unchecking
+                    this.confirmUnresolveDifference(order.id);
+                }
+            };
+            wrapper.appendChild(diffCheckbox);
+
+            // Create amount container with tooltip
+            const amountContainer = document.createElement("div");
+            amountContainer.className = "difference-amount-container";
+
+            // Amount span
+            const amountSpan = document.createElement("span");
+            amountSpan.textContent = utils.formatCurrency(difference);
+            amountSpan.style.fontWeight = "600";
+
+            // Color based on positive/negative
+            if (difference > 0) {
+                amountSpan.style.color = "#10b981"; // Green for profit
+            } else {
+                amountSpan.style.color = "#ef4444"; // Red for loss
+            }
+
+            // Add strikethrough if resolved
+            if (order.differenceResolved) {
+                amountSpan.classList.add("difference-resolved");
+            }
+
+            amountContainer.appendChild(amountSpan);
+
+            // Add tooltip if there's a note
+            if (order.differenceResolved && order.differenceNote) {
+                const tooltip = document.createElement("div");
+                tooltip.className = "difference-tooltip";
+                tooltip.innerHTML = `
+                    <div class="difference-tooltip-header">
+                        <i data-lucide="file-check"></i>
+                        Ghi chú xử lý
+                    </div>
+                    <div class="difference-tooltip-content">${this.escapeHtml(order.differenceNote)}</div>
+                `;
+                amountContainer.appendChild(tooltip);
+            }
+
+            wrapper.appendChild(amountContainer);
+            tdDifference.appendChild(wrapper);
+        } else {
+            // No difference - just show the amount
+            tdDifference.textContent = utils.formatCurrency(difference);
+            tdDifference.style.color = "#9ca3af";
         }
+
         tr.appendChild(tdDifference);
 
         // Ghi Chú
@@ -852,5 +917,105 @@ window.SoOrderUI = {
 
         // Load date range data
         await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr);
+    },
+
+    // =====================================================
+    // DIFFERENCE RESOLVED MODAL & FUNCTIONS
+    // =====================================================
+
+    showDifferenceNoteModal(orderId) {
+        const state = window.SoOrderState;
+        const elements = window.SoOrderElements;
+
+        // Store the order ID being edited
+        state.differenceNoteOrderId = orderId;
+
+        // Clear previous note
+        const noteInput = document.getElementById("differenceNoteInput");
+        if (noteInput) {
+            noteInput.value = "";
+        }
+
+        // Show modal
+        const modal = document.getElementById("differenceNoteModal");
+        if (modal) {
+            modal.style.display = "flex";
+            // Focus on textarea
+            if (noteInput) {
+                setTimeout(() => noteInput.focus(), 100);
+            }
+        }
+
+        // Initialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    },
+
+    hideDifferenceNoteModal() {
+        const state = window.SoOrderState;
+
+        state.differenceNoteOrderId = null;
+
+        const modal = document.getElementById("differenceNoteModal");
+        if (modal) {
+            modal.style.display = "none";
+        }
+    },
+
+    async handleSaveDifferenceNote() {
+        const state = window.SoOrderState;
+        const utils = window.SoOrderUtils;
+
+        if (!state.differenceNoteOrderId) return;
+
+        const noteInput = document.getElementById("differenceNoteInput");
+        const note = noteInput?.value?.trim() || "";
+
+        if (!note) {
+            utils.showToast("Vui lòng nhập ghi chú xử lý", "error");
+            return;
+        }
+
+        // Update the order
+        const success = await window.SoOrderCRUD.updateDifferenceResolved(
+            state.differenceNoteOrderId,
+            true,
+            note
+        );
+
+        if (success) {
+            this.hideDifferenceNoteModal();
+            utils.showToast("Đã đánh dấu chênh lệch đã xử lý", "success");
+        }
+    },
+
+    async confirmUnresolveDifference(orderId) {
+        const utils = window.SoOrderUtils;
+
+        // Simple confirm dialog
+        const confirmed = confirm("Bạn có chắc muốn bỏ đánh dấu đã xử lý và xóa ghi chú?");
+
+        if (confirmed) {
+            const success = await window.SoOrderCRUD.updateDifferenceResolved(
+                orderId,
+                false,
+                ""
+            );
+
+            if (success) {
+                utils.showToast("Đã bỏ đánh dấu xử lý chênh lệch", "success");
+            }
+        } else {
+            // Re-render table to restore checkbox state
+            this.renderTable();
+        }
+    },
+
+    // Helper function to escape HTML
+    escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
     },
 };

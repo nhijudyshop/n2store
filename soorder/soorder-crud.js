@@ -340,6 +340,47 @@ window.SoOrderCRUD = {
     },
 
     // =====================================================
+    // UPDATE DIFFERENCE RESOLVED STATUS
+    // =====================================================
+
+    async updateDifferenceResolved(orderId, resolved, note) {
+        const state = window.SoOrderState;
+        const utils = window.SoOrderUtils;
+
+        // Check if currentDayData exists
+        if (!state.currentDayData || !state.currentDayData.orders) {
+            utils.showToast("Không tìm thấy dữ liệu ngày", "error");
+            return false;
+        }
+
+        // Find order
+        const order = state.currentDayData.orders.find((o) => o.id === orderId);
+
+        if (!order) {
+            utils.showToast("Không tìm thấy đơn hàng", "error");
+            return false;
+        }
+
+        // Update difference resolved status and note
+        order.differenceResolved = resolved;
+        order.differenceNote = note;
+        order.updatedAt = firebase.firestore.Timestamp.now();
+
+        // Save to Firebase
+        const success = await this.saveDayData();
+
+        if (success) {
+            // Re-render
+            window.SoOrderUI.renderTable();
+            window.SoOrderUI.toggleHolidayColumnsVisibility();
+            window.SoOrderUI.updateFooterSummary();
+            return true;
+        }
+
+        return false;
+    },
+
+    // =====================================================
     // HOLIDAY MANAGEMENT
     // =====================================================
 

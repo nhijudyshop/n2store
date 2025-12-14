@@ -1320,3 +1320,106 @@ textarea.form-control {
         max-width: none;
     }
 }
+
+/* =====================================================
+   DIFFERENCE RESOLVED CHECKBOX AND TOOLTIP STYLES
+   ===================================================== */
+
+/* Difference cell wrapper */
+.difference-cell-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    position: relative;
+}
+
+/* Difference checkbox */
+.difference-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    margin: 0;
+    accent-color: var(--order-primary);
+    flex-shrink: 0;
+}
+
+/* Difference amount container with tooltip */
+.difference-amount-container {
+    position: relative;
+    display: inline-block;
+    cursor: default;
+}
+
+/* Strikethrough when resolved */
+.difference-resolved {
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+}
+
+/* Tooltip styles */
+.difference-tooltip {
+    visibility: hidden;
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    transform: translateY(-8px);
+    background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: normal;
+    max-width: 280px;
+    min-width: 150px;
+    text-align: left;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+/* Tooltip arrow */
+.difference-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    right: 20px;
+    border-width: 8px;
+    border-style: solid;
+    border-color: #374151 transparent transparent transparent;
+}
+
+/* Show tooltip on hover */
+.difference-amount-container:hover .difference-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Tooltip header */
+.difference-tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.difference-tooltip-header i {
+    width: 14px;
+    height: 14px;
+}
+
+/* Tooltip content */
+.difference-tooltip-content {
+    font-weight: 400;
+    color: white;
+}

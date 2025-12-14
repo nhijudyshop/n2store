@@ -466,5 +466,52 @@ function setupEventListeners() {
         });
     }
 
+    // =====================================================
+    // DIFFERENCE NOTE MODAL
+    // =====================================================
+
+    // Close difference note modal button
+    const btnCloseDifferenceNoteModal = document.getElementById("btnCloseDifferenceNoteModal");
+    if (btnCloseDifferenceNoteModal) {
+        btnCloseDifferenceNoteModal.addEventListener("click", () => {
+            ui.hideDifferenceNoteModal();
+        });
+    }
+
+    // Difference note modal overlay click
+    const differenceNoteModalOverlay = document.getElementById("differenceNoteModalOverlay");
+    if (differenceNoteModalOverlay) {
+        differenceNoteModalOverlay.addEventListener("click", () => {
+            ui.hideDifferenceNoteModal();
+        });
+    }
+
+    // Cancel difference note button
+    const btnCancelDifferenceNote = document.getElementById("btnCancelDifferenceNote");
+    if (btnCancelDifferenceNote) {
+        btnCancelDifferenceNote.addEventListener("click", () => {
+            ui.hideDifferenceNoteModal();
+        });
+    }
+
+    // Save difference note button
+    const btnSaveDifferenceNote = document.getElementById("btnSaveDifferenceNote");
+    if (btnSaveDifferenceNote) {
+        btnSaveDifferenceNote.addEventListener("click", () => {
+            ui.handleSaveDifferenceNote();
+        });
+    }
+
+    // Enter key in difference note textarea
+    const differenceNoteInput = document.getElementById("differenceNoteInput");
+    if (differenceNoteInput) {
+        differenceNoteInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                ui.handleSaveDifferenceNote();
+            }
+        });
+    }
+
     console.log("Event listeners setup complete!");
 }
