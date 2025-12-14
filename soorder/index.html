@@ -89,19 +89,19 @@
                         <button class="btn-icon btn-nav" id="btnPrevDay" title="Ngày trước (←)">
                             <i data-lucide="chevron-left"></i>
                         </button>
-                        <div class="current-date-display">
+                        <div class="date-selector-container">
                             <input type="date" id="dateInput" class="date-input" />
-                            <span id="dateDisplay" class="date-text"></span>
+                            <select class="date-selector" id="dateSelector">
+                                <option value="today" id="todayOption">Hôm nay</option>
+                                <option value="3days">3 ngày</option>
+                                <option value="7days">7 ngày</option>
+                                <option value="single">1 ngày...</option>
+                                <option value="custom">Nhiều ngày...</option>
+                            </select>
                         </div>
                         <button class="btn-icon btn-nav" id="btnNextDay" title="Ngày sau (→)">
                             <i data-lucide="chevron-right"></i>
                         </button>
-                        <select class="btn-date-range" id="dateRangeSelect">
-                            <option value="today">Hôm nay</option>
-                            <option value="3days">3 ngày trước</option>
-                            <option value="7days">7 ngày trước</option>
-                            <option value="custom">Tùy chỉnh...</option>
-                        </select>
                         <label class="unpaid-filter-checkbox" id="unpaidFilterLabel">
                             <input type="checkbox" id="unpaidFilterCheckbox" />
                             <span>Chỉ chưa thanh toán</span>

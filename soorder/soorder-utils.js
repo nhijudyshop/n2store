@@ -113,20 +113,19 @@ window.SoOrderUtils = {
         state.currentDate = date;
         state.currentDateString = this.formatDate(date);
 
-        // Update date input and display
+        // Update date input and selector
         const elements = window.SoOrderElements;
         if (elements.dateInput) {
             elements.dateInput.value = state.currentDateString;
         }
-        if (elements.dateDisplay) {
-            elements.dateDisplay.textContent = this.formatDateDisplay(date);
-        }
 
-        // Update dropdown to "today" when in single day mode
-        if (elements.dateRangeSelect) {
-            const today = new Date();
-            const isToday = this.formatDate(date) === this.formatDate(today);
-            elements.dateRangeSelect.value = isToday ? "today" : "today";
+        // Update the date selector dropdown - show date as first option text
+        if (elements.dateSelector) {
+            const todayOption = elements.dateSelector.querySelector('option[value="today"]');
+            if (todayOption) {
+                todayOption.textContent = this.formatDateDisplay(date);
+            }
+            elements.dateSelector.value = "today";
         }
 
         // Load data for this date

@@ -38,10 +38,9 @@ function initDOMElements() {
 
     // Date navigation
     elements.dateInput = document.getElementById("dateInput");
-    elements.dateDisplay = document.getElementById("dateDisplay");
+    elements.dateSelector = document.getElementById("dateSelector");
     elements.btnPrevDay = document.getElementById("btnPrevDay");
     elements.btnNextDay = document.getElementById("btnNextDay");
-    elements.dateRangeSelect = document.getElementById("dateRangeSelect");
     elements.holidayBadge = document.getElementById("holidayBadge");
 
     // Add form
@@ -153,28 +152,21 @@ function setupEventListeners() {
         });
     }
 
-    // Date range dropdown
-    if (elements.dateRangeSelect) {
-        elements.dateRangeSelect.addEventListener("change", async (e) => {
+    // Date selector dropdown
+    if (elements.dateSelector) {
+        elements.dateSelector.addEventListener("change", async (e) => {
             const value = e.target.value;
-
-            if (value === "custom") {
-                // Show date range picker modal
-                ui.showDateRangeModal();
-                return;
-            }
-
-            const today = new Date();
 
             switch (value) {
                 case "today":
                     // Navigate to today (single day mode)
-                    utils.navigateToDate(today);
+                    utils.navigateToDate(new Date());
                     break;
                 case "3days": {
                     // Show last 3 days (including today)
+                    const today = new Date();
                     const startDate = new Date(today);
-                    startDate.setDate(startDate.getDate() - 2); // Go back 2 days to get 3 days total
+                    startDate.setDate(startDate.getDate() - 2);
                     const startDateStr = utils.formatDate(startDate);
                     const endDateStr = utils.formatDate(today);
                     await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr);
@@ -182,33 +174,39 @@ function setupEventListeners() {
                 }
                 case "7days": {
                     // Show last 7 days (including today)
+                    const today = new Date();
                     const startDate = new Date(today);
-                    startDate.setDate(startDate.getDate() - 6); // Go back 6 days to get 7 days total
+                    startDate.setDate(startDate.getDate() - 6);
                     const startDateStr = utils.formatDate(startDate);
                     const endDateStr = utils.formatDate(today);
                     await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr);
                     break;
                 }
+                case "single":
+                    // Show date picker for single day
+                    if (elements.dateInput) {
+                        elements.dateInput.showPicker();
+                    }
+                    // Reset to current selection after picker closes
+                    e.target.value = "today";
+                    break;
+                case "custom":
+                    // Show date range picker modal
+                    ui.showDateRangeModal();
+                    // Reset to current selection after modal closes
+                    e.target.value = "today";
+                    break;
             }
         });
     }
 
-    // Date input change
+    // Date input change (for single day picker)
     if (elements.dateInput) {
         elements.dateInput.addEventListener("change", (e) => {
             const dateString = e.target.value;
             if (dateString) {
                 const date = utils.parseDate(dateString);
                 utils.navigateToDate(date);
-            }
-        });
-    }
-
-    // Date display click - trigger date picker
-    if (elements.dateDisplay) {
-        elements.dateDisplay.addEventListener("click", () => {
-            if (elements.dateInput) {
-                elements.dateInput.showPicker();
             }
         });
     }
