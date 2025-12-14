@@ -8322,19 +8322,90 @@ window.switchConversationType = async function (type) {
     // Fetch messages or comments based on type
     try {
         if (type === 'COMMENT') {
-            // Fetch comments using the same flow as openChatModal
-            await window.fetchCommentsFromPancake(
+            // Fetch comments using chatDataManager
+            const postId = window.purchaseFacebookPostId;
+            const customerName = currentOrder.Facebook_UserName;
+
+            const response = await window.chatDataManager.fetchComments(
                 window.currentChatChannelId,
                 window.currentChatPSID,
-                window.purchaseFacebookPostId,
-                currentOrder.Name
+                null,
+                postId,
+                customerName
             );
+
+            window.allChatComments = response.comments || [];
+            currentChatCursor = response.after;
+
+            // Update customer UUID from response if available
+            if (response.customerId && !window.currentCustomerUUID) {
+                window.currentCustomerUUID = response.customerId;
+                console.log('[CONV-TYPE] ✅ Updated currentCustomerUUID:', window.currentCustomerUUID);
+            }
+
+            // Get parent comment ID from first comment
+            if (window.allChatComments.length > 0) {
+                const rootComment = window.allChatComments.find(c => !c.ParentId) || window.allChatComments[0];
+                if (rootComment && rootComment.Id) {
+                    currentParentCommentId = getFacebookCommentId(rootComment);
+                    console.log('[CONV-TYPE] Got parent comment ID:', currentParentCommentId);
+                }
+            }
+
+            // Construct conversationId for comments
+            const facebookPostId = currentOrder.Facebook_PostId || currentPostId;
+            if (facebookPostId && currentParentCommentId) {
+                if (currentParentCommentId.includes('_')) {
+                    window.currentConversationId = currentParentCommentId;
+                } else {
+                    const postIdOnly = extractPostId(facebookPostId);
+                    window.currentConversationId = `${postIdOnly}_${currentParentCommentId}`;
+                }
+                console.log('[CONV-TYPE] Constructed conversationId:', window.currentConversationId);
+            }
+
+            console.log('[CONV-TYPE] Loaded', window.allChatComments.length, 'comments');
+            renderComments(window.allChatComments, true);
+
+            // Setup infinite scroll
+            setupChatInfiniteScroll();
+            setupNewMessageIndicatorListener();
+
         } else {
-            // Fetch inbox messages using the same flow as openChatModal
-            await window.fetchMessagesFromPancake(
+            // Fetch inbox messages using chatDataManager
+            // Ensure conversationId is set, use fallback if needed
+            if (!window.currentConversationId) {
+                window.currentConversationId = `${window.currentChatChannelId}_${window.currentChatPSID}`;
+                console.log('[CONV-TYPE] Using fallback conversationId:', window.currentConversationId);
+            }
+
+            const response = await window.chatDataManager.fetchMessages(
                 window.currentChatChannelId,
-                window.currentChatPSID
+                window.currentChatPSID,
+                window.currentConversationId,
+                window.currentCustomerUUID
             );
+
+            window.allChatMessages = response.messages || [];
+            currentChatCursor = response.after;
+
+            // Update conversationId and customerUUID from response
+            if (response.conversationId) {
+                window.currentConversationId = response.conversationId;
+                console.log('[CONV-TYPE] ✅ Updated conversationId:', window.currentConversationId);
+            }
+            if (response.customerId && !window.currentCustomerUUID) {
+                window.currentCustomerUUID = response.customerId;
+                console.log('[CONV-TYPE] ✅ Updated currentCustomerUUID:', window.currentCustomerUUID);
+            }
+
+            console.log('[CONV-TYPE] Loaded', window.allChatMessages.length, 'messages');
+            renderChatMessages(window.allChatMessages, true);
+
+            // Setup infinite scroll and realtime
+            setupChatInfiniteScroll();
+            setupNewMessageIndicatorListener();
+            setupRealtimeMessages();
         }
     } catch (error) {
         console.error('[CONV-TYPE] Error fetching data:', error);
