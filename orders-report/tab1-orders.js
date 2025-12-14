@@ -11161,6 +11161,12 @@ async function sendMessageInternal(messageData) {
                 message: message
             };
 
+            // Add replied_message_id if replying to a message
+            if (repliedMessageId) {
+                payload.replied_message_id = repliedMessageId;
+                console.log('[MESSAGE] Adding replied_message_id:', repliedMessageId);
+            }
+
             console.log('[MESSAGE] Building REPLY_INBOX payload');
         }
 
@@ -11913,6 +11919,25 @@ function renderChatMessages(messages, scrollToBottom = false) {
         // Handle Pancake API format attachments (lowercase 'attachments')
         if (msg.attachments && msg.attachments.length > 0) {
             msg.attachments.forEach(att => {
+                // Replied Message (Quoted message)
+                if (att.type === 'replied_message') {
+                    const quotedText = att.message || '';
+                    const quotedFrom = att.from?.name || att.from?.admin_name || 'Unknown';
+                    const quotedHasAttachment = att.attachments && att.attachments.length > 0;
+
+                    content = `
+                        <div class="quoted-message" style="background: #f3f4f6; border-left: 3px solid #3b82f6; padding: 8px 10px; margin-bottom: 8px; border-radius: 4px;">
+                            <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px;">
+                                <i class="fas fa-reply" style="margin-right: 4px;"></i>${quotedFrom}
+                            </div>
+                            <div style="font-size: 12px; color: #374151;">
+                                ${quotedText || (quotedHasAttachment ? '[Attachment]' : '[No content]')}
+                            </div>
+                        </div>
+                    ` + content;
+                    return; // Skip other processing for this attachment
+                }
+
                 // Debug: Log attachment structure to identify sticker format
                 if (att.type === 'sticker' || att.sticker_id || att.type === 'animated_image_share') {
                     console.log('[DEBUG STICKER] Attachment object:', JSON.stringify(att, null, 2));
