@@ -369,7 +369,7 @@ class PancakeDataManager {
 
     /**
      * Fetch conversations for a customer by fb_id directly
-     * API: GET /pages/{pageId}/customers/{fb_id}/conversations
+     * API: GET /conversations/customer/{fb_id}?pages[{pageId}]=0
      * @param {string} pageId - Facebook Page ID
      * @param {string} fbId - Facebook AS User ID (Facebook_ASUserId)
      * @returns {Promise<Object>} { conversations: Array, customerUuid: string|null, success: boolean }
@@ -388,10 +388,10 @@ class PancakeDataManager {
                 throw new Error('No Pancake token available');
             }
 
-            // Build URL: GET /pages/{pageId}/customers/{fb_id}/conversations
-            const queryString = `access_token=${token}`;
+            // Build URL: GET /conversations/customer/{fb_id}?pages[{pageId}]=0
+            const queryString = `pages[${pageId}]=0&access_token=${token}`;
             const url = window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/customers/${fbId}/conversations`,
+                `conversations/customer/${fbId}`,
                 queryString
             );
 
