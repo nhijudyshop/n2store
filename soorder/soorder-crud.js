@@ -466,13 +466,13 @@ window.SoOrderCRUD = {
                 const numDays = dateStrings.length;
 
                 // Update the first option text to show range
-                const todayOption = elements.dateSelector.querySelector('option[value="today"]');
-                if (todayOption) {
+                const currentOption = elements.dateSelector.querySelector('option[value="current"]');
+                if (currentOption) {
                     const startDateObj = utils.parseDate(startDateStr);
                     const endDateObj = utils.parseDate(endDateStr);
                     const startDisplay = utils.formatDateDisplay(startDateObj);
                     const endDisplay = utils.formatDateDisplay(endDateObj);
-                    todayOption.textContent = `${startDisplay} - ${endDisplay}`;
+                    currentOption.textContent = `${startDisplay} - ${endDisplay}`;
                 }
 
                 // Set the correct dropdown value based on range
@@ -481,11 +481,13 @@ window.SoOrderCRUD = {
                         elements.dateSelector.value = "3days";
                     } else if (numDays === 7) {
                         elements.dateSelector.value = "7days";
+                    } else if (numDays === 10) {
+                        elements.dateSelector.value = "10days";
                     } else {
-                        elements.dateSelector.value = "today";
+                        elements.dateSelector.value = "current";
                     }
                 } else {
-                    elements.dateSelector.value = "today";
+                    elements.dateSelector.value = "current";
                 }
             }
 
