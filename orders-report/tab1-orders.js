@@ -8194,6 +8194,160 @@ window.updateMessageReplyTypeToggle = function () {
 };
 
 // =====================================================
+// CONVERSATION TYPE TOGGLE FUNCTIONS
+// =====================================================
+
+// Track current conversation type being viewed
+let currentConversationType = 'INBOX'; // 'INBOX' or 'COMMENT'
+
+/**
+ * Update conversation type toggle button states
+ * @param {string} type - 'INBOX' or 'COMMENT'
+ */
+window.updateConversationTypeToggle = function (type) {
+    const btnInbox = document.getElementById('btnViewInbox');
+    const btnComment = document.getElementById('btnViewComment');
+
+    if (!btnInbox || !btnComment) return;
+
+    if (type === 'INBOX') {
+        // INBOX selected
+        btnInbox.style.borderColor = 'rgba(255, 255, 255, 0.8)';
+        btnInbox.style.background = 'rgba(255, 255, 255, 0.2)';
+        btnInbox.style.color = 'white';
+
+        btnComment.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        btnComment.style.background = 'transparent';
+        btnComment.style.color = 'rgba(255, 255, 255, 0.7)';
+    } else {
+        // COMMENT selected
+        btnInbox.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        btnInbox.style.background = 'transparent';
+        btnInbox.style.color = 'rgba(255, 255, 255, 0.7)';
+
+        btnComment.style.borderColor = 'rgba(255, 255, 255, 0.8)';
+        btnComment.style.background = 'rgba(255, 255, 255, 0.2)';
+        btnComment.style.color = 'white';
+    }
+
+    currentConversationType = type;
+    console.log('[CONV-TYPE] Conversation type set to:', type);
+};
+
+/**
+ * Switch between INBOX and COMMENT conversation types
+ * @param {string} type - 'INBOX' or 'COMMENT'
+ */
+window.switchConversationType = async function (type) {
+    if (currentConversationType === type) {
+        console.log('[CONV-TYPE] Already viewing', type);
+        return;
+    }
+
+    console.log('[CONV-TYPE] Switching from', currentConversationType, 'to', type);
+
+    // Update toggle button states
+    window.updateConversationTypeToggle(type);
+
+    // Update modal title
+    const titleText = type === 'COMMENT' ? 'Bình luận' : 'Tin nhắn';
+    const titleElement = document.getElementById('chatModalTitle');
+    if (titleElement && currentOrder) {
+        titleElement.textContent = `${titleText} với ${currentOrder.Name}`;
+    }
+
+    // Reset state
+    window.allChatMessages = [];
+    window.allChatComments = [];
+    currentChatCursor = null;
+    isLoadingMoreMessages = false;
+    window.currentConversationId = null;
+    currentParentCommentId = null;
+    currentPostId = null;
+
+    // Hide conversation selector
+    window.hideConversationSelector();
+
+    // Show loading
+    const modalBody = document.getElementById('chatModalBody');
+    const loadingText = type === 'COMMENT' ? 'Đang tải bình luận...' : 'Đang tải tin nhắn...';
+    modalBody.innerHTML = `
+        <div class="chat-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>${loadingText}</p>
+        </div>`;
+
+    // Update input state based on conversation type
+    const chatInput = document.getElementById('chatReplyInput');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    const markReadBtn = document.getElementById('chatMarkReadBtn');
+
+    if (type === 'COMMENT') {
+        // Disable input for comments (only enable when replying to specific comment)
+        if (chatInput) {
+            chatInput.disabled = true;
+            chatInput.placeholder = 'Chọn "Trả lời" một bình luận để reply...';
+            chatInput.style.background = '#f3f4f6';
+            chatInput.style.cursor = 'not-allowed';
+        }
+        if (chatSendBtn) {
+            chatSendBtn.disabled = true;
+            chatSendBtn.style.opacity = '0.5';
+            chatSendBtn.style.cursor = 'not-allowed';
+        }
+        if (markReadBtn) {
+            markReadBtn.style.display = 'none';
+        }
+    } else {
+        // Enable input for INBOX messages
+        if (chatInput) {
+            chatInput.disabled = false;
+            chatInput.placeholder = 'Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)';
+            chatInput.style.background = '#f9fafb';
+            chatInput.style.cursor = 'text';
+        }
+        if (chatSendBtn) {
+            chatSendBtn.disabled = false;
+            chatSendBtn.style.opacity = '1';
+            chatSendBtn.style.cursor = 'pointer';
+        }
+        if (markReadBtn) {
+            markReadBtn.style.display = 'none'; // Keep hidden for now
+        }
+    }
+
+    // Update current chat type for other functions to use
+    currentChatType = type === 'COMMENT' ? 'comment' : 'message';
+
+    // Fetch messages or comments based on type
+    try {
+        if (type === 'COMMENT') {
+            // Fetch comments using the same flow as openChatModal
+            await window.fetchCommentsFromPancake(
+                window.currentChatChannelId,
+                window.currentChatPSID,
+                window.purchaseFacebookPostId,
+                currentOrder.Name
+            );
+        } else {
+            // Fetch inbox messages using the same flow as openChatModal
+            await window.fetchMessagesFromPancake(
+                window.currentChatChannelId,
+                window.currentChatPSID
+            );
+        }
+    } catch (error) {
+        console.error('[CONV-TYPE] Error fetching data:', error);
+        modalBody.innerHTML = `
+            <div class="chat-error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Lỗi khi tải ${type === 'COMMENT' ? 'bình luận' : 'tin nhắn'}</p>
+                <p style="font-size: 12px; color: #6b7280;">${error.message}</p>
+            </div>`;
+    }
+};
+
+// =====================================================
 // PAGE SELECTOR FUNCTIONS
 // =====================================================
 
@@ -8904,6 +9058,10 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     const titleText = type === 'comment' ? 'Bình luận' : 'Tin nhắn';
     document.getElementById('chatModalTitle').textContent = `${titleText} với ${order.Name}`;
     document.getElementById('chatModalSubtitle').textContent = `SĐT: ${order.Telephone || 'N/A'} • Mã ĐH: ${order.Code}`;
+
+    // Initialize conversation type toggle
+    const initialConvType = type === 'comment' ? 'COMMENT' : 'INBOX';
+    window.updateConversationTypeToggle(initialConvType);
 
     // Show modal
     document.getElementById('chatModal').classList.add('show');
