@@ -48,7 +48,7 @@ window.SoOrderState = {
 window.SoOrderElements = {
     // Date navigation
     dateInput: null,
-    dateDisplay: null,
+    dateSelector: null,
     btnPrevDay: null,
     btnNextDay: null,
     btnToday: null,
@@ -121,7 +121,6 @@ window.SoOrderElements = {
     btnApplyDateRange: null,
     startDateInput: null,
     endDateInput: null,
-    dateRangeSelect: null,
 
     // Filter elements
     unpaidFilterCheckbox: null,

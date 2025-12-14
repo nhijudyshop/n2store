@@ -458,33 +458,34 @@ window.SoOrderCRUD = {
             state.rangeEndDate = endDateStr;
             state.rangeData = rangeData;
 
-            // Update date display
+            // Update date selector display
             const elements = window.SoOrderElements;
-            if (elements.dateDisplay) {
-                const startDateObj = utils.parseDate(startDateStr);
-                const endDateObj = utils.parseDate(endDateStr);
-                const startDisplay = utils.formatDateDisplay(startDateObj);
-                const endDisplay = utils.formatDateDisplay(endDateObj);
-                elements.dateDisplay.textContent = `${startDisplay} - ${endDisplay}`;
-            }
-
-            // Update dropdown based on range
-            if (elements.dateRangeSelect) {
+            if (elements.dateSelector) {
                 const today = new Date();
                 const todayStr = utils.formatDate(today);
+                const numDays = dateStrings.length;
 
-                // Check if this matches a predefined range
+                // Update the first option text to show range
+                const todayOption = elements.dateSelector.querySelector('option[value="today"]');
+                if (todayOption) {
+                    const startDateObj = utils.parseDate(startDateStr);
+                    const endDateObj = utils.parseDate(endDateStr);
+                    const startDisplay = utils.formatDateDisplay(startDateObj);
+                    const endDisplay = utils.formatDateDisplay(endDateObj);
+                    todayOption.textContent = `${startDisplay} - ${endDisplay}`;
+                }
+
+                // Set the correct dropdown value based on range
                 if (endDateStr === todayStr) {
-                    const numDays = dateStrings.length;
                     if (numDays === 3) {
-                        elements.dateRangeSelect.value = "3days";
+                        elements.dateSelector.value = "3days";
                     } else if (numDays === 7) {
-                        elements.dateRangeSelect.value = "7days";
+                        elements.dateSelector.value = "7days";
                     } else {
-                        elements.dateRangeSelect.value = "custom";
+                        elements.dateSelector.value = "today";
                     }
                 } else {
-                    elements.dateRangeSelect.value = "custom";
+                    elements.dateSelector.value = "today";
                 }
             }
 
