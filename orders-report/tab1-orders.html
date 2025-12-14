@@ -1086,8 +1086,13 @@
             </div>
 
             <!-- Right Panel: Orders -->
-            <div class="chat-right-panel"
-                style="flex: 1; display: flex; flex-direction: column; background: #f8fafc; border-left: 1px solid #e2e8f0;">
+            <div class="chat-right-panel collapsed"
+                style="flex: 1; display: flex; flex-direction: column; background: #f8fafc; border-left: 1px solid #e2e8f0; position: relative;">
+
+                <!-- Toggle Button -->
+                <button class="chat-panel-toggle-btn" onclick="toggleChatRightPanel()" title="Mở/Đóng panel thông tin">
+                    <i class="fas fa-chevron-left" id="chatPanelToggleIcon"></i>
+                </button>
 
                 <!-- Tabs Header -->
                 <div class="chat-panel-tabs" style="

@@ -2921,10 +2921,11 @@ button[onclick*="showAddProductForm"] {
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     z-index: 10000;
-    align-items: flex-start;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
     opacity: 0;
     transition: opacity 0.3s ease;
+    padding: 2vh 1.5vw;
 }
 
 .chat-modal.show {
@@ -4350,22 +4351,32 @@ td[data-column].hidden {
     display: flex;
     flex-direction: row;
     max-width: 100%;
-    width: 100%;
-    height: 100vh;
-    max-height: 100vh;
+    width: 95%;
+    height: 92vh;
+    max-height: 92vh;
     overflow: hidden;
-    border-radius: 0;
+    border-radius: 12px;
     background: white;
-    box-shadow: none;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: slideIn 0.3s ease;
 }
 
 .chat-left-panel {
-    flex: 0 0 750px;
+    flex: 1;
     display: flex;
     flex-direction: column;
     border-right: 1px solid #e5e7eb;
     min-width: 0;
+    max-width: 100%;
+    transition: all 0.3s ease;
     /* Prevent flex item from overflowing */
+}
+
+/* When right panel is open, left panel has fixed width */
+.chat-right-panel:not(.collapsed) ~ .chat-left-panel,
+.chat-modal-content:has(.chat-right-panel:not(.collapsed)) .chat-left-panel {
+    flex: 0 0 900px;
+    max-width: 900px;
 }
 
 .chat-right-panel {
@@ -4374,6 +4385,57 @@ td[data-column].hidden {
     flex-direction: column;
     background: #f9fafb;
     border-left: 1px solid #e5e7eb;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+/* Collapsed state - hide right panel */
+.chat-right-panel.collapsed {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    border-left: none;
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Toggle button for right panel */
+.chat-panel-toggle-btn {
+    position: absolute;
+    left: -16px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: white;
+    border: 1px solid #e5e7eb;
+    width: 32px;
+    height: 64px;
+    border-radius: 8px 0 0 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    color: #6b7280;
+}
+
+.chat-panel-toggle-btn:hover {
+    background: #f9fafb;
+    color: #3b82f6;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
+}
+
+.chat-right-panel.collapsed .chat-panel-toggle-btn {
+    position: fixed;
+    right: 2.5vw;
+    left: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.chat-right-panel.collapsed .chat-panel-toggle-btn:hover {
+    transform: translateY(-50%) scale(1.05);
 }
 
 /* Chat Panel Tabs */
