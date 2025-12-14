@@ -9303,7 +9303,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         console.log('[CHAT-MODAL] ✅ Got customer UUID:', window.currentCustomerUUID);
 
                         // Filter COMMENT conversations
-                        // If we have post_id, filter by it. Otherwise, get all COMMENT conversations
+                        // Note: COMMENT conversations don't have post_id field, but their ID format is:
+                        // conversation.id = "POST_ID_COMMENT_ID" (e.g., "1300821062062414_1636143350714534")
+                        // order.Facebook_PostId = "PAGE_ID_POST_ID" (e.g., "270136663390370_1300821062062414")
+                        // Match by: extract POST_ID from order.Facebook_PostId and match with first part of conversation.id
+
                         let commentConversations;
 
                         // First, get all COMMENT conversations
@@ -9312,28 +9316,28 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         // Log all COMMENT conversations for debugging
                         console.log('[CHAT-MODAL] All COMMENT conversations:', allCommentConvs.map(c => ({
                             id: c.id,
-                            post_id: c.post_id,
+                            snippet: c.snippet,
                             updated_at: c.updated_at
                         })));
 
                         if (facebookPostId && allCommentConvs.length > 0) {
-                            // Try exact match first
-                            commentConversations = allCommentConvs.filter(conv => conv.post_id === facebookPostId);
+                            // Extract POST_ID from order.Facebook_PostId (format: "PAGE_ID_POST_ID")
+                            const postIdParts = facebookPostId.split('_');
+                            const postId = postIdParts.length > 1 ? postIdParts[postIdParts.length - 1] : facebookPostId;
 
-                            // If no exact match, try flexible matching (post_id contains or is contained in facebookPostId)
-                            if (commentConversations.length === 0) {
-                                commentConversations = allCommentConvs.filter(conv => {
-                                    if (!conv.post_id) return false;
-                                    // Check if either contains the other
-                                    return conv.post_id.includes(facebookPostId) ||
-                                           facebookPostId.includes(conv.post_id) ||
-                                           // Or check if the part after _ matches
-                                           conv.post_id.split('_').some(part => facebookPostId.includes(part));
-                                });
-                                console.log('[CHAT-MODAL] No exact match, trying flexible match →', commentConversations.length, 'found');
-                            }
+                            console.log('[CHAT-MODAL] Extracted POST_ID from order:', postId);
 
-                            // If still no match, just use the most recent COMMENT conversation
+                            // Match conversation where conversation.id starts with POST_ID
+                            commentConversations = allCommentConvs.filter(conv => {
+                                const convIdFirstPart = conv.id.split('_')[0];
+                                const match = convIdFirstPart === postId;
+                                if (match) {
+                                    console.log('[CHAT-MODAL] ✓ Match found:', conv.id, 'starts with', postId);
+                                }
+                                return match;
+                            });
+
+                            // If no match, use most recent COMMENT conversation
                             if (commentConversations.length === 0) {
                                 console.warn('[CHAT-MODAL] ⚠️ No match by post_id, using most recent COMMENT conversation');
                                 commentConversations = allCommentConvs;
