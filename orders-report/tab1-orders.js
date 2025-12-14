@@ -2761,21 +2761,92 @@ async function executeBulkTagAssignment() {
 // =====================================================
 
 // State variables for bulk tag modal
-let bulkTagModalData = []; // Array of {tagId, tagName, tagColor, sttSet: Set()}
+// Each tag item: {tagId, tagName, tagColor, sttSet: Set(), errorMessage: string|null}
+let bulkTagModalData = [];
 let selectedBulkTagModalRows = new Set(); // Set of selected tag IDs
+
+// LocalStorage key for bulk tag modal draft
+const BULK_TAG_DRAFT_KEY = 'bulkTagModalDraft';
+
+// ===== LocalStorage Functions =====
+
+// Save bulk tag modal data to localStorage
+function saveBulkTagToLocalStorage() {
+    try {
+        const dataToSave = bulkTagModalData.map(tag => ({
+            tagId: tag.tagId,
+            tagName: tag.tagName,
+            tagColor: tag.tagColor,
+            sttList: Array.from(tag.sttSet),
+            errorMessage: tag.errorMessage || null
+        }));
+        localStorage.setItem(BULK_TAG_DRAFT_KEY, JSON.stringify(dataToSave));
+        console.log("[BULK-TAG-MODAL] Saved draft to localStorage:", dataToSave);
+    } catch (error) {
+        console.error("[BULK-TAG-MODAL] Error saving to localStorage:", error);
+    }
+}
+
+// Load bulk tag modal data from localStorage
+function loadBulkTagFromLocalStorage() {
+    try {
+        const savedData = localStorage.getItem(BULK_TAG_DRAFT_KEY);
+        if (!savedData) return false;
+
+        const parsedData = JSON.parse(savedData);
+        if (!Array.isArray(parsedData) || parsedData.length === 0) return false;
+
+        bulkTagModalData = parsedData.map(tag => ({
+            tagId: tag.tagId,
+            tagName: tag.tagName,
+            tagColor: tag.tagColor,
+            sttSet: new Set(tag.sttList || []),
+            errorMessage: tag.errorMessage || null
+        }));
+
+        // Auto-select tags with STTs
+        selectedBulkTagModalRows.clear();
+        bulkTagModalData.forEach(tag => {
+            if (tag.sttSet.size > 0) {
+                selectedBulkTagModalRows.add(tag.tagId);
+            }
+        });
+
+        console.log("[BULK-TAG-MODAL] Loaded draft from localStorage:", bulkTagModalData);
+        return true;
+    } catch (error) {
+        console.error("[BULK-TAG-MODAL] Error loading from localStorage:", error);
+        return false;
+    }
+}
+
+// Clear bulk tag localStorage
+function clearBulkTagLocalStorage() {
+    try {
+        localStorage.removeItem(BULK_TAG_DRAFT_KEY);
+        console.log("[BULK-TAG-MODAL] Cleared localStorage draft");
+    } catch (error) {
+        console.error("[BULK-TAG-MODAL] Error clearing localStorage:", error);
+    }
+}
 
 // Show bulk tag modal
 async function showBulkTagModal() {
     console.log("[BULK-TAG-MODAL] Opening bulk tag modal");
 
-    // Reset state
-    bulkTagModalData = [];
-    selectedBulkTagModalRows.clear();
+    // Try to load from localStorage first
+    const hasStoredData = loadBulkTagFromLocalStorage();
+
+    if (!hasStoredData) {
+        // Reset state if no stored data
+        bulkTagModalData = [];
+        selectedBulkTagModalRows.clear();
+    }
 
     // Update UI
     updateBulkTagModalTable();
     updateBulkTagModalRowCount();
-    document.getElementById('bulkTagSelectAllCheckbox').checked = false;
+    updateSelectAllCheckbox();
     document.getElementById('bulkTagModalSearchInput').value = '';
 
     // Load tags for dropdown
@@ -2787,10 +2858,14 @@ async function showBulkTagModal() {
 
 // Close bulk tag modal
 function closeBulkTagModal() {
+    // Save current state to localStorage before closing
+    if (bulkTagModalData.length > 0) {
+        saveBulkTagToLocalStorage();
+    }
+
     document.getElementById('bulkTagModal').classList.remove('show');
     document.getElementById('bulkTagModalSearchDropdown').classList.remove('show');
-    bulkTagModalData = [];
-    selectedBulkTagModalRows.clear();
+    // Don't clear data - keep in memory for when modal reopens
 }
 
 // Load tag options for search dropdown
@@ -2939,6 +3014,9 @@ function clearAllBulkTagRows() {
         selectedBulkTagModalRows.clear();
         document.getElementById('bulkTagSelectAllCheckbox').checked = false;
 
+        // Clear localStorage
+        clearBulkTagLocalStorage();
+
         updateBulkTagModalTable();
         updateBulkTagModalRowCount();
         populateBulkTagModalDropdown();
@@ -3083,6 +3161,7 @@ function updateBulkTagModalTable() {
     tableBody.innerHTML = bulkTagModalData.map(tagData => {
         const isSelected = selectedBulkTagModalRows.has(tagData.tagId);
         const sttArray = Array.from(tagData.sttSet).sort((a, b) => a - b);
+        const hasError = tagData.errorMessage && tagData.errorMessage.length > 0;
 
         // Get customer names for STTs
         const sttPillsHtml = sttArray.map(stt => {
@@ -3099,8 +3178,15 @@ function updateBulkTagModalTable() {
             `;
         }).join('');
 
+        // Error message HTML
+        const errorHtml = hasError ? `
+            <div class="bulk-tag-row-error">
+                ${tagData.errorMessage}
+            </div>
+        ` : '';
+
         return `
-            <div class="bulk-tag-row ${isSelected ? 'selected' : ''}" data-tag-id="${tagData.tagId}">
+            <div class="bulk-tag-row ${isSelected ? 'selected' : ''} ${hasError ? 'has-error' : ''}" data-tag-id="${tagData.tagId}">
                 <div class="bulk-tag-row-tag">
                     <input type="checkbox"
                            ${isSelected ? 'checked' : ''}
@@ -3111,6 +3197,7 @@ function updateBulkTagModalTable() {
                         <span class="tag-color-dot" style="background-color: ${tagData.tagColor}"></span>
                         <span class="tag-name">${tagData.tagName}</span>
                     </div>
+                    ${errorHtml}
                 </div>
                 <div class="bulk-tag-row-stt">
                     <div class="bulk-tag-stt-pills">
@@ -3136,10 +3223,16 @@ function updateBulkTagModalTable() {
 // Execute bulk tag modal assignment
 /**
  * Execute bulk tag assignment from modal
- * Logic copied 100% from executeBulkTagAssignment() - Simple assignment without complex checks
+ * New flow:
+ * 1. Check for "ĐÃ GỘP KO CHỐT" tag before assigning
+ * 2. Track success/failed for each tag
+ * 3. After assignment, remove successful tags/STTs, keep failed ones
+ * 4. Save to Firebase with new format
+ * 5. Show result modal
+ * 6. DON'T close modal automatically
  */
 async function executeBulkTagModalAssignment() {
-    console.log("[BULK-TAG-MODAL] Executing bulk tag assignment (Simple Mode)");
+    console.log("[BULK-TAG-MODAL] Executing bulk tag assignment");
 
     // Get selected tags with STTs (checked rows only)
     const selectedTags = bulkTagModalData.filter(t =>
@@ -3159,43 +3252,39 @@ async function executeBulkTagModalAssignment() {
     try {
         showLoading(true);
 
-        // Process each selected tag independently
-        let totalSuccessCount = 0;
-        let totalErrorCount = 0;
-        const allErrors = [];
+        // Results tracking
+        const successResults = []; // Array of {tagName, tagColor, sttList: []}
+        const failedResults = [];  // Array of {tagName, tagColor, sttList: [], reason}
 
+        // Process each selected tag
         for (const selectedTag of selectedTags) {
-            // Use tag info directly from bulkTagModalData (already has all info: tagId, tagName, tagColor)
-            // Ensure Id is a number for API compatibility
             const tagInfo = {
                 Id: parseInt(selectedTag.tagId, 10),
                 Name: selectedTag.tagName,
                 Color: selectedTag.tagColor
             };
 
-            // Get STT array for this tag
             const sttArray = Array.from(selectedTag.sttSet);
+            const successSTT = [];
+            const failedSTT = [];
+            let failReason = null;
 
-            // Find orders matching STT in displayedData (current view)
+            // Find orders matching STT
             const matchingOrders = displayedData.filter(order =>
                 sttArray.includes(order.SessionIndex)
             );
 
             if (matchingOrders.length === 0) {
-                console.warn(`[BULK-TAG-MODAL] No orders found for tag "${tagInfo.Name}" with STT: ${sttArray.join(', ')}`);
+                console.warn(`[BULK-TAG-MODAL] No orders found for tag "${tagInfo.Name}"`);
                 continue;
             }
 
-            console.log(`[BULK-TAG-MODAL] Processing tag "${tagInfo.Name}" for ${matchingOrders.length} orders matching STT:`, sttArray);
+            console.log(`[BULK-TAG-MODAL] Processing tag "${tagInfo.Name}" for ${matchingOrders.length} orders`);
 
-            // Process each order (same logic as executeBulkTagAssignment)
-            let successCount = 0;
-            let errorCount = 0;
-            const errors = [];
-
+            // Process each order
             for (const order of matchingOrders) {
                 try {
-                    // Get current tags and ensure all Ids are numbers
+                    // Parse current tags
                     const rawTags = order.Tags ? JSON.parse(order.Tags) : [];
                     const currentTags = rawTags.map(t => ({
                         Id: parseInt(t.Id, 10),
@@ -3203,15 +3292,24 @@ async function executeBulkTagModalAssignment() {
                         Color: t.Color
                     }));
 
-                    // Check if tag already exists
-                    const tagExists = currentTags.some(t => t.Id === tagInfo.Id);
-                    if (tagExists) {
-                        console.log(`[BULK-TAG-MODAL] Tag already exists for order ${order.Code} (STT ${order.SessionIndex})`);
-                        successCount++; // Count as success since tag is already there (SAME AS QUICK ASSIGNMENT)
+                    // Check if order has "ĐÃ GỘP KO CHỐT" tag (exact match)
+                    const hasBlockedTag = currentTags.some(t => t.Name === "ĐÃ GỘP KO CHỐT");
+                    if (hasBlockedTag) {
+                        console.log(`[BULK-TAG-MODAL] Order ${order.Code} has blocked tag "ĐÃ GỘP KO CHỐT"`);
+                        failedSTT.push(order.SessionIndex);
+                        failReason = 'Đơn có tag "ĐÃ GỘP KO CHỐT"';
                         continue;
                     }
 
-                    // Add new tag - all Ids are already numbers
+                    // Check if tag already exists
+                    const tagExists = currentTags.some(t => t.Id === tagInfo.Id);
+                    if (tagExists) {
+                        console.log(`[BULK-TAG-MODAL] Tag already exists for order ${order.Code}`);
+                        successSTT.push(order.SessionIndex);
+                        continue;
+                    }
+
+                    // Build updated tags array
                     const updatedTags = [
                         ...currentTags,
                         {
@@ -3221,7 +3319,7 @@ async function executeBulkTagModalAssignment() {
                         }
                     ];
 
-                    // Call API to assign tag - send all tags (existing + new)
+                    // Call API to assign tag
                     const authHeaders = await window.tokenManager.getAuthHeader();
                     const response = await fetch(
                         "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
@@ -3241,67 +3339,104 @@ async function executeBulkTagModalAssignment() {
 
                     if (!response.ok) {
                         const errorText = await response.text();
-                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                        throw new Error(`HTTP ${response.status}`);
                     }
 
-                    // Update local data (SAME AS QUICK ASSIGNMENT)
+                    // Update local data
                     const updatedData = { Tags: JSON.stringify(updatedTags) };
                     updateOrderInTable(order.Id, updatedData);
 
-                    // Emit Firebase update (SAME AS QUICK ASSIGNMENT)
+                    // Emit Firebase update
                     await emitTagUpdateToFirebase(order.Id, updatedTags);
 
-                    successCount++;
-                    console.log(`[BULK-TAG-MODAL] Successfully tagged order ${order.Code} (STT ${order.SessionIndex}) with "${tagInfo.Name}"`);
+                    successSTT.push(order.SessionIndex);
+                    console.log(`[BULK-TAG-MODAL] Successfully tagged order ${order.Code} with "${tagInfo.Name}"`);
 
                 } catch (error) {
                     console.error(`[BULK-TAG-MODAL] Error tagging order ${order.Code}:`, error);
-                    errorCount++;
-                    errors.push(`STT ${order.SessionIndex} (${order.Code}): ${error.message}`);
+                    failedSTT.push(order.SessionIndex);
+                    failReason = failReason || `Lỗi API: ${error.message}`;
                 }
             }
 
-            // Accumulate results
-            totalSuccessCount += successCount;
-            totalErrorCount += errorCount;
-            if (errors.length > 0) {
-                allErrors.push(`Tag "${tagInfo.Name}": ${errors.join(', ')}`);
+            // Collect results for this tag
+            if (successSTT.length > 0) {
+                successResults.push({
+                    tagName: tagInfo.Name,
+                    tagColor: tagInfo.Color,
+                    sttList: successSTT.sort((a, b) => a - b)
+                });
             }
 
-            console.log(`[BULK-TAG-MODAL] Tag "${tagInfo.Name}" result: ${successCount} success, ${errorCount} errors`);
+            if (failedSTT.length > 0) {
+                failedResults.push({
+                    tagName: tagInfo.Name,
+                    tagColor: tagInfo.Color,
+                    sttList: failedSTT.sort((a, b) => a - b),
+                    reason: failReason || 'Lỗi không xác định'
+                });
+            }
+
+            // Update modal data: remove successful STTs, keep failed ones
+            const tagDataInModal = bulkTagModalData.find(t => t.tagId === selectedTag.tagId);
+            if (tagDataInModal) {
+                // Remove successful STTs
+                successSTT.forEach(stt => tagDataInModal.sttSet.delete(stt));
+
+                // Set error message if there are failures
+                if (failedSTT.length > 0) {
+                    tagDataInModal.errorMessage = `⚠️ STT ${failedSTT.join(', ')} - ${failReason}`;
+                } else {
+                    tagDataInModal.errorMessage = null;
+                }
+            }
+
+            console.log(`[BULK-TAG-MODAL] Tag "${tagInfo.Name}" result: ${successSTT.length} success, ${failedSTT.length} failed`);
         }
 
-        // Clear cache (SAME AS QUICK ASSIGNMENT)
+        // Clear cache
         window.cacheManager.clear("orders");
+
+        // Remove tags with no remaining STTs
+        bulkTagModalData = bulkTagModalData.filter(tag => tag.sttSet.size > 0);
+
+        // Update selected rows
+        selectedBulkTagModalRows.clear();
+        bulkTagModalData.forEach(tag => {
+            if (tag.sttSet.size > 0) {
+                selectedBulkTagModalRows.add(tag.tagId);
+            }
+        });
+
+        // Save/clear localStorage based on remaining data
+        if (bulkTagModalData.length > 0) {
+            saveBulkTagToLocalStorage();
+        } else {
+            clearBulkTagLocalStorage();
+        }
+
+        // Save history to Firebase
+        const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length, 0);
+        const totalFailed = failedResults.reduce((sum, r) => sum + r.sttList.length, 0);
+
+        if (totalSuccess > 0 || totalFailed > 0) {
+            await saveBulkTagHistory({
+                success: successResults,
+                failed: failedResults
+            });
+        }
 
         showLoading(false);
 
-        // Show result notification (SAME AS QUICK ASSIGNMENT)
-        if (totalSuccessCount > 0 && totalErrorCount === 0) {
-            if (window.notificationManager) {
-                window.notificationManager.success(
-                    `Đã gán tag cho ${totalSuccessCount} đơn hàng thành công!`,
-                    3000
-                );
-            } else {
-                alert(`Đã gán tag cho ${totalSuccessCount} đơn hàng thành công!`);
-            }
+        // Update modal UI
+        updateBulkTagModalTable();
+        updateBulkTagModalRowCount();
+        updateSelectAllCheckbox();
 
-            // Clear modal after complete success (SAME AS QUICK ASSIGNMENT)
-            closeBulkTagModal();
+        // Show result modal
+        showBulkTagResultModal(successResults, failedResults);
 
-        } else if (totalSuccessCount > 0 && totalErrorCount > 0) {
-            if (window.notificationManager) {
-                window.notificationManager.warning(
-                    `Đã gán tag cho ${totalSuccessCount} đơn. Lỗi: ${totalErrorCount} đơn`,
-                    4000
-                );
-            } else {
-                alert(`Thành công: ${totalSuccessCount} đơn\nLỗi: ${totalErrorCount} đơn\n\n${allErrors.join('\n')}`);
-            }
-        } else {
-            throw new Error(`Không thể gán tag cho bất kỳ đơn hàng nào.\n\n${allErrors.join('\n')}`);
-        }
+        // DON'T close modal - user must click "Hủy" to close
 
     } catch (error) {
         console.error("[BULK-TAG-MODAL] Error in bulk tag assignment:", error);
@@ -3321,14 +3456,23 @@ async function saveBulkTagHistory(results) {
         const timestamp = Date.now();
         const dateFormatted = new Date(timestamp).toLocaleString('vi-VN');
 
+        // Get username from tokenManager
+        let username = 'Unknown';
+        try {
+            const tokenData = window.tokenManager?.getTokenData?.();
+            username = tokenData?.DisplayName || tokenData?.name || 'Unknown';
+        } catch (e) {
+            console.warn("[BULK-TAG-MODAL] Could not get username:", e);
+        }
+
         const historyEntry = {
             timestamp: timestamp,
             dateFormatted: dateFormatted,
-            results: results,
+            username: username,
+            results: results, // {success: [...], failed: [...]}
             summary: {
-                totalTags: results.length,
-                totalSuccess: results.reduce((sum, r) => sum + r.success.length, 0),
-                totalFailed: results.reduce((sum, r) => sum + r.failed.length, 0)
+                totalSuccess: results.success.reduce((sum, r) => sum + r.sttList.length, 0),
+                totalFailed: results.failed.reduce((sum, r) => sum + r.sttList.length, 0)
             }
         };
 
@@ -3336,9 +3480,107 @@ async function saveBulkTagHistory(results) {
         const historyRef = database.ref(`bulkTagHistory/${timestamp}`);
         await historyRef.set(historyEntry);
 
-        console.log("[BULK-TAG-MODAL] History saved to Firebase");
+        console.log("[BULK-TAG-MODAL] History saved to Firebase:", historyEntry);
     } catch (error) {
         console.error("[BULK-TAG-MODAL] Error saving history:", error);
+    }
+}
+
+// Show bulk tag result modal
+function showBulkTagResultModal(successResults, failedResults) {
+    const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length, 0);
+    const totalFailed = failedResults.reduce((sum, r) => sum + r.sttList.length, 0);
+
+    // Build success HTML
+    let successHtml = '';
+    if (successResults.length > 0) {
+        successHtml = `
+            <div class="bulk-tag-result-section success">
+                <div class="bulk-tag-result-section-header">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Thành công (${totalSuccess} đơn)</span>
+                </div>
+                <div class="bulk-tag-result-section-body">
+                    ${successResults.map(r => `
+                        <div class="bulk-tag-result-item">
+                            <span class="tag-color-dot" style="background-color: ${r.tagColor}"></span>
+                            <span class="tag-name">${r.tagName}:</span>
+                            <span class="stt-list">STT ${r.sttList.join(', ')}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // Build failed HTML
+    let failedHtml = '';
+    if (failedResults.length > 0) {
+        failedHtml = `
+            <div class="bulk-tag-result-section failed">
+                <div class="bulk-tag-result-section-header">
+                    <i class="fas fa-times-circle"></i>
+                    <span>Thất bại (${totalFailed} đơn)</span>
+                </div>
+                <div class="bulk-tag-result-section-body">
+                    ${failedResults.map(r => `
+                        <div class="bulk-tag-result-item">
+                            <span class="tag-color-dot" style="background-color: ${r.tagColor}"></span>
+                            <span class="tag-name">${r.tagName}:</span>
+                            <span class="stt-list">STT ${r.sttList.join(', ')}</span>
+                            <div class="fail-reason">→ ${r.reason}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // Create and show modal
+    const modalHtml = `
+        <div class="bulk-tag-result-modal" id="bulkTagResultModal">
+            <div class="bulk-tag-result-modal-content">
+                <div class="bulk-tag-result-modal-header">
+                    <h3><i class="fas fa-clipboard-list"></i> Kết Quả Gán Tag</h3>
+                    <button class="bulk-tag-result-modal-close" onclick="closeBulkTagResultModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="bulk-tag-result-modal-body">
+                    ${successHtml}
+                    ${failedHtml}
+                    ${totalSuccess === 0 && totalFailed === 0 ? '<p style="text-align: center; color: #9ca3af;">Không có kết quả nào</p>' : ''}
+                </div>
+                <div class="bulk-tag-result-modal-footer">
+                    <button class="bulk-tag-btn-confirm" onclick="closeBulkTagResultModal()">
+                        <i class="fas fa-check"></i> Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('bulkTagResultModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Show modal
+    setTimeout(() => {
+        document.getElementById('bulkTagResultModal').classList.add('show');
+    }, 10);
+}
+
+// Close bulk tag result modal
+function closeBulkTagResultModal() {
+    const modal = document.getElementById('bulkTagResultModal');
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => modal.remove(), 300);
     }
 }
 
@@ -3392,58 +3634,67 @@ async function showBulkTagHistoryModal() {
     }
 }
 
-// Render a single history item
+// Render a single history item (new format)
 function renderBulkTagHistoryItem(entry, index) {
-    const { dateFormatted, results, summary } = entry;
+    const { dateFormatted, username, results, summary } = entry;
 
-    const tagSectionsHtml = results.map(tagResult => {
-        const successHtml = tagResult.success.length > 0 ? `
+    // Build success section
+    let successHtml = '';
+    if (results.success && results.success.length > 0) {
+        successHtml = `
             <div class="bulk-tag-history-success">
                 <div class="bulk-tag-history-success-title">
                     <i class="fas fa-check-circle"></i>
-                    Thành công (${tagResult.success.length}):
+                    Thành công (${summary.totalSuccess} đơn):
                 </div>
-                <div class="bulk-tag-history-stt-list">
-                    ${tagResult.success.map(s => `STT ${s.stt}`).join(', ')}
-                </div>
-            </div>
-        ` : '';
-
-        const failedHtml = tagResult.failed.length > 0 ? `
-            <div class="bulk-tag-history-failed">
-                <div class="bulk-tag-history-failed-title">
-                    <i class="fas fa-times-circle"></i>
-                    Thất bại (${tagResult.failed.length}):
-                </div>
-                <div class="bulk-tag-history-failed-list">
-                    ${tagResult.failed.map(f => `
-                        <div class="bulk-tag-history-failed-item">
-                            <span class="stt">STT ${f.stt}</span>
-                            <span class="reason">${f.reason}</span>
+                <div class="bulk-tag-history-tag-list">
+                    ${results.success.map(r => `
+                        <div class="bulk-tag-history-tag-item">
+                            <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
+                            <span class="tag-name">${r.tagName}:</span>
+                            <span class="stt-list">STT ${r.sttList.join(', ')}</span>
                         </div>
                     `).join('')}
                 </div>
             </div>
-        ` : '';
+        `;
+    }
 
-        return `
-            <div class="bulk-tag-history-tag-section">
-                <div class="bulk-tag-history-tag-header">
-                    <span class="tag-color-dot" style="background-color: ${tagResult.tag.color}"></span>
-                    <span class="tag-name">${tagResult.tag.name}</span>
+    // Build failed section
+    let failedHtml = '';
+    if (results.failed && results.failed.length > 0) {
+        failedHtml = `
+            <div class="bulk-tag-history-failed">
+                <div class="bulk-tag-history-failed-title">
+                    <i class="fas fa-times-circle"></i>
+                    Thất bại (${summary.totalFailed} đơn):
                 </div>
-                ${successHtml}
-                ${failedHtml}
+                <div class="bulk-tag-history-tag-list">
+                    ${results.failed.map(r => `
+                        <div class="bulk-tag-history-tag-item failed">
+                            <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
+                            <span class="tag-name">${r.tagName}:</span>
+                            <span class="stt-list">STT ${r.sttList.join(', ')}</span>
+                            <div class="fail-reason">→ ${r.reason}</div>
+                        </div>
+                    `).join('')}
+                </div>
             </div>
         `;
-    }).join('');
+    }
 
     return `
         <div class="bulk-tag-history-item" id="bulkTagHistoryItem${index}">
             <div class="bulk-tag-history-header" onclick="toggleBulkTagHistoryItem(${index})">
-                <div class="history-time">
-                    <i class="fas fa-clock"></i>
-                    ${dateFormatted}
+                <div class="history-info">
+                    <div class="history-time">
+                        <i class="fas fa-clock"></i>
+                        ${dateFormatted}
+                    </div>
+                    <div class="history-user">
+                        <i class="fas fa-user"></i>
+                        ${username || 'Unknown'}
+                    </div>
                 </div>
                 <div class="history-summary">
                     <span class="success-count"><i class="fas fa-check"></i> ${summary.totalSuccess}</span>
@@ -3452,7 +3703,8 @@ function renderBulkTagHistoryItem(entry, index) {
                 </div>
             </div>
             <div class="bulk-tag-history-body">
-                ${tagSectionsHtml}
+                ${successHtml}
+                ${failedHtml}
             </div>
         </div>
     `;
