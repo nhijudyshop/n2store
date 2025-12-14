@@ -845,11 +845,11 @@
                 console.log('[DROPPED-PRODUCTS] Merged with existing held product, new qty:',
                     window.currentChatOrderData.Details[existingHeldIndex].Quantity);
             } else {
-                // Add as NEW held item
+                // Add as NEW held item - PRESERVE original name from dropped products
                 window.currentChatOrderData.Details.push({
                     ProductId: product.ProductId,
-                    ProductName: fullProduct ? (fullProduct.Name || fullProduct.NameTemplate) : product.ProductName,
-                    ProductNameGet: fullProduct ? (fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`) : product.ProductNameGet,
+                    ProductName: product.ProductName,  // Keep original name with [CODE] prefix
+                    ProductNameGet: product.ProductNameGet,  // Keep original format
                     ProductCode: fullProduct ? (fullProduct.DefaultCode || fullProduct.Barcode) : product.ProductCode,
                     ImageUrl: fullProduct ? fullProduct.ImageUrl : product.ImageUrl,
                     Price: product.Price,
@@ -864,7 +864,10 @@
                     Note: null,
                     IsHeld: true,
                     IsFromDropped: true,
-                    StockQty: fullProduct ? fullProduct.QtyAvailable : 0
+                    StockQty: fullProduct ? fullProduct.QtyAvailable : 0,
+                    // Additional fields for compatibility
+                    Name: product.ProductName,
+                    Code: product.ProductCode
                 });
             }
 
