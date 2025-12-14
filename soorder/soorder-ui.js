@@ -282,13 +282,7 @@ window.SoOrderUI = {
             if (order.differenceResolved && order.differenceNote) {
                 const tooltip = document.createElement("div");
                 tooltip.className = "difference-tooltip";
-                tooltip.innerHTML = `
-                    <div class="difference-tooltip-header">
-                        <i data-lucide="file-check"></i>
-                        Ghi chú xử lý
-                    </div>
-                    <div class="difference-tooltip-content">${this.escapeHtml(order.differenceNote)}</div>
-                `;
+                tooltip.textContent = order.differenceNote;
                 amountContainer.appendChild(tooltip);
             }
 

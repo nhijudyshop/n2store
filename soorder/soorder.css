@@ -1375,12 +1375,12 @@ textarea.form-control {
     color: white;
     padding: 0.75rem 1rem;
     border-radius: 10px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
-    line-height: 1.4;
+    line-height: 1.5;
     white-space: normal;
-    max-width: 280px;
-    min-width: 150px;
+    max-width: 320px;
+    min-width: 120px;
     text-align: left;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
     z-index: 99999;
@@ -1404,30 +1404,4 @@ textarea.form-control {
 .difference-amount-container:hover .difference-tooltip {
     visibility: visible;
     opacity: 1;
-}
-
-/* Tooltip header */
-.difference-tooltip-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: rgba(255, 255, 255, 0.8);
-}
-
-.difference-tooltip-header i {
-    width: 14px;
-    height: 14px;
-}
-
-/* Tooltip content */
-.difference-tooltip-content {
-    font-weight: 400;
-    color: white;
 }
