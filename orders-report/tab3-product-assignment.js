@@ -3529,10 +3529,19 @@
                     continue;
                 }
 
+                // Validate sale price - only block negative prices (allow 0 for free items)
+                const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice || 0;
+                if (salePrice < 0) {
+                    throw new Error(
+                        `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) có giá âm: ${salePrice.toLocaleString('vi-VN')}đ. ` +
+                        `Vui lòng kiểm tra lại giá trong TPOS.`
+                    );
+                }
+
                 const newProduct = {
                     ProductId: fullProduct.Id,
                     Quantity: assignedData.count,
-                    Price: fullProduct.PriceVariant || fullProduct.ListPrice || fullProduct.StandardPrice || 0,
+                    Price: salePrice,
                     Note: noteValue,
                     UOMId: fullProduct.UOM?.Id || 1,
                     Factor: 1,

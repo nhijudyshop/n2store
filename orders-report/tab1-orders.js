@@ -7559,6 +7559,16 @@ async function addProductToOrderFromInline(productId) {
             // ============================================
             // QUAN TRỌNG: Product mới - THÊM ĐẦY ĐỦ COMPUTED FIELDS
             // ============================================
+
+            // Validate sale price - only block negative prices (allow 0 for free items)
+            const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice || 0;
+            if (salePrice < 0) {
+                throw new Error(
+                    `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) có giá âm: ${salePrice.toLocaleString('vi-VN')}đ. ` +
+                    `Vui lòng kiểm tra lại giá trong TPOS.`
+                );
+            }
+
             const newProduct = {
                 // ============================================
                 // REQUIRED FIELDS
@@ -7566,11 +7576,7 @@ async function addProductToOrderFromInline(productId) {
                 // ✅ KHÔNG có Id: null cho sản phẩm mới
                 ProductId: fullProduct.Id,
                 Quantity: 1,
-                Price:
-                    fullProduct.PriceVariant ||
-                    fullProduct.ListPrice ||
-                    fullProduct.StandardPrice ||
-                    0,
+                Price: salePrice,
                 Note: null,
                 UOMId: fullProduct.UOM?.Id || 1,
                 Factor: 1,
@@ -14197,10 +14203,20 @@ async function addChatProductFromSearch(productId) {
             currentChatOrderDetails[existingIndex].Quantity = (currentChatOrderDetails[existingIndex].Quantity || 0) + 1;
         } else {
             // 3. Create new product object using EXACT logic from addProductToOrderFromInline
+
+            // Validate sale price - only block negative prices (allow 0 for free items)
+            const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice || 0;
+            if (salePrice < 0) {
+                throw new Error(
+                    `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) có giá âm: ${salePrice.toLocaleString('vi-VN')}đ. ` +
+                    `Vui lòng kiểm tra lại giá trong TPOS.`
+                );
+            }
+
             const newProduct = {
                 ProductId: fullProduct.Id,
                 Quantity: 1,
-                Price: fullProduct.PriceVariant || fullProduct.ListPrice || fullProduct.StandardPrice || 0,
+                Price: salePrice,
                 Note: null,
                 UOMId: fullProduct.UOM?.Id || 1,
                 Factor: 1,

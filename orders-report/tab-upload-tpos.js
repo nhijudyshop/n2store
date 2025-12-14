@@ -2405,6 +2405,16 @@ ${encodedString}
                     // CREATE NEW DETAIL WITH COMPUTED FIELDS
                     // EXACTLY like tab1-orders.js (dòng 2284-2322)
                     // ============================================
+
+                    // Validate sale price - only block negative prices (allow 0 for free items)
+                    const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice || 0;
+                    if (salePrice < 0) {
+                        throw new Error(
+                            `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) có giá âm: ${salePrice.toLocaleString('vi-VN')}đ. ` +
+                            `Vui lòng kiểm tra lại giá trong TPOS.`
+                        );
+                    }
+
                     const newProduct = {
                         // ============================================
                         // REQUIRED FIELDS
@@ -2412,11 +2422,7 @@ ${encodedString}
                         // ✅ KHÔNG có Id: để API tự tạo cho sản phẩm mới
                         ProductId: fullProduct.Id,
                         Quantity: assignedData.count,  // Use counted quantity
-                        Price:
-                            fullProduct.PriceVariant ||
-                            fullProduct.ListPrice ||
-                            fullProduct.StandardPrice ||
-                            0,
+                        Price: salePrice,
                         Note: note && note.trim() !== '' ? note : null, // Add note from input
                         UOMId: fullProduct.UOM?.Id || 1,
                         Factor: 1,
