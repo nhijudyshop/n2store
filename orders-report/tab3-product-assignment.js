@@ -4004,9 +4004,9 @@
                 // Check if the upload contains the searched product code
                 if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
                     return record.beforeSnapshot.assignments.some(assignment => {
-                        const productCode = assignment.productCode || '';
-                        const productId = assignment.productId || '';
-                        const productName = assignment.productName || '';
+                        const productCode = String(assignment.productCode || '');
+                        const productId = String(assignment.productId || '');
+                        const productName = String(assignment.productName || '');
 
                         // Search in product code, product ID, or product name (case-insensitive)
                         const searchLower = searchProduct.toLowerCase();
