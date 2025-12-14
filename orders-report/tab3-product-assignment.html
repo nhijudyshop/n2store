@@ -402,17 +402,23 @@
                                     <option value="failed">❌ Thất bại</option>
                                 </select>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <input type="date" class="form-control form-control-sm" id="historyV2DateFrom"
                                     onchange="filterUploadHistoryV2()" placeholder="Từ ngày">
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <input type="date" class="form-control form-control-sm" id="historyV2DateTo"
                                     onchange="filterUploadHistoryV2()" placeholder="Đến ngày">
                             </div>
-                            <div class="col-md-2">
+                        </div>
+                        <div class="row g-2 mt-2">
+                            <div class="col-md-6">
                                 <input type="text" class="form-control form-control-sm" id="historyV2SearchSTT"
                                     oninput="filterUploadHistoryV2()" placeholder="🔍 Tìm STT...">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" class="form-control form-control-sm" id="historyV2SearchProduct"
+                                    oninput="filterUploadHistoryV2()" placeholder="🔍 Tìm mã sản phẩm...">
                             </div>
                         </div>
                     </div>

@@ -3971,8 +3971,9 @@
         const dateFrom = document.getElementById('historyV2DateFrom').value;
         const dateTo = document.getElementById('historyV2DateTo').value;
         const searchSTT = document.getElementById('historyV2SearchSTT').value.trim();
+        const searchProduct = document.getElementById('historyV2SearchProduct').value.trim();
 
-        console.log('[HISTORY-V2] 🔍 Filtering history:', { status, dateFrom, dateTo, searchSTT });
+        console.log('[HISTORY-V2] 🔍 Filtering history:', { status, dateFrom, dateTo, searchSTT, searchProduct });
 
         filteredHistoryRecordsV2 = [...uploadHistoryRecordsV2];
 
@@ -3993,6 +3994,26 @@
         if (searchSTT) {
             filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
                 return record.uploadedSTTs.some(stt => stt.toString().includes(searchSTT));
+            });
+        }
+
+        if (searchProduct) {
+            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
+                // Check if the upload contains the searched product code
+                if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
+                    return record.beforeSnapshot.assignments.some(assignment => {
+                        const productCode = assignment.productCode || '';
+                        const productId = assignment.productId || '';
+                        const productName = assignment.productName || '';
+
+                        // Search in product code, product ID, or product name (case-insensitive)
+                        const searchLower = searchProduct.toLowerCase();
+                        return productCode.toLowerCase().includes(searchLower) ||
+                               productId.toLowerCase().includes(searchLower) ||
+                               productName.toLowerCase().includes(searchLower);
+                    });
+                }
+                return false;
             });
         }
 
