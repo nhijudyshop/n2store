@@ -5386,6 +5386,12 @@ function formatMessagePreview(chatInfo) {
         } else if (attachment.Type === 'audio') {
             displayMessage = 'Đã gửi audio';
             messageIcon = '🎵';
+        } else if (attachment.Type === 'sticker' || attachment.type === 'sticker' || attachment.sticker_id) {
+            displayMessage = 'Đã gửi sticker';
+            messageIcon = '🧸';
+        } else if (attachment.Type === 'animated_image_share' || attachment.type === 'animated_image_share') {
+            displayMessage = 'Đã gửi GIF';
+            messageIcon = '🎞️';
         } else {
             displayMessage = 'Đã gửi tệp';
             messageIcon = '📎';
@@ -5714,6 +5720,12 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
         } else if (attachment.Type === 'audio') {
             displayMessage = 'Đã gửi audio';
             messageIcon = '🎵';
+        } else if (attachment.Type === 'sticker' || attachment.type === 'sticker' || attachment.sticker_id) {
+            displayMessage = 'Đã gửi sticker';
+            messageIcon = '🧸';
+        } else if (attachment.Type === 'animated_image_share' || attachment.type === 'animated_image_share') {
+            displayMessage = 'Đã gửi GIF';
+            messageIcon = '🎞️';
         } else {
             displayMessage = 'Đã gửi tệp';
             messageIcon = '📎';
@@ -11455,6 +11467,11 @@ function renderChatMessages(messages, scrollToBottom = false) {
         // Handle Pancake API format attachments (lowercase 'attachments')
         if (msg.attachments && msg.attachments.length > 0) {
             msg.attachments.forEach(att => {
+                // Debug: Log attachment structure to identify sticker format
+                if (att.type === 'sticker' || att.sticker_id || att.type === 'animated_image_share') {
+                    console.log('[DEBUG STICKER] Attachment object:', JSON.stringify(att, null, 2));
+                }
+
                 // Audio: mime_type = "audio/mp4", file_url
                 if (att.mime_type === 'audio/mp4' && att.file_url) {
                     content += `
@@ -11499,6 +11516,41 @@ function renderChatMessages(messages, scrollToBottom = false) {
                     content += `
                         <div class="chat-video-attachment" style="margin-top: 8px;">
                             <img src="${att.url}" style="max-width: 100%; border-radius: 8px; cursor: pointer;" onclick="window.open('${att.url}', '_blank')" loading="lazy" />
+                        </div>`;
+                }
+                // Sticker attachment from Messenger (type = 'sticker')
+                else if (att.type === 'sticker' && (att.url || att.file_url)) {
+                    const stickerUrl = att.url || att.file_url;
+                    content += `
+                        <div class="chat-sticker-message" style="margin-top: 8px;">
+                            <img src="${stickerUrl}"
+                                 alt="Sticker"
+                                 style="max-width: 150px; max-height: 150px;"
+                                 loading="lazy"
+                                 onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\\'color:#9ca3af;\\'>🧸 Sticker</span>';" />
+                        </div>`;
+                }
+                // Sticker with sticker_id (alternative Pancake format)
+                else if (att.sticker_id && (att.url || att.file_url)) {
+                    const stickerUrl = att.url || att.file_url;
+                    content += `
+                        <div class="chat-sticker-message" style="margin-top: 8px;">
+                            <img src="${stickerUrl}"
+                                 alt="Sticker"
+                                 style="max-width: 150px; max-height: 150px;"
+                                 loading="lazy"
+                                 onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\\'color:#9ca3af;\\'>🧸 Sticker</span>';" />
+                        </div>`;
+                }
+                // Animated sticker (GIF format)
+                else if (att.type === 'animated_image_share' && (att.url || att.file_url)) {
+                    const gifUrl = att.url || att.file_url;
+                    content += `
+                        <div class="chat-sticker-message" style="margin-top: 8px;">
+                            <img src="${gifUrl}"
+                                 alt="GIF Sticker"
+                                 style="max-width: 200px; max-height: 200px; border-radius: 8px;"
+                                 loading="lazy" />
                         </div>`;
                 }
             });
