@@ -325,6 +325,13 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
         if (sortedComments.indexOf(comment) === 0) {
             console.log('[COMMENT MODAL] First comment object:', comment);
             console.log('[COMMENT MODAL] from:', comment.from, 'fromId:', fromId, 'isOwner:', isOwner);
+            // Debug reactions format
+            if (comment.reactions || comment.reaction_summary) {
+                console.log('[COMMENT MODAL DEBUG] Reactions data:', {
+                    reactions: comment.reactions,
+                    reaction_summary: comment.reaction_summary
+                });
+            }
         }
 
         // Get message text - prioritize original_message (plain text from Pancake API)
@@ -419,6 +426,34 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
             });
         }
 
+        // Handle reactions display
+        let reactionsHTML = '';
+        const reactions = comment.reactions || comment.reaction_summary;
+        if (reactions && Object.keys(reactions).length > 0) {
+            const reactionIcons = {
+                'LIKE': '👍',
+                'LOVE': '❤️',
+                'HAHA': '😆',
+                'WOW': '😮',
+                'SAD': '😢',
+                'ANGRY': '😠',
+                'CARE': '🤗'
+            };
+
+            const reactionsArray = Object.entries(reactions)
+                .filter(([type, count]) => count > 0)
+                .map(([type, count]) => {
+                    const emoji = reactionIcons[type] || '👍';
+                    return `<span style="display: inline-flex; align-items: center; background: #fef3c7; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 4px;">
+                        ${emoji} ${count > 1 ? count : ''}
+                    </span>`;
+                });
+
+            if (reactionsArray.length > 0) {
+                reactionsHTML = `<div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">${reactionsArray.join('')}</div>`;
+            }
+        }
+
         // Status badge
         const statusBadge = comment.Status === 30
             ? '<span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">Mới</span>'
@@ -496,6 +531,7 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
                     <div class="chat-bubble ${bgClass}">
                         ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
                         ${content}
+                        ${reactionsHTML}
                         <p class="chat-message-time">
                             ${formatTime(comment.inserted_at || comment.CreatedTime)} ${statusBadge}
                             ${!isOwner ? `<span class="comment-reply-btn" onclick="handleCommentModalReply('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
