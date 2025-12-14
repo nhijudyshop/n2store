@@ -368,6 +368,75 @@ class PancakeDataManager {
     }
 
     /**
+     * Fetch conversations for a customer by fb_id directly
+     * API: GET /pages/{pageId}/customers/{fb_id}/conversations
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} fbId - Facebook AS User ID (Facebook_ASUserId)
+     * @returns {Promise<Object>} { conversations: Array, customerUuid: string|null, success: boolean }
+     */
+    async fetchConversationsByCustomerFbId(pageId, fbId) {
+        try {
+            if (!pageId || !fbId) {
+                console.warn('[PANCAKE] fetchConversationsByCustomerFbId: Missing pageId or fbId');
+                return { conversations: [], customerUuid: null, success: false };
+            }
+
+            console.log(`[PANCAKE] Fetching conversations for pageId=${pageId}, fbId=${fbId}`);
+
+            const token = await this.getToken();
+            if (!token) {
+                throw new Error('No Pancake token available');
+            }
+
+            // Build URL: GET /pages/{pageId}/customers/{fb_id}/conversations
+            const queryString = `access_token=${token}`;
+            const url = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/customers/${fbId}/conversations`,
+                queryString
+            );
+
+            console.log('[PANCAKE] Fetch conversations URL:', url);
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            }, 3, true); // skipFallback = true
+
+            console.log('[PANCAKE] Conversations response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[PANCAKE] Error response:', errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] Conversations response:', data);
+
+            const conversations = data.conversations || [];
+
+            // Extract customer UUID from first conversation
+            let customerUuid = null;
+            if (conversations.length > 0 && conversations[0].customers && conversations[0].customers.length > 0) {
+                customerUuid = conversations[0].customers[0].id;
+                console.log(`[PANCAKE] ✅ Found customer UUID: ${customerUuid}`);
+            }
+
+            return {
+                conversations,
+                customerUuid,
+                success: true
+            };
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error fetching conversations by fb_id:', error);
+            return { conversations: [], customerUuid: null, success: false };
+        }
+    }
+
+    /**
      * Search conversations by comment IDs and fb_id to get customer UUID
      * @param {string} facebookUserName - Facebook user name for search
      * @param {string} commentIds - Comma-separated comment IDs

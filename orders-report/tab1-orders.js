@@ -8830,56 +8830,35 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             console.log('[CHAT-MODAL] - Facebook PostId:', facebookPostId);
 
             if (window.pancakeDataManager && facebookPostId) {
-                const facebookName = order.Facebook_UserName;
                 const facebookPsid = order.Facebook_ASUserId;
-                console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook PSID:', facebookPsid, 'post_id:', facebookPostId);
+                console.log('[CHAT-MODAL] 🔍 Fetching conversations by fb_id:', facebookPsid, 'channelId:', channelId, 'post_id:', facebookPostId);
                 try {
-                    // Dùng searchConversations() với cú pháp cus_id:{fb_id} để search chính xác
-                    const searchResult = await window.pancakeDataManager.searchConversations(`cus_id:${facebookPsid}`);
+                    // Dùng API trực tiếp: GET /pages/{pageId}/customers/{fb_id}/conversations
+                    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid);
 
-                    if (searchResult.conversations.length > 0) {
-                        console.log('[CHAT-MODAL] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
+                    if (result.success && result.conversations.length > 0) {
+                        console.log('[CHAT-MODAL] ✅ Found', result.conversations.length, 'conversations for fb_id:', facebookPsid);
 
-                        // Cho COMMENT: match theo post_id VÀ fb_id để lấy đúng customer UUID
-                        // Lấy TẤT CẢ conversations matching post_id VÀ fb_id (có thể có nhiều)
-                        const matchingConversations = searchResult.conversations.filter(conv => {
-                            if (conv.type !== 'COMMENT' || conv.post_id !== facebookPostId) {
-                                return false;
-                            }
-                            // Check fb_id in customers array
-                            const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
-                            const hasMatchingFrom = conv.from?.id === facebookPsid;
-                            return hasMatchingCustomer || hasMatchingFrom;
+                        // Lưu customer UUID
+                        pancakeCustomerUuid = result.customerUuid;
+                        window.currentCustomerUUID = pancakeCustomerUuid;
+                        console.log('[CHAT-MODAL] ✅ Got customer UUID:', pancakeCustomerUuid);
+
+                        // Filter COMMENT conversations matching post_id
+                        const matchingConversations = result.conversations.filter(conv => {
+                            return conv.type === 'COMMENT' && conv.post_id === facebookPostId;
                         });
 
-                        console.log('[CHAT-MODAL] Matching conversations with post_id:', matchingConversations.length);
-
                         if (matchingConversations.length > 0) {
-                            // Collect tất cả customer UUIDs từ các conversations
-                            const allCustomerUuids = [];
-                            matchingConversations.forEach(conv => {
-                                if (conv.customers && conv.customers.length > 0) {
-                                    conv.customers.forEach(c => {
-                                        if (c.id && !allCustomerUuids.includes(c.id)) {
-                                            allCustomerUuids.push(c.id);
-                                        }
-                                    });
-                                }
-                            });
-
-                            if (allCustomerUuids.length > 0) {
-                                // Lưu tất cả UUIDs
-                                pancakeCustomerUuid = allCustomerUuids[0]; // Dùng cái đầu tiên
-                                window.currentCustomerUUIDs = allCustomerUuids; // Lưu tất cả
-                                window.currentCustomerUUID = pancakeCustomerUuid;
-                                console.log('[CHAT-MODAL] ✅ Found', allCustomerUuids.length, 'customer UUIDs from', matchingConversations.length, 'conversations:', allCustomerUuids);
-                            }
+                            console.log('[CHAT-MODAL] ✅ Found', matchingConversations.length, 'COMMENT conversations matching post_id:', facebookPostId);
                         } else {
                             console.warn('[CHAT-MODAL] ⚠️ No COMMENT conversation matched post_id:', facebookPostId);
                         }
+                    } else {
+                        console.warn('[CHAT-MODAL] ⚠️ No conversations found for fb_id:', facebookPsid);
                     }
-                } catch (searchError) {
-                    console.error('[CHAT-MODAL] ❌ Error searching conversations:', searchError);
+                } catch (fetchError) {
+                    console.error('[CHAT-MODAL] ❌ Error fetching conversations:', fetchError);
                 }
             } else {
                 console.warn('[CHAT-MODAL] ⚠️ Missing pancakeDataManager or facebookPostId');
@@ -8958,98 +8937,64 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                     console.log('[CHAT-MODAL] ✅ Got customer UUID from cache:', pancakeCustomerUuid);
                 }
 
-                // Nếu không tìm thấy trong cache, search trực tiếp theo fb_id (giống logic của comment modal)
+                // Nếu không tìm thấy trong cache, fetch trực tiếp theo fb_id
                 if (!pancakeCustomerUuid) {
-                    const facebookName = order.Facebook_UserName;
                     const facebookPsid = order.Facebook_ASUserId;
                     const facebookPostId = order.Facebook_PostId; // Format: pageId_postId
-                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook PSID:', facebookPsid, 'post_id:', facebookPostId);
+                    console.log('[CHAT-MODAL] 🔍 Fetching conversations by fb_id:', facebookPsid, 'channelId:', channelId);
                     try {
-                        // Dùng searchConversations() với cú pháp cus_id:{fb_id} để search chính xác
-                        const searchResult = await window.pancakeDataManager.searchConversations(`cus_id:${facebookPsid}`);
+                        // Dùng API trực tiếp: GET /pages/{pageId}/customers/{fb_id}/conversations
+                        const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid);
 
-                        if (searchResult.conversations.length > 0) {
-                            console.log('[CHAT-MODAL] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
+                        if (result.success && result.conversations.length > 0) {
+                            console.log('[CHAT-MODAL] ✅ Found', result.conversations.length, 'conversations for fb_id:', facebookPsid);
+
+                            // Lưu customer UUID
+                            pancakeCustomerUuid = result.customerUuid;
+                            window.currentCustomerUUID = pancakeCustomerUuid;
+                            console.log('[CHAT-MODAL] ✅ Got customer UUID:', pancakeCustomerUuid);
 
                             // Match logic khác nhau cho INBOX vs COMMENT
                             if (type === 'comment' && facebookPostId) {
-                                // Cho COMMENT: match theo post_id VÀ fb_id để lấy đúng customer UUID
-                                // post_id format: pageId_postId (e.g., "270136663390370_1672237127083024")
-                                // Lấy TẤT CẢ conversations matching post_id VÀ fb_id (có thể có nhiều)
-                                const matchingConversations = searchResult.conversations.filter(conv => {
-                                    if (conv.type !== 'COMMENT' || conv.post_id !== facebookPostId) {
-                                        return false;
-                                    }
-                                    // Check fb_id in customers array
-                                    const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
-                                    const hasMatchingFrom = conv.from?.id === facebookPsid;
-                                    return hasMatchingCustomer || hasMatchingFrom;
+                                // Cho COMMENT: filter theo post_id
+                                const matchingConversations = result.conversations.filter(conv => {
+                                    return conv.type === 'COMMENT' && conv.post_id === facebookPostId;
                                 });
 
                                 if (matchingConversations.length > 0) {
-                                    // Collect tất cả customer UUIDs từ các conversations
-                                    const allCustomerUuids = [];
-                                    matchingConversations.forEach(conv => {
-                                        if (conv.customers && conv.customers.length > 0) {
-                                            conv.customers.forEach(c => {
-                                                if (c.id && !allCustomerUuids.includes(c.id)) {
-                                                    allCustomerUuids.push(c.id);
-                                                }
-                                            });
-                                        }
-                                    });
-
-                                    if (allCustomerUuids.length > 0) {
-                                        // Lưu tất cả UUIDs, sẽ thử lần lượt
-                                        pancakeCustomerUuid = allCustomerUuids[0]; // Dùng cái đầu tiên
-                                        window.currentCustomerUUIDs = allCustomerUuids; // Lưu tất cả
-                                        window.currentCustomerUUID = pancakeCustomerUuid;
-                                        console.log('[CHAT-MODAL] ✅ Found', allCustomerUuids.length, 'customer UUIDs from', matchingConversations.length, 'conversations:', allCustomerUuids);
-                                    }
-                                    conversation = matchingConversations[0]; // Lấy conversation đầu tiên
+                                    conversation = matchingConversations[0];
+                                    console.log('[CHAT-MODAL] ✅ Found COMMENT conversation matching post_id:', facebookPostId);
+                                } else {
+                                    console.warn('[CHAT-MODAL] ⚠️ No COMMENT conversation matched post_id:', facebookPostId);
                                 }
                             } else {
-                                // Cho INBOX: lấy TẤT CẢ INBOX conversations tìm được theo tên
-                                // Không filter quá chặt theo fb_id để user có thể chọn conversation
-                                const allInboxConversations = searchResult.conversations.filter(conv => {
+                                // Cho INBOX: lấy TẤT CẢ INBOX conversations
+                                const allInboxConversations = result.conversations.filter(conv => {
                                     return conv.type === 'INBOX';
                                 });
 
                                 console.log('[CHAT-MODAL] Found', allInboxConversations.length, 'INBOX conversations');
 
-                                // Tìm conversation có fb_id khớp để ưu tiên làm default
-                                const preferredConversation = allInboxConversations.find(conv => {
-                                    const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
-                                    const hasMatchingFrom = conv.from?.id === facebookPsid;
-                                    const hasMatchingPsid = conv.from_psid === facebookPsid;
-                                    return hasMatchingCustomer || hasMatchingFrom || hasMatchingPsid;
-                                });
-
                                 if (allInboxConversations.length > 0) {
                                     // Populate conversation selector với TẤT CẢ INBOX conversations
-                                    // Nếu có preferred conversation (fb_id match), pre-select nó
-                                    const preferredConvId = preferredConversation?.id || null;
-                                    const mostRecentConv = window.populateConversationSelector(allInboxConversations, preferredConvId);
+                                    const mostRecentConv = window.populateConversationSelector(allInboxConversations, allInboxConversations[0]?.id);
 
-                                    // Dùng preferred conversation hoặc most recent
-                                    conversation = preferredConversation || mostRecentConv || allInboxConversations[0];
-
-                                    if (conversation && conversation.customers && conversation.customers.length > 0) {
-                                        pancakeCustomerUuid = conversation.customers[0].id;
-                                        window.currentCustomerUUID = pancakeCustomerUuid;
-                                        console.log('[CHAT-MODAL] ✅ Using INBOX conversation - customer UUID:', pancakeCustomerUuid);
-                                    }
+                                    // Dùng conversation đầu tiên hoặc most recent
+                                    conversation = mostRecentConv || allInboxConversations[0];
+                                    console.log('[CHAT-MODAL] ✅ Using INBOX conversation - customer UUID:', pancakeCustomerUuid);
                                 }
                             }
 
                             if (!pancakeCustomerUuid) {
-                                console.warn('[CHAT-MODAL] ⚠️ No conversation matched for type:', type, 'in', searchResult.conversations.length, 'results');
-                                // Ẩn conversation selector nếu không có matching conversation
+                                console.warn('[CHAT-MODAL] ⚠️ No conversation matched for type:', type);
                                 window.hideConversationSelector();
                             }
+                        } else {
+                            console.warn('[CHAT-MODAL] ⚠️ No conversations found for fb_id:', facebookPsid);
+                            window.hideConversationSelector();
                         }
-                    } catch (searchError) {
-                        console.error('[CHAT-MODAL] ❌ Error searching conversations:', searchError);
+                    } catch (fetchError) {
+                        console.error('[CHAT-MODAL] ❌ Error fetching conversations:', fetchError);
                         window.hideConversationSelector();
                     }
                 }
