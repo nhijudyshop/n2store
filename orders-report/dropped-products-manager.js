@@ -527,7 +527,8 @@
             return;
         }
 
-        console.log('[DROPPED-PRODUCTS] Adding product:', product.ProductNameGet, 'qty:', quantity, 'holder:', holderName);
+        console.log('[DROPPED-PRODUCTS] Adding product:', product.ProductNameGet, 'qty:', quantity);
+        // Note: holderName parameter is deprecated - heldBy is now computed dynamically from held_products
 
         try {
             // Check if product already exists
@@ -540,18 +541,13 @@
                 await itemRef.transaction((current) => {
                     if (current === null) return current; // Item was deleted, abort
 
-                    // Atomic increment and update holder info
+                    // Atomic increment - NO longer storing heldBy
                     const updates = {
                         ...current,
                         Quantity: (current.Quantity || 0) + quantity,
                         addedAt: window.firebase.database.ServerValue.TIMESTAMP,
                         addedDate: new Date().toLocaleString('vi-VN')
                     };
-
-                    // Add holder name if provided (for draft products)
-                    if (holderName) {
-                        updates.heldBy = holderName;
-                    }
 
                     return updates;
                 });
@@ -571,12 +567,8 @@
                     reason: reason,
                     addedAt: window.firebase.database.ServerValue.TIMESTAMP,
                     addedDate: new Date().toLocaleString('vi-VN')
+                    // NO heldBy field - computed dynamically
                 };
-
-                // Add holder name if provided (for draft products)
-                if (holderName) {
-                    newItem.heldBy = holderName;
-                }
 
                 const newRef = await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).push(newItem);
                 console.log('[DROPPED-PRODUCTS] ✓ New item created:', newRef.key);
@@ -596,6 +588,47 @@
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] ❌ Error adding product:', error);
             showError('Lỗi khi thêm sản phẩm: ' + error.message);
+        }
+    };
+
+    /**
+     * Get list of users currently holding a product across ALL orders
+     * Returns array of holder names for display in Dropped tab
+     * @param {number|string} productId - Product ID to check
+     * @returns {Promise<string[]>} Array of holder display names
+     */
+    window.getProductHolders = async function (productId) {
+        if (!window.firebase) return [];
+
+        try {
+            const heldProductsRef = window.firebase.database().ref('held_products');
+            const snapshot = await heldProductsRef.once('value');
+            const allOrders = snapshot.val() || {};
+
+            const holders = new Set(); // Use Set to avoid duplicates
+
+            // Scan all orders for this product
+            for (const orderId in allOrders) {
+                const orderProducts = allOrders[orderId];
+                if (!orderProducts) continue;
+
+                const productHolders = orderProducts[String(productId)];
+                if (!productHolders) continue;
+
+                // Collect all holders with quantity > 0 and isDraft === true (persisted)
+                for (const userId in productHolders) {
+                    const holderData = productHolders[userId];
+                    if (holderData && holderData.isDraft === true && (parseInt(holderData.quantity) || 0) > 0) {
+                        holders.add(holderData.displayName || userId);
+                    }
+                }
+            }
+
+            return Array.from(holders);
+
+        } catch (error) {
+            console.error('[DROPPED-PRODUCTS] Error getting holders:', error);
+            return [];
         }
     };
 
@@ -646,46 +679,14 @@
      * Clear heldBy field from dropped product if no one is holding it anymore
      * @param {number|string} productId - Product ID to check and update
      */
+    /**
+     * DEPRECATED: clearHeldByIfNotHeld is no longer needed
+     * heldBy is now computed dynamically from held_products when rendering
+     * Keeping this function as no-op for backwards compatibility
+     */
     window.clearHeldByIfNotHeld = async function (productId) {
-        if (!firebaseDb) return;
-
-        try {
-            console.log('[DROPPED-PRODUCTS] Checking to clear heldBy for product:', productId);
-
-            // Check if still held in Firebase
-            const stillHeld = await isProductStillHeld(productId);
-
-            if (!stillHeld) {
-                // Find the dropped product in Firebase
-                const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
-
-                if (droppedProduct && droppedProduct.id && droppedProduct.heldBy) {
-                    console.log('[DROPPED-PRODUCTS] Clearing heldBy from dropped product:', productId);
-
-                    // Remove heldBy field using transaction
-                    const itemRef = firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${droppedProduct.id}`);
-
-                    await itemRef.transaction((current) => {
-                        if (current === null) return current; // Item was deleted, abort
-
-                        // Remove heldBy field
-                        const updated = { ...current };
-                        delete updated.heldBy;
-
-                        return updated;
-                    });
-
-                    console.log('[DROPPED-PRODUCTS] ✓ Cleared heldBy field');
-                } else {
-                    console.log('[DROPPED-PRODUCTS] Product not in dropped list or no heldBy field');
-                }
-            } else {
-                console.log('[DROPPED-PRODUCTS] Product still held, keeping heldBy field');
-            }
-
-        } catch (error) {
-            console.error('[DROPPED-PRODUCTS] ❌ Error clearing heldBy:', error);
-        }
+        // No-op: heldBy is computed dynamically, no need to clear
+        console.log('[DROPPED-PRODUCTS] clearHeldByIfNotHeld called (deprecated, no-op):', productId);
     };
 
     /**
@@ -971,11 +972,22 @@
     /**
      * Render dropped products table
      */
-    function renderDroppedProductsTable(filteredProducts = null) {
+    async function renderDroppedProductsTable(filteredProducts = null) {
         const container = document.getElementById('chatDroppedProductsContainer');
         if (!container) return;
 
         const products = filteredProducts || droppedProducts;
+
+        // Fetch holders for all products in parallel
+        const productsWithHolders = await Promise.all(
+            products.map(async (p) => {
+                const holders = await window.getProductHolders(p.ProductId);
+                return {
+                    ...p,
+                    _computedHeldBy: holders.length > 0 ? holders.join(', ') : null
+                };
+            })
+        );
 
         // Add search UI at the top
         const searchUI = `
@@ -1031,7 +1043,7 @@
             </div>
         `;
 
-        if (products.length === 0) {
+        if (productsWithHolders.length === 0) {
             container.innerHTML = searchUI + `
                 <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
                     <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
@@ -1042,7 +1054,7 @@
             return;
         }
 
-        const productsHTML = products.map((p, i) => {
+        const productsHTML = productsWithHolders.map((p, i) => {
             const actualIndex = droppedProducts.indexOf(p);
             const isOutOfStock = (p.Quantity || 0) === 0;
             const rowOpacity = isOutOfStock ? '0.6' : '1';
@@ -1060,7 +1072,7 @@
                         ${isOutOfStock ? '<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> Đang được giữ</span>' : ''}
                     </div>
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
-                    ${p.heldBy ? `<div style="font-size: 11px; color: #d97706; margin-top: 2px;"><i class="fas fa-user"></i> Người giữ: <strong>${p.heldBy}</strong></div>` : ''}
+                    ${p._computedHeldBy ? `<div style="font-size: 11px; color: #d97706; margin-top: 2px;"><i class="fas fa-user"></i> Người giữ: <strong>${p._computedHeldBy}</strong></div>` : ''}
                     <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">${p.addedDate || ''}</div>
                 </td>
                 <td style="text-align: center; width: 140px;">
@@ -1102,8 +1114,8 @@
         `}).join('');
 
         // Calculate totals
-        const totalQuantity = products.reduce((sum, p) => sum + (p.Quantity || 0), 0);
-        const totalAmount = products.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+        const totalQuantity = productsWithHolders.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+        const totalAmount = productsWithHolders.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
 
         container.innerHTML = searchUI + `
             <table class="chat-products-table">
@@ -1137,9 +1149,9 @@
     /**
      * Filter dropped products
      */
-    window.filterDroppedProducts = function (query) {
+    window.filterDroppedProducts = async function (query) {
         if (!query || query.trim() === '') {
-            renderDroppedProductsTable();
+            await renderDroppedProductsTable();
             return;
         }
 
@@ -1150,7 +1162,7 @@
             (p.ProductCode && p.ProductCode.toLowerCase().includes(lowerQuery))
         );
 
-        renderDroppedProductsTable(filtered);
+        await renderDroppedProductsTable(filtered);
     };
 
     /**
