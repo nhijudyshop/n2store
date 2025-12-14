@@ -10366,10 +10366,11 @@ async function tryPancakeUnlock(pageId, conversationId) {
  * @param {string} params.pageId - Facebook Page ID
  * @param {string} params.psid - Facebook PSID of recipient
  * @param {string} params.message - Message text to send
+ * @param {Array<string>} params.imageUrls - Optional array of image URLs to send
  * @returns {Promise<{success: boolean, error?: string, messageId?: string}>}
  */
 async function sendMessageViaFacebookTag(params) {
-    const { pageId, psid, message } = params;
+    const { pageId, psid, message, imageUrls } = params;
 
     console.log('[FB-TAG-SEND] ========================================');
     console.log('[FB-TAG-SEND] Attempting to send message via Facebook Graph API with POST_PURCHASE_UPDATE tag');
@@ -10444,7 +10445,8 @@ async function sendMessageViaFacebookTag(params) {
             psid: psid,
             message: message,
             pageToken: facebookPageToken,
-            useTag: true // Use POST_PURCHASE_UPDATE tag
+            useTag: true, // Use POST_PURCHASE_UPDATE tag
+            imageUrls: imageUrls || [] // Include image URLs if provided
         };
 
         const response = await fetch(facebookSendUrl, {
@@ -10549,7 +10551,7 @@ window.close24hFallbackModal = function () {
     if (modal) modal.style.display = 'none';
 };
 
-window.sendViaFacebookTagFromModal = async function (encodedMessage, pageId, psid) {
+window.sendViaFacebookTagFromModal = async function (encodedMessage, pageId, psid, imageUrls = []) {
     window.close24hFallbackModal();
 
     const message = decodeURIComponent(encodedMessage);
@@ -10558,7 +10560,7 @@ window.sendViaFacebookTagFromModal = async function (encodedMessage, pageId, psi
         window.notificationManager.show('🔄 Đang gửi qua Facebook Graph API...', 'info');
     }
 
-    const result = await sendMessageViaFacebookTag({ pageId, psid, message });
+    const result = await sendMessageViaFacebookTag({ pageId, psid, message, imageUrls });
 
     if (result.success) {
         if (window.notificationManager) {
@@ -10939,8 +10941,27 @@ async function sendMessageInternal(messageData) {
             // Auto-send via Facebook Tag (POST_PURCHASE_UPDATE) for 24h error
             if (error.is24HourError && originalMessage && pageId && psid) {
                 console.log('[MESSAGE] 🔄 Auto-sending via Facebook Tag for 24h error');
+
+                // Extract image URLs from uploadedImagesData
+                const imageUrls = [];
+                if (messageData.uploadedImagesData && messageData.uploadedImagesData.length > 0) {
+                    for (const imgData of messageData.uploadedImagesData) {
+                        // Try content_url first (from cache)
+                        if (imgData.content_url) {
+                            imageUrls.push(imgData.content_url);
+                        }
+                        // Otherwise build URL from content_id
+                        else if (imgData.content_id || imgData.id) {
+                            const contentId = imgData.content_id || imgData.id;
+                            // Pancake content URL format
+                            imageUrls.push(`https://content.pancake.vn/2.1-25/contents/${contentId}`);
+                        }
+                    }
+                    console.log('[MESSAGE] Extracted image URLs for Facebook Tag:', imageUrls);
+                }
+
                 // Auto-send without showing modal
-                window.sendViaFacebookTagFromModal(encodeURIComponent(originalMessage), pageId, psid);
+                window.sendViaFacebookTagFromModal(encodeURIComponent(originalMessage), pageId, psid, imageUrls);
             } else {
                 // For 551 error or missing data, just show notification
                 let message = error.is24HourError
