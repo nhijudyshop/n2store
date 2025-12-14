@@ -3134,106 +3134,88 @@ function updateBulkTagModalTable() {
 }
 
 // Execute bulk tag modal assignment
+/**
+ * Execute bulk tag assignment from modal
+ * Logic copied 100% from executeBulkTagAssignment() - Simple assignment without complex checks
+ */
 async function executeBulkTagModalAssignment() {
-    console.log("[BULK-TAG-MODAL] Executing bulk tag assignment");
+    console.log("[BULK-TAG-MODAL] Executing bulk tag assignment (Simple Mode)");
 
-    // Get selected rows with STTs
+    // Get selected tags with STTs (checked rows only)
     const selectedTags = bulkTagModalData.filter(t =>
         selectedBulkTagModalRows.has(t.tagId) && t.sttSet.size > 0
     );
 
+    // Validate: at least one tag selected with STTs
     if (selectedTags.length === 0) {
         if (window.notificationManager) {
             window.notificationManager.warning('Vui lòng chọn ít nhất một tag có STT để gán', 3000);
+        } else {
+            alert('Vui lòng chọn ít nhất một tag có STT để gán');
         }
         return;
     }
 
-    // Confirm action
-    const totalOrders = selectedTags.reduce((sum, t) => sum + t.sttSet.size, 0);
-    if (!confirm(`Bạn có chắc muốn gán ${selectedTags.length} tag cho ${totalOrders} đơn hàng?`)) {
-        return;
-    }
-
-    showLoading(true);
-
-    const results = [];
-    const BLOCKED_TAG_NAME = "ĐÃ GỘP KO CHỐT";
-
     try {
-        for (const tagData of selectedTags) {
-            const tagResult = {
-                tag: {
-                    id: tagData.tagId,
-                    name: tagData.tagName,
-                    color: tagData.tagColor
-                },
-                success: [],
-                failed: []
-            };
+        showLoading(true);
 
-            const sttArray = Array.from(tagData.sttSet);
+        // Process each selected tag independently
+        let totalSuccessCount = 0;
+        let totalErrorCount = 0;
+        const allErrors = [];
 
-            for (const stt of sttArray) {
-                const order = displayedData.find(o => o.SessionIndex === stt);
+        for (const selectedTag of selectedTags) {
+            // Get tag info from availableTags
+            const tagInfo = availableTags.find(t => t.Id === selectedTag.tagId);
+            if (!tagInfo) {
+                console.warn(`[BULK-TAG-MODAL] Tag ${selectedTag.tagId} not found in availableTags`);
+                continue;
+            }
 
-                if (!order) {
-                    tagResult.failed.push({
-                        stt: stt,
-                        orderId: null,
-                        reason: 'STT không tồn tại',
-                        customerName: 'N/A'
-                    });
-                    continue;
-                }
+            // Get STT array for this tag
+            const sttArray = Array.from(selectedTag.sttSet);
 
-                // Parse current tags
-                let currentTags = [];
+            // Find orders matching STT in displayedData (current view)
+            const matchingOrders = displayedData.filter(order =>
+                sttArray.includes(order.SessionIndex)
+            );
+
+            if (matchingOrders.length === 0) {
+                console.warn(`[BULK-TAG-MODAL] No orders found for tag "${tagInfo.Name}" with STT: ${sttArray.join(', ')}`);
+                continue;
+            }
+
+            console.log(`[BULK-TAG-MODAL] Processing tag "${tagInfo.Name}" for ${matchingOrders.length} orders matching STT:`, sttArray);
+
+            // Process each order (same logic as executeBulkTagAssignment)
+            let successCount = 0;
+            let errorCount = 0;
+            const errors = [];
+
+            for (const order of matchingOrders) {
                 try {
-                    currentTags = order.Tags ? JSON.parse(order.Tags) : [];
-                } catch (e) {
-                    currentTags = [];
-                }
+                    // Get current tags
+                    const currentTags = order.Tags ? JSON.parse(order.Tags) : [];
 
-                // Check for blocked tag "ĐÃ GỘP KO CHỐT"
-                const hasBlockedTag = currentTags.some(t =>
-                    t.Name && t.Name.toUpperCase() === BLOCKED_TAG_NAME
-                );
-
-                if (hasBlockedTag) {
-                    tagResult.failed.push({
-                        stt: stt,
-                        orderId: order.Id,
-                        reason: BLOCKED_TAG_NAME,
-                        customerName: order.Name || order.PartnerName || 'N/A'
-                    });
-                    continue;
-                }
-
-                // Check if tag already exists
-                const tagExists = currentTags.some(t => t.Id === tagData.tagId);
-                if (tagExists) {
-                    tagResult.failed.push({
-                        stt: stt,
-                        orderId: order.Id,
-                        reason: 'Tag đã tồn tại',
-                        customerName: order.Name || order.PartnerName || 'N/A'
-                    });
-                    continue;
-                }
-
-                // Prepare updated tags
-                const updatedTags = [
-                    ...currentTags,
-                    {
-                        Id: tagData.tagId,
-                        Name: tagData.tagName,
-                        Color: tagData.tagColor
+                    // Check if tag already exists
+                    const tagExists = currentTags.some(t => t.Id === selectedTag.tagId);
+                    if (tagExists) {
+                        console.log(`[BULK-TAG-MODAL] Tag already exists for order ${order.Code} (STT ${order.SessionIndex})`);
+                        successCount++; // Count as success since tag is already there (SAME AS QUICK ASSIGNMENT)
+                        continue;
                     }
-                ];
 
-                // Call API to assign tag (using tokenManager and smartFetch like the existing bulk tag)
-                try {
+                    // Add new tag
+                    const updatedTags = [
+                        ...currentTags,
+                        {
+                            Id: tagInfo.Id,
+                            Name: tagInfo.Name,
+                            Color: tagInfo.Color
+                        }
+                    ];
+
+                    // Call API to assign tag (SAME AS QUICK ASSIGNMENT)
                     const headers = await window.tokenManager.getAuthHeader();
                     const response = await API_CONFIG.smartFetch(
                         "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
@@ -3251,83 +3233,77 @@ async function executeBulkTagModalAssignment() {
                         }
                     );
 
-                    if (response.ok) {
-                        // Update local data
-                        const updatedData = { Tags: JSON.stringify(updatedTags) };
-                        updateOrderInTable(order.Id, updatedData);
-
-                        // Emit to Firebase
-                        if (typeof emitTagUpdateToFirebase === 'function') {
-                            await emitTagUpdateToFirebase(order.Id, updatedTags);
-                        }
-
-                        tagResult.success.push({
-                            stt: stt,
-                            orderId: order.Id,
-                            customerName: order.Name || order.PartnerName || 'N/A'
-                        });
-                    } else {
-                        const errorText = await response.text();
-                        tagResult.failed.push({
-                            stt: stt,
-                            orderId: order.Id,
-                            reason: `API Error: ${response.status} - ${errorText.substring(0, 100)}`,
-                            customerName: order.Name || order.PartnerName || 'N/A'
-                        });
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
                     }
-                } catch (apiError) {
-                    tagResult.failed.push({
-                        stt: stt,
-                        orderId: order.Id,
-                        reason: `Network Error: ${apiError.message}`,
-                        customerName: order.Name || order.PartnerName || 'N/A'
-                    });
+
+                    // Update local data (SAME AS QUICK ASSIGNMENT)
+                    const updatedData = { Tags: JSON.stringify(updatedTags) };
+                    updateOrderInTable(order.Id, updatedData);
+
+                    // Emit Firebase update (SAME AS QUICK ASSIGNMENT)
+                    await emitTagUpdateToFirebase(order.Id, updatedTags);
+
+                    successCount++;
+                    console.log(`[BULK-TAG-MODAL] Successfully tagged order ${order.Code} (STT ${order.SessionIndex}) with "${tagInfo.Name}"`);
+
+                } catch (error) {
+                    console.error(`[BULK-TAG-MODAL] Error tagging order ${order.Code}:`, error);
+                    errorCount++;
+                    errors.push(`STT ${order.SessionIndex} (${order.Code}): ${error.message}`);
                 }
             }
 
-            results.push(tagResult);
+            // Accumulate results
+            totalSuccessCount += successCount;
+            totalErrorCount += errorCount;
+            if (errors.length > 0) {
+                allErrors.push(`Tag "${tagInfo.Name}": ${errors.join(', ')}`);
+            }
+
+            console.log(`[BULK-TAG-MODAL] Tag "${tagInfo.Name}" result: ${successCount} success, ${errorCount} errors`);
         }
 
-        // Clear cache
-        if (window.cacheManager) {
-            window.cacheManager.clear("orders");
-        }
-
-        // Save history to Firebase
-        await saveBulkTagHistory(results);
-
-        // Calculate totals
-        const totalSuccess = results.reduce((sum, r) => sum + r.success.length, 0);
-        const totalFailed = results.reduce((sum, r) => sum + r.failed.length, 0);
+        // Clear cache (SAME AS QUICK ASSIGNMENT)
+        window.cacheManager.clear("orders");
 
         showLoading(false);
 
-        // Show result notification
-        if (totalFailed === 0) {
+        // Show result notification (SAME AS QUICK ASSIGNMENT)
+        if (totalSuccessCount > 0 && totalErrorCount === 0) {
             if (window.notificationManager) {
-                window.notificationManager.success(`Gán tag thành công cho ${totalSuccess} đơn hàng!`, 3000);
+                window.notificationManager.success(
+                    `Đã gán tag cho ${totalSuccessCount} đơn hàng thành công!`,
+                    3000
+                );
+            } else {
+                alert(`Đã gán tag cho ${totalSuccessCount} đơn hàng thành công!`);
             }
+
+            // Clear modal after complete success (SAME AS QUICK ASSIGNMENT)
             closeBulkTagModal();
-        } else if (totalSuccess > 0) {
+
+        } else if (totalSuccessCount > 0 && totalErrorCount > 0) {
             if (window.notificationManager) {
-                window.notificationManager.warning(`Thành công: ${totalSuccess} đơn | Thất bại: ${totalFailed} đơn. Xem chi tiết trong Lịch sử.`, 5000);
+                window.notificationManager.warning(
+                    `Đã gán tag cho ${totalSuccessCount} đơn. Lỗi: ${totalErrorCount} đơn`,
+                    4000
+                );
+            } else {
+                alert(`Thành công: ${totalSuccessCount} đơn\nLỗi: ${totalErrorCount} đơn\n\n${allErrors.join('\n')}`);
             }
-            // Don't close modal so user can see which failed
         } else {
-            if (window.notificationManager) {
-                window.notificationManager.error(`Tất cả ${totalFailed} đơn đều thất bại. Xem chi tiết trong Lịch sử.`, 5000);
-            }
+            throw new Error(`Không thể gán tag cho bất kỳ đơn hàng nào.\n\n${allErrors.join('\n')}`);
         }
 
-        // Refresh table
-        renderTable();
-
     } catch (error) {
-        console.error("[BULK-TAG-MODAL] Error:", error);
+        console.error("[BULK-TAG-MODAL] Error in bulk tag assignment:", error);
         showLoading(false);
 
         if (window.notificationManager) {
-            window.notificationManager.error(`Lỗi gán tag: ${error.message}`, 5000);
+            window.notificationManager.error(`Lỗi: ${error.message}`, 5000);
+        } else {
+            alert(`Lỗi: ${error.message}`);
         }
     }
 }
