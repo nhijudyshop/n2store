@@ -11371,18 +11371,6 @@ function handleReplyToComment(commentId, postId) {
     }
 }
 
-/**
- * Get reaction emoji from message attachments
- * Pancake API trả về reaction trong attachments với type = 'reaction'
- * @param {Array} attachments - Array attachments từ message
- * @returns {string|null} - Emoji reaction hoặc null
- */
-function getReactionFromAttachments(attachments) {
-    if (!attachments || !Array.isArray(attachments)) return null;
-    const reactionAtt = attachments.find(att => att.type === 'reaction');
-    return reactionAtt ? reactionAtt.emoji : null;
-}
-
 function renderChatMessages(messages, scrollToBottom = false) {
     const modalBody = document.getElementById('chatModalBody');
 
@@ -11641,57 +11629,11 @@ function renderChatMessages(messages, scrollToBottom = false) {
             />
         ` : '';
 
-        // Handle reactions display - Support cả 2 format:
-        // 1. Format mới (Pancake API): attachments có type='reaction' với emoji
-        // 2. Format cũ: msg.reactions = { "LIKE": 1, "LOVE": 2 }
-        let reactionsHTML = '';
-        const reactionEmoji = getReactionFromAttachments(msg.attachments);
-        if (reactionEmoji) {
-            reactionsHTML = `
-                <div class="message-reaction-badge" style="
-                    position: absolute;
-                    bottom: -8px;
-                    right: 8px;
-                    background: #fff;
-                    border: 1px solid #e0e0e0;
-                    border-radius: 12px;
-                    padding: 2px 6px;
-                    font-size: 14px;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                    z-index: 1;
-                ">${reactionEmoji}</div>`;
-        } else {
-            // Fallback: format cũ
-            const reactions = msg.reactions || msg.reaction_summary;
-            if (reactions && Object.keys(reactions).length > 0) {
-                const reactionIcons = {
-                    'LIKE': '👍',
-                    'LOVE': '❤️',
-                    'HAHA': '😆',
-                    'WOW': '😮',
-                    'SAD': '😢',
-                    'ANGRY': '😠',
-                    'CARE': '🤗'
-                };
-                const reactionsArray = Object.entries(reactions)
-                    .filter(([type, count]) => count > 0)
-                    .map(([type, count]) => {
-                        const emoji = reactionIcons[type] || '👍';
-                        return `<span style="display: inline-flex; align-items: center; background: #fef3c7; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 4px;">
-                            ${emoji} ${count > 1 ? count : ''}
-                        </span>`;
-                    });
-                if (reactionsArray.length > 0) {
-                    reactionsHTML = `<div class="message-reaction-badge" style="position: absolute; bottom: -8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px; z-index: 1;">${reactionsArray.join('')}</div>`;
-                }
-            }
-        }
-
         return `
             <div class="chat-message ${alignClass}" style="display: flex; align-items: flex-start;">
                 ${!isOwner ? avatarHTML : ''}
                 <div style="flex: 1; ${isOwner ? 'display: flex; justify-content: flex-end;' : ''}">
-                    <div class="chat-bubble ${bgClass}" style="position: relative;">
+                    <div class="chat-bubble ${bgClass}">
                         ${!isOwner && senderName ? `<p style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 0 0 4px 0;">${senderName}</p>` : ''}
                         ${isOwner && adminName ? `<p style="font-size: 10px; font-weight: 500; color: #9ca3af; margin: 0 0 4px 0; text-align: right;"><i class="fas fa-user-tie" style="margin-right: 4px; font-size: 9px;"></i>${adminName}</p>` : ''}
                         ${content}
@@ -11700,7 +11642,6 @@ function renderChatMessages(messages, scrollToBottom = false) {
                             ${formatTime(msg.inserted_at || msg.CreatedTime)}
                             ${replyButton}
                         </p>
-                        ${reactionsHTML}
                     </div>
                 </div>
             </div>`;
