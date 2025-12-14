@@ -15192,9 +15192,9 @@ window.confirmHeldProduct = async function(productId) {
                 LiveCampaign_DetailId: null,
                 ProductWeight: 0,
 
-                // Computed fields
-                ProductName: fullProduct.Name || fullProduct.NameTemplate,
-                ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                // Computed fields - use original names from held product if available
+                ProductName: heldProduct.ProductName || fullProduct.Name || fullProduct.NameTemplate,
+                ProductNameGet: heldProduct.ProductNameGet || fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
                 ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
                 UOMName: fullProduct.UOM?.Name || "Cái",
                 ImageUrl: fullProduct.ImageUrl || (fullProduct.Thumbnails && fullProduct.Thumbnails[0]) || fullProduct.Parent?.ImageUrl || '',
@@ -15203,7 +15203,7 @@ window.confirmHeldProduct = async function(productId) {
                 IsDisabledLiveCampaignDetail: false,
 
                 // Additional fields
-                Name: fullProduct.Name,
+                Name: heldProduct.ProductName || heldProduct.Name || fullProduct.Name,
                 Code: fullProduct.DefaultCode || fullProduct.Barcode
             };
 
@@ -15215,8 +15215,13 @@ window.confirmHeldProduct = async function(productId) {
             await window.removeHeldProduct(productId);
         }
 
-        // Re-render
+        // Re-render Orders tab
         renderChatProductsTable();
+
+        // Trigger Dropped tab re-render to update "Người giữ" status
+        if (typeof window.renderDroppedProductsTable === 'function') {
+            await window.renderDroppedProductsTable();
+        }
 
         // Show success notification
         if (window.notificationManager) {
@@ -15265,6 +15270,11 @@ window.deleteHeldProduct = async function(productId) {
         // Remove from Firebase held_products
         if (typeof window.removeHeldProduct === 'function') {
             await window.removeHeldProduct(productId);
+        }
+
+        // Trigger Dropped tab re-render to update "Người giữ" status
+        if (typeof window.renderDroppedProductsTable === 'function') {
+            await window.renderDroppedProductsTable();
         }
 
         // Show success notification
