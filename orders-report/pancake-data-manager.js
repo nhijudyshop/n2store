@@ -1615,17 +1615,17 @@ class PancakeDataManager {
                     console.log('[PANCAKE] ✅ Found in memory - conversation matching psid AND postId:', convId);
                 }
 
-                // Bước 2: Nếu không tìm thấy trong memory, search API
-                if (!convId && customerName) {
-                    console.log('[PANCAKE] Not found in memory, searching API by customerName:', customerName);
+                // Bước 2: Nếu không tìm thấy trong memory, fetch trực tiếp theo fb_id
+                if (!convId && psid) {
+                    console.log('[PANCAKE] Not found in memory, fetching conversations by fb_id:', psid);
                     try {
-                        const searchResult = await this.searchConversations(customerName);
-                        if (searchResult.conversations && searchResult.conversations.length > 0) {
-                            console.log('[PANCAKE] Search returned', searchResult.conversations.length, 'conversations');
+                        const result = await this.fetchConversationsByFbId(pageId, psid);
+                        if (result.success && result.conversations && result.conversations.length > 0) {
+                            console.log('[PANCAKE] Direct fetch returned', result.conversations.length, 'conversations');
 
                             // Debug: log all COMMENT conversations with their post_ids
-                            const commentConvs = searchResult.conversations.filter(c => c.type === 'COMMENT');
-                            console.log('[PANCAKE] COMMENT conversations from search:', commentConvs.map(c => ({
+                            const commentConvs = result.conversations.filter(c => c.type === 'COMMENT');
+                            console.log('[PANCAKE] COMMENT conversations from direct fetch:', commentConvs.map(c => ({
                                 id: c.id,
                                 post_id: c.post_id,
                                 from_id: c.from?.id,
@@ -1633,7 +1633,7 @@ class PancakeDataManager {
                             })));
 
                             // Find conversation matching BOTH post_id AND fb_id/psid
-                            const matchingConv = searchResult.conversations.find(c =>
+                            const matchingConv = result.conversations.find(c =>
                                 c.type === 'COMMENT' &&
                                 c.post_id === postId &&
                                 (c.from?.id === psid ||
@@ -1644,10 +1644,10 @@ class PancakeDataManager {
                             if (matchingConv) {
                                 convId = matchingConv.id;
                                 customerId = matchingConv.customers?.[0]?.id || null;
-                                console.log('[PANCAKE] ✅ Found via search - conversation matching psid AND postId:', convId, 'customerId:', customerId);
+                                console.log('[PANCAKE] ✅ Found via direct fetch - conversation matching psid AND postId:', convId, 'customerId:', customerId);
                             } else {
                                 // Fallback: chỉ match post_id nếu không tìm thấy exact match
-                                const postOnlyMatch = searchResult.conversations.find(c =>
+                                const postOnlyMatch = result.conversations.find(c =>
                                     c.type === 'COMMENT' && c.post_id === postId
                                 );
                                 if (postOnlyMatch) {
@@ -1659,8 +1659,8 @@ class PancakeDataManager {
                                 }
                             }
                         }
-                    } catch (searchError) {
-                        console.error('[PANCAKE] Error searching by postId:', searchError);
+                    } catch (fetchError) {
+                        console.error('[PANCAKE] Error fetching by fb_id:', fetchError);
                     }
                 }
             }
