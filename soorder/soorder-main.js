@@ -22,10 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Setup keyboard navigation
     window.SoOrderUtils.setupKeyboardNavigation();
 
-    // Import NCC names from Excel API on page load (if accessToken available)
-    await window.SoOrderCRUD.importNCCFromExcel();
-
-    // Load NCC names from Firebase (fallback or merge with imported data)
+    // Load NCC names from Firebase
     await window.SoOrderCRUD.loadNCCNames();
 
     // Load today's data
