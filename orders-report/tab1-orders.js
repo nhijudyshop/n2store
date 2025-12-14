@@ -9157,6 +9157,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         if (response.ok) {
             const fullOrderData = await response.json();
 
+            // Store full order data for dropped products manager (needed by moveDroppedToOrder)
+            window.currentChatOrderData = fullOrderData;
+
             // Store Facebook data for highlighting purchase comment
             window.purchaseFacebookPostId = fullOrderData.Facebook_PostId || null;
             window.purchaseFacebookASUserId = fullOrderData.Facebook_ASUserId || null;
@@ -9186,6 +9189,8 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         }
     } catch (error) {
         console.error('[CHAT] Error loading order details:', error);
+        // Reset order data
+        window.currentChatOrderData = null;
         // Reset Facebook data on error
         window.purchaseFacebookPostId = null;
         window.purchaseFacebookASUserId = null;
@@ -9613,6 +9618,8 @@ window.closeChatModal = async function () {
     isLoadingMoreMessages = false;
     currentOrder = null;
     currentChatOrderId = null;
+    currentChatOrderDetails = [];
+    window.currentChatOrderData = null;
     window.currentConversationId = null;
     currentParentCommentId = null;
     currentPostId = null;
@@ -14855,21 +14862,23 @@ function saveChatProductsToFirebase(orderId, products) {
     ref.set(products).catch(err => console.error("[CHAT-FIREBASE] Save error:", err));
 }
 
-/* LEGACY CODE REMOVED
+/**
+ * Add product from search to chat order
+ */
 async function addChatProductFromSearch(productId) {
     // Show loading state on the clicked item
-    const searchItem = document.querySelector(`.chat-search-item[onclick*="${productId}"]`);
+    const searchItem = document.querySelector(`.chat-search-item[data-product-id="${productId}"]`);
     const originalContent = searchItem ? searchItem.innerHTML : '';
     if (searchItem) {
         searchItem.innerHTML = `<div style="text-align: center; width: 100%; color: #6366f1;"><i class="fas fa-spinner fa-spin"></i> Đang tải thông tin...</div>`;
         searchItem.style.pointerEvents = 'none';
     }
- 
+
     try {
         // 1. Fetch full details from TPOS (Required)
         const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
         if (!fullProduct) throw new Error("Không tìm thấy thông tin sản phẩm");
- 
+
         // Logic to inherit image from Product Template if missing (Variant logic)
         if ((!fullProduct.ImageUrl || fullProduct.ImageUrl === "") && (!fullProduct.Thumbnails || fullProduct.Thumbnails.length === 0)) {
             if (fullProduct.ProductTmplId) {
@@ -14878,13 +14887,13 @@ async function addChatProductFromSearch(productId) {
                     // Construct Template URL
                     const templateApiUrl = window.productSearchManager.PRODUCT_API_BASE.replace('/Product', '/ProductTemplate');
                     const url = `${templateApiUrl}(${fullProduct.ProductTmplId})?$expand=Images`;
- 
+
                     const headers = await window.tokenManager.getAuthHeader();
                     const response = await fetch(url, {
                         method: "GET",
                         headers: headers,
                     });
- 
+
                     if (response.ok) {
                         const templateData = await response.json();
                         if (templateData.ImageUrl) fullProduct.ImageUrl = templateData.ImageUrl;
@@ -14894,10 +14903,10 @@ async function addChatProductFromSearch(productId) {
                 }
             }
         }
- 
+
         // 2. Check if already exists
         const existingIndex = currentChatOrderDetails.findIndex(p => p.ProductId === productId);
- 
+
         if (existingIndex >= 0) {
             // Increase quantity
             currentChatOrderDetails[existingIndex].Quantity = (currentChatOrderDetails[existingIndex].Quantity || 0) + 1;
@@ -14921,7 +14930,7 @@ async function addChatProductFromSearch(productId) {
                 OrderId: currentChatOrderId, // Use current chat order ID
                 LiveCampaign_DetailId: null,
                 ProductWeight: 0,
- 
+
                 // COMPUTED FIELDS
                 ProductName: fullProduct.Name || fullProduct.NameTemplate,
                 ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
@@ -14931,28 +14940,34 @@ async function addChatProductFromSearch(productId) {
                 IsOrderPriority: null,
                 QuantityRegex: null,
                 IsDisabledLiveCampaignDetail: false,
- 
+
                 // Additional fields for chat UI compatibility if needed
                 Name: fullProduct.Name,
                 Code: fullProduct.DefaultCode || fullProduct.Barcode
             };
- 
+
             currentChatOrderDetails.push(newProduct);
         }
- 
-        renderChatProductsPanel();
+
+        renderChatProductsTable();
         saveChatProductsToFirebase('shared', currentChatOrderDetails);
- 
+
         // Update UI for the added item
         updateChatProductItemUI(productId);
- 
+
         // Clear search input and keep focus
-        const searchInput = document.getElementById("chatProductSearchInput");
+        const searchInput = document.getElementById("chatInlineProductSearch");
         if (searchInput) {
             searchInput.value = ''; // Clear input
             searchInput.focus();
         }
- 
+
+        // Hide search results
+        const resultsDiv = document.getElementById("chatInlineSearchResults");
+        if (resultsDiv) {
+            resultsDiv.style.display = "none";
+        }
+
     } catch (error) {
         console.error("Error adding product:", error);
         if (searchItem) {
@@ -14962,7 +14977,6 @@ async function addChatProductFromSearch(productId) {
         alert("Lỗi khi thêm sản phẩm: " + error.message);
     }
 }
-*/
 
 // --- Action Logic ---
 
@@ -20181,3 +20195,21 @@ window.toggleChatRightPanel = toggleChatRightPanel;
 window.switchChatPanelTab = switchChatPanelTab;
 window.removeChatProduct = removeChatProduct;
 window.updateChatProductQuantity = updateChatProductQuantity;
+
+// Chat Product Manager - For Orders tab in right panel
+window.chatProductManager = {
+    addProductFromSearch: addChatProductFromSearch,
+    renderInvoiceHistory: function() {
+        // TODO: Implement invoice history rendering
+        const container = document.getElementById('chatInvoiceHistoryContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                    <i class="fas fa-file-invoice-dollar" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                    <p style="font-size: 14px; margin: 0;">Chức năng đang phát triển</p>
+                    <p style="font-size: 12px; margin-top: 4px;">Lịch sử hóa đơn sẽ sớm được cập nhật</p>
+                </div>
+            `;
+        }
+    }
+};
