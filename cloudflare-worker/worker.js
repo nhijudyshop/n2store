@@ -632,16 +632,16 @@ export default {
 
         try {
           const body = await request.json();
-          const { pageId, psid, message, pageToken, useTag } = body;
+          const { pageId, psid, message, pageToken, useTag, imageUrls } = body;
 
           // Validate required fields
-          if (!pageId || !psid || !message || !pageToken) {
-            console.error('[FACEBOOK-SEND] Missing required fields:', { pageId: !!pageId, psid: !!psid, message: !!message, pageToken: !!pageToken });
+          if (!pageId || !psid || !pageToken) {
+            console.error('[FACEBOOK-SEND] Missing required fields:', { pageId: !!pageId, psid: !!psid, pageToken: !!pageToken });
             return new Response(JSON.stringify({
               success: false,
               error: 'Missing required fields',
-              required: ['pageId', 'psid', 'message', 'pageToken'],
-              usage: 'POST /api/facebook-send with JSON body { pageId, psid, message, pageToken, useTag: true }'
+              required: ['pageId', 'psid', 'pageToken'],
+              usage: 'POST /api/facebook-send with JSON body { pageId, psid, message, pageToken, useTag: true, imageUrls: [] }'
             }), {
               status: 400,
               headers: {
@@ -655,63 +655,131 @@ export default {
           const graphApiUrl = `https://graph.facebook.com/v21.0/${pageId}/messages`;
           console.log('[FACEBOOK-SEND] Graph API URL:', graphApiUrl);
 
-          // Build request body for Facebook API
-          const fbBody = {
-            recipient: { id: psid },
-            message: { text: message },
-          };
+          // Collect all message IDs
+          const messageIds = [];
+          let lastResult = null;
 
-          // Add message tag for 24h bypass
-          if (useTag) {
-            fbBody.messaging_type = 'MESSAGE_TAG';
-            fbBody.tag = 'POST_PURCHASE_UPDATE';
-            console.log('[FACEBOOK-SEND] Using MESSAGE_TAG with POST_PURCHASE_UPDATE');
-          } else {
-            fbBody.messaging_type = 'RESPONSE';
-            console.log('[FACEBOOK-SEND] Using standard RESPONSE messaging_type');
+          // Send images first (if any)
+          if (imageUrls && Array.isArray(imageUrls) && imageUrls.length > 0) {
+            console.log('[FACEBOOK-SEND] Sending', imageUrls.length, 'images...');
+            for (const imageUrl of imageUrls) {
+              const imageFbBody = {
+                recipient: { id: psid },
+                message: {
+                  attachment: {
+                    type: 'image',
+                    payload: {
+                      url: imageUrl,
+                      is_reusable: true
+                    }
+                  }
+                }
+              };
+
+              // Add message tag for 24h bypass
+              if (useTag) {
+                imageFbBody.messaging_type = 'MESSAGE_TAG';
+                imageFbBody.tag = 'POST_PURCHASE_UPDATE';
+              } else {
+                imageFbBody.messaging_type = 'RESPONSE';
+              }
+
+              console.log('[FACEBOOK-SEND] Sending image:', imageUrl);
+
+              const imageResponse = await fetch(`${graphApiUrl}?access_token=${pageToken}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+                body: JSON.stringify(imageFbBody),
+              });
+
+              const imageResult = await imageResponse.json();
+              console.log('[FACEBOOK-SEND] Image response:', JSON.stringify(imageResult));
+
+              if (imageResult.error) {
+                console.error('[FACEBOOK-SEND] Image send error:', imageResult.error);
+                return new Response(JSON.stringify({
+                  success: false,
+                  error: imageResult.error.message || 'Failed to send image',
+                  error_code: imageResult.error.code,
+                  error_subcode: imageResult.error.error_subcode,
+                }), {
+                  status: imageResponse.status,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                  },
+                });
+              }
+
+              messageIds.push(imageResult.message_id);
+              lastResult = imageResult;
+            }
           }
 
-          console.log('[FACEBOOK-SEND] Request body:', JSON.stringify(fbBody, null, 2));
+          // Send text message (if provided)
+          if (message && message.trim()) {
+            const textFbBody = {
+              recipient: { id: psid },
+              message: { text: message },
+            };
 
-          // Make request to Facebook Graph API
-          const fbResponse = await fetch(`${graphApiUrl}?access_token=${pageToken}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: JSON.stringify(fbBody),
-          });
+            // Add message tag for 24h bypass
+            if (useTag) {
+              textFbBody.messaging_type = 'MESSAGE_TAG';
+              textFbBody.tag = 'POST_PURCHASE_UPDATE';
+              console.log('[FACEBOOK-SEND] Using MESSAGE_TAG with POST_PURCHASE_UPDATE');
+            } else {
+              textFbBody.messaging_type = 'RESPONSE';
+              console.log('[FACEBOOK-SEND] Using standard RESPONSE messaging_type');
+            }
 
-          const fbResult = await fbResponse.json();
-          console.log('[FACEBOOK-SEND] Facebook API response:', JSON.stringify(fbResult));
-          console.log('[FACEBOOK-SEND] Response status:', fbResponse.status);
-          console.log('[FACEBOOK-SEND] ========================================');
+            console.log('[FACEBOOK-SEND] Sending text message');
 
-          // Check for errors
-          if (fbResult.error) {
-            console.error('[FACEBOOK-SEND] Facebook API error:', fbResult.error);
-            return new Response(JSON.stringify({
-              success: false,
-              error: fbResult.error.message || 'Facebook API error',
-              error_code: fbResult.error.code,
-              error_subcode: fbResult.error.error_subcode,
-              error_type: fbResult.error.type,
-              fb_trace_id: fbResult.error.fbtrace_id,
-            }), {
-              status: fbResponse.status,
+            const textResponse = await fetch(`${graphApiUrl}?access_token=${pageToken}`, {
+              method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
+                'Accept': 'application/json',
               },
+              body: JSON.stringify(textFbBody),
             });
+
+            const textResult = await textResponse.json();
+            console.log('[FACEBOOK-SEND] Text response:', JSON.stringify(textResult));
+            console.log('[FACEBOOK-SEND] ========================================');
+
+            if (textResult.error) {
+              console.error('[FACEBOOK-SEND] Text send error:', textResult.error);
+              return new Response(JSON.stringify({
+                success: false,
+                error: textResult.error.message || 'Failed to send text',
+                error_code: textResult.error.code,
+                error_subcode: textResult.error.error_subcode,
+              }), {
+                status: textResponse.status,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*',
+                },
+              });
+            }
+
+            messageIds.push(textResult.message_id);
+            lastResult = textResult;
           }
+
+          console.log('[FACEBOOK-SEND] All messages sent successfully!');
+          console.log('[FACEBOOK-SEND] ========================================');
 
           // Success
           return new Response(JSON.stringify({
             success: true,
-            recipient_id: fbResult.recipient_id,
-            message_id: fbResult.message_id,
+            recipient_id: lastResult?.recipient_id,
+            message_id: lastResult?.message_id,
+            message_ids: messageIds,
             used_tag: useTag ? 'POST_PURCHASE_UPDATE' : null,
           }), {
             status: 200,
