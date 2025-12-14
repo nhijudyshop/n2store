@@ -13027,11 +13027,12 @@ async function handleChatScroll(event) {
     // Only load more if:
     // 1. Near the top of the scroll
     // 2. Not already loading
-    // 3. Have a cursor for more data
-    if (isNearTop && !isLoadingMoreMessages && currentChatCursor) {
+    // Note: For MESSAGE, we use count-based pagination (no cursor needed)
+    //       For COMMENT, we still use cursor-based pagination
+    if (isNearTop && !isLoadingMoreMessages) {
         if (currentChatType === 'message') {
             await loadMoreMessages();
-        } else if (currentChatType === 'comment') {
+        } else if (currentChatType === 'comment' && currentChatCursor) {
             await loadMoreComments();
         }
     }
