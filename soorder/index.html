@@ -441,6 +441,19 @@
             </div>
             <div class="modal-body">
                 <p class="modal-description">Danh sách các nhà cung cấp đã lưu (định dạng: Ax + tên gợi nhớ)</p>
+
+                <!-- Add new NCC input -->
+                <div class="ncc-add-form">
+                    <div class="ncc-add-input-wrapper">
+                        <input type="text" id="nccManualInput" placeholder="Nhập tên NCC mới (VD: A1 Tên gợi nhớ)"
+                            autocomplete="off" />
+                    </div>
+                    <button class="btn-primary" id="btnAddNCCManual">
+                        <i data-lucide="plus"></i>
+                        Thêm
+                    </button>
+                </div>
+
                 <div class="ncc-list" id="nccList">
                     <!-- NCC items will be generated here -->
                 </div>

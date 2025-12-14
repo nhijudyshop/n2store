@@ -568,6 +568,25 @@ function setupEventListeners() {
         });
     }
 
+    // Add NCC manual button
+    const btnAddNCCManual = document.getElementById("btnAddNCCManual");
+    if (btnAddNCCManual) {
+        btnAddNCCManual.addEventListener("click", () => {
+            ui.handleAddNCCManual();
+        });
+    }
+
+    // Enter key in NCC manual input
+    const nccManualInput = document.getElementById("nccManualInput");
+    if (nccManualInput) {
+        nccManualInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                ui.handleAddNCCManual();
+            }
+        });
+    }
+
     // NCC Conflict modal
     if (elements.btnCloseNCCConflictModal) {
         elements.btnCloseNCCConflictModal.addEventListener("click", () => {

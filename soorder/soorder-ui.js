@@ -1265,4 +1265,69 @@ window.SoOrderUI = {
 
         return success;
     },
+
+    // Handle manual NCC add from management modal
+    async handleAddNCCManual() {
+        const elements = window.SoOrderElements;
+        const crud = window.SoOrderCRUD;
+        const utils = window.SoOrderUtils;
+
+        const input = document.getElementById("nccManualInput");
+        if (!input) return;
+
+        const supplierName = input.value.trim();
+
+        // Validate input
+        if (!supplierName) {
+            utils.showToast("Vui lòng nhập tên NCC", "error");
+            return;
+        }
+
+        // Check if name has valid Ax format
+        const code = crud.parseNCCCode(supplierName);
+        if (!code) {
+            utils.showToast("Tên NCC phải bắt đầu bằng Ax (VD: A1, A2, ...)", "error");
+            return;
+        }
+
+        // Check for conflict
+        const existingName = crud.checkNCCConflict(supplierName);
+
+        if (existingName) {
+            // Show conflict modal
+            this.showNCCConflictModal(supplierName, existingName, async (chosenName, isNew) => {
+                if (isNew) {
+                    // Update the stored NCC name
+                    await crud.updateNCCName(code, chosenName);
+                    utils.showToast("Đã cập nhật tên NCC", "success");
+                } else {
+                    // User chose existing name - no action needed
+                    utils.showToast("Giữ nguyên tên đã lưu", "info");
+                }
+
+                // Clear input and refresh list
+                input.value = "";
+                this.renderNCCList();
+
+                // Reinitialize Lucide icons
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+            });
+        } else {
+            // No conflict - save the NCC name
+            const result = await crud.saveNCCName(supplierName);
+
+            if (result.success) {
+                utils.showToast("Đã thêm tên NCC mới", "success");
+                input.value = "";
+                this.renderNCCList();
+
+                // Reinitialize Lucide icons
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+            }
+        }
+    },
 };
