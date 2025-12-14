@@ -4440,6 +4440,11 @@ td[data-column].hidden {
     transform: translateY(-50%) scale(1.05);
 }
 
+/* Hide message reply type toggle - always use Messenger */
+#messageReplyTypeToggle {
+    display: none !important;
+}
+
 /* Chat Panel Tabs */
 .chat-tab-btn:hover {
     background: #f1f5f9 !important;
