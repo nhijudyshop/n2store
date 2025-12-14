@@ -8703,7 +8703,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     chatInput.addEventListener('input', handleChatInputInput);
 
     if (type === 'comment') {
-        markReadBtn.style.display = 'none';
+        if (markReadBtn) {
+            markReadBtn.style.display = 'none';
+        }
 
         // Disable input and send button by default for comments
         // Only enable when replying to a specific comment
@@ -8718,7 +8720,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             chatSendBtn.style.cursor = 'not-allowed';
         }
     } else {
-        markReadBtn.style.display = 'none'; // Keep hidden for now or show if needed
+        if (markReadBtn) {
+            markReadBtn.style.display = 'none'; // Keep hidden for now or show if needed
+        }
 
         // Re-enable input and send button for chat (message mode)
         // Reset to default state in case it was disabled from previous comment modal
@@ -12478,15 +12482,19 @@ window.markChatAsRead = async function () {
 
     try {
         const markReadBtn = document.getElementById('chatMarkReadBtn');
-        markReadBtn.disabled = true;
-        markReadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+        if (markReadBtn) {
+            markReadBtn.disabled = true;
+            markReadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+        }
 
         await window.chatDataManager.markAsSeen(window.currentChatChannelId, window.currentChatPSID);
 
         // Hide button
-        markReadBtn.style.display = 'none';
-        markReadBtn.disabled = false;
-        markReadBtn.innerHTML = '<i class="fas fa-check"></i> Đánh dấu đã đọc';
+        if (markReadBtn) {
+            markReadBtn.style.display = 'none';
+            markReadBtn.disabled = false;
+            markReadBtn.innerHTML = '<i class="fas fa-check"></i> Đánh dấu đã đọc';
+        }
 
         // Re-render table to update UI
         renderTable();
