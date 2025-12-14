@@ -3216,15 +3216,15 @@ async function executeBulkTagModalAssignment() {
                     ];
 
                     // Call API to assign tag - send all tags (existing + new)
-                    const headers = await window.tokenManager.getAuthHeader();
-                    const response = await API_CONFIG.smartFetch(
+                    const authHeaders = await window.tokenManager.getAuthHeader();
+                    const response = await fetch(
                         "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
                         {
                             method: "POST",
                             headers: {
-                                ...headers,
+                                ...authHeaders,
                                 "Content-Type": "application/json",
-                                Accept: "application/json"
+                                "Accept": "application/json"
                             },
                             body: JSON.stringify({
                                 Tags: updatedTags,
@@ -3234,7 +3234,8 @@ async function executeBulkTagModalAssignment() {
                     );
 
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
+                        const errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
                     }
 
                     // Update local data (SAME AS QUICK ASSIGNMENT)
