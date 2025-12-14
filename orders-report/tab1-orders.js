@@ -18850,18 +18850,26 @@ async function confirmAndPrintSale() {
         }
 
         // Step 1.5: Update debt after order creation
-        // Logic: actualPayment = min(debt, amountTotal), remainingDebt = debt - actualPayment
+        // Logic: actualPayment = min(debt, COD), remainingDebt = debt - actualPayment
         const currentDebt = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+        const codAmount = parseFloat(document.getElementById('saleCOD')?.value) || 0;
         if (currentDebt > 0) {
             const customerPhone = document.getElementById('saleReceiverPhone')?.value || currentSaleOrderData?.PartnerPhone || currentSaleOrderData?.Telephone;
             if (customerPhone) {
-                // Get order total from payload
-                const orderTotal = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
-                // Calculate actual payment and remaining debt
-                const actualPayment = Math.min(currentDebt, orderTotal);
-                const remainingDebt = Math.max(0, currentDebt - orderTotal);
+                // Calculate actual payment and remaining debt based on COD
+                const actualPayment = Math.min(currentDebt, codAmount);
+                const remainingDebt = Math.max(0, currentDebt - codAmount);
 
-                console.log('[SALE-CONFIRM] Step 1.5: Debt calculation - current:', currentDebt, 'orderTotal:', orderTotal, 'paid:', actualPayment, 'remaining:', remainingDebt);
+                console.log('[SALE-CONFIRM] Step 1.5: Debt calculation - current:', currentDebt, 'COD:', codAmount, 'paid:', actualPayment, 'remaining:', remainingDebt);
+
+                // Update UI: update prepaidAmount to remaining debt
+                const prepaidInput = document.getElementById('salePrepaidAmount');
+                if (prepaidInput) {
+                    prepaidInput.value = remainingDebt;
+                    console.log('[SALE-CONFIRM] ✅ Updated prepaidAmount UI to:', remainingDebt);
+                    // Trigger updates for COD and remaining balance
+                    updateSaleCOD();
+                }
 
                 // Call API to update debt and save history (async, don't block)
                 fetch(`${QR_API_URL}/api/sepay/update-debt`, {
@@ -19104,7 +19112,7 @@ function buildFastSaleOrderPayload() {
         SaleOnlineName: '',
         PartnerShippingId: null,
         PaymentJournalId: 1,
-        PaymentAmount: prepaidAmount < cod ? (cod - prepaidAmount) : cod, // Nếu trả trước < COD thì PaymentAmount = COD - trả trước, ngược lại = COD
+        PaymentAmount: prepaidAmount < cod ? prepaidAmount : cod, // Nếu trả trước < COD thì PaymentAmount = trả trước, ngược lại = COD
         SaleOrderId: null,
         SaleOrderIds: [],
         FacebookName: receiverName,
