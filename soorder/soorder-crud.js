@@ -346,8 +346,52 @@ window.SoOrderCRUD = {
     async updateDifferenceResolved(orderId, resolved, note) {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
+        const config = window.SoOrderConfig;
 
-        // Check if currentDayData exists
+        // Handle range mode - find order in rangeData
+        if (state.isRangeMode && state.rangeData && state.rangeData.length > 0) {
+            // Find the day and order in rangeData
+            let foundDayData = null;
+            let foundOrder = null;
+
+            for (const dayData of state.rangeData) {
+                if (dayData.orders) {
+                    const order = dayData.orders.find((o) => o.id === orderId);
+                    if (order) {
+                        foundDayData = dayData;
+                        foundOrder = order;
+                        break;
+                    }
+                }
+            }
+
+            if (!foundOrder || !foundDayData) {
+                utils.showToast("Không tìm thấy đơn hàng", "error");
+                return false;
+            }
+
+            // Update the order
+            foundOrder.differenceResolved = resolved;
+            foundOrder.differenceNote = note;
+            foundOrder.updatedAt = firebase.firestore.Timestamp.now();
+
+            // Save to Firebase for the specific day
+            try {
+                const docRef = config.orderLogsCollectionRef.doc(foundDayData.date);
+                await docRef.set(foundDayData);
+
+                // Re-render
+                window.SoOrderUI.renderTable();
+                window.SoOrderUI.updateFooterSummary();
+                return true;
+            } catch (error) {
+                console.error("Error saving day data:", error);
+                utils.showToast("Lỗi khi lưu dữ liệu: " + error.message, "error");
+                return false;
+            }
+        }
+
+        // Handle single day mode
         if (!state.currentDayData || !state.currentDayData.orders) {
             utils.showToast("Không tìm thấy dữ liệu ngày", "error");
             return false;
