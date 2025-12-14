@@ -1910,6 +1910,22 @@
                 font-size: 13px;
             }
 
+            /* ==================== STICKER MESSAGE STYLING ==================== */
+            .chat-sticker-message {
+                display: inline-block;
+            }
+
+            .chat-sticker-message img {
+                max-width: 150px;
+                max-height: 150px;
+                object-fit: contain;
+                transition: transform 0.2s ease;
+            }
+
+            .chat-sticker-message img:hover {
+                transform: scale(1.1);
+            }
+
             /* ==================== STICKER PICKER MODAL ==================== */
             .sticker-picker-overlay {
                 position: fixed;

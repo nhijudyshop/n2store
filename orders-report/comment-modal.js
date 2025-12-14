@@ -383,6 +383,39 @@ function renderCommentModalComments(comments, scrollToPurchase = false) {
                 else if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
                     content += `<img src="${att.file_url}" class="chat-message-image" loading="lazy" style="max-width: 100%; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="window.open('${att.file_url}', '_blank')" />`;
                 }
+                // Sticker attachment from Messenger (type = 'sticker')
+                else if (att.type === 'sticker' && (att.url || att.file_url)) {
+                    const stickerUrl = att.url || att.file_url;
+                    content += `
+                        <div class="chat-sticker-message" style="margin-top: 8px;">
+                            <img src="${stickerUrl}"
+                                 alt="Sticker"
+                                 style="max-width: 150px; max-height: 150px;"
+                                 loading="lazy" />
+                        </div>`;
+                }
+                // Sticker with sticker_id (alternative Pancake format)
+                else if (att.sticker_id && (att.url || att.file_url)) {
+                    const stickerUrl = att.url || att.file_url;
+                    content += `
+                        <div class="chat-sticker-message" style="margin-top: 8px;">
+                            <img src="${stickerUrl}"
+                                 alt="Sticker"
+                                 style="max-width: 150px; max-height: 150px;"
+                                 loading="lazy" />
+                        </div>`;
+                }
+                // Animated sticker (GIF)
+                else if (att.type === 'animated_image_share' && (att.url || att.file_url)) {
+                    const gifUrl = att.url || att.file_url;
+                    content += `
+                        <div class="chat-sticker-message" style="margin-top: 8px;">
+                            <img src="${gifUrl}"
+                                 alt="GIF"
+                                 style="max-width: 200px; max-height: 200px; border-radius: 8px;"
+                                 loading="lazy" />
+                        </div>`;
+                }
             });
         }
 
