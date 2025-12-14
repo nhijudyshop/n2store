@@ -16374,7 +16374,7 @@ async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
         const headers = await window.tokenManager.getAuthHeader();
 
         const tagsResponse = await API_CONFIG.smartFetch(
-            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=500&$count=true',
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000',
             {
                 method: 'GET',
                 headers: {
