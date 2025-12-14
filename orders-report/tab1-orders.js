@@ -9751,13 +9751,10 @@ function handleChatInputPaste(event) {
             const blob = item.getAsFile();
             currentPastedImage = blob;
 
-            // Disable text input when image is present
+            // Keep input enabled so user can press Enter to send or type additional text
             const chatInput = document.getElementById('chatReplyInput');
             if (chatInput) {
-                chatInput.disabled = true;
-                chatInput.style.opacity = '0.6';
-                chatInput.style.cursor = 'not-allowed';
-                chatInput.placeholder = 'Xóa hoặc gửi ảnh để nhập tin nhắn...';
+                chatInput.placeholder = 'Bấm Enter để gửi ảnh, hoặc nhập thêm tin nhắn...';
             }
 
             // Show preview with loading state
@@ -9937,13 +9934,13 @@ window.updateMultipleImagesPreview = function updateMultipleImagesPreview() {
 
     previewContainer.innerHTML = html;
 
-    // Disable text input when images are present
+    // Keep input enabled so user can press Enter to send or type additional text
     const chatInput = document.getElementById('chatReplyInput');
     if (chatInput) {
-        chatInput.disabled = true;
-        chatInput.style.opacity = '0.6';
-        chatInput.style.cursor = 'not-allowed';
-        chatInput.placeholder = 'Xóa hoặc gửi ảnh để nhập tin nhắn...';
+        chatInput.disabled = false;
+        chatInput.style.opacity = '1';
+        chatInput.style.cursor = 'text';
+        chatInput.placeholder = 'Bấm Enter để gửi ảnh, hoặc nhập thêm tin nhắn...';
     }
 
     // Update send button state based on upload status
