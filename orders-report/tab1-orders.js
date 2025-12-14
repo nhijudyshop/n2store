@@ -3215,7 +3215,7 @@ async function executeBulkTagModalAssignment() {
                         }
                     ];
 
-                    // Call API to assign tag - send only the new tag, not all tags
+                    // Call API to assign tag - send all tags (existing + new)
                     const headers = await window.tokenManager.getAuthHeader();
                     const response = await API_CONFIG.smartFetch(
                         "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
@@ -3227,7 +3227,7 @@ async function executeBulkTagModalAssignment() {
                                 Accept: "application/json"
                             },
                             body: JSON.stringify({
-                                Tags: [tagInfo],
+                                Tags: updatedTags,
                                 OrderId: order.Id
                             }),
                         }
