@@ -9320,15 +9320,16 @@ function handleChatInputPaste(event) {
             // Show preview with loading state
             const reader = new FileReader();
             reader.onload = async function (e) {
-                const previewContainer = document.getElementById('chatImagePreviewContainer');
-                if (!previewContainer) return;
+                try {
+                    const previewContainer = document.getElementById('chatImagePreviewContainer');
+                    if (!previewContainer) return;
 
-                // Show preview with loading overlay
-                previewContainer.style.display = 'flex';
-                previewContainer.style.alignItems = 'center';
-                previewContainer.style.justifyContent = 'space-between';
+                    // Show preview with loading overlay
+                    previewContainer.style.display = 'flex';
+                    previewContainer.style.alignItems = 'center';
+                    previewContainer.style.justifyContent = 'space-between';
 
-                previewContainer.innerHTML = `
+                    previewContainer.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 10px; position: relative;">
                         <img id="pastedImagePreview" src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd; opacity: 0.5;">
                         <div id="uploadOverlay" style="position: absolute; left: 0; top: 0; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.8);">
@@ -9341,40 +9342,67 @@ function handleChatInputPaste(event) {
                     </button>
                 `;
 
-                // Upload immediately
-                const productId = null; // Paste doesn't have productId
-                const productName = null;
-                const channelId = window.currentChatChannelId;
+                    // Upload immediately
+                    const productId = null; // Paste doesn't have productId
+                    const productName = null;
+                    const channelId = window.currentChatChannelId;
 
-                if (!channelId) {
-                    console.warn('[PASTE] No channelId available, skipping upload');
-                    updateUploadPreviewUI(false, 'Không thể upload: Thiếu thông tin', false);
-                    return;
-                }
+                    if (!channelId) {
+                        console.warn('[PASTE] No channelId available, skipping upload');
+                        // Initialize array if needed
+                        if (!window.uploadedImagesData) {
+                            window.uploadedImagesData = [];
+                        }
+                        window.uploadedImagesData.push({
+                            blob: blob,
+                            productId: null,
+                            productName: null,
+                            error: 'Thiếu thông tin channel',
+                            uploadFailed: true
+                        });
+                        updateMultipleImagesPreview();
+                        return;
+                    }
 
-                const result = await uploadImageWithCache(blob, productId, productName, channelId);
+                    const result = await uploadImageWithCache(blob, productId, productName, channelId);
 
-                // Initialize array if needed
-                if (!window.uploadedImagesData) {
-                    window.uploadedImagesData = [];
-                }
+                    // Initialize array if needed
+                    if (!window.uploadedImagesData) {
+                        window.uploadedImagesData = [];
+                    }
 
-                if (result.success) {
-                    // Upload success - ADD to array (not replace)
+                    if (result.success) {
+                        // Upload success - ADD to array (not replace)
+                        window.uploadedImagesData.push({
+                            ...result.data,
+                            blob: blob,
+                            productId: productId,
+                            productName: productName
+                        });
+                        updateMultipleImagesPreview(); // NEW: Update preview with all images
+                    } else {
+                        // Upload failed - still show in preview with error
+                        window.uploadedImagesData.push({
+                            blob: blob,
+                            productId: productId,
+                            productName: productName,
+                            error: result.error,
+                            uploadFailed: true
+                        });
+                        updateMultipleImagesPreview();
+                    }
+                } catch (error) {
+                    console.error('[PASTE] Error handling paste:', error);
+                    // Initialize array if needed
+                    if (!window.uploadedImagesData) {
+                        window.uploadedImagesData = [];
+                    }
+                    // Add failed image to array
                     window.uploadedImagesData.push({
-                        ...result.data,
                         blob: blob,
-                        productId: productId,
-                        productName: productName
-                    });
-                    updateMultipleImagesPreview(); // NEW: Update preview with all images
-                } else {
-                    // Upload failed - still show in preview with error
-                    window.uploadedImagesData.push({
-                        blob: blob,
-                        productId: productId,
-                        productName: productName,
-                        error: result.error,
+                        productId: null,
+                        productName: null,
+                        error: error.message || 'Lỗi không xác định',
                         uploadFailed: true
                     });
                     updateMultipleImagesPreview();
