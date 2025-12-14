@@ -9449,8 +9449,10 @@ window.updateMultipleImagesPreview = function updateMultipleImagesPreview() {
 
     window.uploadedImagesData.forEach((imageData, index) => {
         const imageUrl = imageData.blob ? URL.createObjectURL(imageData.blob) : '';
-        const isUploading = !imageData.content_url && !imageData.uploadFailed;
-        const isSuccess = imageData.content_url && !imageData.uploadFailed;
+        // Check content_id (from upload) instead of content_url (not returned by API)
+        const hasContentId = !!(imageData.content_id || imageData.id);
+        const isUploading = !hasContentId && !imageData.uploadFailed;
+        const isSuccess = hasContentId && !imageData.uploadFailed;
         const isFailed = imageData.uploadFailed;
         const isCached = imageData.cached;
 
@@ -9512,9 +9514,9 @@ function updateSendButtonState() {
     const sendBtn = document.getElementById('chatSendBtn');
     if (!sendBtn) return;
 
-    // Check if any image is still uploading
+    // Check if any image is still uploading (check content_id instead of content_url)
     const hasUploadingImages = window.uploadedImagesData && window.uploadedImagesData.some(img =>
-        !img.content_url && !img.uploadFailed
+        !(img.content_id || img.id) && !img.uploadFailed
     );
 
     if (hasUploadingImages) {
@@ -10648,9 +10650,9 @@ async function sendMessageInternal(messageData) {
                 const imageData = uploadedImagesData[i];
 
                 try {
-                    // Check if image was already uploaded successfully
-                    if (imageData.content_url && !imageData.uploadFailed) {
-                        console.log(`[MESSAGE] Image ${i + 1}: Using pre-uploaded:`, imageData.content_url);
+                    // Check if image was already uploaded successfully (check content_id instead of content_url)
+                    if ((imageData.content_id || imageData.id) && !imageData.uploadFailed) {
+                        console.log(`[MESSAGE] Image ${i + 1}: Using pre-uploaded ID:`, imageData.content_id || imageData.id);
                         imagesDataArray.push(imageData);
                     } else if (imageData.blob) {
                         // Retry upload
@@ -10990,8 +10992,9 @@ async function sendCommentInternal(commentData) {
             showChatSendingIndicator('Đang xử lý ảnh...');
 
             try {
-                if (firstImage.content_url && !firstImage.uploadFailed) {
-                    console.log('[COMMENT] Using pre-uploaded image:', firstImage.content_url);
+                // Check content_id instead of content_url (API returns id, not url)
+                if ((firstImage.content_id || firstImage.id) && !firstImage.uploadFailed) {
+                    console.log('[COMMENT] Using pre-uploaded image ID:', firstImage.content_id || firstImage.id);
                     imageData = firstImage;
                 } else if (firstImage.blob) {
                     console.log('[COMMENT] Uploading image...');
