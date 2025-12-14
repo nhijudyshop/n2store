@@ -9596,10 +9596,8 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 }
 
 window.closeChatModal = async function () {
-    // Cleanup unsaved held products
-    if (typeof window.cleanupHeldProducts === 'function') {
-        await window.cleanupHeldProducts();
-    }
+    // Note: Held products are now persisted - user must explicitly confirm or delete them
+    // So we don't cleanup held products on modal close
 
     // Cleanup held products listener
     if (typeof window.cleanupHeldProductsListener === 'function') {
@@ -14614,6 +14612,7 @@ function renderProductCard(p, index, isHeld) {
                     <div style="font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.4;">
                         ${p.ProductName || p.Name || 'Sản phẩm'}${heldBadge}
                     </div>
+                    ${!isHeld ? `
                     <button onclick="removeChatProduct(${index})" style="
                         background: none;
                         border: none;
@@ -14627,10 +14626,12 @@ function renderProductCard(p, index, isHeld) {
                     " onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">
                         <i class="fas fa-times"></i>
                     </button>
+                    ` : ''}
                 </div>
 
                 <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
                     Mã: ${p.ProductCode || p.Code || 'N/A'}
+                    ${isHeld && p.HeldBy ? `<br><span style="color: #f59e0b;">👤 ${p.HeldBy}</span>` : ''}
                 </div>
 
                 <!-- Controls -->
@@ -14676,6 +14677,52 @@ function renderProductCard(p, index, isHeld) {
                         ">+</button>
                     </div>
                 </div>
+
+                ${isHeld ? `
+                <!-- Held Product Actions -->
+                <div style="display: flex; gap: 6px; margin-top: 8px;">
+                    <button onclick="confirmHeldProduct(${p.ProductId})" style="
+                        flex: 1;
+                        padding: 6px 12px;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 4px;
+                        transition: all 0.2s;
+                    " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.3)'"
+                       onmouseout="this.style.transform=''; this.style.boxShadow=''">
+                        <i class="fas fa-check-circle"></i>
+                        Xác nhận
+                    </button>
+                    <button onclick="deleteHeldProduct(${p.ProductId})" style="
+                        flex: 1;
+                        padding: 6px 12px;
+                        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 4px;
+                        transition: all 0.2s;
+                    " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(239, 68, 68, 0.3)'"
+                       onmouseout="this.style.transform=''; this.style.boxShadow=''">
+                        <i class="fas fa-trash"></i>
+                        Xóa
+                    </button>
+                </div>
+                ` : ''}
             </div>
         </div>
     `;
@@ -15063,9 +15110,179 @@ async function addChatProductFromSearch(productId) {
             searchItem.innerHTML = originalContent;
             searchItem.style.pointerEvents = 'auto';
         }
-        alert("Lỗi khi thêm sản phẩm: " + error.message);
+        if (window.notificationManager) {
+            window.notificationManager.error("Lỗi khi thêm sản phẩm: " + error.message);
+        } else {
+            alert("Lỗi khi thêm sản phẩm: " + error.message);
+        }
     }
 }
+
+/**
+ * Confirm held product - Move from held list to main product list
+ * Fetches full product details from TPOS and removes from Firebase held_products
+ */
+window.confirmHeldProduct = async function(productId) {
+    try {
+        // Find the held product
+        const heldProduct = window.currentChatOrderData?.Details?.find(
+            p => p.ProductId === productId && p.IsHeld === true
+        );
+
+        if (!heldProduct) {
+            throw new Error("Không tìm thấy sản phẩm giữ");
+        }
+
+        // Show loading notification
+        if (window.notificationManager) {
+            window.notificationManager.show("Đang xác nhận sản phẩm...", "info");
+        }
+
+        // Fetch full product details from TPOS
+        const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
+        if (!fullProduct) {
+            throw new Error("Không tìm thấy thông tin sản phẩm từ TPOS");
+        }
+
+        // Fetch product template image if needed
+        if ((!fullProduct.ImageUrl || fullProduct.ImageUrl === "") &&
+            (!fullProduct.Thumbnails || fullProduct.Thumbnails.length === 0)) {
+            if (fullProduct.ProductTmplId) {
+                try {
+                    const templateApiUrl = window.productSearchManager.PRODUCT_API_BASE.replace('/Product', '/ProductTemplate');
+                    const url = `${templateApiUrl}(${fullProduct.ProductTmplId})?$expand=Images`;
+                    const headers = await window.tokenManager.getAuthHeader();
+                    const response = await fetch(url, { method: "GET", headers: headers });
+
+                    if (response.ok) {
+                        const templateData = await response.json();
+                        if (templateData.ImageUrl) fullProduct.ImageUrl = templateData.ImageUrl;
+                    }
+                } catch (e) {
+                    console.warn(`[HELD-CONFIRM] Failed to fetch product template ${fullProduct.ProductTmplId}`, e);
+                }
+            }
+        }
+
+        // Validate sale price
+        const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
+        if (salePrice == null || salePrice < 0) {
+            throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" không có giá bán`);
+        }
+
+        // Check if product already exists in main list
+        const existingIndex = window.currentChatOrderData.Details.findIndex(
+            p => p.ProductId === productId && !p.IsHeld
+        );
+
+        if (existingIndex >= 0) {
+            // Add quantity to existing product
+            window.currentChatOrderData.Details[existingIndex].Quantity += heldProduct.Quantity;
+        } else {
+            // Create new product object
+            const newProduct = {
+                ProductId: fullProduct.Id,
+                Quantity: heldProduct.Quantity,
+                Price: salePrice,
+                Note: null,
+                UOMId: fullProduct.UOM?.Id || 1,
+                Factor: 1,
+                Priority: 0,
+                OrderId: window.currentChatOrderData.Id,
+                LiveCampaign_DetailId: null,
+                ProductWeight: 0,
+
+                // Computed fields
+                ProductName: fullProduct.Name || fullProduct.NameTemplate,
+                ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
+                UOMName: fullProduct.UOM?.Name || "Cái",
+                ImageUrl: fullProduct.ImageUrl || (fullProduct.Thumbnails && fullProduct.Thumbnails[0]) || fullProduct.Parent?.ImageUrl || '',
+                IsOrderPriority: null,
+                QuantityRegex: null,
+                IsDisabledLiveCampaignDetail: false,
+
+                // Additional fields
+                Name: fullProduct.Name,
+                Code: fullProduct.DefaultCode || fullProduct.Barcode
+            };
+
+            window.currentChatOrderData.Details.push(newProduct);
+        }
+
+        // Remove from Firebase held_products
+        if (typeof window.removeHeldProduct === 'function') {
+            await window.removeHeldProduct(productId);
+        }
+
+        // Re-render
+        renderChatProductsTable();
+
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.show("✅ Đã xác nhận và thêm vào đơn hàng", "success");
+        }
+
+        console.log('[HELD-CONFIRM] ✓ Confirmed held product:', productId);
+
+    } catch (error) {
+        console.error('[HELD-CONFIRM] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error("❌ Lỗi khi xác nhận: " + error.message);
+        } else {
+            alert("❌ Lỗi khi xác nhận: " + error.message);
+        }
+    }
+};
+
+/**
+ * Delete held product - Remove from held list with confirmation
+ */
+window.deleteHeldProduct = async function(productId) {
+    try {
+        // Find the held product
+        const heldProduct = window.currentChatOrderData?.Details?.find(
+            p => p.ProductId === productId && p.IsHeld === true
+        );
+
+        if (!heldProduct) {
+            if (window.notificationManager) {
+                window.notificationManager.error("Không tìm thấy sản phẩm giữ");
+            }
+            return;
+        }
+
+        // Show confirmation dialog
+        const confirmed = window.CustomPopup
+            ? await window.CustomPopup.confirm(
+                `Bạn có chắc muốn xóa sản phẩm "${heldProduct.ProductName || heldProduct.Name}" khỏi danh sách giữ?`,
+                'Xác nhận xóa'
+              )
+            : confirm(`Bạn có chắc muốn xóa sản phẩm "${heldProduct.ProductName || heldProduct.Name}" khỏi danh sách giữ?`);
+
+        if (!confirmed) return;
+
+        // Remove from Firebase held_products
+        if (typeof window.removeHeldProduct === 'function') {
+            await window.removeHeldProduct(productId);
+        }
+
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.show("✅ Đã xóa sản phẩm khỏi danh sách giữ", "success");
+        }
+
+        console.log('[HELD-DELETE] ✓ Deleted held product:', productId);
+
+    } catch (error) {
+        console.error('[HELD-DELETE] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error("❌ Lỗi khi xóa: " + error.message);
+        } else {
+            alert("❌ Lỗi khi xóa: " + error.message);
+        }
+    }
+};
 
 // --- Action Logic ---
 
@@ -15112,8 +15329,13 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
  * Works with both currentChatOrderDetails and window.currentChatOrderData.Details
  * Removes held products from Firebase for multi-user sync
  */
-function removeChatProduct(index) {
-    if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
+async function removeChatProduct(index) {
+    // Show confirmation using CustomPopup
+    const confirmed = window.CustomPopup
+        ? await window.CustomPopup.confirm("Bạn có chắc muốn xóa sản phẩm này?", "Xác nhận xóa")
+        : confirm("Bạn có chắc muốn xóa sản phẩm này?");
+
+    if (!confirmed) return;
 
     // Get the correct data source
     const productsArray = (window.currentChatOrderData && window.currentChatOrderData.Details)
