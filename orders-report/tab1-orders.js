@@ -19009,7 +19009,6 @@ function buildFastSaleOrderPayload() {
     const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 35000;
     const cod = parseFloat(document.getElementById('saleCOD')?.value) || 0;
     const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
-    const remainingBalance = parseFloat(document.getElementById('saleRemainingBalance')?.textContent?.replace(/[^\d]/g, '')) || 0;
 
     // Get carrier
     const carrierSelect = document.getElementById('saleCarrier');
@@ -19105,7 +19104,7 @@ function buildFastSaleOrderPayload() {
         SaleOnlineName: '',
         PartnerShippingId: null,
         PaymentJournalId: 1,
-        PaymentAmount: remainingBalance !== 0 ? remainingBalance : cod, // Nếu còn phải trả != 0 thì dùng còn phải trả, ngược lại dùng COD
+        PaymentAmount: prepaidAmount, // Số tiền đã trả trước
         SaleOrderId: null,
         SaleOrderIds: [],
         FacebookName: receiverName,
