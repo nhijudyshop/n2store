@@ -587,4 +587,166 @@ window.SoOrderCRUD = {
             utils.showToast("Lỗi khi tải dữ liệu: " + error.message, "error");
         }
     },
+
+    // =====================================================
+    // NCC NAMES MANAGEMENT
+    // =====================================================
+
+    // Load all NCC names from Firebase
+    async loadNCCNames() {
+        const config = window.SoOrderConfig;
+        const state = window.SoOrderState;
+
+        try {
+            const snapshot = await config.nccNamesCollectionRef.get();
+            state.nccNames = [];
+
+            snapshot.forEach((doc) => {
+                state.nccNames.push({
+                    code: doc.id,
+                    name: doc.data().name,
+                });
+            });
+
+            // Sort by code (A1, A2, A10, etc.)
+            state.nccNames.sort((a, b) => {
+                const numA = parseInt(a.code.replace(/^A/i, "")) || 0;
+                const numB = parseInt(b.code.replace(/^A/i, "")) || 0;
+                return numA - numB;
+            });
+
+            return state.nccNames;
+        } catch (error) {
+            console.error("Error loading NCC names:", error);
+            return [];
+        }
+    },
+
+    // Save a new NCC name to Firebase
+    // Returns: { success: boolean, conflict: boolean, existingName: string|null }
+    async saveNCCName(supplierName) {
+        const config = window.SoOrderConfig;
+        const state = window.SoOrderState;
+        const utils = window.SoOrderUtils;
+
+        // Extract Ax code from name
+        const code = this.parseNCCCode(supplierName);
+        if (!code) {
+            // No valid Ax code, don't save
+            return { success: false, conflict: false, existingName: null };
+        }
+
+        const trimmedName = supplierName.trim();
+
+        // Check if code already exists with different name
+        const existing = state.nccNames.find(
+            (n) => n.code.toUpperCase() === code.toUpperCase()
+        );
+
+        if (existing && existing.name !== trimmedName) {
+            // Conflict detected
+            return { success: false, conflict: true, existingName: existing.name };
+        }
+
+        if (existing && existing.name === trimmedName) {
+            // Already exists with same name, no action needed
+            return { success: true, conflict: false, existingName: null };
+        }
+
+        // Save new NCC name
+        try {
+            const docRef = config.nccNamesCollectionRef.doc(code.toUpperCase());
+            await docRef.set({ name: trimmedName });
+
+            // Update state
+            state.nccNames.push({ code: code.toUpperCase(), name: trimmedName });
+            state.nccNames.sort((a, b) => {
+                const numA = parseInt(a.code.replace(/^A/i, "")) || 0;
+                const numB = parseInt(b.code.replace(/^A/i, "")) || 0;
+                return numA - numB;
+            });
+
+            return { success: true, conflict: false, existingName: null };
+        } catch (error) {
+            console.error("Error saving NCC name:", error);
+            utils.showToast("Lỗi khi lưu tên NCC: " + error.message, "error");
+            return { success: false, conflict: false, existingName: null };
+        }
+    },
+
+    // Update an existing NCC name
+    async updateNCCName(code, newName) {
+        const config = window.SoOrderConfig;
+        const state = window.SoOrderState;
+        const utils = window.SoOrderUtils;
+
+        try {
+            const docRef = config.nccNamesCollectionRef.doc(code.toUpperCase());
+            await docRef.set({ name: newName.trim() });
+
+            // Update state
+            const existing = state.nccNames.find(
+                (n) => n.code.toUpperCase() === code.toUpperCase()
+            );
+            if (existing) {
+                existing.name = newName.trim();
+            }
+
+            return true;
+        } catch (error) {
+            console.error("Error updating NCC name:", error);
+            utils.showToast("Lỗi khi cập nhật tên NCC: " + error.message, "error");
+            return false;
+        }
+    },
+
+    // Delete an NCC name
+    async deleteNCCName(code) {
+        const config = window.SoOrderConfig;
+        const state = window.SoOrderState;
+        const utils = window.SoOrderUtils;
+
+        try {
+            const docRef = config.nccNamesCollectionRef.doc(code.toUpperCase());
+            await docRef.delete();
+
+            // Update state
+            state.nccNames = state.nccNames.filter(
+                (n) => n.code.toUpperCase() !== code.toUpperCase()
+            );
+
+            utils.showToast("Đã xóa tên NCC", "success");
+            return true;
+        } catch (error) {
+            console.error("Error deleting NCC name:", error);
+            utils.showToast("Lỗi khi xóa tên NCC: " + error.message, "error");
+            return false;
+        }
+    },
+
+    // Parse Ax code from supplier name (e.g., "A1 Tên gợi nhớ" => "A1")
+    parseNCCCode(supplierName) {
+        if (!supplierName) return null;
+        const match = supplierName.trim().match(/^(A\d+)/i);
+        return match ? match[1].toUpperCase() : null;
+    },
+
+    // Check if there's a conflict with existing NCC names
+    checkNCCConflict(supplierName) {
+        const state = window.SoOrderState;
+        const code = this.parseNCCCode(supplierName);
+
+        if (!code) return null;
+
+        const trimmedName = supplierName.trim();
+        const existing = state.nccNames.find(
+            (n) => n.code.toUpperCase() === code.toUpperCase()
+        );
+
+        if (existing && existing.name !== trimmedName) {
+            return existing.name;
+        }
+
+        return null;
+    },
 };

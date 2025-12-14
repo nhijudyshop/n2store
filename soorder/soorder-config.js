@@ -21,6 +21,10 @@ const db = firebase.firestore();
 // Each document represents one day: { date, isHoliday, orders: [] }
 const orderLogsCollectionRef = db.collection("order-logs");
 
+// NCC names collection - stores supplier names with Ax codes
+// Each document: { code: "A1", name: "A1 Tên gợi nhớ" }
+const nccNamesCollectionRef = db.collection("ncc-names");
+
 // Global state
 window.SoOrderState = {
     currentDate: new Date(),
@@ -43,6 +47,9 @@ window.SoOrderState = {
     // Filter state
     showOnlyUnpaid: false, // Whether to show only unpaid orders
     showOnlyWithDiscrepancy: false, // Whether to show only orders with discrepancy != 0
+
+    // NCC names state
+    nccNames: [], // Array of { code: "A1", name: "A1 Tên gợi nhớ" }
 };
 
 // DOM elements (will be set after DOM ready)
@@ -129,6 +136,26 @@ window.SoOrderElements = {
 
     // Toast
     toastContainer: null,
+
+    // NCC management elements
+    btnManageNCC: null,
+    nccManageModal: null,
+    nccManageModalOverlay: null,
+    btnCloseNCCManageModal: null,
+    btnCancelNCCManage: null,
+    nccList: null,
+    addSupplierSuggestions: null,
+    editSupplierSuggestions: null,
+
+    // NCC conflict modal elements
+    nccConflictModal: null,
+    nccConflictModalOverlay: null,
+    btnCloseNCCConflictModal: null,
+    nccConflictNewName: null,
+    nccConflictExistingName: null,
+    btnUseNewNCC: null,
+    btnUseExistingNCC: null,
+    btnCancelNCCConflict: null,
 };
 
 // Export for other modules
@@ -137,4 +164,5 @@ window.SoOrderConfig = {
     app,
     db,
     orderLogsCollectionRef,
+    nccNamesCollectionRef,
 };

@@ -22,6 +22,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Setup keyboard navigation
     window.SoOrderUtils.setupKeyboardNavigation();
 
+    // Load NCC names from Firebase
+    await window.SoOrderCRUD.loadNCCNames();
+
     // Load today's data
     window.SoOrderUtils.gotoToday();
 
@@ -125,6 +128,26 @@ function initDOMElements() {
 
     // Toast
     elements.toastContainer = document.getElementById("toastContainer");
+
+    // NCC Management elements
+    elements.btnManageNCC = document.getElementById("btnManageNCC");
+    elements.nccManageModal = document.getElementById("nccManageModal");
+    elements.nccManageModalOverlay = document.getElementById("nccManageModalOverlay");
+    elements.btnCloseNCCManageModal = document.getElementById("btnCloseNCCManageModal");
+    elements.btnCancelNCCManage = document.getElementById("btnCancelNCCManage");
+    elements.nccList = document.getElementById("nccList");
+    elements.nccEmptyState = document.getElementById("nccEmptyState");
+    elements.addSupplierSuggestions = document.getElementById("addSupplierSuggestions");
+    elements.editSupplierSuggestions = document.getElementById("editSupplierSuggestions");
+
+    // NCC Conflict modal elements
+    elements.nccConflictModal = document.getElementById("nccConflictModal");
+    elements.nccConflictModalOverlay = document.getElementById("nccConflictModalOverlay");
+    elements.btnCloseNCCConflictModal = document.getElementById("btnCloseNCCConflictModal");
+    elements.nccConflictNewName = document.getElementById("nccConflictNewName");
+    elements.nccConflictExistingName = document.getElementById("nccConflictExistingName");
+    elements.btnCancelNCCConflict = document.getElementById("btnCancelNCCConflict");
+    elements.btnConfirmNCCConflict = document.getElementById("btnConfirmNCCConflict");
 }
 
 function setupEventListeners() {
@@ -512,6 +535,97 @@ function setupEventListeners() {
             }
         });
     }
+
+    // =====================================================
+    // NCC MANAGEMENT
+    // =====================================================
+
+    // Manage NCC button
+    if (elements.btnManageNCC) {
+        elements.btnManageNCC.addEventListener("click", () => {
+            ui.showNCCManageModal();
+        });
+    }
+
+    // Close NCC manage modal button
+    if (elements.btnCloseNCCManageModal) {
+        elements.btnCloseNCCManageModal.addEventListener("click", () => {
+            ui.hideNCCManageModal();
+        });
+    }
+
+    // NCC manage modal overlay click
+    if (elements.nccManageModalOverlay) {
+        elements.nccManageModalOverlay.addEventListener("click", () => {
+            ui.hideNCCManageModal();
+        });
+    }
+
+    // Cancel NCC manage button
+    if (elements.btnCancelNCCManage) {
+        elements.btnCancelNCCManage.addEventListener("click", () => {
+            ui.hideNCCManageModal();
+        });
+    }
+
+    // NCC Conflict modal
+    if (elements.btnCloseNCCConflictModal) {
+        elements.btnCloseNCCConflictModal.addEventListener("click", () => {
+            ui.hideNCCConflictModal();
+        });
+    }
+
+    if (elements.nccConflictModalOverlay) {
+        elements.nccConflictModalOverlay.addEventListener("click", () => {
+            ui.hideNCCConflictModal();
+        });
+    }
+
+    if (elements.btnCancelNCCConflict) {
+        elements.btnCancelNCCConflict.addEventListener("click", () => {
+            ui.hideNCCConflictModal();
+        });
+    }
+
+    if (elements.btnConfirmNCCConflict) {
+        elements.btnConfirmNCCConflict.addEventListener("click", () => {
+            ui.handleNCCConflictConfirm();
+        });
+    }
+
+    // NCC Suggestions - Add form
+    if (elements.addSupplier) {
+        elements.addSupplier.addEventListener("input", () => {
+            ui.showNCCSuggestions(elements.addSupplier, elements.addSupplierSuggestions);
+        });
+        elements.addSupplier.addEventListener("focus", () => {
+            if (elements.addSupplier.value.trim()) {
+                ui.showNCCSuggestions(elements.addSupplier, elements.addSupplierSuggestions);
+            }
+        });
+    }
+
+    // NCC Suggestions - Edit form
+    if (elements.editSupplier) {
+        elements.editSupplier.addEventListener("input", () => {
+            ui.showNCCSuggestions(elements.editSupplier, elements.editSupplierSuggestions);
+        });
+        elements.editSupplier.addEventListener("focus", () => {
+            if (elements.editSupplier.value.trim()) {
+                ui.showNCCSuggestions(elements.editSupplier, elements.editSupplierSuggestions);
+            }
+        });
+    }
+
+    // Hide suggestions on click outside
+    document.addEventListener("click", (e) => {
+        const target = e.target;
+        const isInsideSuggestion = target.closest(".ncc-suggestions") ||
+            target.closest(".ncc-input-wrapper");
+        if (!isInsideSuggestion) {
+            ui.hideNCCSuggestions();
+        }
+    });
 
     console.log("Event listeners setup complete!");
 }

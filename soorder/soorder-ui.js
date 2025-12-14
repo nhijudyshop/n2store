@@ -436,7 +436,8 @@ window.SoOrderUI = {
                 : false,
         };
 
-        const success = await window.SoOrderCRUD.addOrder(orderData);
+        // Use NCC check processing
+        const success = await this.processOrderWithNCCCheck(orderData, false);
 
         if (success) {
             this.hideAddForm();
@@ -512,10 +513,8 @@ window.SoOrderUI = {
                 : false,
         };
 
-        const success = await window.SoOrderCRUD.updateOrder(
-            state.editingOrderId,
-            updatedData
-        );
+        // Use NCC check processing
+        const success = await this.processOrderWithNCCCheck(updatedData, true);
 
         if (success) {
             this.hideEditModal();
@@ -1011,5 +1010,259 @@ window.SoOrderUI = {
         const div = document.createElement("div");
         div.textContent = text;
         return div.innerHTML;
+    },
+
+    // =====================================================
+    // NCC MANAGEMENT
+    // =====================================================
+
+    // Show NCC suggestions dropdown
+    showNCCSuggestions(inputElement, suggestionsElement) {
+        const state = window.SoOrderState;
+        const value = inputElement.value.trim().toLowerCase();
+
+        if (!suggestionsElement) return;
+
+        // Clear previous suggestions
+        suggestionsElement.innerHTML = "";
+
+        if (!value || state.nccNames.length === 0) {
+            suggestionsElement.classList.remove("active");
+            return;
+        }
+
+        // Filter matching NCC names
+        const matches = state.nccNames.filter((ncc) =>
+            ncc.name.toLowerCase().includes(value)
+        );
+
+        if (matches.length === 0) {
+            suggestionsElement.classList.remove("active");
+            return;
+        }
+
+        // Create suggestion items
+        matches.forEach((ncc) => {
+            const item = document.createElement("div");
+            item.className = "ncc-suggestion-item";
+            item.innerHTML = `<span class="ncc-code">${ncc.code}</span><span class="ncc-name">${this.escapeHtml(ncc.name.substring(ncc.code.length))}</span>`;
+            item.addEventListener("click", () => {
+                inputElement.value = ncc.name;
+                suggestionsElement.classList.remove("active");
+                inputElement.focus();
+            });
+            suggestionsElement.appendChild(item);
+        });
+
+        suggestionsElement.classList.add("active");
+    },
+
+    // Hide all NCC suggestions
+    hideNCCSuggestions() {
+        const elements = window.SoOrderElements;
+        if (elements.addSupplierSuggestions) {
+            elements.addSupplierSuggestions.classList.remove("active");
+        }
+        if (elements.editSupplierSuggestions) {
+            elements.editSupplierSuggestions.classList.remove("active");
+        }
+    },
+
+    // Show NCC management modal
+    async showNCCManageModal() {
+        const elements = window.SoOrderElements;
+
+        // Load latest NCC names
+        await window.SoOrderCRUD.loadNCCNames();
+
+        // Render NCC list
+        this.renderNCCList();
+
+        // Show modal
+        if (elements.nccManageModal) {
+            elements.nccManageModal.style.display = "flex";
+        }
+
+        // Initialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    },
+
+    // Hide NCC management modal
+    hideNCCManageModal() {
+        const elements = window.SoOrderElements;
+        if (elements.nccManageModal) {
+            elements.nccManageModal.style.display = "none";
+        }
+    },
+
+    // Render NCC list in management modal
+    renderNCCList() {
+        const state = window.SoOrderState;
+        const elements = window.SoOrderElements;
+
+        if (!elements.nccList) return;
+
+        elements.nccList.innerHTML = "";
+
+        if (state.nccNames.length === 0) {
+            if (elements.nccEmptyState) {
+                elements.nccEmptyState.style.display = "flex";
+            }
+            elements.nccList.style.display = "none";
+            return;
+        }
+
+        if (elements.nccEmptyState) {
+            elements.nccEmptyState.style.display = "none";
+        }
+        elements.nccList.style.display = "block";
+
+        state.nccNames.forEach((ncc) => {
+            const item = document.createElement("div");
+            item.className = "ncc-list-item";
+            item.innerHTML = `
+                <div class="ncc-list-item-info">
+                    <span class="ncc-list-item-code">${ncc.code}</span>
+                    <span class="ncc-list-item-name">${this.escapeHtml(ncc.name)}</span>
+                </div>
+                <div class="ncc-list-item-actions">
+                    <button class="btn-icon-sm delete" title="Xóa" data-code="${ncc.code}">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>
+            `;
+
+            // Add delete handler
+            const deleteBtn = item.querySelector(".delete");
+            deleteBtn.addEventListener("click", async () => {
+                if (confirm(`Bạn có chắc chắn muốn xóa "${ncc.name}"?`)) {
+                    await window.SoOrderCRUD.deleteNCCName(ncc.code);
+                    this.renderNCCList();
+                }
+            });
+
+            elements.nccList.appendChild(item);
+        });
+
+        // Initialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    },
+
+    // NCC conflict state
+    nccConflictCallback: null,
+    nccConflictNewName: "",
+    nccConflictExistingName: "",
+
+    // Show NCC conflict modal
+    showNCCConflictModal(newName, existingName, callback) {
+        const elements = window.SoOrderElements;
+
+        this.nccConflictCallback = callback;
+        this.nccConflictNewName = newName;
+        this.nccConflictExistingName = existingName;
+
+        // Set names in modal
+        if (elements.nccConflictNewName) {
+            elements.nccConflictNewName.textContent = newName;
+        }
+        if (elements.nccConflictExistingName) {
+            elements.nccConflictExistingName.textContent = existingName;
+        }
+
+        // Reset radio selection to new
+        const newRadio = document.querySelector('input[name="nccConflictChoice"][value="new"]');
+        if (newRadio) newRadio.checked = true;
+
+        // Show modal
+        if (elements.nccConflictModal) {
+            elements.nccConflictModal.style.display = "flex";
+        }
+    },
+
+    // Hide NCC conflict modal
+    hideNCCConflictModal() {
+        const elements = window.SoOrderElements;
+        if (elements.nccConflictModal) {
+            elements.nccConflictModal.style.display = "none";
+        }
+        this.nccConflictCallback = null;
+    },
+
+    // Handle NCC conflict confirmation
+    handleNCCConflictConfirm() {
+        const selectedValue = document.querySelector('input[name="nccConflictChoice"]:checked')?.value;
+
+        if (this.nccConflictCallback) {
+            if (selectedValue === "new") {
+                // User chose new name - update the stored name
+                this.nccConflictCallback(this.nccConflictNewName, true);
+            } else {
+                // User chose existing name - use stored name
+                this.nccConflictCallback(this.nccConflictExistingName, false);
+            }
+        }
+
+        this.hideNCCConflictModal();
+    },
+
+    // Process order with NCC check
+    async processOrderWithNCCCheck(orderData, isEdit) {
+        const crud = window.SoOrderCRUD;
+        const supplierName = orderData.supplier.trim();
+
+        // Check for conflict
+        const existingName = crud.checkNCCConflict(supplierName);
+
+        if (existingName) {
+            // Show conflict modal
+            return new Promise((resolve) => {
+                this.showNCCConflictModal(supplierName, existingName, async (chosenName, isNew) => {
+                    // Update orderData with chosen name
+                    orderData.supplier = chosenName;
+
+                    // If user chose new name, update the stored NCC name
+                    if (isNew) {
+                        const code = crud.parseNCCCode(chosenName);
+                        if (code) {
+                            await crud.updateNCCName(code, chosenName);
+                        }
+                    }
+
+                    // Proceed with order operation
+                    let success;
+                    if (isEdit) {
+                        success = await crud.updateOrder(window.SoOrderState.editingOrderId, orderData);
+                    } else {
+                        success = await crud.addOrder(orderData);
+                    }
+
+                    if (success && !isEdit) {
+                        // Save NCC name for new orders (if no conflict, the new name was already updated)
+                        await crud.saveNCCName(chosenName);
+                    }
+
+                    resolve(success);
+                });
+            });
+        }
+
+        // No conflict - proceed normally
+        let success;
+        if (isEdit) {
+            success = await crud.updateOrder(window.SoOrderState.editingOrderId, orderData);
+        } else {
+            success = await crud.addOrder(orderData);
+        }
+
+        if (success) {
+            // Save NCC name
+            await crud.saveNCCName(supplierName);
+        }
+
+        return success;
     },
 };
