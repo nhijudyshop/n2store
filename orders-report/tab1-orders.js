@@ -9282,135 +9282,106 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Fetch messages or comments based on type
     try {
         if (type === 'comment') {
-            // Fetch initial comments with pagination support
-            // CRITICAL: Truyền postId và customerName để tìm đúng conversation
-            // Vì cùng 1 khách hàng có thể comment trên nhiều post khác nhau
-            const postId = window.purchaseFacebookPostId;
-            const customerName = order.Facebook_UserName;
-            const response = await window.chatDataManager.fetchComments(channelId, psid, null, postId, customerName);
-            window.allChatComments = response.comments || [];
-            currentChatCursor = response.after; // Store cursor for next page
-
-            // Update customer UUID from response if not already set
-            if (response.customerId && !window.currentCustomerUUID) {
-                window.currentCustomerUUID = response.customerId;
-                console.log(`[CHAT] ✅ Updated currentCustomerUUID from comments response: ${window.currentCustomerUUID}`);
-            }
-
-            // Lấy parent comment ID từ comment đầu tiên (comment gốc)
-            if (window.allChatComments.length > 0) {
-                // Tìm comment gốc (parent comment) - thường là comment không có ParentId hoặc comment đầu tiên
-                const rootComment = window.allChatComments.find(c => !c.ParentId) || window.allChatComments[0];
-                if (rootComment && rootComment.Id) {
-                    currentParentCommentId = getFacebookCommentId(rootComment);
-                    console.log(`[CHAT] Got parent comment ID: ${currentParentCommentId} (from ${rootComment.Id})`);
-
-                    // Debug log to help identify correct field
-                    console.log('[CHAT] Root comment object:', rootComment);
-                }
-            }
-
-            // Construct conversationId from postId and parentCommentId
-            // Format: postId_commentId (e.g., "1382798016618291_817929370998475")
-            const facebookPostId = order.Facebook_PostId || currentPostId;
-            if (facebookPostId && currentParentCommentId) {
-                // Check if currentParentCommentId already has format postId_commentId
-                if (currentParentCommentId.includes('_')) {
-                    // Already a full conversation ID, use as-is
-                    window.currentConversationId = currentParentCommentId;
-                    console.log(`[CHAT] Using currentParentCommentId as conversationId: ${window.currentConversationId}`);
-                } else {
-                    // Just a comment ID, need to prepend postId
-                    const postId = extractPostId(facebookPostId);
-                    window.currentConversationId = `${postId}_${currentParentCommentId}`;
-                    console.log(`[CHAT] Constructed conversationId for comment: ${window.currentConversationId} (from ${facebookPostId})`);
-                }
-            } else {
-                // Fallback: Try to get from Pancake data manager
-                if (window.pancakeDataManager) {
-                    const pancakeCommentInfo = window.pancakeDataManager.getLastCommentForOrder(order);
-                    if (pancakeCommentInfo && pancakeCommentInfo.conversationId) {
-                        window.currentConversationId = pancakeCommentInfo.conversationId;
-                        console.log(`[CHAT] Got conversationId from Pancake: ${window.currentConversationId}`);
-                    }
-                }
-            }
-
-            console.log(`[CHAT] Initial load: ${window.allChatComments.length} comments, cursor: ${currentChatCursor}`);
-
-            renderComments(window.allChatComments, true);
-
-            // Fetch inbox_preview for comment modal - lấy customer ID từ conversations
+            // Fetch COMMENT conversations from Pancake to get conversation IDs
             const facebookPsid = order.Facebook_ASUserId;
-            // facebookPostId đã được khai báo ở trên (dòng 6426)
-            let pancakeCustomerUuid = null;
+            const facebookPostId = order.Facebook_PostId;
 
-            console.log('[CHAT-MODAL] 🔍 Starting inbox_preview fetch for COMMENT...');
-            console.log('[CHAT-MODAL] - Facebook PSID:', facebookPsid);
-            console.log('[CHAT-MODAL] - Facebook PostId:', facebookPostId);
+            console.log('[CHAT-MODAL] 🔍 Fetching COMMENT conversations by fb_id:', facebookPsid, 'post_id:', facebookPostId);
 
-            if (window.pancakeDataManager && facebookPostId) {
-                const facebookPsid = order.Facebook_ASUserId;
-                console.log('[CHAT-MODAL] 🔍 Fetching conversations by fb_id:', facebookPsid, 'channelId:', channelId, 'post_id:', facebookPostId);
+            if (window.pancakeDataManager && facebookPsid && facebookPostId) {
                 try {
-                    // Dùng API trực tiếp: GET /conversations/customer/{fb_id}?pages[{pageId}]=0
+                    // Fetch all conversations for this customer
                     const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid);
 
                     if (result.success && result.conversations.length > 0) {
                         console.log('[CHAT-MODAL] ✅ Found', result.conversations.length, 'conversations for fb_id:', facebookPsid);
 
-                        // Lưu customer UUID
-                        pancakeCustomerUuid = result.customerUuid;
-                        window.currentCustomerUUID = pancakeCustomerUuid;
-                        console.log('[CHAT-MODAL] ✅ Got customer UUID:', pancakeCustomerUuid);
+                        // Save customer UUID
+                        window.currentCustomerUUID = result.customerUuid;
+                        console.log('[CHAT-MODAL] ✅ Got customer UUID:', window.currentCustomerUUID);
 
                         // Filter COMMENT conversations matching post_id
-                        const matchingConversations = result.conversations.filter(conv => {
+                        const commentConversations = result.conversations.filter(conv => {
                             return conv.type === 'COMMENT' && conv.post_id === facebookPostId;
                         });
 
-                        if (matchingConversations.length > 0) {
-                            // Populate conversation selector với TẤT CẢ COMMENT conversations
-                            const mostRecentConv = window.populateConversationSelector(matchingConversations, matchingConversations[0]?.id);
+                        if (commentConversations.length > 0) {
+                            // Populate conversation selector if multiple COMMENT conversations
+                            const mostRecentConv = window.populateConversationSelector(commentConversations, commentConversations[0]?.id);
+                            const selectedConv = mostRecentConv || commentConversations[0];
 
-                            // Dùng conversation đầu tiên hoặc most recent
-                            const selectedConv = mostRecentConv || matchingConversations[0];
-
-                            // Lấy conversationId từ COMMENT conversation
+                            // Save COMMENT conversation ID
                             window.currentConversationId = selectedConv.id;
                             window.currentCommentConversationId = selectedConv.id;
-                            console.log('[CHAT-MODAL] ✅ Found', matchingConversations.length, 'COMMENT conversations matching post_id:', facebookPostId);
+
+                            console.log('[CHAT-MODAL] ✅ Found', commentConversations.length, 'COMMENT conversations matching post_id:', facebookPostId);
                             console.log('[CHAT-MODAL] ✅ Using conversationId:', window.currentConversationId);
+
+                            // Now fetch messages for this COMMENT conversation
+                            console.log('[CHAT-MODAL] 📥 Fetching messages for COMMENT conversation...');
+
+                            const messagesResponse = await window.pancakeDataManager.fetchMessagesForConversation(
+                                channelId,
+                                window.currentConversationId,
+                                null,
+                                window.currentCustomerUUID
+                            );
+
+                            // Store as comments (they are messages from COMMENT conversation)
+                            window.allChatComments = messagesResponse.messages || [];
+                            currentChatCursor = messagesResponse.after;
+
+                            console.log('[CHAT-MODAL] ✅ Loaded', window.allChatComments.length, 'comments/messages');
+
+                            // Render comments
+                            renderComments(window.allChatComments, true);
+
                         } else {
-                            console.warn('[CHAT-MODAL] ⚠️ No COMMENT conversation matched post_id:', facebookPostId);
+                            console.warn('[CHAT-MODAL] ⚠️ No COMMENT conversation found for post:', facebookPostId);
+                            modalBody.innerHTML = `
+                                <div class="chat-error">
+                                    <i class="fas fa-info-circle"></i>
+                                    <p>Không tìm thấy bình luận cho bài viết này</p>
+                                </div>`;
                         }
 
-                        // Also get INBOX conversation if exists
+                        // Also save INBOX conversation ID for quick switching
                         const inboxConv = result.conversations.find(conv => conv.type === 'INBOX');
                         if (inboxConv) {
                             window.currentInboxConversationId = inboxConv.id;
                             console.log('[CHAT-MODAL] ✅ Found INBOX conversationId:', window.currentInboxConversationId);
                         }
+
                     } else {
                         console.warn('[CHAT-MODAL] ⚠️ No conversations found for fb_id:', facebookPsid);
+                        modalBody.innerHTML = `
+                            <div class="chat-error">
+                                <i class="fas fa-info-circle"></i>
+                                <p>Không tìm thấy cuộc hội thoại</p>
+                            </div>`;
                     }
                 } catch (fetchError) {
-                    console.error('[CHAT-MODAL] ❌ Error fetching conversations:', fetchError);
+                    console.error('[CHAT-MODAL] ❌ Error fetching COMMENT conversations:', fetchError);
+                    modalBody.innerHTML = `
+                        <div class="chat-error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Lỗi khi tải bình luận</p>
+                            <p style="font-size: 12px; color: #6b7280;">${fetchError.message}</p>
+                        </div>`;
                 }
             } else {
-                console.warn('[CHAT-MODAL] ⚠️ Missing pancakeDataManager or facebookPostId');
-            }
-
-            // Nếu vẫn chưa có customer UUID, log warning
-            if (!pancakeCustomerUuid) {
-                console.warn('[CHAT-MODAL] ⚠️ No customer UUID found after fetch');
+                console.warn('[CHAT-MODAL] ⚠️ Missing pancakeDataManager or required data');
+                modalBody.innerHTML = `
+                    <div class="chat-error">
+                        <i class="fas fa-info-circle"></i>
+                        <p>Thiếu thông tin để tải bình luận</p>
+                    </div>`;
             }
 
             // Setup infinite scroll for comments
             setupChatInfiniteScroll();
-
-            // Setup new message indicator listener
             setupNewMessageIndicatorListener();
+
         } else {
             // Fetch messages
             const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
