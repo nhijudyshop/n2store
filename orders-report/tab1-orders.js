@@ -7560,8 +7560,18 @@ async function addProductToOrderFromInline(productId) {
             // QUAN TRỌNG: Product mới - THÊM ĐẦY ĐỦ COMPUTED FIELDS
             // ============================================
 
-            // Validate sale price - only block negative prices (allow 0 for free items)
-            const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice || 0;
+            // Validate sale price - use PriceVariant or ListPrice (no fallback to StandardPrice)
+            // Use ?? (nullish coalescing) instead of || to preserve 0 values
+            const salePrice = fullProduct.PriceVariant ?? fullProduct.ListPrice;
+
+            // Block if price is null/undefined or negative (allow 0 for free items)
+            if (salePrice == null) {
+                throw new Error(
+                    `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán. ` +
+                    `Vui lòng cập nhật PriceVariant hoặc ListPrice trong TPOS.`
+                );
+            }
+
             if (salePrice < 0) {
                 throw new Error(
                     `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) có giá âm: ${salePrice.toLocaleString('vi-VN')}đ. ` +
@@ -14204,8 +14214,18 @@ async function addChatProductFromSearch(productId) {
         } else {
             // 3. Create new product object using EXACT logic from addProductToOrderFromInline
 
-            // Validate sale price - only block negative prices (allow 0 for free items)
-            const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice || 0;
+            // Validate sale price - use PriceVariant or ListPrice (no fallback to StandardPrice)
+            // Use ?? (nullish coalescing) instead of || to preserve 0 values
+            const salePrice = fullProduct.PriceVariant ?? fullProduct.ListPrice;
+
+            // Block if price is null/undefined or negative (allow 0 for free items)
+            if (salePrice == null) {
+                throw new Error(
+                    `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán. ` +
+                    `Vui lòng cập nhật PriceVariant hoặc ListPrice trong TPOS.`
+                );
+            }
+
             if (salePrice < 0) {
                 throw new Error(
                     `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) có giá âm: ${salePrice.toLocaleString('vi-VN')}đ. ` +
