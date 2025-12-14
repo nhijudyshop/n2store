@@ -3166,8 +3166,9 @@ async function executeBulkTagModalAssignment() {
 
         for (const selectedTag of selectedTags) {
             // Use tag info directly from bulkTagModalData (already has all info: tagId, tagName, tagColor)
+            // Ensure Id is a number for API compatibility
             const tagInfo = {
-                Id: selectedTag.tagId,
+                Id: parseInt(selectedTag.tagId, 10),
                 Name: selectedTag.tagName,
                 Color: selectedTag.tagColor
             };
@@ -3194,18 +3195,23 @@ async function executeBulkTagModalAssignment() {
 
             for (const order of matchingOrders) {
                 try {
-                    // Get current tags
-                    const currentTags = order.Tags ? JSON.parse(order.Tags) : [];
+                    // Get current tags and ensure all Ids are numbers
+                    const rawTags = order.Tags ? JSON.parse(order.Tags) : [];
+                    const currentTags = rawTags.map(t => ({
+                        Id: parseInt(t.Id, 10),
+                        Name: t.Name,
+                        Color: t.Color
+                    }));
 
                     // Check if tag already exists
-                    const tagExists = currentTags.some(t => t.Id === selectedTag.tagId);
+                    const tagExists = currentTags.some(t => t.Id === tagInfo.Id);
                     if (tagExists) {
                         console.log(`[BULK-TAG-MODAL] Tag already exists for order ${order.Code} (STT ${order.SessionIndex})`);
                         successCount++; // Count as success since tag is already there (SAME AS QUICK ASSIGNMENT)
                         continue;
                     }
 
-                    // Add new tag
+                    // Add new tag - all Ids are already numbers
                     const updatedTags = [
                         ...currentTags,
                         {
