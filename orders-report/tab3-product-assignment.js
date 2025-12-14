@@ -3529,10 +3529,17 @@
                     continue;
                 }
 
+                // Validate sale price (only use PriceVariant or ListPrice, never StandardPrice)
+                const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
+                if (salePrice == null || salePrice < 0) {
+                    console.error(`   ❌ Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+                    throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+                }
+
                 const newProduct = {
                     ProductId: fullProduct.Id,
                     Quantity: assignedData.count,
-                    Price: fullProduct.PriceVariant || fullProduct.ListPrice || fullProduct.StandardPrice || 0,
+                    Price: salePrice,
                     Note: noteValue,
                     UOMId: fullProduct.UOM?.Id || 1,
                     Factor: 1,
