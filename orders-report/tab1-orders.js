@@ -11692,7 +11692,8 @@ function handleReplyToComment(commentId, postId) {
 
     // Set current parent comment ID
     // Look up the comment in allChatComments to get the full object
-    const comment = window.allChatComments.find(c => c.Id === commentId);
+    // Support both uppercase (Id) and lowercase (id) field names from Pancake API
+    const comment = window.allChatComments.find(c => (c.Id || c.id) === commentId);
 
     if (comment) {
         // Use helper to get the correct ID (FacebookId, OriginalId, etc.)
@@ -12211,7 +12212,8 @@ function renderComments(comments, scrollToBottom = false) {
         if (commentId && commentId.includes(purchaseCommentOnlyId)) return true;
 
         // Check full format match (postId_commentId)
-        const fullCommentId = `${comment.PostId || ''}_${commentId}`;
+        // Support both uppercase (PostId) and lowercase (post_id) field names from Pancake API
+        const fullCommentId = `${comment.PostId || comment.post_id || ''}_${commentId}`;
         if (fullCommentId === window.purchaseCommentId) return true;
 
         return false;
@@ -12398,7 +12400,7 @@ function renderComments(comments, scrollToBottom = false) {
                         ${content}
                         <p class="chat-message-time">
                             ${formatTime(timestamp)} ${statusBadge}
-                            ${!isOwner ? `<span class="reply-btn" onclick="handleReplyToComment('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
+                            ${!isOwner ? `<span class="reply-btn" onclick="handleReplyToComment('${comment.Id || comment.id}', '${comment.PostId || comment.post_id || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
                         </p>
                     </div>
                 </div>
@@ -13563,13 +13565,15 @@ function getFacebookCommentId(comment) {
 
     // 2. Check if Id is NOT a Mongo ID (24 hex chars)
     // Facebook IDs are usually numeric or have underscores
-    const isMongoId = /^[0-9a-fA-F]{24}$/.test(comment.Id);
-    if (comment.Id && !isMongoId) {
-        return comment.Id;
+    // Support both uppercase (Id) and lowercase (id) field names from Pancake API
+    const commentId = comment.Id || comment.id;
+    const isMongoId = /^[0-9a-fA-F]{24}$/.test(commentId);
+    if (commentId && !isMongoId) {
+        return commentId;
     }
 
     // 3. Fallback to Id if nothing else found (might fail if it's internal)
-    return comment.Id;
+    return commentId;
 }
 
 /**
