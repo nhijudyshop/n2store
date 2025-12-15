@@ -20922,8 +20922,12 @@ function buildFastSaleOrderPayload() {
         ? parseFloat(shippingFeeValue)
         : 35000;
 
-    const cod = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+    const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
     const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+
+    // 🔥 CashOnDelivery should equal "Còn lại" (Remaining balance)
+    // Logic: Remaining = COD - Prepaid (if Prepaid < COD), otherwise 0
+    const cashOnDelivery = prepaidAmount < codValue ? (codValue - prepaidAmount) : 0;
 
     // Get carrier
     const carrierSelect = document.getElementById('saleCarrier');
@@ -21006,7 +21010,7 @@ function buildFastSaleOrderPayload() {
         ReceiverAddress: receiverAddress,
         ReceiverDate: dateCreated,
         ReceiverNote: null,
-        CashOnDelivery: cod,
+        CashOnDelivery: cashOnDelivery,
         TrackingRef: null,
         TrackingArea: null,
         TrackingTransport: null,
@@ -21019,7 +21023,7 @@ function buildFastSaleOrderPayload() {
         SaleOnlineName: '',
         PartnerShippingId: null,
         PaymentJournalId: 1,
-        PaymentAmount: prepaidAmount < cod ? prepaidAmount : cod, // Nếu trả trước < COD thì PaymentAmount = trả trước, ngược lại = COD
+        PaymentAmount: prepaidAmount < codValue ? prepaidAmount : codValue, // Nếu trả trước < COD thì PaymentAmount = trả trước, ngược lại = COD
         SaleOrderId: null,
         SaleOrderIds: [],
         FacebookName: receiverName,
