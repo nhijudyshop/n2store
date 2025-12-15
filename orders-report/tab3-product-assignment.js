@@ -3991,12 +3991,14 @@
         }
 
         if (dateFrom) {
+            // datetime-local format: YYYY-MM-DDTHH:MM
             const fromTimestamp = new Date(dateFrom).getTime();
             filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.timestamp >= fromTimestamp);
         }
 
         if (dateTo) {
-            const toTimestamp = new Date(dateTo).setHours(23, 59, 59, 999);
+            // datetime-local format: YYYY-MM-DDTHH:MM - use exact time selected
+            const toTimestamp = new Date(dateTo).getTime();
             filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.timestamp <= toTimestamp);
         }
 
@@ -4355,14 +4357,26 @@
             return;
         }
 
-        // Build date range display
+        // Build date range display with formatted datetime
+        const formatDateTime = (dateTimeStr) => {
+            if (!dateTimeStr) return '';
+            const date = new Date(dateTimeStr);
+            return date.toLocaleString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        };
+
         let dateRangeText = '';
         if (dateFrom && dateTo) {
-            dateRangeText = `Từ ${dateFrom} đến ${dateTo}`;
+            dateRangeText = `Từ ${formatDateTime(dateFrom)} đến ${formatDateTime(dateTo)}`;
         } else if (dateFrom) {
-            dateRangeText = `Từ ${dateFrom}`;
+            dateRangeText = `Từ ${formatDateTime(dateFrom)}`;
         } else if (dateTo) {
-            dateRangeText = `Đến ${dateTo}`;
+            dateRangeText = `Đến ${formatDateTime(dateTo)}`;
         } else {
             dateRangeText = 'Tất cả thời gian';
         }
