@@ -19648,7 +19648,7 @@ function populateSaleModalWithOrder(order) {
     document.getElementById('saleReceiverName').value = order.PartnerName || order.Name || '';
     document.getElementById('saleReceiverPhone').value = order.PartnerPhone || order.Telephone || '';
     document.getElementById('saleReceiverAddress').value = order.PartnerAddress || order.Address || '';
-    document.getElementById('saleReceiverNote').value = order.comment || '';
+    document.getElementById('saleReceiverNote').value = '';
 
     // Tab "Thông tin giao hàng"
     // 🔥 FIX: Use proper check to allow 0 value
