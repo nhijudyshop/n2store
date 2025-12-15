@@ -332,6 +332,59 @@ window.SoOrderSupplierLoader = {
     },
 
     // =====================================================
+    // FETCH SUPPLIERS FOR DISPLAY ONLY (No Firebase save)
+    // =====================================================
+    async fetchSuppliersForDisplay() {
+        const utils = window.SoOrderUtils;
+
+        try {
+            console.log('[Supplier Loader] 🚀 Fetching suppliers for display...');
+
+            // Show loading toast
+            if (utils && utils.showToast) {
+                utils.showToast('Đang tải danh sách NCC từ TPOS...', 'info');
+            }
+
+            // Step 1: Get TPOS token
+            const token = await this.getTPOSToken();
+
+            // Step 2: Fetch suppliers from TPOS
+            const suppliers = await this.fetchSuppliersFromTPOS(token);
+
+            if (!suppliers || suppliers.length === 0) {
+                console.warn('[Supplier Loader] ⚠️ No suppliers found');
+                if (utils && utils.showToast) {
+                    utils.showToast('Không tìm thấy NCC nào từ TPOS', 'warning');
+                }
+                return { success: false, suppliers: [] };
+            }
+
+            console.log(`[Supplier Loader] ✅ Fetched ${suppliers.length} suppliers for display`);
+
+            // Return all suppliers (including duplicates)
+            return { success: true, suppliers: suppliers };
+
+        } catch (error) {
+            console.error('[Supplier Loader] ❌ Error fetching suppliers for display:', error);
+
+            // Show error toast
+            if (utils && utils.showToast) {
+                let errorMsg = 'Lỗi tải danh sách NCC';
+
+                if (error.message.includes('401') || error.message.includes('Token')) {
+                    errorMsg = 'Lỗi xác thực TPOS';
+                } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                    errorMsg = 'Lỗi kết nối mạng';
+                }
+
+                utils.showToast(`${errorMsg}: ${error.message}`, 'error');
+            }
+
+            return { success: false, error: error.message, suppliers: [] };
+        }
+    },
+
+    // =====================================================
     // MAIN FUNCTION: Load Suppliers from TPOS and Save to Firebase
     // =====================================================
     async loadAndSaveSuppliers() {

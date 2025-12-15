@@ -1434,6 +1434,117 @@ window.SoOrderUI = {
         }
     },
 
+    // Fetch and display suppliers from TPOS
+    async handleFetchFromTPOS() {
+        const loader = window.SoOrderSupplierLoader;
+        const utils = window.SoOrderUtils;
+
+        if (!loader) {
+            console.error('[UI] Supplier loader not found');
+            if (utils && utils.showToast) {
+                utils.showToast('Lỗi: Module tải NCC không khả dụng', 'error');
+            }
+            return;
+        }
+
+        // Fetch suppliers from TPOS
+        const result = await loader.fetchSuppliersForDisplay();
+
+        if (result.success && result.suppliers && result.suppliers.length > 0) {
+            // Render suppliers in modal
+            this.renderTPOSSuppliers(result.suppliers);
+
+            if (utils && utils.showToast) {
+                utils.showToast(`✅ Đã tải ${result.suppliers.length} NCC từ TPOS`, 'success');
+            }
+        } else {
+            // Show error or empty state
+            if (utils && utils.showToast) {
+                utils.showToast('Không tải được danh sách NCC từ TPOS', 'error');
+            }
+        }
+    },
+
+    // Render TPOS suppliers in modal (display all including duplicates)
+    renderTPOSSuppliers(suppliers) {
+        const elements = window.SoOrderElements;
+
+        if (!elements.nccList) return;
+
+        elements.nccList.innerHTML = "";
+
+        if (!suppliers || suppliers.length === 0) {
+            if (elements.nccEmptyState) {
+                elements.nccEmptyState.style.display = "flex";
+            }
+            elements.nccList.style.display = "none";
+            return;
+        }
+
+        if (elements.nccEmptyState) {
+            elements.nccEmptyState.style.display = "none";
+        }
+        elements.nccList.style.display = "block";
+
+        // Group suppliers by Ax code for easier viewing
+        const groupedSuppliers = new Map();
+
+        suppliers.forEach((supplier) => {
+            const name = supplier.Name;
+            if (!name) return;
+
+            // Extract Ax code from name
+            const loader = window.SoOrderSupplierLoader;
+            const code = loader ? loader.parseNCCCode(name) : null;
+
+            if (code) {
+                if (!groupedSuppliers.has(code)) {
+                    groupedSuppliers.set(code, []);
+                }
+                groupedSuppliers.get(code).push({
+                    name: name,
+                    tposCode: supplier.Code,
+                    ref: supplier.Ref
+                });
+            }
+        });
+
+        // Sort by Ax code number
+        const sortedCodes = Array.from(groupedSuppliers.keys()).sort((a, b) => {
+            const numA = parseInt(a.replace(/^A/i, '')) || 0;
+            const numB = parseInt(b.replace(/^A/i, '')) || 0;
+            return numA - numB;
+        });
+
+        // Render grouped suppliers
+        sortedCodes.forEach((code) => {
+            const suppliers = groupedSuppliers.get(code);
+
+            suppliers.forEach((supplier, index) => {
+                const item = document.createElement("div");
+                item.className = "ncc-list-item";
+
+                // Show duplicate indicator if multiple with same code
+                const duplicateIndicator = suppliers.length > 1 ? ` <span style="color: #f59e0b; font-weight: 600;">(${index + 1}/${suppliers.length})</span>` : '';
+
+                item.innerHTML = `
+                    <div class="ncc-list-item-info">
+                        <span class="ncc-list-item-code">${code}${duplicateIndicator}</span>
+                        <span class="ncc-list-item-name">${this.escapeHtml(supplier.name)}</span>
+                        <span style="font-size: 0.85em; color: #9ca3af; margin-left: 8px;">Ref: ${supplier.ref || 'N/A'}</span>
+                    </div>
+                `;
+
+                elements.nccList.appendChild(item);
+            });
+        });
+
+        // Initialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    },
+
     // =====================================================
     // DUPLICATE SUPPLIER SELECTION MODAL
     // =====================================================
