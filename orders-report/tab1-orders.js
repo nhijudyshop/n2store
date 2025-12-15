@@ -20457,7 +20457,7 @@ function recalculateSaleTotals() {
 /**
  * Update Sale Order via PUT API
  * Similar to updateOrderWithFullPayload() from Edit Modal (~15687)
- * Converts orderLines to Details format and calls TPOS API
+ * Fetches FULL order object from API, merges local changes, then PUTs back
  */
 async function updateSaleOrderWithAPI() {
     if (!currentSaleOrderData || !currentSaleOrderData.Id) {
@@ -20470,10 +20470,30 @@ async function updateSaleOrderWithAPI() {
 
         // Get auth headers
         const headers = await window.tokenManager.getAuthHeader();
-        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})`;
 
-        // Clone order data and prepare payload
-        const payload = JSON.parse(JSON.stringify(currentSaleOrderData));
+        // 🔥 STEP 1: Fetch FULL order object from API first (critical!)
+        // This ensures we have all required fields like RowVersion, Partner, User, CRMTeam, etc.
+        const getUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})?$expand=Details,Partner,User,CRMTeam`;
+        console.log('[SALE-API] Fetching full order from API...');
+
+        const getResponse = await fetch(getUrl, {
+            method: 'GET',
+            headers: {
+                ...headers,
+                Accept: "application/json",
+            }
+        });
+
+        if (!getResponse.ok) {
+            throw new Error(`Failed to fetch order: HTTP ${getResponse.status}`);
+        }
+
+        const fullOrder = await getResponse.json();
+        console.log('[SALE-API] Got full order from API:', fullOrder);
+
+        // 🔥 STEP 2: Merge local changes (orderLines) into full order object
+        // Clone to avoid mutation
+        const payload = JSON.parse(JSON.stringify(fullOrder));
 
         // Add @odata.context (CRITICAL for PUT request)
         if (!payload["@odata.context"]) {
@@ -20481,11 +20501,11 @@ async function updateSaleOrderWithAPI() {
         }
 
         // Get CreatedById from order or auth
-        const createdById = currentSaleOrderData.CreatedById || currentSaleOrderData.UserId;
+        const createdById = fullOrder.CreatedById || fullOrder.UserId;
 
-        // Convert orderLines to Details format (API expects Details, not orderLines)
-        if (payload.orderLines && Array.isArray(payload.orderLines)) {
-            payload.Details = payload.orderLines.map(line => {
+        // Convert local orderLines to Details format (API expects Details, not orderLines)
+        if (currentSaleOrderData.orderLines && Array.isArray(currentSaleOrderData.orderLines)) {
+            payload.Details = currentSaleOrderData.orderLines.map(line => {
                 const cleaned = {
                     ProductId: line.ProductId || line.Product?.Id,
                     Quantity: line.ProductUOMQty || line.Quantity || 1,
@@ -20515,12 +20535,9 @@ async function updateSaleOrderWithAPI() {
 
                 return cleaned;
             });
-
-            // Remove orderLines from payload (API doesn't expect this field)
-            delete payload.orderLines;
         }
 
-        // Calculate totals
+        // Calculate totals from local orderLines
         let totalQuantity = 0;
         let totalAmount = 0;
         if (payload.Details) {
@@ -20540,11 +20557,16 @@ async function updateSaleOrderWithAPI() {
             detailsCount: payload.Details?.length || 0,
             totalAmount: payload.TotalAmount,
             totalQuantity: payload.TotalQuantity,
-            hasContext: !!payload["@odata.context"]
+            hasContext: !!payload["@odata.context"],
+            hasRowVersion: !!payload.RowVersion,
+            hasPartner: !!payload.Partner,
+            hasUser: !!payload.User,
+            hasCRMTeam: !!payload.CRMTeam
         });
 
-        // Call PUT API
-        const response = await fetch(apiUrl, {
+        // 🔥 STEP 3: PUT updated order back to API
+        const putUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})`;
+        const response = await fetch(putUrl, {
             method: 'PUT',
             headers: {
                 ...headers,
@@ -20572,6 +20594,41 @@ async function updateSaleOrderWithAPI() {
         }
 
         console.log(`[SALE-API] ✅ Updated order ${currentSaleOrderData.Id} with ${payload.Details?.length || 0} products`);
+
+        // Update local currentSaleOrderData with fresh data from API
+        // Convert Details back to orderLines format for consistency
+        currentSaleOrderData = fullOrder;
+        if (fullOrder.Details && Array.isArray(fullOrder.Details)) {
+            currentSaleOrderData.orderLines = fullOrder.Details.map(detail => ({
+                Id: detail.Id,
+                ProductId: detail.ProductId,
+                ProductUOMId: detail.UOMId,
+                ProductUOMQty: detail.Quantity,
+                Quantity: detail.Quantity,
+                PriceUnit: detail.Price,
+                Price: detail.Price,
+                ProductName: detail.ProductName,
+                ProductNameGet: detail.ProductNameGet,
+                ProductCode: detail.ProductCode,
+                ProductUOMName: detail.UOMName,
+                Note: detail.Note,
+                Weight: detail.ProductWeight,
+                Product: {
+                    Id: detail.ProductId,
+                    Name: detail.ProductName,
+                    DefaultCode: detail.ProductCode,
+                    NameGet: detail.ProductNameGet,
+                    ImageUrl: detail.ImageUrl
+                },
+                ProductUOM: {
+                    Id: detail.UOMId,
+                    Name: detail.UOMName
+                }
+            }));
+        } else {
+            currentSaleOrderData.orderLines = [];
+        }
+
         return data || { success: true, orderId: currentSaleOrderData.Id };
 
     } catch (error) {
