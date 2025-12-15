@@ -19651,7 +19651,11 @@ function populateSaleModalWithOrder(order) {
     document.getElementById('saleReceiverNote').value = order.Note || '';
 
     // Tab "Thông tin giao hàng"
-    const shippingFee = parseInt(document.getElementById('saleShippingFee').value) || 35000;
+    // 🔥 FIX: Use proper check to allow 0 value
+    const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
+    const shippingFee = (shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined)
+        ? parseInt(shippingFeeValue)
+        : 35000;
     const totalAmount = order.TotalAmount || 0;
 
     // COD = Tổng tiền hàng + phí ship (nếu khách trả ship)
@@ -20063,7 +20067,11 @@ function updateSaleTotals(quantity, amount) {
     document.getElementById('saleFinalTotal').textContent = formatNumber(finalTotal);
 
     // Update COD = Tổng tiền hàng + Phí ship
-    const shippingFee = parseInt(document.getElementById('saleShippingFee').value) || 0;
+    // 🔥 FIX: Use proper check to allow 0 value (0 is valid, empty is not)
+    const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
+    const shippingFee = (shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined)
+        ? parseInt(shippingFeeValue)
+        : 0;
     document.getElementById('saleCOD').value = finalTotal + shippingFee;
 
     // Update Giá trị hàng hóa
@@ -20827,7 +20835,13 @@ function buildFastSaleOrderPayload() {
     const receiverAddressRaw = document.getElementById('saleReceiverAddress')?.value || '';
     const receiverAddress = receiverAddressRaw || null; // Use null instead of empty string
     const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
-    const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 35000;
+
+    // 🔥 FIX: Use ?? instead of || to allow 0 value for shipping fee
+    const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
+    const shippingFee = (shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined)
+        ? parseFloat(shippingFeeValue)
+        : 35000;
+
     const cod = parseFloat(document.getElementById('saleCOD')?.value) || 0;
     const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
 
