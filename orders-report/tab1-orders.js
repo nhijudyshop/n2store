@@ -103,6 +103,13 @@
  * ║               - fetchDebtForPhone() - Lấy công nợ theo SĐT                   ║
  * ║               - connectDebtRealtime() - Kết nối SSE cập nhật công nợ         ║
  * ║                                                                              ║
+ * ║  [SECTION 18] SALE MODAL - PRODUCT SEARCH ............... search: #SALE-PROD ║
+ * ║               - initSaleProductSearch() - Khởi tạo search (~7300)            ║
+ * ║               - performSaleProductSearch() - Tìm kiếm SP                     ║
+ * ║               - displaySaleProductResults() - Hiển thị kết quả               ║
+ * ║               - addProductToSaleFromSearch() - Thêm SP từ search (~2214)     ║
+ * ║               - recalculateSaleTotals() - Tính lại tổng (~7273)              ║
+ * ║                                                                              ║
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  */
 
@@ -19477,6 +19484,9 @@ async function openSaleButtonModal() {
             smartSelectDeliveryPartner(receiverAddress, null);
         }
     }
+
+    // Initialize product search for this modal
+    initSaleProductSearch();
 }
 
 /**
@@ -20082,6 +20092,284 @@ window.addEventListener('beforeunload', () => {
 // Export realtime functions
 window.connectDebtRealtime = connectDebtRealtime;
 window.disconnectDebtRealtime = disconnectDebtRealtime;
+
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                    SECTION 18: SALE MODAL - PRODUCT SEARCH                  ║
+// ║                            search: #SALE-PROD                               ║
+// #endregion ════════════════════════════════════════════════════════════════════
+
+// =====================================================
+// SALE MODAL - PRODUCT SEARCH (Similar to Edit Modal #PRODUCT)
+// =====================================================
+let saleSearchTimeout = null;
+
+/**
+ * Initialize product search for Sale Modal
+ * Similar to initInlineProductSearch() from Edit Modal (~7300)
+ */
+function initSaleProductSearch() {
+    const searchInput = document.getElementById("saleProductSearch");
+    if (!searchInput) return;
+
+    console.log('[SALE-PRODUCT-SEARCH] Initializing product search...');
+
+    searchInput.addEventListener("input", () => {
+        const query = searchInput.value.trim();
+        if (saleSearchTimeout) clearTimeout(saleSearchTimeout);
+        if (query.length < 2) {
+            displaySaleProductResults([]);
+            return;
+        }
+        saleSearchTimeout = setTimeout(() => performSaleProductSearch(query), 500);
+    });
+
+    // Add F2 keyboard shortcut to focus search
+    document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('saleButtonModal');
+        if (modal && modal.style.display === 'flex' && e.key === 'F2') {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+}
+
+/**
+ * Perform product search
+ * Similar to performInlineSearch() from Edit Modal (~7300)
+ */
+async function performSaleProductSearch(query) {
+    const searchInput = document.getElementById("saleProductSearch");
+    const productList = document.getElementById("saleProductList");
+
+    searchInput.classList.add("searching");
+    productList.innerHTML = `
+        <tr>
+            <td colspan="4" style="text-align: center; padding: 20px; color: #6b7280;">
+                <i class="fas fa-spinner fa-spin"></i> Đang tìm kiếm...
+            </td>
+        </tr>
+    `;
+
+    try {
+        if (!window.productSearchManager.isLoaded) {
+            await window.productSearchManager.fetchExcelProducts();
+        }
+        const results = window.productSearchManager.search(query, 20);
+        displaySaleProductResults(results);
+    } catch (error) {
+        console.error('[SALE-PRODUCT-SEARCH] Error:', error);
+        productList.innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 20px; color: #ef4444;">
+                    <i class="fas fa-exclamation-circle"></i> Lỗi: ${error.message}
+                </td>
+            </tr>
+        `;
+    } finally {
+        searchInput.classList.remove("searching");
+    }
+}
+
+/**
+ * Display search results in the product list table
+ * Similar to displayInlineResults() from Edit Modal (~7300)
+ */
+function displaySaleProductResults(results) {
+    const productList = document.getElementById("saleProductList");
+
+    if (!results || results.length === 0) {
+        productList.innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 20px; color: #9ca3af;">
+                    <i class="fas fa-search"></i> Không tìm thấy sản phẩm
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    // Check which products are already in the order
+    const productsInOrder = new Map();
+    if (currentSaleOrderData && currentSaleOrderData.orderLines) {
+        currentSaleOrderData.orderLines.forEach(line => {
+            const productId = line.ProductId || line.Product?.Id;
+            const qty = line.ProductUOMQty || line.Quantity || 0;
+            productsInOrder.set(productId, qty);
+        });
+    }
+
+    productList.innerHTML = results.map((product) => {
+        const isInOrder = productsInOrder.has(product.Id);
+        const currentQty = productsInOrder.get(product.Id) || 0;
+        const rowClass = isInOrder ? 'style="background-color: #f0fdf4;"' : '';
+
+        return `
+            <tr ${rowClass} onclick="addProductToSaleFromSearch(${product.Id})" style="cursor: pointer;">
+                <td style="width: 40px; text-align: center;">
+                    ${product.ImageUrl ?
+                        `<img src="${product.ImageUrl}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">` :
+                        `<div style="width: 30px; height: 30px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af; font-size: 12px;"></i></div>`
+                    }
+                </td>
+                <td>
+                    <div style="font-weight: 500;">${product.Name}</div>
+                    <div style="font-size: 11px; color: #6b7280;">Mã: ${product.Code}</div>
+                    ${isInOrder ? `<div style="font-size: 11px; color: #10b981;"><i class="fas fa-shopping-cart"></i> Đã có trong đơn (SL: ${currentQty})</div>` : ''}
+                </td>
+                <td style="width: 60px; text-align: center;">${product.UOMName || 'Cái'}</td>
+                <td style="width: 80px; text-align: right; font-weight: 600; color: #3b82f6;">
+                    ${(product.Price || 0).toLocaleString('vi-VN')}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+/**
+ * Add product to sale order from search
+ * Similar to addProductToOrderFromInline() from Edit Modal (~2214)
+ */
+async function addProductToSaleFromSearch(productId) {
+    let notificationId = null;
+
+    try {
+        // Show loading notification
+        if (window.notificationManager) {
+            notificationId = window.notificationManager.show(
+                "Đang tải thông tin sản phẩm...",
+                "info",
+                0,
+                {
+                    showOverlay: true,
+                    persistent: true,
+                    icon: "package",
+                }
+            );
+        }
+
+        console.log('[SALE-ADD-PRODUCT] Fetching product details for ID:', productId);
+        const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
+
+        if (!fullProduct) {
+            throw new Error("Không tìm thấy thông tin sản phẩm");
+        }
+
+        console.log('[SALE-ADD-PRODUCT] Full product details:', fullProduct);
+
+        // Close loading notification
+        if (window.notificationManager && notificationId) {
+            window.notificationManager.remove(notificationId);
+        }
+
+        // Ensure orderLines array exists
+        if (!currentSaleOrderData.orderLines) {
+            currentSaleOrderData.orderLines = [];
+        }
+
+        // Check if product already exists in order
+        const existingIndex = currentSaleOrderData.orderLines.findIndex(
+            line => (line.ProductId || line.Product?.Id) === productId
+        );
+
+        if (existingIndex > -1) {
+            // Product exists - increase quantity
+            const existingLine = currentSaleOrderData.orderLines[existingIndex];
+            const oldQty = existingLine.ProductUOMQty || existingLine.Quantity || 0;
+            const newQty = oldQty + 1;
+
+            existingLine.ProductUOMQty = newQty;
+            existingLine.Quantity = newQty;
+
+            console.log(`[SALE-ADD-PRODUCT] Product exists, increased quantity: ${oldQty} → ${newQty}`);
+
+            if (window.notificationManager) {
+                window.notificationManager.success(
+                    `Đã tăng số lượng ${fullProduct.Name} (${oldQty} → ${newQty})`
+                );
+            }
+        } else {
+            // Validate sale price
+            const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
+            if (salePrice == null || salePrice < 0) {
+                throw new Error(`Sản phẩm "${fullProduct.Name}" không có giá bán.`);
+            }
+
+            // Create new order line
+            const newLine = {
+                ProductId: fullProduct.Id,
+                Product: {
+                    Id: fullProduct.Id,
+                    Name: fullProduct.Name,
+                    DefaultCode: fullProduct.DefaultCode,
+                    NameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                    ImageUrl: fullProduct.ImageUrl
+                },
+                ProductUOMId: fullProduct.UOM?.Id || 1,
+                ProductUOM: {
+                    Id: fullProduct.UOM?.Id || 1,
+                    Name: fullProduct.UOM?.Name || 'Cái'
+                },
+                ProductUOMQty: 1,
+                Quantity: 1,
+                PriceUnit: salePrice,
+                ProductName: fullProduct.Name,
+                ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                ProductUOMName: fullProduct.UOM?.Name || 'Cái',
+                Note: null,
+                Discount: 0,
+                Weight: fullProduct.Weight || 0
+            };
+
+            currentSaleOrderData.orderLines.push(newLine);
+
+            console.log('[SALE-ADD-PRODUCT] Added new product:', newLine);
+
+            if (window.notificationManager) {
+                window.notificationManager.success(`Đã thêm ${fullProduct.Name} vào đơn hàng`);
+            }
+        }
+
+        // Refresh the order items table
+        populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
+
+        // Refresh search results to show updated quantity
+        const searchInput = document.getElementById("saleProductSearch");
+        if (searchInput && searchInput.value.trim().length >= 2) {
+            performSaleProductSearch(searchInput.value.trim());
+        }
+
+    } catch (error) {
+        console.error('[SALE-ADD-PRODUCT] Error:', error);
+
+        if (window.notificationManager && notificationId) {
+            window.notificationManager.remove(notificationId);
+        }
+
+        if (window.notificationManager) {
+            window.notificationManager.error(error.message || 'Không thể thêm sản phẩm');
+        }
+    }
+}
+
+/**
+ * Recalculate totals for sale modal
+ * Similar to recalculateTotals() from Edit Modal (~7273)
+ */
+function recalculateSaleTotals() {
+    if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
+
+    let totalQuantity = 0;
+    let totalAmount = 0;
+
+    currentSaleOrderData.orderLines.forEach(item => {
+        const qty = item.ProductUOMQty || item.Quantity || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        totalQuantity += qty;
+        totalAmount += qty * price;
+    });
+
+    updateSaleTotals(totalQuantity, totalAmount);
+}
 
 /**
  * Confirm and Print Sale Order (F9)
