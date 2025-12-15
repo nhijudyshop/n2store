@@ -428,4 +428,222 @@ async function sendMessageWithImage(pageId, convId, token, file, message) {
 
 ---
 
-*Cập nhật lần cuối: 2025-12-12*
+## Chat Modal - Right Panel
+
+### Kiến Trúc
+
+```
+┌───────────────────────────────┬────────────────────────────────────┐
+│     CHAT LEFT PANEL           │        CHAT RIGHT PANEL            │
+│   (Tin nhắn / Bình luận)      │        (Quản lý đơn hàng)          │
+│                               ├────────────────────────────────────┤
+│                               │  [Đơn hàng] [Hàng rớt] [LS] [HĐ]  │
+│                               ├────────────────────────────────────┤
+│                               │  🔍 Tìm kiếm sản phẩm...           │
+│                               │  📦 Product Cards (giữ/chính)      │
+│                               │  Tổng: xxx,xxxđ  |  X sản phẩm     │
+└───────────────────────────────┴────────────────────────────────────┘
+```
+
+### Data Sources
+
+| Source | Mô tả |
+|--------|-------|
+| `window.currentChatOrderData.Details` | Mảng sản phẩm đơn hàng |
+| `currentChatOrderDetails` | Backup array (sync với Details) |
+| Firebase `held_products/{orderId}` | SP đang giữ (multi-user) |
+| Firebase `dropped_products` | Hàng rớt-xả (shared) |
+
+### Các Hàm Chính (tab1-orders.js)
+
+| Hàm | Dòng | Chức năng |
+|-----|------|-----------|
+| `addChatProductFromSearch(productId)` | ~15003 | Thêm SP từ search vào đơn |
+| `removeChatProduct(index)` | ~15526 | Xóa SP → chuyển sang Dropped |
+| `updateChatProductQuantity(index, delta)` | ~15640 | +/- số lượng SP |
+| `renderChatProductsTable()` | ~14478 | Render danh sách SP |
+| `initChatProductSearch()` | ~14900 | Khởi tạo thanh tìm kiếm |
+| `toggleChatRightPanel()` | ~20756 | Mở/đóng right panel |
+| `switchChatPanelTab(tabName)` | ~20778 | Chuyển tab |
+
+### Flow Thêm Sản Phẩm
+
+```
+1. User gõ search → performChatProductSearch()
+2. Click "+" → addChatProductFromSearch(productId)
+3. Fetch TPOS API → productSearchManager.getFullProductDetails()
+4. Nếu đã có → Tăng Quantity | Chưa có → Tạo mới
+5. Push vào currentChatOrderData.Details
+6. renderChatProductsTable() + saveChatProductsToFirebase()
+```
+
+### Flow Xóa Sản Phẩm
+
+```
+1. Click xóa → CustomPopup.confirm()
+2. productsArray.splice(index, 1)
+3. addToDroppedProducts() → Firebase dropped_products
+4. Nếu held → removeHeldProduct() từ Firebase
+5. Nếu thường → updateOrderWithFullPayload() (TPOS API)
+6. Nếu LỖI → ROLLBACK (khôi phục SP)
+```
+
+### Hàng Rớt - Xả (dropped-products-manager.js)
+
+| Hàm | Chức năng |
+|-----|-----------|
+| `addToDroppedProducts(product, qty, reason)` | Thêm vào dropped (transaction) |
+| `moveDroppedToOrder(index)` | Chuyển về đơn → held_products |
+| `removeFromDroppedProducts(index)` | Xóa khỏi dropped |
+| `loadDroppedProductsFromFirebase()` | Realtime listener |
+| `renderDroppedProductsTable()` | Render UI |
+
+### Multi-User Realtime Sync
+
+| Firebase Collection | Scope | Mục đích |
+|---------------------|-------|----------|
+| `held_products/{orderId}/{productId}/{userId}` | Per order | SP đang giữ |
+| `dropped_products` | Global | Hàng rớt-xả |
+| `dropped_products_history` | Global | Lịch sử thao tác |
+
+**Cơ chế:** Dùng `child_added`, `child_changed`, `child_removed` listeners → tự động update UI khi có thay đổi từ user khác.
+---
+
+## Edit Order Modal
+
+### Kiến Trúc
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                         Edit Order Modal                                    │
+│  ╭──────────────────────────────────────────────────────────────────────╮  │
+│  │  🖊️ Sửa đơn hàng - [Code]                                    [X]   │  │
+│  ╰──────────────────────────────────────────────────────────────────────╯  │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ [Thông tin] [Sản phẩm] [Giao hàng] [Live] [Hóa đơn] [Lịch sử]      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                         Tab Content                                  │   │
+│  │  - Tab Info: Tên KH, SĐT, Địa chỉ, Tra cứu địa chỉ                  │   │
+│  │  - Tab Products: Inline search + Bảng SP + Edit/Delete              │   │
+│  │  - Tab Delivery: Thông tin giao hàng (placeholder)                  │   │
+│  │  - Tab Live: Lịch sử đơn live                                       │   │
+│  │  - Tab Invoice History: Lịch sử hóa đơn                             │   │
+│  │  - Tab History: Lịch sử chỉnh sửa                                   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                              [Đóng]                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### HTML Structure (`tab1-orders.html` dòng 3588-3617)
+
+| Element | ID/Class | Mô tả |
+|---------|----------|-------|
+| Modal Container | `#editOrderModal` | Bootstrap modal fade |
+| Header | `.modal-header` | Tiêu đề + nút close |
+| Tab Buttons | `.edit-tab-btn` | 6 tabs điều hướng |
+| Body | `#editModalBody` | Nội dung tab động |
+| Footer | `.modal-footer` | Nút Đóng |
+
+### Data Sources
+
+| Variable | Mô tả |
+|----------|-------|
+| `currentEditOrderId` | ID đơn hàng đang edit |
+| `currentEditOrderData` | Full order data từ API |
+| `hasUnsavedOrderChanges` | Dirty flag cho unsaved changes |
+
+### Các Hàm Chính (tab1-orders.js)
+
+| Hàm | Dòng | Chức năng |
+|-----|------|-----------|
+| `openEditModal(orderId)` | ~6500 | Mở modal + fetch data |
+| `closeEditModal()` | ~6530 | Đóng modal (check unsaved) |
+| `forceCloseEditModal()` | ~6545 | Đóng modal không confirm |
+| `fetchOrderData(orderId)` | ~6550 | Fetch từ TPOS API |
+| `updateModalWithData(data)` | ~6565 | Cập nhật UI với data |
+| `switchEditTab(tabName)` | ~6576 | Chuyển tab |
+| `renderTabContent(tabName)` | ~6590 | Render nội dung tab |
+| `saveAllOrderChanges()` | ~6900 | Lưu tất cả thay đổi (PUT API) |
+
+### Tab Render Functions
+
+| Hàm | Tab | Chức năng |
+|-----|-----|-----------|
+| `renderInfoTab(data)` | Thông tin | Tên, SĐT, Địa chỉ, Tra cứu |
+| `renderProductsTab(data)` | Sản phẩm | Bảng SP + inline search |
+| `renderDeliveryTab(data)` | Giao hàng | Placeholder |
+| `renderLiveTab(data)` | Live | Lịch sử đơn live |
+| `renderInvoicesTab(data)` | Hóa đơn | Thông tin thanh toán |
+| `renderInvoiceHistoryTab(data)` | Lịch sử HĐ | FastSaleOrder history |
+| `renderHistoryTab(data)` | Lịch sử | Log chỉnh sửa |
+
+### Product Management Functions
+
+| Hàm | Dòng | Chức năng |
+|-----|------|-----------|
+| `updateProductQuantity(index, delta, value)` | ~7190 | +/- số lượng |
+| `editProductDetail(index)` | ~7240 | Inline edit giá |
+| `saveProductDetail(index)` | ~7260 | Lưu giá mới |
+| `removeProduct(index)` | ~7213 | Xóa SP (confirm) |
+| `addProductToOrderFromInline(productId)` | ~2214 | Thêm SP từ search |
+| `recalculateTotals()` | ~7273 | Tính lại tổng tiền/SL |
+| `initInlineSearchAfterRender()` | ~7300 | Khởi tạo inline search |
+| `refreshInlineSearchUI()` | ~7350 | Refresh UI sau thay đổi |
+
+### Flow Mở Modal
+
+```
+1. User click "Sửa" trên bảng → openEditModal(orderId)
+2. Reset state: currentEditOrderId, hasUnsavedOrderChanges
+3. Show loading spinner
+4. fetchOrderData(orderId) → TPOS API (SaleOnline_Order)
+5. updateModalWithData(data) → Set header, badges
+6. switchEditTab('info') → Render tab mặc định
+```
+
+### Flow Lưu Thay Đổi
+
+```
+1. User click "Lưu" → saveAllOrderChanges()
+2. notificationManager.confirm() → Xác nhận
+3. Show loading notification
+4. prepareOrderPayload() → Chuẩn bị payload
+5. PUT API → TPOS SaleOnline_Order
+6. fetchOrderData() → Reload fresh data
+7. updateOrderInTable() → Sync bảng chính
+8. Show success notification
+```
+
+### API Endpoints
+
+| Endpoint | Method | Mô tả |
+|----------|--------|-------|
+| `/api/odata/SaleOnline_Order({id})` | GET | Fetch order details |
+| `/api/odata/SaleOnline_Order({id})` | PUT | Update order |
+
+### Inline Product Search (Tab Sản phẩm)
+
+```javascript
+// Cấu trúc HTML render bởi renderProductsTab()
+<div class="product-search-inline">
+    <input id="inlineProductSearch" placeholder="Tìm sản phẩm...">
+    <div id="inlineSearchResults">...</div>
+</div>
+```
+
+**Flow thêm SP:**
+```
+1. Gõ search → debounce 300ms → searchProducts()
+2. Hiển thị kết quả → Click item
+3. addProductToOrderFromInline(productId)
+4. Fetch full product details từ TPOS
+5. Push vào currentEditOrderData.Details
+6. recalculateTotals() + switchEditTab('products')
+```
+
+---
+
+*Cập nhật lần cuối: 2025-12-15*
