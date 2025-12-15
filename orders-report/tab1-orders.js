@@ -19459,6 +19459,9 @@ async function openSaleButtonModal() {
     // Must await to ensure dropdown is ready for smart selection
     await populateDeliveryCarrierDropdown();
 
+    // Populate user dropdown for user selection
+    await populateSaleUserDropdown();
+
     // Fetch detailed order data from API (includes partner, orderLines)
     const orderDetails = await fetchOrderDetailsForSale(orderId);
 
@@ -19505,6 +19508,92 @@ function closeSaleButtonModal() {
     modal.style.display = 'none';
     currentSaleOrderData = null;
     currentSalePartnerData = null;
+}
+
+/**
+ * Fetch list of users for Sale Modal user selection
+ */
+async function fetchSaleUsers() {
+    try {
+        // Get auth token
+        let token;
+        if (window.tokenManager) {
+            token = await window.tokenManager.getToken();
+        } else {
+            const storedData = localStorage.getItem('bearer_token_data');
+            if (storedData) {
+                const data = JSON.parse(storedData);
+                token = data.access_token;
+            }
+        }
+
+        if (!token) {
+            console.warn('[SALE-USERS] No auth token found');
+            return [];
+        }
+
+        // Fetch users from ApplicationUser API
+        const response = await fetch('https://tomato.tpos.vn/odata/ApplicationUser?$select=Id,Name,UserName,Email,Subffix&$filter=Active eq true', {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'authorization': `Bearer ${token}`,
+                'tposappversion': '5.11.16.1',
+                'x-tpos-lang': 'vi'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('[SALE-USERS] Fetched users:', data);
+
+        // Return the value array
+        return data.value || [];
+
+    } catch (error) {
+        console.error('[SALE-USERS] Error fetching users:', error);
+        return [];
+    }
+}
+
+/**
+ * Populate user dropdown in Sale Modal
+ */
+async function populateSaleUserDropdown() {
+    const select = document.getElementById('saleUserSelect');
+    if (!select) return;
+
+    // Show loading
+    select.innerHTML = '<option value="">Đang tải...</option>';
+
+    // Fetch users
+    const users = await fetchSaleUsers();
+
+    if (users.length === 0) {
+        select.innerHTML = '<option value="">Không có user</option>';
+        return;
+    }
+
+    // Populate dropdown
+    select.innerHTML = users.map(user => {
+        const userId = user.Id;
+        const displayName = user.Name || user.UserName || userId;
+        const subffix = user.Subffix ? ` (${user.Subffix})` : '';
+        return `<option value="${userId}" data-name="${displayName}" data-subffix="${user.Subffix || ''}">${displayName}${subffix}</option>`;
+    }).join('');
+
+    // Select current user if available from DefaultGet
+    if (window.lastDefaultSaleData && window.lastDefaultSaleData.User) {
+        const currentUserId = window.lastDefaultSaleData.User.Id;
+        if (currentUserId) {
+            select.value = currentUserId;
+        }
+    }
+
+    console.log('[SALE-USERS] Populated dropdown with', users.length, 'users');
 }
 
 /**
@@ -20942,10 +21031,25 @@ function buildFastSaleOrderPayload() {
     // Format DateCreated with timezone like: 2025-12-11T21:58:53.4497898+07:00
     const dateCreated = formatDateWithTimezone(now);
 
-    // Get User from defaultData (from ODataService.DefaultGet)
-    const user = defaultData.User || null;
-    const userId = user?.Id || null;
-    const userName = user?.Name || null;
+    // 🔥 Get User from dropdown selection (if available), otherwise from defaultData
+    const userSelect = document.getElementById('saleUserSelect');
+    let userId = null;
+    let userName = null;
+    let userSubffix = null;
+
+    if (userSelect && userSelect.value) {
+        // Get from selected user
+        userId = userSelect.value;
+        const selectedOption = userSelect.selectedOptions[0];
+        userName = selectedOption?.getAttribute('data-name') || null;
+        userSubffix = selectedOption?.getAttribute('data-subffix') || null;
+    } else {
+        // Fallback to defaultData.User
+        const user = defaultData.User || null;
+        userId = user?.Id || null;
+        userName = user?.Name || null;
+        userSubffix = user?.Subffix || null;
+    }
 
     // Build payload matching the sample from fetchFastSaleOrder.text
     const payload = {
@@ -21073,7 +21177,7 @@ function buildFastSaleOrderPayload() {
         QuantityUpdateDeposit: null,
         IsMergeCancel: null,
         IsPickUpAtShop: null,
-        DateDeposit: null,
+        DateDeposit: dateInvoice, // 🔥 FIX: Use current time instead of null
         IsRefund: null,
         StateCode: 'None',
         ActualPaymentAmount: null,
@@ -21091,12 +21195,12 @@ function buildFastSaleOrderPayload() {
             IsNewAddress: false,
             Name: receiverName,
             Phone: receiverPhone,
-            Street: null,
+            Street: receiverAddress, // 🔥 FIX: Use receiverAddress instead of null
             City: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
             District: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
             Ward: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
             ExtraAddress: {
-                Street: null,
+                Street: receiverAddress, // 🔥 FIX: Use receiverAddress instead of null
                 NewStreet: null,
                 City: { name: null, nameNoSign: null, code: null },
                 District: { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null },
@@ -21149,7 +21253,13 @@ function buildFastSaleOrderPayload() {
         PackageInfo: { PackageLength: 0, PackageWidth: 0, PackageHeight: 0 },
         Error: null,
         Warehouse: window.lastDefaultSaleData?.Warehouse || { Id: 1, Code: 'WH', Name: 'Nhi Judy Store', CompanyId: 1, LocationId: 12, NameGet: '[WH] Nhi Judy Store', CompanyName: 'NJD Live', LocationActive: true },
-        User: window.lastDefaultSaleData?.User || null,
+        User: {
+            // 🔥 Use selected user info, fallback to defaultData
+            ...(window.lastDefaultSaleData?.User || {}),
+            Id: userId,
+            Name: userName,
+            Subffix: userSubffix
+        },
         PriceList: window.lastDefaultSaleData?.PriceList || { Id: 1, Name: 'Bảng giá mặc định', CurrencyId: 1, CurrencyName: 'VND', Active: true },
         Company: window.lastDefaultSaleData?.Company || { Id: 1, Name: 'NJD Live', Phone: '19003357' },
         Journal: window.lastDefaultSaleData?.Journal || { Id: 3, Code: 'INV', Name: 'Nhật ký bán hàng', Type: 'sale' },
