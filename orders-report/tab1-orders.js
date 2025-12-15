@@ -107,7 +107,10 @@
  * ║               - initSaleProductSearch() - Khởi tạo search (~7300)            ║
  * ║               - performSaleProductSearch() - Tìm kiếm SP                     ║
  * ║               - displaySaleProductResults() - Hiển thị kết quả               ║
- * ║               - addProductToSaleFromSearch() - Thêm SP từ search (~2214)     ║
+ * ║               - addProductToSaleFromSearch() - Thêm SP + API update (~2214)  ║
+ * ║               - updateSaleOrderWithAPI() - PUT API update order (~15687)     ║
+ * ║               - updateSaleItemQuantityFromAPI() - Update SL + API            ║
+ * ║               - removeSaleItemFromAPI() - Xóa SP + API                       ║
  * ║               - recalculateSaleTotals() - Tính lại tổng (~7273)              ║
  * ║                                                                              ║
  * ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -19959,11 +19962,15 @@ function populateSaleOrderLinesFromAPI(orderLines) {
 /**
  * Update item quantity from API order lines
  */
-function updateSaleItemQuantityFromAPI(index, value) {
+async function updateSaleItemQuantityFromAPI(index, value) {
     if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
 
-    const qty = parseInt(value) || 1;
-    currentSaleOrderData.orderLines[index].ProductUOMQty = qty;
+    const oldQty = currentSaleOrderData.orderLines[index].ProductUOMQty || currentSaleOrderData.orderLines[index].Quantity || 1;
+    const newQty = parseInt(value) || 1;
+
+    // Update local data
+    currentSaleOrderData.orderLines[index].ProductUOMQty = newQty;
+    currentSaleOrderData.orderLines[index].Quantity = newQty;
 
     // Recalculate totals
     let totalQuantity = 0;
@@ -19977,16 +19984,71 @@ function updateSaleItemQuantityFromAPI(index, value) {
     });
 
     updateSaleTotals(totalQuantity, totalAmount);
+
+    // 🔥 UPDATE ORDER VIA API
+    try {
+        console.log(`[SALE-UPDATE-QTY] Updating quantity ${oldQty} → ${newQty}, calling API...`);
+        await updateSaleOrderWithAPI();
+        console.log('[SALE-UPDATE-QTY] ✅ Order updated successfully via API');
+    } catch (apiError) {
+        console.error('[SALE-UPDATE-QTY] ⚠️ API update failed:', apiError);
+        // Rollback on error
+        currentSaleOrderData.orderLines[index].ProductUOMQty = oldQty;
+        currentSaleOrderData.orderLines[index].Quantity = oldQty;
+        populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
+
+        if (window.notificationManager) {
+            window.notificationManager.error('Không thể cập nhật số lượng. Vui lòng thử lại.');
+        }
+    }
 }
 
 /**
  * Remove item from API order lines
  */
-function removeSaleItemFromAPI(index) {
+async function removeSaleItemFromAPI(index) {
     if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
 
+    // Get product info for confirmation
+    const productName = currentSaleOrderData.orderLines[index].Product?.NameGet ||
+                       currentSaleOrderData.orderLines[index].ProductName ||
+                       'sản phẩm này';
+
+    // Confirm before removing
+    const confirmed = await window.notificationManager.confirm(
+        `Bạn có chắc muốn xóa ${productName}?`,
+        'Xóa sản phẩm'
+    );
+
+    if (!confirmed) return;
+
+    // Backup for rollback
+    const removedItem = currentSaleOrderData.orderLines[index];
+    const removedIndex = index;
+
+    // Remove from local data
     currentSaleOrderData.orderLines.splice(index, 1);
     populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
+
+    // 🔥 UPDATE ORDER VIA API
+    try {
+        console.log(`[SALE-REMOVE-PRODUCT] Removing product at index ${index}, calling API...`);
+        await updateSaleOrderWithAPI();
+        console.log('[SALE-REMOVE-PRODUCT] ✅ Order updated successfully via API');
+
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã xóa ${productName}`);
+        }
+    } catch (apiError) {
+        console.error('[SALE-REMOVE-PRODUCT] ⚠️ API update failed:', apiError);
+        // Rollback on error
+        currentSaleOrderData.orderLines.splice(removedIndex, 0, removedItem);
+        populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
+
+        if (window.notificationManager) {
+            window.notificationManager.error('Không thể xóa sản phẩm. Vui lòng thử lại.');
+        }
+    }
 }
 
 /**
@@ -20338,6 +20400,19 @@ async function addProductToSaleFromSearch(productId) {
             performSaleProductSearch(searchInput.value.trim());
         }
 
+        // 🔥 UPDATE ORDER VIA API (Similar to Edit Modal flow)
+        try {
+            console.log('[SALE-ADD-PRODUCT] Calling PUT API to update order...');
+            await updateSaleOrderWithAPI();
+            console.log('[SALE-ADD-PRODUCT] ✅ Order updated successfully via API');
+        } catch (apiError) {
+            console.error('[SALE-ADD-PRODUCT] ⚠️ API update failed:', apiError);
+            // Show warning but don't rollback (product is already added locally)
+            if (window.notificationManager) {
+                window.notificationManager.warning('Sản phẩm đã được thêm nhưng chưa đồng bộ với server. Vui lòng thử lại.');
+            }
+        }
+
     } catch (error) {
         console.error('[SALE-ADD-PRODUCT] Error:', error);
 
@@ -20369,6 +20444,132 @@ function recalculateSaleTotals() {
     });
 
     updateSaleTotals(totalQuantity, totalAmount);
+}
+
+/**
+ * Update Sale Order via PUT API
+ * Similar to updateOrderWithFullPayload() from Edit Modal (~15687)
+ * Converts orderLines to Details format and calls TPOS API
+ */
+async function updateSaleOrderWithAPI() {
+    if (!currentSaleOrderData || !currentSaleOrderData.Id) {
+        console.error('[SALE-API] No order data to update');
+        return null;
+    }
+
+    try {
+        console.log('[SALE-API] Preparing to update order:', currentSaleOrderData.Id);
+
+        // Get auth headers
+        const headers = await window.tokenManager.getAuthHeader();
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})`;
+
+        // Clone order data and prepare payload
+        const payload = JSON.parse(JSON.stringify(currentSaleOrderData));
+
+        // Add @odata.context (CRITICAL for PUT request)
+        if (!payload["@odata.context"]) {
+            payload["@odata.context"] = "http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity";
+        }
+
+        // Get CreatedById from order or auth
+        const createdById = currentSaleOrderData.CreatedById || currentSaleOrderData.UserId;
+
+        // Convert orderLines to Details format (API expects Details, not orderLines)
+        if (payload.orderLines && Array.isArray(payload.orderLines)) {
+            payload.Details = payload.orderLines.map(line => {
+                const cleaned = {
+                    ProductId: line.ProductId || line.Product?.Id,
+                    Quantity: line.ProductUOMQty || line.Quantity || 1,
+                    Price: line.PriceUnit || line.Price || 0,
+                    Note: line.Note || null,
+                    UOMId: line.ProductUOMId || line.ProductUOM?.Id || 1,
+                    Factor: 1,
+                    Priority: 0,
+                    OrderId: currentSaleOrderData.Id,
+                    LiveCampaign_DetailId: null,
+                    ProductWeight: line.Weight || 0,
+                    ProductName: line.Product?.Name || line.ProductName || '',
+                    ProductNameGet: line.Product?.NameGet || line.ProductNameGet || '',
+                    ProductCode: line.Product?.DefaultCode || line.ProductCode || '',
+                    UOMName: line.ProductUOMName || line.ProductUOM?.Name || 'Cái',
+                    ImageUrl: line.Product?.ImageUrl || '',
+                    IsOrderPriority: null,
+                    QuantityRegex: null,
+                    IsDisabledLiveCampaignDetail: false,
+                    CreatedById: createdById
+                };
+
+                // Keep Id if it exists (for existing details)
+                if (line.Id) {
+                    cleaned.Id = line.Id;
+                }
+
+                return cleaned;
+            });
+
+            // Remove orderLines from payload (API doesn't expect this field)
+            delete payload.orderLines;
+        }
+
+        // Calculate totals
+        let totalQuantity = 0;
+        let totalAmount = 0;
+        if (payload.Details) {
+            payload.Details.forEach(detail => {
+                const qty = detail.Quantity || 1;
+                const price = detail.Price || 0;
+                totalQuantity += qty;
+                totalAmount += qty * price;
+            });
+        }
+
+        payload.TotalAmount = totalAmount;
+        payload.TotalQuantity = totalQuantity;
+
+        console.log('[SALE-API] PUT payload:', {
+            orderId: currentSaleOrderData.Id,
+            detailsCount: payload.Details?.length || 0,
+            totalAmount: payload.TotalAmount,
+            totalQuantity: payload.TotalQuantity,
+            hasContext: !!payload["@odata.context"]
+        });
+
+        // Call PUT API
+        const response = await fetch(apiUrl, {
+            method: 'PUT',
+            headers: {
+                ...headers,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[SALE-API] PUT failed:', errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        // Handle empty response body (PUT often returns 200 OK with no content)
+        let data = null;
+        const responseText = await response.text();
+        if (responseText && responseText.trim()) {
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseError) {
+                console.log('[SALE-API] Response is not JSON, treating as success');
+            }
+        }
+
+        console.log(`[SALE-API] ✅ Updated order ${currentSaleOrderData.Id} with ${payload.Details?.length || 0} products`);
+        return data || { success: true, orderId: currentSaleOrderData.Id };
+
+    } catch (error) {
+        console.error('[SALE-API] Error updating order:', error);
+        throw error;
+    }
 }
 
 /**
