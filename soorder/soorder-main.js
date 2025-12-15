@@ -623,6 +623,14 @@ function setupEventListeners() {
         });
     }
 
+    // Fetch from TPOS button
+    const btnFetchFromTPOS = document.getElementById("btnFetchFromTPOS");
+    if (btnFetchFromTPOS) {
+        btnFetchFromTPOS.addEventListener("click", () => {
+            ui.handleFetchFromTPOS();
+        });
+    }
+
     // Add NCC manual button
     const btnAddNCCManual = document.getElementById("btnAddNCCManual");
     if (btnAddNCCManual) {
