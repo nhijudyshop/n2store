@@ -4251,7 +4251,7 @@
             };
 
             record.beforeSnapshot.assignments.forEach(assignment => {
-                if (!assignment.stts || !assignment.stts.length) return;
+                if (!assignment.sttList || !assignment.sttList.length) return;
 
                 const productInfo = {
                     productCode: assignment.productCode || '',
@@ -4260,8 +4260,9 @@
                     productImage: assignment.productImage || ''
                 };
 
-                assignment.stts.forEach(stt => {
-                    const sttStr = String(stt);
+                assignment.sttList.forEach(sttItem => {
+                    // sttList can contain objects with stt property or direct values
+                    const sttStr = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
 
                     if (!sttProductMap.has(sttStr)) {
                         sttProductMap.set(sttStr, {
