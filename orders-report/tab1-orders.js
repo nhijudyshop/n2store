@@ -14612,21 +14612,6 @@ function renderProductCard(p, index, isHeld) {
                     <div style="font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.4;">
                         ${p.ProductName || p.Name || 'Sản phẩm'}${heldBadge}
                     </div>
-                    ${!isHeld ? `
-                    <button onclick="removeChatProduct(${index})" style="
-                        background: none;
-                        border: none;
-                        color: #ef4444;
-                        cursor: pointer;
-                        padding: 4px;
-                        margin-top: -4px;
-                        margin-right: -4px;
-                        opacity: 0.6;
-                        transition: opacity 0.2s;
-                    " onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    ` : ''}
                 </div>
 
                 <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
@@ -14640,6 +14625,32 @@ function renderProductCard(p, index, isHeld) {
                         ${(p.Price || 0).toLocaleString("vi-VN")}đ
                     </div>
 
+                    ${!isHeld ? `
+                    <!-- Main product: only show minus button and quantity -->
+                    <div style="display: flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                        <button onclick="decreaseMainProductQuantity(${index})" style="
+                            width: 28px;
+                            height: 28px;
+                            border: none;
+                            background: #fee2e2;
+                            color: #ef4444;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-weight: bold;
+                        ">−</button>
+                        <span style="
+                            min-width: 36px;
+                            text-align: center;
+                            font-size: 13px;
+                            font-weight: 600;
+                            padding: 4px 8px;
+                            background: #f8fafc;
+                        ">${p.Quantity || 0}</span>
+                    </div>
+                    ` : `
+                    <!-- Held product: show full quantity controls -->
                     <div style="display: flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
                         <button onclick="updateChatProductQuantity(${index}, -1)" style="
                             width: 24px;
@@ -14676,6 +14687,7 @@ function renderProductCard(p, index, isHeld) {
                             justify-content: center;
                         ">+</button>
                     </div>
+                    `}
                 </div>
 
                 ${isHeld ? `
@@ -15383,6 +15395,133 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
     renderChatProductsTable();
     saveChatProductsToFirebase('shared', currentChatOrderDetails);
 }
+
+/**
+ * Decrease main product quantity by 1
+ * Shows confirmation, updates order via API, moves 1 product to dropped
+ * @param {number} index - Product index in Details array
+ */
+async function decreaseMainProductQuantity(index) {
+    // Get the correct data source
+    const productsArray = (window.currentChatOrderData && window.currentChatOrderData.Details)
+        ? window.currentChatOrderData.Details
+        : currentChatOrderDetails;
+
+    if (index < 0 || index >= productsArray.length) return;
+
+    const product = productsArray[index];
+
+    // Skip if held product
+    if (product.IsHeld === true) {
+        console.log('[DECREASE] Skipping held product');
+        return;
+    }
+
+    // Show confirmation
+    const productName = product.ProductName || product.Name || 'Sản phẩm';
+    const confirmMsg = `Xóa 1 "${productName}" khỏi đơn hàng?\n\nSản phẩm sẽ được chuyển sang hàng rớt-xả.`;
+
+    let confirmed = false;
+    if (window.CustomPopup) {
+        confirmed = await window.CustomPopup.confirm(confirmMsg, 'Xác nhận xóa sản phẩm');
+    } else {
+        confirmed = confirm(confirmMsg);
+    }
+
+    if (!confirmed) return;
+
+    try {
+        // Show loading
+        if (window.notificationManager) {
+            window.notificationManager.show("Đang cập nhật đơn hàng...", "info");
+        }
+
+        // Fetch latest order data from API to ensure we have fresh data
+        const orderId = window.currentChatOrderData?.Id;
+        if (!orderId) {
+            throw new Error("Không tìm thấy đơn hàng");
+        }
+
+        console.log('[DECREASE] Fetching latest order data:', orderId);
+        const freshOrderData = await getOrderDetails(orderId);
+
+        // Update window.currentChatOrderData with fresh data
+        window.currentChatOrderData = freshOrderData;
+
+        // Find the product in fresh data by ProductId
+        const freshProductIndex = freshOrderData.Details.findIndex(
+            p => p.ProductId === product.ProductId && !p.IsHeld
+        );
+
+        if (freshProductIndex === -1) {
+            throw new Error("Không tìm thấy sản phẩm trong đơn hàng");
+        }
+
+        const freshProduct = freshOrderData.Details[freshProductIndex];
+        const currentQty = freshProduct.Quantity || 1;
+
+        // Add 1 product to dropped
+        if (typeof window.addToDroppedProducts === 'function') {
+            await window.addToDroppedProducts(freshProduct, 1, 'removed', null);
+            console.log('[DECREASE] ✓ Added 1 to dropped products');
+        }
+
+        // Update quantity or remove if qty becomes 0
+        if (currentQty <= 1) {
+            // Remove product from order
+            freshOrderData.Details.splice(freshProductIndex, 1);
+            console.log('[DECREASE] Removed product (qty was 1)');
+        } else {
+            // Decrease quantity by 1
+            freshOrderData.Details[freshProductIndex].Quantity = currentQty - 1;
+            console.log('[DECREASE] Decreased quantity:', currentQty, '→', currentQty - 1);
+        }
+
+        // Get main products (non-held) for API update
+        const mainProducts = freshOrderData.Details.filter(p => !p.IsHeld);
+        const totalQuantity = mainProducts.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+        const totalAmount = mainProducts.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+
+        // Update order on backend
+        await updateOrderWithFullPayload(
+            freshOrderData,
+            mainProducts,
+            totalAmount,
+            totalQuantity
+        );
+
+        console.log('[DECREASE] ✓ Order updated on backend');
+
+        // Update local data
+        window.currentChatOrderData = freshOrderData;
+        currentChatOrderDetails = mainProducts;
+
+        // Re-render UI
+        renderChatProductsTable();
+        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+
+        // Re-render dropped tab
+        if (typeof window.renderDroppedProductsTable === 'function') {
+            await window.renderDroppedProductsTable();
+        }
+
+        // Show success
+        if (window.notificationManager) {
+            window.notificationManager.show("✅ Đã xóa 1 sản phẩm khỏi đơn hàng", "success");
+        }
+
+    } catch (error) {
+        console.error('[DECREASE] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error("❌ Lỗi: " + error.message);
+        } else {
+            alert("❌ Lỗi: " + error.message);
+        }
+    }
+}
+
+// Expose to window
+window.decreaseMainProductQuantity = decreaseMainProductQuantity;
 
 /**
  * Remove product from chat order
