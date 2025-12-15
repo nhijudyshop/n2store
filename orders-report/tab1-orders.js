@@ -19532,8 +19532,8 @@ async function fetchSaleUsers() {
             return [];
         }
 
-        // Fetch users from ApplicationUser API
-        const response = await fetch('https://tomato.tpos.vn/odata/ApplicationUser?$select=Id,Name,UserName,Email,Subffix&$filter=Active eq true', {
+        // Fetch users from ApplicationUser API (via Cloudflare proxy to pass CORS)
+        const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ApplicationUser?$select=Id,Name,UserName,Email,Subffix&$filter=Active eq true', {
             method: 'GET',
             headers: {
                 'accept': 'application/json, text/plain, */*',
