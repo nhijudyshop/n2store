@@ -8,11 +8,12 @@ window.SoOrderSupplierLoader = {
     // Cloudflare Worker proxy URL
     WORKER_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
 
-    // TPOS credentials
+    // TPOS credentials (same as token-manager.js in orders-report)
     TPOS_CREDENTIALS: {
-        username: 'nv20',
-        password: 'Nv201234',
-        grant_type: 'password'
+        grant_type: 'password',
+        username: 'nvkt',
+        password: 'Aa@123456789',
+        client_id: 'tmtWebApp'
     },
 
     // Queue for duplicate suppliers pending user selection
@@ -26,19 +27,33 @@ window.SoOrderSupplierLoader = {
         try {
             console.log('[Supplier Loader] 🔑 Fetching TPOS token...');
 
+            // Create form data with all required parameters
+            const formData = new URLSearchParams();
+            formData.append('grant_type', this.TPOS_CREDENTIALS.grant_type);
+            formData.append('username', this.TPOS_CREDENTIALS.username);
+            formData.append('password', this.TPOS_CREDENTIALS.password);
+            formData.append('client_id', this.TPOS_CREDENTIALS.client_id);
+
             const response = await fetch(`${this.WORKER_URL}/api/token`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
-                body: new URLSearchParams(this.TPOS_CREDENTIALS)
+                body: formData.toString()
             });
 
             if (!response.ok) {
-                throw new Error(`Token request failed: ${response.status}`);
+                const errorText = await response.text();
+                console.error('[Supplier Loader] Token request error response:', errorText);
+                throw new Error(`Token request failed: ${response.status} ${response.statusText}`);
             }
 
             const data = await response.json();
+
+            if (!data.access_token) {
+                throw new Error('Invalid token response: missing access_token');
+            }
+
             console.log('[Supplier Loader] ✅ Token retrieved successfully');
 
             return data.access_token;
