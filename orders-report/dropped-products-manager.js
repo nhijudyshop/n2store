@@ -158,10 +158,11 @@
                     return;
                 }
 
-                // Add new item to local array
+                // Add new item to local array with normalized ProductId (ensure number type)
                 droppedProducts.push({
                     id: itemId,
-                    ...itemData
+                    ...itemData,
+                    ProductId: parseInt(itemData.ProductId) || itemData.ProductId  // Normalize to number
                 });
 
                 // Log for debugging (skip during initial load to reduce spam)
@@ -187,7 +188,8 @@
                 if (existingIndex > -1) {
                     droppedProducts[existingIndex] = {
                         id: itemId,
-                        ...itemData
+                        ...itemData,
+                        ProductId: parseInt(itemData.ProductId) || itemData.ProductId  // Normalize to number
                     };
                     console.log('[DROPPED-PRODUCTS] ✓ Item updated by user:', itemId, itemData.ProductNameGet);
                 } else {
@@ -1415,6 +1417,13 @@
     window.updateHeldProductQuantity = async function (productId, quantity) {
         if (!window.firebase || !window.authManager) return;
 
+        // Normalize productId to number for consistent comparison
+        const normalizedProductId = parseInt(productId);
+        if (isNaN(normalizedProductId)) {
+            console.error('[HELD-PRODUCTS] Invalid productId:', productId);
+            return;
+        }
+
         const auth = window.authManager.getAuthState();
         if (!auth) return;
 
@@ -1427,24 +1436,24 @@
         if (!userId || !orderId) return;
 
         try {
-            const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
+            const ref = window.firebase.database().ref(`held_products/${orderId}/${normalizedProductId}/${userId}`);
 
             if (quantity > 0) {
                 // Update quantity
                 await ref.update({
-                    productId: productId,  // Store productId for easy comparison
+                    productId: normalizedProductId,  // Store productId as number for easy comparison
                     quantity: quantity,
                     timestamp: Date.now()
                 });
-                console.log('[HELD-PRODUCTS] ✓ Updated quantity to', quantity);
+                console.log('[HELD-PRODUCTS] ✓ Updated quantity to', quantity, 'for productId:', normalizedProductId);
             } else {
                 // Remove if quantity is 0
                 await ref.remove();
-                console.log('[HELD-PRODUCTS] ✓ Removed (quantity = 0)');
+                console.log('[HELD-PRODUCTS] ✓ Removed (quantity = 0) for productId:', normalizedProductId);
 
                 // Clear heldBy if no one else is holding
                 if (window.clearHeldByIfNotHeld) {
-                    await window.clearHeldByIfNotHeld(productId);
+                    await window.clearHeldByIfNotHeld(normalizedProductId);
                 }
             }
 
@@ -1455,10 +1464,17 @@
 
     /**
      * Remove held product from Firebase
-     * @param {number} productId - Product ID to remove
+     * @param {number|string} productId - Product ID to remove (will be normalized to number)
      */
     window.removeHeldProduct = async function (productId) {
         if (!window.firebase || !window.authManager) return;
+
+        // Normalize productId to number for consistent Firebase path
+        const normalizedProductId = parseInt(productId);
+        if (isNaN(normalizedProductId)) {
+            console.error('[HELD-PRODUCTS] Invalid productId for removal:', productId);
+            return;
+        }
 
         const auth = window.authManager.getAuthState();
         if (!auth) return;
@@ -1472,16 +1488,16 @@
         if (!userId || !orderId) return;
 
         try {
-            console.log('[HELD-PRODUCTS] Removing held product:', productId);
+            console.log('[HELD-PRODUCTS] Removing held product:', normalizedProductId);
 
-            const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
+            const ref = window.firebase.database().ref(`held_products/${orderId}/${normalizedProductId}/${userId}`);
             await ref.remove();
 
-            console.log('[HELD-PRODUCTS] ✓ Removed from Firebase');
+            console.log('[HELD-PRODUCTS] ✓ Removed from Firebase, productId:', normalizedProductId);
 
             // Clear heldBy from dropped products if no one else is holding
             if (window.clearHeldByIfNotHeld) {
-                await window.clearHeldByIfNotHeld(productId);
+                await window.clearHeldByIfNotHeld(normalizedProductId);
             }
 
         } catch (error) {
