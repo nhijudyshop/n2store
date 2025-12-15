@@ -20959,7 +20959,7 @@ function buildFastSaleOrderPayload() {
         State: 'draft',
         ShowState: 'Nháp',
         CompanyId: 1,
-        Comment: '',
+        Comment: document.getElementById('saleReceiverNote')?.value || '',
         WarehouseId: 1,
         SaleOnlineIds: order.Id ? [order.Id] : [],
         SaleOnlineNames: [],
