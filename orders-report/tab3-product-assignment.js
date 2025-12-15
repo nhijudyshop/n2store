@@ -4237,30 +4237,63 @@
         const searchProduct = document.getElementById('historyV2SearchProduct').value.trim();
 
         console.log('[HISTORY-V2] Rendering Group By STT view...');
+        console.log('[HISTORY-V2] Total filtered records:', filteredHistoryRecordsV2.length);
 
         // Collect all STT -> Products mappings from all filtered records
-        const sttProductMap = new Map(); // stt -> { products: Set, uploads: [] }
+        const sttProductMap = new Map(); // stt -> { products: Map, uploads: [] }
 
         filteredHistoryRecordsV2.forEach(record => {
-            if (!record.beforeSnapshot || !record.beforeSnapshot.assignments) return;
-
             const uploadInfo = {
                 uploadId: record.uploadId,
                 timestamp: record.timestamp,
                 userId: record.userId
             };
 
-            record.beforeSnapshot.assignments.forEach(assignment => {
-                if (!assignment.stts || !assignment.stts.length) return;
+            // Try to get data from beforeSnapshot.assignments first
+            if (record.beforeSnapshot && record.beforeSnapshot.assignments && record.beforeSnapshot.assignments.length > 0) {
+                console.log('[HISTORY-V2] Processing record with beforeSnapshot:', record.uploadId);
 
-                const productInfo = {
-                    productCode: assignment.productCode || '',
-                    productId: assignment.productId || '',
-                    productName: assignment.productName || '',
-                    productImage: assignment.productImage || ''
-                };
+                record.beforeSnapshot.assignments.forEach(assignment => {
+                    if (!assignment.sttList || !assignment.sttList.length) return;
 
-                assignment.stts.forEach(stt => {
+                    const productInfo = {
+                        productCode: assignment.productCode || '',
+                        productId: assignment.productId || '',
+                        productName: assignment.productName || '',
+                        productImage: assignment.productImage || ''
+                    };
+
+                    assignment.sttList.forEach(sttItem => {
+                        // sttList can contain objects with stt property or direct values
+                        const sttStr = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
+
+                        if (!sttProductMap.has(sttStr)) {
+                            sttProductMap.set(sttStr, {
+                                products: new Map(),
+                                uploads: []
+                            });
+                        }
+
+                        const sttData = sttProductMap.get(sttStr);
+
+                        // Use productCode as key to avoid duplicates
+                        const productKey = productInfo.productCode || productInfo.productId || productInfo.productName;
+                        if (productKey && !sttData.products.has(productKey)) {
+                            sttData.products.set(productKey, productInfo);
+                        }
+
+                        // Track upload info
+                        if (!sttData.uploads.find(u => u.uploadId === record.uploadId)) {
+                            sttData.uploads.push(uploadInfo);
+                        }
+                    });
+                });
+            }
+            // Fallback: use uploadedSTTs if beforeSnapshot is not available
+            else if (record.uploadedSTTs && record.uploadedSTTs.length > 0) {
+                console.log('[HISTORY-V2] Processing record with uploadedSTTs fallback:', record.uploadId);
+
+                record.uploadedSTTs.forEach(stt => {
                     const sttStr = String(stt);
 
                     if (!sttProductMap.has(sttStr)) {
@@ -4272,20 +4305,15 @@
 
                     const sttData = sttProductMap.get(sttStr);
 
-                    // Use productCode as key to avoid duplicates
-                    const productKey = productInfo.productCode || productInfo.productId || productInfo.productName;
-                    if (productKey && !sttData.products.has(productKey)) {
-                        sttData.products.set(productKey, productInfo);
-                    }
-
-                    // Track upload info
-                    const uploadKey = record.uploadId;
-                    if (!sttData.uploads.find(u => u.uploadId === uploadKey)) {
+                    // Track upload info (no product info available in fallback)
+                    if (!sttData.uploads.find(u => u.uploadId === record.uploadId)) {
                         sttData.uploads.push(uploadInfo);
                     }
                 });
-            });
+            }
         });
+
+        console.log('[HISTORY-V2] Total STTs collected:', sttProductMap.size);
 
         // Filter by STT search if specified
         let filteredSTTs = Array.from(sttProductMap.entries());
@@ -4354,7 +4382,7 @@
 
         filteredSTTs.forEach(([stt, data]) => {
             const products = Array.from(data.products.values());
-            const productCodes = products.map(p => p.productCode || p.productId).filter(Boolean);
+            const uploadsCount = data.uploads.length;
 
             html += `
                 <div class="stt-group-card">
@@ -4362,27 +4390,39 @@
                         <span class="stt-group-number">
                             <i class="fas fa-hashtag"></i> STT ${stt}
                         </span>
-                        <span class="badge bg-success">${products.length} sản phẩm</span>
+                        <div>
+                            ${products.length > 0 ? `<span class="badge bg-success">${products.length} sản phẩm</span>` : ''}
+                            <span class="badge bg-info ms-1">${uploadsCount} lần upload</span>
+                        </div>
                     </div>
                     <div class="stt-group-products">
             `;
 
-            products.forEach(product => {
-                const imgSrc = product.productImage || '';
-                const hasImage = imgSrc && imgSrc.length > 0;
+            if (products.length > 0) {
+                products.forEach(product => {
+                    const imgSrc = product.productImage || '';
+                    const hasImage = imgSrc && imgSrc.length > 0;
 
+                    html += `
+                        <div class="stt-product-item">
+                            <div class="stt-product-image ${hasImage ? '' : 'no-image'}">
+                                ${hasImage ? `<img src="${imgSrc}" alt="${product.productName}" />` : '<i class="fas fa-box"></i>'}
+                            </div>
+                            <div class="stt-product-info">
+                                <div class="stt-product-code">${product.productCode || product.productId || 'N/A'}</div>
+                                <div class="stt-product-name">${product.productName || ''}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
                 html += `
-                    <div class="stt-product-item">
-                        <div class="stt-product-image ${hasImage ? '' : 'no-image'}">
-                            ${hasImage ? `<img src="${imgSrc}" alt="${product.productName}" />` : '<i class="fas fa-box"></i>'}
-                        </div>
-                        <div class="stt-product-info">
-                            <div class="stt-product-code">${product.productCode || product.productId || 'N/A'}</div>
-                            <div class="stt-product-name">${product.productName || ''}</div>
-                        </div>
+                    <div class="stt-no-products">
+                        <i class="fas fa-info-circle text-muted"></i>
+                        <span class="text-muted">Không có thông tin sản phẩm chi tiết</span>
                     </div>
                 `;
-            });
+            }
 
             html += `
                     </div>

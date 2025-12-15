@@ -1413,6 +1413,15 @@ button:disabled:hover {
     text-overflow: ellipsis;
 }
 
+/* STT No Products State */
+.stt-no-products {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    font-size: 13px;
+}
+
 /* Responsive for STT Group View */
 @media (max-width: 768px) {
     .stt-group-products {
