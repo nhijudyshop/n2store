@@ -19445,6 +19445,32 @@ async function openSaleButtonModal() {
         };
     }
 
+    // Add event listener for shipping fee changes to update COD realtime
+    const shippingFeeInput = document.getElementById('saleShippingFee');
+    if (shippingFeeInput) {
+        shippingFeeInput.oninput = function() {
+            // Recalculate COD when shipping fee changes
+            const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
+            const shippingFee = parseFloat(this.value) || 0;
+            const codInput = document.getElementById('saleCOD');
+            if (codInput) {
+                codInput.value = finalTotal + shippingFee;
+                updateSaleRemainingBalance();
+            }
+        };
+    }
+
+    // Add event listener for discount changes to update totals realtime
+    const discountInput = document.getElementById('saleDiscount');
+    if (discountInput) {
+        discountInput.oninput = function() {
+            // Recalculate totals when discount changes
+            const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+            const totalQuantity = parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
+            updateSaleTotals(totalQuantity, totalAmount);
+        };
+    }
+
     // Populate basic order data first (from local data)
     populateSaleModalWithOrder(order);
 
