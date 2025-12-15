@@ -21043,7 +21043,7 @@ function buildFastSaleOrderPayload() {
         Origin: null,
         AmountDeposit: 0,
         CompanyName: 'NJD Live',
-        PreviousBalance: cod,
+        PreviousBalance: codValue,
         ToPay: null,
         NotModifyPriceFromSO: false,
         Ship_ServiceId: null,
