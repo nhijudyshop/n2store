@@ -82,50 +82,13 @@ const API_CONFIG = {
     },
 
     /**
-     * Smart Fetch with retry mechanism (no fallback)
+     * Smart Fetch - simple wrapper around fetch
      * @param {string} url - Full URL
      * @param {object} options - Fetch options
-     * @param {number} maxRetries - Maximum number of retries (default: 3)
-     * @param {boolean} skipFallback - Ignored (kept for backwards compatibility)
      * @returns {Promise<Response>}
      */
-    smartFetch: async function (url, options = {}, maxRetries = 3, skipFallback = false) {
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                if (attempt === 1) {
-                    console.log(`[API] 🌐 Fetching: ${url}`);
-                } else {
-                    console.log(`[API] 🔄 Retry ${attempt}/${maxRetries}: ${url}`);
-                }
-
-                const response = await fetch(url, options);
-
-                if (response.ok) {
-                    if (attempt > 1) {
-                        console.log(`[API] ✅ Success after ${attempt} attempts`);
-                    } else {
-                        console.log(`[API] ✅ Success`);
-                    }
-                    return response;
-                }
-
-                // If not ok, throw to retry
-                throw new Error(`HTTP ${response.status}`);
-
-            } catch (error) {
-                const isLastAttempt = attempt === maxRetries;
-
-                if (isLastAttempt) {
-                    console.error(`[API] ❌ Failed after ${maxRetries} attempts:`, error.message);
-                    throw error;
-                }
-
-                // Exponential backoff: 1s, 2s, 4s
-                const delay = Math.pow(2, attempt - 1) * 1000;
-                console.warn(`[API] ⏳ Attempt ${attempt} failed, retrying in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-        }
+    smartFetch: async function (url, options = {}) {
+        return fetch(url, options);
     },
 
     /**
