@@ -19459,9 +19459,6 @@ async function openSaleButtonModal() {
     // Must await to ensure dropdown is ready for smart selection
     await populateDeliveryCarrierDropdown();
 
-    // Populate user dropdown for user selection
-    await populateSaleUserDropdown();
-
     // Fetch detailed order data from API (includes partner, orderLines)
     const orderDetails = await fetchOrderDetailsForSale(orderId);
 
@@ -19508,93 +19505,6 @@ function closeSaleButtonModal() {
     modal.style.display = 'none';
     currentSaleOrderData = null;
     currentSalePartnerData = null;
-}
-
-/**
- * Fetch list of users for Sale Modal user selection
- */
-async function fetchSaleUsers() {
-    try {
-        // Get auth token
-        let token;
-        if (window.tokenManager) {
-            token = await window.tokenManager.getToken();
-        } else {
-            const storedData = localStorage.getItem('bearer_token_data');
-            if (storedData) {
-                const data = JSON.parse(storedData);
-                token = data.access_token;
-            }
-        }
-
-        if (!token) {
-            console.warn('[SALE-USERS] No auth token found');
-            return [];
-        }
-
-        // Fetch users from ApplicationUser API (via Cloudflare proxy to pass CORS)
-        // Match query format from TPOS web: $format=json, $orderby=Name, $count=true, no $select to get all fields including Roles
-        const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ApplicationUser?$format=json&$top=100&$orderby=Name&$filter=Active eq true&$count=true', {
-            method: 'GET',
-            headers: {
-                'accept': 'application/json, text/plain, */*',
-                'authorization': `Bearer ${token}`,
-                'tposappversion': '5.11.16.1',
-                'x-tpos-lang': 'vi'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('[SALE-USERS] Fetched users:', data);
-
-        // Return the value array
-        return data.value || [];
-
-    } catch (error) {
-        console.error('[SALE-USERS] Error fetching users:', error);
-        return [];
-    }
-}
-
-/**
- * Populate user dropdown in Sale Modal
- */
-async function populateSaleUserDropdown() {
-    const select = document.getElementById('saleUserSelect');
-    if (!select) return;
-
-    // Show loading
-    select.innerHTML = '<option value="">Đang tải...</option>';
-
-    // Fetch users
-    const users = await fetchSaleUsers();
-
-    if (users.length === 0) {
-        select.innerHTML = '<option value="">Không có user</option>';
-        return;
-    }
-
-    // Populate dropdown
-    select.innerHTML = users.map(user => {
-        const userId = user.Id;
-        const displayName = user.Name || user.UserName || userId;
-        const subffix = user.Subffix ? ` (${user.Subffix})` : '';
-        return `<option value="${userId}" data-name="${displayName}" data-subffix="${user.Subffix || ''}">${displayName}${subffix}</option>`;
-    }).join('');
-
-    // Select current user if available from DefaultGet
-    if (window.lastDefaultSaleData && window.lastDefaultSaleData.User) {
-        const currentUserId = window.lastDefaultSaleData.User.Id;
-        if (currentUserId) {
-            select.value = currentUserId;
-        }
-    }
-
-    console.log('[SALE-USERS] Populated dropdown with', users.length, 'users');
 }
 
 /**
@@ -21012,8 +20922,12 @@ function buildFastSaleOrderPayload() {
         ? parseFloat(shippingFeeValue)
         : 35000;
 
-    const cod = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+    const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
     const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+
+    // 🔥 CashOnDelivery should equal "Còn lại" (Remaining balance)
+    // Logic: Remaining = COD - Prepaid (if Prepaid < COD), otherwise 0
+    const cashOnDelivery = prepaidAmount < codValue ? (codValue - prepaidAmount) : 0;
 
     // Get carrier
     const carrierSelect = document.getElementById('saleCarrier');
@@ -21032,25 +20946,11 @@ function buildFastSaleOrderPayload() {
     // Format DateCreated with timezone like: 2025-12-11T21:58:53.4497898+07:00
     const dateCreated = formatDateWithTimezone(now);
 
-    // 🔥 Get User from dropdown selection (if available), otherwise from defaultData
-    const userSelect = document.getElementById('saleUserSelect');
-    let userId = null;
-    let userName = null;
-    let userSubffix = null;
-
-    if (userSelect && userSelect.value) {
-        // Get from selected user
-        userId = userSelect.value;
-        const selectedOption = userSelect.selectedOptions[0];
-        userName = selectedOption?.getAttribute('data-name') || null;
-        userSubffix = selectedOption?.getAttribute('data-subffix') || null;
-    } else {
-        // Fallback to defaultData.User
-        const user = defaultData.User || null;
-        userId = user?.Id || null;
-        userName = user?.Name || null;
-        userSubffix = user?.Subffix || null;
-    }
+    // Get User from defaultData
+    const user = defaultData.User || null;
+    const userId = user?.Id || null;
+    const userName = user?.Name || null;
+    const userSubffix = user?.Subffix || null;
 
     // Build payload matching the sample from fetchFastSaleOrder.text
     const payload = {
@@ -21111,7 +21011,7 @@ function buildFastSaleOrderPayload() {
         ReceiverAddress: receiverAddress,
         ReceiverDate: dateCreated,
         ReceiverNote: null,
-        CashOnDelivery: cod,
+        CashOnDelivery: cashOnDelivery,
         TrackingRef: null,
         TrackingArea: null,
         TrackingTransport: null,
@@ -21124,7 +21024,7 @@ function buildFastSaleOrderPayload() {
         SaleOnlineName: '',
         PartnerShippingId: null,
         PaymentJournalId: 1,
-        PaymentAmount: prepaidAmount < cod ? prepaidAmount : cod, // Nếu trả trước < COD thì PaymentAmount = trả trước, ngược lại = COD
+        PaymentAmount: prepaidAmount < codValue ? prepaidAmount : codValue, // Nếu trả trước < COD thì PaymentAmount = trả trước, ngược lại = COD
         SaleOrderId: null,
         SaleOrderIds: [],
         FacebookName: receiverName,
@@ -21255,7 +21155,6 @@ function buildFastSaleOrderPayload() {
         Error: null,
         Warehouse: window.lastDefaultSaleData?.Warehouse || { Id: 1, Code: 'WH', Name: 'Nhi Judy Store', CompanyId: 1, LocationId: 12, NameGet: '[WH] Nhi Judy Store', CompanyName: 'NJD Live', LocationActive: true },
         User: {
-            // 🔥 Use selected user info, fallback to defaultData
             ...(window.lastDefaultSaleData?.User || {}),
             Id: userId,
             Name: userName,
