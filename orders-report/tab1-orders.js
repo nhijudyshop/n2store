@@ -19478,7 +19478,12 @@ async function openSaleButtonModal() {
 
         // Populate order lines if available
         if (orderDetails.orderLines && orderDetails.orderLines.length > 0) {
-            populateSaleOrderLinesFromAPI(orderDetails.orderLines);
+            // 🔥 Map SaleOnlineDetailId from orderLine.Id for FastSaleOrder compatibility
+            const mappedOrderLines = orderDetails.orderLines.map(line => ({
+                ...line,
+                SaleOnlineDetailId: line.Id || line.SaleOnlineDetailId || null
+            }));
+            populateSaleOrderLinesFromAPI(mappedOrderLines);
         }
     } else {
         // Fallback: try smart selection with basic order address if no partner details
