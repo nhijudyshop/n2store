@@ -15551,17 +15551,38 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
             payload["@odata.context"] = "http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity";
         }
 
-        // Update Details with new products
+        // Get CreatedById from order or auth
+        const createdById = orderData.CreatedById || orderData.UserId;
+
+        // Update Details with new products - CLEAN UP to only include API-required fields
         payload.Details = (newDetails || []).map(detail => {
-            const cleaned = { ...detail };
+            // Only include fields that API expects
+            const cleaned = {
+                ProductId: detail.ProductId,
+                Quantity: detail.Quantity,
+                Price: detail.Price,
+                Note: detail.Note || null,
+                UOMId: detail.UOMId || 1,
+                Factor: detail.Factor || 1,
+                Priority: detail.Priority || 0,
+                OrderId: orderData.Id,
+                LiveCampaign_DetailId: detail.LiveCampaign_DetailId || null,
+                ProductWeight: detail.ProductWeight || 0,
+                ProductName: detail.ProductName,
+                ProductNameGet: detail.ProductNameGet,
+                ProductCode: detail.ProductCode,
+                UOMName: detail.UOMName || 'Cái',
+                ImageUrl: detail.ImageUrl || '',
+                IsOrderPriority: detail.IsOrderPriority || null,
+                QuantityRegex: detail.QuantityRegex || null,
+                IsDisabledLiveCampaignDetail: detail.IsDisabledLiveCampaignDetail || false,
+                CreatedById: detail.CreatedById || createdById  // CRITICAL: Add CreatedById
+            };
 
-            // Remove Id if null/undefined (for new details)
-            if (!cleaned.Id || cleaned.Id === null || cleaned.Id === undefined) {
-                delete cleaned.Id;
+            // Keep Id if it exists (for existing details)
+            if (detail.Id) {
+                cleaned.Id = detail.Id;
             }
-
-            // Ensure OrderId matches
-            cleaned.OrderId = orderData.Id;
 
             return cleaned;
         });
@@ -15578,7 +15599,8 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
             hasRowVersion: !!payload.RowVersion
         });
 
-        const response = await API_CONFIG.smartFetch(apiUrl, {
+        // Use direct fetch instead of smartFetch to avoid fallback issues
+        const response = await fetch(apiUrl, {
             method: 'PUT',
             headers: {
                 ...headers,
