@@ -22,14 +22,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Setup keyboard navigation
     window.SoOrderUtils.setupKeyboardNavigation();
 
-    // Load NCC names from TPOS API and save to Firebase
-    const tposResult = await window.SoOrderSupplierLoader.loadAndSaveSuppliers();
-
-    // If TPOS load failed, fallback to Firebase
-    if (!tposResult.success) {
-        console.warn('[Main] TPOS load failed, falling back to Firebase...');
-        await window.SoOrderCRUD.loadNCCNames();
-    }
+    // Load NCC names from Firebase (user can manually refresh from TPOS using button in modal)
+    await window.SoOrderCRUD.loadNCCNames();
 
     // Load today's data
     window.SoOrderUtils.gotoToday();
