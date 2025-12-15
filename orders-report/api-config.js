@@ -1,27 +1,16 @@
 /**
  * API Configuration
  * Central configuration for all API endpoints
- * Primary: Cloudflare Worker
- * Fallback: Render.com (when Cloudflare returns 500)
+ * Primary: Cloudflare Worker (no fallback)
  */
 
 // Primary: Cloudflare Worker URL
 const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
-// Fallback: Render.com URL (deploy this first!)
-const FALLBACK_URL = 'https://n2store-fallback.onrender.com';
-
 // API Configuration
 const API_CONFIG = {
     // Primary Worker URL
     WORKER_URL: WORKER_URL,
-
-    // Fallback URL
-    FALLBACK_URL: FALLBACK_URL,
-
-    // Current active URL (will switch on 500 errors)
-    _currentUrl: WORKER_URL,
-    _isFallbackActive: false,
 
     // TPOS OData API (SaleOnline_Order, AuditLog, etc.)
     TPOS_ODATA: `${WORKER_URL}/api/odata`,
@@ -93,128 +82,50 @@ const API_CONFIG = {
     },
 
     /**
-     * Smart Fetch with automatic fallback and retry mechanism
-     * Tries Cloudflare first (with retries), falls back to Render on failures (with retries)
-     * @param {string} url - Full URL (should start with WORKER_URL)
+     * Smart Fetch with retry mechanism (no fallback)
+     * @param {string} url - Full URL
      * @param {object} options - Fetch options
-     * @param {number} maxRetries - Maximum number of retries per endpoint (default: 3)
-     * @param {boolean} skipFallback - Skip fallback server (default: false)
+     * @param {number} maxRetries - Maximum number of retries (default: 3)
+     * @param {boolean} skipFallback - Ignored (kept for backwards compatibility)
      * @returns {Promise<Response>}
      */
     smartFetch: async function (url, options = {}, maxRetries = 3, skipFallback = false) {
-        const originalUrl = url;
-
-        /**
-         * Helper function to retry fetch with exponential backoff
-         * @param {string} targetUrl - URL to fetch
-         * @param {object} fetchOptions - Fetch options
-         * @param {number} retries - Number of retries remaining
-         * @param {string} label - Label for logging (e.g., "Cloudflare", "Fallback")
-         * @returns {Promise<Response>}
-         */
-        const fetchWithRetry = async (targetUrl, fetchOptions, retries, label) => {
-            for (let attempt = 1; attempt <= retries; attempt++) {
-                try {
-                    if (attempt === 1) {
-                        console.log(`[API] 🌐 Trying ${label}: ${targetUrl}`);
-                    } else {
-                        console.log(`[API] 🔄 Retry ${attempt}/${retries} for ${label}: ${targetUrl}`);
-                    }
-
-                    const response = await fetch(targetUrl, fetchOptions);
-
-                    // If 500 error on Cloudflare, don't retry - go straight to fallback
-                    if (response.status === 500 && label === 'Cloudflare') {
-                        console.warn(`[API] ⚠️ ${label} returned 500, switching to fallback immediately...`);
-                        const skipRetryError = new Error(`${label} returned 500`);
-                        skipRetryError.skipRetry = true; // Flag to skip retries
-                        throw skipRetryError;
-                    }
-
-                    // If response is ok, return it
-                    if (response.ok) {
-                        if (attempt > 1) {
-                            console.log(`[API] ✅ ${label} success after ${attempt} attempts`);
-                        } else {
-                            console.log(`[API] ✅ ${label} success`);
-                        }
-                        return response;
-                    }
-
-                    // If not ok but not 500, throw to retry
-                    throw new Error(`HTTP ${response.status}`);
-
-                } catch (error) {
-                    // If error has skipRetry flag, don't retry - throw immediately
-                    if (error.skipRetry) {
-                        console.error(`[API] ❌ ${label} returned 500, skipping retries`);
-                        throw error;
-                    }
-
-                    const isLastAttempt = attempt === retries;
-
-                    if (isLastAttempt) {
-                        console.error(`[API] ❌ ${label} failed after ${retries} attempts:`, error.message);
-                        throw error;
-                    }
-
-                    // Exponential backoff: 1s, 2s, 4s
-                    const delay = Math.pow(2, attempt - 1) * 1000;
-                    console.warn(`[API] ⏳ ${label} attempt ${attempt} failed, retrying in ${delay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            }
-        };
-
-        // Try primary (Cloudflare) with retries
-        try {
-            const response = await fetchWithRetry(url, options, maxRetries, 'Cloudflare');
-
-            // Success
-            if (!this._isFallbackActive && response.ok) {
-                // Already logged in fetchWithRetry
-            }
-
-            return response;
-
-        } catch (error) {
-            // If skipFallback is true, don't try fallback - just throw the error
-            if (skipFallback) {
-                console.warn('[API] ⚠️ Cloudflare failed and skipFallback is enabled, not trying fallback');
-                throw error;
-            }
-
-            // Try fallback (Render.com) with retries
-            const fallbackUrl = url.replace(WORKER_URL, FALLBACK_URL);
-            console.log(`[API] 🔄 Switching to fallback endpoint...`);
-
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                const fallbackResponse = await fetchWithRetry(fallbackUrl, options, maxRetries, 'Fallback');
-
-                if (fallbackResponse.ok) {
-                    // Mark fallback as active
-                    if (!this._isFallbackActive) {
-                        this._isFallbackActive = true;
-                        console.warn('[API] 🚨 Switched to FALLBACK mode (Render.com)');
-                    }
+                if (attempt === 1) {
+                    console.log(`[API] 🌐 Fetching: ${url}`);
+                } else {
+                    console.log(`[API] 🔄 Retry ${attempt}/${maxRetries}: ${url}`);
                 }
 
-                return fallbackResponse;
+                const response = await fetch(url, options);
 
-            } catch (fallbackError) {
-                console.error('[API] ❌ Both Cloudflare and Fallback failed after retries');
-                throw new Error(`Both endpoints failed. Cloudflare: ${error.message}, Fallback: ${fallbackError.message}`);
+                if (response.ok) {
+                    if (attempt > 1) {
+                        console.log(`[API] ✅ Success after ${attempt} attempts`);
+                    } else {
+                        console.log(`[API] ✅ Success`);
+                    }
+                    return response;
+                }
+
+                // If not ok, throw to retry
+                throw new Error(`HTTP ${response.status}`);
+
+            } catch (error) {
+                const isLastAttempt = attempt === maxRetries;
+
+                if (isLastAttempt) {
+                    console.error(`[API] ❌ Failed after ${maxRetries} attempts:`, error.message);
+                    throw error;
+                }
+
+                // Exponential backoff: 1s, 2s, 4s
+                const delay = Math.pow(2, attempt - 1) * 1000;
+                console.warn(`[API] ⏳ Attempt ${attempt} failed, retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
-    },
-
-    /**
-     * Reset to primary server (Cloudflare)
-     */
-    resetToPrimary: function () {
-        this._isFallbackActive = false;
-        this._currentUrl = WORKER_URL;
-        console.log('[API] 🔄 Reset to primary (Cloudflare)');
     },
 
     /**
@@ -223,9 +134,7 @@ const API_CONFIG = {
     getStatus: function () {
         return {
             primary: WORKER_URL,
-            fallback: FALLBACK_URL,
-            current: this._currentUrl,
-            isFallbackActive: this._isFallbackActive
+            current: WORKER_URL
         };
     }
 };
@@ -237,7 +146,6 @@ if (typeof window !== 'undefined') {
 
 console.log('[API-CONFIG] API configuration loaded:', {
     worker: WORKER_URL,
-    fallback: FALLBACK_URL,
     tposOData: API_CONFIG.TPOS_ODATA,
     pancake: API_CONFIG.PANCAKE
 });
