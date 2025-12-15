@@ -678,17 +678,56 @@
     }
 
     /**
-     * Clear heldBy field from dropped product if no one is holding it anymore
-     * @param {number|string} productId - Product ID to check and update
-     */
-    /**
-     * DEPRECATED: clearHeldByIfNotHeld is no longer needed
-     * heldBy is now computed dynamically from held_products when rendering
-     * Keeping this function as no-op for backwards compatibility
+     * Clean up dropped product if it has quantity=0 and no one is holding it
+     * This removes "zombie" products that were fully transferred to orders
+     * @param {number|string} productId - Product ID to check and potentially remove
      */
     window.clearHeldByIfNotHeld = async function (productId) {
-        // No-op: heldBy is computed dynamically, no need to clear
-        console.log('[DROPPED-PRODUCTS] clearHeldByIfNotHeld called (deprecated, no-op):', productId);
+        if (!firebaseDb) return;
+
+        try {
+            // Normalize productId
+            const normalizedProductId = parseInt(productId);
+            if (isNaN(normalizedProductId)) {
+                console.error('[DROPPED-PRODUCTS] Invalid productId for cleanup:', productId);
+                return;
+            }
+
+            console.log('[DROPPED-PRODUCTS] Checking if product should be cleaned up:', normalizedProductId);
+
+            // Check if product still has holders
+            const holders = await window.getProductHolders(normalizedProductId);
+
+            if (holders.length > 0) {
+                console.log('[DROPPED-PRODUCTS] Product still has holders:', holders);
+                return; // Don't clean up, still being held
+            }
+
+            // Find product in dropped list
+            const droppedProduct = droppedProducts.find(p => p.ProductId === normalizedProductId);
+
+            if (!droppedProduct) {
+                console.log('[DROPPED-PRODUCTS] Product not found in dropped list');
+                return;
+            }
+
+            // Check if quantity is 0
+            if ((droppedProduct.Quantity || 0) > 0) {
+                console.log('[DROPPED-PRODUCTS] Product still has quantity:', droppedProduct.Quantity);
+                return; // Don't clean up, still has stock
+            }
+
+            // Product has quantity=0 and no holders -> remove from Firebase
+            console.log('[DROPPED-PRODUCTS] Cleaning up zero-quantity product with no holders:', normalizedProductId);
+
+            const itemRef = firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${droppedProduct.id}`);
+            await itemRef.remove();
+
+            console.log('[DROPPED-PRODUCTS] ✓ Cleaned up product:', normalizedProductId);
+
+        } catch (error) {
+            console.error('[DROPPED-PRODUCTS] Error during cleanup:', error);
+        }
     };
 
     /**
@@ -1578,6 +1617,12 @@
                 // Re-render Orders tab
                 if (typeof window.renderChatProductsTable === 'function') {
                     window.renderChatProductsTable();
+                }
+
+                // Also re-render Dropped tab to update "Người giữ" status
+                // This ensures realtime updates across tabs when holders change
+                if (typeof window.renderDroppedProductsTable === 'function') {
+                    window.renderDroppedProductsTable();
                 }
             }
         });
