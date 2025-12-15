@@ -56,13 +56,11 @@ window.SoOrderSupplierLoader = {
         try {
             console.log('[Supplier Loader] 📡 Fetching suppliers from TPOS OData API...');
 
-            // OData query parameters - lấy toàn bộ danh sách NCC (bao gồm cả inactive)
-            // Giữ filter Supplier eq true để chỉ lấy nhà cung cấp (không lấy khách hàng)
-            // Bỏ filter Active eq true để lấy cả NCC không hoạt động
+            // OData query parameters
             const params = new URLSearchParams({
                 '$top': '1000',  // Tăng từ 50 lên 1000 để lấy nhiều NCC hơn
                 '$orderby': 'Name',
-                '$filter': '(Supplier eq true)',
+                '$filter': '(Supplier eq true and Active eq true)',
                 '$count': 'true'
             });
 
@@ -111,7 +109,7 @@ window.SoOrderSupplierLoader = {
     },
 
     // =====================================================
-    // SAVE SUPPLIERS TO FIREBASE (WITH Ax CODE EXTRACTION & DUPLICATE HANDLING)
+    // SAVE SUPPLIERS TO FIREBASE - LƯU TẤT CẢ NCC KHÔNG LỌC
     // =====================================================
     async saveSuppliersToFirebase(suppliers) {
         const config = window.SoOrderConfig;
@@ -122,11 +120,10 @@ window.SoOrderSupplierLoader = {
         }
 
         try {
-            console.log('[Supplier Loader] 💾 Processing suppliers for Firebase save...');
+            console.log('[Supplier Loader] 💾 Saving ALL suppliers to Firebase (no filtering)...');
 
-            // Step 1: Group suppliers by Ax code extracted from Name
-            const suppliersByCode = new Map();
-            const suppliersWithoutCode = [];
+            // Lưu tất cả NCC vào Map theo Ax code (nếu có) hoặc TPOS code
+            const suppliersToSave = new Map();
 
             for (const supplier of suppliers) {
                 const name = supplier.Name;
@@ -137,86 +134,42 @@ window.SoOrderSupplierLoader = {
                 }
 
                 // Extract Ax code from the Name field
-                const code = this.parseNCCCode(name);
+                const axCode = this.parseNCCCode(name);
+
+                // Sử dụng Ax code nếu có, nếu không dùng TPOS code
+                const code = axCode || supplier.Code;
 
                 if (!code) {
-                    // No Ax code found in name - skip
-                    suppliersWithoutCode.push(supplier);
+                    console.warn('[Supplier Loader] ⚠️ Skipping supplier without code:', supplier);
                     continue;
                 }
 
-                // Group by Ax code
-                if (!suppliersByCode.has(code)) {
-                    suppliersByCode.set(code, []);
-                }
-                suppliersByCode.get(code).push({
-                    code: code,
-                    name: name.trim(),
-                    tposCode: supplier.Code // Keep original TPOS code for reference
-                });
-            }
-
-            console.log(`[Supplier Loader] 📊 Found ${suppliersByCode.size} unique Ax codes, ${suppliersWithoutCode.length} suppliers without Ax code`);
-
-            // Step 2: Separate unique suppliers from duplicates
-            const uniqueSuppliers = [];
-            const duplicateGroups = [];
-
-            for (const [code, supplierList] of suppliersByCode) {
-                if (supplierList.length === 1) {
-                    uniqueSuppliers.push(supplierList[0]);
-                } else {
-                    // Multiple suppliers with same Ax code
-                    duplicateGroups.push({
-                        code: code,
-                        suppliers: supplierList
+                // Nếu đã có code này rồi, giữ nguyên cái đầu tiên (không trigger modal)
+                if (!suppliersToSave.has(code.toUpperCase())) {
+                    suppliersToSave.set(code.toUpperCase(), {
+                        code: code.toUpperCase(),
+                        name: name.trim(),
+                        tposCode: supplier.Code
                     });
                 }
             }
 
-            console.log(`[Supplier Loader] ✅ ${uniqueSuppliers.length} unique suppliers, ${duplicateGroups.length} duplicate groups`);
+            console.log(`[Supplier Loader] 📊 Found ${suppliersToSave.size} suppliers to save`);
 
-            // Step 3: Load existing NCC names from Firebase to compare
-            const existingSnapshot = await config.nccNamesCollectionRef.get();
-            const existingNames = new Map();
-            existingSnapshot.forEach((doc) => {
-                existingNames.set(doc.id.toUpperCase(), doc.data().name);
-            });
-
-            // Step 4: Save unique suppliers (prioritize new data)
+            // Lưu tất cả vào Firebase bằng batch
             const batch = config.db.batch();
             let saveCount = 0;
 
-            for (const supplier of uniqueSuppliers) {
-                const docRef = config.nccNamesCollectionRef.doc(supplier.code.toUpperCase());
+            for (const [code, supplier] of suppliersToSave) {
+                const docRef = config.nccNamesCollectionRef.doc(code);
                 batch.set(docRef, { name: supplier.name }, { merge: false });
                 saveCount++;
             }
 
-            // Commit batch for unique suppliers
+            // Commit batch
             if (saveCount > 0) {
                 await batch.commit();
-                console.log(`[Supplier Loader] ✅ Saved ${saveCount} unique suppliers to Firebase`);
-            }
-
-            // Step 5: Handle duplicate groups - show modal for user to choose
-            if (duplicateGroups.length > 0) {
-                console.log(`[Supplier Loader] ⚠️ Found ${duplicateGroups.length} duplicate groups, prompting user...`);
-
-                // Process duplicates one by one with user selection
-                const selectedSuppliers = await this.processDuplicateGroups(duplicateGroups, existingNames);
-
-                // Save selected suppliers
-                if (selectedSuppliers.length > 0) {
-                    const duplicateBatch = config.db.batch();
-                    for (const supplier of selectedSuppliers) {
-                        const docRef = config.nccNamesCollectionRef.doc(supplier.code.toUpperCase());
-                        duplicateBatch.set(docRef, { name: supplier.name }, { merge: false });
-                    }
-                    await duplicateBatch.commit();
-                    saveCount += selectedSuppliers.length;
-                    console.log(`[Supplier Loader] ✅ Saved ${selectedSuppliers.length} selected suppliers from duplicates`);
-                }
+                console.log(`[Supplier Loader] ✅ Saved ${saveCount} suppliers to Firebase`);
             }
 
             return { success: true, count: saveCount };
