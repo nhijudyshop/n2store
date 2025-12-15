@@ -4027,7 +4027,14 @@
         }
 
         currentHistoryPageV2 = 1;
-        renderUploadHistoryListV2();
+
+        // Check if Group By STT view is active
+        const isGroupBySTT = document.getElementById('historyV2GroupBySTT')?.checked;
+        if (isGroupBySTT) {
+            renderGroupBySTTView();
+        } else {
+            renderUploadHistoryListV2();
+        }
 
         console.log(`[HISTORY-V2] ✅ Filtered to ${filteredHistoryRecordsV2.length} records`);
     };
@@ -4204,6 +4211,192 @@
         renderUploadHistoryListV2();
         document.getElementById('historyV2ListContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
+
+    /**
+     * Toggle between normal view and Group By STT view
+     */
+    window.toggleGroupBySTTView = function () {
+        const isGroupBySTT = document.getElementById('historyV2GroupBySTT').checked;
+        console.log('[HISTORY-V2] Toggle Group By STT:', isGroupBySTT);
+
+        if (isGroupBySTT) {
+            renderGroupBySTTView();
+        } else {
+            renderUploadHistoryListV2();
+        }
+    };
+
+    /**
+     * Render Group By STT View - aggregates all uploads within selected time range by STT
+     */
+    function renderGroupBySTTView() {
+        const container = document.getElementById('historyV2ListContainer');
+        const dateFrom = document.getElementById('historyV2DateFrom').value;
+        const dateTo = document.getElementById('historyV2DateTo').value;
+        const searchSTT = document.getElementById('historyV2SearchSTT').value.trim();
+        const searchProduct = document.getElementById('historyV2SearchProduct').value.trim();
+
+        console.log('[HISTORY-V2] Rendering Group By STT view...');
+
+        // Collect all STT -> Products mappings from all filtered records
+        const sttProductMap = new Map(); // stt -> { products: Set, uploads: [] }
+
+        filteredHistoryRecordsV2.forEach(record => {
+            if (!record.beforeSnapshot || !record.beforeSnapshot.assignments) return;
+
+            const uploadInfo = {
+                uploadId: record.uploadId,
+                timestamp: record.timestamp,
+                userId: record.userId
+            };
+
+            record.beforeSnapshot.assignments.forEach(assignment => {
+                if (!assignment.stts || !assignment.stts.length) return;
+
+                const productInfo = {
+                    productCode: assignment.productCode || '',
+                    productId: assignment.productId || '',
+                    productName: assignment.productName || '',
+                    productImage: assignment.productImage || ''
+                };
+
+                assignment.stts.forEach(stt => {
+                    const sttStr = String(stt);
+
+                    if (!sttProductMap.has(sttStr)) {
+                        sttProductMap.set(sttStr, {
+                            products: new Map(),
+                            uploads: []
+                        });
+                    }
+
+                    const sttData = sttProductMap.get(sttStr);
+
+                    // Use productCode as key to avoid duplicates
+                    const productKey = productInfo.productCode || productInfo.productId || productInfo.productName;
+                    if (productKey && !sttData.products.has(productKey)) {
+                        sttData.products.set(productKey, productInfo);
+                    }
+
+                    // Track upload info
+                    const uploadKey = record.uploadId;
+                    if (!sttData.uploads.find(u => u.uploadId === uploadKey)) {
+                        sttData.uploads.push(uploadInfo);
+                    }
+                });
+            });
+        });
+
+        // Filter by STT search if specified
+        let filteredSTTs = Array.from(sttProductMap.entries());
+        if (searchSTT) {
+            filteredSTTs = filteredSTTs.filter(([stt]) => stt.includes(searchSTT));
+        }
+
+        // Filter by product search if specified
+        if (searchProduct) {
+            const searchLower = searchProduct.toLowerCase();
+            filteredSTTs = filteredSTTs.filter(([stt, data]) => {
+                return Array.from(data.products.values()).some(product => {
+                    return product.productCode.toLowerCase().includes(searchLower) ||
+                           product.productId.toLowerCase().includes(searchLower) ||
+                           product.productName.toLowerCase().includes(searchLower);
+                });
+            });
+        }
+
+        // Sort by STT number (numeric if possible)
+        filteredSTTs.sort((a, b) => {
+            const numA = parseInt(a[0], 10);
+            const numB = parseInt(b[0], 10);
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return numA - numB;
+            }
+            return a[0].localeCompare(b[0]);
+        });
+
+        if (filteredSTTs.length === 0) {
+            container.innerHTML = `
+                <div class="history-empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>Không tìm thấy STT nào trong khoảng thời gian đã chọn</p>
+                    <p class="small">Hãy điều chỉnh bộ lọc thời gian để xem dữ liệu</p>
+                </div>
+            `;
+            document.getElementById('historyV2Pagination').innerHTML = '';
+            return;
+        }
+
+        // Build date range display
+        let dateRangeText = '';
+        if (dateFrom && dateTo) {
+            dateRangeText = `Từ ${dateFrom} đến ${dateTo}`;
+        } else if (dateFrom) {
+            dateRangeText = `Từ ${dateFrom}`;
+        } else if (dateTo) {
+            dateRangeText = `Đến ${dateTo}`;
+        } else {
+            dateRangeText = 'Tất cả thời gian';
+        }
+
+        // Render the grouped view
+        let html = `
+            <div class="stt-group-header mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1"><i class="fas fa-layer-group"></i> Danh sách STT và Sản phẩm</h6>
+                        <small class="text-muted">${dateRangeText} • ${filteredSTTs.length} STT</small>
+                    </div>
+                </div>
+            </div>
+            <div class="stt-group-list">
+        `;
+
+        filteredSTTs.forEach(([stt, data]) => {
+            const products = Array.from(data.products.values());
+            const productCodes = products.map(p => p.productCode || p.productId).filter(Boolean);
+
+            html += `
+                <div class="stt-group-card">
+                    <div class="stt-group-card-header">
+                        <span class="stt-group-number">
+                            <i class="fas fa-hashtag"></i> STT ${stt}
+                        </span>
+                        <span class="badge bg-success">${products.length} sản phẩm</span>
+                    </div>
+                    <div class="stt-group-products">
+            `;
+
+            products.forEach(product => {
+                const imgSrc = product.productImage || '';
+                const hasImage = imgSrc && imgSrc.length > 0;
+
+                html += `
+                    <div class="stt-product-item">
+                        <div class="stt-product-image ${hasImage ? '' : 'no-image'}">
+                            ${hasImage ? `<img src="${imgSrc}" alt="${product.productName}" />` : '<i class="fas fa-box"></i>'}
+                        </div>
+                        <div class="stt-product-info">
+                            <div class="stt-product-code">${product.productCode || product.productId || 'N/A'}</div>
+                            <div class="stt-product-name">${product.productName || ''}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+
+        container.innerHTML = html;
+        document.getElementById('historyV2Pagination').innerHTML = '';
+
+        console.log(`[HISTORY-V2] ✅ Rendered Group By STT view with ${filteredSTTs.length} STTs`);
+    }
 
     /**
      * View upload history detail V2
