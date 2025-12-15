@@ -1368,4 +1368,144 @@ window.SoOrderUI = {
             }
         }
     },
+
+    // =====================================================
+    // DUPLICATE SUPPLIER SELECTION MODAL
+    // =====================================================
+    duplicateSupplierCallback: null,
+
+    // Show modal for selecting one supplier from duplicates
+    showDuplicateSupplierModal(code, options, callback) {
+        this.duplicateSupplierCallback = callback;
+
+        // Get or create the modal
+        let modal = document.getElementById("duplicateSupplierModal");
+        if (!modal) {
+            // Create modal dynamically if not exists
+            modal = this.createDuplicateSupplierModal();
+            document.body.appendChild(modal);
+        }
+
+        // Set the code in title
+        const titleCode = modal.querySelector("#duplicateSupplierCode");
+        if (titleCode) {
+            titleCode.textContent = code;
+        }
+
+        // Build options list
+        const optionsList = modal.querySelector("#duplicateSupplierOptions");
+        if (optionsList) {
+            optionsList.innerHTML = "";
+
+            options.forEach((option, index) => {
+                const optionDiv = document.createElement("div");
+                optionDiv.className = "ncc-conflict-option";
+
+                const isExisting = option.isExisting;
+                const labelText = isExisting ? "Tên đã lưu:" : "Tên từ TPOS:";
+
+                optionDiv.innerHTML = `
+                    <label>
+                        <input type="radio" name="duplicateSupplierChoice" value="${index}" ${index === 0 ? "checked" : ""} />
+                        <span class="ncc-conflict-label">${labelText}</span>
+                        <span class="ncc-conflict-name">${option.name}</span>
+                    </label>
+                `;
+
+                optionsList.appendChild(optionDiv);
+            });
+        }
+
+        // Store options for later retrieval
+        modal.dataset.options = JSON.stringify(options);
+
+        // Show modal
+        modal.style.display = "flex";
+
+        // Initialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    },
+
+    // Create duplicate supplier modal dynamically
+    createDuplicateSupplierModal() {
+        const modal = document.createElement("div");
+        modal.className = "modal";
+        modal.id = "duplicateSupplierModal";
+        modal.style.display = "none";
+
+        modal.innerHTML = `
+            <div class="modal-overlay" id="duplicateSupplierModalOverlay"></div>
+            <div class="modal-content modal-small">
+                <div class="modal-header">
+                    <h3>
+                        <i data-lucide="alert-triangle"></i>
+                        Trùng mã NCC: <span id="duplicateSupplierCode"></span>
+                    </h3>
+                    <button class="btn-icon" id="btnCloseDuplicateSupplierModal">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Phát hiện nhiều nhà cung cấp có cùng mã. Vui lòng chọn tên chính xác:</p>
+                    <div class="ncc-conflict-options" id="duplicateSupplierOptions"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" id="btnSkipDuplicateSupplier">Bỏ qua</button>
+                    <button class="btn-primary" id="btnConfirmDuplicateSupplier">
+                        <i data-lucide="check"></i>
+                        Xác nhận
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Add event listeners
+        const overlay = modal.querySelector("#duplicateSupplierModalOverlay");
+        const closeBtn = modal.querySelector("#btnCloseDuplicateSupplierModal");
+        const skipBtn = modal.querySelector("#btnSkipDuplicateSupplier");
+        const confirmBtn = modal.querySelector("#btnConfirmDuplicateSupplier");
+
+        overlay.addEventListener("click", () => this.hideDuplicateSupplierModal(null));
+        closeBtn.addEventListener("click", () => this.hideDuplicateSupplierModal(null));
+        skipBtn.addEventListener("click", () => this.hideDuplicateSupplierModal(null));
+        confirmBtn.addEventListener("click", () => this.handleDuplicateSupplierConfirm());
+
+        return modal;
+    },
+
+    // Hide duplicate supplier modal
+    hideDuplicateSupplierModal(selected) {
+        const modal = document.getElementById("duplicateSupplierModal");
+        if (modal) {
+            modal.style.display = "none";
+        }
+
+        if (this.duplicateSupplierCallback) {
+            this.duplicateSupplierCallback(selected);
+            this.duplicateSupplierCallback = null;
+        }
+    },
+
+    // Handle duplicate supplier confirmation
+    handleDuplicateSupplierConfirm() {
+        const modal = document.getElementById("duplicateSupplierModal");
+        if (!modal) {
+            this.hideDuplicateSupplierModal(null);
+            return;
+        }
+
+        const selectedRadio = modal.querySelector('input[name="duplicateSupplierChoice"]:checked');
+        if (!selectedRadio) {
+            this.hideDuplicateSupplierModal(null);
+            return;
+        }
+
+        const selectedIndex = parseInt(selectedRadio.value);
+        const options = JSON.parse(modal.dataset.options || "[]");
+        const selected = options[selectedIndex] || null;
+
+        this.hideDuplicateSupplierModal(selected);
+    },
 };
