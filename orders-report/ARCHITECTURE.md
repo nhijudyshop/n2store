@@ -116,19 +116,357 @@ orders-report/
 
 ---
 
-## Cac File JS Nho (Utility/Manager)
+## Chi Tiết Tất Cả Files
 
-| File | Dong | Chuc nang |
-|------|------|-----------|
-| `message-template-manager.js` | 1,586 | Quan ly message templates |
-| `quick-reply-manager.js` | 1,609 | Quick reply autocomplete |
-| `pancake-data-manager.js` | 1,856 | Tich hop Pancake.vn API |
-| `dropped-products-manager.js` | 1,339 | Theo doi san pham roi |
-| `notification-system.js` | 649 | Toast notifications |
-| `realtime-manager.js` | 495 | Realtime updates |
-| `token-manager.js` | 513 | Auth token management |
-| `cache.js` | 196 | Caching layer |
-| `api-config.js` | 205 | API endpoints |
+### 📁 Core Managers
+
+#### `api-config.js` (115 dòng)
+
+**Mục đích:** Cấu hình tập trung cho tất cả API endpoints, build URL helpers.
+
+| Export | Mô tả |
+|--------|-------|
+| `API_CONFIG.WORKER_URL` | Cloudflare Worker URL |
+| `API_CONFIG.TPOS_ODATA` | Base URL cho TPOS OData |
+| `API_CONFIG.PANCAKE` | Base URL cho Pancake API |
+| `buildUrl.tposOData(endpoint, params)` | Build TPOS OData URL |
+| `buildUrl.pancake(endpoint, params)` | Build Pancake API URL |
+| `buildUrl.pancakeDirect(endpoint, pageId, jwt, token)` | Pancake với custom headers (24h bypass) |
+| `buildUrl.pancakeOfficial(endpoint, pageAccessToken)` | Pancake Official API (pages.fm) |
+| `buildUrl.facebookSend()` | Facebook Graph API endpoint |
+| `smartFetch(url, options)` | Wrapper cho fetch |
+
+---
+
+#### `auth.js` (225 dòng)
+
+**Mục đích:** Quản lý authentication với session management.
+
+| Class/Function | Mô tả |
+|----------------|-------|
+| `AuthManager` | Class chính quản lý auth state |
+| `authManager.init()` | Khởi tạo từ sessionStorage/localStorage |
+| `authManager.isAuthenticated()` | Kiểm tra đăng nhập |
+| `authManager.hasPermission(level)` | Kiểm tra quyền |
+| `authManager.getUserId()` | Lấy userId cho chat |
+| `authManager.logout()` | Đăng xuất |
+
+**Storage:**
+- `sessionStorage['loginindex_auth']` - Session login (8h TTL)
+- `localStorage['loginindex_auth']` - Remember login (30d TTL)
+
+---
+
+#### `cache.js` (197 dòng)
+
+**Mục đích:** Cache layer với localStorage persistence.
+
+| Method | Mô tả |
+|--------|-------|
+| `cacheManager.set(key, value, type)` | Lưu cache |
+| `cacheManager.get(key, type)` | Lấy cache (tự động xóa expired) |
+| `cacheManager.clear(type)` | Xóa cache theo type |
+| `cacheManager.cleanExpired()` | Dọn entries hết hạn |
+| `cacheManager.invalidatePattern(pattern)` | Xóa theo pattern |
+| `cacheManager.getStats()` | Hit/miss statistics |
+
+**Auto:** Tự động clean expired entries mỗi 5 phút.
+
+---
+
+#### `token-manager.js` (514 dòng)
+
+**Mục đích:** Quản lý TPOS Bearer Token với auto-refresh và Firebase sync.
+
+| Method | Mô tả |
+|--------|-------|
+| `tokenManager.getToken()` | Lấy token (tự động refresh nếu expired) |
+| `tokenManager.getAuthHeader()` | Trả về `{ Authorization: 'Bearer xxx' }` |
+| `tokenManager.authenticatedFetch(url, options)` | Fetch với auto token |
+| `tokenManager.refresh()` | Force refresh token |
+| `tokenManager.getTokenInfo()` | Thông tin token hiện tại |
+
+**Token Flow:**
+```
+1. localStorage['bearer_token_data'] → Check expired?
+2. Nếu expired → Firebase → Check expired?
+3. Nếu expired → Fetch từ TPOS /token API
+4. Save → localStorage + Firebase
+```
+
+---
+
+#### `notification-system.js` (650 dòng)
+
+**Mục đích:** Toast notifications với Lucide icons + custom confirm dialogs.
+
+| Method | Mô tả |
+|--------|-------|
+| `notificationManager.success(msg, duration)` | Success toast |
+| `notificationManager.error(msg, duration)` | Error toast |
+| `notificationManager.warning(msg, duration)` | Warning toast |
+| `notificationManager.loading(msg)` | Loading spinner toast |
+| `notificationManager.confirm(msg, title)` | Custom confirm dialog (thay thế native) |
+| `notificationManager.uploading(current, total)` | Upload progress |
+| `notificationManager.saving(msg)` | Saving indicator |
+
+---
+
+### 📁 Pancake Integration
+
+#### `pancake-data-manager.js` (1,949 dòng)
+
+**Mục đích:** Tích hợp Pancake.vn API - messages, conversations, customers.
+
+| Method | Mô tả |
+|--------|-------|
+| `pancakeDataManager.getToken()` | Lấy JWT từ PancakeTokenManager |
+| `pancakeDataManager.fetchPages(forceRefresh)` | Lấy danh sách pages |
+| `pancakeDataManager.fetchConversations(forceRefresh)` | Lấy conversations |
+| `pancakeDataManager.searchConversations(query, pageIds)` | Tìm kiếm conversations |
+| `pancakeDataManager.fetchConversationsByCustomerFbId(pageId, fbId)` | Lấy theo fbId |
+| `pancakeDataManager.getUnreadInfoForOrder(order)` | Số tin chưa đọc |
+| `pancakeDataManager.getMessageUnreadInfoForOrder(order)` | Inbox unread |
+| `pancakeDataManager.getCommentUnreadInfoForOrder(order)` | Comment unread |
+| `pancakeDataManager.buildConversationMap()` | Build lookup maps (PSID, FBID) |
+
+**Maps:**
+- `inboxMapByPSID` - INBOX conversations by PSID
+- `inboxMapByFBID` - INBOX conversations by Facebook ID
+- `commentMapByPSID` - COMMENT conversations by PSID
+- `commentMapByFBID` - COMMENT conversations by Facebook ID
+
+---
+
+#### `pancake-token-manager.js` (1,055 dòng)
+
+**Mục đích:** Quản lý JWT tokens cho Pancake với multi-account support.
+
+| Method | Mô tả |
+|--------|-------|
+| `pancakeTokenManager.getToken()` | Lấy token (priority: memory → localStorage → Firebase → cookie) |
+| `pancakeTokenManager.setTokenManual(token)` | Set token thủ công |
+| `pancakeTokenManager.getAllAccounts()` | Lấy tất cả accounts |
+| `pancakeTokenManager.setActiveAccount(accountId)` | Chuyển account active |
+| `pancakeTokenManager.deleteAccount(accountId)` | Xóa account |
+| `pancakeTokenManager.getPageAccessToken(pageId)` | Lấy page access token |
+| `pancakeTokenManager.decodeToken(token)` | Decode JWT payload |
+
+**Storage:**
+- `localStorage['pancake_jwt_token']` - JWT token
+- `localStorage['pancake_page_access_tokens']` - Page tokens
+- `Firebase: pancake_jwt_tokens/` - Multi-account storage
+
+---
+
+### 📁 Firebase & Realtime
+
+#### `realtime-manager.js` (496 dòng)
+
+**Mục đích:** WebSocket connection cho Pancake realtime updates.
+
+| Method | Mô tả |
+|--------|-------|
+| `realtimeManager.initialize()` | Khởi tạo WebSocket |
+| `realtimeManager.connect()` | Kết nối WebSocket |
+| `realtimeManager.disconnect()` | Ngắt kết nối |
+| `realtimeManager.joinChannels()` | Join channels (pages, conversations) |
+| `realtimeManager.handleMessage(data)` | Xử lý message từ WS |
+| `realtimeManager.handleUpdateConversation(payload)` | Handle conversation update |
+| `realtimeManager.handleOrderTagsUpdate(payload)` | Handle tags update |
+
+**Features:** Heartbeat ping, auto-reconnect, channel subscriptions.
+
+---
+
+#### `user-storage-manager.js` (354 dòng)
+
+**Mục đích:** Storage per-user với Firebase priority.
+
+| Method | Mô tả |
+|--------|-------|
+| `userStorageManager.getUserIdentifier()` | Lấy user ID |
+| `userStorageManager.getUserFirebasePath(basePath)` | Build Firebase path `{base}/{userId}` |
+| `userStorageManager.getUserLocalStorageKey(baseKey)` | Build localStorage key `{key}_{userId}` |
+| `userStorageManager.saveToAll(db, path, key, data)` | Save Firebase + localStorage |
+| `userStorageManager.loadFromAll(db, path, key)` | Load Firebase → fallback localStorage |
+| `userStorageManager.listenToFirebase(db, path, callback)` | Realtime listener |
+
+---
+
+#### `firebase-image-cache.js` (190 dòng)
+
+**Mục đích:** Cache ảnh sản phẩm đã upload lên Pancake.
+
+| Method | Mô tả |
+|--------|-------|
+| `firebaseImageCache.get(productId)` | Lấy cached image URL |
+| `firebaseImageCache.set(productId, name, url)` | Lưu image URL |
+| `firebaseImageCache.clear(productId)` | Xóa cache |
+| `firebaseImageCache.getAll()` | Debug: lấy tất cả |
+
+**Firebase Path:** `pancake_images/{productId}`
+
+---
+
+### 📁 Product & Search
+
+#### `product-search-manager.js` (681 dòng)
+
+**Mục đích:** Tìm kiếm sản phẩm từ Excel + TPOS API.
+
+| Method | Mô tả |
+|--------|-------|
+| `productSearchManager.fetchExcelProducts(force)` | Load suggestions từ Excel |
+| `productSearchManager.search(query, limit)` | Tìm kiếm (supports Vietnamese) |
+| `productSearchManager.getFullProductDetails(productId)` | Fetch đầy đủ từ TPOS |
+| `productSearchManager.hasProductInExcel(productId)` | Check exists |
+| `productSearchManager.getStats()` | Thống kê cache |
+
+**Data Sources:**
+1. Excel file trên Supabase (suggestions)
+2. TPOS API `/api/odata/Product({id})` (full details)
+
+---
+
+#### `decoding-utility.js` (290 dòng)
+
+**Mục đích:** Decode sản phẩm mã hóa trong note đơn hàng.
+
+| Export | Mô tả |
+|--------|-------|
+| `DecodingUtility.decodeProductLine(encoded)` | Decode 1 dòng SP (legacy format) |
+| `DecodingUtility.decodeFullNote(encoded)` | Decode toàn bộ note (new format) |
+| `DecodingUtility.formatNoteWithDecodedData(note)` | Format HTML với decoded info |
+
+**Encoding:** XOR encryption + Base64URL
+
+---
+
+### 📁 Messaging & Modals
+
+#### `comment-modal.js` (885 dòng)
+
+**Mục đích:** Modal bình luận Facebook riêng biệt.
+
+| Function | Mô tả |
+|----------|-------|
+| `openCommentModal(orderId, channelId, psid)` | Mở modal |
+| `closeCommentModal()` | Đóng modal |
+| `renderCommentModalComments(comments)` | Render danh sách |
+| `handleCommentModalReply(commentId, postId)` | Set reply target |
+| `setCommentReplyType(type)` | Toggle reply_comment / private_replies |
+| `sendCommentReply()` | Gửi reply |
+
+**Reply Types:**
+- `reply_comment` - Reply công khai
+- `private_replies` - Gửi tin nhắn riêng
+
+---
+
+#### `message-template-manager.js` (1,586 dòng)
+
+**Mục đích:** Quản lý templates tin nhắn + bulk sending.
+
+| Function | Mô tả |
+|----------|-------|
+| `MessageTemplateManager.loadTemplates()` | Load từ Firebase |
+| `MessageTemplateManager.saveTemplate(template)` | Lưu template |
+| `MessageTemplateManager.deleteTemplate(id)` | Xóa template |
+| `MessageTemplateManager.renderTemplatePreview(template, order)` | Preview với variables |
+| `MessageTemplateManager.bulkSendMessages(orders, template)` | Gửi hàng loạt |
+
+**Template Variables:** `{customer_name}`, `{order_code}`, `{total_amount}`, `{products}`, etc.
+
+---
+
+#### `quick-reply-manager.js` (1,609 dòng)
+
+**Mục đích:** Quick reply autocomplete trong chat.
+
+| Function | Mô tả |
+|----------|-------|
+| `QuickReplyManager.init()` | Khởi tạo |
+| `QuickReplyManager.loadReplies()` | Load từ Firebase |
+| `QuickReplyManager.saveReply(reply)` | Lưu quick reply |
+| `QuickReplyManager.search(query)` | Tìm kiếm |
+| `QuickReplyManager.showSuggestions(input)` | Hiển thị gợi ý |
+
+**Trigger:** Gõ `/` để hiển thị menu quick replies.
+
+---
+
+#### `dropped-products-manager.js` (1,339 dòng)
+
+**Mục đích:** Theo dõi sản phẩm rớt/xả trong chat modal.
+
+| Function | Mô tả |
+|----------|-------|
+| `addToDroppedProducts(product, qty, reason)` | Thêm vào dropped |
+| `moveDroppedToOrder(index)` | Chuyển về đơn |
+| `removeFromDroppedProducts(index)` | Xóa |
+| `loadDroppedProductsFromFirebase()` | Realtime listener |
+| `renderDroppedProductsTable()` | Render UI |
+
+**Firebase Path:** `dropped_products`
+
+---
+
+### 📁 Other Utilities
+
+| File | Dòng | Mô tả |
+|------|------|-------|
+| `config.js` | 100 | Firebase config (API keys) |
+| `api-handler.js` | 210 | Legacy API handlers |
+| `column-visibility-manager.js` | 215 | Toggle columns trong bảng |
+| `search-functions.js` | 530 | Search utilities |
+| `order-image-generator.js` | 450 | Generate bill images |
+| `quick-fix-console.js` | 250 | Console debug commands |
+| `debug-realtime.js` | 150 | Debug realtime connections |
+| `test-tag-listener.js` | 75 | Test Firebase tag listeners |
+| `user-employee-loader.js` | 80 | Load employee list |
+
+---
+
+### 📁 HTML Files
+
+| File | Mô tả |
+|------|-------|
+| `main.html` | Tab router, auth check, sidebar navigation |
+| `tab1-orders.html` | Giao diện quản lý đơn hàng chính |
+| `tab2-statistics.html` | Thống kê theo ngày/nhân viên |
+| `tab3-product-assignment.html` | Gán sản phẩm vào STT + Upload TPOS |
+| `tab-upload-tpos.html` | Upload đơn hàng lên TPOS (deprecated) |
+| `tab-overview.html` | Dashboard KPI tổng quan |
+
+---
+
+### 📁 CSS Files
+
+| File | Mô tả |
+|------|-------|
+| `modern.css` | Design system chung (colors, spacing, typography) |
+| `report-modern.css` | Styling cho reports, modals |
+| `tab1-orders.css` | Styling riêng cho tab1 (chat modal, tables) |
+| `tab3-product-assignment.css` | Styling cho tab3 |
+| `tab-overview.css` | Styling cho overview dashboard |
+| `message-template-modal.css` | Modal templates |
+| `quick-reply-modal.css` | Quick reply UI |
+| `product-highlight.css` | Product search highlights |
+| `product-search-styles.css` | Search dropdown styling |
+
+---
+
+### 📁 Documentation Files
+
+| File | Mô tả |
+|------|-------|
+| `ARCHITECTURE.md` | File này - tổng quan cấu trúc |
+| `INBOX_PREVIEW_VARIABLES.md` | Biến template cho preview |
+| `KPI_CALCULATION_GUIDE.md` | Công thức tính KPI |
+| `PANCAKE_API_CONSULTING.md` | Tư vấn Pancake API |
+| `PANCAKE_API_DOCUMENTATION.md` | API reference |
+| `REMOVE_TAB_UPLOAD_TPOS.md` | Hướng dẫn xóa tab upload |
 
 ---
 
@@ -646,4 +984,4 @@ async function sendMessageWithImage(pageId, convId, token, file, message) {
 
 ---
 
-*Cập nhật lần cuối: 2025-12-15*
+*Cập nhật lần cuối: 2025-12-15 (Đã thêm documentation đầy đủ cho tất cả 48 files)*
