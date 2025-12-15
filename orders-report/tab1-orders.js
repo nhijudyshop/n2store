@@ -20946,11 +20946,10 @@ function buildFastSaleOrderPayload() {
     // Format DateCreated with timezone like: 2025-12-11T21:58:53.4497898+07:00
     const dateCreated = formatDateWithTimezone(now);
 
-    // Get User from defaultData
+    // Get User from defaultData (from ODataService.DefaultGet)
     const user = defaultData.User || null;
     const userId = user?.Id || null;
     const userName = user?.Name || null;
-    const userSubffix = user?.Subffix || null;
 
     // Build payload matching the sample from fetchFastSaleOrder.text
     const payload = {
@@ -21078,7 +21077,7 @@ function buildFastSaleOrderPayload() {
         QuantityUpdateDeposit: null,
         IsMergeCancel: null,
         IsPickUpAtShop: null,
-        DateDeposit: dateInvoice, // 🔥 FIX: Use current time instead of null
+        DateDeposit: null,
         IsRefund: null,
         StateCode: 'None',
         ActualPaymentAmount: null,
@@ -21096,12 +21095,12 @@ function buildFastSaleOrderPayload() {
             IsNewAddress: false,
             Name: receiverName,
             Phone: receiverPhone,
-            Street: receiverAddress, // 🔥 FIX: Use receiverAddress instead of null
+            Street: null,
             City: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
             District: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
             Ward: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
             ExtraAddress: {
-                Street: receiverAddress, // 🔥 FIX: Use receiverAddress instead of null
+                Street: null,
                 NewStreet: null,
                 City: { name: null, nameNoSign: null, code: null },
                 District: { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null },
@@ -21154,12 +21153,7 @@ function buildFastSaleOrderPayload() {
         PackageInfo: { PackageLength: 0, PackageWidth: 0, PackageHeight: 0 },
         Error: null,
         Warehouse: window.lastDefaultSaleData?.Warehouse || { Id: 1, Code: 'WH', Name: 'Nhi Judy Store', CompanyId: 1, LocationId: 12, NameGet: '[WH] Nhi Judy Store', CompanyName: 'NJD Live', LocationActive: true },
-        User: {
-            ...(window.lastDefaultSaleData?.User || {}),
-            Id: userId,
-            Name: userName,
-            Subffix: userSubffix
-        },
+        User: window.lastDefaultSaleData?.User || null,
         PriceList: window.lastDefaultSaleData?.PriceList || { Id: 1, Name: 'Bảng giá mặc định', CurrencyId: 1, CurrencyName: 'VND', Active: true },
         Company: window.lastDefaultSaleData?.Company || { Id: 1, Name: 'NJD Live', Phone: '19003357' },
         Journal: window.lastDefaultSaleData?.Journal || { Id: 3, Code: 'INV', Name: 'Nhật ký bán hàng', Type: 'sale' },

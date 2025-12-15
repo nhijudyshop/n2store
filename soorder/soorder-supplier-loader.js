@@ -15,6 +15,10 @@ window.SoOrderSupplierLoader = {
         grant_type: 'password'
     },
 
+    // Queue for duplicate suppliers pending user selection
+    duplicateQueue: [],
+    duplicateResolveCallback: null,
+
     // =====================================================
     // GET TPOS TOKEN (via Worker with caching)
     // =====================================================
@@ -105,7 +109,7 @@ window.SoOrderSupplierLoader = {
     },
 
     // =====================================================
-    // SAVE SUPPLIERS TO FIREBASE (OVERWRITE MODE)
+    // SAVE SUPPLIERS TO FIREBASE (WITH Ax CODE EXTRACTION & DUPLICATE HANDLING)
     // =====================================================
     async saveSuppliersToFirebase(suppliers) {
         const config = window.SoOrderConfig;
@@ -116,33 +120,102 @@ window.SoOrderSupplierLoader = {
         }
 
         try {
-            console.log('[Supplier Loader] 💾 Saving suppliers to Firebase...');
+            console.log('[Supplier Loader] 💾 Processing suppliers for Firebase save...');
 
-            // Use batch write for better performance
-            const batch = config.db.batch();
-            let saveCount = 0;
+            // Step 1: Group suppliers by Ax code extracted from Name
+            const suppliersByCode = new Map();
+            const suppliersWithoutCode = [];
 
             for (const supplier of suppliers) {
-                // Extract Code and Name from TPOS Partner data
-                const code = supplier.Code;
                 const name = supplier.Name;
 
-                if (!code || !name) {
-                    console.warn('[Supplier Loader] ⚠️ Skipping invalid supplier:', supplier);
+                if (!name) {
+                    console.warn('[Supplier Loader] ⚠️ Skipping supplier without name:', supplier);
                     continue;
                 }
 
-                // Create/update document with Code as ID
-                const docRef = config.nccNamesCollectionRef.doc(code.toUpperCase());
-                batch.set(docRef, { name: name.trim() }, { merge: false }); // merge: false = overwrite
+                // Extract Ax code from the Name field
+                const code = this.parseNCCCode(name);
 
+                if (!code) {
+                    // No Ax code found in name - skip
+                    suppliersWithoutCode.push(supplier);
+                    continue;
+                }
+
+                // Group by Ax code
+                if (!suppliersByCode.has(code)) {
+                    suppliersByCode.set(code, []);
+                }
+                suppliersByCode.get(code).push({
+                    code: code,
+                    name: name.trim(),
+                    tposCode: supplier.Code // Keep original TPOS code for reference
+                });
+            }
+
+            console.log(`[Supplier Loader] 📊 Found ${suppliersByCode.size} unique Ax codes, ${suppliersWithoutCode.length} suppliers without Ax code`);
+
+            // Step 2: Separate unique suppliers from duplicates
+            const uniqueSuppliers = [];
+            const duplicateGroups = [];
+
+            for (const [code, supplierList] of suppliersByCode) {
+                if (supplierList.length === 1) {
+                    uniqueSuppliers.push(supplierList[0]);
+                } else {
+                    // Multiple suppliers with same Ax code
+                    duplicateGroups.push({
+                        code: code,
+                        suppliers: supplierList
+                    });
+                }
+            }
+
+            console.log(`[Supplier Loader] ✅ ${uniqueSuppliers.length} unique suppliers, ${duplicateGroups.length} duplicate groups`);
+
+            // Step 3: Load existing NCC names from Firebase to compare
+            const existingSnapshot = await config.nccNamesCollectionRef.get();
+            const existingNames = new Map();
+            existingSnapshot.forEach((doc) => {
+                existingNames.set(doc.id.toUpperCase(), doc.data().name);
+            });
+
+            // Step 4: Save unique suppliers (prioritize new data)
+            const batch = config.db.batch();
+            let saveCount = 0;
+
+            for (const supplier of uniqueSuppliers) {
+                const docRef = config.nccNamesCollectionRef.doc(supplier.code.toUpperCase());
+                batch.set(docRef, { name: supplier.name }, { merge: false });
                 saveCount++;
             }
 
-            // Commit batch
-            await batch.commit();
+            // Commit batch for unique suppliers
+            if (saveCount > 0) {
+                await batch.commit();
+                console.log(`[Supplier Loader] ✅ Saved ${saveCount} unique suppliers to Firebase`);
+            }
 
-            console.log(`[Supplier Loader] ✅ Saved ${saveCount} suppliers to Firebase`);
+            // Step 5: Handle duplicate groups - show modal for user to choose
+            if (duplicateGroups.length > 0) {
+                console.log(`[Supplier Loader] ⚠️ Found ${duplicateGroups.length} duplicate groups, prompting user...`);
+
+                // Process duplicates one by one with user selection
+                const selectedSuppliers = await this.processDuplicateGroups(duplicateGroups, existingNames);
+
+                // Save selected suppliers
+                if (selectedSuppliers.length > 0) {
+                    const duplicateBatch = config.db.batch();
+                    for (const supplier of selectedSuppliers) {
+                        const docRef = config.nccNamesCollectionRef.doc(supplier.code.toUpperCase());
+                        duplicateBatch.set(docRef, { name: supplier.name }, { merge: false });
+                    }
+                    await duplicateBatch.commit();
+                    saveCount += selectedSuppliers.length;
+                    console.log(`[Supplier Loader] ✅ Saved ${selectedSuppliers.length} selected suppliers from duplicates`);
+                }
+            }
 
             return { success: true, count: saveCount };
 
@@ -153,8 +226,103 @@ window.SoOrderSupplierLoader = {
     },
 
     // =====================================================
-    // UPDATE APPLICATION STATE
+    // PROCESS DUPLICATE GROUPS - PROMPT USER FOR EACH
     // =====================================================
+    async processDuplicateGroups(duplicateGroups, existingNames) {
+        const selectedSuppliers = [];
+
+        for (const group of duplicateGroups) {
+            const existingName = existingNames.get(group.code.toUpperCase());
+
+            // Show modal for user to select
+            const selected = await this.showDuplicateSelectionModal(group.code, group.suppliers, existingName);
+
+            if (selected) {
+                selectedSuppliers.push(selected);
+            }
+        }
+
+        return selectedSuppliers;
+    },
+
+    // =====================================================
+    // SHOW MODAL FOR DUPLICATE SUPPLIER SELECTION
+    // =====================================================
+    showDuplicateSelectionModal(code, suppliers, existingName) {
+        return new Promise((resolve) => {
+            const ui = window.SoOrderUI;
+            const utils = window.SoOrderUtils;
+
+            // Build options including existing name if different
+            const options = [...suppliers];
+
+            // Add existing name as an option if it's different from all new suppliers
+            if (existingName) {
+                const existingMatches = suppliers.some(s => s.name === existingName);
+                if (!existingMatches) {
+                    options.unshift({
+                        code: code,
+                        name: existingName,
+                        isExisting: true
+                    });
+                }
+            }
+
+            // If only one option after adding existing, auto-select it
+            if (options.length === 1) {
+                resolve(options[0]);
+                return;
+            }
+
+            // Show the duplicate selection modal
+            ui.showDuplicateSupplierModal(code, options, (selected) => {
+                resolve(selected);
+            });
+        });
+    },
+
+    // =====================================================
+    // UPDATE APPLICATION STATE FROM FIREBASE
+    // =====================================================
+    async updateStateFromFirebase() {
+        const state = window.SoOrderState;
+        const config = window.SoOrderConfig;
+
+        if (!state || !config) {
+            console.warn('[Supplier Loader] ⚠️ State or config not initialized');
+            return;
+        }
+
+        try {
+            console.log('[Supplier Loader] 🔄 Updating application state from Firebase...');
+
+            // Load fresh data from Firebase
+            const snapshot = await config.nccNamesCollectionRef.get();
+            state.nccNames = [];
+
+            snapshot.forEach((doc) => {
+                state.nccNames.push({
+                    code: doc.id.toUpperCase(),
+                    name: doc.data().name
+                });
+            });
+
+            // Sort by code number
+            state.nccNames.sort((a, b) => {
+                const numA = parseInt(a.code.replace(/^A/i, '')) || 0;
+                const numB = parseInt(b.code.replace(/^A/i, '')) || 0;
+                return numA - numB;
+            });
+
+            console.log(`[Supplier Loader] ✅ State updated with ${state.nccNames.length} suppliers from Firebase`);
+
+        } catch (error) {
+            console.error('[Supplier Loader] ❌ Error updating state from Firebase:', error);
+            throw error;
+        }
+    },
+
+    // Legacy function for backward compatibility
     updateState(suppliers) {
         const state = window.SoOrderState;
 
@@ -169,16 +337,22 @@ window.SoOrderSupplierLoader = {
             // Clear existing state
             state.nccNames = [];
 
-            // Add all suppliers to state
+            // Add all suppliers to state - extracting Ax code from Name
             for (const supplier of suppliers) {
-                const code = supplier.Code;
                 const name = supplier.Name;
 
-                if (code && name) {
-                    state.nccNames.push({
-                        code: code.toUpperCase(),
-                        name: name.trim()
-                    });
+                if (!name) continue;
+
+                const code = this.parseNCCCode(name);
+                if (code) {
+                    // Check if code already exists (avoid duplicates in state)
+                    const exists = state.nccNames.some(n => n.code.toUpperCase() === code.toUpperCase());
+                    if (!exists) {
+                        state.nccNames.push({
+                            code: code.toUpperCase(),
+                            name: name.trim()
+                        });
+                    }
                 }
             }
 
@@ -225,20 +399,21 @@ window.SoOrderSupplierLoader = {
                 return { success: false, count: 0 };
             }
 
-            // Step 3: Save to Firebase (overwrite mode)
-            await this.saveSuppliersToFirebase(suppliers);
+            // Step 3: Save to Firebase (with Ax code extraction and duplicate handling)
+            const result = await this.saveSuppliersToFirebase(suppliers);
 
-            // Step 4: Update application state
-            this.updateState(suppliers);
+            // Step 4: Update application state from Firebase (to get the final saved data)
+            await this.updateStateFromFirebase();
 
             // Show success toast
             if (utils && utils.showToast) {
-                utils.showToast(`✅ Đã tải ${suppliers.length} NCC từ TPOS`, 'success');
+                const state = window.SoOrderState;
+                utils.showToast(`✅ Đã lưu ${state.nccNames.length} NCC vào hệ thống`, 'success');
             }
 
             console.log('[Supplier Loader] ✅ Supplier load process completed successfully');
 
-            return { success: true, count: suppliers.length };
+            return { success: true, count: result.count };
 
         } catch (error) {
             console.error('[Supplier Loader] ❌ Error in load process:', error);

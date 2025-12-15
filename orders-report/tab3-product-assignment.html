@@ -403,22 +403,29 @@
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <input type="date" class="form-control form-control-sm" id="historyV2DateFrom"
+                                <input type="datetime-local" class="form-control form-control-sm" id="historyV2DateFrom"
                                     onchange="filterUploadHistoryV2()" placeholder="Từ ngày">
                             </div>
                             <div class="col-md-3">
-                                <input type="date" class="form-control form-control-sm" id="historyV2DateTo"
+                                <input type="datetime-local" class="form-control form-control-sm" id="historyV2DateTo"
                                     onchange="filterUploadHistoryV2()" placeholder="Đến ngày">
                             </div>
                         </div>
                         <div class="row g-2 mt-2">
-                            <div class="col-md-6">
+                            <div class="col-md-5">
                                 <input type="text" class="form-control form-control-sm" id="historyV2SearchSTT"
                                     oninput="filterUploadHistoryV2()" placeholder="🔍 Tìm STT...">
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-5">
                                 <input type="text" class="form-control form-control-sm" id="historyV2SearchProduct"
                                     oninput="filterUploadHistoryV2()" placeholder="🔍 Tìm mã sản phẩm...">
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-check form-switch h-100 d-flex align-items-center">
+                                    <input class="form-check-input" type="checkbox" id="historyV2GroupBySTT"
+                                        onchange="toggleGroupBySTTView()">
+                                    <label class="form-check-label ms-2" for="historyV2GroupBySTT">Lọc theo STT</label>
+                                </div>
                             </div>
                         </div>
                     </div>
