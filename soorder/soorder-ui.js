@@ -1250,37 +1250,40 @@ window.SoOrderUI = {
     // Process order with NCC check
     async processOrderWithNCCCheck(orderData, isEdit) {
         const crud = window.SoOrderCRUD;
+        const state = window.SoOrderState;
+        const utils = window.SoOrderUtils;
         const supplierName = orderData.supplier.trim();
 
-        // Check for conflict
+        // Parse Ax code from supplier name
+        const code = crud.parseNCCCode(supplierName);
+
+        // Check if supplier exists in Firebase (by Ax code)
+        const supplierExists = code && state.nccNames.some(
+            (n) => n.code.toUpperCase() === code.toUpperCase()
+        );
+
+        if (!supplierExists) {
+            // Supplier doesn't exist - show error modal
+            this.showSupplierNotFoundModal();
+            return false;
+        }
+
+        // Check for conflict (same code but different name)
         const existingName = crud.checkNCCConflict(supplierName);
 
         if (existingName) {
-            // Show conflict modal
+            // Show conflict modal - user can choose existing name or their input name
             return new Promise((resolve) => {
                 this.showNCCConflictModal(supplierName, existingName, async (chosenName, isNew) => {
                     // Update orderData with chosen name
                     orderData.supplier = chosenName;
 
-                    // If user chose new name, update the stored NCC name
-                    if (isNew) {
-                        const code = crud.parseNCCCode(chosenName);
-                        if (code) {
-                            await crud.updateNCCName(code, chosenName);
-                        }
-                    }
-
-                    // Proceed with order operation
+                    // Proceed with order operation (không tự động cập nhật tên NCC)
                     let success;
                     if (isEdit) {
                         success = await crud.updateOrder(window.SoOrderState.editingOrderId, orderData);
                     } else {
                         success = await crud.addOrder(orderData);
-                    }
-
-                    if (success && !isEdit) {
-                        // Save NCC name for new orders (if no conflict, the new name was already updated)
-                        await crud.saveNCCName(chosenName);
                     }
 
                     resolve(success);
@@ -1296,12 +1299,74 @@ window.SoOrderUI = {
             success = await crud.addOrder(orderData);
         }
 
-        if (success) {
-            // Save NCC name
-            await crud.saveNCCName(supplierName);
+        return success;
+    },
+
+    // Show modal when supplier not found in Firebase
+    showSupplierNotFoundModal() {
+        // Get or create the modal
+        let modal = document.getElementById("supplierNotFoundModal");
+        if (!modal) {
+            modal = this.createSupplierNotFoundModal();
+            document.body.appendChild(modal);
         }
 
-        return success;
+        // Show modal
+        modal.style.display = "flex";
+
+        // Initialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    },
+
+    // Create supplier not found modal dynamically
+    createSupplierNotFoundModal() {
+        const modal = document.createElement("div");
+        modal.className = "modal";
+        modal.id = "supplierNotFoundModal";
+        modal.style.display = "none";
+
+        modal.innerHTML = `
+            <div class="modal-overlay" id="supplierNotFoundModalOverlay"></div>
+            <div class="modal-content modal-small">
+                <div class="modal-header">
+                    <h3>
+                        <i data-lucide="alert-circle"></i>
+                        Không tìm thấy NCC
+                    </h3>
+                    <button class="btn-icon" id="btnCloseSupplierNotFoundModal">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p style="text-align: center; color: #ef4444; font-weight: 500;">
+                        Nhà cung cấp chưa tồn tại trong TPOS, vui lòng tạo NCC trên TPOS sau đó F5 lại trang
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" id="btnConfirmSupplierNotFound">
+                        <i data-lucide="check"></i>
+                        Đã hiểu
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Add event listeners
+        const overlay = modal.querySelector("#supplierNotFoundModalOverlay");
+        const closeBtn = modal.querySelector("#btnCloseSupplierNotFoundModal");
+        const confirmBtn = modal.querySelector("#btnConfirmSupplierNotFound");
+
+        const hideModal = () => {
+            modal.style.display = "none";
+        };
+
+        overlay.addEventListener("click", hideModal);
+        closeBtn.addEventListener("click", hideModal);
+        confirmBtn.addEventListener("click", hideModal);
+
+        return modal;
     },
 
     // Handle manual NCC add from management modal
