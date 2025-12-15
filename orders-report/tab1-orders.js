@@ -15120,7 +15120,7 @@ async function addChatProductFromSearch(productId) {
 
 /**
  * Confirm held product - Move from held list to main product list
- * Fetches full product details from TPOS and removes from Firebase held_products
+ * Fetches full product details from TPOS, updates order on backend, and removes from Firebase held_products
  * @param {number|string} productId - Product ID (will be normalized to number)
  */
 window.confirmHeldProduct = async function(productId) {
@@ -15177,17 +15177,26 @@ window.confirmHeldProduct = async function(productId) {
             throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" không có giá bán`);
         }
 
-        // Check if product already exists in main list using normalized ID
+        // STEP 1: Remove held product from local Details array first
+        window.currentChatOrderData.Details = window.currentChatOrderData.Details.filter(
+            p => !(p.ProductId === normalizedProductId && p.IsHeld === true)
+        );
+
+        // STEP 2: Check if product already exists in main list (non-held) using normalized ID
         const existingIndex = window.currentChatOrderData.Details.findIndex(
             p => p.ProductId === normalizedProductId && !p.IsHeld
         );
 
+        let newProduct = null;
+
         if (existingIndex >= 0) {
             // Add quantity to existing product
             window.currentChatOrderData.Details[existingIndex].Quantity += heldProduct.Quantity;
+            console.log('[HELD-CONFIRM] Merged with existing product, new qty:',
+                window.currentChatOrderData.Details[existingIndex].Quantity);
         } else {
-            // Create new product object
-            const newProduct = {
+            // Create new product object for main list
+            newProduct = {
                 ProductId: fullProduct.Id,
                 Quantity: heldProduct.Quantity,
                 Price: salePrice,
@@ -15217,15 +15226,42 @@ window.confirmHeldProduct = async function(productId) {
             window.currentChatOrderData.Details.push(newProduct);
         }
 
-        // Remove from Firebase held_products using normalized ID
+        // STEP 3: Get only main products (non-held) for API update
+        const mainProducts = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+        const totalQuantity = mainProducts.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+        const totalAmount = mainProducts.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+
+        console.log('[HELD-CONFIRM] Updating order on backend:', {
+            orderId: window.currentChatOrderData.Id,
+            mainProductsCount: mainProducts.length,
+            totalQuantity,
+            totalAmount
+        });
+
+        // STEP 4: Update order on backend via API
+        await updateOrderWithFullPayload(
+            window.currentChatOrderData,
+            mainProducts,
+            totalAmount,
+            totalQuantity
+        );
+
+        console.log('[HELD-CONFIRM] ✓ Order updated on backend');
+
+        // STEP 5: Remove from Firebase held_products
         if (typeof window.removeHeldProduct === 'function') {
             await window.removeHeldProduct(normalizedProductId);
+            console.log('[HELD-CONFIRM] ✓ Removed from Firebase held_products');
         }
 
-        // Re-render Orders tab
-        renderChatProductsTable();
+        // STEP 6: Sync currentChatOrderDetails for consistency
+        currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
 
-        // Trigger Dropped tab re-render to update "Người giữ" status
+        // STEP 7: Re-render Orders tab
+        renderChatProductsTable();
+        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+
+        // STEP 8: Trigger Dropped tab re-render to update "Người giữ" status
         if (typeof window.renderDroppedProductsTable === 'function') {
             await window.renderDroppedProductsTable();
         }
