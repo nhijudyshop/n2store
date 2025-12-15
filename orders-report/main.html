@@ -204,10 +204,6 @@
                     <i data-lucide="shopping-cart" class="tab-icon"></i>
                     Quản Lý Đơn Hàng
                 </button>
-                <button class="tab-button" onclick="switchTab('upload')" data-tab="upload">
-                    <i data-lucide="upload" class="tab-icon"></i>
-                    Upload Đơn Hàng Lên TPOS
-                </button>
                 <button class="tab-button" onclick="switchTab('product-assignment')" data-tab="product-assignment">
                     <i data-lucide="link" class="tab-icon"></i>
                     Gán Sản Phẩm - STT
@@ -232,9 +228,6 @@
             <iframe id="statisticsFrame" src="tab2-statistics.html"></iframe>
         </div>
 
-        <div id="uploadTab" class="tab-content">
-            <iframe id="uploadFrame" src="tab-upload-tpos.html"></iframe>
-        </div>
 
         <div id="productAssignmentTab" class="tab-content">
             <iframe id="productAssignmentFrame" src="tab3-product-assignment.html"></iframe>
@@ -295,10 +288,6 @@
                     .classList.add("active");
                 // Trigger statistics refresh when switching to it
                 refreshStatistics();
-            } else if (tabName === "upload") {
-                document
-                    .getElementById("uploadTab")
-                    .classList.add("active");
             } else if (tabName === "product-assignment") {
                 document
                     .getElementById("productAssignmentTab")
@@ -473,7 +462,7 @@
         window.addEventListener("DOMContentLoaded", function () {
             // Restore last active tab or default to orders
             const savedTab = localStorage.getItem("currentTab");
-            if (savedTab && ["orders", "statistics", "upload", "product-assignment", "overview", "report-online"].includes(savedTab)) {
+            if (savedTab && ["orders", "statistics", "product-assignment", "overview", "report-online"].includes(savedTab)) {
                 switchTab(savedTab);
             } else {
                 switchTab("orders");
