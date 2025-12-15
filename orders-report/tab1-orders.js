@@ -19478,7 +19478,12 @@ async function openSaleButtonModal() {
 
         // Populate order lines if available
         if (orderDetails.orderLines && orderDetails.orderLines.length > 0) {
-            populateSaleOrderLinesFromAPI(orderDetails.orderLines);
+            // 🔥 Map SaleOnlineDetailId from orderLine.Id for FastSaleOrder compatibility
+            const mappedOrderLines = orderDetails.orderLines.map(line => ({
+                ...line,
+                SaleOnlineDetailId: line.Id || line.SaleOnlineDetailId || null
+            }));
+            populateSaleOrderLinesFromAPI(mappedOrderLines);
         }
     } else {
         // Fallback: try smart selection with basic order address if no partner details
@@ -20595,38 +20600,56 @@ async function updateSaleOrderWithAPI() {
 
         console.log(`[SALE-API] ✅ Updated order ${currentSaleOrderData.Id} with ${payload.Details?.length || 0} products`);
 
-        // Update local currentSaleOrderData with fresh data from API
-        // Convert Details back to orderLines format for consistency
-        currentSaleOrderData = fullOrder;
-        if (fullOrder.Details && Array.isArray(fullOrder.Details)) {
-            currentSaleOrderData.orderLines = fullOrder.Details.map(detail => ({
-                Id: detail.Id,
-                ProductId: detail.ProductId,
-                ProductUOMId: detail.UOMId,
-                ProductUOMQty: detail.Quantity,
-                Quantity: detail.Quantity,
-                PriceUnit: detail.Price,
-                Price: detail.Price,
-                ProductName: detail.ProductName,
-                ProductNameGet: detail.ProductNameGet,
-                ProductCode: detail.ProductCode,
-                ProductUOMName: detail.UOMName,
-                Note: detail.Note,
-                Weight: detail.ProductWeight,
-                Product: {
-                    Id: detail.ProductId,
-                    Name: detail.ProductName,
-                    DefaultCode: detail.ProductCode,
-                    NameGet: detail.ProductNameGet,
-                    ImageUrl: detail.ImageUrl
-                },
-                ProductUOM: {
-                    Id: detail.UOMId,
-                    Name: detail.UOMName
-                }
-            }));
+        // 🔥 STEP 4: Fetch updated order AFTER PUT to get new Detail IDs
+        console.log('[SALE-API] Fetching updated order to get new Detail IDs...');
+        const refreshResponse = await fetch(getUrl, {
+            method: 'GET',
+            headers: {
+                ...headers,
+                Accept: "application/json",
+            }
+        });
+
+        if (!refreshResponse.ok) {
+            console.warn('[SALE-API] Could not fetch updated order, using old data');
         } else {
-            currentSaleOrderData.orderLines = [];
+            const updatedOrder = await refreshResponse.json();
+            console.log('[SALE-API] Got updated order with fresh Details:', updatedOrder);
+
+            // Update local currentSaleOrderData with fresh data from API
+            // Convert Details back to orderLines format for consistency
+            currentSaleOrderData = updatedOrder;
+            if (updatedOrder.Details && Array.isArray(updatedOrder.Details)) {
+                currentSaleOrderData.orderLines = updatedOrder.Details.map(detail => ({
+                    Id: detail.Id,
+                    ProductId: detail.ProductId,
+                    ProductUOMId: detail.UOMId,
+                    ProductUOMQty: detail.Quantity,
+                    Quantity: detail.Quantity,
+                    PriceUnit: detail.Price,
+                    Price: detail.Price,
+                    ProductName: detail.ProductName,
+                    ProductNameGet: detail.ProductNameGet,
+                    ProductCode: detail.ProductCode,
+                    ProductUOMName: detail.UOMName,
+                    Note: detail.Note,
+                    Weight: detail.ProductWeight,
+                    SaleOnlineDetailId: detail.Id, // 🔥 CRITICAL: Map Detail.Id to SaleOnlineDetailId for FastSaleOrder
+                    Product: {
+                        Id: detail.ProductId,
+                        Name: detail.ProductName,
+                        DefaultCode: detail.ProductCode,
+                        NameGet: detail.ProductNameGet,
+                        ImageUrl: detail.ImageUrl
+                    },
+                    ProductUOM: {
+                        Id: detail.UOMId,
+                        Name: detail.UOMName
+                    }
+                }));
+            } else {
+                currentSaleOrderData.orderLines = [];
+            }
         }
 
         return data || { success: true, orderId: currentSaleOrderData.Id };
