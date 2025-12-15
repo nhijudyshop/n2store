@@ -15121,12 +15121,19 @@ async function addChatProductFromSearch(productId) {
 /**
  * Confirm held product - Move from held list to main product list
  * Fetches full product details from TPOS and removes from Firebase held_products
+ * @param {number|string} productId - Product ID (will be normalized to number)
  */
 window.confirmHeldProduct = async function(productId) {
     try {
-        // Find the held product
+        // Normalize productId to number for consistent comparison
+        const normalizedProductId = parseInt(productId);
+        if (isNaN(normalizedProductId)) {
+            throw new Error("Invalid product ID");
+        }
+
+        // Find the held product using normalized ID
         const heldProduct = window.currentChatOrderData?.Details?.find(
-            p => p.ProductId === productId && p.IsHeld === true
+            p => p.ProductId === normalizedProductId && p.IsHeld === true
         );
 
         if (!heldProduct) {
@@ -15138,8 +15145,8 @@ window.confirmHeldProduct = async function(productId) {
             window.notificationManager.show("Đang xác nhận sản phẩm...", "info");
         }
 
-        // Fetch full product details from TPOS
-        const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
+        // Fetch full product details from TPOS using normalized ID
+        const fullProduct = await window.productSearchManager.getFullProductDetails(normalizedProductId);
         if (!fullProduct) {
             throw new Error("Không tìm thấy thông tin sản phẩm từ TPOS");
         }
@@ -15170,9 +15177,9 @@ window.confirmHeldProduct = async function(productId) {
             throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" không có giá bán`);
         }
 
-        // Check if product already exists in main list
+        // Check if product already exists in main list using normalized ID
         const existingIndex = window.currentChatOrderData.Details.findIndex(
-            p => p.ProductId === productId && !p.IsHeld
+            p => p.ProductId === normalizedProductId && !p.IsHeld
         );
 
         if (existingIndex >= 0) {
@@ -15210,9 +15217,9 @@ window.confirmHeldProduct = async function(productId) {
             window.currentChatOrderData.Details.push(newProduct);
         }
 
-        // Remove from Firebase held_products
+        // Remove from Firebase held_products using normalized ID
         if (typeof window.removeHeldProduct === 'function') {
-            await window.removeHeldProduct(productId);
+            await window.removeHeldProduct(normalizedProductId);
         }
 
         // Re-render Orders tab
@@ -15228,7 +15235,7 @@ window.confirmHeldProduct = async function(productId) {
             window.notificationManager.show("✅ Đã xác nhận và thêm vào đơn hàng", "success");
         }
 
-        console.log('[HELD-CONFIRM] ✓ Confirmed held product:', productId);
+        console.log('[HELD-CONFIRM] ✓ Confirmed held product:', normalizedProductId);
 
     } catch (error) {
         console.error('[HELD-CONFIRM] Error:', error);
@@ -15242,12 +15249,19 @@ window.confirmHeldProduct = async function(productId) {
 
 /**
  * Delete held product - Remove from held list with confirmation
+ * @param {number|string} productId - Product ID (will be normalized to number)
  */
 window.deleteHeldProduct = async function(productId) {
     try {
-        // Find the held product
+        // Normalize productId to number for consistent comparison
+        const normalizedProductId = parseInt(productId);
+        if (isNaN(normalizedProductId)) {
+            throw new Error("Invalid product ID");
+        }
+
+        // Find the held product using normalized ID
         const heldProduct = window.currentChatOrderData?.Details?.find(
-            p => p.ProductId === productId && p.IsHeld === true
+            p => p.ProductId === normalizedProductId && p.IsHeld === true
         );
 
         if (!heldProduct) {
@@ -15267,9 +15281,9 @@ window.deleteHeldProduct = async function(productId) {
 
         if (!confirmed) return;
 
-        // Remove from Firebase held_products
+        // Remove from Firebase held_products using normalized ID
         if (typeof window.removeHeldProduct === 'function') {
-            await window.removeHeldProduct(productId);
+            await window.removeHeldProduct(normalizedProductId);
         }
 
         // Trigger Dropped tab re-render to update "Người giữ" status
@@ -15282,7 +15296,7 @@ window.deleteHeldProduct = async function(productId) {
             window.notificationManager.show("✅ Đã xóa sản phẩm khỏi danh sách giữ", "success");
         }
 
-        console.log('[HELD-DELETE] ✓ Deleted held product:', productId);
+        console.log('[HELD-DELETE] ✓ Deleted held product:', normalizedProductId);
 
     } catch (error) {
         console.error('[HELD-DELETE] Error:', error);
