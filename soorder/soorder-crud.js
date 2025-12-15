@@ -602,17 +602,27 @@ window.SoOrderCRUD = {
             state.nccNames = [];
 
             snapshot.forEach((doc) => {
+                const data = doc.data();
                 state.nccNames.push({
-                    code: doc.id,
-                    name: doc.data().name,
+                    code: data.axCode || doc.id.toUpperCase(), // Dùng axCode nếu có, không thì dùng TPOS code
+                    tposCode: doc.id,
+                    name: data.name,
                 });
             });
 
-            // Sort by code (A1, A2, A10, etc.)
+            // Sort by Ax code number (nếu là Ax code), sau đó theo tên
             state.nccNames.sort((a, b) => {
-                const numA = parseInt(a.code.replace(/^A/i, "")) || 0;
-                const numB = parseInt(b.code.replace(/^A/i, "")) || 0;
-                return numA - numB;
+                const aIsAx = /^A\d+$/i.test(a.code);
+                const bIsAx = /^A\d+$/i.test(b.code);
+
+                if (aIsAx && bIsAx) {
+                    const numA = parseInt(a.code.replace(/^A/i, "")) || 0;
+                    const numB = parseInt(b.code.replace(/^A/i, "")) || 0;
+                    return numA - numB;
+                }
+                if (aIsAx) return -1; // Ax codes first
+                if (bIsAx) return 1;
+                return a.name.localeCompare(b.name);
             });
 
             return state.nccNames;

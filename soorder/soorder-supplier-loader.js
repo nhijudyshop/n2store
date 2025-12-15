@@ -121,48 +121,43 @@ window.SoOrderSupplierLoader = {
 
         try {
             console.log('[Supplier Loader] 💾 Saving ALL suppliers to Firebase (no filtering)...');
+            console.log(`[Supplier Loader] 📊 Total suppliers from TPOS: ${suppliers.length}`);
 
-            // Lưu tất cả NCC vào Map theo Ax code (nếu có) hoặc TPOS code
-            const suppliersToSave = new Map();
+            // Step 1: Xóa toàn bộ dữ liệu cũ trong Firebase trước
+            console.log('[Supplier Loader] 🗑️ Deleting all existing suppliers from Firebase...');
+            const existingSnapshot = await config.nccNamesCollectionRef.get();
 
-            for (const supplier of suppliers) {
-                const name = supplier.Name;
-
-                if (!name) {
-                    console.warn('[Supplier Loader] ⚠️ Skipping supplier without name:', supplier);
-                    continue;
-                }
-
-                // Extract Ax code from the Name field
-                const axCode = this.parseNCCCode(name);
-
-                // Sử dụng Ax code nếu có, nếu không dùng TPOS code
-                const code = axCode || supplier.Code;
-
-                if (!code) {
-                    console.warn('[Supplier Loader] ⚠️ Skipping supplier without code:', supplier);
-                    continue;
-                }
-
-                // Nếu đã có code này rồi, giữ nguyên cái đầu tiên (không trigger modal)
-                if (!suppliersToSave.has(code.toUpperCase())) {
-                    suppliersToSave.set(code.toUpperCase(), {
-                        code: code.toUpperCase(),
-                        name: name.trim(),
-                        tposCode: supplier.Code
-                    });
-                }
+            if (!existingSnapshot.empty) {
+                const deleteBatch = config.db.batch();
+                existingSnapshot.forEach((doc) => {
+                    deleteBatch.delete(doc.ref);
+                });
+                await deleteBatch.commit();
+                console.log(`[Supplier Loader] ✅ Deleted ${existingSnapshot.size} existing suppliers`);
             }
 
-            console.log(`[Supplier Loader] 📊 Found ${suppliersToSave.size} suppliers to save`);
-
-            // Lưu tất cả vào Firebase bằng batch
+            // Step 2: Lưu TẤT CẢ suppliers từ TPOS (dùng TPOS Code làm document ID)
             const batch = config.db.batch();
             let saveCount = 0;
 
-            for (const [code, supplier] of suppliersToSave) {
-                const docRef = config.nccNamesCollectionRef.doc(code);
-                batch.set(docRef, { name: supplier.name }, { merge: false });
+            for (const supplier of suppliers) {
+                const name = supplier.Name;
+                const tposCode = supplier.Code;
+
+                if (!name || !tposCode) {
+                    console.warn('[Supplier Loader] ⚠️ Skipping supplier without name or code:', supplier);
+                    continue;
+                }
+
+                // Dùng TPOS Code làm document ID (unique cho mỗi NCC)
+                const docRef = config.nccNamesCollectionRef.doc(tposCode);
+
+                // Lưu cả name và axCode (nếu có) để dễ tra cứu
+                const axCode = this.parseNCCCode(name);
+                batch.set(docRef, {
+                    name: name.trim(),
+                    axCode: axCode || null
+                });
                 saveCount++;
             }
 
@@ -256,17 +251,27 @@ window.SoOrderSupplierLoader = {
             state.nccNames = [];
 
             snapshot.forEach((doc) => {
+                const data = doc.data();
                 state.nccNames.push({
-                    code: doc.id.toUpperCase(),
-                    name: doc.data().name
+                    code: data.axCode || doc.id.toUpperCase(), // Dùng axCode nếu có, không thì dùng TPOS code
+                    tposCode: doc.id,
+                    name: data.name
                 });
             });
 
-            // Sort by code number
+            // Sort by Ax code number (nếu là Ax code), sau đó theo tên
             state.nccNames.sort((a, b) => {
-                const numA = parseInt(a.code.replace(/^A/i, '')) || 0;
-                const numB = parseInt(b.code.replace(/^A/i, '')) || 0;
-                return numA - numB;
+                const aIsAx = /^A\d+$/i.test(a.code);
+                const bIsAx = /^A\d+$/i.test(b.code);
+
+                if (aIsAx && bIsAx) {
+                    const numA = parseInt(a.code.replace(/^A/i, '')) || 0;
+                    const numB = parseInt(b.code.replace(/^A/i, '')) || 0;
+                    return numA - numB;
+                }
+                if (aIsAx) return -1; // Ax codes first
+                if (bIsAx) return 1;
+                return a.name.localeCompare(b.name);
             });
 
             console.log(`[Supplier Loader] ✅ State updated with ${state.nccNames.length} suppliers from Firebase`);
