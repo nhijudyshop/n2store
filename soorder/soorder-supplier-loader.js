@@ -56,10 +56,13 @@ window.SoOrderSupplierLoader = {
         try {
             console.log('[Supplier Loader] 📡 Fetching suppliers from TPOS OData API...');
 
-            // OData query parameters - lấy toàn bộ danh sách NCC không filter
+            // OData query parameters - lấy toàn bộ danh sách NCC (bao gồm cả inactive)
+            // Giữ filter Supplier eq true để chỉ lấy nhà cung cấp (không lấy khách hàng)
+            // Bỏ filter Active eq true để lấy cả NCC không hoạt động
             const params = new URLSearchParams({
                 '$top': '1000',  // Tăng từ 50 lên 1000 để lấy nhiều NCC hơn
                 '$orderby': 'Name',
+                '$filter': '(Supplier eq true)',
                 '$count': 'true'
             });
 
