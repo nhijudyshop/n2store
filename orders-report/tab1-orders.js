@@ -19076,12 +19076,11 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
 function updateSaleCOD() {
     const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
     const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
-    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
     const codInput = document.getElementById('saleCOD');
 
     if (codInput) {
-        // COD = Total + Shipping - Prepaid
-        const cod = Math.max(0, totalAmount + shippingFee - prepaidAmount);
+        // COD = Total + Shipping (không trừ prepaid)
+        const cod = totalAmount + shippingFee;
         codInput.value = cod;
     }
 
