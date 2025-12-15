@@ -19533,7 +19533,8 @@ async function fetchSaleUsers() {
         }
 
         // Fetch users from ApplicationUser API (via Cloudflare proxy to pass CORS)
-        const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ApplicationUser?$select=Id,Name,UserName,Email,Subffix&$filter=Active eq true', {
+        // Match query format from TPOS web: $format=json, $orderby=Name, $count=true, no $select to get all fields including Roles
+        const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ApplicationUser?$format=json&$top=100&$orderby=Name&$filter=Active eq true&$count=true', {
             method: 'GET',
             headers: {
                 'accept': 'application/json, text/plain, */*',
