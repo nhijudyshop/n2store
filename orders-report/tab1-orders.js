@@ -202,6 +202,10 @@ window.getCurrentTableName = () => currentTableName;
 let searchQuery = "";
 let searchTimeout = null;
 
+// Sort State
+let currentSortColumn = null;
+let currentSortDirection = 'asc'; // 'asc' or 'desc'
+
 // Tag Management State
 let availableTags = [];
 let currentEditingOrderId = null;
@@ -772,6 +776,9 @@ window.addEventListener("DOMContentLoaded", async function () {
     document
         .getElementById("customStartDate")
         .addEventListener("change", handleCustomDateChange);
+
+    // Initialize sortable table headers
+    initSortableHeaders();
 
     // Event listener for employee campaign selector
     const employeeCampaignSelector = document.getElementById('employeeCampaignSelector');
@@ -4282,6 +4289,11 @@ function performTableSearch() {
     // Merge products button (mergeProductsBtn) still works independently
     // filteredData = mergeOrdersByPhone(filteredData);
 
+    // Apply current sort if any
+    if (currentSortColumn) {
+        applySortToData();
+    }
+
     displayedData = filteredData;
     renderTable();
     updateStats();
@@ -4321,6 +4333,120 @@ function removeVietnameseTones(str) {
 function updateSearchResultCount() {
     document.getElementById("searchResultCount").textContent =
         filteredData.length.toLocaleString("vi-VN");
+}
+
+// =====================================================
+// TABLE SORTING FUNCTIONS
+// =====================================================
+
+// Column mapping for sorting
+const sortColumnMap = {
+    'stt': 'SessionIndex',
+    'customer': 'Name',
+    'phone': 'Telephone',
+    'address': 'Address',
+    'notes': 'Note',
+    'total': 'Total',
+    'quantity': 'Quantity',
+    'created-date': 'DateCreated',
+    'status': 'StatusText',
+    'order-code': 'Code',
+    'debt': 'Debt',
+    'tag': 'Tags',
+    'employee': 'Employee'
+};
+
+// Handle header click for sorting
+function handleHeaderSort(column) {
+    // Toggle direction if same column, otherwise start with asc
+    if (currentSortColumn === column) {
+        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortColumn = column;
+        currentSortDirection = 'asc';
+    }
+
+    // Update header indicators
+    updateSortIndicators();
+
+    // Apply sort and re-render
+    applySortToData();
+    renderTable();
+}
+
+// Update sort indicators on headers
+function updateSortIndicators() {
+    // Remove all existing sort classes
+    document.querySelectorAll('.table thead th').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc', 'sortable-active');
+    });
+
+    // Add sort class to current column
+    if (currentSortColumn) {
+        const th = document.querySelector(`.table thead th[data-sort="${currentSortColumn}"]`);
+        if (th) {
+            th.classList.add('sortable-active');
+            th.classList.add(currentSortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
+    }
+}
+
+// Apply sort to filteredData
+function applySortToData() {
+    if (!currentSortColumn || !filteredData.length) return;
+
+    const dataField = sortColumnMap[currentSortColumn];
+    if (!dataField) return;
+
+    filteredData.sort((a, b) => {
+        let valA = a[dataField];
+        let valB = b[dataField];
+
+        // Handle special cases
+        if (dataField === 'SessionIndex' || dataField === 'Total' || dataField === 'Quantity' || dataField === 'Debt') {
+            // Numeric sort
+            valA = parseFloat(valA) || 0;
+            valB = parseFloat(valB) || 0;
+        } else if (dataField === 'DateCreated') {
+            // Date sort
+            valA = valA ? new Date(valA).getTime() : 0;
+            valB = valB ? new Date(valB).getTime() : 0;
+        } else {
+            // String sort
+            valA = String(valA || '').toLowerCase();
+            valB = String(valB || '').toLowerCase();
+        }
+
+        let result = 0;
+        if (valA < valB) result = -1;
+        else if (valA > valB) result = 1;
+
+        return currentSortDirection === 'asc' ? result : -result;
+    });
+
+    displayedData = filteredData;
+}
+
+// Reset sort state
+function resetSort() {
+    currentSortColumn = null;
+    currentSortDirection = 'asc';
+    updateSortIndicators();
+}
+
+// Initialize sortable headers
+function initSortableHeaders() {
+    const sortableColumns = ['stt', 'customer', 'phone', 'address', 'notes', 'total', 'quantity', 'created-date', 'status', 'order-code', 'debt'];
+
+    sortableColumns.forEach(column => {
+        const th = document.querySelector(`.table thead th[data-column="${column}"]`);
+        if (th) {
+            th.setAttribute('data-sort', column);
+            th.classList.add('sortable');
+            th.style.cursor = 'pointer';
+            th.addEventListener('click', () => handleHeaderSort(column));
+        }
+    });
 }
 
 // Copy phone number to clipboard
