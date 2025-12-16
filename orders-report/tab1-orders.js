@@ -1545,9 +1545,46 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         // Check if tag exists in availableTags
         let existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
 
-        // If tag doesn't exist, create it
+        // If tag doesn't exist in local cache, fetch fresh tags from API first
         if (!existingTag) {
-            console.log('[QUICK-TAG] Tag not found, creating:', tagName);
+            console.log('[QUICK-TAG] Tag not found in local cache, fetching fresh tags from API...');
+            const headers = await window.tokenManager.getAuthHeader();
+
+            // Fetch fresh tags to ensure we have the latest list
+            try {
+                const tagsResponse = await API_CONFIG.smartFetch(
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000',
+                    {
+                        method: 'GET',
+                        headers: {
+                            ...headers,
+                            'accept': 'application/json',
+                            'content-type': 'application/json',
+                        },
+                    }
+                );
+
+                if (tagsResponse.ok) {
+                    const tagsData = await tagsResponse.json();
+                    availableTags = tagsData.value || [];
+                    window.availableTags = availableTags;
+                    window.cacheManager.set("tags", availableTags, "tags");
+                    console.log(`[QUICK-TAG] Refreshed ${availableTags.length} tags from API`);
+
+                    // Check again after refresh
+                    existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
+                    if (existingTag) {
+                        console.log('[QUICK-TAG] Found tag after refresh:', existingTag.Name);
+                    }
+                }
+            } catch (fetchError) {
+                console.warn('[QUICK-TAG] Failed to fetch fresh tags:', fetchError);
+            }
+        }
+
+        // If tag still doesn't exist after refresh, create it
+        if (!existingTag) {
+            console.log('[QUICK-TAG] Tag not found after refresh, creating:', tagName);
             const color = generateRandomColor();
             const headers = await window.tokenManager.getAuthHeader();
 
