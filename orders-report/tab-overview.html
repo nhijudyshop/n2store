@@ -718,6 +718,30 @@
         // FIREBASE FUNCTIONS
         // =====================================================
 
+        // Sanitize data for Firebase (remove invalid keys)
+        function sanitizeForFirebase(obj) {
+            if (obj === null || obj === undefined) return obj;
+
+            if (Array.isArray(obj)) {
+                return obj.map(item => sanitizeForFirebase(item));
+            }
+
+            if (typeof obj === 'object') {
+                const cleaned = {};
+                for (const key in obj) {
+                    // Skip keys starting with @ or containing invalid characters
+                    if (key.startsWith('@') || key.includes('.') || key.includes('#') ||
+                        key.includes('$') || key.includes('/') || key.includes('[') || key.includes(']')) {
+                        continue;
+                    }
+                    cleaned[key] = sanitizeForFirebase(obj[key]);
+                }
+                return cleaned;
+            }
+
+            return obj;
+        }
+
         // Save data to Firebase by table name
         async function saveToFirebase(tableName, data) {
             if (!database) {
@@ -729,9 +753,12 @@
                 const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
                 const ref = database.ref(`${FIREBASE_PATH}/${safeTableName}`);
 
+                // Sanitize orders data to remove invalid keys
+                const sanitizedOrders = sanitizeForFirebase(data.orders);
+
                 await ref.set({
                     tableName: tableName, // Store original table name
-                    orders: data.orders,
+                    orders: sanitizedOrders,
                     fetchedAt: data.fetchedAt,
                     totalOrders: data.totalOrders,
                     successCount: data.successCount,
@@ -949,13 +976,28 @@
             }
         }
 
-        // Save cached data to localStorage
+        // Save cached data to localStorage (only metadata, not full orders)
         function saveCachedData() {
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(cachedOrderDetails));
+                // Only save metadata to avoid quota exceeded
+                const metadata = {};
+                for (const tableName in cachedOrderDetails) {
+                    const data = cachedOrderDetails[tableName];
+                    metadata[tableName] = {
+                        tableName: data.tableName,
+                        fetchedAt: data.fetchedAt,
+                        totalOrders: data.totalOrders,
+                        successCount: data.successCount,
+                        errorCount: data.errorCount,
+                        orderCount: data.orders?.length || 0
+                    };
+                }
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(metadata));
+                console.log('[REPORT] ✅ Saved metadata to localStorage');
                 updateCachedCountBadge();
             } catch (e) {
-                console.error('[REPORT] Error saving cached data:', e);
+                console.error('[REPORT] ❌ Error saving to localStorage:', e);
+                console.log('[REPORT] Skipping localStorage, data too large. Using Firebase only.');
             }
         }
 
