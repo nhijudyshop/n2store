@@ -1064,6 +1064,9 @@
                 // Check Firebase status for this table
                 checkFirebaseStatus();
 
+                // Reload available tables to trigger auto-load of cached data
+                loadAvailableTables();
+
                 // Stop loading state
                 setRefreshLoading(false);
             }
