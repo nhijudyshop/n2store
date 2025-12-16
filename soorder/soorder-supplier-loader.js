@@ -100,6 +100,12 @@ window.SoOrderSupplierLoader = {
 
             console.log(`[Supplier Loader] ✅ Fetched ${data.value?.length || 0} suppliers (Total: ${data['@odata.count'] || 'unknown'})`);
 
+            // Debug: Log raw API response structure
+            console.log('[Supplier Loader] 📋 Raw API response keys:', Object.keys(data));
+            if (data.value && data.value.length > 0) {
+                console.log('[Supplier Loader] 📋 First item from API:', JSON.stringify(data.value[0], null, 2));
+            }
+
             return data.value || [];
 
         } catch (error) {
@@ -203,6 +209,12 @@ window.SoOrderSupplierLoader = {
             console.log('[Supplier Loader] 💾 Saving ALL suppliers to Firebase...');
             console.log(`[Supplier Loader] 📊 Total suppliers from TPOS: ${suppliers.length}`);
 
+            // Debug: Log first supplier to see structure
+            if (suppliers.length > 0) {
+                console.log('[Supplier Loader] 📋 Sample supplier object:', JSON.stringify(suppliers[0], null, 2));
+                console.log('[Supplier Loader] 📋 Available keys:', Object.keys(suppliers[0]));
+            }
+
             // Step 1: Xóa toàn bộ dữ liệu cũ trong Firebase trước
             const deletedCount = await this.deleteAllFromCollection(
                 config.nccNamesCollectionRef,
@@ -214,11 +226,12 @@ window.SoOrderSupplierLoader = {
             const suppliersToSave = [];
 
             for (const supplier of suppliers) {
-                const name = supplier.Name;
-                const tposCode = supplier.Code;
+                // Handle both uppercase and lowercase property names
+                const name = supplier.Name || supplier.name;
+                const tposCode = supplier.Code || supplier.code;
 
                 if (!name || !tposCode) {
-                    console.warn('[Supplier Loader] ⚠️ Skipping supplier without name or code:', supplier);
+                    console.warn('[Supplier Loader] ⚠️ Skipping supplier without name or code:', JSON.stringify(supplier));
                     continue;
                 }
 
@@ -241,6 +254,12 @@ window.SoOrderSupplierLoader = {
             }
 
             console.log(`[Supplier Loader] 📋 Prepared ${suppliersToSave.length} suppliers to save`);
+
+            // Debug: If no suppliers to save, log more info
+            if (suppliersToSave.length === 0 && suppliers.length > 0) {
+                console.error('[Supplier Loader] ❌ No valid suppliers to save! Check data structure.');
+                console.error('[Supplier Loader] ❌ First 3 suppliers:', JSON.stringify(suppliers.slice(0, 3), null, 2));
+            }
 
             // Step 3: Lưu theo batches
             const chunks = this.chunkArray(suppliersToSave, BATCH_SIZE);
