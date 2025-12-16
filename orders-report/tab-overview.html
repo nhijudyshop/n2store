@@ -696,6 +696,7 @@
         let currentTableName = null; // Table name from tab1-orders
         let database = null;
         let isFetching = false;
+        let isLoadingTables = false; // Flag to prevent multiple simultaneous table loads
 
         const STORAGE_KEY = 'report_order_details_by_table';
         const FIREBASE_PATH = 'report_order_details';
@@ -878,6 +879,14 @@
                 return;
             }
 
+            // Prevent multiple simultaneous loads
+            if (isLoadingTables) {
+                console.log('[REPORT] ⏭️ Skipping loadAvailableTables - already loading');
+                return;
+            }
+
+            isLoadingTables = true;
+
             try {
                 const ref = database.ref(FIREBASE_PATH);
                 const snapshot = await ref.once('value');
@@ -910,6 +919,8 @@
                 }
             } catch (error) {
                 console.error('[REPORT] ❌ Error loading tables:', error);
+            } finally {
+                isLoadingTables = false;
             }
         }
 

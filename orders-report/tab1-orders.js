@@ -8314,13 +8314,18 @@ function sendOrdersDataToOverview() {
 
     // Send to overview tab via parent window forwarding
     if (window.parent) {
+        console.log('[OVERVIEW] 🔍 DEBUG currentTableName value:', currentTableName, 'type:', typeof currentTableName);
+        console.log('[OVERVIEW] 🔍 DEBUG window.getCurrentTableName():', window.getCurrentTableName ? window.getCurrentTableName() : 'function not defined');
+
+        const tableNameToSend = currentTableName || 'Bảng 1';
+
         window.parent.postMessage({
             type: 'ORDERS_DATA_RESPONSE',
             orders: ordersDataToSend,
-            tableName: currentTableName, // Include table name for mapping
+            tableName: tableNameToSend, // Include table name for mapping with fallback
             timestamp: Date.now()
         }, '*');
-        console.log(`📤 [OVERVIEW] Đã gửi ${ordersDataToSend.length} đơn hàng với table name "${currentTableName}" về tab Báo Cáo Tổng Hợp`);
+        console.log(`📤 [OVERVIEW] Đã gửi ${ordersDataToSend.length} đơn hàng với table name "${tableNameToSend}" về tab Báo Cáo Tổng Hợp`);
     }
 }
 
