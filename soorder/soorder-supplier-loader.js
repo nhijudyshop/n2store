@@ -226,9 +226,10 @@ window.SoOrderSupplierLoader = {
             const suppliersToSave = [];
 
             for (const supplier of suppliers) {
-                // Handle both uppercase and lowercase property names
+                // Handle different property names from API
+                // API trả về: Name, Ref (không phải Code)
                 const name = supplier.Name || supplier.name;
-                const tposCode = supplier.Code || supplier.code;
+                const tposCode = supplier.Ref || supplier.ref || supplier.Code || supplier.code;
 
                 if (!name || !tposCode) {
                     console.warn('[Supplier Loader] ⚠️ Skipping supplier without name or code:', JSON.stringify(supplier));
