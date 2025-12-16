@@ -134,14 +134,26 @@ body {
 
 /* Zebra striping - alternating row colors */
 .table tbody tr:nth-child(odd) {
+    background: #ffffff !important;
+}
+
+.table tbody tr:nth-child(odd) td {
     background: #ffffff;
 }
 
 .table tbody tr:nth-child(even) {
+    background: #f0f4f8 !important;
+}
+
+.table tbody tr:nth-child(even) td {
     background: #f0f4f8;
 }
 
 .table tbody tr:hover {
+    background: #e2e8f0 !important;
+}
+
+.table tbody tr:hover td {
     background: #e2e8f0;
 }
 
