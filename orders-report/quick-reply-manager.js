@@ -421,6 +421,20 @@ class QuickReplyManager {
                 topic: '',
                 topicColor: '',
                 message: 'Dạ e gửi bill qua lấy cho mình , đơn hàng mình có vấn đề gì liên hệ qua SDT quản lí 0977774305 nhé c ạ ❤️ Em cám ơn'
+            },
+            {
+                id: 13,
+                shortcut: 'cd',
+                topic: 'CHỐT ĐƠN CHI TIẾT',
+                topicColor: '#15803d',
+                message: `Dạ chào chị {partner.name},
+
+Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
+
+{order.details}
+
+Đơn hàng của mình sẽ được gửi về địa chỉ "{partner.address}"`,
+                hasPlaceholders: true
             }
         ];
     }
@@ -633,6 +647,98 @@ class QuickReplyManager {
             .replace(/Đ/g, 'D');
     }
 
+    /**
+     * Format number to Vietnamese currency (VND)
+     * e.g., 120000 -> "120.000đ"
+     */
+    formatCurrency(amount) {
+        if (amount === null || amount === undefined) return '0đ';
+        return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+    }
+
+    /**
+     * Replace placeholders in message with actual order data
+     * Used specifically for /cd shortcut with API template style
+     * @param {string} content - Message content with placeholders
+     * @returns {string} - Message with placeholders replaced
+     */
+    replacePlaceholdersWithOrderData(content) {
+        const order = window.currentChatOrderData;
+        if (!order) {
+            console.warn('[QUICK-REPLY] No order data available for placeholder replacement');
+            return content;
+        }
+
+        console.log('[QUICK-REPLY] Replacing placeholders with order data:', order.Code);
+
+        let result = content;
+
+        // {partner.name} - Customer name
+        const customerName = order.Partner?.Name || order.Name || '';
+        if (customerName && customerName.trim()) {
+            result = result.replace(/{partner\.name}/g, customerName);
+        } else {
+            result = result.replace(/{partner\.name}/g, '(Khách hàng)');
+        }
+
+        // {partner.address} - Address with phone
+        const address = order.Partner?.Address || order.Address || '';
+        const phone = order.Partner?.Telephone || order.Telephone || '';
+        if (address && address.trim()) {
+            const addressWithPhone = phone ? `${address} - SĐT: ${phone}` : address;
+            result = result.replace(/"\{partner\.address\}"/g, `"${addressWithPhone}"`);
+            result = result.replace(/{partner\.address}/g, addressWithPhone);
+        } else {
+            result = result.replace(/"\{partner\.address\}"/g, '(Chưa có địa chỉ)');
+            result = result.replace(/{partner\.address}/g, '(Chưa có địa chỉ)');
+        }
+
+        // {partner.phone} - Phone number
+        if (phone && phone.trim()) {
+            result = result.replace(/{partner\.phone}/g, phone);
+        } else {
+            result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
+        }
+
+        // {order.code} - Order code
+        if (order.Code && order.Code.trim()) {
+            result = result.replace(/{order\.code}/g, order.Code);
+        } else {
+            result = result.replace(/{order\.code}/g, '(Không có mã)');
+        }
+
+        // {order.total} - Total amount
+        result = result.replace(/{order\.total}/g, this.formatCurrency(order.TotalAmount));
+
+        // {order.details} - Product list with total
+        if (order.Details && Array.isArray(order.Details) && order.Details.length > 0) {
+            const productList = order.Details
+                .map(d => {
+                    const name = d.ProductNameGet || d.ProductName || 'Sản phẩm';
+                    const qty = d.Quantity || 0;
+                    const price = d.Price || 0;
+                    const total = qty * price;
+                    return `- ${name} x${qty} = ${this.formatCurrency(total)}`;
+                })
+                .join('\n');
+            const totalAmount = this.formatCurrency(order.TotalAmount);
+            const productListWithTotal = `${productList}\n\nTổng tiền: ${totalAmount}`;
+            result = result.replace(/{order\.details}/g, productListWithTotal);
+        } else {
+            result = result.replace(/{order\.details}/g, '(Chưa có sản phẩm)');
+        }
+
+        // Add employee signature
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        const displayName = auth && auth.displayName ? auth.displayName : null;
+        if (displayName) {
+            result = result + '\nNv. ' + displayName;
+        }
+
+        console.log('[QUICK-REPLY] Placeholders replaced successfully');
+        return result;
+    }
+
     // =====================================================
     // AUTOCOMPLETE FEATURE
     // =====================================================
@@ -817,6 +923,7 @@ class QuickReplyManager {
         // DEBUG: Log reply object to check if imageUrl exists
         console.log('[QUICK-REPLY] 📋 Selected reply:', JSON.stringify(reply, null, 2));
         console.log('[QUICK-REPLY] 🖼️ Has imageUrl?', !!reply.imageUrl, '→', reply.imageUrl);
+        console.log('[QUICK-REPLY] 📝 Has placeholders?', !!reply.hasPlaceholders);
 
         // Check if this reply has an imageUrl - send image first, then text
         if (reply.imageUrl) {
@@ -832,6 +939,13 @@ class QuickReplyManager {
             return;
         }
 
+        // Get message content - replace placeholders if needed (for /cd shortcut)
+        let messageContent = reply.message;
+        if (reply.hasPlaceholders) {
+            console.log('[QUICK-REPLY] 🔄 Replacing placeholders for shortcut:', reply.shortcut);
+            messageContent = this.replacePlaceholdersWithOrderData(reply.message);
+        }
+
         const value = input.value;
         const cursorPos = input.selectionStart;
         const textBeforeCursor = value.substring(0, cursorPos);
@@ -841,11 +955,11 @@ class QuickReplyManager {
         const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
 
         // Replace from / to cursor with the message
-        const newValue = value.substring(0, lastSlashIndex) + reply.message + textAfterCursor;
+        const newValue = value.substring(0, lastSlashIndex) + messageContent + textAfterCursor;
         input.value = newValue;
 
         // Set cursor position after inserted text
-        const newCursorPos = lastSlashIndex + reply.message.length;
+        const newCursorPos = lastSlashIndex + messageContent.length;
         input.setSelectionRange(newCursorPos, newCursorPos);
 
         this.hideAutocomplete();
