@@ -7,21 +7,23 @@ const COLUMN_VISIBILITY_KEY = 'orderTableColumnVisibility';
 
 // Default column visibility settings
 const DEFAULT_COLUMN_VISIBILITY = {
+    'actions': true,
     'stt': true,
-    'tag': true,
     'employee': false,
+    'tag': true,
     'order-code': false,
     'customer': true,
     'messages': true,
     'comments': true,
     'phone': true,
+    'qr': true,
+    'debt': true,
     'address': false,
     'notes': false,
     'total': true,
     'quantity': true,
     'created-date': false,
-    'status': true,
-    'actions': true
+    'status': true
 };
 
 // =====================================================

@@ -5567,9 +5567,37 @@ function createRowHTML(order) {
         ? `<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">${employeeName}</span>`
         : '<span style="color: #9ca3af;">−</span>';
 
+    // Build actions cell HTML
+    const actionsHTML = `
+            <td data-column="actions">
+                ${isMerged ? `
+                    <div class="merged-edit-dropdown" style="position: relative; display: inline-block;">
+                        <button class="btn-edit-icon" onclick="toggleMergedEditDropdown(this, event)" title="Chọn đơn hàng để chỉnh sửa">
+                            <i class="fas fa-edit"></i>
+                            <i class="fas fa-caret-down" style="font-size: 10px; margin-left: 2px;"></i>
+                        </button>
+                        <div class="merged-edit-options" style="display: none; position: absolute; left: 0; top: 100%; background: white; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; min-width: 100px;">
+                            ${order.OriginalOrders.sort((a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)).map(o => `
+                                <div onclick="openEditModal('${o.Id}'); closeMergedEditDropdown(); event.stopPropagation();"
+                                     style="padding: 8px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f3f4f6; transition: background 0.2s;"
+                                     onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+                                    <span style="font-weight: 500;">STT ${o.SessionIndex}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : `
+                    <button class="btn-edit-icon" onclick="openEditModal('${order.Id}')" title="Chỉnh sửa đơn hàng">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                `}
+                ${order.noteEdited ? '<span class="note-edited-badge" style="margin-left: 4px;" title="Ghi chú đã được sửa">✏️</span>' : ''}
+            </td>`;
+
     return `
         <tr class="${rowClass} ${mergedClass}">
             <td><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
+            ${actionsHTML}
             <td data-column="stt">
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <span>${order.SessionIndex || ""}</span>
@@ -5608,30 +5636,6 @@ function createRowHTML(order) {
             ${renderMergedQuantityColumn(order)}
             <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
             <td data-column="status"><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}" style="cursor: pointer;" onclick="openOrderStatusModal('${order.Id}', '${order.Status}')" data-order-id="${order.Id}" title="Click để thay đổi trạng thái">${highlight(order.StatusText || order.Status)}</span></td>
-            <td data-column="actions">
-                ${isMerged ? `
-                    <div class="merged-edit-dropdown" style="position: relative; display: inline-block;">
-                        <button class="btn-edit-icon" onclick="toggleMergedEditDropdown(this, event)" title="Chọn đơn hàng để chỉnh sửa">
-                            <i class="fas fa-edit"></i>
-                            <i class="fas fa-caret-down" style="font-size: 10px; margin-left: 2px;"></i>
-                        </button>
-                        <div class="merged-edit-options" style="display: none; position: absolute; right: 0; top: 100%; background: white; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; min-width: 100px;">
-                            ${order.OriginalOrders.sort((a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)).map(o => `
-                                <div onclick="openEditModal('${o.Id}'); closeMergedEditDropdown(); event.stopPropagation();" 
-                                     style="padding: 8px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f3f4f6; transition: background 0.2s;"
-                                     onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
-                                    <span style="font-weight: 500;">STT ${o.SessionIndex}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : `
-                    <button class="btn-edit-icon" onclick="openEditModal('${order.Id}')" title="Chỉnh sửa đơn hàng">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                `}
-                ${order.noteEdited ? '<span class="note-edited-badge" style="margin-left: 4px;" title="Ghi chú đã được sửa">✏️</span>' : ''}
-            </td>
         </tr>`;
 }
 
