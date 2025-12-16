@@ -5538,6 +5538,7 @@ function renderByEmployee() {
                         <thead>
                             <tr>
                                 <th><input type="checkbox" class="employee-select-all" data-employee="${employeeName}" /></th>
+                                <th data-column="actions">Thao tác</th>
                                 <th data-column="stt">STT</th>
                                 <th data-column="employee" style="width: 90px;">Nhân viên</th>
                                 <th data-column="tag">TAG</th>
@@ -5554,7 +5555,6 @@ function renderByEmployee() {
                                 <th data-column="quantity">SL</th>
                                 <th data-column="created-date">Ngày tạo</th>
                                 <th data-column="status">Trạng thái</th>
-                                <th data-column="actions">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
