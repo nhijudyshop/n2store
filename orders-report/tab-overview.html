@@ -573,8 +573,19 @@
                 <i class="fas fa-file-alt"></i>
                 Báo Cáo Tổng Hợp
             </h1>
-            <div class="header-actions">
-                <button class="btn-action green" onclick="startBatchFetch()" id="btnBatchFetch">
+            <div class="header-actions" style="display: flex; gap: 10px; align-items: center;">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-size: 12px; color: #666; font-weight: 500;">Chọn bảng:</label>
+                    <select id="tableSelector" onchange="handleTableChange()"
+                        style="padding: 10px 16px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; font-weight: 500; background: white; color: #333; min-width: 200px; cursor: pointer;">
+                        <option value="">-- Chọn bảng --</option>
+                    </select>
+                </div>
+                <button class="btn-action" onclick="loadAvailableTables()"
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-top: 20px;">
+                    <i class="fas fa-sync-alt"></i> Làm mới danh sách
+                </button>
+                <button class="btn-action green" onclick="startBatchFetch()" id="btnBatchFetch" style="margin-top: 20px;">
                     <i class="fas fa-download"></i> Lấy chi tiết đơn hàng
                 </button>
             </div>
@@ -829,6 +840,115 @@
             }
         }
 
+        // =====================================================
+        // TABLE SELECTION & MANAGEMENT
+        // =====================================================
+
+        // Load available tables from Firebase
+        async function loadAvailableTables() {
+            if (!database) {
+                console.error('[REPORT] Firebase not available');
+                return;
+            }
+
+            try {
+                const ref = database.ref(FIREBASE_PATH);
+                const snapshot = await ref.once('value');
+                const tables = snapshot.val() || {};
+
+                const selector = document.getElementById('tableSelector');
+                selector.innerHTML = '<option value="">-- Chọn bảng --</option>';
+
+                Object.keys(tables).forEach(safeTableName => {
+                    const tableData = tables[safeTableName];
+                    const originalName = tableData.tableName || safeTableName.replace(/_/g, ' ');
+                    const orderCount = tableData.orders?.length || 0;
+                    const fetchedAt = tableData.fetchedAt ? new Date(tableData.fetchedAt).toLocaleString('vi-VN') : '';
+
+                    const option = document.createElement('option');
+                    option.value = originalName;
+                    option.textContent = `${originalName} (${orderCount} đơn - ${fetchedAt})`;
+                    selector.appendChild(option);
+                });
+
+                console.log(`[REPORT] ✅ Loaded ${Object.keys(tables).length} tables from Firebase`);
+
+                // Select current table if exists
+                if (currentTableName) {
+                    selector.value = currentTableName;
+                }
+            } catch (error) {
+                console.error('[REPORT] ❌ Error loading tables:', error);
+            }
+        }
+
+        // Handle table selection change
+        async function handleTableChange() {
+            const selector = document.getElementById('tableSelector');
+            const selectedTable = selector.value;
+
+            if (!selectedTable) {
+                console.log('[REPORT] No table selected');
+                return;
+            }
+
+            console.log(`[REPORT] 📋 Switching to table: ${selectedTable}`);
+            currentTableName = selectedTable;
+
+            // Load data from Firebase
+            await loadTableDataFromFirebase(selectedTable);
+
+            // Update UI
+            updateCachedCountBadge();
+            renderCachedDetailsTab();
+            renderOrdersTable();
+        }
+
+        // Load table data from Firebase
+        async function loadTableDataFromFirebase(tableName) {
+            if (!tableName) return;
+
+            console.log(`[REPORT] 📥 Loading data for table: ${tableName}`);
+
+            // Try loading from Firebase
+            const firebaseData = await loadFromFirebase(tableName);
+
+            if (firebaseData) {
+                // Update cache
+                cachedOrderDetails[tableName] = {
+                    tableName: firebaseData.tableName || tableName,
+                    orders: firebaseData.orders || [],
+                    fetchedAt: firebaseData.fetchedAt,
+                    totalOrders: firebaseData.totalOrders,
+                    successCount: firebaseData.successCount,
+                    errorCount: firebaseData.errorCount
+                };
+
+                // Update allOrders for display
+                allOrders = (firebaseData.orders || []).map((order, index) => ({
+                    stt: order.SessionIndex || (index + 1).toString(),
+                    orderId: order.Id,
+                    orderCode: order.Code,
+                    customerName: order.PartnerName || order.Name,
+                    phone: order.PartnerPhone || order.Telephone,
+                    address: order.PartnerAddress || order.Address,
+                    totalAmount: order.TotalAmount || order.AmountTotal || 0,
+                    quantity: order.TotalQuantity || 0,
+                    note: order.Note,
+                    state: order.Status || order.State,
+                    dateOrder: order.DateCreated || order.DateOrder,
+                    Tags: order.Tags,
+                    liveCampaignName: order.LiveCampaignName
+                }));
+
+                saveCachedData();
+                console.log(`[REPORT] ✅ Loaded ${firebaseData.orders?.length || 0} orders for table: ${tableName}`);
+            } else {
+                console.log(`[REPORT] ⚠️ No data found for table: ${tableName}`);
+                allOrders = [];
+            }
+        }
+
         // Save cached data to localStorage
         function saveCachedData() {
             try {
@@ -850,12 +970,35 @@
         // MESSAGE LISTENER - Receive data from tab1
         // =====================================================
         window.addEventListener('message', function(event) {
+            // Handle orders data response
             if (event.data.type === 'ORDERS_DATA_RESPONSE') {
                 console.log('[REPORT] Received orders data:', event.data.orders?.length || 0);
                 console.log('[REPORT] Received table name:', event.data.tableName);
 
                 allOrders = event.data.orders || [];
                 currentTableName = event.data.tableName || 'Bảng 1'; // Use table name from tab1
+
+                // Update selector
+                const selector = document.getElementById('tableSelector');
+                if (selector && currentTableName) {
+                    // Check if option exists, if not add it
+                    let optionExists = false;
+                    for (let option of selector.options) {
+                        if (option.value === currentTableName) {
+                            optionExists = true;
+                            break;
+                        }
+                    }
+
+                    if (!optionExists) {
+                        const newOption = document.createElement('option');
+                        newOption.value = currentTableName;
+                        newOption.textContent = `${currentTableName} (${allOrders.length} đơn)`;
+                        selector.appendChild(newOption);
+                    }
+
+                    selector.value = currentTableName;
+                }
 
                 // Detect campaign name from first order (for backward compatibility)
                 if (allOrders.length > 0) {
@@ -877,6 +1020,21 @@
 
                 // Stop loading state
                 setRefreshLoading(false);
+            }
+
+            // Handle table name change notification from tab1
+            if (event.data.type === 'TABLE_NAME_CHANGED') {
+                console.log('[REPORT] 📬 Table name changed:', event.data.tableName);
+                currentTableName = event.data.tableName;
+
+                // Update selector
+                const selector = document.getElementById('tableSelector');
+                if (selector) {
+                    selector.value = currentTableName;
+                }
+
+                // Reload table list to reflect changes
+                loadAvailableTables();
             }
         });
 
@@ -1468,6 +1626,9 @@
 
             // Load cached data
             loadCachedData();
+
+            // Load available tables from Firebase
+            loadAvailableTables();
 
             // Request data from tab1
             setTimeout(() => {
