@@ -5599,7 +5599,7 @@ function createRowHTML(order) {
             <td><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
             ${actionsHTML}
             <td data-column="stt">
-                <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     <span>${order.SessionIndex || ""}</span>
                     ${mergedIcon}
                 </div>
@@ -5624,7 +5624,7 @@ function createRowHTML(order) {
             <td data-column="order-code">
                 <span>${highlight(order.Code)}</span>
             </td>
-            <td data-column="customer"><div>${highlight(order.Name)}</div>${order.PartnerId ? `<div style="margin-top: 2px;"><code style="background: #e0e7ff; color: #3730a3; padding: 1px 4px; border-radius: 3px; font-size: 10px;">TPOS: ${order.PartnerId}</code></div>` : ''}${partnerStatusHTML}</td>
+            <td data-column="customer"><div class="customer-name">${highlight(order.Name)}</div>${partnerStatusHTML}</td>
             ${messagesHTML}
             ${commentsHTML}
             <td data-column="phone" style="text-align: center;">${highlight(order.Telephone)}</td>
