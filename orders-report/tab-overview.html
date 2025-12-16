@@ -1009,7 +1009,7 @@
         function updateCachedCountBadge() {
             const badge = document.getElementById('cachedCountBadge');
             const currentData = cachedOrderDetails[currentTableName];
-            badge.textContent = currentData ? currentData.orders.length : 0;
+            badge.textContent = currentData?.orders?.length || 0;
         }
 
         // =====================================================
