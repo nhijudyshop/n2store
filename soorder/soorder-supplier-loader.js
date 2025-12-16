@@ -100,6 +100,12 @@ window.SoOrderSupplierLoader = {
 
             console.log(`[Supplier Loader] ✅ Fetched ${data.value?.length || 0} suppliers (Total: ${data['@odata.count'] || 'unknown'})`);
 
+            // Debug: Log raw API response structure
+            console.log('[Supplier Loader] 📋 Raw API response keys:', Object.keys(data));
+            if (data.value && data.value.length > 0) {
+                console.log('[Supplier Loader] 📋 First item from API:', JSON.stringify(data.value[0], null, 2));
+            }
+
             return data.value || [];
 
         } catch (error) {
