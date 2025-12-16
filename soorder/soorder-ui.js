@@ -1054,10 +1054,16 @@ window.SoOrderUI = {
     // NCC MANAGEMENT
     // =====================================================
 
+    // Store exact match for Tab selection
+    exactMatchNCC: null,
+
     // Show NCC suggestions dropdown
     showNCCSuggestions(inputElement, suggestionsElement) {
         const state = window.SoOrderState;
         const value = inputElement.value.trim().toLowerCase();
+
+        // Reset exact match
+        this.exactMatchNCC = null;
 
         if (!suggestionsElement) return;
 
@@ -1079,20 +1085,51 @@ window.SoOrderUI = {
             return;
         }
 
+        // Find exact Ax code match (e.g., "a5" matches "A5")
+        const exactMatch = state.nccNames.find((ncc) =>
+            ncc.code.toLowerCase() === value
+        );
+
+        if (exactMatch) {
+            this.exactMatchNCC = exactMatch;
+        }
+
         // Create suggestion items
         matches.forEach((ncc) => {
             const item = document.createElement("div");
             item.className = "ncc-suggestion-item";
+
+            // Highlight exact match
+            if (exactMatch && ncc.code === exactMatch.code) {
+                item.classList.add("exact-match");
+            }
+
             item.innerHTML = `<span class="ncc-code">${ncc.code}</span><span class="ncc-name">${this.escapeHtml(ncc.name.substring(ncc.code.length))}</span>`;
             item.addEventListener("click", () => {
                 inputElement.value = ncc.name;
                 suggestionsElement.classList.remove("active");
-                inputElement.focus();
+                this.exactMatchNCC = null;
+                // Move focus to amount input
+                const amountInput = document.getElementById("addAmount") || document.getElementById("editAmount");
+                if (amountInput) {
+                    amountInput.focus();
+                }
             });
             suggestionsElement.appendChild(item);
         });
 
         suggestionsElement.classList.add("active");
+    },
+
+    // Select exact match NCC (called on Tab)
+    selectExactMatchNCC(inputElement, suggestionsElement) {
+        if (this.exactMatchNCC) {
+            inputElement.value = this.exactMatchNCC.name;
+            suggestionsElement.classList.remove("active");
+            this.exactMatchNCC = null;
+            return true;
+        }
+        return false;
     },
 
     // Hide all NCC suggestions

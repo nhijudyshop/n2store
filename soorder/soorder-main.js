@@ -679,6 +679,14 @@ function setupEventListeners() {
                 ui.showNCCSuggestions(elements.addSupplier, elements.addSupplierSuggestions);
             }
         });
+        // Tab key to select exact match
+        elements.addSupplier.addEventListener("keydown", (e) => {
+            if (e.key === "Tab" && !e.shiftKey) {
+                if (ui.selectExactMatchNCC(elements.addSupplier, elements.addSupplierSuggestions)) {
+                    // Focus will naturally move to next input (addAmount)
+                }
+            }
+        });
     }
 
     // NCC Suggestions - Edit form
@@ -689,6 +697,14 @@ function setupEventListeners() {
         elements.editSupplier.addEventListener("focus", () => {
             if (elements.editSupplier.value.trim()) {
                 ui.showNCCSuggestions(elements.editSupplier, elements.editSupplierSuggestions);
+            }
+        });
+        // Tab key to select exact match
+        elements.editSupplier.addEventListener("keydown", (e) => {
+            if (e.key === "Tab" && !e.shiftKey) {
+                if (ui.selectExactMatchNCC(elements.editSupplier, elements.editSupplierSuggestions)) {
+                    // Focus will naturally move to next input (editAmount)
+                }
             }
         });
     }
