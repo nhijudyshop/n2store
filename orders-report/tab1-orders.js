@@ -4213,6 +4213,14 @@ function updateSearchResultCount() {
         filteredData.length.toLocaleString("vi-VN");
 }
 
+// Copy phone number to clipboard
+function copyPhoneNumber(phone) {
+    if (!phone) return;
+    navigator.clipboard.writeText(phone).catch(err => {
+        console.error('Failed to copy phone number:', err);
+    });
+}
+
 function highlightSearchText(text, query) {
     if (!query || !text) return text;
     const regex = new RegExp(`(${escapeRegex(query)})`, "gi");
@@ -5664,7 +5672,12 @@ function createRowHTML(order) {
             <td data-column="customer"><div class="customer-name">${highlight(order.Name)}</div>${partnerStatusHTML}</td>
             ${messagesHTML}
             ${commentsHTML}
-            <td data-column="phone" style="text-align: center;">${highlight(order.Telephone)}</td>
+            <td data-column="phone" style="text-align: center;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    ${order.Telephone ? `<i class="fas fa-copy copy-phone-btn" onclick="copyPhoneNumber('${order.Telephone}'); event.stopPropagation();" title="Copy SĐT" style="cursor: pointer; color: #9ca3af; font-size: 11px;"></i>` : ''}
+                    <span>${highlight(order.Telephone)}</span>
+                </div>
+            </td>
             <td data-column="qr" style="text-align: center;">${renderQRColumn(order.Telephone)}</td>
             <td data-column="debt" style="text-align: right;">${renderDebtColumn(order.Telephone)}</td>
             <td data-column="address">${highlight(order.Address)}</td>
