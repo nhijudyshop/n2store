@@ -338,6 +338,15 @@ async function saveTableName() {
 
     // Update UI
     input.value = tableName;
+
+    // Broadcast table name change to other tabs (especially tab-overview)
+    if (window.parent) {
+        window.parent.postMessage({
+            type: 'TABLE_NAME_CHANGED',
+            tableName: tableName
+        }, '*');
+        console.log('[TABLE-NAME] 📡 Broadcasted table name change:', tableName);
+    }
 }
 
 /**
