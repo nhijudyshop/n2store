@@ -27,6 +27,9 @@
             padding: 25px;
             margin-bottom: 25px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .header h1 {
@@ -43,29 +46,360 @@
             font-size: 32px;
         }
 
-        .placeholder-content {
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-refresh {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-refresh:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-refresh:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-refresh i.spinning {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
             background: white;
             border-radius: 15px;
-            padding: 60px 40px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             text-align: center;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
-        .placeholder-content i {
-            font-size: 80px;
-            color: #ddd;
-            margin-bottom: 30px;
-        }
-
-        .placeholder-content h2 {
-            color: #667eea;
+        .stat-card .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
             font-size: 24px;
-            margin-bottom: 15px;
+            color: white;
         }
 
-        .placeholder-content p {
+        .stat-card .stat-icon.blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .stat-card .stat-icon.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .stat-card .stat-icon.orange { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .stat-card .stat-icon.purple { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+
+        .stat-card .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .stat-label {
+            font-size: 14px;
             color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Content Section */
+        .content-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .content-section h2 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .content-section h2 i {
+            color: #667eea;
+        }
+
+        /* Orders Table */
+        .orders-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .orders-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .orders-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+
+        .orders-table tbody tr {
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .orders-table tbody tr:hover {
+            background: #f8f9ff;
+        }
+
+        .orders-table td {
+            padding: 12px 15px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .orders-table .order-code {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .orders-table .amount {
+            color: #11998e;
+            font-weight: 600;
+        }
+
+        /* Loading & Empty States */
+        .loading-state, .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .loading-state i, .empty-state i {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .loading-state i {
+            color: #667eea;
+            animation: spin 1s linear infinite;
+        }
+
+        .empty-state i {
+            color: #ddd;
+        }
+
+        .empty-state h3, .loading-state h3 {
+            color: #999;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        /* Order Detail Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #667eea;
+            font-size: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .detail-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .detail-item .label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .detail-item .value {
             font-size: 16px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .products-list {
+            margin-top: 20px;
+        }
+
+        .products-list h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .product-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .product-item .product-name {
+            font-weight: 500;
+        }
+
+        .product-item .product-qty {
+            color: #666;
+        }
+
+        .product-item .product-price {
+            color: #11998e;
+            font-weight: 600;
+        }
+
+        /* JSON Preview */
+        .json-preview {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .json-key { color: #9cdcfe; }
+        .json-string { color: #ce9178; }
+        .json-number { color: #b5cea8; }
+        .json-boolean { color: #569cd6; }
+        .json-null { color: #569cd6; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: #666;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .tab-btn.active {
+            color: #667eea;
+            background: #eff6ff;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
         }
     </style>
 </head>
@@ -78,15 +412,496 @@
                 <i class="fas fa-file-alt"></i>
                 Báo Cáo Tổng Hợp
             </h1>
+            <div class="header-actions">
+                <button class="btn-refresh" onclick="requestDataFromTab1()" id="btnRefresh">
+                    <i class="fas fa-sync-alt"></i> Làm mới dữ liệu
+                </button>
+            </div>
         </div>
 
-        <!-- Placeholder content -->
-        <div class="placeholder-content">
-            <i class="fas fa-cogs"></i>
-            <h2>Đang phát triển</h2>
-            <p>Chức năng này sẽ được cập nhật sau.</p>
+        <!-- Stats Cards -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-icon blue"><i class="fas fa-shopping-cart"></i></div>
+                <div class="stat-value" id="statTotalOrders">0</div>
+                <div class="stat-label">Tổng đơn hàng</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green"><i class="fas fa-money-bill-wave"></i></div>
+                <div class="stat-value" id="statTotalAmount">0</div>
+                <div class="stat-label">Tổng tiền</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange"><i class="fas fa-box"></i></div>
+                <div class="stat-value" id="statTotalProducts">0</div>
+                <div class="stat-label">Tổng sản phẩm</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple"><i class="fas fa-users"></i></div>
+                <div class="stat-value" id="statTotalCustomers">0</div>
+                <div class="stat-label">Khách hàng</div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div id="contentArea">
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <h3>Chưa có dữ liệu</h3>
+                <p>Nhấn "Làm mới dữ liệu" để lấy dữ liệu từ tab Quản Lý Đơn Hàng</p>
+            </div>
         </div>
     </div>
+
+    <!-- Order Detail Modal -->
+    <div class="modal-overlay" id="orderDetailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Chi tiết đơn hàng</h3>
+                <button class="modal-close" onclick="closeOrderDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK v8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- Core Dependencies -->
+    <script src="config.js"></script>
+    <script src="api-config.js"></script>
+    <script src="token-manager.js"></script>
+
+    <script>
+        // =====================================================
+        // GLOBAL STATE
+        // =====================================================
+        let allOrders = [];
+        let database = null;
+
+        // Initialize Firebase
+        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        if (typeof firebase !== 'undefined') {
+            database = firebase.database();
+        }
+
+        // =====================================================
+        // MESSAGE LISTENER - Receive data from tab1
+        // =====================================================
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'ORDERS_DATA_RESPONSE') {
+                console.log('[REPORT] Received orders data:', event.data.orders?.length || 0);
+
+                allOrders = event.data.orders || [];
+
+                // Update UI
+                updateStats();
+                renderOrdersTable();
+
+                // Stop loading state
+                setRefreshLoading(false);
+            }
+        });
+
+        // =====================================================
+        // REQUEST DATA FROM TAB1
+        // =====================================================
+        function requestDataFromTab1() {
+            console.log('[REPORT] Requesting data from tab1...');
+
+            // Set loading state
+            setRefreshLoading(true);
+            showLoading('Đang tải dữ liệu từ tab Quản Lý Đơn Hàng...');
+
+            // Request data from parent -> tab1
+            window.parent.postMessage({
+                type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
+            }, '*');
+
+            // Timeout after 10 seconds
+            setTimeout(() => {
+                if (allOrders.length === 0) {
+                    setRefreshLoading(false);
+                    showEmptyState('Không thể lấy dữ liệu. Vui lòng mở tab "Quản Lý Đơn Hàng" trước.');
+                }
+            }, 10000);
+        }
+
+        function setRefreshLoading(loading) {
+            const btn = document.getElementById('btnRefresh');
+            const icon = btn.querySelector('i');
+
+            if (loading) {
+                btn.disabled = true;
+                icon.classList.add('spinning');
+            } else {
+                btn.disabled = false;
+                icon.classList.remove('spinning');
+            }
+        }
+
+        // =====================================================
+        // FETCH ORDER DETAIL (same as tab1's fetchOrderData)
+        // =====================================================
+        async function fetchOrderData(orderId) {
+            try {
+                // Get auth header from token manager
+                const headers = await window.tokenManager.getAuthHeader();
+                const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+
+                const response = await API_CONFIG.smartFetch(apiUrl, {
+                    headers: {
+                        ...headers,
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('[REPORT] Fetched order detail:', data);
+                return data;
+
+            } catch (error) {
+                console.error('[REPORT] Error fetching order detail:', error);
+                throw error;
+            }
+        }
+
+        // =====================================================
+        // UPDATE STATISTICS
+        // =====================================================
+        function updateStats() {
+            const totalOrders = allOrders.length;
+            const totalAmount = allOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+            const totalProducts = allOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+
+            // Count unique customers by phone
+            const uniqueCustomers = new Set(allOrders.map(order => order.phone).filter(Boolean));
+
+            document.getElementById('statTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
+            document.getElementById('statTotalAmount').textContent = formatCurrency(totalAmount);
+            document.getElementById('statTotalProducts').textContent = totalProducts.toLocaleString('vi-VN');
+            document.getElementById('statTotalCustomers').textContent = uniqueCustomers.size.toLocaleString('vi-VN');
+        }
+
+        function formatCurrency(amount) {
+            if (amount >= 1000000) {
+                return (amount / 1000000).toFixed(1) + 'M';
+            } else if (amount >= 1000) {
+                return (amount / 1000).toFixed(0) + 'K';
+            }
+            return amount.toLocaleString('vi-VN');
+        }
+
+        // =====================================================
+        // RENDER ORDERS TABLE
+        // =====================================================
+        function renderOrdersTable() {
+            if (allOrders.length === 0) {
+                showEmptyState('Không có đơn hàng');
+                return;
+            }
+
+            const contentArea = document.getElementById('contentArea');
+
+            let html = `
+                <div class="content-section">
+                    <h2><i class="fas fa-list"></i> Danh sách đơn hàng (${allOrders.length})</h2>
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Mã đơn</th>
+                                <th>Khách hàng</th>
+                                <th>SĐT</th>
+                                <th>Số lượng</th>
+                                <th>Tổng tiền</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            allOrders.forEach((order, index) => {
+                html += `
+                    <tr onclick="openOrderDetail('${order.orderId}', ${index})">
+                        <td>${order.stt || index + 1}</td>
+                        <td class="order-code">${order.orderCode || ''}</td>
+                        <td>${order.customerName || ''}</td>
+                        <td>${order.phone || ''}</td>
+                        <td>${order.quantity || 0}</td>
+                        <td class="amount">${(order.totalAmount || 0).toLocaleString('vi-VN')}đ</td>
+                        <td>${order.state || ''}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            contentArea.innerHTML = html;
+        }
+
+        // =====================================================
+        // ORDER DETAIL MODAL
+        // =====================================================
+        async function openOrderDetail(orderId, index) {
+            const modal = document.getElementById('orderDetailModal');
+            const modalBody = document.getElementById('modalBody');
+            const order = allOrders[index];
+
+            // Show modal with loading
+            modal.classList.add('show');
+            modalBody.innerHTML = `
+                <div class="loading-state">
+                    <i class="fas fa-spinner"></i>
+                    <h3>Đang tải chi tiết...</h3>
+                </div>
+            `;
+
+            try {
+                // Fetch full order details from API
+                const fullOrderData = await fetchOrderData(orderId);
+
+                // Render tabs with both basic data and full data
+                renderOrderDetailModal(order, fullOrderData);
+
+            } catch (error) {
+                console.error('[REPORT] Error loading order detail:', error);
+                // Fallback to basic data
+                renderOrderDetailModal(order, null);
+            }
+        }
+
+        function renderOrderDetailModal(basicOrder, fullOrder) {
+            const modalBody = document.getElementById('modalBody');
+            const modalTitle = document.getElementById('modalTitle');
+
+            modalTitle.textContent = `Chi tiết đơn hàng - ${basicOrder.orderCode || ''}`;
+
+            // Use full order data if available, otherwise use basic
+            const order = fullOrder || basicOrder;
+
+            let html = `
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('info')">Thông tin</button>
+                    <button class="tab-btn" onclick="switchTab('products')">Sản phẩm</button>
+                    <button class="tab-btn" onclick="switchTab('json')">JSON Data</button>
+                </div>
+
+                <!-- Info Tab -->
+                <div class="tab-content active" id="tabInfo">
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="label">Mã đơn hàng</div>
+                            <div class="value">${order.Code || basicOrder.orderCode || ''}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="label">STT</div>
+                            <div class="value">${order.SessionIndex || basicOrder.stt || ''}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="label">Khách hàng</div>
+                            <div class="value">${order.Name || order.PartnerName || basicOrder.customerName || ''}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="label">Số điện thoại</div>
+                            <div class="value">${order.Telephone || order.PartnerPhone || basicOrder.phone || ''}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="label">Địa chỉ</div>
+                            <div class="value">${order.Address || order.PartnerAddress || basicOrder.address || ''}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="label">Tổng tiền</div>
+                            <div class="value" style="color: #11998e;">${(order.TotalAmount || order.AmountTotal || basicOrder.totalAmount || 0).toLocaleString('vi-VN')}đ</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="label">Trạng thái</div>
+                            <div class="value">${order.Status || order.State || basicOrder.state || ''}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="label">Ngày tạo</div>
+                            <div class="value">${formatDate(order.DateCreated || order.DateOrder || basicOrder.dateOrder)}</div>
+                        </div>
+                    </div>
+
+                    ${order.Note ? `
+                        <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 10px;">
+                            <div class="label" style="margin-bottom: 10px;"><i class="fas fa-sticky-note"></i> Ghi chú</div>
+                            <div style="white-space: pre-wrap;">${order.Note}</div>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Products Tab -->
+                <div class="tab-content" id="tabProducts">
+                    ${renderProductsList(order.Details || basicOrder.products || [])}
+                </div>
+
+                <!-- JSON Tab -->
+                <div class="tab-content" id="tabJson">
+                    <div class="json-preview">${syntaxHighlightJSON(fullOrder || basicOrder)}</div>
+                </div>
+            `;
+
+            modalBody.innerHTML = html;
+        }
+
+        function renderProductsList(products) {
+            if (!products || products.length === 0) {
+                return `
+                    <div class="empty-state" style="padding: 30px;">
+                        <i class="fas fa-box-open" style="font-size: 40px;"></i>
+                        <h3>Không có sản phẩm</h3>
+                    </div>
+                `;
+            }
+
+            let html = `<div class="products-list"><h4><i class="fas fa-box"></i> Danh sách sản phẩm (${products.length})</h4>`;
+
+            products.forEach(product => {
+                const name = product.ProductName || product.ProductNameGet || product.name || product.nameGet || '';
+                const qty = product.Quantity || product.ProductUOMQty || product.quantity || 0;
+                const price = product.Price || product.price || 0;
+
+                html += `
+                    <div class="product-item">
+                        <div>
+                            <div class="product-name">${name}</div>
+                            <div class="product-qty">x${qty}</div>
+                        </div>
+                        <div class="product-price">${(price * qty).toLocaleString('vi-VN')}đ</div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            return html;
+        }
+
+        function switchTab(tabName) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.tab-btn[onclick*="${tabName}"]`).classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            const tabMap = {
+                'info': 'tabInfo',
+                'products': 'tabProducts',
+                'json': 'tabJson'
+            };
+
+            document.getElementById(tabMap[tabName]).classList.add('active');
+        }
+
+        function closeOrderDetailModal() {
+            document.getElementById('orderDetailModal').classList.remove('show');
+        }
+
+        // Close modal on outside click
+        document.getElementById('orderDetailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeOrderDetailModal();
+            }
+        });
+
+        // =====================================================
+        // UTILITY FUNCTIONS
+        // =====================================================
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            try {
+                return new Date(dateStr).toLocaleString('vi-VN');
+            } catch {
+                return dateStr;
+            }
+        }
+
+        function syntaxHighlightJSON(obj) {
+            if (!obj) return 'null';
+
+            const json = JSON.stringify(obj, null, 2);
+            return json
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                    let cls = 'json-number';
+                    if (/^"/.test(match)) {
+                        if (/:$/.test(match)) {
+                            cls = 'json-key';
+                        } else {
+                            cls = 'json-string';
+                        }
+                    } else if (/true|false/.test(match)) {
+                        cls = 'json-boolean';
+                    } else if (/null/.test(match)) {
+                        cls = 'json-null';
+                    }
+                    return '<span class="' + cls + '">' + match + '</span>';
+                });
+        }
+
+        function showLoading(message) {
+            document.getElementById('contentArea').innerHTML = `
+                <div class="content-section">
+                    <div class="loading-state">
+                        <i class="fas fa-spinner"></i>
+                        <h3>${message || 'Đang tải...'}</h3>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showEmptyState(message) {
+            document.getElementById('contentArea').innerHTML = `
+                <div class="content-section">
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h3>Chưa có dữ liệu</h3>
+                        <p>${message}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // INITIALIZATION
+        // =====================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[REPORT] Page loaded, requesting data...');
+
+            // Wait for token manager to initialize, then request data
+            setTimeout(() => {
+                requestDataFromTab1();
+            }, 500);
+        });
+
+        // =====================================================
+        // EXPORT FUNCTIONS FOR EXTERNAL USE
+        // =====================================================
+        window.reportModule = {
+            getAllOrders: () => allOrders,
+            getOrderById: (orderId) => allOrders.find(o => o.orderId === orderId),
+            fetchOrderData: fetchOrderData,
+            refreshData: requestDataFromTab1
+        };
+    </script>
 </body>
 
 </html>
