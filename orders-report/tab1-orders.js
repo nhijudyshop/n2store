@@ -192,9 +192,11 @@ let selectedOrderIds = new Set();
 let isLoading = false;
 let loadingAborted = false;
 let employeeRanges = []; // Employee STT ranges
+let currentTableName = 'Bảng 1'; // Current table name
 
 // Expose data for other modules
 window.getAllOrders = () => allData;
+window.getCurrentTableName = () => currentTableName;
 
 // Search State
 let searchQuery = "";
@@ -295,6 +297,90 @@ async function loadFilterPreferencesFromFirebase() {
         console.error('[FILTER-PREFS] ❌ Error loading:', error);
         return null;
     }
+}
+
+// =====================================================
+// TABLE NAME MANAGEMENT - localStorage & Firebase Sync
+// =====================================================
+const TABLE_NAME_STORAGE_KEY = 'order_table_name';
+const TABLE_NAME_FIREBASE_PATH = 'settings/table_name';
+
+/**
+ * Save table name to localStorage and Firebase
+ */
+async function saveTableName() {
+    const input = document.getElementById('tableNameInput');
+    if (!input) return;
+
+    const tableName = input.value.trim() || 'Bảng 1';
+    currentTableName = tableName;
+
+    // Save to localStorage
+    try {
+        localStorage.setItem(TABLE_NAME_STORAGE_KEY, tableName);
+        console.log('[TABLE-NAME] ✅ Saved to localStorage:', tableName);
+    } catch (e) {
+        console.error('[TABLE-NAME] ❌ Error saving to localStorage:', e);
+    }
+
+    // Save to Firebase
+    if (database) {
+        try {
+            await database.ref(TABLE_NAME_FIREBASE_PATH).set({
+                name: tableName,
+                updatedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+            console.log('[TABLE-NAME] ✅ Saved to Firebase:', tableName);
+        } catch (error) {
+            console.error('[TABLE-NAME] ❌ Error saving to Firebase:', error);
+        }
+    }
+
+    // Update UI
+    input.value = tableName;
+}
+
+/**
+ * Load table name from Firebase or localStorage
+ */
+async function loadTableName() {
+    let tableName = 'Bảng 1'; // Default
+
+    // Try loading from Firebase first
+    if (database) {
+        try {
+            const snapshot = await database.ref(TABLE_NAME_FIREBASE_PATH).once('value');
+            const data = snapshot.val();
+            if (data && data.name) {
+                tableName = data.name;
+                console.log('[TABLE-NAME] ✅ Loaded from Firebase:', tableName);
+            }
+        } catch (error) {
+            console.error('[TABLE-NAME] ❌ Error loading from Firebase:', error);
+        }
+    }
+
+    // Fallback to localStorage
+    if (tableName === 'Bảng 1') {
+        try {
+            const stored = localStorage.getItem(TABLE_NAME_STORAGE_KEY);
+            if (stored) {
+                tableName = stored;
+                console.log('[TABLE-NAME] ✅ Loaded from localStorage:', tableName);
+            }
+        } catch (e) {
+            console.error('[TABLE-NAME] ❌ Error loading from localStorage:', e);
+        }
+    }
+
+    // Update state and UI
+    currentTableName = tableName;
+    const input = document.getElementById('tableNameInput');
+    if (input) {
+        input.value = tableName;
+    }
+
+    return tableName;
 }
 
 // =====================================================
@@ -737,6 +823,10 @@ window.addEventListener("DOMContentLoaded", async function () {
     } else {
         console.warn('[TAG-REALTIME] Firebase not available, listeners not setup');
     }
+
+    // Load table name
+    await loadTableName();
+    console.log('[TABLE-NAME] Current table name:', currentTableName);
 
     // Scroll to top button
     const scrollBtn = document.getElementById("scrollToTopBtn");
@@ -8118,6 +8208,29 @@ window.addEventListener("message", function (event) {
 
         sendOrdersDataToTab3();
     }
+
+    // Handle request for orders data from overview tab
+    if (event.data.type === "REQUEST_ORDERS_DATA_FROM_OVERVIEW") {
+        console.log('📨 [OVERVIEW] Nhận request orders data từ tab Báo Cáo Tổng Hợp');
+        console.log('📊 [OVERVIEW] allData length:', allData.length);
+        console.log('📋 [OVERVIEW] Current table name:', currentTableName);
+
+        // Check if data is loaded
+        if (!allData || allData.length === 0) {
+            console.log('⚠️ [OVERVIEW] allData chưa có dữ liệu, sẽ retry sau 1s');
+            // Retry after 1 second
+            setTimeout(() => {
+                if (allData && allData.length > 0) {
+                    sendOrdersDataToOverview();
+                } else {
+                    console.log('❌ [OVERVIEW] Vẫn chưa có dữ liệu sau khi retry');
+                }
+            }, 1000);
+            return;
+        }
+
+        sendOrdersDataToOverview();
+    }
 });
 
 function sendOrdersDataToTab3() {
@@ -8159,6 +8272,46 @@ function sendOrdersDataToTab3() {
             orders: ordersDataToSend
         }, '*');
         console.log(`📤 Đã gửi ${ordersDataToSend.length} đơn hàng về parent để forward sang tab 3`);
+    }
+}
+
+function sendOrdersDataToOverview() {
+    // Prepare orders data with STT (SessionIndex) - use displayed/filtered data
+    const ordersDataToSend = displayedData.map((order, index) => ({
+        stt: order.SessionIndex || (index + 1).toString(), // Use SessionIndex as STT
+        orderId: order.Id,
+        orderCode: order.Code,
+        customerName: order.PartnerName || order.Name,
+        phone: order.PartnerPhone || order.Telephone,
+        address: order.PartnerAddress || order.Address,
+        totalAmount: order.TotalAmount || order.AmountTotal || 0,
+        quantity: order.TotalQuantity || order.Details?.reduce((sum, d) => sum + (d.Quantity || d.ProductUOMQty || 0), 0) || 0,
+        note: order.Note,
+        state: order.Status || order.State,
+        dateOrder: order.DateCreated || order.DateOrder,
+        Tags: order.Tags, // Tags JSON array for overview aggregation
+        liveCampaignName: order.LiveCampaignName, // Campaign name for overview filtering
+        products: order.Details?.map(d => ({
+            id: d.ProductId,
+            name: d.ProductName,
+            nameGet: d.ProductNameGet,
+            code: d.ProductCode,
+            quantity: d.Quantity || d.ProductUOMQty || 0,
+            price: d.Price || 0,
+            imageUrl: d.ImageUrl,
+            uom: d.UOMName
+        })) || []
+    }));
+
+    // Send to overview tab via parent window forwarding
+    if (window.parent) {
+        window.parent.postMessage({
+            type: 'ORDERS_DATA_RESPONSE',
+            orders: ordersDataToSend,
+            tableName: currentTableName, // Include table name for mapping
+            timestamp: Date.now()
+        }, '*');
+        console.log(`📤 [OVERVIEW] Đã gửi ${ordersDataToSend.length} đơn hàng với table name "${currentTableName}" về tab Báo Cáo Tổng Hợp`);
     }
 }
 
