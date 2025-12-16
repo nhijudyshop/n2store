@@ -1596,4 +1596,160 @@ window.openCommentModal = async function (orderId, channelId, psid) {
 
 ---
 
-*Cập nhật lần cuối: 2025-12-16 (Thêm documentation Comment Modal chi tiết)*
+### 📺 TPOS Live Comments API (Fetch Comments by User)
+
+#### Mục Đích
+
+Lấy tất cả bình luận của một khách hàng cụ thể từ các bài post/video live trên Facebook. Hữu ích khi cần xem lịch sử bình luận của khách hàng trong modal chat.
+
+#### Endpoint
+
+```
+GET /rest/v2.0/facebookpost/{objectId}/commentsbyuser?userId={userId}
+```
+
+| Param | Mô tả | Ví dụ |
+|-------|-------|-------|
+| `objectId` | Format: `{companyId}_{pageId}_{postId}` | `10037_117267091364524_884252610662484` |
+| `userId` | Facebook User ID của khách hàng | `7347746221993438` |
+
+#### Sử Dụng Qua Cloudflare Worker Proxy
+
+```javascript
+// Build URL qua proxy
+const objectId = `${companyId}_${pageId}_${postId}`;
+const url = `${window.API_CONFIG.WORKER_URL}/api/rest/v2.0/facebookpost/${objectId}/commentsbyuser?userId=${userId}`;
+
+// Fetch với auth header
+const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+        'Accept': '*/*',
+        'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+        ...await window.tokenManager.getAuthHeader(),
+        'tposappversion': '5.11.16.1'
+    }
+});
+
+const data = await response.json();
+```
+
+#### Response Structure
+
+```javascript
+{
+    "ObjectIds": [
+        "117267091364524_2089353831915406",  // Các post IDs mà user đã comment
+        "117267091364524_884252610662484"
+    ],
+    "LiveCampaignId": "cebd3bf9-50a3-594e-bbaf-3a1e3294eb84",
+    "Items": [
+        {
+            "Id": "6940fde2ed7c842f24f64659",           // MongoDB ID
+            "ObjectId": "117267091364524_2274763789683756", // Post ID
+            "ParentId": null,                           // null = root comment
+            "Message": "áo xám fee sai ak",
+            "MessageFormatted": "áo xám fee sai ak",
+            "Type": 12,                                 // Comment type
+            "UserId": "7347746221993438",               // Facebook user ID
+            "UserName": null,
+            "Status": 30,                               // 30 = unread
+            "IsSystem": false,
+            "IsOwner": false,                           // false = customer comment
+            "CreatedTime": "2025-12-16T06:36:24.04Z",
+            "ChannelCreatedTime": "2025-12-16T06:36:18Z",
+            "ChannelUpdatedTime": "2025-12-16T06:46:45Z",
+            "Attachments": null,
+            "Order": null,
+            "Data": {
+                "id": "2274763789683756_1599110954452900",  // Facebook comment ID
+                "parent": { "id": "117267091364524_2274763789683756" },
+                "is_hidden": false,
+                "can_hide": false,
+                "can_remove": false,
+                "can_like": false,
+                "can_reply_privately": false,
+                "comment_count": 0,
+                "message": "áo xám fee sai ak",
+                "user_likes": false,
+                "created_time": "2025-12-16T06:36:18Z",
+                "from": {
+                    "id": "7347746221993438",
+                    "name": "Pé Phúc",
+                    "uid": null
+                },
+                "attachment": null,
+                "message_tags": [],
+                "status": 0
+            }
+        }
+    ]
+}
+```
+
+#### Response Fields Quan Trọng
+
+| Field | Mô tả |
+|-------|-------|
+| `ObjectIds` | Danh sách các post IDs mà user đã comment |
+| `LiveCampaignId` | ID của chiến dịch live (nếu có) |
+| `Items[].Id` | MongoDB ID (internal) |
+| `Items[].ObjectId` | Facebook Post ID (format: `pageId_postId`) |
+| `Items[].Message` | Nội dung comment |
+| `Items[].UserId` | Facebook User ID |
+| `Items[].Status` | 30 = chưa đọc, 50 = đã đọc |
+| `Items[].IsOwner` | `true` = page, `false` = customer |
+| `Items[].Data.id` | Facebook Comment ID đầy đủ |
+| `Items[].Data.from` | Thông tin người comment (id, name) |
+| `Items[].Data.can_reply_privately` | Có thể reply private không |
+
+#### Tích Hợp Vào Chat Modal
+
+```javascript
+// Trong openChatModal() hoặc tab History
+async function fetchLiveCommentsByUser(pageId, postId, userId) {
+    const companyId = '10037'; // TPOS company ID
+    const objectId = `${companyId}_${pageId}_${postId}`;
+    
+    const url = `${window.API_CONFIG.WORKER_URL}/api/rest/v2.0/facebookpost/${objectId}/commentsbyuser?userId=${userId}`;
+    
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Accept': '*/*',
+            'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+            ...await window.tokenManager.getAuthHeader(),
+            'tposappversion': '5.11.16.1'
+        }
+    });
+    
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.Items || [];
+}
+
+// Sử dụng
+const userId = order.Facebook_ASUserId;
+const postId = order.Facebook_PostId?.split('_')[1];
+const pageId = order.Facebook_PostId?.split('_')[0];
+
+if (userId && postId && pageId) {
+    const liveComments = await fetchLiveCommentsByUser(pageId, postId, userId);
+    console.log('Live comments:', liveComments);
+}
+```
+
+#### Lưu Ý
+
+- **ObjectId format:** `{companyId}_{pageId}_{postId}` - khác với format thông thường
+- **userId:** Là Facebook User ID, không phải PSID
+- **Status:** 30 = unread, có thể dùng để highlight comment mới
+- **Data.from:** Chứa thông tin người dùng từ Facebook API
+- **Cần auth:** Bearer token từ TPOS
+
+---
+
+*Cập nhật lần cuối: 2025-12-16 (Thêm TPOS Live Comments API documentation)*
