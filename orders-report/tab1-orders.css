@@ -95,7 +95,7 @@ body {
 .table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: var(--orders-table-font-size, 14px);
     white-space: nowrap;
     table-layout: auto;
 }
