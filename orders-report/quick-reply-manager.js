@@ -284,12 +284,32 @@ class QuickReplyManager {
     async loadReplies() {
         console.log('[QUICK-REPLY] 📥 Loading replies...');
 
+        const defaults = this.getDefaultReplies();
+
         // Try to load from localStorage first (faster)
         const stored = localStorage.getItem(this.STORAGE_KEY);
         if (stored) {
             try {
-                this.replies = JSON.parse(stored);
-                console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from localStorage (cached)');
+                let loadedReplies = JSON.parse(stored);
+
+                // Merge new defaults that don't exist in loaded replies
+                const existingIds = new Set(loadedReplies.map(r => r.id));
+                const existingShortcuts = new Set(loadedReplies.map(r => r.shortcut?.toLowerCase()).filter(Boolean));
+
+                defaults.forEach(defaultReply => {
+                    // Add default if its ID and shortcut don't exist
+                    const shortcutLower = defaultReply.shortcut?.toLowerCase();
+                    if (!existingIds.has(defaultReply.id) &&
+                        (!shortcutLower || !existingShortcuts.has(shortcutLower))) {
+                        console.log('[QUICK-REPLY] ➕ Adding new default shortcut:', defaultReply.shortcut);
+                        loadedReplies.push(defaultReply);
+                    }
+                });
+
+                this.replies = loadedReplies;
+                // Update cache with merged data
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
+                console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from localStorage (merged with defaults)');
                 return;
             } catch (e) {
                 console.error('[QUICK-REPLY] ❌ Error parsing localStorage:', e);
@@ -306,31 +326,45 @@ class QuickReplyManager {
                     .get();
 
                 if (!snapshot.empty) {
-                    this.replies = snapshot.docs.map(doc => ({
+                    let loadedReplies = snapshot.docs.map(doc => ({
                         ...doc.data(),
                         docId: doc.id // Keep Firestore doc ID for updates
                     }));
 
+                    // Merge new defaults that don't exist in Firebase
+                    const existingIds = new Set(loadedReplies.map(r => r.id));
+                    const existingShortcuts = new Set(loadedReplies.map(r => r.shortcut?.toLowerCase()).filter(Boolean));
+
+                    defaults.forEach(defaultReply => {
+                        const shortcutLower = defaultReply.shortcut?.toLowerCase();
+                        if (!existingIds.has(defaultReply.id) &&
+                            (!shortcutLower || !existingShortcuts.has(shortcutLower))) {
+                            console.log('[QUICK-REPLY] ➕ Adding new default shortcut:', defaultReply.shortcut);
+                            loadedReplies.push(defaultReply);
+                        }
+                    });
+
+                    this.replies = loadedReplies;
                     // Cache to localStorage
                     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
 
-                    console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from Firebase');
+                    console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from Firebase (merged with defaults)');
                     return;
                 } else {
                     console.log('[QUICK-REPLY] ℹ️ No replies in Firebase, using defaults...');
-                    this.replies = this.getDefaultReplies();
+                    this.replies = defaults;
                     // Cache defaults to localStorage
                     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
                     return;
                 }
             } catch (error) {
                 console.error('[QUICK-REPLY] ❌ Firebase load error:', error);
-                this.replies = this.getDefaultReplies();
+                this.replies = defaults;
                 localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
             }
         } else {
             console.log('[QUICK-REPLY] ⚠️ Firebase not available, using default replies');
-            this.replies = this.getDefaultReplies();
+            this.replies = defaults;
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
         }
     }
