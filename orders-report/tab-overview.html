@@ -574,9 +574,6 @@
                 Báo Cáo Tổng Hợp
             </h1>
             <div class="header-actions">
-                <button class="btn-action" onclick="requestDataFromTab1()" id="btnRefresh">
-                    <i class="fas fa-sync-alt"></i> Làm mới
-                </button>
                 <button class="btn-action green" onclick="startBatchFetch()" id="btnBatchFetch">
                     <i class="fas fa-download"></i> Lấy chi tiết đơn hàng
                 </button>
@@ -800,16 +797,7 @@
         }
 
         function setRefreshLoading(loading) {
-            const btn = document.getElementById('btnRefresh');
-            const icon = btn.querySelector('i');
-
-            if (loading) {
-                btn.disabled = true;
-                icon.classList.add('spinning');
-            } else {
-                btn.disabled = false;
-                icon.classList.remove('spinning');
-            }
+            // Button removed - function kept for compatibility
         }
 
         // =====================================================
