@@ -172,10 +172,11 @@ body {
     text-align: center;
 }
 
-/* TAG column - expandable */
+/* TAG column - fixed */
 .table th[data-column="tag"],
 .table td[data-column="tag"] {
-    min-width: 180px;
+    width: 210px;
+    min-width: 210px;
     white-space: normal;
 }
 
@@ -194,12 +195,18 @@ body {
     min-width: 90px;
 }
 
-/* Customer column - expandable */
+/* Customer column - fixed */
 .table th[data-column="customer"],
 .table td[data-column="customer"] {
-    min-width: 140px;
+    width: 160px;
+    min-width: 160px;
     white-space: normal;
     word-break: break-word;
+}
+
+/* Customer name bold */
+.table td[data-column="customer"] .customer-name {
+    font-weight: 600;
 }
 
 /* Messages column - expandable */
