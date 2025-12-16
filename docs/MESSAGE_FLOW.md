@@ -329,3 +329,60 @@ Tổng tiền: 300.000đ
 
 Cảm ơn bạn đã mua hàng!
 ```
+
+## 9. Quick Reply với Placeholders (/cd)
+
+### 9.1 Mô tả
+
+Shortcut `/cd` (Chốt Đơn Chi Tiết) trong chat modal sử dụng cùng hệ thống placeholder như API template, cho phép gửi tin nhắn với thông tin đơn hàng tự động.
+
+### 9.2 Cách sử dụng
+
+1. Mở chat modal với đơn hàng
+2. Gõ `/cd` trong ô nhập tin nhắn
+3. Chọn "CHỐT ĐƠN CHI TIẾT" từ dropdown
+4. Message sẽ được thay thế placeholders với dữ liệu từ `window.currentChatOrderData`
+5. Nhân viên có thể chỉnh sửa trước khi gửi
+
+### 9.3 Template mặc định
+
+```
+Dạ chào chị {partner.name},
+
+Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
+
+{order.details}
+
+Đơn hàng của mình sẽ được gửi về địa chỉ "{partner.address}"
+Nv. {displayName}
+```
+
+### 9.4 Cấu trúc code
+
+**File:** `orders-report/quick-reply-manager.js`
+
+```javascript
+// Định nghĩa shortcut với flag hasPlaceholders
+{
+    id: 13,
+    shortcut: 'cd',
+    topic: 'CHỐT ĐƠN CHI TIẾT',
+    topicColor: '#15803d',
+    message: `Dạ chào chị {partner.name},...`,
+    hasPlaceholders: true  // Flag để trigger placeholder replacement
+}
+
+// Function thay thế placeholders
+replacePlaceholdersWithOrderData(content) {
+    const order = window.currentChatOrderData;
+    // ... replace logic
+}
+```
+
+### 9.5 Mở rộng
+
+Để thêm shortcut mới với placeholders:
+
+1. Thêm vào `getDefaultReplies()` với `hasPlaceholders: true`
+2. Placeholder hỗ trợ: `{partner.name}`, `{partner.address}`, `{partner.phone}`, `{order.code}`, `{order.total}`, `{order.details}`
+3. Chữ ký nhân viên tự động thêm cuối message
