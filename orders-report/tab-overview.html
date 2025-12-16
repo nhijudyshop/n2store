@@ -903,6 +903,10 @@
                 // Select current table if exists
                 if (currentTableName) {
                     selector.value = currentTableName;
+                    // Auto-load data for current table
+                    setTimeout(() => {
+                        loadTableDataFromFirebase(currentTableName);
+                    }, 100);
                 }
             } catch (error) {
                 console.error('[REPORT] ❌ Error loading tables:', error);
