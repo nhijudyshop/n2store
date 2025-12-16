@@ -97,6 +97,7 @@ body {
     border-collapse: collapse;
     font-size: 12px;
     white-space: nowrap;
+    table-layout: fixed;
 }
 
 .table th {
@@ -106,14 +107,29 @@ body {
     font-weight: 600;
     color: #374151;
     border-bottom: 2px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
     position: sticky;
     top: 0;
     z-index: 10;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table th:last-child {
+    border-right: none;
 }
 
 .table td {
     padding: 10px 8px;
     border-bottom: 1px solid #f3f4f6;
+    border-right: 1px solid #f3f4f6;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: top;
+}
+
+.table td:last-child {
+    border-right: none;
 }
 
 .table tbody tr:hover {
@@ -142,6 +158,37 @@ body {
 .table td[data-column="tag"] {
     max-width: 120px;
     width: 120px;
+}
+
+/* Employee column */
+.table th[data-column="employee"],
+.table td[data-column="employee"] {
+    max-width: 90px;
+    width: 90px;
+    text-align: center;
+}
+
+/* Order code column */
+.table th[data-column="order-code"],
+.table td[data-column="order-code"] {
+    max-width: 100px;
+    width: 100px;
+}
+
+/* QR column */
+.table th[data-column="qr"],
+.table td[data-column="qr"] {
+    max-width: 50px;
+    width: 50px;
+    text-align: center;
+}
+
+/* Debt column */
+.table th[data-column="debt"],
+.table td[data-column="debt"] {
+    max-width: 100px;
+    width: 100px;
+    text-align: right;
 }
 
 /* Customer column */
