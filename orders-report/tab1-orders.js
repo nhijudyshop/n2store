@@ -1219,7 +1219,7 @@ async function loadAvailableTags() {
         const headers = await window.tokenManager.getAuthHeader();
 
         const response = await API_CONFIG.smartFetch(
-            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=320&$count=true",
+            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=1000&$count=true",
             {
                 method: "GET",
                 headers: {
