@@ -18,7 +18,8 @@ let filters = {
     gateway: '',
     startDate: '',
     endDate: '',
-    search: ''
+    search: '',
+    amount: ''
 };
 
 // DOM Elements
@@ -267,6 +268,33 @@ function applyFilters() {
     filters.startDate = document.getElementById('filterStartDate').value;
     filters.endDate = document.getElementById('filterEndDate').value;
     filters.search = document.getElementById('filterSearch').value;
+    filters.amount = parseAmountInput(document.getElementById('filterAmount').value);
+}
+
+// Parse amount input (supports formats like 100000, 100k, 1m, 1.5m)
+function parseAmountInput(input) {
+    if (!input) return '';
+
+    // Normalize input - remove spaces, commas, dots used as thousand separators
+    let normalized = input.trim().toLowerCase();
+
+    // Handle k (thousand) and m (million) suffixes
+    if (normalized.endsWith('k')) {
+        const num = parseFloat(normalized.slice(0, -1).replace(/,/g, ''));
+        return isNaN(num) ? '' : String(Math.round(num * 1000));
+    }
+    if (normalized.endsWith('m')) {
+        const num = parseFloat(normalized.slice(0, -1).replace(/,/g, ''));
+        return isNaN(num) ? '' : String(Math.round(num * 1000000));
+    }
+    if (normalized.endsWith('tr')) {
+        const num = parseFloat(normalized.slice(0, -2).replace(/,/g, ''));
+        return isNaN(num) ? '' : String(Math.round(num * 1000000));
+    }
+
+    // Remove all non-numeric characters except digits
+    const numericOnly = normalized.replace(/[^\d]/g, '');
+    return numericOnly || '';
 }
 
 // Reset Filters
@@ -274,6 +302,7 @@ function resetFilters() {
     document.getElementById('filterType').value = '';
     document.getElementById('filterGateway').value = '';
     document.getElementById('filterSearch').value = '';
+    document.getElementById('filterAmount').value = '';
 
     // Reset dates to current month
     setDefaultCurrentMonth();
@@ -288,6 +317,7 @@ function resetFilters() {
     filters.type = '';
     filters.gateway = '';
     filters.search = '';
+    filters.amount = '';
     // startDate and endDate are already set by setDefaultCurrentMonth()
 }
 
@@ -876,6 +906,15 @@ function transactionMatchesFilters(transaction) {
         const code = (transaction.code || '').toLowerCase();
 
         if (!content.includes(searchLower) && !refCode.includes(searchLower) && !code.includes(searchLower)) {
+            return false;
+        }
+    }
+
+    // Amount filter
+    if (filters.amount) {
+        const filterAmount = parseInt(filters.amount, 10);
+        const transactionAmount = parseInt(transaction.transfer_amount, 10);
+        if (filterAmount !== transactionAmount) {
             return false;
         }
     }
