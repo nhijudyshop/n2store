@@ -97,7 +97,7 @@ body {
     border-collapse: collapse;
     font-size: 12px;
     white-space: nowrap;
-    table-layout: fixed;
+    table-layout: auto;
 }
 
 .table th {
@@ -150,72 +150,70 @@ body {
 .table th:first-child,
 .table td:first-child {
     width: 40px;
-    max-width: 40px;
+    min-width: 40px;
     padding: 10px 4px;
     text-align: center;
+}
+
+/* Actions column - fixed width */
+.table th[data-column="actions"],
+.table td[data-column="actions"] {
+    width: 70px;
+    min-width: 70px;
+    text-align: center;
+    overflow: visible;
 }
 
 /* STT column */
 .table th[data-column="stt"],
 .table td[data-column="stt"] {
-    max-width: 60px;
-    width: 60px;
-    padding-left: 4px;
+    width: 50px;
+    min-width: 50px;
+    text-align: center;
 }
 
+/* TAG column - expandable */
 .table th[data-column="tag"],
 .table td[data-column="tag"] {
-    max-width: 240px;
-    width: 240px;
+    min-width: 180px;
+    white-space: normal;
 }
 
 /* Employee column */
 .table th[data-column="employee"],
 .table td[data-column="employee"] {
-    max-width: 90px;
-    width: 90px;
+    width: 80px;
+    min-width: 80px;
     text-align: center;
 }
 
 /* Order code column */
 .table th[data-column="order-code"],
 .table td[data-column="order-code"] {
-    max-width: 100px;
-    width: 100px;
+    width: 90px;
+    min-width: 90px;
 }
 
-/* QR column */
-.table th[data-column="qr"],
-.table td[data-column="qr"] {
-    max-width: 50px;
-    width: 50px;
-    text-align: center;
-}
-
-/* Debt column */
-.table th[data-column="debt"],
-.table td[data-column="debt"] {
-    max-width: 100px;
-    width: 100px;
-    text-align: right;
-}
-
-/* Customer column */
+/* Customer column - expandable */
 .table th[data-column="customer"],
 .table td[data-column="customer"] {
-    max-width: 160px;
-    width: 160px;
+    min-width: 140px;
     white-space: normal;
     word-break: break-word;
 }
 
-/* Messages & Comments columns */
+/* Messages column - expandable */
 .table th[data-column="messages"],
-.table td[data-column="messages"],
+.table td[data-column="messages"] {
+    min-width: 100px;
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* Comments column - expandable */
 .table th[data-column="comments"],
 .table td[data-column="comments"] {
-    max-width: 180px;
-    width: 180px;
+    min-width: 100px;
     white-space: normal;
     word-break: break-word;
 }
@@ -223,23 +221,37 @@ body {
 /* Phone number column */
 .table th[data-column="phone"],
 .table td[data-column="phone"] {
-    max-width: 120px;
-    width: 120px;
+    width: 110px;
+    min-width: 110px;
 }
 
-/* Address column */
+/* QR column */
+.table th[data-column="qr"],
+.table td[data-column="qr"] {
+    width: 50px;
+    min-width: 50px;
+    text-align: center;
+}
+
+/* Debt column */
+.table th[data-column="debt"],
+.table td[data-column="debt"] {
+    width: 80px;
+    min-width: 80px;
+    text-align: right;
+}
+
+/* Address column - expandable */
 .table th[data-column="address"],
 .table td[data-column="address"] {
-    max-width: 300px;
-    width: 300px;
+    min-width: 200px;
     white-space: normal;
 }
 
-/* Notes column */
+/* Notes column - expandable */
 .table th[data-column="notes"],
 .table td[data-column="notes"] {
-    max-width: 250px;
-    width: 250px;
+    min-width: 150px;
     white-space: normal;
     word-break: break-word;
 }
@@ -247,39 +259,32 @@ body {
 /* Total column */
 .table th[data-column="total"],
 .table td[data-column="total"] {
-    max-width: 100px;
-    width: 100px;
+    width: 90px;
+    min-width: 90px;
+    text-align: right;
 }
 
 /* Quantity column */
 .table th[data-column="quantity"],
 .table td[data-column="quantity"] {
-    max-width: 60px;
-    width: 60px;
+    width: 40px;
+    min-width: 40px;
     text-align: center;
 }
 
 /* Created date column */
 .table th[data-column="created-date"],
 .table td[data-column="created-date"] {
-    max-width: 150px;
-    width: 150px;
+    width: 100px;
+    min-width: 100px;
 }
 
 /* Status column */
 .table th[data-column="status"],
 .table td[data-column="status"] {
-    max-width: 60px;
-    width: 60px;
-}
-
-/* Actions column */
-.table th[data-column="actions"],
-.table td[data-column="actions"] {
-    max-width: 80px;
-    width: 80px;
+    width: 70px;
+    min-width: 70px;
     text-align: center;
-    overflow: visible;
 }
 
 /* Merged edit dropdown - ensure it doesn't overlap sticky header */
