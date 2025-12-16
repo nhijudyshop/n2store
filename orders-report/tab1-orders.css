@@ -142,7 +142,7 @@ body {
 }
 
 .table tbody tr:hover {
-    background: #e0f2fe;
+    background: #e2e8f0;
 }
 
 /* Column width control - Using data-column to avoid nth-child issues when hiding columns */
