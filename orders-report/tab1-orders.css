@@ -156,8 +156,8 @@ body {
 
 .table th[data-column="tag"],
 .table td[data-column="tag"] {
-    max-width: 120px;
-    width: 120px;
+    max-width: 300px;
+    width: 300px;
 }
 
 /* Employee column */
@@ -194,8 +194,8 @@ body {
 /* Customer column */
 .table th[data-column="customer"],
 .table td[data-column="customer"] {
-    max-width: 200px;
-    width: 200px;
+    max-width: 160px;
+    width: 160px;
     white-space: normal;
     word-break: break-word;
 }
@@ -260,8 +260,8 @@ body {
 /* Status column */
 .table th[data-column="status"],
 .table td[data-column="status"] {
-    max-width: 120px;
-    width: 120px;
+    max-width: 60px;
+    width: 60px;
 }
 
 /* Actions column */
