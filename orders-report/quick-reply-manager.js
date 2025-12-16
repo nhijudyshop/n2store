@@ -292,17 +292,19 @@ class QuickReplyManager {
             try {
                 let loadedReplies = JSON.parse(stored);
 
-                // Merge new defaults that don't exist in loaded replies
-                const existingIds = new Set(loadedReplies.map(r => r.id));
+                // Merge new defaults that don't exist in loaded replies (check by shortcut only)
                 const existingShortcuts = new Set(loadedReplies.map(r => r.shortcut?.toLowerCase()).filter(Boolean));
 
                 defaults.forEach(defaultReply => {
-                    // Add default if its ID and shortcut don't exist
                     const shortcutLower = defaultReply.shortcut?.toLowerCase();
-                    if (!existingIds.has(defaultReply.id) &&
-                        (!shortcutLower || !existingShortcuts.has(shortcutLower))) {
-                        console.log('[QUICK-REPLY] ➕ Adding new default shortcut:', defaultReply.shortcut);
-                        loadedReplies.push(defaultReply);
+                    // Only add if shortcut exists and is not already in the list
+                    if (shortcutLower && !existingShortcuts.has(shortcutLower)) {
+                        // Generate new unique ID to avoid conflicts
+                        const maxId = Math.max(...loadedReplies.map(r => r.id || 0), 0);
+                        const newReply = { ...defaultReply, id: maxId + 1 };
+                        console.log('[QUICK-REPLY] ➕ Adding new default shortcut:', defaultReply.shortcut, 'with id:', newReply.id);
+                        loadedReplies.push(newReply);
+                        existingShortcuts.add(shortcutLower); // Prevent duplicates in same loop
                     }
                 });
 
@@ -331,16 +333,19 @@ class QuickReplyManager {
                         docId: doc.id // Keep Firestore doc ID for updates
                     }));
 
-                    // Merge new defaults that don't exist in Firebase
-                    const existingIds = new Set(loadedReplies.map(r => r.id));
+                    // Merge new defaults that don't exist in Firebase (check by shortcut only)
                     const existingShortcuts = new Set(loadedReplies.map(r => r.shortcut?.toLowerCase()).filter(Boolean));
 
                     defaults.forEach(defaultReply => {
                         const shortcutLower = defaultReply.shortcut?.toLowerCase();
-                        if (!existingIds.has(defaultReply.id) &&
-                            (!shortcutLower || !existingShortcuts.has(shortcutLower))) {
-                            console.log('[QUICK-REPLY] ➕ Adding new default shortcut:', defaultReply.shortcut);
-                            loadedReplies.push(defaultReply);
+                        // Only add if shortcut exists and is not already in the list
+                        if (shortcutLower && !existingShortcuts.has(shortcutLower)) {
+                            // Generate new unique ID to avoid conflicts
+                            const maxId = Math.max(...loadedReplies.map(r => r.id || 0), 0);
+                            const newReply = { ...defaultReply, id: maxId + 1 };
+                            console.log('[QUICK-REPLY] ➕ Adding new default shortcut:', defaultReply.shortcut, 'with id:', newReply.id);
+                            loadedReplies.push(newReply);
+                            existingShortcuts.add(shortcutLower); // Prevent duplicates in same loop
                         }
                     });
 
