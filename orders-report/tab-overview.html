@@ -30,6 +30,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         .header h1 {
@@ -49,9 +51,10 @@
         .header-actions {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
-        .btn-refresh {
+        .btn-action {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
@@ -63,26 +66,89 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            font-size: 14px;
         }
 
-        .btn-refresh:hover {
+        .btn-action:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
         }
 
-        .btn-refresh:disabled {
+        .btn-action:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
         }
 
-        .btn-refresh i.spinning {
+        .btn-action.green {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .btn-action.orange {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .btn-action i.spinning {
             animation: spin 1s linear infinite;
         }
 
         @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
+        }
+
+        /* Main Tabs */
+        .main-tabs {
+            background: white;
+            border-radius: 15px;
+            padding: 15px 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .main-tab-btn {
+            padding: 12px 24px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 25px;
+            color: #666;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .main-tab-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .main-tab-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .main-tab-btn .badge {
+            background: rgba(255,255,255,0.3);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        .main-tab-btn.active .badge {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .main-tab-content {
+            display: none;
+        }
+
+        .main-tab-content.active {
+            display: block;
         }
 
         /* Stats Cards */
@@ -157,6 +223,37 @@
             color: #667eea;
         }
 
+        /* Progress Bar */
+        .progress-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-bar-wrapper {
+            background: #e0e0e0;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar-fill {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+        }
+
         /* Orders Table */
         .orders-table {
             width: 100%;
@@ -200,6 +297,30 @@
         .orders-table .amount {
             color: #11998e;
             font-weight: 600;
+        }
+
+        /* Campaign Info */
+        .campaign-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .campaign-info .campaign-name {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .campaign-info .campaign-meta {
+            font-size: 13px;
+            opacity: 0.9;
         }
 
         /* Loading & Empty States */
@@ -251,7 +372,7 @@
             background: white;
             border-radius: 15px;
             width: 90%;
-            max-width: 800px;
+            max-width: 900px;
             max-height: 90vh;
             overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -401,6 +522,46 @@
         .tab-content.active {
             display: block;
         }
+
+        /* Cached Data Info */
+        .cached-info {
+            background: #e8f5e9;
+            border: 1px solid #a5d6a7;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .cached-info i {
+            color: #4caf50;
+        }
+
+        .cached-info .info-text {
+            flex: 1;
+        }
+
+        .cached-info .info-text strong {
+            color: #2e7d32;
+        }
+
+        .btn-clear-cache {
+            background: #ef5350;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .btn-clear-cache:hover {
+            background: #e53935;
+        }
     </style>
 </head>
 
@@ -413,42 +574,84 @@
                 Báo Cáo Tổng Hợp
             </h1>
             <div class="header-actions">
-                <button class="btn-refresh" onclick="requestDataFromTab1()" id="btnRefresh">
-                    <i class="fas fa-sync-alt"></i> Làm mới dữ liệu
+                <button class="btn-action" onclick="requestDataFromTab1()" id="btnRefresh">
+                    <i class="fas fa-sync-alt"></i> Làm mới
+                </button>
+                <button class="btn-action green" onclick="startBatchFetch()" id="btnBatchFetch">
+                    <i class="fas fa-download"></i> Lấy chi tiết đơn hàng
                 </button>
             </div>
         </div>
 
-        <!-- Stats Cards -->
-        <div class="stats-grid" id="statsGrid">
-            <div class="stat-card">
-                <div class="stat-icon blue"><i class="fas fa-shopping-cart"></i></div>
-                <div class="stat-value" id="statTotalOrders">0</div>
-                <div class="stat-label">Tổng đơn hàng</div>
+        <!-- Main Tabs -->
+        <div class="main-tabs">
+            <button class="main-tab-btn active" onclick="switchMainTab('overview')" data-tab="overview">
+                <i class="fas fa-chart-pie"></i> Tổng quan
+            </button>
+            <button class="main-tab-btn" onclick="switchMainTab('details')" data-tab="details">
+                <i class="fas fa-database"></i> Chi tiết đã tải
+                <span class="badge" id="cachedCountBadge">0</span>
+            </button>
+        </div>
+
+        <!-- Tab: Overview -->
+        <div class="main-tab-content active" id="tabOverview">
+            <!-- Stats Cards -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-icon blue"><i class="fas fa-shopping-cart"></i></div>
+                    <div class="stat-value" id="statTotalOrders">0</div>
+                    <div class="stat-label">Tổng đơn hàng</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><i class="fas fa-money-bill-wave"></i></div>
+                    <div class="stat-value" id="statTotalAmount">0</div>
+                    <div class="stat-label">Tổng tiền</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange"><i class="fas fa-box"></i></div>
+                    <div class="stat-value" id="statTotalProducts">0</div>
+                    <div class="stat-label">Tổng sản phẩm</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple"><i class="fas fa-users"></i></div>
+                    <div class="stat-value" id="statTotalCustomers">0</div>
+                    <div class="stat-label">Khách hàng</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon green"><i class="fas fa-money-bill-wave"></i></div>
-                <div class="stat-value" id="statTotalAmount">0</div>
-                <div class="stat-label">Tổng tiền</div>
+
+            <!-- Progress Bar (hidden by default) -->
+            <div class="progress-container" id="progressContainer" style="display: none;">
+                <h3 style="margin: 0 0 15px 0; color: #667eea;">
+                    <i class="fas fa-spinner spinning"></i> Đang tải chi tiết đơn hàng...
+                </h3>
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progressText">0 / 0</span>
+                    <span id="progressPercent">0%</span>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon orange"><i class="fas fa-box"></i></div>
-                <div class="stat-value" id="statTotalProducts">0</div>
-                <div class="stat-label">Tổng sản phẩm</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon purple"><i class="fas fa-users"></i></div>
-                <div class="stat-value" id="statTotalCustomers">0</div>
-                <div class="stat-label">Khách hàng</div>
+
+            <!-- Content Area -->
+            <div id="contentArea">
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <h3>Chưa có dữ liệu</h3>
+                    <p>Nhấn "Làm mới" để lấy dữ liệu từ tab Quản Lý Đơn Hàng</p>
+                </div>
             </div>
         </div>
 
-        <!-- Content Area -->
-        <div id="contentArea">
-            <div class="empty-state">
-                <i class="fas fa-inbox"></i>
-                <h3>Chưa có dữ liệu</h3>
-                <p>Nhấn "Làm mới dữ liệu" để lấy dữ liệu từ tab Quản Lý Đơn Hàng</p>
+        <!-- Tab: Cached Details -->
+        <div class="main-tab-content" id="tabDetails">
+            <div id="cachedDetailsArea">
+                <div class="empty-state">
+                    <i class="fas fa-database"></i>
+                    <h3>Chưa có dữ liệu chi tiết</h3>
+                    <p>Nhấn "Lấy chi tiết đơn hàng" để tải dữ liệu đầy đủ từ API</p>
+                </div>
             </div>
         </div>
     </div>
@@ -480,7 +683,14 @@
         // GLOBAL STATE
         // =====================================================
         let allOrders = [];
+        let cachedOrderDetails = {}; // { campaignName: { orders: [], fetchedAt: timestamp } }
+        let currentCampaignName = null;
         let database = null;
+        let isFetching = false;
+
+        const STORAGE_KEY = 'report_order_details_by_campaign';
+        const BATCH_SIZE = 10;
+        const BATCH_DELAY = 1000; // 1 second
 
         // Initialize Firebase
         if (typeof firebase !== 'undefined' && !firebase.apps.length) {
@@ -488,6 +698,38 @@
         }
         if (typeof firebase !== 'undefined') {
             database = firebase.database();
+        }
+
+        // Load cached data from localStorage
+        function loadCachedData() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    cachedOrderDetails = JSON.parse(stored);
+                    console.log('[REPORT] Loaded cached data:', Object.keys(cachedOrderDetails));
+                    updateCachedCountBadge();
+                }
+            } catch (e) {
+                console.error('[REPORT] Error loading cached data:', e);
+                cachedOrderDetails = {};
+            }
+        }
+
+        // Save cached data to localStorage
+        function saveCachedData() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(cachedOrderDetails));
+                updateCachedCountBadge();
+            } catch (e) {
+                console.error('[REPORT] Error saving cached data:', e);
+            }
+        }
+
+        // Update badge count
+        function updateCachedCountBadge() {
+            const badge = document.getElementById('cachedCountBadge');
+            const currentData = cachedOrderDetails[currentCampaignName];
+            badge.textContent = currentData ? currentData.orders.length : 0;
         }
 
         // =====================================================
@@ -499,9 +741,18 @@
 
                 allOrders = event.data.orders || [];
 
+                // Detect campaign name from first order
+                if (allOrders.length > 0) {
+                    const rawCampaign = allOrders[0].LiveCampaignName || allOrders[0].liveCampaignName || 'Unknown';
+                    currentCampaignName = rawCampaign.replace(/[.$#\[\]]/g, '_').trim();
+                    console.log('[REPORT] Current campaign:', currentCampaignName);
+                }
+
                 // Update UI
                 updateStats();
                 renderOrdersTable();
+                updateCachedCountBadge();
+                renderCachedDetailsTab();
 
                 // Stop loading state
                 setRefreshLoading(false);
@@ -509,21 +760,37 @@
         });
 
         // =====================================================
+        // MAIN TAB SWITCHING
+        // =====================================================
+        function switchMainTab(tabName) {
+            // Update buttons
+            document.querySelectorAll('.main-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.main-tab-btn[data-tab="${tabName}"]`).classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.main-tab-content').forEach(content => content.classList.remove('active'));
+
+            if (tabName === 'overview') {
+                document.getElementById('tabOverview').classList.add('active');
+            } else if (tabName === 'details') {
+                document.getElementById('tabDetails').classList.add('active');
+                renderCachedDetailsTab();
+            }
+        }
+
+        // =====================================================
         // REQUEST DATA FROM TAB1
         // =====================================================
         function requestDataFromTab1() {
             console.log('[REPORT] Requesting data from tab1...');
 
-            // Set loading state
             setRefreshLoading(true);
             showLoading('Đang tải dữ liệu từ tab Quản Lý Đơn Hàng...');
 
-            // Request data from parent -> tab1
             window.parent.postMessage({
                 type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
             }, '*');
 
-            // Timeout after 10 seconds
             setTimeout(() => {
                 if (allOrders.length === 0) {
                     setRefreshLoading(false);
@@ -546,34 +813,241 @@
         }
 
         // =====================================================
-        // FETCH ORDER DETAIL (same as tab1's fetchOrderData)
+        // BATCH FETCH ORDER DETAILS
         // =====================================================
-        async function fetchOrderData(orderId) {
-            try {
-                // Get auth header from token manager
-                const headers = await window.tokenManager.getAuthHeader();
-                const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+        async function startBatchFetch() {
+            if (isFetching) {
+                alert('Đang trong quá trình tải, vui lòng đợi...');
+                return;
+            }
 
-                const response = await API_CONFIG.smartFetch(apiUrl, {
-                    headers: {
-                        ...headers,
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
-                    },
+            if (allOrders.length === 0) {
+                alert('Chưa có dữ liệu đơn hàng. Vui lòng nhấn "Làm mới" trước.');
+                return;
+            }
+
+            if (!currentCampaignName) {
+                alert('Không xác định được chiến dịch.');
+                return;
+            }
+
+            isFetching = true;
+            const btn = document.getElementById('btnBatchFetch');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải...';
+
+            // Show progress
+            const progressContainer = document.getElementById('progressContainer');
+            progressContainer.style.display = 'block';
+
+            const fetchedOrders = [];
+            const total = allOrders.length;
+            let completed = 0;
+            let errors = 0;
+
+            console.log(`[REPORT] Starting batch fetch for ${total} orders (campaign: ${currentCampaignName})`);
+
+            // Process in batches of BATCH_SIZE
+            for (let i = 0; i < total; i += BATCH_SIZE) {
+                const batch = allOrders.slice(i, i + BATCH_SIZE);
+
+                // Fetch batch in parallel
+                const promises = batch.map(async (order) => {
+                    try {
+                        const detail = await fetchOrderData(order.orderId);
+                        return { success: true, orderId: order.orderId, data: detail };
+                    } catch (error) {
+                        console.error(`[REPORT] Error fetching order ${order.orderId}:`, error);
+                        return { success: false, orderId: order.orderId, error: error.message };
+                    }
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const results = await Promise.all(promises);
+
+                // Process results
+                results.forEach(result => {
+                    completed++;
+                    if (result.success) {
+                        fetchedOrders.push(result.data);
+                    } else {
+                        errors++;
+                    }
+
+                    // Update progress
+                    const percent = Math.round((completed / total) * 100);
+                    document.getElementById('progressBar').style.width = percent + '%';
+                    document.getElementById('progressText').textContent = `${completed} / ${total}`;
+                    document.getElementById('progressPercent').textContent = percent + '%';
+                });
+
+                // Delay before next batch (if not last batch)
+                if (i + BATCH_SIZE < total) {
+                    await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
                 }
-
-                const data = await response.json();
-                console.log('[REPORT] Fetched order detail:', data);
-                return data;
-
-            } catch (error) {
-                console.error('[REPORT] Error fetching order detail:', error);
-                throw error;
             }
+
+            // Save to cache with timestamp
+            cachedOrderDetails[currentCampaignName] = {
+                orders: fetchedOrders,
+                fetchedAt: new Date().toISOString(),
+                totalOrders: total,
+                successCount: fetchedOrders.length,
+                errorCount: errors
+            };
+            saveCachedData();
+
+            // Hide progress, restore button
+            progressContainer.style.display = 'none';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-download"></i> Lấy chi tiết đơn hàng';
+            isFetching = false;
+
+            // Update UI
+            updateCachedCountBadge();
+            renderCachedDetailsTab();
+
+            // Show completion message
+            alert(`Hoàn thành!\n- Đã tải: ${fetchedOrders.length}/${total} đơn hàng\n- Lỗi: ${errors}\n- Chiến dịch: ${currentCampaignName}`);
+
+            // Switch to details tab
+            switchMainTab('details');
+        }
+
+        // =====================================================
+        // FETCH ORDER DETAIL
+        // =====================================================
+        async function fetchOrderData(orderId) {
+            const headers = await window.tokenManager.getAuthHeader();
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+
+            const response = await API_CONFIG.smartFetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return await response.json();
+        }
+
+        // =====================================================
+        // RENDER CACHED DETAILS TAB
+        // =====================================================
+        function renderCachedDetailsTab() {
+            const area = document.getElementById('cachedDetailsArea');
+
+            if (!currentCampaignName || !cachedOrderDetails[currentCampaignName]) {
+                area.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-database"></i>
+                        <h3>Chưa có dữ liệu chi tiết</h3>
+                        <p>Nhấn "Lấy chi tiết đơn hàng" để tải dữ liệu đầy đủ từ API</p>
+                        ${currentCampaignName ? `<p style="margin-top: 10px; color: #667eea;"><strong>Chiến dịch hiện tại:</strong> ${currentCampaignName}</p>` : ''}
+                    </div>
+                `;
+                return;
+            }
+
+            const cached = cachedOrderDetails[currentCampaignName];
+            const orders = cached.orders || [];
+            const fetchedAt = new Date(cached.fetchedAt);
+
+            let html = `
+                <!-- Campaign Info -->
+                <div class="campaign-info">
+                    <div>
+                        <div class="campaign-name"><i class="fas fa-bullhorn"></i> ${currentCampaignName}</div>
+                        <div class="campaign-meta">${orders.length} đơn hàng đã tải</div>
+                    </div>
+                    <div class="campaign-meta">
+                        <i class="fas fa-clock"></i> Lấy lúc: ${fetchedAt.toLocaleString('vi-VN')}
+                    </div>
+                </div>
+
+                <!-- Cached Info -->
+                <div class="cached-info">
+                    <div class="info-text">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>${orders.length}</strong> đơn hàng đã được lưu |
+                        Thành công: <strong>${cached.successCount || orders.length}</strong> |
+                        Lỗi: <strong>${cached.errorCount || 0}</strong>
+                    </div>
+                    <button class="btn-clear-cache" onclick="clearCacheForCampaign()">
+                        <i class="fas fa-trash"></i> Xóa cache
+                    </button>
+                </div>
+
+                <!-- Orders Table -->
+                <div class="content-section">
+                    <h2><i class="fas fa-list"></i> Danh sách chi tiết (${orders.length})</h2>
+                    <div style="overflow-x: auto;">
+                        <table class="orders-table">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Mã đơn</th>
+                                    <th>Khách hàng</th>
+                                    <th>SĐT</th>
+                                    <th>SP</th>
+                                    <th>Tổng tiền</th>
+                                    <th>COD</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            orders.forEach((order, index) => {
+                const productCount = order.Details?.length || 0;
+                html += `
+                    <tr onclick="openCachedOrderDetail(${index})">
+                        <td>${order.SessionIndex || index + 1}</td>
+                        <td class="order-code">${order.Code || ''}</td>
+                        <td>${order.Name || order.PartnerName || ''}</td>
+                        <td>${order.Telephone || ''}</td>
+                        <td>${productCount}</td>
+                        <td class="amount">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
+                        <td class="amount">${(order.CashOnDelivery || 0).toLocaleString('vi-VN')}đ</td>
+                        <td>${order.Status || order.State || ''}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            area.innerHTML = html;
+        }
+
+        function clearCacheForCampaign() {
+            if (!currentCampaignName) return;
+
+            if (confirm(`Xóa cache cho chiến dịch "${currentCampaignName}"?`)) {
+                delete cachedOrderDetails[currentCampaignName];
+                saveCachedData();
+                renderCachedDetailsTab();
+            }
+        }
+
+        function openCachedOrderDetail(index) {
+            if (!currentCampaignName || !cachedOrderDetails[currentCampaignName]) return;
+
+            const order = cachedOrderDetails[currentCampaignName].orders[index];
+            if (!order) return;
+
+            const modal = document.getElementById('orderDetailModal');
+            modal.classList.add('show');
+
+            renderOrderDetailModal({ orderCode: order.Code }, order);
         }
 
         // =====================================================
@@ -583,8 +1057,6 @@
             const totalOrders = allOrders.length;
             const totalAmount = allOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
             const totalProducts = allOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-
-            // Count unique customers by phone
             const uniqueCustomers = new Set(allOrders.map(order => order.phone).filter(Boolean));
 
             document.getElementById('statTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
@@ -614,6 +1086,12 @@
             const contentArea = document.getElementById('contentArea');
 
             let html = `
+                ${currentCampaignName ? `
+                    <div class="campaign-info">
+                        <div class="campaign-name"><i class="fas fa-bullhorn"></i> ${currentCampaignName}</div>
+                        <div class="campaign-meta">${allOrders.length} đơn hàng</div>
+                    </div>
+                ` : ''}
                 <div class="content-section">
                     <h2><i class="fas fa-list"></i> Danh sách đơn hàng (${allOrders.length})</h2>
                     <table class="orders-table">
@@ -645,12 +1123,7 @@
                 `;
             });
 
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
+            html += `</tbody></table></div>`;
             contentArea.innerHTML = html;
         }
 
@@ -662,7 +1135,6 @@
             const modalBody = document.getElementById('modalBody');
             const order = allOrders[index];
 
-            // Show modal with loading
             modal.classList.add('show');
             modalBody.innerHTML = `
                 <div class="loading-state">
@@ -672,15 +1144,10 @@
             `;
 
             try {
-                // Fetch full order details from API
                 const fullOrderData = await fetchOrderData(orderId);
-
-                // Render tabs with both basic data and full data
                 renderOrderDetailModal(order, fullOrderData);
-
             } catch (error) {
                 console.error('[REPORT] Error loading order detail:', error);
-                // Fallback to basic data
                 renderOrderDetailModal(order, null);
             }
         }
@@ -689,20 +1156,18 @@
             const modalBody = document.getElementById('modalBody');
             const modalTitle = document.getElementById('modalTitle');
 
-            modalTitle.textContent = `Chi tiết đơn hàng - ${basicOrder.orderCode || ''}`;
+            modalTitle.textContent = `Chi tiết đơn hàng - ${fullOrder?.Code || basicOrder.orderCode || ''}`;
 
-            // Use full order data if available, otherwise use basic
             const order = fullOrder || basicOrder;
 
             let html = `
                 <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('info')">Thông tin</button>
-                    <button class="tab-btn" onclick="switchTab('products')">Sản phẩm</button>
-                    <button class="tab-btn" onclick="switchTab('json')">JSON Data</button>
+                    <button class="tab-btn active" onclick="switchModalTab('info')">Thông tin</button>
+                    <button class="tab-btn" onclick="switchModalTab('products')">Sản phẩm</button>
+                    <button class="tab-btn" onclick="switchModalTab('json')">JSON Data</button>
                 </div>
 
-                <!-- Info Tab -->
-                <div class="tab-content active" id="tabInfo">
+                <div class="tab-content active" id="modalTabInfo">
                     <div class="detail-grid">
                         <div class="detail-item">
                             <div class="label">Mã đơn hàng</div>
@@ -729,12 +1194,20 @@
                             <div class="value" style="color: #11998e;">${(order.TotalAmount || order.AmountTotal || basicOrder.totalAmount || 0).toLocaleString('vi-VN')}đ</div>
                         </div>
                         <div class="detail-item">
+                            <div class="label">COD</div>
+                            <div class="value" style="color: #f5576c;">${(order.CashOnDelivery || 0).toLocaleString('vi-VN')}đ</div>
+                        </div>
+                        <div class="detail-item">
                             <div class="label">Trạng thái</div>
                             <div class="value">${order.Status || order.State || basicOrder.state || ''}</div>
                         </div>
                         <div class="detail-item">
                             <div class="label">Ngày tạo</div>
                             <div class="value">${formatDate(order.DateCreated || order.DateOrder || basicOrder.dateOrder)}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="label">Nhân viên</div>
+                            <div class="value">${order.UserName || order.User?.Name || ''}</div>
                         </div>
                     </div>
 
@@ -746,13 +1219,11 @@
                     ` : ''}
                 </div>
 
-                <!-- Products Tab -->
-                <div class="tab-content" id="tabProducts">
+                <div class="tab-content" id="modalTabProducts">
                     ${renderProductsList(order.Details || basicOrder.products || [])}
                 </div>
 
-                <!-- JSON Tab -->
-                <div class="tab-content" id="tabJson">
+                <div class="tab-content" id="modalTabJson">
                     <div class="json-preview">${syntaxHighlightJSON(fullOrder || basicOrder)}</div>
                 </div>
             `;
@@ -792,20 +1263,13 @@
             return html;
         }
 
-        function switchTab(tabName) {
-            // Update buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelector(`.tab-btn[onclick*="${tabName}"]`).classList.add('active');
+        function switchModalTab(tabName) {
+            document.querySelectorAll('#modalBody .tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`#modalBody .tab-btn[onclick*="${tabName}"]`).classList.add('active');
 
-            // Update content
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('#modalBody .tab-content').forEach(content => content.classList.remove('active'));
 
-            const tabMap = {
-                'info': 'tabInfo',
-                'products': 'tabProducts',
-                'json': 'tabJson'
-            };
-
+            const tabMap = { 'info': 'modalTabInfo', 'products': 'modalTabProducts', 'json': 'modalTabJson' };
             document.getElementById(tabMap[tabName]).classList.add('active');
         }
 
@@ -813,11 +1277,8 @@
             document.getElementById('orderDetailModal').classList.remove('show');
         }
 
-        // Close modal on outside click
         document.getElementById('orderDetailModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeOrderDetailModal();
-            }
+            if (e.target === this) closeOrderDetailModal();
         });
 
         // =====================================================
@@ -884,22 +1345,27 @@
         // INITIALIZATION
         // =====================================================
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('[REPORT] Page loaded, requesting data...');
+            console.log('[REPORT] Page loaded, initializing...');
 
-            // Wait for token manager to initialize, then request data
+            // Load cached data
+            loadCachedData();
+
+            // Request data from tab1
             setTimeout(() => {
                 requestDataFromTab1();
             }, 500);
         });
 
         // =====================================================
-        // EXPORT FUNCTIONS FOR EXTERNAL USE
+        // EXPORT FUNCTIONS
         // =====================================================
         window.reportModule = {
             getAllOrders: () => allOrders,
-            getOrderById: (orderId) => allOrders.find(o => o.orderId === orderId),
+            getCachedDetails: () => cachedOrderDetails,
+            getCurrentCampaign: () => currentCampaignName,
             fetchOrderData: fetchOrderData,
-            refreshData: requestDataFromTab1
+            refreshData: requestDataFromTab1,
+            startBatchFetch: startBatchFetch
         };
     </script>
 </body>
