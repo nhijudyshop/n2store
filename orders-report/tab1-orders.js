@@ -5544,9 +5544,9 @@ function renderByEmployee() {
                                 <th data-column="tag">TAG</th>
                                 <th data-column="order-code">Mã ĐH</th>
                                 <th data-column="customer">Khách hàng</th>
+                                <th data-column="phone">SĐT</th>
                                 <th data-column="messages">Tin nhắn</th>
                                 <th data-column="comments">Bình luận</th>
-                                <th data-column="phone">SĐT</th>
                                 <th data-column="qr" style="width: 50px; text-align: center;">QR</th>
                                 <th data-column="debt" style="width: 100px; text-align: right;">Công Nợ</th>
                                 <th data-column="address">Địa chỉ</th>
@@ -5670,14 +5670,14 @@ function createRowHTML(order) {
                 <span>${highlight(order.Code)}</span>
             </td>
             <td data-column="customer"><div class="customer-name">${highlight(order.Name)}</div>${partnerStatusHTML}</td>
-            ${messagesHTML}
-            ${commentsHTML}
             <td data-column="phone" style="text-align: center;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     ${order.Telephone ? `<i class="fas fa-copy copy-phone-btn" onclick="copyPhoneNumber('${order.Telephone}'); event.stopPropagation();" title="Copy SĐT" style="cursor: pointer; color: #9ca3af; font-size: 11px;"></i>` : ''}
                     <span>${highlight(order.Telephone)}</span>
                 </div>
             </td>
+            ${messagesHTML}
+            ${commentsHTML}
             <td data-column="qr" style="text-align: center;">${renderQRColumn(order.Telephone)}</td>
             <td data-column="debt" style="text-align: right;">${renderDebtColumn(order.Telephone)}</td>
             <td data-column="address">${highlight(order.Address)}</td>
