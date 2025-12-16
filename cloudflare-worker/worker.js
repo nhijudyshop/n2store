@@ -830,6 +830,61 @@ export default {
         // Customers API (Render) - PostgreSQL backend
         const customersPath = pathname.replace(/^\/api\/customers\/?/, '');
         targetUrl = `https://n2store-fallback.onrender.com/api/customers/${customersPath}${url.search}`;
+      } else if (pathname.startsWith('/api/rest/')) {
+        // ========== TPOS REST API v2.0 (Live Comments, etc.) ==========
+        // Example: /api/rest/v2.0/facebookpost/{objectId}/commentsbyuser?userId={userId}
+        // Forwards to: https://tomato.tpos.vn/rest/v2.0/...
+        const restPath = pathname.replace(/^\/api\/rest\//, '');
+        targetUrl = `https://tomato.tpos.vn/rest/${restPath}${url.search}`;
+        console.log('[TPOS-REST-API] Forwarding to:', targetUrl);
+
+        // Build headers for TPOS REST API
+        const tposRestHeaders = new Headers();
+
+        // Copy Authorization header from original request
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          tposRestHeaders.set('Authorization', authHeader);
+        }
+
+        // Set required headers for TPOS
+        tposRestHeaders.set('Accept', '*/*');
+        tposRestHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
+        tposRestHeaders.set('tposappversion', '5.11.16.1');
+        tposRestHeaders.set('Origin', 'https://tomato.tpos.vn');
+        tposRestHeaders.set('Referer', 'https://tomato.tpos.vn/');
+        tposRestHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+
+        try {
+          const restResponse = await fetch(targetUrl, {
+            method: request.method,
+            headers: tposRestHeaders,
+            body: request.method !== 'GET' && request.method !== 'HEAD'
+              ? await request.arrayBuffer()
+              : null,
+          });
+
+          console.log('[TPOS-REST-API] Response status:', restResponse.status);
+
+          const newRestResponse = new Response(restResponse.body, restResponse);
+          newRestResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newRestResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+          newRestResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, tposappversion, x-tpos-lang');
+
+          return newRestResponse;
+        } catch (restError) {
+          console.error('[TPOS-REST-API] Error:', restError.message);
+          return new Response(JSON.stringify({
+            error: 'TPOS REST API failed',
+            message: restError.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
       } else if (pathname.startsWith('/api/')) {
         // TPOS API (catch-all)
         const apiPath = pathname.replace(/^\/api\//, '');
