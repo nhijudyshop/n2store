@@ -1081,3 +1081,519 @@ GET https://tomato.tpos.vn/odata/ApplicationUser?$format=json&$top=20&$orderby=N
 - Payload 2 có địa chỉ `Ship_Receiver` đầy đủ hơn
 - Payload 2 có `DateDeposit` (đã đặt cọc)
 - Payload 2 có `DeliveryNote` dài hơn với chính sách đổi trả
+
+---
+
+## 💬 Chat Modal - Chi Tiết Chức Năng
+
+### Tổng Quan Cấu Trúc Files
+
+| File | Vai trò |
+|------|---------|
+| `tab1-orders.html` (dòng 860-1355) | Cấu trúc HTML modal |
+| `tab1-orders.js` | Logic chính - `openChatModal()`, render, send |
+| `comment-modal.js` (885 dòng) | Module quản lý COMMENT riêng |
+| `tab1-orders.css` | Styling cho modal |
+| `pancake-data-manager.js` | Fetch tin nhắn/bình luận từ Pancake API |
+
+### HTML Elements Chính
+
+```
+#chatModal                    - Container modal
+  .chat-left-panel           - Panel chat bên trái
+    #chatModalTitle          - Tiêu đề "Tin nhắn với [Tên]"
+    #chatModalSubtitle       - Subtitle "SĐT: xxx • Mã ĐH: xxx"
+    #conversationTypeToggle  - Toggle INBOX/COMMENT
+    #chatPageSelect          - Dropdown chọn Page (xem)
+    #chatConversationSelect  - Dropdown chọn conversation
+    #chatModalBody           - Nội dung tin nhắn
+    #chatReplyContainer      - Container nhập reply
+      #chatReplyInput        - Textarea nhập tin
+      #chatSendBtn           - Nút gửi
+      #chatSendPageSelect    - Dropdown chọn page gửi
+  .chat-right-panel          - Panel sản phẩm bên phải
+    #chatTabOrders           - Tab sản phẩm đơn hàng
+    #chatTabDropped          - Tab hàng rớt/xả
+    #chatTabHistory          - Tab lịch sử
+    #chatTabInvoiceHistory   - Tab hóa đơn
+```
+
+---
+
+### 📤 Flow Gửi Tin Nhắn Qua Pancake API
+
+#### Luồng Tổng Quan
+
+```
+User nhập tin nhắn → sendReplyComment() → Route dựa trên currentChatType
+                                              ↓
+                     ┌────────────────────────┼────────────────────────┐
+                     ↓                        ↓                        ↓
+              sendMessage()            sendComment()           (Error handling)
+                     ↓                        ↓
+         sendMessageInternal()     sendCommentInternal()
+                     ↓                        ↓
+          ┌──────────┴──────────┐            │
+          ↓                     ↓            ↓
+    reply_inbox          private_replies   reply_comment
+   (Messenger)        (Private via comment)  (Public comment)
+                     ↓
+             Pancake Official API
+    POST /pages/{pageId}/conversations/{conversationId}/messages
+```
+
+#### Hàm Chính: `sendReplyComment()` (dòng 10909)
+
+```javascript
+window.sendReplyComment = async function () {
+    if (currentChatType === 'message') {
+        return window.sendMessage();
+    } else if (currentChatType === 'comment') {
+        return window.sendComment();
+    }
+};
+```
+
+#### Payload Các Loại Gửi Tin
+
+**1. INBOX Message (Messenger):**
+```javascript
+{
+    action: 'reply_inbox',
+    message: "nội dung tin nhắn",
+    replied_message_id: "abc123",  // Nếu reply tin cụ thể
+    content_ids: ["img_id_1"],     // Nếu có ảnh (từ upload API)
+    attachment_type: 'PHOTO'       // Bắt buộc khi có ảnh
+}
+```
+
+**2. PRIVATE REPLIES (gửi private từ comment):**
+```javascript
+{
+    action: 'private_replies',
+    post_id: "pageId_postId",
+    message_id: "commentId",
+    from_id: "psid",
+    message: "nội dung tin nhắn"
+}
+```
+
+**3. REPLY COMMENT (reply công khai trên post):**
+```javascript
+{
+    action: 'reply_comment',
+    message_id: "commentId",
+    message: "nội dung reply"
+}
+```
+
+#### API Endpoint
+
+```
+POST https://pages.fm/api/v1/pages/{pageId}/conversations/{conversationId}/messages
+    ?access_token={pageAccessToken}
+    &customer_id={customerUuid}
+```
+
+#### Fallback 24h Policy (dòng 10950-11189)
+
+Khi gặp lỗi 24h hoặc user unavailable:
+
+1. **`tryPancakeUnlock()`** - Gọi 3 API unlock:
+   - `/pages/{pageId}/conversations/{conversationId}/messages/fill_admin_name`
+   - `/pages/{pageId}/check_inbox`
+   - `/pages/{pageId}/contents/touch`
+
+2. **`sendMessageViaFacebookTag()`** - Gửi qua Facebook Graph API với tag `POST_PURCHASE_UPDATE`
+
+#### Các Hàm Liên Quan
+
+| Hàm | Dòng | Chức năng |
+|-----|------|-----------|
+| `sendReplyComment()` | 10909 | Router chính |
+| `sendMessageInternal()` | 11318 | Gửi INBOX/private_replies |
+| `sendCommentInternal()` | 11701 | Gửi reply_comment |
+| `tryPancakeUnlock()` | 10961 | Unlock 24h policy |
+| `sendMessageViaFacebookTag()` | 11069 | Fallback qua FB Graph API |
+
+---
+
+### 🎨 Logic Render Tin Nhắn/Sticker/Reactions
+
+#### Hàm `renderChatMessages()` (dòng 12063)
+
+```javascript
+function renderChatMessages(messages, scrollToBottom = false) {
+    // 1. Sort theo thời gian (cũ nhất ở trên, mới nhất ở dưới)
+    const sortedMessages = messages.slice().sort((a, b) => {
+        const timeA = new Date(a.inserted_at || a.CreatedTime).getTime();
+        const timeB = new Date(b.inserted_at || b.CreatedTime).getTime();
+        return timeA - timeB;
+    });
+
+    // 2. Map từng message thành HTML
+    const messagesHTML = sortedMessages.map(msg => {
+        // Xác định owner/customer
+        const isOwner = msg.IsOwner || (fromId === pageId);
+        const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
+        const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
+        // ... render content, attachments, reactions
+    });
+
+    // 3. Render vào DOM + scroll handling
+    modalBody.innerHTML = `<div class="chat-messages-container">...</div>`;
+}
+```
+
+#### Xử Lý Attachments (dòng 12158-12284)
+
+| Loại | Điều kiện | Kết quả |
+|------|-----------|---------|
+| **Image (cũ)** | `att.Type === 'image'` | `<img src="url" />` |
+| **Audio** | `att.mime_type === 'audio/mp4'` | `<audio controls>` |
+| **Photo** | `att.type === 'photo'` | `<img onclick="window.open()" />` |
+| **Sticker** | `att.type === 'sticker'` | `<img style="max-width:150px" />` |
+| **Animated GIF** | `att.type === 'animated_image_share'` | `<img style="max-width:200px" />` |
+| **Video** | `att.type === 'video'` | `<img onclick>` (thumbnail) |
+| **Replied Message** | `att.type === 'replied_message'` | Quoted message box |
+| **Link với comment** | `att.type === 'link' && att.comment` | Private reply preview |
+
+#### Xử Lý Sticker (dòng 12249-12283)
+
+```javascript
+// Sticker type 1: att.type === 'sticker'
+if (att.type === 'sticker' && (att.url || att.file_url)) {
+    content += `<img src="${stickerUrl}" style="max-width: 150px; max-height: 150px;" />`;
+}
+
+// Sticker type 2: att.sticker_id
+if (att.sticker_id && (att.url || att.file_url)) {
+    // Same rendering
+}
+
+// Sticker type 3: Animated GIF
+if (att.type === 'animated_image_share') {
+    content += `<img src="${gifUrl}" style="max-width: 200px;" />`;
+}
+```
+
+#### Xử Lý Reactions (dòng 12287-12337)
+
+```javascript
+// 1. Thu thập từ attachments (type === 'reaction')
+msg.attachments.forEach(att => {
+    if (att.type === 'reaction' && att.emoji) {
+        reactionAttachments.push(att.emoji);
+    }
+});
+
+// 2. Thu thập từ msg.reactions hoặc msg.reaction_summary
+const reactions = msg.reactions || msg.reaction_summary;
+// Format: { LIKE: 2, LOVE: 1, HAHA: 0, ... }
+
+// 3. Mapping emoji
+const reactionIcons = {
+    'LIKE': '👍', 'LOVE': '❤️', 'HAHA': '😆',
+    'WOW': '😮', 'SAD': '😢', 'ANGRY': '😠', 'CARE': '🤗'
+};
+
+// 4. Build HTML badges
+Object.entries(reactions).forEach(([type, count]) => {
+    if (count > 0) {
+        reactionsArray.push(`<span style="background:#fef3c7">${emoji} ${count}</span>`);
+    }
+});
+```
+
+---
+
+### 🔄 Toggle Giữa INBOX và COMMENT
+
+#### Hàm `switchConversationType()` (dòng 8483)
+
+**Trigger:** Nhấn nút trong header modal
+
+```html
+<!-- HTML buttons (tab1-orders.html dòng 875-882) -->
+<button id="btnViewInbox" onclick="switchConversationType('INBOX')">
+    <i class="fab fa-facebook-messenger"></i> Tin nhắn
+</button>
+<button id="btnViewComment" onclick="switchConversationType('COMMENT')">
+    <i class="fas fa-comment-dots"></i> Bình luận
+</button>
+```
+
+#### Flow Chuyển Đổi
+
+```
+switchConversationType('COMMENT')
+     ↓
+1. Kiểm tra nếu đang ở type này rồi → return
+     ↓
+2. updateConversationTypeToggle(type) → Cập nhật UI button
+     ↓
+3. Reset state: allChatMessages=[], allChatComments=[], cursor=null
+     ↓
+4. Cập nhật input state:
+   - COMMENT: disabled, placeholder="Chọn Trả lời..."
+   - INBOX: enabled, placeholder="Nhập tin nhắn..."
+     ↓
+5. Cập nhật currentChatType = 'comment' hoặc 'message'
+     ↓
+6. Dùng cached conversationId:
+   - COMMENT: window.currentCommentConversationId
+   - INBOX: window.currentInboxConversationId
+     ↓
+7. Gọi pancakeDataManager.fetchMessagesForConversation()
+     ↓
+8. Render: renderComments() hoặc renderChatMessages()
+     ↓
+9. Setup: setupChatInfiniteScroll(), setupNewMessageIndicatorListener()
+```
+
+#### Input State Logic (dòng 8527-8559)
+
+```javascript
+if (type === 'COMMENT') {
+    // Vô hiệu hóa input - phải chọn comment cụ thể để reply
+    chatInput.disabled = true;
+    chatInput.placeholder = 'Chọn "Trả lời" một bình luận để reply...';
+    chatInput.style.cursor = 'not-allowed';
+    chatSendBtn.disabled = true;
+    chatSendBtn.style.opacity = '0.5';
+} else {
+    // Cho phép nhập tự do với INBOX
+    chatInput.disabled = false;
+    chatInput.placeholder = 'Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)';
+    chatSendBtn.disabled = false;
+}
+```
+
+#### Cached Conversation IDs
+
+Khi `openChatModal()` thực thi, nó fetch tất cả conversations và lưu:
+
+| Variable | Mô tả |
+|----------|-------|
+| `window.currentInboxConversationId` | ID conversation INBOX |
+| `window.currentCommentConversationId` | ID conversation COMMENT |
+| `window.currentCustomerUUID` | UUID khách hàng từ Pancake |
+
+→ Cho phép chuyển đổi nhanh mà không cần fetch lại conversations.
+
+---
+
+## 💬 Comment Modal Module (comment-modal.js)
+
+### Tổng Quan
+
+File `comment-modal.js` (885 dòng) chứa logic xử lý bình luận Facebook riêng biệt. **Hiện tại đã được tích hợp vào unified chat modal** thông qua redirect.
+
+### State Variables (dòng 5-16)
+
+| Variable | Mô tả |
+|----------|-------|
+| `commentModalOrder` | Order object hiện tại |
+| `commentModalChannelId` | Page ID (Facebook) |
+| `commentModalPSID` | Customer's Facebook PSID |
+| `commentModalComments` | Mảng bình luận đã load |
+| `commentModalCursor` | Cursor cho pagination |
+| `commentModalParentId` | ID comment đang reply |
+| `isLoadingMoreComments` | Flag loading state |
+| `commentModalThreadId` | Thread ID cho private reply |
+| `commentModalThreadKey` | Thread key cho private reply |
+| `commentModalInboxConvId` | Inbox conversation ID |
+| `commentReplyType` | `'private_replies'` hoặc `'reply_comment'` |
+
+### Các Hàm Chính
+
+| Hàm | Dòng | Chức năng |
+|-----|------|-----------|
+| `openCommentModal(orderId, channelId, psid)` | 22 | Mở modal → **Redirect đến `openChatModal()`** |
+| `closeCommentModal()` | 116 | Đóng modal + reset state |
+| `setupCommentReplyInput()` | 148 | Setup input (disabled mặc định) |
+| `handleCommentModalScroll()` | 176 | Xử lý scroll để load more |
+| `loadMoreComments()` | 188 | Pagination - load thêm comments |
+| `getFacebookCommentIdForModal(comment)` | 227 | Helper lấy Facebook comment ID |
+| `isPurchaseCommentCheck(comment)` | 238 | Kiểm tra comment đặt hàng |
+| `renderCommentModalComments(comments, scrollToPurchase)` | 258 | Render danh sách bình luận |
+| `handleCommentModalReply(commentId, postId)` | 582 | Xử lý khi nhấn "Trả lời" |
+| `cancelCommentReply()` | 648 | Hủy reply mode |
+| `setCommentReplyType(type)` | 679 | Toggle reply type |
+| `sendCommentReply()` | 731 | Gửi reply comment |
+
+---
+
+### 📤 Flow Gửi Reply Comment
+
+#### Luồng Tổng Quan
+
+```
+User nhấn "Trả lời" → handleCommentModalReply()
+      ↓
+1. Lưu commentModalParentId
+2. Fetch inbox_preview để lấy threadId, threadKey, inboxConvId
+3. Hiển thị reply preview
+4. Kích hoạt input
+      ↓
+User nhập tin → sendCommentReply()
+      ↓
+Kiểm tra commentReplyType
+      ↓
+┌─────────────┴─────────────┐
+↓                           ↓
+reply_comment          private_replies
+(Công khai trên post)   (Messenger riêng)
+      ↓
+POST API Pancake → Refresh comments
+```
+
+#### Payload Gửi Reply
+
+**1. REPLY COMMENT (công khai):**
+```javascript
+{
+    action: 'reply_comment',
+    message_id: "commentId",
+    message: "nội dung reply"
+    // Optional: content_url (image URL), mentions
+}
+```
+
+**2. PRIVATE REPLIES (Messenger riêng):**
+```javascript
+{
+    action: 'private_replies',
+    post_id: "pageId_postId",
+    message_id: "commentId",
+    from_id: "psid",
+    message: "nội dung tin nhắn"
+}
+```
+
+#### API Endpoint
+
+```
+POST https://pages.fm/api/v1/pages/{pageId}/conversations/{commentId}/messages
+    ?page_access_token={pageAccessToken}
+```
+
+> **Lưu ý:** `conversationId = commentId` cho cả `reply_comment` và `private_replies`
+
+---
+
+### 🎨 Logic Render Bình Luận
+
+#### Hàm `renderCommentModalComments()` (dòng 258-577)
+
+**Flow xử lý:**
+```javascript
+1. Sort comments theo thời gian (cũ → mới)
+2. Map từng comment:
+   - Xác định isOwner (owner vs customer)
+   - Kiểm tra isPurchaseComment → highlight
+   - Lấy avatar URL
+   - Escape HTML + convert URLs to links
+   - Xử lý attachments (image, audio, sticker, GIF)
+   - Xử lý reactions
+   - Render nested replies (comment.Messages)
+   - Thêm nút "Trả lời" cho customer comments
+3. Render loading indicator nếu còn cursor
+4. Render post context nếu có Object data
+5. Scroll đến purchase comment hoặc bottom
+```
+
+#### Xử Lý Attachments (dòng 339-404)
+
+| Loại | Điều kiện | Render |
+|------|-----------|--------|
+| Image (cũ) | `att.Type === 'image'` | `<img>` |
+| Audio | `att.mime_type === 'audio/mp4'` | `<audio controls>` |
+| Photo | `att.type === 'photo'` | `<img onclick>` |
+| Image (mime) | `att.mime_type.startsWith('image/')` | `<img onclick>` |
+| Sticker | `att.type === 'sticker'` | `<img max-width:150px>` |
+| Sticker (alt) | `att.sticker_id` | `<img max-width:150px>` |
+| Animated GIF | `att.type === 'animated_image_share'` | `<img max-width:200px>` |
+
+#### Xử Lý Reactions (dòng 406-432)
+
+```javascript
+const reactions = comment.reactions || comment.reaction_summary;
+// Format: { LIKE: 2, LOVE: 1, HAHA: 0, ... }
+
+const reactionIcons = {
+    'LIKE': '👍', 'LOVE': '❤️', 'HAHA': '😆',
+    'WOW': '😮', 'SAD': '😢', 'ANGRY': '😠', 'CARE': '🤗'
+};
+
+Object.entries(reactions).forEach(([type, count]) => {
+    if (count > 0) {
+        // Render badge với emoji + count
+    }
+});
+```
+
+#### Purchase Comment Highlight (dòng 238-253)
+
+```javascript
+function isPurchaseCommentCheck(comment) {
+    // So sánh với window.purchaseCommentId
+    // Format: "postId_commentId"
+    // Trả về true nếu match → thêm class 'purchase-comment-highlight'
+}
+```
+
+---
+
+### 🔄 Toggle Reply Type
+
+#### Hàm `setCommentReplyType(type)` (dòng 679-715)
+
+**Trigger:** Nhấn nút toggle trong reply container
+
+```javascript
+// type = 'reply_comment' hoặc 'private_replies'
+commentReplyType = type;
+
+// Cập nhật UI buttons
+if (type === 'reply_comment') {
+    btnPublic.style.border = '2px solid #22c55e';  // Green
+    replyInput.placeholder = 'Nhập nội dung reply công khai...';
+} else {
+    btnPrivate.style.border = '2px solid #3b82f6'; // Blue
+    replyInput.placeholder = 'Nhập tin nhắn riêng qua Messenger...';
+}
+```
+
+---
+
+### 🔗 Tích Hợp Với Unified Chat Modal
+
+Hiện tại `openCommentModal()` đã được refactor để redirect:
+
+```javascript
+window.openCommentModal = async function (orderId, channelId, psid) {
+    // Redirect đến unified chat modal với type='comment'
+    return window.openChatModal(orderId, channelId, psid, 'comment');
+};
+```
+
+→ Cho phép users toggle giữa INBOX và COMMENT trong cùng 1 modal.
+
+---
+
+### Dependencies
+
+| Module | Sử dụng |
+|--------|---------|
+| `window.pancakeTokenManager` | Lấy `page_access_token` |
+| `window.pancakeDataManager` | Fetch comments, inbox_preview |
+| `window.chatDataManager` | Fetch comments |
+| `window.tokenManager` | Auth headers cho TPOS API |
+| `window.notificationManager` | Hiển thị notifications |
+| `window.formatTimeVN` | Format thời gian |
+| `API_CONFIG.smartFetch` | Fetch với retry logic |
+
+---
+
+*Cập nhật lần cuối: 2025-12-16 (Thêm documentation Comment Modal chi tiết)*
