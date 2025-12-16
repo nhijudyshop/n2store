@@ -903,6 +903,10 @@
                 // Select current table if exists
                 if (currentTableName) {
                     selector.value = currentTableName;
+                    // Auto-load data for current table
+                    setTimeout(() => {
+                        loadTableDataFromFirebase(currentTableName);
+                    }, 100);
                 }
             } catch (error) {
                 console.error('[REPORT] ❌ Error loading tables:', error);
@@ -1059,6 +1063,9 @@
 
                 // Check Firebase status for this table
                 checkFirebaseStatus();
+
+                // Reload available tables to trigger auto-load of cached data
+                loadAvailableTables();
 
                 // Stop loading state
                 setRefreshLoading(false);
