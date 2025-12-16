@@ -224,6 +224,40 @@
 
         <!-- Filter Section -->
         <div class="filter-section" id="controlBar" style="display: none;">
+            <!-- Stats Bar -->
+            <div class="stats-bar" id="statsBar" style="display: flex; flex: 1; width: 100%;">
+                <div class="stats-item" style="flex: 1; max-width: 300px;">
+                    <div class="stats-label" style="margin-bottom: 8px; color: #667eea; font-weight: 600;">
+                        <i class="fas fa-table"></i> Tên bảng
+                    </div>
+                    <input type="text" id="tableNameInput"
+                        placeholder="Bảng 1"
+                        style="width: 100%; padding: 8px 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; font-weight: 500; text-align: center; background: white; color: #333; outline: none; transition: all 0.2s;"
+                        onblur="saveTableName()"
+                        onfocus="this.style.borderColor='#4f46e5'; this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'"
+                        onblur="this.style.borderColor='#667eea'; this.style.boxShadow='none'; saveTableName()"
+                        title="Nhấn để chỉnh sửa tên bảng" />
+                </div>
+                <div class="stats-item">
+                    <div class="stats-value" id="totalOrdersCount">0</div>
+                    <div class="stats-label">Tổng đơn hàng</div>
+                    <div class="stats-sublabel" id="mergedOrdersInfo"
+                        style="font-size: 11px; color: #9ca3af; margin-top: 4px;">-</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-value" id="displayedOrdersCount">0</div>
+                    <div class="stats-label">Đang hiển thị</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-value" id="totalAmountSum">0đ</div>
+                    <div class="stats-label">Tổng giá trị</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-value" id="loadingProgress">0%</div>
+                    <div class="stats-label">Tiến độ</div>
+                </div>
+            </div>
+
             <button class="btn-primary" id="employeeSettingsBtn" onclick="toggleEmployeeDrawer()"
                 style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
                 title="Cài đặt phân chia nhân viên">
@@ -466,39 +500,6 @@
             </button>
         </div>
 
-        <!-- Stats Bar -->
-        <div class="stats-bar" id="statsBar" style="display: none">
-            <div class="stats-item" style="flex: 1; max-width: 300px;">
-                <div class="stats-label" style="margin-bottom: 8px; color: #667eea; font-weight: 600;">
-                    <i class="fas fa-table"></i> Tên bảng
-                </div>
-                <input type="text" id="tableNameInput"
-                    placeholder="Bảng 1"
-                    style="width: 100%; padding: 8px 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; font-weight: 500; text-align: center; background: white; color: #333; outline: none; transition: all 0.2s;"
-                    onblur="saveTableName()"
-                    onfocus="this.style.borderColor='#4f46e5'; this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'"
-                    onblur="this.style.borderColor='#667eea'; this.style.boxShadow='none'; saveTableName()"
-                    title="Nhấn để chỉnh sửa tên bảng" />
-            </div>
-            <div class="stats-item">
-                <div class="stats-value" id="totalOrdersCount">0</div>
-                <div class="stats-label">Tổng đơn hàng</div>
-                <div class="stats-sublabel" id="mergedOrdersInfo"
-                    style="font-size: 11px; color: #9ca3af; margin-top: 4px;">-</div>
-            </div>
-            <div class="stats-item">
-                <div class="stats-value" id="displayedOrdersCount">0</div>
-                <div class="stats-label">Đang hiển thị</div>
-            </div>
-            <div class="stats-item">
-                <div class="stats-value" id="totalAmountSum">0đ</div>
-                <div class="stats-label">Tổng giá trị</div>
-            </div>
-            <div class="stats-item">
-                <div class="stats-value" id="loadingProgress">0%</div>
-                <div class="stats-label">Tiến độ</div>
-            </div>
-        </div>
         <!-- Info Banner -->
         <div class="info-banner" id="infoBanner" style="display: none">
             <i class="fas fa-info-circle"></i>
