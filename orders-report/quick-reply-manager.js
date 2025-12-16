@@ -284,34 +284,12 @@ class QuickReplyManager {
     async loadReplies() {
         console.log('[QUICK-REPLY] 📥 Loading replies...');
 
-        const defaults = this.getDefaultReplies();
-
         // Try to load from localStorage first (faster)
         const stored = localStorage.getItem(this.STORAGE_KEY);
         if (stored) {
             try {
-                let loadedReplies = JSON.parse(stored);
-
-                // Merge new defaults that don't exist in loaded replies (check by shortcut only)
-                const existingShortcuts = new Set(loadedReplies.map(r => r.shortcut?.toLowerCase()).filter(Boolean));
-
-                defaults.forEach(defaultReply => {
-                    const shortcutLower = defaultReply.shortcut?.toLowerCase();
-                    // Only add if shortcut exists and is not already in the list
-                    if (shortcutLower && !existingShortcuts.has(shortcutLower)) {
-                        // Generate new unique ID to avoid conflicts
-                        const maxId = Math.max(...loadedReplies.map(r => r.id || 0), 0);
-                        const newReply = { ...defaultReply, id: maxId + 1 };
-                        console.log('[QUICK-REPLY] ➕ Adding new default shortcut:', defaultReply.shortcut, 'with id:', newReply.id);
-                        loadedReplies.push(newReply);
-                        existingShortcuts.add(shortcutLower); // Prevent duplicates in same loop
-                    }
-                });
-
-                this.replies = loadedReplies;
-                // Update cache with merged data
-                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
-                console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from localStorage (merged with defaults)');
+                this.replies = JSON.parse(stored);
+                console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from localStorage (cached)');
                 return;
             } catch (e) {
                 console.error('[QUICK-REPLY] ❌ Error parsing localStorage:', e);
@@ -328,48 +306,31 @@ class QuickReplyManager {
                     .get();
 
                 if (!snapshot.empty) {
-                    let loadedReplies = snapshot.docs.map(doc => ({
+                    this.replies = snapshot.docs.map(doc => ({
                         ...doc.data(),
                         docId: doc.id // Keep Firestore doc ID for updates
                     }));
 
-                    // Merge new defaults that don't exist in Firebase (check by shortcut only)
-                    const existingShortcuts = new Set(loadedReplies.map(r => r.shortcut?.toLowerCase()).filter(Boolean));
-
-                    defaults.forEach(defaultReply => {
-                        const shortcutLower = defaultReply.shortcut?.toLowerCase();
-                        // Only add if shortcut exists and is not already in the list
-                        if (shortcutLower && !existingShortcuts.has(shortcutLower)) {
-                            // Generate new unique ID to avoid conflicts
-                            const maxId = Math.max(...loadedReplies.map(r => r.id || 0), 0);
-                            const newReply = { ...defaultReply, id: maxId + 1 };
-                            console.log('[QUICK-REPLY] ➕ Adding new default shortcut:', defaultReply.shortcut, 'with id:', newReply.id);
-                            loadedReplies.push(newReply);
-                            existingShortcuts.add(shortcutLower); // Prevent duplicates in same loop
-                        }
-                    });
-
-                    this.replies = loadedReplies;
                     // Cache to localStorage
                     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
 
-                    console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from Firebase (merged with defaults)');
+                    console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from Firebase');
                     return;
                 } else {
                     console.log('[QUICK-REPLY] ℹ️ No replies in Firebase, using defaults...');
-                    this.replies = defaults;
+                    this.replies = this.getDefaultReplies();
                     // Cache defaults to localStorage
                     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
                     return;
                 }
             } catch (error) {
                 console.error('[QUICK-REPLY] ❌ Firebase load error:', error);
-                this.replies = defaults;
+                this.replies = this.getDefaultReplies();
                 localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
             }
         } else {
             console.log('[QUICK-REPLY] ⚠️ Firebase not available, using default replies');
-            this.replies = defaults;
+            this.replies = this.getDefaultReplies();
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
         }
     }
@@ -460,20 +421,6 @@ class QuickReplyManager {
                 topic: '',
                 topicColor: '',
                 message: 'Dạ e gửi bill qua lấy cho mình , đơn hàng mình có vấn đề gì liên hệ qua SDT quản lí 0977774305 nhé c ạ ❤️ Em cám ơn'
-            },
-            {
-                id: 13,
-                shortcut: 'cd',
-                topic: 'CHỐT ĐƠN CHI TIẾT',
-                topicColor: '#15803d',
-                message: `Dạ chào chị {partner.name},
-
-Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
-
-{order.details}
-
-Đơn hàng của mình sẽ được gửi về địa chỉ "{partner.address}"`,
-                hasPlaceholders: true
             }
         ];
     }
@@ -686,98 +633,6 @@ Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
             .replace(/Đ/g, 'D');
     }
 
-    /**
-     * Format number to Vietnamese currency (VND)
-     * e.g., 120000 -> "120.000đ"
-     */
-    formatCurrency(amount) {
-        if (amount === null || amount === undefined) return '0đ';
-        return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
-    }
-
-    /**
-     * Replace placeholders in message with actual order data
-     * Used specifically for /cd shortcut with API template style
-     * @param {string} content - Message content with placeholders
-     * @returns {string} - Message with placeholders replaced
-     */
-    replacePlaceholdersWithOrderData(content) {
-        const order = window.currentChatOrderData;
-        if (!order) {
-            console.warn('[QUICK-REPLY] No order data available for placeholder replacement');
-            return content;
-        }
-
-        console.log('[QUICK-REPLY] Replacing placeholders with order data:', order.Code);
-
-        let result = content;
-
-        // {partner.name} - Customer name
-        const customerName = order.Partner?.Name || order.Name || '';
-        if (customerName && customerName.trim()) {
-            result = result.replace(/{partner\.name}/g, customerName);
-        } else {
-            result = result.replace(/{partner\.name}/g, '(Khách hàng)');
-        }
-
-        // {partner.address} - Address with phone
-        const address = order.Partner?.Address || order.Address || '';
-        const phone = order.Partner?.Telephone || order.Telephone || '';
-        if (address && address.trim()) {
-            const addressWithPhone = phone ? `${address} - SĐT: ${phone}` : address;
-            result = result.replace(/"\{partner\.address\}"/g, `"${addressWithPhone}"`);
-            result = result.replace(/{partner\.address}/g, addressWithPhone);
-        } else {
-            result = result.replace(/"\{partner\.address\}"/g, '(Chưa có địa chỉ)');
-            result = result.replace(/{partner\.address}/g, '(Chưa có địa chỉ)');
-        }
-
-        // {partner.phone} - Phone number
-        if (phone && phone.trim()) {
-            result = result.replace(/{partner\.phone}/g, phone);
-        } else {
-            result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
-        }
-
-        // {order.code} - Order code
-        if (order.Code && order.Code.trim()) {
-            result = result.replace(/{order\.code}/g, order.Code);
-        } else {
-            result = result.replace(/{order\.code}/g, '(Không có mã)');
-        }
-
-        // {order.total} - Total amount
-        result = result.replace(/{order\.total}/g, this.formatCurrency(order.TotalAmount));
-
-        // {order.details} - Product list with total
-        if (order.Details && Array.isArray(order.Details) && order.Details.length > 0) {
-            const productList = order.Details
-                .map(d => {
-                    const name = d.ProductNameGet || d.ProductName || 'Sản phẩm';
-                    const qty = d.Quantity || 0;
-                    const price = d.Price || 0;
-                    const total = qty * price;
-                    return `- ${name} x${qty} = ${this.formatCurrency(total)}`;
-                })
-                .join('\n');
-            const totalAmount = this.formatCurrency(order.TotalAmount);
-            const productListWithTotal = `${productList}\n\nTổng tiền: ${totalAmount}`;
-            result = result.replace(/{order\.details}/g, productListWithTotal);
-        } else {
-            result = result.replace(/{order\.details}/g, '(Chưa có sản phẩm)');
-        }
-
-        // Add employee signature
-        const auth = window.authManager ? window.authManager.getAuthState() : null;
-        const displayName = auth && auth.displayName ? auth.displayName : null;
-        if (displayName) {
-            result = result + '\nNv. ' + displayName;
-        }
-
-        console.log('[QUICK-REPLY] Placeholders replaced successfully');
-        return result;
-    }
-
     // =====================================================
     // AUTOCOMPLETE FEATURE
     // =====================================================
@@ -830,7 +685,6 @@ Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
 
         // Get text after /
         const query = textBeforeCursor.substring(lastSlashIndex + 1);
-        console.log('[QUICK-REPLY] 🔍 Autocomplete query:', query, '| Total replies:', this.replies?.length);
 
         // Check if there's a space after / (means query ended)
         if (query.includes(' ') || query.includes('\n')) {
@@ -867,8 +721,6 @@ Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
             return shortcutLower.startsWith(query.toLowerCase()) ||
                 shortcutNoDiacritics.startsWith(queryNoDiacritics);
         });
-
-        console.log('[QUICK-REPLY] 🔍 Found suggestions:', this.currentSuggestions.length, this.currentSuggestions.map(s => s.shortcut));
 
         if (this.currentSuggestions.length > 0) {
             this.showAutocomplete(input, query, lastSlashIndex);
@@ -965,7 +817,6 @@ Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
         // DEBUG: Log reply object to check if imageUrl exists
         console.log('[QUICK-REPLY] 📋 Selected reply:', JSON.stringify(reply, null, 2));
         console.log('[QUICK-REPLY] 🖼️ Has imageUrl?', !!reply.imageUrl, '→', reply.imageUrl);
-        console.log('[QUICK-REPLY] 📝 Has placeholders?', !!reply.hasPlaceholders);
 
         // Check if this reply has an imageUrl - send image first, then text
         if (reply.imageUrl) {
@@ -981,13 +832,6 @@ Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
             return;
         }
 
-        // Get message content - replace placeholders if needed (for /cd shortcut)
-        let messageContent = reply.message;
-        if (reply.hasPlaceholders) {
-            console.log('[QUICK-REPLY] 🔄 Replacing placeholders for shortcut:', reply.shortcut);
-            messageContent = this.replacePlaceholdersWithOrderData(reply.message);
-        }
-
         const value = input.value;
         const cursorPos = input.selectionStart;
         const textBeforeCursor = value.substring(0, cursorPos);
@@ -997,11 +841,11 @@ Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
         const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
 
         // Replace from / to cursor with the message
-        const newValue = value.substring(0, lastSlashIndex) + messageContent + textAfterCursor;
+        const newValue = value.substring(0, lastSlashIndex) + reply.message + textAfterCursor;
         input.value = newValue;
 
         // Set cursor position after inserted text
-        const newCursorPos = lastSlashIndex + messageContent.length;
+        const newCursorPos = lastSlashIndex + reply.message.length;
         input.setSelectionRange(newCursorPos, newCursorPos);
 
         this.hideAutocomplete();
