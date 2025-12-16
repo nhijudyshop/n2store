@@ -825,6 +825,7 @@ Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
 
         // Get text after /
         const query = textBeforeCursor.substring(lastSlashIndex + 1);
+        console.log('[QUICK-REPLY] 🔍 Autocomplete query:', query, '| Total replies:', this.replies?.length);
 
         // Check if there's a space after / (means query ended)
         if (query.includes(' ') || query.includes('\n')) {
@@ -861,6 +862,8 @@ Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
             return shortcutLower.startsWith(query.toLowerCase()) ||
                 shortcutNoDiacritics.startsWith(queryNoDiacritics);
         });
+
+        console.log('[QUICK-REPLY] 🔍 Found suggestions:', this.currentSuggestions.length, this.currentSuggestions.map(s => s.shortcut));
 
         if (this.currentSuggestions.length > 0) {
             this.showAutocomplete(input, query, lastSlashIndex);
