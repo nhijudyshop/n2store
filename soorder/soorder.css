@@ -1478,6 +1478,28 @@ textarea.form-control {
     margin-left: 0.5rem;
 }
 
+/* Exact match highlight - shown when typing exact Ax code */
+.ncc-suggestion-item.exact-match {
+    background: linear-gradient(90deg, #e0e7ff 0%, #ede9fe 100%);
+    border-left: 3px solid var(--order-primary);
+}
+
+.ncc-suggestion-item.exact-match .ncc-code {
+    color: var(--order-primary);
+    font-weight: 800;
+}
+
+.ncc-suggestion-item.exact-match::after {
+    content: "Tab ↹";
+    float: right;
+    font-size: 0.75rem;
+    color: var(--order-text-muted);
+    background: rgba(99, 102, 241, 0.1);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
 /* NCC Management Modal */
 .modal-medium {
     max-width: 600px;
