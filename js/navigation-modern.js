@@ -1765,6 +1765,8 @@ class UnifiedNavigationManager {
     showSettings() {
         const currentFontSize =
             parseInt(localStorage.getItem("appFontSize")) || 14;
+        const currentTableFontSize =
+            parseInt(localStorage.getItem("ordersTableFontSize")) || 14;
         const currentTheme = localStorage.getItem("appTheme") || "light";
 
         const modal = document.createElement("div");
@@ -1831,6 +1833,37 @@ class UnifiedNavigationManager {
 
                     <div class="setting-group">
                         <label class="setting-label">
+                            <i data-lucide="table"></i>
+                            Kích Thước Chữ Bảng Đơn Hàng
+                        </label>
+                        <div class="font-size-slider-container">
+                            <div class="slider-labels">
+                                <span class="slider-label-min">10px</span>
+                                <span class="slider-label-current" id="currentTableFontSize">${currentTableFontSize}px</span>
+                                <span class="slider-label-max">20px</span>
+                            </div>
+                            <input
+                                type="range"
+                                id="tableFontSizeSlider"
+                                class="font-size-slider"
+                                min="10"
+                                max="20"
+                                value="${currentTableFontSize}"
+                                step="1"
+                            >
+                            <div class="slider-ticks">
+                                <span>10</span>
+                                <span>12</span>
+                                <span>14</span>
+                                <span>16</span>
+                                <span>18</span>
+                                <span>20</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">
                             <i data-lucide="eye"></i>
                             Xem Trước
                         </label>
@@ -1872,9 +1905,12 @@ class UnifiedNavigationManager {
         const resetBtn = modal.querySelector("#resetSettings");
         const fontSlider = modal.querySelector("#fontSizeSlider");
         const currentSizeLabel = modal.querySelector("#currentFontSize");
+        const tableFontSlider = modal.querySelector("#tableFontSizeSlider");
+        const currentTableSizeLabel = modal.querySelector("#currentTableFontSize");
         const themeButtons = modal.querySelectorAll(".theme-option");
 
         let selectedFontSize = currentFontSize;
+        let selectedTableFontSize = currentTableFontSize;
         let selectedTheme = currentTheme;
 
         const closeModal = () => modal.remove();
@@ -1890,6 +1926,11 @@ class UnifiedNavigationManager {
             this.applyFontSize(selectedFontSize);
         });
 
+        tableFontSlider.addEventListener("input", (e) => {
+            selectedTableFontSize = parseInt(e.target.value);
+            currentTableSizeLabel.textContent = `${selectedTableFontSize}px`;
+        });
+
         themeButtons.forEach((btn) => {
             btn.addEventListener("click", () => {
                 themeButtons.forEach((b) => b.classList.remove("active"));
@@ -1901,10 +1942,14 @@ class UnifiedNavigationManager {
 
         resetBtn.addEventListener("click", () => {
             selectedFontSize = 14;
+            selectedTableFontSize = 14;
             selectedTheme = "light";
 
             fontSlider.value = 14;
             currentSizeLabel.textContent = "14px";
+
+            tableFontSlider.value = 14;
+            currentTableSizeLabel.textContent = "14px";
 
             themeButtons.forEach((b) => b.classList.remove("active"));
             const lightBtn = modal.querySelector('[data-theme="light"]');
@@ -1917,6 +1962,7 @@ class UnifiedNavigationManager {
         saveBtn.addEventListener("click", () => {
             this.saveFontSize(selectedFontSize);
             this.saveTheme(selectedTheme);
+            localStorage.setItem("ordersTableFontSize", selectedTableFontSize.toString());
             closeModal();
             this.showToast("Đã lưu cài đặt thành công!", "success");
         });

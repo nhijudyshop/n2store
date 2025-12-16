@@ -729,6 +729,17 @@ window.testTagListeners = function () {
 // INITIALIZATION #INIT
 // =====================================================
 window.addEventListener("DOMContentLoaded", async function () {
+    // Apply orders table font size from settings
+    const ordersTableFontSize = localStorage.getItem("ordersTableFontSize") || "14";
+    document.documentElement.style.setProperty("--orders-table-font-size", `${ordersTableFontSize}px`);
+
+    // Listen for font size changes from parent window
+    window.addEventListener("storage", (e) => {
+        if (e.key === "ordersTableFontSize") {
+            document.documentElement.style.setProperty("--orders-table-font-size", `${e.newValue}px`);
+        }
+    });
+
     console.log("[CACHE] Clearing all cache on page load...");
     if (window.cacheManager) {
         window.cacheManager.clear("orders");
