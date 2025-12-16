@@ -686,8 +686,13 @@
         let isFetching = false;
 
         const STORAGE_KEY = 'report_order_details_by_campaign';
+        const FIREBASE_PATH = 'report_order_details';
         const BATCH_SIZE = 10;
         const BATCH_DELAY = 1000; // 1 second
+
+        // Firebase cached data info
+        let firebaseCampaignName = null;
+        let firebaseDataFetchedAt = null;
 
         // Initialize Firebase
         if (typeof firebase !== 'undefined' && !firebase.apps.length) {
@@ -695,6 +700,116 @@
         }
         if (typeof firebase !== 'undefined') {
             database = firebase.database();
+        }
+
+        // =====================================================
+        // FIREBASE FUNCTIONS
+        // =====================================================
+
+        // Save data to Firebase by campaign
+        async function saveToFirebase(campaignName, data) {
+            if (!database) {
+                console.error('[REPORT] Firebase database not initialized');
+                return false;
+            }
+
+            try {
+                const safeCampaignName = campaignName.replace(/[.$#\[\]\/]/g, '_');
+                const ref = database.ref(`${FIREBASE_PATH}/${safeCampaignName}`);
+
+                await ref.set({
+                    orders: data.orders,
+                    fetchedAt: data.fetchedAt,
+                    totalOrders: data.totalOrders,
+                    successCount: data.successCount,
+                    errorCount: data.errorCount,
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                console.log(`[REPORT] ✅ Saved to Firebase: ${safeCampaignName}`);
+
+                // Update Firebase status and broadcast
+                firebaseCampaignName = campaignName;
+                firebaseDataFetchedAt = data.fetchedAt;
+                broadcastCampaignStatus();
+
+                return true;
+            } catch (error) {
+                console.error('[REPORT] ❌ Error saving to Firebase:', error);
+                return false;
+            }
+        }
+
+        // Load data from Firebase by campaign
+        async function loadFromFirebase(campaignName) {
+            if (!database) {
+                console.error('[REPORT] Firebase database not initialized');
+                return null;
+            }
+
+            try {
+                const safeCampaignName = campaignName.replace(/[.$#\[\]\/]/g, '_');
+                const ref = database.ref(`${FIREBASE_PATH}/${safeCampaignName}`);
+                const snapshot = await ref.once('value');
+
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    console.log(`[REPORT] ✅ Loaded from Firebase: ${safeCampaignName}, orders: ${data.orders?.length || 0}`);
+
+                    // Update Firebase status
+                    firebaseCampaignName = campaignName;
+                    firebaseDataFetchedAt = data.fetchedAt;
+                    broadcastCampaignStatus();
+
+                    return data;
+                } else {
+                    console.log(`[REPORT] ⚠️ No Firebase data for: ${safeCampaignName}`);
+                    return null;
+                }
+            } catch (error) {
+                console.error('[REPORT] ❌ Error loading from Firebase:', error);
+                return null;
+            }
+        }
+
+        // Check Firebase for current campaign data
+        async function checkFirebaseStatus() {
+            if (!currentCampaignName || !database) return;
+
+            try {
+                const safeCampaignName = currentCampaignName.replace(/[.$#\[\]\/]/g, '_');
+                const ref = database.ref(`${FIREBASE_PATH}/${safeCampaignName}`);
+                const snapshot = await ref.once('value');
+
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    firebaseCampaignName = currentCampaignName;
+                    firebaseDataFetchedAt = data.fetchedAt;
+                } else {
+                    firebaseCampaignName = null;
+                    firebaseDataFetchedAt = null;
+                }
+
+                broadcastCampaignStatus();
+            } catch (error) {
+                console.error('[REPORT] Error checking Firebase status:', error);
+            }
+        }
+
+        // Broadcast campaign status to parent (main.html)
+        function broadcastCampaignStatus() {
+            const isMatching = currentCampaignName && firebaseCampaignName &&
+                               currentCampaignName === firebaseCampaignName;
+
+            window.parent.postMessage({
+                type: 'CAMPAIGN_STATUS_UPDATE',
+                currentCampaign: currentCampaignName,
+                firebaseCampaign: firebaseCampaignName,
+                firebaseFetchedAt: firebaseDataFetchedAt,
+                isMatching: isMatching
+            }, '*');
+
+            console.log(`[REPORT] 📡 Broadcast campaign status: current=${currentCampaignName}, firebase=${firebaseCampaignName}, match=${isMatching}`);
         }
 
         // Load cached data from localStorage
@@ -750,6 +865,9 @@
                 renderOrdersTable();
                 updateCachedCountBadge();
                 renderCachedDetailsTab();
+
+                // Check Firebase status for this campaign
+                checkFirebaseStatus();
 
                 // Stop loading state
                 setRefreshLoading(false);
@@ -875,14 +993,19 @@
             }
 
             // Save to cache with timestamp
-            cachedOrderDetails[currentCampaignName] = {
+            const cacheData = {
                 orders: fetchedOrders,
                 fetchedAt: new Date().toISOString(),
                 totalOrders: total,
                 successCount: fetchedOrders.length,
                 errorCount: errors
             };
+
+            cachedOrderDetails[currentCampaignName] = cacheData;
             saveCachedData();
+
+            // Save to Firebase
+            const firebaseSaved = await saveToFirebase(currentCampaignName, cacheData);
 
             // Hide progress, restore button
             progressContainer.style.display = 'none';
@@ -895,7 +1018,8 @@
             renderCachedDetailsTab();
 
             // Show completion message
-            alert(`Hoàn thành!\n- Đã tải: ${fetchedOrders.length}/${total} đơn hàng\n- Lỗi: ${errors}\n- Chiến dịch: ${currentCampaignName}`);
+            const firebaseMsg = firebaseSaved ? '✅ Đã lưu Firebase' : '❌ Lỗi lưu Firebase';
+            alert(`Hoàn thành!\n- Đã tải: ${fetchedOrders.length}/${total} đơn hàng\n- Lỗi: ${errors}\n- Chiến dịch: ${currentCampaignName}\n- ${firebaseMsg}`);
 
             // Switch to details tab
             switchMainTab('details');

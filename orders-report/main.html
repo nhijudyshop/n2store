@@ -154,6 +154,97 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* Campaign Badge */
+        .campaign-badge {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: auto;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .campaign-badge.show {
+            display: flex;
+        }
+
+        .campaign-badge.match {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            border: 1px solid #28a745;
+        }
+
+        .campaign-badge.mismatch {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            border: 1px solid #dc3545;
+        }
+
+        .campaign-badge .badge-icon {
+            width: 14px;
+            height: 14px;
+        }
+
+        .campaign-badge .badge-text {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .campaign-badge:hover {
+            transform: scale(1.02);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        /* Campaign Tooltip */
+        .campaign-tooltip {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 12px 16px;
+            font-size: 12px;
+            z-index: 1000;
+            min-width: 280px;
+            margin-top: 8px;
+        }
+
+        .campaign-badge:hover .campaign-tooltip {
+            display: block;
+        }
+
+        .campaign-tooltip .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .campaign-tooltip .tooltip-row:last-child {
+            border-bottom: none;
+        }
+
+        .campaign-tooltip .tooltip-label {
+            color: #666;
+        }
+
+        .campaign-tooltip .tooltip-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .campaign-badge-wrapper {
+            position: relative;
+        }
     </style>
 </head>
 
@@ -216,6 +307,32 @@
                     <i data-lucide="file-bar-chart" class="tab-icon"></i>
                     Báo Cáo Tổng Hợp
                 </button>
+
+                <!-- Campaign Firebase Badge -->
+                <div class="campaign-badge-wrapper">
+                    <div class="campaign-badge" id="campaignBadge">
+                        <i data-lucide="database" class="badge-icon"></i>
+                        <span class="badge-text" id="campaignBadgeText">Firebase: ---</span>
+                        <div class="campaign-tooltip" id="campaignTooltip">
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Chiến dịch hiện tại:</span>
+                                <span class="tooltip-value" id="tooltipCurrentCampaign">---</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Firebase data:</span>
+                                <span class="tooltip-value" id="tooltipFirebaseCampaign">---</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Thời gian lấy:</span>
+                                <span class="tooltip-value" id="tooltipFetchedAt">---</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Trạng thái:</span>
+                                <span class="tooltip-value" id="tooltipStatus">---</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -418,8 +535,64 @@
                         console.log('[MAIN] ✅ Tab3 (productAssignmentFrame) reloading...');
                     }
                 }, 3500);
+            } else if (e.data.type === "CAMPAIGN_STATUS_UPDATE") {
+                // Update campaign badge from overview tab
+                updateCampaignBadge(e.data);
             }
         });
+
+        // Campaign Badge Functions
+        function updateCampaignBadge(data) {
+            const badge = document.getElementById('campaignBadge');
+            const badgeText = document.getElementById('campaignBadgeText');
+            const tooltipCurrent = document.getElementById('tooltipCurrentCampaign');
+            const tooltipFirebase = document.getElementById('tooltipFirebaseCampaign');
+            const tooltipFetchedAt = document.getElementById('tooltipFetchedAt');
+            const tooltipStatus = document.getElementById('tooltipStatus');
+
+            // Show badge
+            badge.classList.add('show');
+
+            // Update tooltip values
+            tooltipCurrent.textContent = data.currentCampaign || '---';
+            tooltipFirebase.textContent = data.firebaseCampaign || 'Chưa có';
+            tooltipFetchedAt.textContent = data.firebaseFetchedAt
+                ? new Date(data.firebaseFetchedAt).toLocaleString('vi-VN')
+                : '---';
+
+            // Update badge style based on match status
+            if (data.firebaseCampaign) {
+                if (data.isMatching) {
+                    badge.classList.remove('mismatch');
+                    badge.classList.add('match');
+                    badgeText.textContent = `✓ Firebase: ${truncateCampaignName(data.firebaseCampaign)}`;
+                    tooltipStatus.textContent = '✅ Khớp chiến dịch';
+                    tooltipStatus.style.color = '#28a745';
+                } else {
+                    badge.classList.remove('match');
+                    badge.classList.add('mismatch');
+                    badgeText.textContent = `⚠ Firebase: ${truncateCampaignName(data.firebaseCampaign)}`;
+                    tooltipStatus.textContent = '⚠️ Khác chiến dịch hiện tại!';
+                    tooltipStatus.style.color = '#dc3545';
+                }
+            } else {
+                badge.classList.remove('match', 'mismatch');
+                badge.classList.add('mismatch');
+                badgeText.textContent = 'Firebase: Chưa có data';
+                tooltipStatus.textContent = '❌ Chưa tải dữ liệu';
+                tooltipStatus.style.color = '#dc3545';
+            }
+
+            // Reinitialize icons
+            setTimeout(() => lucide.createIcons(), 50);
+
+            console.log('[MAIN] 📊 Campaign badge updated:', data);
+        }
+
+        function truncateCampaignName(name, maxLength = 20) {
+            if (!name) return '---';
+            return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;
+        }
 
         function refreshStatistics() {
             const statisticsFrame =
