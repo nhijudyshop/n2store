@@ -810,11 +810,10 @@ thead th:last-child {
 tbody tr {
     border-bottom: 1px solid #f0f0f0;
     transition: background-color 0.15s ease;
-    background: white;
 }
 
 tbody tr:hover {
-    background: white !important;
+    background: #e2e8f0 !important;
 }
 
 /* Date Group Separation - Thicker border between dates */
