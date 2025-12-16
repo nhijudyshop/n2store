@@ -4177,22 +4177,9 @@ function updateSearchResultCount() {
 }
 
 // Copy phone number to clipboard
-function copyPhoneNumber(phone, iconElement) {
+function copyPhoneNumber(phone) {
     if (!phone) return;
-
-    navigator.clipboard.writeText(phone).then(() => {
-        // Show success feedback
-        const originalColor = iconElement.style.color;
-        iconElement.style.color = '#10b981';
-        iconElement.classList.remove('fa-copy');
-        iconElement.classList.add('fa-check');
-
-        setTimeout(() => {
-            iconElement.style.color = originalColor;
-            iconElement.classList.remove('fa-check');
-            iconElement.classList.add('fa-copy');
-        }, 1500);
-    }).catch(err => {
+    navigator.clipboard.writeText(phone).catch(err => {
         console.error('Failed to copy phone number:', err);
     });
 }
@@ -5650,7 +5637,7 @@ function createRowHTML(order) {
             ${commentsHTML}
             <td data-column="phone" style="text-align: center;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                    ${order.Telephone ? `<i class="fas fa-copy copy-phone-btn" onclick="copyPhoneNumber('${order.Telephone}', this); event.stopPropagation();" title="Copy SĐT" style="cursor: pointer; color: #9ca3af; font-size: 11px;"></i>` : ''}
+                    ${order.Telephone ? `<i class="fas fa-copy copy-phone-btn" onclick="copyPhoneNumber('${order.Telephone}'); event.stopPropagation();" title="Copy SĐT" style="cursor: pointer; color: #9ca3af; font-size: 11px;"></i>` : ''}
                     <span>${highlight(order.Telephone)}</span>
                 </div>
             </td>
