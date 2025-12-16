@@ -6,8 +6,8 @@
 window.SoOrderUtils = {
     // Format number to Vietnamese currency
     formatCurrency(amount) {
-        if (!amount && amount !== 0) return "0đ";
-        return new Intl.NumberFormat("vi-VN").format(amount) + "đ";
+        if (!amount && amount !== 0) return "0";
+        return new Intl.NumberFormat("vi-VN").format(amount);
     },
 
     // Format date to YYYY-MM-DD
