@@ -680,18 +680,19 @@
         // GLOBAL STATE
         // =====================================================
         let allOrders = [];
-        let cachedOrderDetails = {}; // { campaignName: { orders: [], fetchedAt: timestamp } }
+        let cachedOrderDetails = {}; // { tableName: { orders: [], fetchedAt: timestamp } }
         let currentCampaignName = null;
+        let currentTableName = null; // Table name from tab1-orders
         let database = null;
         let isFetching = false;
 
-        const STORAGE_KEY = 'report_order_details_by_campaign';
+        const STORAGE_KEY = 'report_order_details_by_table';
         const FIREBASE_PATH = 'report_order_details';
         const BATCH_SIZE = 10;
         const BATCH_DELAY = 1000; // 1 second
 
         // Firebase cached data info
-        let firebaseCampaignName = null;
+        let firebaseTableName = null;
         let firebaseDataFetchedAt = null;
 
         // Initialize Firebase
@@ -706,18 +707,19 @@
         // FIREBASE FUNCTIONS
         // =====================================================
 
-        // Save data to Firebase by campaign
-        async function saveToFirebase(campaignName, data) {
+        // Save data to Firebase by table name
+        async function saveToFirebase(tableName, data) {
             if (!database) {
                 console.error('[REPORT] Firebase database not initialized');
                 return false;
             }
 
             try {
-                const safeCampaignName = campaignName.replace(/[.$#\[\]\/]/g, '_');
-                const ref = database.ref(`${FIREBASE_PATH}/${safeCampaignName}`);
+                const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
+                const ref = database.ref(`${FIREBASE_PATH}/${safeTableName}`);
 
                 await ref.set({
+                    tableName: tableName, // Store original table name
                     orders: data.orders,
                     fetchedAt: data.fetchedAt,
                     totalOrders: data.totalOrders,
@@ -726,12 +728,12 @@
                     updatedAt: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                console.log(`[REPORT] ✅ Saved to Firebase: ${safeCampaignName}`);
+                console.log(`[REPORT] ✅ Saved to Firebase with table name: ${tableName}`);
 
                 // Update Firebase status and broadcast
-                firebaseCampaignName = campaignName;
+                firebaseTableName = tableName;
                 firebaseDataFetchedAt = data.fetchedAt;
-                broadcastCampaignStatus();
+                broadcastTableStatus();
 
                 return true;
             } catch (error) {
@@ -740,30 +742,30 @@
             }
         }
 
-        // Load data from Firebase by campaign
-        async function loadFromFirebase(campaignName) {
+        // Load data from Firebase by table name
+        async function loadFromFirebase(tableName) {
             if (!database) {
                 console.error('[REPORT] Firebase database not initialized');
                 return null;
             }
 
             try {
-                const safeCampaignName = campaignName.replace(/[.$#\[\]\/]/g, '_');
-                const ref = database.ref(`${FIREBASE_PATH}/${safeCampaignName}`);
+                const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
+                const ref = database.ref(`${FIREBASE_PATH}/${safeTableName}`);
                 const snapshot = await ref.once('value');
 
                 if (snapshot.exists()) {
                     const data = snapshot.val();
-                    console.log(`[REPORT] ✅ Loaded from Firebase: ${safeCampaignName}, orders: ${data.orders?.length || 0}`);
+                    console.log(`[REPORT] ✅ Loaded from Firebase: ${tableName}, orders: ${data.orders?.length || 0}`);
 
                     // Update Firebase status
-                    firebaseCampaignName = campaignName;
+                    firebaseTableName = tableName;
                     firebaseDataFetchedAt = data.fetchedAt;
-                    broadcastCampaignStatus();
+                    broadcastTableStatus();
 
                     return data;
                 } else {
-                    console.log(`[REPORT] ⚠️ No Firebase data for: ${safeCampaignName}`);
+                    console.log(`[REPORT] ⚠️ No Firebase data for table: ${tableName}`);
                     return null;
                 }
             } catch (error) {
@@ -772,44 +774,44 @@
             }
         }
 
-        // Check Firebase for current campaign data
+        // Check Firebase for current table data
         async function checkFirebaseStatus() {
-            if (!currentCampaignName || !database) return;
+            if (!currentTableName || !database) return;
 
             try {
-                const safeCampaignName = currentCampaignName.replace(/[.$#\[\]\/]/g, '_');
-                const ref = database.ref(`${FIREBASE_PATH}/${safeCampaignName}`);
+                const safeTableName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
+                const ref = database.ref(`${FIREBASE_PATH}/${safeTableName}`);
                 const snapshot = await ref.once('value');
 
                 if (snapshot.exists()) {
                     const data = snapshot.val();
-                    firebaseCampaignName = currentCampaignName;
+                    firebaseTableName = currentTableName;
                     firebaseDataFetchedAt = data.fetchedAt;
                 } else {
-                    firebaseCampaignName = null;
+                    firebaseTableName = null;
                     firebaseDataFetchedAt = null;
                 }
 
-                broadcastCampaignStatus();
+                broadcastTableStatus();
             } catch (error) {
                 console.error('[REPORT] Error checking Firebase status:', error);
             }
         }
 
-        // Broadcast campaign status to parent (main.html)
-        function broadcastCampaignStatus() {
-            const isMatching = currentCampaignName && firebaseCampaignName &&
-                               currentCampaignName === firebaseCampaignName;
+        // Broadcast table status to parent (main.html)
+        function broadcastTableStatus() {
+            const isMatching = currentTableName && firebaseTableName &&
+                               currentTableName === firebaseTableName;
 
             window.parent.postMessage({
-                type: 'CAMPAIGN_STATUS_UPDATE',
-                currentCampaign: currentCampaignName,
-                firebaseCampaign: firebaseCampaignName,
+                type: 'TABLE_STATUS_UPDATE',
+                currentTable: currentTableName,
+                firebaseTable: firebaseTableName,
                 firebaseFetchedAt: firebaseDataFetchedAt,
                 isMatching: isMatching
             }, '*');
 
-            console.log(`[REPORT] 📡 Broadcast campaign status: current=${currentCampaignName}, firebase=${firebaseCampaignName}, match=${isMatching}`);
+            console.log(`[REPORT] 📡 Broadcast table status: current=${currentTableName}, firebase=${firebaseTableName}, match=${isMatching}`);
         }
 
         // Load cached data from localStorage
@@ -840,7 +842,7 @@
         // Update badge count
         function updateCachedCountBadge() {
             const badge = document.getElementById('cachedCountBadge');
-            const currentData = cachedOrderDetails[currentCampaignName];
+            const currentData = cachedOrderDetails[currentTableName];
             badge.textContent = currentData ? currentData.orders.length : 0;
         }
 
@@ -850,15 +852,19 @@
         window.addEventListener('message', function(event) {
             if (event.data.type === 'ORDERS_DATA_RESPONSE') {
                 console.log('[REPORT] Received orders data:', event.data.orders?.length || 0);
+                console.log('[REPORT] Received table name:', event.data.tableName);
 
                 allOrders = event.data.orders || [];
+                currentTableName = event.data.tableName || 'Bảng 1'; // Use table name from tab1
 
-                // Detect campaign name from first order
+                // Detect campaign name from first order (for backward compatibility)
                 if (allOrders.length > 0) {
                     const rawCampaign = allOrders[0].LiveCampaignName || allOrders[0].liveCampaignName || 'Unknown';
                     currentCampaignName = rawCampaign.replace(/[.$#\[\]]/g, '_').trim();
                     console.log('[REPORT] Current campaign:', currentCampaignName);
                 }
+
+                console.log('[REPORT] Using table name for mapping:', currentTableName);
 
                 // Update UI
                 updateStats();
@@ -866,7 +872,7 @@
                 updateCachedCountBadge();
                 renderCachedDetailsTab();
 
-                // Check Firebase status for this campaign
+                // Check Firebase status for this table
                 checkFirebaseStatus();
 
                 // Stop loading state
@@ -932,8 +938,8 @@
                 return;
             }
 
-            if (!currentCampaignName) {
-                alert('Không xác định được chiến dịch.');
+            if (!currentTableName) {
+                alert('Không xác định được tên bảng.');
                 return;
             }
 
@@ -951,7 +957,7 @@
             let completed = 0;
             let errors = 0;
 
-            console.log(`[REPORT] Starting batch fetch for ${total} orders (campaign: ${currentCampaignName})`);
+            console.log(`[REPORT] Starting batch fetch for ${total} orders (table: ${currentTableName})`);
 
             // Process in batches of BATCH_SIZE
             for (let i = 0; i < total; i += BATCH_SIZE) {
@@ -994,6 +1000,7 @@
 
             // Save to cache with timestamp
             const cacheData = {
+                tableName: currentTableName, // Include table name
                 orders: fetchedOrders,
                 fetchedAt: new Date().toISOString(),
                 totalOrders: total,
@@ -1001,11 +1008,11 @@
                 errorCount: errors
             };
 
-            cachedOrderDetails[currentCampaignName] = cacheData;
+            cachedOrderDetails[currentTableName] = cacheData;
             saveCachedData();
 
             // Save to Firebase
-            const firebaseSaved = await saveToFirebase(currentCampaignName, cacheData);
+            const firebaseSaved = await saveToFirebase(currentTableName, cacheData);
 
             // Hide progress, restore button
             progressContainer.style.display = 'none';
@@ -1019,7 +1026,7 @@
 
             // Show completion message
             const firebaseMsg = firebaseSaved ? '✅ Đã lưu Firebase' : '❌ Lỗi lưu Firebase';
-            alert(`Hoàn thành!\n- Đã tải: ${fetchedOrders.length}/${total} đơn hàng\n- Lỗi: ${errors}\n- Chiến dịch: ${currentCampaignName}\n- ${firebaseMsg}`);
+            alert(`Hoàn thành!\n- Đã tải: ${fetchedOrders.length}/${total} đơn hàng\n- Lỗi: ${errors}\n- Bảng: ${currentTableName}\n- ${firebaseMsg}`);
 
             // Switch to details tab
             switchMainTab('details');
@@ -1053,27 +1060,27 @@
         function renderCachedDetailsTab() {
             const area = document.getElementById('cachedDetailsArea');
 
-            if (!currentCampaignName || !cachedOrderDetails[currentCampaignName]) {
+            if (!currentTableName || !cachedOrderDetails[currentTableName]) {
                 area.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-database"></i>
                         <h3>Chưa có dữ liệu chi tiết</h3>
                         <p>Nhấn "Lấy chi tiết đơn hàng" để tải dữ liệu đầy đủ từ API</p>
-                        ${currentCampaignName ? `<p style="margin-top: 10px; color: #667eea;"><strong>Chiến dịch hiện tại:</strong> ${currentCampaignName}</p>` : ''}
+                        ${currentTableName ? `<p style="margin-top: 10px; color: #667eea;"><strong>Bảng hiện tại:</strong> ${currentTableName}</p>` : ''}
                     </div>
                 `;
                 return;
             }
 
-            const cached = cachedOrderDetails[currentCampaignName];
+            const cached = cachedOrderDetails[currentTableName];
             const orders = cached.orders || [];
             const fetchedAt = new Date(cached.fetchedAt);
 
             let html = `
-                <!-- Campaign Info -->
+                <!-- Table Info -->
                 <div class="campaign-info">
                     <div>
-                        <div class="campaign-name"><i class="fas fa-bullhorn"></i> ${currentCampaignName}</div>
+                        <div class="campaign-name"><i class="fas fa-table"></i> ${currentTableName}</div>
                         <div class="campaign-meta">${orders.length} đơn hàng đã tải</div>
                     </div>
                     <div class="campaign-meta">
@@ -1089,7 +1096,7 @@
                         Thành công: <strong>${cached.successCount || orders.length}</strong> |
                         Lỗi: <strong>${cached.errorCount || 0}</strong>
                     </div>
-                    <button class="btn-clear-cache" onclick="clearCacheForCampaign()">
+                    <button class="btn-clear-cache" onclick="clearCacheForTable()">
                         <i class="fas fa-trash"></i> Xóa cache
                     </button>
                 </div>
@@ -1140,20 +1147,20 @@
             area.innerHTML = html;
         }
 
-        function clearCacheForCampaign() {
-            if (!currentCampaignName) return;
+        function clearCacheForTable() {
+            if (!currentTableName) return;
 
-            if (confirm(`Xóa cache cho chiến dịch "${currentCampaignName}"?`)) {
-                delete cachedOrderDetails[currentCampaignName];
+            if (confirm(`Xóa cache cho bảng "${currentTableName}"?`)) {
+                delete cachedOrderDetails[currentTableName];
                 saveCachedData();
                 renderCachedDetailsTab();
             }
         }
 
         function openCachedOrderDetail(index) {
-            if (!currentCampaignName || !cachedOrderDetails[currentCampaignName]) return;
+            if (!currentTableName || !cachedOrderDetails[currentTableName]) return;
 
-            const order = cachedOrderDetails[currentCampaignName].orders[index];
+            const order = cachedOrderDetails[currentTableName].orders[index];
             if (!order) return;
 
             const modal = document.getElementById('orderDetailModal');
@@ -1198,9 +1205,9 @@
             const contentArea = document.getElementById('contentArea');
 
             let html = `
-                ${currentCampaignName ? `
+                ${currentTableName ? `
                     <div class="campaign-info">
-                        <div class="campaign-name"><i class="fas fa-bullhorn"></i> ${currentCampaignName}</div>
+                        <div class="campaign-name"><i class="fas fa-table"></i> ${currentTableName}</div>
                         <div class="campaign-meta">${allOrders.length} đơn hàng</div>
                     </div>
                 ` : ''}
