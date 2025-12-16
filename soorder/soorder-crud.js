@@ -603,9 +603,12 @@ window.SoOrderCRUD = {
 
             snapshot.forEach((doc) => {
                 const data = doc.data();
+                // data.tposCode là mã gốc từ TPOS
+                // doc.id là mã đã sanitized (dùng làm document ID)
                 state.nccNames.push({
-                    code: data.axCode || doc.id.toUpperCase(), // Dùng axCode nếu có, không thì dùng TPOS code
-                    tposCode: doc.id,
+                    code: data.axCode || doc.id.toUpperCase(), // Dùng axCode nếu có
+                    tposCode: data.tposCode || doc.id, // Mã TPOS gốc
+                    docId: doc.id, // Document ID (sanitized)
                     name: data.name,
                 });
             });
@@ -647,10 +650,11 @@ window.SoOrderCRUD = {
         }
 
         const trimmedName = supplierName.trim();
+        const docId = code.toUpperCase();
 
         // Check if code already exists with different name
         const existing = state.nccNames.find(
-            (n) => n.code.toUpperCase() === code.toUpperCase()
+            (n) => n.code.toUpperCase() === docId
         );
 
         if (existing && existing.name !== trimmedName) {
@@ -663,13 +667,22 @@ window.SoOrderCRUD = {
             return { success: true, conflict: false, existingName: null };
         }
 
-        // Save new NCC name
+        // Save new NCC name - consistent data structure
         try {
-            const docRef = config.nccNamesCollectionRef.doc(code.toUpperCase());
-            await docRef.set({ name: trimmedName });
+            const docRef = config.nccNamesCollectionRef.doc(docId);
+            await docRef.set({
+                name: trimmedName,
+                axCode: docId,
+                tposCode: docId // Manual entries use axCode as tposCode
+            });
 
             // Update state
-            state.nccNames.push({ code: code.toUpperCase(), name: trimmedName });
+            state.nccNames.push({
+                code: docId,
+                tposCode: docId,
+                docId: docId,
+                name: trimmedName
+            });
             state.nccNames.sort((a, b) => {
                 const numA = parseInt(a.code.replace(/^A/i, "")) || 0;
                 const numB = parseInt(b.code.replace(/^A/i, "")) || 0;
@@ -690,16 +703,24 @@ window.SoOrderCRUD = {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
 
+        const docId = code.toUpperCase();
+        const trimmedName = newName.trim();
+        const newAxCode = this.parseNCCCode(trimmedName);
+
         try {
-            const docRef = config.nccNamesCollectionRef.doc(code.toUpperCase());
-            await docRef.set({ name: newName.trim() });
+            const docRef = config.nccNamesCollectionRef.doc(docId);
+            await docRef.set({
+                name: trimmedName,
+                axCode: newAxCode || docId,
+                tposCode: docId
+            });
 
             // Update state
             const existing = state.nccNames.find(
-                (n) => n.code.toUpperCase() === code.toUpperCase()
+                (n) => n.code.toUpperCase() === docId
             );
             if (existing) {
-                existing.name = newName.trim();
+                existing.name = trimmedName;
             }
 
             return true;

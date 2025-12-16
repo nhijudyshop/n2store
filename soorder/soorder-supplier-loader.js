@@ -124,36 +124,94 @@ window.SoOrderSupplierLoader = {
     },
 
     // =====================================================
-    // SAVE SUPPLIERS TO FIREBASE - LƯU TẤT CẢ NCC KHÔNG LỌC
+    // HELPER: Sanitize document ID for Firestore
+    // Firestore document IDs cannot contain: / \ . # $ [ ]
+    // =====================================================
+    sanitizeDocId(id) {
+        if (!id) return null;
+        // Replace invalid characters with underscore
+        return String(id).replace(/[\/\\\.#$\[\]]/g, '_').trim();
+    },
+
+    // =====================================================
+    // HELPER: Chunk array into smaller arrays
+    // =====================================================
+    chunkArray(array, chunkSize) {
+        const chunks = [];
+        for (let i = 0; i < array.length; i += chunkSize) {
+            chunks.push(array.slice(i, i + chunkSize));
+        }
+        return chunks;
+    },
+
+    // =====================================================
+    // HELPER: Delete all documents in collection with chunking
+    // =====================================================
+    async deleteAllFromCollection(collectionRef, db) {
+        const BATCH_SIZE = 400; // Safe limit under 500
+
+        try {
+            const snapshot = await collectionRef.get();
+
+            if (snapshot.empty) {
+                console.log('[Supplier Loader] ℹ️ No existing documents to delete');
+                return 0;
+            }
+
+            const docs = snapshot.docs;
+            const chunks = this.chunkArray(docs, BATCH_SIZE);
+            let totalDeleted = 0;
+
+            console.log(`[Supplier Loader] 🗑️ Deleting ${docs.length} documents in ${chunks.length} batches...`);
+
+            for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i];
+                const batch = db.batch();
+
+                chunk.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+
+                await batch.commit();
+                totalDeleted += chunk.length;
+                console.log(`[Supplier Loader] ✅ Deleted batch ${i + 1}/${chunks.length} (${chunk.length} docs)`);
+            }
+
+            return totalDeleted;
+        } catch (error) {
+            console.error('[Supplier Loader] ❌ Error deleting documents:', error);
+            throw error;
+        }
+    },
+
+    // =====================================================
+    // SAVE SUPPLIERS TO FIREBASE - VIẾT LẠI HOÀN TOÀN
+    // - Xử lý batch chunking (tránh vượt 500 limit)
+    // - Sanitize document ID
+    // - Error handling tốt hơn
     // =====================================================
     async saveSuppliersToFirebase(suppliers) {
         const config = window.SoOrderConfig;
         const utils = window.SoOrderUtils;
+        const BATCH_SIZE = 400; // Safe limit under Firestore's 500
 
-        if (!config || !config.nccNamesCollectionRef) {
+        if (!config || !config.nccNamesCollectionRef || !config.db) {
             throw new Error('Firebase config not initialized');
         }
 
         try {
-            console.log('[Supplier Loader] 💾 Saving ALL suppliers to Firebase (no filtering)...');
+            console.log('[Supplier Loader] 💾 Saving ALL suppliers to Firebase...');
             console.log(`[Supplier Loader] 📊 Total suppliers from TPOS: ${suppliers.length}`);
 
             // Step 1: Xóa toàn bộ dữ liệu cũ trong Firebase trước
-            console.log('[Supplier Loader] 🗑️ Deleting all existing suppliers from Firebase...');
-            const existingSnapshot = await config.nccNamesCollectionRef.get();
+            const deletedCount = await this.deleteAllFromCollection(
+                config.nccNamesCollectionRef,
+                config.db
+            );
+            console.log(`[Supplier Loader] ✅ Deleted ${deletedCount} existing suppliers`);
 
-            if (!existingSnapshot.empty) {
-                const deleteBatch = config.db.batch();
-                existingSnapshot.forEach((doc) => {
-                    deleteBatch.delete(doc.ref);
-                });
-                await deleteBatch.commit();
-                console.log(`[Supplier Loader] ✅ Deleted ${existingSnapshot.size} existing suppliers`);
-            }
-
-            // Step 2: Lưu TẤT CẢ suppliers từ TPOS (dùng TPOS Code làm document ID)
-            const batch = config.db.batch();
-            let saveCount = 0;
+            // Step 2: Chuẩn bị data để lưu
+            const suppliersToSave = [];
 
             for (const supplier of suppliers) {
                 const name = supplier.Name;
@@ -164,28 +222,53 @@ window.SoOrderSupplierLoader = {
                     continue;
                 }
 
-                // Dùng TPOS Code làm document ID (unique cho mỗi NCC)
-                const docRef = config.nccNamesCollectionRef.doc(tposCode);
+                // Sanitize document ID
+                const docId = this.sanitizeDocId(tposCode);
+                if (!docId) {
+                    console.warn('[Supplier Loader] ⚠️ Invalid document ID for:', supplier);
+                    continue;
+                }
 
-                // Lưu cả name và axCode (nếu có) để dễ tra cứu
                 const axCode = this.parseNCCCode(name);
-                batch.set(docRef, {
-                    name: name.trim(),
-                    axCode: axCode || null
+                suppliersToSave.push({
+                    docId: docId,
+                    data: {
+                        name: name.trim(),
+                        axCode: axCode || null,
+                        tposCode: tposCode // Lưu lại TPOS code gốc
+                    }
                 });
-                saveCount++;
             }
 
-            // Commit batch
-            if (saveCount > 0) {
+            console.log(`[Supplier Loader] 📋 Prepared ${suppliersToSave.length} suppliers to save`);
+
+            // Step 3: Lưu theo batches
+            const chunks = this.chunkArray(suppliersToSave, BATCH_SIZE);
+            let totalSaved = 0;
+
+            console.log(`[Supplier Loader] 💾 Saving in ${chunks.length} batches...`);
+
+            for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i];
+                const batch = config.db.batch();
+
+                for (const item of chunk) {
+                    const docRef = config.nccNamesCollectionRef.doc(item.docId);
+                    batch.set(docRef, item.data);
+                }
+
                 await batch.commit();
-                console.log(`[Supplier Loader] ✅ Saved ${saveCount} suppliers to Firebase`);
+                totalSaved += chunk.length;
+                console.log(`[Supplier Loader] ✅ Saved batch ${i + 1}/${chunks.length} (${chunk.length} docs)`);
             }
 
-            return { success: true, count: saveCount };
+            console.log(`[Supplier Loader] ✅ Total saved: ${totalSaved} suppliers to Firebase`);
+
+            return { success: true, count: totalSaved };
 
         } catch (error) {
             console.error('[Supplier Loader] ❌ Error saving to Firebase:', error);
+            console.error('[Supplier Loader] ❌ Error details:', error.message, error.code);
             throw error;
         }
     },
@@ -267,9 +350,12 @@ window.SoOrderSupplierLoader = {
 
             snapshot.forEach((doc) => {
                 const data = doc.data();
+                // data.tposCode là mã gốc từ TPOS
+                // doc.id là mã đã sanitized (dùng làm document ID)
                 state.nccNames.push({
-                    code: data.axCode || doc.id.toUpperCase(), // Dùng axCode nếu có, không thì dùng TPOS code
-                    tposCode: doc.id,
+                    code: data.axCode || doc.id.toUpperCase(), // Dùng axCode nếu có
+                    tposCode: data.tposCode || doc.id, // Mã TPOS gốc
+                    docId: doc.id, // Document ID (sanitized)
                     name: data.name
                 });
             });
