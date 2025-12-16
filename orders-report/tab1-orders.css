@@ -299,6 +299,15 @@ body {
     z-index: 50 !important;
 }
 
+/* Copy phone button */
+.copy-phone-btn {
+    transition: color 0.2s ease;
+}
+
+.copy-phone-btn:hover {
+    color: #3b82f6 !important;
+}
+
 .status-badge {
     padding: 4px 8px;
     border-radius: 4px;
