@@ -1613,6 +1613,84 @@ GET /rest/v2.0/facebookpost/{objectId}/commentsbyuser?userId={userId}
 | `objectId` | Format: `{companyId}_{pageId}_{postId}` | `10037_117267091364524_884252610662484` |
 | `userId` | Facebook User ID của khách hàng | `7347746221993438` |
 
+#### ⚠️ Nguồn gốc `companyId`
+
+**`companyId` KHÔNG phải là hardcoded constant!** Giá trị này lấy từ `CRMTeam/GetAllFacebook` API:
+
+```
+GET /odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs
+```
+
+Response structure:
+```javascript
+{
+    "value": [
+        {
+            "Id": 10043,              // Parent user ID
+            "Facebook_TypeId": "User",
+            "Childs": [
+                {
+                    "Id": 10037,                           // ← ĐÂY LÀ companyId
+                    "Name": "Nhi Judy House",
+                    "Facebook_PageId": "117267091364524",  // ← pageId
+                    "Facebook_TypeId": "Page"
+                }
+            ]
+        }
+    ]
+}
+```
+
+**Mapping:**
+| Page Name | `companyId` (Childs[].Id) | `pageId` (Facebook_PageId) |
+|-----------|---------------------------|----------------------------|
+| Nhi Judy House | `10037` | `117267091364524` |
+| NHI JUDY Style | `10030` | `112678138086607` |
+| NhiJudy Store | `2` | `270136663390370` |
+
+#### Fetch & Cache companyId
+
+```javascript
+// Lấy và lưu mapping pageId → companyId vào localStorage
+async function fetchAndCachePageCompanyIds() {
+    const url = 'https://tomato.tpos.vn/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs';
+    
+    const response = await fetch(url, {
+        headers: {
+            ...await window.tokenManager.getAuthHeader(),
+            'Accept': 'application/json',
+            'tposappversion': '5.11.16.1'
+        }
+    });
+    
+    const data = await response.json();
+    const mapping = {};
+    
+    // Build mapping: Facebook_PageId → Id (companyId)
+    data.value.forEach(user => {
+        (user.Childs || []).forEach(page => {
+            if (page.Facebook_PageId && page.Id) {
+                mapping[page.Facebook_PageId] = page.Id;
+            }
+        });
+    });
+    
+    // Cache to localStorage
+    localStorage.setItem('pageCompanyIdMapping', JSON.stringify(mapping));
+    return mapping;
+}
+
+// Lấy companyId từ cache
+function getCompanyIdByPageId(pageId) {
+    const cached = localStorage.getItem('pageCompanyIdMapping');
+    if (cached) {
+        const mapping = JSON.parse(cached);
+        return mapping[pageId];
+    }
+    return null;
+}
+```
+
 #### Sử Dụng Qua Cloudflare Worker Proxy
 
 ```javascript
@@ -1708,7 +1786,20 @@ const data = await response.json();
 ```javascript
 // Trong openChatModal() hoặc tab History
 async function fetchLiveCommentsByUser(pageId, postId, userId) {
-    const companyId = '10037'; // TPOS company ID
+    // Lấy companyId từ localStorage cache (đã fetch từ GetAllFacebook API)
+    const companyId = getCompanyIdByPageId(pageId);
+    
+    if (!companyId) {
+        console.warn('companyId not found for pageId:', pageId);
+        // Fallback: fetch lại mapping
+        await fetchAndCachePageCompanyIds();
+        companyId = getCompanyIdByPageId(pageId);
+    }
+    
+    if (!companyId) {
+        throw new Error(`Cannot find companyId for pageId: ${pageId}`);
+    }
+    
     const objectId = `${companyId}_${pageId}_${postId}`;
     
     const url = `${window.API_CONFIG.WORKER_URL}/api/rest/v2.0/facebookpost/${objectId}/commentsbyuser?userId=${userId}`;
@@ -1752,4 +1843,4 @@ if (userId && postId && pageId) {
 
 ---
 
-*Cập nhật lần cuối: 2025-12-16 (Thêm TPOS Live Comments API documentation)*
+*Cập nhật lần cuối: 2025-12-17 (Thêm documentation nguồn gốc companyId từ CRMTeam/GetAllFacebook API)*
