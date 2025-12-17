@@ -11303,18 +11303,51 @@ window.uploadImageWithCache = async function uploadImageWithCache(imageBlob, pro
         }
 
         // Cache miss or no productId - Upload to Pancake
-        console.log('[UPLOAD-CACHE] Uploading to Pancake...');
+        console.log('[UPLOAD-CACHE] Preparing upload to Pancake...');
 
+        // ⭐ NEW: Auto-compress if image is too large (Pancake limit: 500KB)
+        const MAX_SIZE = 500 * 1024; // 500KB
+        let blobToUpload = imageBlob;
+        let compressionInfo = null;
+
+        if (imageBlob.size > MAX_SIZE) {
+            console.log(`[UPLOAD-CACHE] Image too large (${(imageBlob.size / 1024).toFixed(2)} KB > 500 KB), compressing...`);
+
+            if (window.compressImage) {
+                try {
+                    const compressed = await window.compressImage(imageBlob, MAX_SIZE, 1920, 0.85);
+                    blobToUpload = compressed.blob;
+                    compressionInfo = compressed;
+                    console.log(`[UPLOAD-CACHE] ✅ Compressed: ${(compressed.originalSize / 1024).toFixed(2)} KB → ${(compressed.compressedSize / 1024).toFixed(2)} KB (${compressed.compressionRatio} reduction)`);
+                } catch (compressError) {
+                    console.warn('[UPLOAD-CACHE] Compression failed, uploading original:', compressError);
+                    // Continue with original blob
+                }
+            } else {
+                console.warn('[UPLOAD-CACHE] compressImage function not available, uploading original (may fail)');
+            }
+        } else {
+            console.log(`[UPLOAD-CACHE] Image size OK: ${(imageBlob.size / 1024).toFixed(2)} KB`);
+        }
+
+        // Upload to Pancake
         const [uploadResult, dims] = await Promise.all([
-            window.pancakeDataManager.uploadImage(channelId, imageBlob),
-            getImageDimensions(imageBlob)
+            window.pancakeDataManager.uploadImage(channelId, blobToUpload),
+            compressionInfo ? Promise.resolve({ width: compressionInfo.width, height: compressionInfo.height }) : getImageDimensions(imageBlob)
         ]);
+
+        // ⭐ NEW: Check for error response from Pancake
+        if (uploadResult.success === false || (!uploadResult.content_url && !uploadResult.id)) {
+            const errorMsg = uploadResult.message || 'Upload failed';
+            console.error('[UPLOAD-CACHE] ❌ Pancake upload error:', errorMsg);
+            throw new Error(errorMsg);
+        }
 
         contentUrl = uploadResult.content_url;
         contentId = uploadResult.id;
         dimensions = dims;
 
-        console.log('[UPLOAD-CACHE] Upload success:', contentUrl);
+        console.log('[UPLOAD-CACHE] ✅ Upload success, content_id:', contentId);
 
         // Save to Firebase cache
         if ((productId || productName || productCode) && window.firebaseImageCache) {
