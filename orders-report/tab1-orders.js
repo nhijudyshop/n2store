@@ -21976,3 +21976,70 @@ window.chatProductManager = {
         }
     }
 };
+
+// ====================================
+// #region IMAGE ZOOM
+// ====================================
+
+/**
+ * Show image zoom overlay
+ * @param {string} imageUrl - URL of the image to zoom
+ * @param {string} productName - Name of the product (for caption)
+ */
+window.showImageZoom = function (imageUrl, productName = '') {
+    const overlay = document.getElementById('imageZoomOverlay');
+    const img = document.getElementById('imageZoomImg');
+    const caption = document.getElementById('imageZoomCaption');
+
+    if (!overlay || !img) {
+        console.error('[IMAGE-ZOOM] Overlay elements not found');
+        return;
+    }
+
+    // Set image source
+    img.src = imageUrl;
+
+    // Set caption if provided
+    if (caption && productName) {
+        caption.textContent = productName;
+        caption.style.display = 'block';
+    } else if (caption) {
+        caption.style.display = 'none';
+    }
+
+    // Show overlay with animation
+    overlay.classList.add('show');
+
+    // Prevent body scroll when overlay is open
+    document.body.style.overflow = 'hidden';
+
+    console.log('[IMAGE-ZOOM] Showing image:', imageUrl);
+};
+
+/**
+ * Close image zoom overlay
+ */
+window.closeImageZoom = function () {
+    const overlay = document.getElementById('imageZoomOverlay');
+    if (!overlay) return;
+
+    // Hide overlay
+    overlay.classList.remove('show');
+
+    // Restore body scroll
+    document.body.style.overflow = '';
+
+    console.log('[IMAGE-ZOOM] Closed');
+};
+
+// Close on ESC key
+document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+        const overlay = document.getElementById('imageZoomOverlay');
+        if (overlay && overlay.classList.contains('show')) {
+            window.closeImageZoom();
+        }
+    }
+});
+
+// #endregion IMAGE ZOOM
