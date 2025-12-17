@@ -3239,22 +3239,14 @@ async function autoCreateAndAddTagToBulkModal(tagName) {
             delete newTag['@odata.context'];
         }
 
-        // Update tags list (both window and local)
-        const currentTags = window.availableTags || availableTags || [];
-        currentTags.push(newTag);
-        window.availableTags = currentTags;
-        availableTags = currentTags;
-        window.cacheManager.set("tags", currentTags, "tags");
-
-        // Save to Firebase
-        if (database) {
-            await database.ref('settings/tags').set(currentTags);
-            console.log('[BULK-TAG-MODAL] Saved updated tags to Firebase');
-        }
+        // Reload all tags from TPOS API to ensure sync
+        console.log('[BULK-TAG-MODAL] Reloading all tags from TPOS...');
+        await loadAvailableTags();
 
         // Update filter dropdowns
         populateTagFilter();
         populateBulkTagDropdown();
+        populateBulkTagModalDropdown();
 
         // Add the new tag to bulk tag modal table
         addTagToBulkTagModal(newTag.Id, newTag.Name, newTag.Color);
