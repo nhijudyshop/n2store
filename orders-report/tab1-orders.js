@@ -3588,9 +3588,16 @@ async function executeBulkTagModalAssignment() {
             console.log(`[BULK-TAG-MODAL] Processing tag "${tagInfo.Name}" for ${matchingOrders.length} orders`);
 
             // Process each order
-            for (const order of matchingOrders) {
+            for (const orderRef of matchingOrders) {
                 try {
-                    // Parse current tags
+                    // Get fresh order data from displayedData (avoid stale reference)
+                    const order = displayedData.find(o => o.Id === orderRef.Id);
+                    if (!order) {
+                        console.warn(`[BULK-TAG-MODAL] Order ${orderRef.Id} not found in displayedData`);
+                        continue;
+                    }
+
+                    // Parse current tags (from fresh data)
                     const rawTags = order.Tags ? JSON.parse(order.Tags) : [];
                     const currentTags = rawTags.map(t => ({
                         Id: parseInt(t.Id, 10),
