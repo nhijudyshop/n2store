@@ -10431,6 +10431,160 @@ window.clearPastedImage = function () {
     console.log('[CLEAR-IMAGE] Cleared all images (UI only - images still on Pancake/Firebase)');
 }
 
+/**
+ * Send product image to chat input
+ * Fetches image from URL, uploads to Pancake, and adds to chat preview
+ * Called from Dropped Products tab (right-click on product image)
+ * @param {string} imageUrl - URL of the product image
+ * @param {string} productName - Name of the product
+ */
+window.sendImageToChat = async function (imageUrl, productName) {
+    // Check if chat modal is open
+    const chatModal = document.getElementById('chatModal');
+    if (!chatModal || !chatModal.classList.contains('show')) {
+        if (window.notificationManager) {
+            window.notificationManager.show('Vui lòng mở chat trước khi gửi ảnh', 'warning');
+        } else {
+            alert('Vui lòng mở chat trước khi gửi ảnh');
+        }
+        return;
+    }
+
+    // Check if we have channel ID for upload
+    const channelId = window.currentChatChannelId;
+    if (!channelId) {
+        if (window.notificationManager) {
+            window.notificationManager.show('Không có thông tin channel để upload ảnh', 'error');
+        }
+        return;
+    }
+
+    try {
+        console.log('[SEND-IMAGE-TO-CHAT] Fetching image:', imageUrl);
+
+        // Show loading notification
+        if (window.notificationManager) {
+            window.notificationManager.show('Đang tải ảnh...', 'info');
+        }
+
+        // Fetch image and convert to blob
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+            throw new Error('Không thể tải ảnh từ URL');
+        }
+
+        const blob = await response.blob();
+
+        // Initialize uploaded images array if needed
+        if (!window.uploadedImagesData) {
+            window.uploadedImagesData = [];
+        }
+
+        // Add to preview first (showing as uploading)
+        window.uploadedImagesData.push({
+            blob: blob,
+            productId: null,
+            productName: productName
+        });
+        window.updateMultipleImagesPreview();
+
+        // Upload to Pancake
+        const result = await window.uploadImageWithCache(blob, null, productName, channelId);
+
+        // Update the last added item with upload result
+        const lastIndex = window.uploadedImagesData.length - 1;
+        if (result.success) {
+            window.uploadedImagesData[lastIndex] = {
+                ...result.data,
+                blob: blob,
+                productId: null,
+                productName: productName
+            };
+            console.log('[SEND-IMAGE-TO-CHAT] ✓ Image uploaded successfully');
+            if (window.notificationManager) {
+                window.notificationManager.show('✓ Đã thêm ảnh vào tin nhắn', 'success');
+            }
+        } else {
+            window.uploadedImagesData[lastIndex] = {
+                blob: blob,
+                productId: null,
+                productName: productName,
+                error: result.error,
+                uploadFailed: true
+            };
+            console.error('[SEND-IMAGE-TO-CHAT] ✗ Upload failed:', result.error);
+            if (window.notificationManager) {
+                window.notificationManager.show('Lỗi upload ảnh: ' + result.error, 'error');
+            }
+        }
+
+        // Update preview
+        window.updateMultipleImagesPreview();
+
+        // Focus on chat input
+        const chatInput = document.getElementById('chatReplyInput');
+        if (chatInput) {
+            chatInput.focus();
+        }
+
+    } catch (error) {
+        console.error('[SEND-IMAGE-TO-CHAT] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('Lỗi khi gửi ảnh: ' + error.message, 'error');
+        }
+    }
+};
+
+/**
+ * Send product name/info to chat input
+ * Inserts product name into the chat message textarea
+ * Called from Dropped Products tab (click on send button)
+ * @param {number} productId - Product ID
+ * @param {string} productName - Name of the product
+ */
+window.sendProductToChat = function (productId, productName) {
+    // Check if chat modal is open
+    const chatModal = document.getElementById('chatModal');
+    if (!chatModal || !chatModal.classList.contains('show')) {
+        if (window.notificationManager) {
+            window.notificationManager.show('Vui lòng mở chat trước khi gửi tên sản phẩm', 'warning');
+        } else {
+            alert('Vui lòng mở chat trước khi gửi tên sản phẩm');
+        }
+        return;
+    }
+
+    const chatInput = document.getElementById('chatReplyInput');
+    if (!chatInput) {
+        console.error('[SEND-PRODUCT-TO-CHAT] Chat input not found');
+        return;
+    }
+
+    // Insert product name at cursor position or append
+    const currentValue = chatInput.value;
+    const cursorPos = chatInput.selectionStart;
+
+    if (currentValue) {
+        // Append with newline if there's existing text
+        const before = currentValue.substring(0, cursorPos);
+        const after = currentValue.substring(cursorPos);
+        const separator = before.endsWith('\n') || before === '' ? '' : '\n';
+        chatInput.value = before + separator + productName + after;
+    } else {
+        chatInput.value = productName;
+    }
+
+    // Focus and trigger resize
+    chatInput.focus();
+    chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    console.log('[SEND-PRODUCT-TO-CHAT] ✓ Added product name:', productName);
+
+    if (window.notificationManager) {
+        window.notificationManager.show('✓ Đã thêm tên sản phẩm vào tin nhắn', 'success');
+    }
+};
+
 // Message Queue Management
 window.chatMessageQueue = window.chatMessageQueue || [];
 window.chatIsProcessingQueue = false;
@@ -14836,6 +14990,7 @@ function renderProductCard(p, index, isHeld) {
     const borderColor = isHeld ? '#fbbf24' : '#e2e8f0';
     const bgColor = isHeld ? '#fffbeb' : 'white';
     const heldBadge = isHeld ? `<span style="font-size: 10px; background: #fbbf24; color: #78350f; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Giữ</span>` : '';
+    const escapedProductName = (p.ProductName || p.Name || '').replace(/'/g, "\\'");
 
     return `
         <div class="chat-product-card" style="
@@ -14848,7 +15003,7 @@ function renderProductCard(p, index, isHeld) {
             gap: 12px;
             transition: all 0.2s;
         ">
-            <!-- Image -->
+            <!-- Image - Click to zoom, Right-click to send to chat -->
             <div style="
                 width: 48px;
                 height: 48px;
@@ -14859,7 +15014,12 @@ function renderProductCard(p, index, isHeld) {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-            ">
+                cursor: ${p.ImageUrl ? 'pointer' : 'default'};
+            "
+                ${p.ImageUrl ? `onclick="showImageZoom('${p.ImageUrl}', '${escapedProductName}')"` : ''}
+                ${p.ImageUrl ? `oncontextmenu="sendImageToChat('${p.ImageUrl}', '${escapedProductName}'); return false;"` : ''}
+                ${p.ImageUrl ? `title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat"` : ''}
+            >
                 ${p.ImageUrl
             ? `<img src="${p.ImageUrl}" style="width: 100%; height: 100%; object-fit: cover;">`
             : `<i class="fas fa-image" style="color: #cbd5e1;"></i>`}
@@ -14880,8 +15040,28 @@ function renderProductCard(p, index, isHeld) {
 
                 <!-- Controls -->
                 <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="font-size: 13px; font-weight: 700; color: #3b82f6;">
-                        ${(p.Price || 0).toLocaleString("vi-VN")}đ
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="font-size: 13px; font-weight: 700; color: #3b82f6;">
+                            ${(p.Price || 0).toLocaleString("vi-VN")}đ
+                        </div>
+                        <button onclick="sendProductToChat(${p.ProductId}, '${escapedProductName}')" style="
+                            width: 24px;
+                            height: 24px;
+                            border: none;
+                            background: #3b82f6;
+                            color: white;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 10px;
+                            transition: all 0.2s;
+                        " title="Gửi tên sản phẩm vào chat"
+                           onmouseover="this.style.background='#2563eb'"
+                           onmouseout="this.style.background='#3b82f6'">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
                     </div>
 
                     ${!isHeld ? `
