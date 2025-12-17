@@ -5761,7 +5761,7 @@ function createRowHTML(order) {
             </td>
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
             <td data-column="tag">
-                <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
                     <div style="display: flex; gap: 2px;">
                         <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
                             <i class="fas fa-tags"></i>
@@ -5773,7 +5773,7 @@ function createRowHTML(order) {
                             <i class="fas fa-check"></i>
                         </button>
                     </div>
-                    ${tagsHTML}
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">${tagsHTML}</div>
                 </div>
             </td>
             <td data-column="order-code">
