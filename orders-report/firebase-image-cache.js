@@ -1,7 +1,8 @@
 /**
  * Firebase Image Cache Manager
  * Manages cached product images uploaded to Pancake server
- * Structure: pancake_images/{product_id} = { product_name, content_url, content_id }
+ * Structure: pancake_images/{sanitized_key} = { product_name, content_url, content_id }
+ * Key can be: productId (number) OR productName/productCode (string, sanitized)
  */
 
 (function() {
@@ -47,11 +48,54 @@
         }
 
         /**
+         * Sanitize string to be a valid Firebase key
+         * Firebase keys cannot contain: . # $ / [ ]
+         * @param {string} str - String to sanitize
+         * @returns {string} - Sanitized string safe for Firebase key
+         */
+        sanitizeKey(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/[.#$/\[\]]/g, '_')  // Replace forbidden chars with underscore
+                .replace(/\s+/g, '_')          // Replace spaces with underscore
+                .substring(0, 200);            // Limit length
+        }
+
+        /**
+         * Generate cache key from product info
+         * Priority: productId (if number) > productName > productCode
+         * @param {string|number} productId - Product ID (optional)
+         * @param {string} productName - Product name (optional)
+         * @param {string} productCode - Product code (optional)
+         * @returns {string|null} - Cache key or null if no valid key
+         */
+        generateKey(productId, productName = null, productCode = null) {
+            // If productId is a valid number, use it directly
+            if (productId && !isNaN(Number(productId))) {
+                return String(productId);
+            }
+
+            // Use productName if available (sanitized)
+            if (productName && productName.trim()) {
+                return this.sanitizeKey(productName.trim());
+            }
+
+            // Fallback to productCode if available
+            if (productCode && productCode.trim()) {
+                return this.sanitizeKey(productCode.trim());
+            }
+
+            return null;
+        }
+
+        /**
          * Get cached image for a product
-         * @param {string|number} productId
+         * @param {string|number} productId - Product ID
+         * @param {string} productName - Product name (fallback key)
+         * @param {string} productCode - Product code (fallback key)
          * @returns {Promise<{product_name: string, content_url: string, content_id?: string}|null>}
          */
-        async get(productId) {
+        async get(productId, productName = null, productCode = null) {
             try {
                 // Wait for initialization
                 await this.initPromise;
@@ -61,21 +105,20 @@
                     return null;
                 }
 
-                if (!productId) {
+                const cacheKey = this.generateKey(productId, productName, productCode);
+                if (!cacheKey) {
+                    console.warn('[FIREBASE-CACHE] No valid cache key available');
                     return null;
                 }
 
-                // Convert to string for consistent keys
-                const productIdStr = String(productId);
-
-                const snapshot = await this.cacheRef.child(productIdStr).once('value');
+                const snapshot = await this.cacheRef.child(cacheKey).once('value');
 
                 if (snapshot.exists()) {
                     const data = snapshot.val();
-                    console.log(`[FIREBASE-CACHE] ✅ Cache HIT for product ${productIdStr}:`, data.content_url, 'id:', data.content_id);
+                    console.log(`[FIREBASE-CACHE] ✅ Cache HIT for "${cacheKey}":`, data.content_id);
                     return data;
                 } else {
-                    console.log(`[FIREBASE-CACHE] ❌ Cache MISS for product ${productIdStr}`);
+                    console.log(`[FIREBASE-CACHE] ❌ Cache MISS for "${cacheKey}"`);
                     return null;
                 }
 
@@ -88,13 +131,14 @@
 
         /**
          * Save image to cache
-         * @param {string|number} productId
-         * @param {string} productName
-         * @param {string} contentUrl
+         * @param {string|number} productId - Product ID
+         * @param {string} productName - Product name
+         * @param {string} contentUrl - Pancake content URL
          * @param {string} contentId - Pancake image ID for reuse
+         * @param {string} productCode - Product code (optional)
          * @returns {Promise<boolean>}
          */
-        async set(productId, productName, contentUrl, contentId = null) {
+        async set(productId, productName, contentUrl, contentId = null, productCode = null) {
             try {
                 // Wait for initialization
                 await this.initPromise;
@@ -104,16 +148,20 @@
                     return false;
                 }
 
-                if (!productId || !contentUrl) {
-                    console.warn('[FIREBASE-CACHE] Missing productId or contentUrl, skipping cache set');
+                if (!contentUrl) {
+                    console.warn('[FIREBASE-CACHE] Missing contentUrl, skipping cache set');
                     return false;
                 }
 
-                // Convert to string for consistent keys
-                const productIdStr = String(productId);
+                const cacheKey = this.generateKey(productId, productName, productCode);
+                if (!cacheKey) {
+                    console.warn('[FIREBASE-CACHE] No valid cache key (need productId, productName, or productCode)');
+                    return false;
+                }
 
                 const cacheData = {
                     product_name: productName || '',
+                    product_code: productCode || '',
                     content_url: contentUrl,
                     updated_at: firebase.database.ServerValue.TIMESTAMP
                 };
@@ -123,9 +171,14 @@
                     cacheData.content_id = contentId;
                 }
 
-                await this.cacheRef.child(productIdStr).set(cacheData);
+                // Store original productId if available
+                if (productId && !isNaN(Number(productId))) {
+                    cacheData.product_id = Number(productId);
+                }
 
-                console.log(`[FIREBASE-CACHE] ✅ Saved to cache: product ${productIdStr}, content_id:`, contentId);
+                await this.cacheRef.child(cacheKey).set(cacheData);
+
+                console.log(`[FIREBASE-CACHE] ✅ Saved to cache: "${cacheKey}", content_id:`, contentId);
                 return true;
 
             } catch (error) {
@@ -146,9 +199,11 @@
         /**
          * Clear cache for a specific product (for admin use)
          * @param {string|number} productId
+         * @param {string} productName
+         * @param {string} productCode
          * @returns {Promise<boolean>}
          */
-        async clear(productId) {
+        async clear(productId, productName = null, productCode = null) {
             try {
                 await this.initPromise;
 
@@ -156,9 +211,13 @@
                     return false;
                 }
 
-                const productIdStr = String(productId);
-                await this.cacheRef.child(productIdStr).remove();
-                console.log(`[FIREBASE-CACHE] ✅ Cleared cache for product ${productIdStr}`);
+                const cacheKey = this.generateKey(productId, productName, productCode);
+                if (!cacheKey) {
+                    return false;
+                }
+
+                await this.cacheRef.child(cacheKey).remove();
+                console.log(`[FIREBASE-CACHE] ✅ Cleared cache for "${cacheKey}"`);
                 return true;
 
             } catch (error) {
