@@ -9426,6 +9426,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             // Render products table
             renderChatProductsTable();
 
+            // Initialize search after render (with delay for DOM ready)
+            setTimeout(() => {
+                initChatProductSearch();
+            }, 100);
+
             // Setup realtime listener for held products (multi-user collaboration)
             if (typeof window.setupHeldProductsListener === 'function') {
                 window.setupHeldProductsListener();
