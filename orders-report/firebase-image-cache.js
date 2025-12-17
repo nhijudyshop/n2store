@@ -137,9 +137,11 @@
          * @param {string} contentUrl - Pancake content URL (optional)
          * @param {string} contentId - Pancake image ID for reuse (required)
          * @param {string} productCode - Product code (optional)
+         * @param {number} width - Image width (optional)
+         * @param {number} height - Image height (optional)
          * @returns {Promise<boolean>}
          */
-        async set(productId, productName, contentUrl, contentId = null, productCode = null) {
+        async set(productId, productName, contentUrl, contentId = null, productCode = null, width = null, height = null) {
             try {
                 // Wait for initialization
                 await this.initPromise;
@@ -171,6 +173,14 @@
                 // Store content_url if provided (optional)
                 if (contentUrl) {
                     cacheData.content_url = contentUrl;
+                }
+
+                // Store dimensions if provided (optional)
+                if (width && width > 0) {
+                    cacheData.width = width;
+                }
+                if (height && height > 0) {
+                    cacheData.height = height;
                 }
 
                 // Store original productId if available
