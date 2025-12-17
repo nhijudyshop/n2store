@@ -8556,6 +8556,11 @@ window.switchConversationType = async function (type) {
         if (markReadBtn) {
             markReadBtn.style.display = 'none'; // Keep hidden for now
         }
+
+        // Auto-focus chat input when switching to INBOX (message mode)
+        setTimeout(() => {
+            if (chatInput) chatInput.focus();
+        }, 150);
     }
 
     // Update current chat type for other functions to use
@@ -9533,6 +9538,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             chatSendBtn.style.cursor = 'pointer';
             chatSendBtn.title = 'Gửi tin nhắn';
         }
+
+        // Auto-focus chat input for immediate typing (message mode only)
+        setTimeout(() => {
+            chatInput.focus();
+        }, 150);
     }
 
     // Ensure send button is in correct state after modal initialization
