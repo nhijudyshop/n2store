@@ -3416,6 +3416,14 @@ function addSTTToBulkTagRow(tagId, inputElement) {
     inputElement.value = '';
 
     updateBulkTagModalTable();
+
+    // Re-focus on the input after table re-render
+    setTimeout(() => {
+        const newInput = document.querySelector(`.bulk-tag-row[data-tag-id="${tagId}"] .bulk-tag-stt-input`);
+        if (newInput) {
+            newInput.focus();
+        }
+    }, 10);
 }
 
 // Handle Enter key on STT input
