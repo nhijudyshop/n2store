@@ -5405,6 +5405,14 @@ td[data-column].hidden {
     background: #f9fafb;
 }
 
+.bulk-tag-search-option.highlighted {
+    background: #e5e7eb;
+}
+
+.bulk-tag-search-option.highlighted:hover {
+    background: #d1d5db;
+}
+
 .bulk-tag-search-option .tag-color-dot {
     width: 12px;
     height: 12px;
