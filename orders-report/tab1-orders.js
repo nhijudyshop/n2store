@@ -9783,6 +9783,17 @@ function autoMarkAsRead(delayMs = 0) {
             window.currentConversationReadState.lastMarkedAt = Date.now();
             updateReadBadge(true);
             updateMarkButton(true);
+
+            // ✨ NEW: Update conversation data locally and refresh table UI
+            if (window.pancakeDataManager) {
+                window.pancakeDataManager.updateConversationReadStatus(conversationId, true);
+
+                // Re-render table to show updated badge/count
+                if (typeof renderTable === 'function') {
+                    console.log('[MARK-READ] 🔄 Auto-refresh table UI...');
+                    renderTable();
+                }
+            }
         }
     }, delayMs);
 }
@@ -9821,6 +9832,17 @@ window.toggleConversationReadState = async function () {
             window.currentConversationReadState.lastMarkedAt = Date.now();
             updateReadBadge(!isRead);
             updateMarkButton(!isRead);
+
+            // ✨ NEW: Update conversation data locally and refresh table UI
+            if (window.pancakeDataManager) {
+                window.pancakeDataManager.updateConversationReadStatus(conversationId, !isRead);
+
+                // Re-render table to show updated badge/count
+                if (typeof renderTable === 'function') {
+                    console.log('[MARK-READ] 🔄 Refreshing table UI...');
+                    renderTable();
+                }
+            }
         } else {
             alert('Không thể thay đổi trạng thái đọc');
         }
