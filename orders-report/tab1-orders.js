@@ -10470,11 +10470,12 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
         console.log('[SEND-IMAGE-TO-CHAT] Product:', productId, productName);
         console.log('[SEND-IMAGE-TO-CHAT] Image URL:', imageUrl);
 
-        // Check Firebase cache first if we have productId
-        if (productId && window.firebaseImageCache) {
-            console.log('[SEND-IMAGE-TO-CHAT] 🔍 Checking Firebase cache for product:', productId);
+        // Check Firebase cache first (using productId OR productName as key)
+        if (window.firebaseImageCache && (productId || productName)) {
+            console.log('[SEND-IMAGE-TO-CHAT] 🔍 Checking Firebase cache...');
 
-            const cached = await window.firebaseImageCache.get(productId);
+            // Pass both productId and productName - cache will use best available key
+            const cached = await window.firebaseImageCache.get(productId, productName);
 
             if (cached && cached.content_id) {
                 // ✅ CACHE HIT - Use cached content_id directly (no upload needed!)
@@ -10556,8 +10557,8 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
 
             console.log('[SEND-IMAGE-TO-CHAT] ✓ Upload success! content_id:', contentId);
 
-            // Save to Firebase cache if we have productId
-            if (productId && window.firebaseImageCache) {
+            // Save to Firebase cache (using productId OR productName as key)
+            if (window.firebaseImageCache && (productId || productName)) {
                 console.log('[SEND-IMAGE-TO-CHAT] 💾 Saving to Firebase cache...');
                 await window.firebaseImageCache.set(productId, productName, contentUrl, contentId)
                     .catch(err => {
