@@ -874,8 +874,13 @@
                         <h3 id="chatModalTitle"
                             style="color: white; font-size: 18px; font-weight: 600; margin: 0 0 4px 0;">Tin nhắn với
                             Khách hàng</h3>
-                        <p id="chatModalSubtitle" style="color: rgba(255, 255, 255, 0.9); font-size: 13px; margin: 0;">
-                            Đang tải...</p>
+                        <p id="chatModalSubtitle" style="color: rgba(255, 255, 255, 0.9); font-size: 13px; margin: 0; display: flex; align-items: center; gap: 10px;">
+                            <span id="chatModalSubtitleText">Đang tải...</span>
+                            <span id="chatReadBadge"
+                                style="padding: 4px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.2); font-size: 11px; font-weight: 600; display: none; border: 1px solid rgba(255, 255, 255, 0.3);">
+                                <i class="fas fa-circle"></i> Chưa đọc
+                            </span>
+                        </p>
                         <!-- Conversation Type Toggle -->
                         <div id="conversationTypeToggle" style="display: flex; gap: 6px; margin-top: 10px;">
                             <button id="btnViewInbox" onclick="switchConversationType('INBOX')"
@@ -891,6 +896,11 @@
                     <!-- QR Buttons -->
                     <div class="chat-qr-buttons" id="chatQRButtons"
                         style="display: flex; gap: 6px; margin-right: 12px; align-items: center;">
+                        <button id="btnMarkReadToggle" onclick="toggleConversationReadState()" title="Đánh dấu đã đọc"
+                            style="background: rgba(16, 185, 129, 0.8); border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; display: none; align-items: center; gap: 4px; color: white; font-size: 11px; font-weight: 600; transition: all 0.2s;"
+                            onmouseover="this.style.opacity='0.9';" onmouseout="this.style.opacity='1';">
+                            <i class="fas fa-envelope"></i>
+                        </button>
                         <button onclick="toggleChatRightPanel()" title="Mở/Đóng panel thông tin"
                             style="background: rgba(255, 255, 255, 0.2); border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: white; font-size: 11px; font-weight: 600; transition: all 0.2s;"
                             onmouseover="this.style.background='rgba(255, 255, 255, 0.3)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.2)';">

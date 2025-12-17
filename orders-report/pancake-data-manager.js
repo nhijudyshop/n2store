@@ -1781,14 +1781,89 @@ class PancakeDataManager {
     }
 
     /**
-     * Mark conversation as read (tương tự TPOS)
-     * Note: Pancake không có API public để mark as read từ ngoài,
-     * chỉ để placeholder cho tương thích
-     * @param {string} userId - Facebook User ID
+     * Mark conversation as read (Pancake Official API)
+     * POST /pages/{page_id}/conversations/{conversation_id}/read
+     * @param {string} pageId - Page ID
+     * @param {string} conversationId - Conversation ID
      * @returns {Promise<boolean>}
      */
+    async markConversationAsRead(pageId, conversationId) {
+        try {
+            console.log(`[PANCAKE] Marking conversation as read: ${conversationId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/read`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Mark as read failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Marked as read:', conversationId, data);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Mark as read failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Mark conversation as unread (Pancake Official API)
+     * POST /pages/{page_id}/conversations/{conversation_id}/unread
+     * @param {string} pageId - Page ID
+     * @param {string} conversationId - Conversation ID
+     * @returns {Promise<boolean>}
+     */
+    async markConversationAsUnread(pageId, conversationId) {
+        try {
+            console.log(`[PANCAKE] Marking conversation as unread: ${conversationId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/unread`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Mark as unread failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Marked as unread:', conversationId, data);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Mark as unread failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * @deprecated Use markConversationAsRead instead
+     * Legacy function for compatibility with TPOS
+     */
     async markAsSeen(userId) {
-        console.warn('[PANCAKE] markAsSeen is not implemented - Pancake does not have public API for this');
+        console.warn('[PANCAKE] markAsSeen is deprecated - use markConversationAsRead instead');
         return false;
     }
 

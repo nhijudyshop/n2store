@@ -9682,6 +9682,160 @@ let isSendingMessage = false; // Flag to prevent double message sending
 window.allChatComments = []; // Make global for WebSocket access
 let isLoadingMoreMessages = false;
 let currentOrder = null;  // Lưu order hiện tại để gửi reply
+
+// ============================================================================
+// MARK READ/UNREAD STATE MANAGEMENT
+// ============================================================================
+
+/**
+ * Global state for current conversation read status
+ */
+window.currentConversationReadState = {
+    isRead: false,           // Current read status
+    conversationId: null,    // Conversation ID
+    pageId: null,            // Page ID
+    lastMarkedAt: null,      // Last marked timestamp
+    chatType: null           // 'message' or 'comment'
+};
+
+/**
+ * Timer for auto mark as read debounce
+ */
+let markReadTimer = null;
+
+/**
+ * Update read badge UI
+ * @param {boolean} isRead - Read status
+ */
+function updateReadBadge(isRead) {
+    const badge = document.getElementById('chatReadBadge');
+    if (!badge) return;
+
+    badge.style.display = 'inline-flex'; // Show badge
+
+    if (isRead) {
+        badge.innerHTML = '<i class="fas fa-check-circle"></i> Đã đọc';
+        badge.style.color = '#10b981'; // Green
+        badge.style.background = 'rgba(16, 185, 129, 0.2)';
+        badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+    } else {
+        badge.innerHTML = '<i class="fas fa-circle"></i> Chưa đọc';
+        badge.style.color = '#f59e0b'; // Orange
+        badge.style.background = 'rgba(245, 158, 11, 0.2)';
+        badge.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+    }
+}
+
+/**
+ * Update mark read/unread toggle button UI
+ * @param {boolean} isRead - Read status
+ */
+function updateMarkButton(isRead) {
+    const btn = document.getElementById('btnMarkReadToggle');
+    if (!btn) return;
+
+    btn.style.display = 'flex'; // Show button
+
+    if (isRead) {
+        btn.innerHTML = '<i class="fas fa-envelope-open"></i>';
+        btn.style.background = 'rgba(245, 158, 11, 0.8)'; // Orange
+        btn.title = 'Đánh dấu chưa đọc';
+    } else {
+        btn.innerHTML = '<i class="fas fa-envelope"></i>';
+        btn.style.background = 'rgba(16, 185, 129, 0.8)'; // Green
+        btn.title = 'Đánh dấu đã đọc';
+    }
+}
+
+/**
+ * Auto mark conversation as read with debounce
+ * @param {number} delayMs - Delay in milliseconds before marking
+ */
+function autoMarkAsRead(delayMs = 0) {
+    clearTimeout(markReadTimer);
+
+    markReadTimer = setTimeout(async () => {
+        const { pageId, conversationId, isRead, chatType } = window.currentConversationReadState;
+
+        // Skip if already marked as read
+        if (isRead) {
+            console.log('[MARK-READ] Already marked as read, skipping');
+            return;
+        }
+
+        // Skip for comments (if comment read status not supported)
+        if (chatType === 'comment') {
+            console.log('[MARK-READ] Skipping auto-mark for comment type');
+            return;
+        }
+
+        if (!pageId || !conversationId) {
+            console.warn('[MARK-READ] Missing pageId or conversationId');
+            return;
+        }
+
+        console.log('[MARK-READ] Auto marking as read...', conversationId);
+
+        const success = await window.pancakeDataManager.markConversationAsRead(pageId, conversationId);
+
+        if (success) {
+            window.currentConversationReadState.isRead = true;
+            window.currentConversationReadState.lastMarkedAt = Date.now();
+            updateReadBadge(true);
+            updateMarkButton(true);
+        }
+    }, delayMs);
+}
+
+/**
+ * Toggle conversation read/unread state manually
+ */
+window.toggleConversationReadState = async function () {
+    const { pageId, conversationId, isRead } = window.currentConversationReadState;
+
+    if (!pageId || !conversationId) {
+        alert('Không tìm thấy thông tin cuộc hội thoại');
+        return;
+    }
+
+    const btn = document.getElementById('btnMarkReadToggle');
+    if (!btn) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    try {
+        let success;
+        if (isRead) {
+            // Mark as unread
+            console.log('[MARK-READ] Toggling to unread');
+            success = await window.pancakeDataManager.markConversationAsUnread(pageId, conversationId);
+        } else {
+            // Mark as read
+            console.log('[MARK-READ] Toggling to read');
+            success = await window.pancakeDataManager.markConversationAsRead(pageId, conversationId);
+        }
+
+        if (success) {
+            window.currentConversationReadState.isRead = !isRead;
+            window.currentConversationReadState.lastMarkedAt = Date.now();
+            updateReadBadge(!isRead);
+            updateMarkButton(!isRead);
+        } else {
+            alert('Không thể thay đổi trạng thái đọc');
+        }
+    } catch (error) {
+        console.error('[MARK-READ] Toggle failed:', error);
+        alert('Lỗi khi thay đổi trạng thái đọc');
+    } finally {
+        btn.disabled = false;
+        updateMarkButton(window.currentConversationReadState.isRead);
+    }
+};
+
+// ============================================================================
+// END MARK READ/UNREAD STATE MANAGEMENT
+// ============================================================================
 let currentParentCommentId = null;  // Lưu parent comment ID
 let currentPostId = null; // Lưu post ID của comment đang reply
 window.availableChatPages = []; // Cache pages for selector
@@ -10696,7 +10850,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Update modal title based on type
     const titleText = type === 'comment' ? 'Bình luận' : 'Tin nhắn';
     document.getElementById('chatModalTitle').textContent = `${titleText} với ${order.Name}`;
-    document.getElementById('chatModalSubtitle').textContent = `SĐT: ${order.Telephone || 'N/A'} • Mã ĐH: ${order.Code}`;
+    document.getElementById('chatModalSubtitleText').textContent = `SĐT: ${order.Telephone || 'N/A'} • Mã ĐH: ${order.Code}`;
 
     // Initialize conversation type toggle
     const initialConvType = type === 'comment' ? 'COMMENT' : 'INBOX';
@@ -10827,6 +10981,20 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     chatInput.removeEventListener('input', handleChatInputInput);
     chatInput.addEventListener('input', handleChatInputInput);
 
+    // ============================================================================
+    // AUTO MARK AS READ - Event Listeners
+    // ============================================================================
+
+    // Focus event - mark as read immediately when user focuses input
+    chatInput.removeEventListener('focus', handleChatInputFocus);
+    chatInput.addEventListener('focus', handleChatInputFocus);
+
+    // Input event - mark as read after 1s of typing (debounced)
+    // Note: This is separate from handleChatInputInput which is for auto-resize
+    chatInput.addEventListener('input', handleChatInputTyping);
+
+    // ============================================================================
+
     if (type === 'comment') {
         if (markReadBtn) {
             markReadBtn.style.display = 'none';
@@ -10953,6 +11121,17 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             console.log('[CHAT-MODAL] ✅ Found', commentConversations.length, 'COMMENT conversations matching post_id:', facebookPostId);
                             console.log('[CHAT-MODAL] ✅ Using conversationId:', window.currentConversationId);
 
+                            // Initialize read state for COMMENT (will skip auto-mark since chatType = 'comment')
+                            window.currentConversationReadState = {
+                                isRead: false,
+                                conversationId: window.currentConversationId,
+                                pageId: channelId,
+                                lastMarkedAt: null,
+                                chatType: 'comment'
+                            };
+                            updateReadBadge(false); // Show badge (but won't auto-mark for comments)
+                            updateMarkButton(false);
+
                             // Now fetch messages for this COMMENT conversation
                             console.log('[CHAT-MODAL] 📥 Fetching messages for COMMENT conversation...');
 
@@ -11052,6 +11231,21 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             window.currentInboxConversationId = inboxConv.id;
 
                             console.log('[CHAT-MODAL] ✅ Using INBOX conversationId:', window.currentConversationId);
+
+                            // Initialize read state for INBOX
+                            window.currentConversationReadState = {
+                                isRead: false,
+                                conversationId: window.currentConversationId,
+                                pageId: channelId,
+                                lastMarkedAt: null,
+                                chatType: 'message'
+                            };
+                            updateReadBadge(false);
+                            updateMarkButton(false);
+
+                            // Auto-mark as read after 2s (only for INBOX/message type)
+                            console.log('[MARK-READ] Scheduling auto-mark after 2s...');
+                            autoMarkAsRead(2000);
 
                             // Populate conversation selector if multiple INBOX conversations
                             if (inboxConversations.length > 1) {
@@ -11394,6 +11588,10 @@ function handleChatInputPaste(event) {
 
             const blob = item.getAsFile();
             currentPastedImage = blob;
+
+            // Auto-mark as read when user pastes image
+            console.log('[MARK-READ] Image pasted');
+            autoMarkAsRead(0);
 
             // Keep input enabled so user can press Enter to send or type additional text
             const chatInput = document.getElementById('chatReplyInput');
@@ -12093,6 +12291,22 @@ function handleChatInputKeyDown(event) {
  */
 function handleChatInputInput(event) {
     autoResizeTextarea(event.target);
+}
+
+/**
+ * Handle focus event - mark as read immediately
+ */
+function handleChatInputFocus() {
+    console.log('[MARK-READ] Input focused');
+    autoMarkAsRead(0);
+}
+
+/**
+ * Handle typing - mark as read after 1s debounce
+ */
+function handleChatInputTyping() {
+    console.log('[MARK-READ] User typing');
+    autoMarkAsRead(1000);
 }
 
 /**
@@ -13147,6 +13361,10 @@ async function sendMessageInternal(messageData) {
             }
 
             apiSuccess = true;
+
+            // Auto-mark as read after successful message send
+            console.log('[MARK-READ] Message sent successfully');
+            autoMarkAsRead(0);
         } catch (err) {
             apiError = err;
             console.warn('[MESSAGE] ⚠️ API failed:', err.message);
@@ -13202,6 +13420,10 @@ async function sendMessageInternal(messageData) {
                                 console.log('[MESSAGE] ✅ Retry after unlock succeeded!');
                                 apiSuccess = true;
                                 apiError = null;
+
+                                // Auto-mark as read after successful retry
+                                console.log('[MARK-READ] Retry message sent successfully');
+                                autoMarkAsRead(0);
                             }
                         }
                     } catch (retryErr) {
