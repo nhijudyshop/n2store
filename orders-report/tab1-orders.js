@@ -9984,7 +9984,7 @@ window.uploadImageWithCache = async function uploadImageWithCache(imageBlob, pro
         // Save to Firebase cache
         if ((productId || productName || productCode) && window.firebaseImageCache) {
             console.log('[UPLOAD-CACHE] Saving to Firebase cache...');
-            await window.firebaseImageCache.set(productId, productName, contentUrl, contentId, productCode)
+            await window.firebaseImageCache.set(productId, productName, contentUrl, contentId, productCode, dimensions?.width, dimensions?.height)
                 .catch(err => {
                     console.warn('[UPLOAD-CACHE] Cache save failed (non-critical):', err);
                 });
@@ -10489,10 +10489,27 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
                     window.notificationManager.show('✓ Đã dùng ảnh đã lưu (không cần upload)', 'success');
                 }
 
+                // Fetch blob from imageUrl for preview display
+                const WORKER_URL = API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const proxyUrl = `${WORKER_URL}/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+
+                let blob = null;
+                try {
+                    const response = await fetch(proxyUrl);
+                    if (response.ok) {
+                        blob = await response.blob();
+                    }
+                } catch (err) {
+                    console.warn('[SEND-IMAGE-TO-CHAT] Could not fetch blob for preview:', err);
+                }
+
                 // Add to preview with cached data
                 window.uploadedImagesData.push({
-                    content_url: cached.content_url,
+                    content_url: cached.content_url || null,
                     content_id: cached.content_id,
+                    width: cached.width || 0,
+                    height: cached.height || 0,
+                    blob: blob,  // Include blob for preview
                     productId: productId,
                     productName: productName,
                     productCode: productCode,
@@ -10506,7 +10523,7 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
                     chatInput.focus();
                 }
 
-                return; // Done - no need to fetch or upload
+                return; // Done - no need to upload
             }
 
             console.log('[SEND-IMAGE-TO-CHAT] ❌ Cache miss, proceeding to upload...');
@@ -10553,10 +10570,15 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
             const contentId = uploadResult.id;
             const contentUrl = uploadResult.content_url;
 
+            // Get dimensions for cache storage
+            const dimensions = await getImageDimensions(blob);
+
             window.uploadedImagesData[lastIndex] = {
                 content_url: contentUrl,
                 content_id: contentId,
                 blob: blob,
+                width: dimensions.width,
+                height: dimensions.height,
                 productId: productId,
                 productName: productName,
                 productCode: productCode
@@ -10567,7 +10589,7 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
             // Save to Firebase cache (using productCode as primary cache key)
             if (window.firebaseImageCache && (productId || productName || productCode)) {
                 console.log('[SEND-IMAGE-TO-CHAT] 💾 Saving to Firebase cache...');
-                await window.firebaseImageCache.set(productId, productName, contentUrl, contentId, productCode)
+                await window.firebaseImageCache.set(productId, productName, contentUrl, contentId, productCode, dimensions.width, dimensions.height)
                     .catch(err => {
                         console.warn('[SEND-IMAGE-TO-CHAT] Cache save failed (non-critical):', err);
                     });
