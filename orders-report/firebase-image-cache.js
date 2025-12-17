@@ -64,26 +64,26 @@
 
         /**
          * Generate cache key from product info
-         * Priority: productId (if number) > productName > productCode
+         * Priority: productCode > productName > productId
          * @param {string|number} productId - Product ID (optional)
          * @param {string} productName - Product name (optional)
          * @param {string} productCode - Product code (optional)
          * @returns {string|null} - Cache key or null if no valid key
          */
         generateKey(productId, productName = null, productCode = null) {
-            // If productId is a valid number, use it directly
-            if (productId && !isNaN(Number(productId))) {
-                return String(productId);
+            // Use productCode first if available (most stable identifier)
+            if (productCode && productCode.trim()) {
+                return this.sanitizeKey(productCode.trim());
             }
 
-            // Use productName if available (sanitized)
+            // Fallback to productName if available (sanitized)
             if (productName && productName.trim()) {
                 return this.sanitizeKey(productName.trim());
             }
 
-            // Fallback to productCode if available
-            if (productCode && productCode.trim()) {
-                return this.sanitizeKey(productCode.trim());
+            // Last resort: use productId if it's a valid number
+            if (productId && !isNaN(Number(productId))) {
+                return String(productId);
             }
 
             return null;
