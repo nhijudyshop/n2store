@@ -187,8 +187,8 @@ body {
 /* TAG column - fixed */
 .table th[data-column="tag"],
 .table td[data-column="tag"] {
-    width: 210px;
-    min-width: 210px;
+    width: 252px;
+    min-width: 252px;
     white-space: normal;
 }
 
@@ -341,9 +341,9 @@ body {
     display: inline-block;
     padding: 2px 6px;
     border-radius: 3px;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 500;
-    margin-top: 4px;
+    margin-top: 0;
     color: white;
 }
 

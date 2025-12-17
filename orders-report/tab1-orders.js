@@ -5761,7 +5761,7 @@ function createRowHTML(order) {
             </td>
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
             <td data-column="tag">
-                <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
                     <div style="display: flex; gap: 2px;">
                         <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
                             <i class="fas fa-tags"></i>
@@ -6216,7 +6216,7 @@ function parseOrderTags(tagsJson, orderId, orderCode) {
         return tags
             .map(
                 (tag) =>
-                    `<div style="margin-bottom: 2px; display: flex; align-items: center; gap: 2px;">
+                    `<div style="display: inline-flex; align-items: center; gap: 2px;">
                         <span class="order-tag" style="background-color: ${tag.Color || "#6b7280"}; cursor: pointer;" onclick="openTagModal('${escapeAttr(orderId)}', '${escapeAttr(orderCode)}'); event.stopPropagation();" title="Quản lý tag">${tag.Name || ""}</span>
                         <button class="tag-remove-btn" onclick="quickRemoveTag('${escapeAttr(orderId)}', '${escapeAttr(orderCode)}', '${escapeAttr(tag.Id)}'); event.stopPropagation();" title="Xóa tag này">×</button>
                     </div>`,
