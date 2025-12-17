@@ -11690,10 +11690,31 @@ async function sendMessageInternal(messageData) {
                 .map(img => img.content_id || img.id)
                 .filter(id => id); // Lọc bỏ null/undefined
 
+            // attachment_ids (Facebook attachment IDs if available)
+            payload.attachment_ids = imagesDataArray
+                .map(img => img.attachment_id || null)
+                .filter(id => id);
+
+            // content_urls array
+            payload.content_urls = imagesDataArray
+                .map(img => img.content_url || null)
+                .filter(url => url);
+
+            // dimensions array
+            payload.dimensions = imagesDataArray.map(img => ({
+                width: img.width || 0,
+                height: img.height || 0
+            }));
+
             // attachment_type bắt buộc khi có ảnh: PHOTO, VIDEO, DOCUMENT, AUDIO_ATTACHMENT_ID
             payload.attachment_type = 'PHOTO';
 
+            // send_by_platform
+            payload.send_by_platform = 'web';
+
             console.log('[MESSAGE] content_ids:', payload.content_ids);
+            console.log('[MESSAGE] content_urls:', payload.content_urls);
+            console.log('[MESSAGE] dimensions:', payload.dimensions);
         }
 
         // Step 3: Send message via Official API (pages.fm)
@@ -12430,7 +12451,45 @@ function renderChatMessages(messages, scrollToBottom = false) {
 
         // Handle Pancake API format attachments (lowercase 'attachments')
         if (msg.attachments && msg.attachments.length > 0) {
+            // Collect all images first for grid layout
+            const images = [];
+
             msg.attachments.forEach(att => {
+                // Collect images
+                if (att.type === 'photo' && att.url) {
+                    images.push(att.url);
+                } else if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
+                    images.push(att.file_url);
+                }
+            });
+
+            // Render images in grid if multiple
+            if (images.length > 0) {
+                const gridClass = images.length === 1 ? 'chat-image-grid-single' :
+                                 images.length === 2 ? 'chat-image-grid-two' :
+                                 images.length === 3 ? 'chat-image-grid-three' :
+                                 'chat-image-grid-multi';
+
+                content += `<div class="chat-image-grid ${gridClass}">`;
+                images.forEach((imageUrl, idx) => {
+                    const escapedUrl = imageUrl.replace(/'/g, "\\'");
+                    content += `<img src="${imageUrl}"
+                        class="chat-grid-image"
+                        loading="lazy"
+                        onclick="showImageZoom('${escapedUrl}', 'Ảnh ${idx + 1}/${images.length}')"
+                        title="Click để phóng to" />`;
+                });
+                content += `</div>`;
+            }
+
+            // Now process other attachments
+            msg.attachments.forEach(att => {
+                // Skip images (already rendered)
+                if ((att.type === 'photo' && att.url) ||
+                    (att.mime_type && att.mime_type.startsWith('image/') && att.file_url)) {
+                    return;
+                }
+
                 // Replied Message (Quoted message)
                 if (att.type === 'replied_message') {
                     const quotedText = att.message || '';
@@ -12447,7 +12506,7 @@ function renderChatMessages(messages, scrollToBottom = false) {
                             </div>
                         </div>
                     ` + content;
-                    return; // Skip other processing for this attachment
+                    return;
                 }
 
                 // Debug: Log attachment structure to identify sticker format
@@ -12465,14 +12524,6 @@ function renderChatMessages(messages, scrollToBottom = false) {
                                 Trình duyệt không hỗ trợ phát audio
                             </audio>
                         </div>`;
-                }
-                // Photo: type = "photo", url
-                else if (att.type === 'photo' && att.url) {
-                    content += `<img src="${att.url}" class="chat-message-image" loading="lazy" style="max-width: 100%; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="window.open('${att.url}', '_blank')" />`;
-                }
-                // Image with mime_type
-                else if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
-                    content += `<img src="${att.file_url}" class="chat-message-image" loading="lazy" style="max-width: 100%; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="window.open('${att.file_url}', '_blank')" />`;
                 }
                 // Link attachment with comment (private reply preview from Pancake)
                 else if (att.type === 'link' && att.comment) {
