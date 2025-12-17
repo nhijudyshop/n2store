@@ -3104,24 +3104,8 @@ function populateBulkTagModalDropdown() {
 }
 
 // Show bulk tag modal dropdown (on focus)
-async function showBulkTagModalDropdown() {
+function showBulkTagModalDropdown() {
     const dropdown = document.getElementById('bulkTagModalSearchDropdown');
-
-    // If tags not loaded yet, load them first
-    if (!availableTags || availableTags.length === 0) {
-        // Show loading state
-        dropdown.innerHTML = `
-            <div style="padding: 16px; text-align: center; color: #9ca3af;">
-                <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>
-                Đang tải danh sách tag...
-            </div>
-        `;
-        dropdown.classList.add('show');
-
-        // Load tags
-        await loadBulkTagModalOptions();
-    }
-
     populateBulkTagModalDropdown();
     dropdown.classList.add('show');
 }
