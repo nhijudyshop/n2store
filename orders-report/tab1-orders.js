@@ -559,34 +559,9 @@ function handleRealtimeTagUpdate(updateData, source) {
         }
     }
 
-    // ✅ Check if user is filtering by TAG
-    const tagFilter = document.getElementById('tagFilter')?.value || 'all';
-    if (tagFilter !== 'all') {
-        // User is filtering by specific tag - show notification instead of re-rendering
-        console.log('[TAG-REALTIME] User is filtering by TAG, showing refresh notification');
-
-        // Update data arrays silently
-        const tagsJson = JSON.stringify(normalizedTags);
-        const indexInAll = allData.findIndex(o => o.Id === orderId);
-        if (indexInAll !== -1) allData[indexInAll].Tags = tagsJson;
-        const indexInFiltered = filteredData.findIndex(o => o.Id === orderId);
-        if (indexInFiltered !== -1) filteredData[indexInFiltered].Tags = tagsJson;
-        const indexInDisplayed = displayedData.findIndex(o => o.Id === orderId);
-        if (indexInDisplayed !== -1) displayedData[indexInDisplayed].Tags = tagsJson;
-
-        // Show notification to refresh
-        if (window.notificationManager) {
-            window.notificationManager.show(
-                `Có nhân viên cập nhật tag mới, vui lòng F5 lại bảng để xem thay đổi.`,
-                'warning',
-                5000
-            );
-        }
-        return;
-    }
-
-    // ✅ Order is in displayed data and no TAG filter active
-    // Update only the TAG cell without re-rendering entire table (preserves scroll)
+    // ✅ SIMPLIFIED: Always update TAG cell realtime (removed tag filter check)
+    // updateTagCellOnly() only updates innerHTML of cell - NO scroll jump
+    // Data arrays are updated inside updateTagCellOnly()
     updateTagCellOnly(orderId, orderCode, normalizedTags);
 }
 
