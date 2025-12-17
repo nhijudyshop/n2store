@@ -3066,9 +3066,10 @@ function populateBulkTagModalDropdown() {
     );
 
     if (filteredTags.length === 0) {
+        const escapedSearch = searchValue.replace(/</g, '&lt;').replace(/>/g, '&gt;');
         dropdown.innerHTML = `
             <div style="padding: 16px; text-align: center; color: #9ca3af;">
-                Không tìm thấy tag "${searchValue}"
+                Không tìm thấy tag "${escapedSearch}" - <b style="color: #10b981;">Nhấn Enter để tạo</b>
             </div>
         `;
         return;
@@ -3080,12 +3081,26 @@ function populateBulkTagModalDropdown() {
     // Limit display to first 100 tags for performance
     const displayTags = filteredTags.slice(0, 100);
 
+    // Track first available (not added) tag for highlighting
+    let firstAvailableFound = false;
+
     dropdown.innerHTML = displayTags.map(tag => {
         const isAdded = addedTagIds.has(tag.Id);
         const tagName = tag.Name.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
+        // Highlight first tag that is NOT already added
+        let isHighlighted = false;
+        if (!isAdded && !firstAvailableFound) {
+            isHighlighted = true;
+            firstAvailableFound = true;
+        }
+
         return `
-            <div class="bulk-tag-search-option ${isAdded ? 'disabled' : ''}"
-                 onclick="${isAdded ? '' : `addTagToBulkTagModal('${tag.Id}', '${tagName}', '${tag.Color}')`}">
+            <div class="bulk-tag-search-option ${isAdded ? 'disabled' : ''} ${isHighlighted ? 'highlighted' : ''}"
+                 data-tag-id="${tag.Id}"
+                 data-tag-name="${tagName}"
+                 data-tag-color="${tag.Color || '#6b7280'}"
+                 onclick="${isAdded ? '' : `addTagToBulkTagModal('${tag.Id}', '${tagName}', '${tag.Color || '#6b7280'}')`}">
                 <span class="tag-color-dot" style="background-color: ${tag.Color || '#6b7280'}"></span>
                 <span class="tag-name">${tag.Name}</span>
                 ${isAdded ? '<span class="tag-added">Đã thêm</span>' : ''}
@@ -3150,9 +3165,109 @@ function filterBulkTagModalOptions() {
 
 // Handle keydown on search input
 function handleBulkTagModalSearchKeydown(event) {
-    if (event.key === 'Escape') {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const searchValue = document.getElementById('bulkTagModalSearchInput').value.trim();
+
+        // Find highlighted tag (first available tag)
+        const highlightedTag = document.querySelector('.bulk-tag-search-option.highlighted');
+
+        if (highlightedTag) {
+            // Has highlighted tag → select it
+            const tagId = highlightedTag.getAttribute('data-tag-id');
+            const tagName = highlightedTag.getAttribute('data-tag-name');
+            const tagColor = highlightedTag.getAttribute('data-tag-color');
+            addTagToBulkTagModal(tagId, tagName, tagColor);
+        } else if (searchValue !== '') {
+            // No matching tag → create new tag
+            autoCreateAndAddTagToBulkModal(searchValue);
+        }
+    } else if (event.key === 'Escape') {
         document.getElementById('bulkTagModalSearchDropdown').classList.remove('show');
         document.getElementById('bulkTagModalSearchInput').blur();
+    }
+}
+
+// Auto-create tag and add to bulk tag modal when search yields no results
+async function autoCreateAndAddTagToBulkModal(tagName) {
+    if (!tagName || tagName.trim() === '') return;
+
+    const name = tagName.trim().toUpperCase(); // Convert to uppercase for consistency
+    const color = generateRandomColor();
+
+    try {
+        // Show loading notification
+        if (window.notificationManager) {
+            window.notificationManager.info(`Đang tạo tag "${name}"...`);
+        }
+
+        console.log('[BULK-TAG-MODAL] Creating tag:', { name, color });
+
+        // Get auth headers
+        const headers = await window.tokenManager.getAuthHeader();
+
+        // Create tag via API
+        const response = await API_CONFIG.smartFetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
+            {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'accept': 'application/json, text/plain, */*',
+                    'content-type': 'application/json;charset=UTF-8',
+                },
+                body: JSON.stringify({
+                    Name: name,
+                    Color: color
+                })
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const newTag = await response.json();
+        console.log('[BULK-TAG-MODAL] Tag created successfully:', newTag);
+
+        // Remove @odata.context from newTag (Firebase doesn't allow keys with dots)
+        if (newTag['@odata.context']) {
+            delete newTag['@odata.context'];
+        }
+
+        // Update local tags list
+        if (Array.isArray(availableTags)) {
+            availableTags.push(newTag);
+            window.availableTags = availableTags;
+            window.cacheManager.set("tags", availableTags, "tags");
+        }
+
+        // Save to Firebase
+        if (database) {
+            await database.ref('settings/tags').set(availableTags);
+            console.log('[BULK-TAG-MODAL] Saved updated tags to Firebase');
+        }
+
+        // Update filter dropdowns
+        populateTagFilter();
+        populateBulkTagDropdown();
+
+        // Add the new tag to bulk tag modal table
+        addTagToBulkTagModal(newTag.Id, newTag.Name, newTag.Color);
+
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã tạo và thêm tag "${name}"!`);
+        }
+
+        console.log('[BULK-TAG-MODAL] Tag created and added to bulk modal');
+
+    } catch (error) {
+        console.error('[BULK-TAG-MODAL] Error creating tag:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi tạo tag: ' + error.message);
+        }
     }
 }
 
