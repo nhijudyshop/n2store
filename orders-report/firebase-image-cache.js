@@ -1,7 +1,7 @@
 /**
  * Firebase Image Cache Manager
  * Manages cached product images uploaded to Pancake server
- * Structure: pancake_images/{product_id} = { product_name, content_url }
+ * Structure: pancake_images/{product_id} = { product_name, content_url, content_id }
  */
 
 (function() {
@@ -49,7 +49,7 @@
         /**
          * Get cached image for a product
          * @param {string|number} productId
-         * @returns {Promise<{product_name: string, content_url: string}|null>}
+         * @returns {Promise<{product_name: string, content_url: string, content_id?: string}|null>}
          */
         async get(productId) {
             try {
@@ -72,7 +72,7 @@
 
                 if (snapshot.exists()) {
                     const data = snapshot.val();
-                    console.log(`[FIREBASE-CACHE] ✅ Cache HIT for product ${productIdStr}:`, data.content_url);
+                    console.log(`[FIREBASE-CACHE] ✅ Cache HIT for product ${productIdStr}:`, data.content_url, 'id:', data.content_id);
                     return data;
                 } else {
                     console.log(`[FIREBASE-CACHE] ❌ Cache MISS for product ${productIdStr}`);
@@ -91,9 +91,10 @@
          * @param {string|number} productId
          * @param {string} productName
          * @param {string} contentUrl
+         * @param {string} contentId - Pancake image ID for reuse
          * @returns {Promise<boolean>}
          */
-        async set(productId, productName, contentUrl) {
+        async set(productId, productName, contentUrl, contentId = null) {
             try {
                 // Wait for initialization
                 await this.initPromise;
@@ -111,13 +112,20 @@
                 // Convert to string for consistent keys
                 const productIdStr = String(productId);
 
-                await this.cacheRef.child(productIdStr).set({
+                const cacheData = {
                     product_name: productName || '',
                     content_url: contentUrl,
                     updated_at: firebase.database.ServerValue.TIMESTAMP
-                });
+                };
 
-                console.log(`[FIREBASE-CACHE] ✅ Saved to cache: product ${productIdStr}`);
+                // Store content_id if provided (for Pancake API reuse)
+                if (contentId) {
+                    cacheData.content_id = contentId;
+                }
+
+                await this.cacheRef.child(productIdStr).set(cacheData);
+
+                console.log(`[FIREBASE-CACHE] ✅ Saved to cache: product ${productIdStr}, content_id:`, contentId);
                 return true;
 
             } catch (error) {
