@@ -3103,8 +3103,15 @@ function populateBulkTagModalDropdown() {
     }
 }
 
+// Clear all triggers when clicking on bulk tag search input
+function clearBulkTagSearchTriggers() {
+    // TODO: Implement trigger clearing logic
+}
+
 // Show bulk tag modal dropdown (on focus)
 async function showBulkTagModalDropdown() {
+    // Clear triggers when focusing on search
+    clearBulkTagSearchTriggers();
     const dropdown = document.getElementById('bulkTagModalSearchDropdown');
 
     // If tags not loaded yet, load them first
