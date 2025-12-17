@@ -10433,12 +10433,14 @@ window.clearPastedImage = function () {
 
 /**
  * Send product image to chat input
- * Fetches image from URL, uploads to Pancake, and adds to chat preview
- * Called from Dropped Products tab (right-click on product image)
+ * Checks Firebase cache first, if found uses cached content_id
+ * Otherwise fetches image from URL, uploads to Pancake, and caches result
+ * Called from Dropped Products tab and Orders tab (right-click on product image)
  * @param {string} imageUrl - URL of the product image
  * @param {string} productName - Name of the product
+ * @param {number|string} productId - Product ID (optional, for Firebase cache)
  */
-window.sendImageToChat = async function (imageUrl, productName) {
+window.sendImageToChat = async function (imageUrl, productName, productId = null) {
     // Check if chat modal is open
     const chatModal = document.getElementById('chatModal');
     if (!chatModal || !chatModal.classList.contains('show')) {
@@ -10459,8 +10461,50 @@ window.sendImageToChat = async function (imageUrl, productName) {
         return;
     }
 
+    // Initialize uploaded images array if needed
+    if (!window.uploadedImagesData) {
+        window.uploadedImagesData = [];
+    }
+
     try {
-        console.log('[SEND-IMAGE-TO-CHAT] Fetching image:', imageUrl);
+        console.log('[SEND-IMAGE-TO-CHAT] Product:', productId, productName);
+        console.log('[SEND-IMAGE-TO-CHAT] Image URL:', imageUrl);
+
+        // Check Firebase cache first if we have productId
+        if (productId && window.firebaseImageCache) {
+            console.log('[SEND-IMAGE-TO-CHAT] 🔍 Checking Firebase cache for product:', productId);
+
+            const cached = await window.firebaseImageCache.get(productId);
+
+            if (cached && cached.content_id) {
+                // ✅ CACHE HIT - Use cached content_id directly (no upload needed!)
+                console.log('[SEND-IMAGE-TO-CHAT] ✅ Cache HIT! Using cached content_id:', cached.content_id);
+
+                if (window.notificationManager) {
+                    window.notificationManager.show('✓ Đã dùng ảnh đã lưu (không cần upload)', 'success');
+                }
+
+                // Add to preview with cached data
+                window.uploadedImagesData.push({
+                    content_url: cached.content_url,
+                    content_id: cached.content_id,
+                    productId: productId,
+                    productName: productName,
+                    cached: true
+                });
+                window.updateMultipleImagesPreview();
+
+                // Focus on chat input
+                const chatInput = document.getElementById('chatReplyInput');
+                if (chatInput) {
+                    chatInput.focus();
+                }
+
+                return; // Done - no need to fetch or upload
+            }
+
+            console.log('[SEND-IMAGE-TO-CHAT] ❌ Cache miss, proceeding to upload...');
+        }
 
         // Show loading notification
         if (window.notificationManager) {
@@ -10468,7 +10512,6 @@ window.sendImageToChat = async function (imageUrl, productName) {
         }
 
         // Use Cloudflare Worker image proxy to bypass CORS
-        // The proxy is at /api/image-proxy?url=<encoded_url>
         const WORKER_URL = API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const proxyUrl = `${WORKER_URL}/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
 
@@ -10482,46 +10525,60 @@ window.sendImageToChat = async function (imageUrl, productName) {
 
         const blob = await response.blob();
 
-        // Initialize uploaded images array if needed
-        if (!window.uploadedImagesData) {
-            window.uploadedImagesData = [];
-        }
-
         // Add to preview first (showing as uploading)
         window.uploadedImagesData.push({
             blob: blob,
-            productId: null,
-            productName: productName
+            productId: productId,
+            productName: productName,
+            uploading: true
         });
         window.updateMultipleImagesPreview();
 
         // Upload to Pancake
-        const result = await window.uploadImageWithCache(blob, null, productName, channelId);
+        console.log('[SEND-IMAGE-TO-CHAT] 📤 Uploading to Pancake...');
+
+        const uploadResult = await window.pancakeDataManager.uploadImage(channelId, blob);
 
         // Update the last added item with upload result
         const lastIndex = window.uploadedImagesData.length - 1;
-        if (result.success) {
+
+        if (uploadResult && uploadResult.id) {
+            const contentId = uploadResult.id;
+            const contentUrl = uploadResult.content_url;
+
             window.uploadedImagesData[lastIndex] = {
-                ...result.data,
+                content_url: contentUrl,
+                content_id: contentId,
                 blob: blob,
-                productId: null,
+                productId: productId,
                 productName: productName
             };
-            console.log('[SEND-IMAGE-TO-CHAT] ✓ Image uploaded successfully');
+
+            console.log('[SEND-IMAGE-TO-CHAT] ✓ Upload success! content_id:', contentId);
+
+            // Save to Firebase cache if we have productId
+            if (productId && window.firebaseImageCache) {
+                console.log('[SEND-IMAGE-TO-CHAT] 💾 Saving to Firebase cache...');
+                await window.firebaseImageCache.set(productId, productName, contentUrl, contentId)
+                    .catch(err => {
+                        console.warn('[SEND-IMAGE-TO-CHAT] Cache save failed (non-critical):', err);
+                    });
+            }
+
             if (window.notificationManager) {
                 window.notificationManager.show('✓ Đã thêm ảnh vào tin nhắn', 'success');
             }
         } else {
             window.uploadedImagesData[lastIndex] = {
                 blob: blob,
-                productId: null,
+                productId: productId,
                 productName: productName,
-                error: result.error,
+                error: 'Upload failed - no content_id returned',
                 uploadFailed: true
             };
-            console.error('[SEND-IMAGE-TO-CHAT] ✗ Upload failed:', result.error);
+            console.error('[SEND-IMAGE-TO-CHAT] ✗ Upload failed: no content_id');
             if (window.notificationManager) {
-                window.notificationManager.show('Lỗi upload ảnh: ' + result.error, 'error');
+                window.notificationManager.show('Lỗi upload ảnh', 'error');
             }
         }
 
@@ -15024,7 +15081,7 @@ function renderProductCard(p, index, isHeld) {
                 cursor: ${p.ImageUrl ? 'pointer' : 'default'};
             "
                 ${p.ImageUrl ? `onclick="showImageZoom('${p.ImageUrl}', '${escapedProductName}')"` : ''}
-                ${p.ImageUrl ? `oncontextmenu="sendImageToChat('${p.ImageUrl}', '${escapedProductName}'); return false;"` : ''}
+                ${p.ImageUrl ? `oncontextmenu="sendImageToChat('${p.ImageUrl}', '${escapedProductName}', ${p.ProductId || 'null'}); return false;"` : ''}
                 ${p.ImageUrl ? `title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat"` : ''}
             >
                 ${p.ImageUrl
