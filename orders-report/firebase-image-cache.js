@@ -1,8 +1,9 @@
 /**
  * Firebase Image Cache Manager
  * Manages cached product images uploaded to Pancake server
- * Structure: pancake_images/{sanitized_key} = { product_name, content_url, content_id }
- * Key can be: productId (number) OR productName/productCode (string, sanitized)
+ * Structure: pancake_images/{sanitized_key} = { product_name, product_code, content_id, content_url?, product_id?, updated_at }
+ * Key priority: productCode (best) > productName > productId
+ * content_id is REQUIRED for Pancake API reuse, content_url is optional
  */
 
 (function() {
@@ -133,8 +134,8 @@
          * Save image to cache
          * @param {string|number} productId - Product ID
          * @param {string} productName - Product name
-         * @param {string} contentUrl - Pancake content URL
-         * @param {string} contentId - Pancake image ID for reuse
+         * @param {string} contentUrl - Pancake content URL (optional)
+         * @param {string} contentId - Pancake image ID for reuse (required)
          * @param {string} productCode - Product code (optional)
          * @returns {Promise<boolean>}
          */
@@ -148,8 +149,9 @@
                     return false;
                 }
 
-                if (!contentUrl) {
-                    console.warn('[FIREBASE-CACHE] Missing contentUrl, skipping cache set');
+                // Require content_id (most important for Pancake API reuse)
+                if (!contentId) {
+                    console.warn('[FIREBASE-CACHE] Missing content_id, skipping cache set');
                     return false;
                 }
 
@@ -162,13 +164,13 @@
                 const cacheData = {
                     product_name: productName || '',
                     product_code: productCode || '',
-                    content_url: contentUrl,
+                    content_id: contentId,  // Required
                     updated_at: firebase.database.ServerValue.TIMESTAMP
                 };
 
-                // Store content_id if provided (for Pancake API reuse)
-                if (contentId) {
-                    cacheData.content_id = contentId;
+                // Store content_url if provided (optional)
+                if (contentUrl) {
+                    cacheData.content_url = contentUrl;
                 }
 
                 // Store original productId if available
