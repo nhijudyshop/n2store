@@ -1029,6 +1029,19 @@
                             </select>
                         </div>
                         <div style="display: flex; gap: 4px; align-items: center;">
+                            <!-- Copy Template Icon -->
+                            <button class="toolbar-icon-btn" title="Copy mẫu chốt đơn" onclick="copyOrderTemplate()"
+                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
+                                onmouseover="this.style.background='#f3f4f6';"
+                                onmouseout="this.style.background='none';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
+                                    viewBox="0 0 256 256">
+                                    <path
+                                        d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z">
+                                    </path>
+                                </svg>
+                            </button>
+
                             <!-- Help Icon -->
                             <button class="toolbar-icon-btn" title="Trợ giúp"
                                 style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
@@ -2195,6 +2208,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="order-image-generator.js"></script>
     <script src="message-template-manager.js"></script>
+    <script src="copy-template-helper.js"></script>
 
     <script src="quick-reply-manager.js"></script>
     <script src="product-search-manager.js"></script>
