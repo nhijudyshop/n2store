@@ -318,6 +318,12 @@
                 <i class="fas fa-tags"></i>
                 Gán Tag Hàng Loạt
             </button>
+            <button class="btn-primary" id="bulkTagDeleteModalBtn" onclick="showBulkTagDeleteModal()"
+                style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+                title="Xóa tag hàng loạt khỏi nhiều đơn hàng">
+                <i class="fas fa-tags"></i>
+                Xóa Tag Hàng Loạt
+            </button>
             <div
                 style="display: flex; align-items: center; gap: 8px; margin-left: 12px; background: #f3f4f6; padding: 4px 8px; border-radius: 8px; border: 1px solid #e5e7eb;">
                 <div style="display: flex; align-items: center; gap: 6px;">
@@ -2610,6 +2616,113 @@
             <!-- Footer -->
             <div class="bulk-tag-modal-footer">
                 <button class="bulk-tag-btn-cancel" onclick="closeBulkTagHistoryModal()">
+                    <i class="fas fa-times"></i> Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Tag Delete Modal -->
+    <div class="bulk-tag-modal bulk-tag-delete-modal" id="bulkTagDeleteModal">
+        <div class="bulk-tag-modal-content">
+            <!-- Header -->
+            <div class="bulk-tag-modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                <div class="bulk-tag-header-info">
+                    <h3><i class="fas fa-tags"></i> Xóa Tag Hàng Loạt</h3>
+                    <p id="bulkTagDeleteModalSubtitle">Thêm tag và nhập STT đơn hàng cần xóa tag</p>
+                </div>
+                <div class="bulk-tag-header-actions">
+                    <button class="bulk-tag-history-btn" onclick="showBulkTagDeleteHistoryModal()" title="Xem lịch sử xóa tag">
+                        <i class="fas fa-history"></i> Lịch sử
+                    </button>
+                    <button class="bulk-tag-modal-close" onclick="closeBulkTagDeleteModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search and Controls -->
+            <div class="bulk-tag-search-section">
+                <div class="bulk-tag-search-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="bulkTagDeleteModalSearchInput" placeholder="Tìm kiếm tag cần xóa..."
+                        oninput="filterBulkTagDeleteModalOptions()"
+                        onfocus="showBulkTagDeleteModalDropdown()"
+                        onkeydown="handleBulkTagDeleteModalSearchKeydown(event)">
+                    <div class="bulk-tag-search-dropdown" id="bulkTagDeleteModalSearchDropdown">
+                        <!-- Tag options will be populated here -->
+                    </div>
+                </div>
+                <button class="bulk-tag-clear-all-btn" onclick="clearAllBulkTagDeleteRows()" title="Xóa tất cả tag">
+                    <i class="fas fa-trash-alt"></i> Xóa tất cả
+                </button>
+            </div>
+
+            <!-- Select All Checkbox -->
+            <div class="bulk-tag-select-all-row">
+                <label class="bulk-tag-select-all-label">
+                    <input type="checkbox" id="bulkTagDeleteSelectAllCheckbox" onchange="toggleBulkTagDeleteSelectAll(this.checked)">
+                    <span>Chọn tất cả</span>
+                </label>
+                <span class="bulk-tag-count" id="bulkTagDeleteRowCount">0 tag đã thêm</span>
+            </div>
+
+            <!-- Body - Tag Table -->
+            <div class="bulk-tag-modal-body" id="bulkTagDeleteModalBody">
+                <div class="bulk-tag-table">
+                    <div class="bulk-tag-table-header">
+                        <div class="bulk-tag-col-tag">Tag cần xóa</div>
+                        <div class="bulk-tag-col-stt">STT Đơn Hàng</div>
+                        <div class="bulk-tag-col-action">Thao tác</div>
+                    </div>
+                    <div class="bulk-tag-table-body" id="bulkTagDeleteTableBody">
+                        <div class="bulk-tag-empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>Chưa có tag nào được thêm. Hãy tìm kiếm và thêm tag cần xóa.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bulk-tag-modal-footer">
+                <button class="bulk-tag-btn-cancel" onclick="closeBulkTagDeleteModal()">
+                    <i class="fas fa-times"></i> Hủy
+                </button>
+                <button class="bulk-tag-btn-confirm bulk-tag-btn-delete" id="bulkTagDeleteConfirmBtn" onclick="executeBulkTagDeleteModalRemoval()">
+                    <i class="fas fa-trash-alt"></i> Xóa Tag Đã Chọn
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Tag Delete History Modal -->
+    <div class="bulk-tag-modal" id="bulkTagDeleteHistoryModal">
+        <div class="bulk-tag-modal-content" style="max-width: 1000px;">
+            <!-- Header -->
+            <div class="bulk-tag-modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                <div class="bulk-tag-header-info">
+                    <h3><i class="fas fa-history"></i> Lịch Sử Xóa Tag Hàng Loạt</h3>
+                    <p id="bulkTagDeleteHistoryModalSubtitle">Xem lại các lần xóa tag trước đây</p>
+                </div>
+                <div class="bulk-tag-header-actions">
+                    <button class="bulk-tag-modal-close" onclick="closeBulkTagDeleteHistoryModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body - History List -->
+            <div class="bulk-tag-modal-body" id="bulkTagDeleteHistoryModalBody">
+                <div class="bulk-tag-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Đang tải lịch sử...</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bulk-tag-modal-footer">
+                <button class="bulk-tag-btn-cancel" onclick="closeBulkTagDeleteHistoryModal()">
                     <i class="fas fa-times"></i> Đóng
                 </button>
             </div>
