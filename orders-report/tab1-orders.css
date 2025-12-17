@@ -5686,6 +5686,14 @@ td[data-column].hidden {
     color: #9ca3af;
 }
 
+.bulk-tag-stt-counter {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    min-width: 30px;
+    white-space: nowrap;
+}
+
 .bulk-tag-row-action {
     padding: 16px;
     display: flex;
