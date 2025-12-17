@@ -10467,8 +10467,15 @@ window.sendImageToChat = async function (imageUrl, productName) {
             window.notificationManager.show('Đang tải ảnh...', 'info');
         }
 
-        // Fetch image and convert to blob
-        const response = await fetch(imageUrl);
+        // Use Cloudflare Worker image proxy to bypass CORS
+        // The proxy is at /api/image-proxy?url=<encoded_url>
+        const WORKER_URL = API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const proxyUrl = `${WORKER_URL}/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+
+        console.log('[SEND-IMAGE-TO-CHAT] Using proxy URL:', proxyUrl);
+
+        // Fetch image through proxy and convert to blob
+        const response = await fetch(proxyUrl);
         if (!response.ok) {
             throw new Error('Không thể tải ảnh từ URL');
         }
