@@ -697,6 +697,7 @@
         let database = null;
         let isFetching = false;
         let isLoadingTables = false; // Flag to prevent multiple simultaneous table loads
+        let userManuallySelectedTable = false; // Flag to track if user manually selected a table from dropdown
 
         const STORAGE_KEY = 'report_order_details_by_table';
         const FIREBASE_PATH = 'report_order_details';
@@ -931,10 +932,12 @@
 
             if (!selectedTable) {
                 console.log('[REPORT] No table selected');
+                userManuallySelectedTable = false;
                 return;
             }
 
-            console.log(`[REPORT] 📋 Switching to table: ${selectedTable}`);
+            console.log(`[REPORT] 📋 User manually switching to table: ${selectedTable}`);
+            userManuallySelectedTable = true; // Mark that user manually selected a table
             currentTableName = selectedTable;
 
             // Load data from Firebase
@@ -1031,9 +1034,39 @@
             if (event.data.type === 'ORDERS_DATA_RESPONSE') {
                 console.log('[REPORT] Received orders data:', event.data.orders?.length || 0);
                 console.log('[REPORT] Received table name:', event.data.tableName);
+                console.log('[REPORT] User manually selected table:', userManuallySelectedTable);
+
+                const tab1TableName = event.data.tableName || 'Bảng 1';
+
+                // If user has manually selected a table from dropdown, don't override their selection
+                if (userManuallySelectedTable && currentTableName && currentTableName !== tab1TableName) {
+                    console.log(`[REPORT] ⚠️ User manually selected "${currentTableName}", ignoring tab1 data for "${tab1TableName}"`);
+
+                    // Still update the dropdown options (add tab1's table if not exists)
+                    const selector = document.getElementById('tableSelector');
+                    if (selector) {
+                        let optionExists = false;
+                        for (let option of selector.options) {
+                            if (option.value === tab1TableName) {
+                                optionExists = true;
+                                break;
+                            }
+                        }
+                        if (!optionExists) {
+                            const newOption = document.createElement('option');
+                            newOption.value = tab1TableName;
+                            newOption.textContent = `${tab1TableName} (${event.data.orders?.length || 0} đơn - hiện tại)`;
+                            selector.appendChild(newOption);
+                        }
+                    }
+
+                    // Stop loading state but keep current selection
+                    setRefreshLoading(false);
+                    return;
+                }
 
                 allOrders = event.data.orders || [];
-                currentTableName = event.data.tableName || 'Bảng 1'; // Use table name from tab1
+                currentTableName = tab1TableName;
 
                 // Update selector
                 const selector = document.getElementById('tableSelector');
@@ -1084,7 +1117,16 @@
 
             // Handle table name change notification from tab1
             if (event.data.type === 'TABLE_NAME_CHANGED') {
-                console.log('[REPORT] 📬 Table name changed:', event.data.tableName);
+                console.log('[REPORT] 📬 Table name changed in tab1:', event.data.tableName);
+
+                // If user has manually selected a different table, don't override
+                if (userManuallySelectedTable && currentTableName && currentTableName !== event.data.tableName) {
+                    console.log(`[REPORT] ⚠️ User manually selected "${currentTableName}", not switching to tab1's "${event.data.tableName}"`);
+                    // Still reload table list to show the new table as an option
+                    loadAvailableTables();
+                    return;
+                }
+
                 currentTableName = event.data.tableName;
 
                 // Update selector
