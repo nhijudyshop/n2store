@@ -9932,19 +9932,20 @@ document.addEventListener('click', function (event) {
  * @param {string|number} productId - Product ID (optional, for cache)
  * @param {string} productName - Product name (optional, for cache)
  * @param {string} channelId - Channel ID for Pancake upload
+ * @param {string} productCode - Product code (optional, for cache key)
  * @returns {Promise<{success: boolean, data?: object, error?: string}>}
  */
-window.uploadImageWithCache = async function uploadImageWithCache(imageBlob, productId, productName, channelId) {
+window.uploadImageWithCache = async function uploadImageWithCache(imageBlob, productId, productName, channelId, productCode = null) {
     try {
         let contentUrl = null;
         let contentId = null;
         let dimensions = null;
 
         // Check Firebase cache if productId exists
-        if (productId && window.firebaseImageCache) {
-            console.log('[UPLOAD-CACHE] Checking Firebase cache for product:', productId);
+        if ((productId || productName || productCode) && window.firebaseImageCache) {
+            console.log('[UPLOAD-CACHE] Checking Firebase cache for product:', productId, productName, 'Code:', productCode);
 
-            const cached = await window.firebaseImageCache.get(productId);
+            const cached = await window.firebaseImageCache.get(productId, productName, productCode);
 
             if (cached && cached.content_url) {
                 // ✅ CACHE HIT
@@ -9979,10 +9980,10 @@ window.uploadImageWithCache = async function uploadImageWithCache(imageBlob, pro
 
         console.log('[UPLOAD-CACHE] Upload success:', contentUrl);
 
-        // Save to Firebase cache if productId exists
-        if (productId && productName && window.firebaseImageCache) {
+        // Save to Firebase cache
+        if ((productId || productName || productCode) && window.firebaseImageCache) {
             console.log('[UPLOAD-CACHE] Saving to Firebase cache...');
-            await window.firebaseImageCache.set(productId, productName, contentUrl)
+            await window.firebaseImageCache.set(productId, productName, contentUrl, contentId, productCode)
                 .catch(err => {
                     console.warn('[UPLOAD-CACHE] Cache save failed (non-critical):', err);
                 });
@@ -10356,7 +10357,8 @@ window.retryUploadAtIndex = async function (index) {
         imageData.blob,
         imageData.productId,
         imageData.productName,
-        channelId
+        channelId,
+        imageData.productCode
     );
 
     if (result.success) {
@@ -10439,8 +10441,9 @@ window.clearPastedImage = function () {
  * @param {string} imageUrl - URL of the product image
  * @param {string} productName - Name of the product
  * @param {number|string} productId - Product ID (optional, for Firebase cache)
+ * @param {string} productCode - Product code (optional, for Firebase cache key)
  */
-window.sendImageToChat = async function (imageUrl, productName, productId = null) {
+window.sendImageToChat = async function (imageUrl, productName, productId = null, productCode = null) {
     // Check if chat modal is open
     const chatModal = document.getElementById('chatModal');
     if (!chatModal || !chatModal.classList.contains('show')) {
@@ -10467,15 +10470,15 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
     }
 
     try {
-        console.log('[SEND-IMAGE-TO-CHAT] Product:', productId, productName);
+        console.log('[SEND-IMAGE-TO-CHAT] Product:', productId, productName, 'Code:', productCode);
         console.log('[SEND-IMAGE-TO-CHAT] Image URL:', imageUrl);
 
-        // Check Firebase cache first (using productId OR productName as key)
-        if (window.firebaseImageCache && (productId || productName)) {
+        // Check Firebase cache first (using productCode as primary cache key)
+        if (window.firebaseImageCache && (productId || productName || productCode)) {
             console.log('[SEND-IMAGE-TO-CHAT] 🔍 Checking Firebase cache...');
 
-            // Pass both productId and productName - cache will use best available key
-            const cached = await window.firebaseImageCache.get(productId, productName);
+            // Pass productId, productName, and productCode - cache will use productCode as primary key
+            const cached = await window.firebaseImageCache.get(productId, productName, productCode);
 
             if (cached && cached.content_id) {
                 // ✅ CACHE HIT - Use cached content_id directly (no upload needed!)
@@ -10491,6 +10494,7 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
                     content_id: cached.content_id,
                     productId: productId,
                     productName: productName,
+                    productCode: productCode,
                     cached: true
                 });
                 window.updateMultipleImagesPreview();
@@ -10531,6 +10535,7 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
             blob: blob,
             productId: productId,
             productName: productName,
+            productCode: productCode,
             uploading: true
         });
         window.updateMultipleImagesPreview();
@@ -10552,15 +10557,16 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
                 content_id: contentId,
                 blob: blob,
                 productId: productId,
-                productName: productName
+                productName: productName,
+                productCode: productCode
             };
 
             console.log('[SEND-IMAGE-TO-CHAT] ✓ Upload success! content_id:', contentId);
 
-            // Save to Firebase cache (using productId OR productName as key)
-            if (window.firebaseImageCache && (productId || productName)) {
+            // Save to Firebase cache (using productCode as primary cache key)
+            if (window.firebaseImageCache && (productId || productName || productCode)) {
                 console.log('[SEND-IMAGE-TO-CHAT] 💾 Saving to Firebase cache...');
-                await window.firebaseImageCache.set(productId, productName, contentUrl, contentId)
+                await window.firebaseImageCache.set(productId, productName, contentUrl, contentId, productCode)
                     .catch(err => {
                         console.warn('[SEND-IMAGE-TO-CHAT] Cache save failed (non-critical):', err);
                     });
@@ -10574,6 +10580,7 @@ window.sendImageToChat = async function (imageUrl, productName, productId = null
                 blob: blob,
                 productId: productId,
                 productName: productName,
+                productCode: productCode,
                 error: 'Upload failed - no content_id returned',
                 uploadFailed: true
             };
@@ -11598,7 +11605,8 @@ async function sendMessageInternal(messageData) {
                             imageData.blob,
                             imageData.productId || null,
                             imageData.productName || null,
-                            channelId
+                            channelId,
+                            imageData.productCode || null
                         );
 
                         if (!result.success) {
@@ -11964,7 +11972,8 @@ async function sendCommentInternal(commentData) {
                         firstImage.blob,
                         firstImage.productId || null,
                         firstImage.productName || null,
-                        channelId
+                        channelId,
+                        firstImage.productCode || null
                     );
 
                     if (!result.success) {
@@ -15056,6 +15065,7 @@ function renderProductCard(p, index, isHeld) {
     const bgColor = isHeld ? '#fffbeb' : 'white';
     const heldBadge = isHeld ? `<span style="font-size: 10px; background: #fbbf24; color: #78350f; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Giữ</span>` : '';
     const escapedProductName = (p.ProductName || p.Name || '').replace(/'/g, "\\'");
+    const escapedProductCode = (p.ProductCode || p.Code || '').replace(/'/g, "\\'");
 
     return `
         <div class="chat-product-card" style="
@@ -15082,7 +15092,7 @@ function renderProductCard(p, index, isHeld) {
                 cursor: ${p.ImageUrl ? 'pointer' : 'default'};
             "
                 ${p.ImageUrl ? `onclick="showImageZoom('${p.ImageUrl}', '${escapedProductName}')"` : ''}
-                ${p.ImageUrl ? `oncontextmenu="sendImageToChat('${p.ImageUrl}', '${escapedProductName}', ${p.ProductId || 'null'}); return false;"` : ''}
+                ${p.ImageUrl ? `oncontextmenu="sendImageToChat('${p.ImageUrl}', '${escapedProductName}', ${p.ProductId || 'null'}, '${escapedProductCode}'); return false;"` : ''}
                 ${p.ImageUrl ? `title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat"` : ''}
             >
                 ${p.ImageUrl
