@@ -1832,13 +1832,12 @@ class PancakeDataManager {
     }
 
     /**
-     * Upload image to Pancake API (2-step process)
-     * Upload file trực tiếp qua Pancake API chính thức
-     * Ref: https://developer.pancake.biz/#/ - Upload Content API
-     * POST /pages/{page_id}/upload_contents
+     * Upload image to Pancake API
+     * Uses Internal API (pancake.vn/api/v1) for full response with content_url
+     * POST /pages/{page_id}/contents
      * @param {string} pageId
      * @param {File} file
-     * @returns {Promise<{content_url: string, id: string}>}
+     * @returns {Promise<{content_url: string, content_id: string, id: string}>}
      */
     async uploadImage(pageId, file) {
         try {
@@ -1846,16 +1845,17 @@ class PancakeDataManager {
             const fileType = file.type || 'image/jpeg';
             console.log(`[PANCAKE] Uploading image: ${fileName}, size: ${file.size}, type: ${fileType}`);
 
-            // Get page_access_token for Official API (pages.fm)
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
-            if (!pageAccessToken) throw new Error('No page_access_token available');
+            // Get JWT access_token for Internal API (pancake.vn)
+            const accessToken = await this.getToken();
+            if (!accessToken) throw new Error('No Pancake access_token available');
 
-            // Official API: POST /pages/{page_id}/upload_contents
+            // Internal API: POST /pages/{page_id}/contents
             // Content-Type: multipart/form-data
             // Body: file=@image.jpg
-            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${pageId}/upload_contents`,
-                pageAccessToken
+            // Response includes: content_url, content_id, content_preview_url, fb_id, image_data
+            const url = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/contents`,
+                `access_token=${accessToken}`
             );
 
             const formData = new FormData();
@@ -1864,38 +1864,56 @@ class PancakeDataManager {
             const filename = file.name || 'image.jpg';
             formData.append('file', file, filename);
 
-            console.log('[PANCAKE] Uploading to:', url);
+            console.log('[PANCAKE] Uploading to Internal API:', url.replace(/access_token=[^&]+/, 'access_token=***'));
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 body: formData
             }, 3, true); // skipFallback = true for image upload
 
             if (!response.ok) {
-                throw new Error(`Upload failed: ${response.statusText}`);
+                const errorText = await response.text();
+                console.error('[PANCAKE] Upload failed:', response.status, errorText);
+                throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
             }
 
             const data = await response.json();
             console.log('[PANCAKE] Upload response:', data);
 
-            // Extract content_id và content_url từ response
+            // Internal API response format:
+            // {
+            //   content_id: "abc123...",
+            //   content_url: "https://content.pancake.vn/.../image.jpg",
+            //   content_preview_url: "https://content.pancake.vn/..._thumb.jpg",
+            //   fb_id: "123456",
+            //   image_data: { height: 1280, width: 1166 },
+            //   mime_type: "image/jpeg",
+            //   name: "image.png",
+            //   success: true
+            // }
             const result = {
-                content_url: data.content_url || data.url || null,
-                content_id: data.id || data.content_id || null,
-                id: data.id || data.content_id || null  // Alias for compatibility
+                content_url: data.content_url || null,
+                content_id: data.content_id || data.id || null,
+                id: data.content_id || data.id || null,  // Alias for compatibility
+                content_preview_url: data.content_preview_url || null,
+                fb_id: data.fb_id || null,
+                width: data.image_data?.width || null,
+                height: data.image_data?.height || null
             };
 
-            if (!result.content_id && !result.content_url) {
-                console.warn('[PANCAKE] Upload response missing id/url, returning full data');
-                return data;
+            // Validate response
+            if (!result.content_id) {
+                console.error('[PANCAKE] ❌ Upload response missing content_id:', data);
+                throw new Error('Upload response missing content_id');
             }
 
             // ⚠️ Warning if content_url is missing
             if (!result.content_url) {
                 console.warn('[PANCAKE] ⚠️ Upload successful but content_url is NULL - Facebook may not display this image!');
                 console.warn('[PANCAKE] Response data:', JSON.stringify(data));
+            } else {
+                console.log('[PANCAKE] ✅ Upload success - content_id:', result.content_id, 'content_url:', result.content_url);
             }
 
-            console.log('[PANCAKE] ✅ Upload success - content_id:', result.content_id, 'content_url:', result.content_url || 'NULL');
             return result;
 
         } catch (error) {
