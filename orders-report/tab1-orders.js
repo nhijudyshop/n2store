@@ -3052,7 +3052,7 @@ function populateBulkTagModalDropdown() {
                 <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>
                 Đang tải danh sách tag...
                 <br><br>
-                <button onclick="refreshBulkTagDropdown()" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                <button onclick="refreshBulkTagModalDropdown()" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">
                     <i class="fas fa-sync-alt"></i> Tải lại
                 </button>
             </div>
@@ -3104,10 +3104,57 @@ function populateBulkTagModalDropdown() {
 }
 
 // Show bulk tag modal dropdown (on focus)
-function showBulkTagModalDropdown() {
+async function showBulkTagModalDropdown() {
     const dropdown = document.getElementById('bulkTagModalSearchDropdown');
+
+    // If tags not loaded yet, load them first
+    if (!availableTags || availableTags.length === 0) {
+        // Show loading state
+        dropdown.innerHTML = `
+            <div style="padding: 16px; text-align: center; color: #9ca3af;">
+                <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>
+                Đang tải danh sách tag...
+            </div>
+        `;
+        dropdown.classList.add('show');
+
+        // Load tags
+        await loadBulkTagModalOptions();
+    }
+
     populateBulkTagModalDropdown();
     dropdown.classList.add('show');
+}
+
+// Refresh bulk tag modal dropdown (used by "Tải lại" button)
+async function refreshBulkTagModalDropdown() {
+    const dropdown = document.getElementById('bulkTagModalSearchDropdown');
+
+    // Show loading state
+    dropdown.innerHTML = `
+        <div style="padding: 16px; text-align: center; color: #9ca3af;">
+            <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>
+            Đang tải danh sách tag...
+        </div>
+    `;
+
+    try {
+        // Force reload tags from API
+        await loadAvailableTags();
+        populateBulkTagModalDropdown();
+    } catch (error) {
+        console.error("[BULK-TAG-MODAL] Error refreshing tags:", error);
+        dropdown.innerHTML = `
+            <div style="padding: 16px; text-align: center; color: #ef4444;">
+                <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
+                Lỗi tải danh sách tag
+                <br><br>
+                <button onclick="refreshBulkTagModalDropdown()" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    <i class="fas fa-sync-alt"></i> Thử lại
+                </button>
+            </div>
+        `;
+    }
 }
 
 // Filter bulk tag modal options based on search input
