@@ -6,8 +6,8 @@
 (function () {
     'use strict';
 
-    const COMPANY_ID = '10037';
     const API_BASE = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const CACHE_KEY = 'pageCompanyIdMapping';
 
     /**
      * Format datetime: "15/12/2025 19:36"
@@ -24,6 +24,77 @@
         const minutes = String(date.getMinutes()).padStart(2, '0');
 
         return `${day}/${month}/${year} ${hours}:${minutes}`;
+    }
+
+    /**
+     * Fetch mapping pageId → companyId từ TPOS API và cache vào localStorage
+     */
+    async function fetchAndCachePageCompanyIds() {
+        try {
+            const url = 'https://tomato.tpos.vn/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs';
+
+            const headers = await window.tokenManager.getAuthHeader();
+            const response = await fetch(url, {
+                headers: {
+                    ...headers,
+                    'Accept': 'application/json',
+                    'tposappversion': '5.11.16.1'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const mapping = {};
+
+            // Build mapping: Facebook_PageId → Id (companyId)
+            (data.value || []).forEach(user => {
+                (user.Childs || []).forEach(page => {
+                    if (page.Facebook_PageId && page.Id) {
+                        mapping[page.Facebook_PageId] = page.Id;
+                    }
+                });
+            });
+
+            // Cache to localStorage
+            localStorage.setItem(CACHE_KEY, JSON.stringify(mapping));
+            console.log('[LiveComments] Cached page-company mapping:', mapping);
+            return mapping;
+
+        } catch (error) {
+            console.error('[LiveComments] Error fetching page company IDs:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Lấy companyId từ cache hoặc fetch nếu chưa có
+     */
+    async function getCompanyIdByPageId(pageId) {
+        // Thử lấy từ cache trước
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+            try {
+                const mapping = JSON.parse(cached);
+                if (mapping[pageId]) {
+                    return mapping[pageId];
+                }
+            } catch (e) {
+                console.warn('[LiveComments] Failed to parse cached mapping:', e);
+            }
+        }
+
+        // Nếu không có trong cache, fetch lại
+        console.log('[LiveComments] Cache miss, fetching page company IDs...');
+        const mapping = await fetchAndCachePageCompanyIds();
+
+        if (!mapping[pageId]) {
+            throw new Error(`Cannot find companyId for pageId: ${pageId}`);
+        }
+
+        return mapping[pageId];
     }
 
     /**
@@ -84,7 +155,10 @@
      * Fetch live comments từ TPOS API
      */
     async function fetchLiveCommentsByUser(pageId, postId, userId) {
-        const objectId = `${COMPANY_ID}_${pageId}_${postId}`;
+        // Lấy companyId từ cache hoặc fetch từ API
+        const companyId = await getCompanyIdByPageId(pageId);
+
+        const objectId = `${companyId}_${pageId}_${postId}`;
         const url = `${API_BASE}/api/rest/v2.0/facebookpost/${objectId}/commentsbyuser?userId=${userId}`;
 
         const headers = await window.tokenManager.getAuthHeader();
