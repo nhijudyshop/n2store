@@ -4288,6 +4288,31 @@
         }
     </style>
 
+    <!-- Image Zoom Overlay -->
+    <div id="imageZoomOverlay" class="image-zoom-overlay" onclick="closeImageZoom()">
+        <div class="image-zoom-container" onclick="event.stopPropagation()">
+            <button class="image-zoom-close" onclick="closeImageZoom()">
+                <i class="fas fa-times"></i>
+            </button>
+            <img id="imageZoomImg" src="" alt="Zoomed Image">
+            <div id="imageZoomCaption" style="
+                position: absolute;
+                bottom: -40px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-size: 14px;
+                white-space: nowrap;
+                max-width: 90%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            "></div>
+        </div>
+    </div>
+
 </body>
 
 </html>
