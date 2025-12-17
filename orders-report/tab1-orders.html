@@ -3165,9 +3165,10 @@
 
         // ====== TAG FILTER DROPDOWN ======
         /**
-         * Load available tags from API
+         * Load available tags from API for tag filter dropdown
+         * Note: Renamed to avoid conflict with loadAvailableTags() in tab1-orders.js
          */
-        async function loadAvailableTags() {
+        async function loadAvailableTagsForFilter() {
             try {
                 console.log('[TAG-FILTER] Loading available tags from API...');
 
@@ -3261,7 +3262,7 @@
                 container.classList.add('show');
 
                 // Always load fresh tags data when opening dropdown
-                loadAvailableTags();
+                loadAvailableTagsForFilter();
             } else {
                 // Close dropdown
                 container.classList.remove('show');
@@ -3371,7 +3372,7 @@
 
             // Load available tags if not loaded
             if (!window.availableTags || window.availableTags.length === 0) {
-                await loadAvailableTags();
+                await loadAvailableTagsForFilter();
             }
 
             // Render tag settings list
