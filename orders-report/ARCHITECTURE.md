@@ -984,7 +984,198 @@ async function sendMessageWithImage(pageId, convId, token, file, message) {
 
 ---
 
-*Cập nhật lần cuối: 2025-12-15 (Đã thêm documentation đầy đủ cho tất cả 48 files)*
+## 📊 Tab Báo Cáo Tổng Hợp (tab-overview.html)
+
+### Tổng Quan
+
+**File:** `tab-overview.html` (1756 dòng, 66KB)
+**CSS:** `tab-overview.css` (5984 bytes)
+**Load method:** Iframe trong `main.html` (dòng 354)
+
+```html
+<iframe id="overviewFrame" src="tab-overview.html"></iframe>
+```
+
+### UI Structure
+
+#### Header Actions
+| Element | Chức năng |
+|---------|-----------|
+| `#tableSelector` | Dropdown chọn bảng từ Firebase |
+| Nút "Làm mới danh sách" | `loadAvailableTables()` |
+| Nút "Lấy chi tiết đơn hàng" | `startBatchFetch()` |
+
+#### Main Tabs (2 tabs)
+| Tab | ID | Mô tả |
+|-----|----|-------|
+| **Tổng quan** | `#tabOverview` | Stats cards, progress bar, bảng đơn |
+| **Chi tiết đã tải** | `#tabDetails` | Đơn hàng đã fetch chi tiết từ API |
+
+#### Stats Cards (4 cards)
+| ID | Mô tả |
+|----|-------|
+| `#statTotalOrders` | Tổng đơn hàng |
+| `#statTotalAmount` | Tổng tiền (format K/M) |
+| `#statTotalProducts` | Tổng sản phẩm |
+| `#statTotalCustomers` | Khách hàng (unique by phone) |
+
+---
+
+### State Variables
+
+| Variable | Type | Mô tả |
+|----------|------|-------|
+| `allOrders` | Array | Danh sách đơn hàng từ tab1 |
+| `cachedOrderDetails` | Object | `{ tableName: { orders, fetchedAt, ... } }` |
+| `currentTableName` | String | Tên bảng hiện tại từ tab1-orders |
+| `database` | Firebase.Database | Firebase Realtime Database instance |
+| `isFetching` | Boolean | Flag đang fetch batch |
+| `userManuallySelectedTable` | Boolean | User đã chọn table thủ công |
+
+### Constants
+
+| Const | Value | Mô tả |
+|-------|-------|-------|
+| `STORAGE_KEY` | `'report_order_details_by_table'` | localStorage key |
+| `FIREBASE_PATH` | `'report_order_details'` | Firebase path |
+| `BATCH_SIZE` | `10` | Số đơn fetch song song |
+| `BATCH_DELAY` | `1000` | Delay giữa các batch (ms) |
+
+---
+
+### Mapping Table Name → Order Details
+
+#### Firebase Path Structure
+```
+report_order_details/
+  ├── {Bảng_1}/           ← safeTableName
+  │     ├── tableName: "Bảng 1"
+  │     ├── orders: [...]
+  │     ├── fetchedAt: "2025-12-17T..."
+  │     └── totalOrders: 50
+  └── {Live_Campaign_X}/
+        └── ...
+```
+
+#### Lưu data theo tableName
+```javascript
+// Khi fetch xong
+cachedOrderDetails[currentTableName] = cacheData;
+await saveToFirebase(currentTableName, cacheData);
+```
+
+#### Load data khi chọn table
+```javascript
+async function handleTableChange() {
+    currentTableName = selector.value;
+    await loadTableDataFromFirebase(currentTableName);
+    renderCachedDetailsTab();
+    renderOrdersTable();
+}
+```
+
+---
+
+### Các Hàm Chính
+
+#### Firebase Functions
+| Hàm | Chức năng |
+|-----|-----------|
+| `sanitizeForFirebase(obj)` | Loại bỏ keys không hợp lệ (`@`, `.`, `#`, `$`, `/`) |
+| `saveToFirebase(tableName, data)` | Lưu order details lên Firebase |
+| `loadFromFirebase(tableName)` | Tải order details từ Firebase |
+| `checkFirebaseStatus()` | Kiểm tra Firebase có data cho table hiện tại |
+
+#### Table Management
+| Hàm | Chức năng |
+|-----|-----------|
+| `loadAvailableTables()` | Load danh sách tables từ Firebase, populate dropdown |
+| `handleTableChange()` | Xử lý khi user chọn table từ dropdown |
+| `loadTableDataFromFirebase(tableName)` | Load data cho table cụ thể |
+
+#### Batch Fetch
+| Hàm | Chức năng |
+|-----|-----------|
+| `startBatchFetch()` | Batch fetch all orders (10/batch, delay 1s) |
+| `fetchOrderData(orderId)` | Fetch chi tiết 1 order từ TPOS API |
+
+**API Endpoint:**
+```
+GET /odata/SaleOnline_Order({orderId})?$expand=Details,Partner,User,CRMTeam
+```
+
+#### Rendering
+| Hàm | Chức năng |
+|-----|-----------|
+| `updateStats()` | Tính và hiển thị 4 stat cards |
+| `renderOrdersTable()` | Render bảng đơn hàng tab Overview |
+| `renderCachedDetailsTab()` | Render bảng chi tiết đã fetch |
+
+#### Order Detail Modal
+| Hàm | Chức năng |
+|-----|-----------|
+| `openOrderDetail(orderId, index)` | Mở modal, fetch chi tiết từ API |
+| `openCachedOrderDetail(index)` | Mở modal từ cached data |
+| `renderOrderDetailModal(basic, full)` | Render nội dung modal (3 tabs) |
+
+---
+
+### Cross-Tab Communication
+
+#### Message nhận từ tab1/main
+| Event Type | Xử lý |
+|------------|-------|
+| `ORDERS_DATA_RESPONSE` | Nhận orders từ tab1, cập nhật UI |
+| `TABLE_NAME_CHANGED` | Nhận thông báo table name thay đổi |
+
+#### Message gửi đi
+| Event Type | Destination | Mô tả |
+|------------|-------------|-------|
+| `REQUEST_ORDERS_DATA_FROM_OVERVIEW` | parent | Yêu cầu lấy orders từ tab1 |
+| `TABLE_STATUS_UPDATE` | parent | Báo trạng thái table matching |
+
+---
+
+### Data Flow
+
+```
+Tab1 chọn "Bảng Live ABC"
+       ↓ postMessage
+tab-overview nhận → currentTableName = "Bảng Live ABC"
+       ↓
+User nhấn "Lấy chi tiết đơn hàng"
+       ↓
+Batch fetch 10 orders/lần → saveToFirebase()
+       ↓
+Firebase: report_order_details/Bảng_Live_ABC/ = { orders: [...] }
+
+──────────────────────────────────────
+
+User chọn dropdown "Bảng Live ABC"
+       ↓
+handleTableChange() → loadFromFirebase("Bảng Live ABC")
+       ↓
+Load đúng orders của bảng này ✅
+```
+
+---
+
+### Exported Module
+
+```javascript
+window.reportModule = {
+    getAllOrders: () => allOrders,
+    getCachedDetails: () => cachedOrderDetails,
+    getCurrentCampaign: () => currentCampaignName,
+    fetchOrderData: fetchOrderData,
+    refreshData: requestDataFromTab1,
+    startBatchFetch: startBatchFetch
+};
+```
+
+---
+
+*Cập nhật lần cuối: 2025-12-17 (Thêm documentation chi tiết cho tab-overview.html)*
 
 ---
 
