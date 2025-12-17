@@ -185,68 +185,96 @@
     }
 
     /**
-     * Group comments theo ObjectId (post)
+     * Tìm các đơn hàng có cùng số điện thoại trong window.allData
+     * @param {Object} currentOrder - Đơn hàng hiện tại
+     * @returns {Array} - Danh sách đơn hàng có cùng SĐT (đơn hiện tại đầu tiên, còn lại theo thời gian)
      */
-    function groupCommentsByPost(comments) {
-        const groups = {};
-        comments.forEach(comment => {
-            const postId = comment.ObjectId || 'unknown';
-            if (!groups[postId]) {
-                groups[postId] = [];
-            }
-            groups[postId].push(comment);
+    function findRelatedOrdersByPhone(currentOrder) {
+        const phone = currentOrder.Telephone;
+        if (!phone || !window.allData) return [currentOrder];
+
+        // Lọc các đơn có cùng SĐT và có dữ liệu Facebook
+        const relatedOrders = window.allData.filter(order =>
+            order.Telephone === phone &&
+            order.Facebook_ASUserId &&
+            order.Facebook_PostId
+        );
+
+        if (relatedOrders.length === 0) return [currentOrder];
+
+        // Sắp xếp: đơn hiện tại đầu tiên, còn lại theo thời gian (mới nhất trước)
+        relatedOrders.sort((a, b) => {
+            // Đơn hiện tại luôn đầu tiên
+            if (a.Id === currentOrder.Id) return -1;
+            if (b.Id === currentOrder.Id) return 1;
+            // Còn lại sort theo DateCreated (mới nhất trước)
+            const dateA = new Date(a.DateCreated || 0);
+            const dateB = new Date(b.DateCreated || 0);
+            return dateB - dateA;
         });
 
-        // Sort comments trong mỗi group theo thời gian
-        Object.keys(groups).forEach(postId => {
-            groups[postId].sort((a, b) => {
-                const timeA = new Date(a.ChannelCreatedTime || a.CreatedTime);
-                const timeB = new Date(b.ChannelCreatedTime || b.CreatedTime);
-                return timeA - timeB;
-            });
-        });
-
-        return groups;
+        return relatedOrders;
     }
 
     /**
-     * Tạo HTML cho modal
+     * Gộp và sort comments theo timeline
      */
-    function createModalHTML(comments, customerName, objectIds) {
-        const grouped = groupCommentsByPost(comments);
-        const postCount = Object.keys(grouped).length;
-        const totalComments = comments.length;
+    function mergeAndSortComments(comments) {
+        return comments.sort((a, b) => {
+            const timeA = new Date(a.ChannelCreatedTime || a.CreatedTime || 0);
+            const timeB = new Date(b.ChannelCreatedTime || b.CreatedTime || 0);
+            return timeA - timeB;
+        });
+    }
 
-        let commentsHTML = '';
+    /**
+     * Tạo HTML cho modal với dữ liệu từ nhiều đơn hàng liên quan
+     * @param {Array} ordersWithComments - Mảng {order, comments} đã có dữ liệu
+     * @param {string} phone - Số điện thoại chung
+     */
+    function createRelatedOrdersModalHTML(ordersWithComments, phone) {
+        // Lọc chỉ các đơn có comments
+        const ordersWithData = ordersWithComments.filter(item => item.comments.length > 0);
+        const totalComments = ordersWithData.reduce((sum, item) => sum + item.comments.length, 0);
+        const totalOrders = ordersWithData.length;
+
+        let contentHTML = '';
 
         if (totalComments === 0) {
-            commentsHTML = `
+            contentHTML = `
                 <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
                     <i class="fas fa-comment-slash" style="font-size: 48px; margin-bottom: 16px;"></i>
                     <p>Không tìm thấy bình luận nào</p>
                 </div>
             `;
         } else {
-            Object.keys(grouped).forEach(postId => {
-                const postComments = grouped[postId];
-                const shortPostId = postId.split('_').pop() || postId;
+            ordersWithData.forEach((item, index) => {
+                const order = item.order;
+                const comments = mergeAndSortComments(item.comments);
+                const customerName = order.Partner?.Name || order.Facebook_UserName || order.Name || 'Khách hàng';
+                const pageName = order.CRMTeam?.Name || 'Page';
 
-                commentsHTML += `
-                    <div style="margin-bottom: 16px;">
-                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f0f9ff; border-radius: 8px; margin-bottom: 8px;">
-                            <i class="fas fa-video" style="color: #0ea5e9;"></i>
-                            <span style="font-size: 13px; color: #0369a1; font-weight: 500;">Post: ${shortPostId}</span>
-                            <span style="font-size: 12px; color: #64748b;">(${postComments.length} bình luận)</span>
+                // Header section cho mỗi đơn hàng
+                contentHTML += `
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; margin-bottom: 12px;">
+                            <span style="background: white; color: #667eea; font-weight: 700; font-size: 14px; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">${index + 1}</span>
+                            <div style="flex: 1;">
+                                <div style="font-size: 14px; font-weight: 600; color: white;">${escapeHtml(customerName)}</div>
+                                <div style="font-size: 12px; color: rgba(255,255,255,0.85);">Page: ${escapeHtml(pageName)}</div>
+                            </div>
+                            <span style="font-size: 12px; color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px;">${comments.length} bình luận</span>
                         </div>
-                        <div style="padding-left: 12px; border-left: 2px solid #e2e8f0;">
+                        <div style="padding-left: 14px; border-left: 3px solid #e2e8f0;">
                 `;
 
-                postComments.forEach(comment => {
+                // Render comments theo timeline (đã được sort)
+                comments.forEach(comment => {
                     const message = comment.Message || comment.Data?.message || '';
                     const time = formatDateTime(comment.ChannelCreatedTime || comment.CreatedTime);
                     const isOwner = comment.IsOwner;
 
-                    commentsHTML += `
+                    contentHTML += `
                         <div style="padding: 10px 12px; margin-bottom: 6px; background: ${isOwner ? '#f0fdf4' : '#ffffff'}; border-radius: 8px; border: 1px solid ${isOwner ? '#bbf7d0' : '#e5e7eb'};">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
                                 <div style="flex: 1; font-size: 14px; color: #1f2937; line-height: 1.5; word-break: break-word;">
@@ -258,7 +286,7 @@
                     `;
                 });
 
-                commentsHTML += `
+                contentHTML += `
                         </div>
                     </div>
                 `;
@@ -304,7 +332,7 @@
                                 Lịch sử bình luận Live
                             </h3>
                             <p style="margin: 0; font-size: 13px; color: #6b7280;">
-                                Khách hàng: <strong>${escapeHtml(customerName)}</strong>
+                                SĐT: <strong>${escapeHtml(phone)}</strong> • ${totalOrders} đơn hàng liên quan
                             </p>
                         </div>
                         <button onclick="closeLiveCommentsModal()" style="
@@ -330,7 +358,7 @@
                         overflow-y: auto;
                         padding: 20px 24px;
                     ">
-                        ${commentsHTML}
+                        ${contentHTML}
                     </div>
 
                     <!-- Footer -->
@@ -344,7 +372,7 @@
                         border-radius: 0 0 16px 16px;
                     ">
                         <span style="font-size: 13px; color: #6b7280;">
-                            Tổng: <strong>${totalComments}</strong> bình luận từ <strong>${postCount}</strong> bài viết
+                            Tổng: <strong>${totalComments}</strong> bình luận từ <strong>${totalOrders}</strong> đơn hàng
                         </span>
                         <button onclick="closeLiveCommentsModal()" style="
                             padding: 8px 20px;
@@ -397,7 +425,7 @@
     }
 
     /**
-     * Main function: Mở modal hiển thị live comments
+     * Main function: Mở modal hiển thị live comments từ tất cả đơn hàng có cùng SĐT
      */
     window.openLiveCommentsModal = async function () {
         try {
@@ -410,43 +438,61 @@
                 return;
             }
 
-            // Lấy thông tin Facebook
-            const userId = fullOrderData.Facebook_ASUserId;
-            const facebookPostId = fullOrderData.Facebook_PostId;
-
-            if (!userId) {
-                showToast('Đơn hàng không có dữ liệu Facebook User', 'error');
+            const phone = fullOrderData.Telephone;
+            if (!phone) {
+                showToast('Đơn hàng không có số điện thoại', 'error');
                 return;
             }
 
-            if (!facebookPostId) {
-                showToast('Đơn hàng không có dữ liệu bài viết Live', 'error');
+            // Tìm tất cả đơn hàng có cùng SĐT
+            const relatedOrders = findRelatedOrdersByPhone(fullOrderData);
+            console.log('[LiveComments] Found', relatedOrders.length, 'related orders for phone:', phone);
+
+            if (relatedOrders.length === 0) {
+                showToast('Không tìm thấy đơn hàng có dữ liệu Facebook', 'error');
                 return;
             }
-
-            // Parse pageId và postId từ Facebook_PostId (format: pageId_postId)
-            const parts = facebookPostId.split('_');
-            if (parts.length < 2) {
-                showToast('Định dạng Facebook_PostId không hợp lệ', 'error');
-                return;
-            }
-
-            const pageId = parts[0];
-            const postId = parts[1];
-            const customerName = fullOrderData.Partner?.Name || fullOrderData.Name || 'Khách hàng';
 
             // Hiển thị loading
-            showToast('Đang tải bình luận...', 'info');
+            showToast(`Đang tải bình luận từ ${relatedOrders.length} đơn hàng...`, 'info');
 
-            // Fetch comments
-            const result = await fetchLiveCommentsByUser(pageId, postId, userId);
+            // Tạo danh sách các fetch tasks cho mỗi đơn hàng
+            const fetchTasks = relatedOrders.map(async (order) => {
+                try {
+                    const facebookPostId = order.Facebook_PostId;
+                    const userId = order.Facebook_ASUserId;
+
+                    if (!facebookPostId || !userId) {
+                        return { order, comments: [] };
+                    }
+
+                    // Parse pageId và postId từ Facebook_PostId (format: pageId_postId)
+                    const parts = facebookPostId.split('_');
+                    if (parts.length < 2) {
+                        return { order, comments: [] };
+                    }
+
+                    const pageId = parts[0];
+                    const postId = parts[1];
+
+                    // Fetch comments cho đơn hàng này
+                    const result = await fetchLiveCommentsByUser(pageId, postId, userId);
+                    return { order, comments: result.items || [] };
+                } catch (err) {
+                    console.warn('[LiveComments] Error fetching for order', order.Id, ':', err.message);
+                    return { order, comments: [] };
+                }
+            });
+
+            // Fetch song song tất cả đơn hàng
+            const ordersWithComments = await Promise.all(fetchTasks);
 
             // Đóng toast loading
             const loadingToast = document.querySelector('.live-comments-toast');
             if (loadingToast) loadingToast.remove();
 
             // Tạo và hiển thị modal
-            const modalHTML = createModalHTML(result.items, customerName, result.objectIds);
+            const modalHTML = createRelatedOrdersModalHTML(ordersWithComments, phone);
 
             // Remove existing modal if any
             const existingModal = document.getElementById('liveCommentsModal');
@@ -472,7 +518,8 @@
             };
             document.addEventListener('keydown', escHandler);
 
-            console.log('[LiveComments] Modal opened with', result.items.length, 'comments');
+            const totalComments = ordersWithComments.reduce((sum, item) => sum + item.comments.length, 0);
+            console.log('[LiveComments] Modal opened with', totalComments, 'comments from', relatedOrders.length, 'orders');
 
         } catch (error) {
             console.error('[LiveComments] Error:', error);
