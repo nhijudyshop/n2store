@@ -3539,6 +3539,19 @@ function updateBulkTagModalTable() {
  * 5. Show result modal
  * 6. DON'T close modal automatically
  */
+
+// Helper function to normalize phone numbers
+function normalizePhoneForBulkTag(phone) {
+    if (!phone) return '';
+    // Remove all non-digit characters
+    let cleaned = phone.replace(/\D/g, '');
+    // Handle Vietnam country code: replace leading 84 with 0
+    if (cleaned.startsWith('84')) {
+        cleaned = '0' + cleaned.substring(2);
+    }
+    return cleaned;
+}
+
 async function executeBulkTagModalAssignment() {
     console.log("[BULK-TAG-MODAL] Executing bulk tag assignment");
 
@@ -3603,9 +3616,112 @@ async function executeBulkTagModalAssignment() {
                     // Check if order has "ĐÃ GỘP KO CHỐT" tag (exact match)
                     const hasBlockedTag = currentTags.some(t => t.Name === "ĐÃ GỘP KO CHỐT");
                     if (hasBlockedTag) {
-                        console.log(`[BULK-TAG-MODAL] Order ${order.Code} has blocked tag "ĐÃ GỘP KO CHỐT"`);
-                        failedSTT.push(order.SessionIndex);
-                        failReason = 'Đơn có tag "ĐÃ GỘP KO CHỐT"';
+                        console.log(`[BULK-TAG-MODAL] Order ${order.Code} has blocked tag "ĐÃ GỘP KO CHỐT", finding replacement...`);
+
+                        // Get normalized phone number
+                        const originalSTT = order.SessionIndex;
+                        const normalizedPhone = normalizePhoneForBulkTag(order.Telephone);
+
+                        if (!normalizedPhone) {
+                            console.log(`[BULK-TAG-MODAL] Order ${order.Code} has no phone number`);
+                            failedSTT.push(order.SessionIndex);
+                            failReason = 'Đơn có tag "ĐÃ GỘP KO CHỐT" và không có SĐT';
+                            continue;
+                        }
+
+                        // Find all orders with same phone number (excluding current order)
+                        const samePhoneOrders = displayedData.filter(o =>
+                            o.Id !== order.Id && normalizePhoneForBulkTag(o.Telephone) === normalizedPhone
+                        );
+
+                        if (samePhoneOrders.length === 0) {
+                            console.log(`[BULK-TAG-MODAL] No replacement order found for phone ${normalizedPhone}`);
+                            failedSTT.push(order.SessionIndex);
+                            failReason = 'Không tìm thấy đơn thay thế cùng SĐT';
+                            continue;
+                        }
+
+                        // Select order with highest STT
+                        const replacementOrder = samePhoneOrders.sort((a, b) =>
+                            b.SessionIndex - a.SessionIndex
+                        )[0];
+
+                        console.log(`[BULK-TAG-MODAL] Found replacement order ${replacementOrder.Code} (STT ${replacementOrder.SessionIndex}) for blocked order ${order.Code} (STT ${originalSTT})`);
+
+                        // Parse replacement order's tags
+                        const replacementRawTags = replacementOrder.Tags ? JSON.parse(replacementOrder.Tags) : [];
+                        const replacementCurrentTags = replacementRawTags.map(t => ({
+                            Id: parseInt(t.Id, 10),
+                            Name: t.Name,
+                            Color: t.Color
+                        }));
+
+                        // Check if tag already exists on replacement order
+                        const tagExistsOnReplacement = replacementCurrentTags.some(t => t.Id === tagInfo.Id);
+                        if (tagExistsOnReplacement) {
+                            console.log(`[BULK-TAG-MODAL] Tag already exists on replacement order ${replacementOrder.Code}`);
+                            successSTT.push({
+                                original: originalSTT,
+                                redirectTo: replacementOrder.SessionIndex,
+                                redirected: true
+                            });
+                            continue;
+                        }
+
+                        // Build updated tags for replacement order
+                        const replacementUpdatedTags = [
+                            ...replacementCurrentTags,
+                            {
+                                Id: tagInfo.Id,
+                                Name: tagInfo.Name,
+                                Color: tagInfo.Color
+                            }
+                        ];
+
+                        // Call API to assign tag to replacement order
+                        try {
+                            const authHeaders = await window.tokenManager.getAuthHeader();
+                            const response = await fetch(
+                                "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+                                {
+                                    method: "POST",
+                                    headers: {
+                                        ...authHeaders,
+                                        "Content-Type": "application/json",
+                                        "Accept": "application/json"
+                                    },
+                                    body: JSON.stringify({
+                                        Tags: replacementUpdatedTags,
+                                        OrderId: replacementOrder.Id
+                                    }),
+                                }
+                            );
+
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}`);
+                            }
+
+                            // Update local data for replacement order
+                            const updatedData = { Tags: JSON.stringify(replacementUpdatedTags) };
+                            updateOrderInTable(replacementOrder.Id, updatedData);
+
+                            // Emit Firebase update for replacement order
+                            await emitTagUpdateToFirebase(replacementOrder.Id, replacementUpdatedTags);
+
+                            // Record success with redirect info
+                            successSTT.push({
+                                original: originalSTT,
+                                redirectTo: replacementOrder.SessionIndex,
+                                redirected: true
+                            });
+                            console.log(`[BULK-TAG-MODAL] Successfully tagged replacement order ${replacementOrder.Code} with "${tagInfo.Name}" (redirected from STT ${originalSTT})`);
+
+                        } catch (apiError) {
+                            console.error(`[BULK-TAG-MODAL] Error tagging replacement order ${replacementOrder.Code}:`, apiError);
+                            failedSTT.push(order.SessionIndex);
+                            failReason = failReason || `Lỗi API khi gán cho đơn thay thế: ${apiError.message}`;
+                        }
+
                         continue;
                     }
 
@@ -3668,11 +3784,16 @@ async function executeBulkTagModalAssignment() {
             }
 
             // Collect results for this tag
+            // Separate normal STTs and redirected STTs
+            const normalSTT = successSTT.filter(s => typeof s === 'number');
+            const redirectedSTT = successSTT.filter(s => typeof s === 'object' && s.redirected);
+
             if (successSTT.length > 0) {
                 successResults.push({
                     tagName: tagInfo.Name,
                     tagColor: tagInfo.Color,
-                    sttList: successSTT.sort((a, b) => a - b)
+                    sttList: normalSTT.sort((a, b) => a - b),
+                    redirectedList: redirectedSTT.sort((a, b) => a.original - b.original)
                 });
             }
 
@@ -3688,8 +3809,13 @@ async function executeBulkTagModalAssignment() {
             // Update modal data: remove successful STTs, keep failed ones
             const tagDataInModal = bulkTagModalData.find(t => t.tagId === selectedTag.tagId);
             if (tagDataInModal) {
+                // Get all successful original STTs (both normal and redirected)
+                const successOriginalSTTs = [
+                    ...normalSTT,
+                    ...redirectedSTT.map(r => r.original)
+                ];
                 // Remove successful STTs
-                tagDataInModal.sttList = tagDataInModal.sttList.filter(stt => !successSTT.includes(stt));
+                tagDataInModal.sttList = tagDataInModal.sttList.filter(stt => !successOriginalSTTs.includes(stt));
 
                 // Set error message if there are failures
                 if (failedSTT.length > 0) {
@@ -3724,7 +3850,7 @@ async function executeBulkTagModalAssignment() {
         }
 
         // Save history to Firebase
-        const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length, 0);
+        const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length + (r.redirectedList?.length || 0), 0);
         const totalFailed = failedResults.reduce((sum, r) => sum + r.sttList.length, 0);
 
         if (totalSuccess > 0 || totalFailed > 0) {
@@ -3802,7 +3928,7 @@ async function saveBulkTagHistory(results) {
 
 // Show bulk tag result modal
 function showBulkTagResultModal(successResults, failedResults) {
-    const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length, 0);
+    const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length + (r.redirectedList?.length || 0), 0);
     const totalFailed = failedResults.reduce((sum, r) => sum + r.sttList.length, 0);
 
     // Build success HTML
@@ -3815,13 +3941,41 @@ function showBulkTagResultModal(successResults, failedResults) {
                     <span>Thành công (${totalSuccess} đơn)</span>
                 </div>
                 <div class="bulk-tag-result-section-body">
-                    ${successResults.map(r => `
-                        <div class="bulk-tag-result-item">
-                            <span class="tag-color-dot" style="background-color: ${r.tagColor}"></span>
-                            <span class="tag-name">${r.tagName}:</span>
-                            <span class="stt-list">STT ${r.sttList.join(', ')}</span>
-                        </div>
-                    `).join('')}
+                    ${successResults.map(r => {
+                        // Build normal STT display
+                        const normalSttDisplay = r.sttList.length > 0
+                            ? `STT ${r.sttList.join(', ')}`
+                            : '';
+
+                        // Build redirected STT display
+                        const redirectedDisplay = r.redirectedList?.length > 0
+                            ? r.redirectedList.map(rd => `${rd.original} → ${rd.redirectTo}`).join(', ')
+                            : '';
+
+                        // Combine displays
+                        let sttDisplay = '';
+                        if (normalSttDisplay && redirectedDisplay) {
+                            sttDisplay = `${normalSttDisplay}, ${redirectedDisplay}`;
+                        } else if (normalSttDisplay) {
+                            sttDisplay = normalSttDisplay;
+                        } else if (redirectedDisplay) {
+                            sttDisplay = `STT ${redirectedDisplay}`;
+                        }
+
+                        // Add redirect note if there are redirected items
+                        const redirectNote = r.redirectedList?.length > 0
+                            ? `<div class="redirect-note" style="font-size: 11px; color: #6b7280; margin-top: 2px;">↳ Chuyển sang đơn cùng SĐT</div>`
+                            : '';
+
+                        return `
+                            <div class="bulk-tag-result-item">
+                                <span class="tag-color-dot" style="background-color: ${r.tagColor}"></span>
+                                <span class="tag-name">${r.tagName}:</span>
+                                <span class="stt-list">${sttDisplay}</span>
+                                ${redirectNote}
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
