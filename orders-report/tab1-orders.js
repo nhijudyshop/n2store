@@ -3043,10 +3043,13 @@ function populateBulkTagModalDropdown() {
     const dropdown = document.getElementById('bulkTagModalSearchDropdown');
     const searchValue = document.getElementById('bulkTagModalSearchInput').value.toLowerCase().trim();
 
-    console.log("[BULK-TAG-MODAL] Populating dropdown, availableTags count:", availableTags ? availableTags.length : 0);
+    // Use window.availableTags (from HTML) or local availableTags (from JS)
+    const tags = window.availableTags || availableTags || [];
 
-    // Check if availableTags is loaded
-    if (!availableTags || availableTags.length === 0) {
+    console.log("[BULK-TAG-MODAL] Populating dropdown, tags count:", tags.length);
+
+    // Check if tags is loaded
+    if (!tags || tags.length === 0) {
         dropdown.innerHTML = `
             <div style="padding: 16px; text-align: center; color: #9ca3af;">
                 <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>
@@ -3061,7 +3064,7 @@ function populateBulkTagModalDropdown() {
     }
 
     // Filter tags by search
-    const filteredTags = availableTags.filter(tag =>
+    const filteredTags = tags.filter(tag =>
         tag.Name && tag.Name.toLowerCase().includes(searchValue)
     );
 
@@ -3236,16 +3239,16 @@ async function autoCreateAndAddTagToBulkModal(tagName) {
             delete newTag['@odata.context'];
         }
 
-        // Update local tags list
-        if (Array.isArray(availableTags)) {
-            availableTags.push(newTag);
-            window.availableTags = availableTags;
-            window.cacheManager.set("tags", availableTags, "tags");
-        }
+        // Update tags list (both window and local)
+        const currentTags = window.availableTags || availableTags || [];
+        currentTags.push(newTag);
+        window.availableTags = currentTags;
+        availableTags = currentTags;
+        window.cacheManager.set("tags", currentTags, "tags");
 
         // Save to Firebase
         if (database) {
-            await database.ref('settings/tags').set(availableTags);
+            await database.ref('settings/tags').set(currentTags);
             console.log('[BULK-TAG-MODAL] Saved updated tags to Firebase');
         }
 
