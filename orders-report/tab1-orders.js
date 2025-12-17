@@ -9957,17 +9957,18 @@ window.uploadImageWithCache = async function uploadImageWithCache(imageBlob, pro
 
             const cached = await window.firebaseImageCache.get(productId, productName, productCode);
 
-            if (cached && cached.content_url) {
-                // ✅ CACHE HIT
-                console.log('[UPLOAD-CACHE] ✅ Cache HIT! Reusing:', cached.content_url);
-                contentUrl = cached.content_url;
+            if (cached && (cached.content_id || cached.content_url)) {
+                // ✅ CACHE HIT - prioritize content_id over content_url
+                console.log('[UPLOAD-CACHE] ✅ Cache HIT! Reusing content_id:', cached.content_id, 'content_url:', cached.content_url);
+                contentUrl = cached.content_url || null;
+                contentId = cached.content_id || null;
                 dimensions = await getImageDimensions(imageBlob);
 
                 return {
                     success: true,
                     data: {
                         content_url: contentUrl,
-                        content_id: null,
+                        content_id: contentId,
                         width: dimensions.width,
                         height: dimensions.height,
                         cached: true
