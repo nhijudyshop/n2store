@@ -1029,6 +1029,19 @@
                             </select>
                         </div>
                         <div style="display: flex; gap: 4px; align-items: center;">
+                            <!-- Live Comments History Icon -->
+                            <button class="toolbar-icon-btn" title="Lịch sử bình luận Live" onclick="openLiveCommentsModal()"
+                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
+                                onmouseover="this.style.background='#f3f4f6';"
+                                onmouseout="this.style.background='none';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
+                                    viewBox="0 0 256 256">
+                                    <path
+                                        d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z">
+                                    </path>
+                                </svg>
+                            </button>
+
                             <!-- Copy Template Icon -->
                             <button class="toolbar-icon-btn" title="Copy mẫu chốt đơn" onclick="copyOrderTemplate()"
                                 style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
@@ -2209,6 +2222,7 @@
     <script src="order-image-generator.js"></script>
     <script src="message-template-manager.js"></script>
     <script src="copy-template-helper.js"></script>
+    <script src="live-comments-readonly-modal.js"></script>
 
     <script src="quick-reply-manager.js"></script>
     <script src="product-search-manager.js"></script>
