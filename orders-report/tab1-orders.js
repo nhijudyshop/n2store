@@ -2918,7 +2918,7 @@ async function executeBulkTagAssignment() {
 // =====================================================
 
 // State variables for bulk tag modal
-// Each tag item: {tagId, tagName, tagColor, sttSet: Set(), errorMessage: string|null}
+// Each tag item: {tagId, tagName, tagColor, sttList: Array (giữ thứ tự nhập), errorMessage: string|null}
 let bulkTagModalData = [];
 let selectedBulkTagModalRows = new Set(); // Set of selected tag IDs
 
@@ -2934,7 +2934,7 @@ function saveBulkTagToLocalStorage() {
             tagId: tag.tagId,
             tagName: tag.tagName,
             tagColor: tag.tagColor,
-            sttList: Array.from(tag.sttSet),
+            sttList: tag.sttList || [],
             errorMessage: tag.errorMessage || null
         }));
         localStorage.setItem(BULK_TAG_DRAFT_KEY, JSON.stringify(dataToSave));
@@ -2957,14 +2957,14 @@ function loadBulkTagFromLocalStorage() {
             tagId: tag.tagId,
             tagName: tag.tagName,
             tagColor: tag.tagColor,
-            sttSet: new Set(tag.sttList || []),
+            sttList: tag.sttList || [],
             errorMessage: tag.errorMessage || null
         }));
 
         // Auto-select tags with STTs
         selectedBulkTagModalRows.clear();
         bulkTagModalData.forEach(tag => {
-            if (tag.sttSet.size > 0) {
+            if (tag.sttList.length > 0) {
                 selectedBulkTagModalRows.add(tag.tagId);
             }
         });
@@ -3280,7 +3280,7 @@ function addTagToBulkTagModal(tagId, tagName, tagColor) {
         tagId: tagId,
         tagName: tagName,
         tagColor: tagColor,
-        sttSet: new Set()
+        sttList: []
     });
 
     // Update UI
@@ -3331,7 +3331,7 @@ function updateBulkTagModalRowCount() {
 function toggleBulkTagSelectAll(checked) {
     if (checked) {
         bulkTagModalData.forEach(tag => {
-            if (tag.sttSet.size > 0) {
+            if (tag.sttList.length > 0) {
                 selectedBulkTagModalRows.add(tag.tagId);
             }
         });
@@ -3345,7 +3345,7 @@ function toggleBulkTagSelectAll(checked) {
 // Toggle individual row selection
 function toggleBulkTagRowSelection(tagId) {
     const tagData = bulkTagModalData.find(t => t.tagId === tagId);
-    if (!tagData || tagData.sttSet.size === 0) return;
+    if (!tagData || tagData.sttList.length === 0) return;
 
     if (selectedBulkTagModalRows.has(tagId)) {
         selectedBulkTagModalRows.delete(tagId);
@@ -3360,7 +3360,7 @@ function toggleBulkTagRowSelection(tagId) {
 // Update select all checkbox state
 function updateSelectAllCheckbox() {
     const selectAllCheckbox = document.getElementById('bulkTagSelectAllCheckbox');
-    const tagsWithSTT = bulkTagModalData.filter(t => t.sttSet.size > 0);
+    const tagsWithSTT = bulkTagModalData.filter(t => t.sttList.length > 0);
 
     if (tagsWithSTT.length === 0) {
         selectAllCheckbox.checked = false;
@@ -3402,8 +3402,8 @@ function addSTTToBulkTagRow(tagId, inputElement) {
         return;
     }
 
-    // Check if already added
-    if (tagData.sttSet.has(stt)) {
+    // Check if already added (using Array.includes)
+    if (tagData.sttList.includes(stt)) {
         if (window.notificationManager) {
             window.notificationManager.warning(`STT ${stt} đã được thêm`, 2000);
         }
@@ -3411,8 +3411,8 @@ function addSTTToBulkTagRow(tagId, inputElement) {
         return;
     }
 
-    // Add STT
-    tagData.sttSet.add(stt);
+    // Add STT (giữ nguyên thứ tự nhập)
+    tagData.sttList.push(stt);
     inputElement.value = '';
 
     updateBulkTagModalTable();
@@ -3439,10 +3439,10 @@ function removeSTTFromBulkTagRow(tagId, stt) {
     const tagData = bulkTagModalData.find(t => t.tagId === tagId);
     if (!tagData) return;
 
-    tagData.sttSet.delete(stt);
+    tagData.sttList = tagData.sttList.filter(s => s !== stt);
 
     // If no more STTs, deselect the row
-    if (tagData.sttSet.size === 0) {
+    if (tagData.sttList.length === 0) {
         selectedBulkTagModalRows.delete(tagId);
     }
 
@@ -3466,7 +3466,8 @@ function updateBulkTagModalTable() {
 
     tableBody.innerHTML = bulkTagModalData.map(tagData => {
         const isSelected = selectedBulkTagModalRows.has(tagData.tagId);
-        const sttArray = Array.from(tagData.sttSet).sort((a, b) => a - b);
+        const sttArray = tagData.sttList || []; // Giữ nguyên thứ tự nhập, không sort
+        const sttCount = sttArray.length;
         const hasError = tagData.errorMessage && tagData.errorMessage.length > 0;
 
         // Get customer names for STTs
@@ -3496,9 +3497,9 @@ function updateBulkTagModalTable() {
                 <div class="bulk-tag-row-tag">
                     <input type="checkbox"
                            ${isSelected ? 'checked' : ''}
-                           ${tagData.sttSet.size === 0 ? 'disabled' : ''}
+                           ${sttCount === 0 ? 'disabled' : ''}
                            onchange="toggleBulkTagRowSelection('${tagData.tagId}')"
-                           title="${tagData.sttSet.size === 0 ? 'Thêm STT trước khi chọn' : 'Chọn để gán tag'}">
+                           title="${sttCount === 0 ? 'Thêm STT trước khi chọn' : 'Chọn để gán tag'}">
                     <div class="bulk-tag-row-tag-info">
                         <span class="tag-color-dot" style="background-color: ${tagData.tagColor}"></span>
                         <span class="tag-name">${tagData.tagName}</span>
@@ -3514,6 +3515,7 @@ function updateBulkTagModalTable() {
                                class="bulk-tag-stt-input"
                                placeholder="Nhập STT và Enter"
                                onkeydown="handleBulkTagSTTInputKeydown(event, '${tagData.tagId}')">
+                        <span class="bulk-tag-stt-counter">(${sttCount})</span>
                     </div>
                 </div>
                 <div class="bulk-tag-row-action">
@@ -3542,7 +3544,7 @@ async function executeBulkTagModalAssignment() {
 
     // Get selected tags with STTs (checked rows only)
     const selectedTags = bulkTagModalData.filter(t =>
-        selectedBulkTagModalRows.has(t.tagId) && t.sttSet.size > 0
+        selectedBulkTagModalRows.has(t.tagId) && t.sttList.length > 0
     );
 
     // Validate: at least one tag selected with STTs
@@ -3570,7 +3572,7 @@ async function executeBulkTagModalAssignment() {
                 Color: selectedTag.tagColor
             };
 
-            const sttArray = Array.from(selectedTag.sttSet);
+            const sttArray = selectedTag.sttList || [];
             const successSTT = [];
             const failedSTT = [];
             let failReason = null;
@@ -3687,7 +3689,7 @@ async function executeBulkTagModalAssignment() {
             const tagDataInModal = bulkTagModalData.find(t => t.tagId === selectedTag.tagId);
             if (tagDataInModal) {
                 // Remove successful STTs
-                successSTT.forEach(stt => tagDataInModal.sttSet.delete(stt));
+                tagDataInModal.sttList = tagDataInModal.sttList.filter(stt => !successSTT.includes(stt));
 
                 // Set error message if there are failures
                 if (failedSTT.length > 0) {
@@ -3704,12 +3706,12 @@ async function executeBulkTagModalAssignment() {
         window.cacheManager.clear("orders");
 
         // Remove tags with no remaining STTs
-        bulkTagModalData = bulkTagModalData.filter(tag => tag.sttSet.size > 0);
+        bulkTagModalData = bulkTagModalData.filter(tag => tag.sttList.length > 0);
 
         // Update selected rows
         selectedBulkTagModalRows.clear();
         bulkTagModalData.forEach(tag => {
-            if (tag.sttSet.size > 0) {
+            if (tag.sttList.length > 0) {
                 selectedBulkTagModalRows.add(tag.tagId);
             }
         });
@@ -3762,11 +3764,17 @@ async function saveBulkTagHistory(results) {
         const timestamp = Date.now();
         const dateFormatted = new Date(timestamp).toLocaleString('vi-VN');
 
-        // Get username from tokenManager
+        // Get identifier name (tên định danh) - fallback to DisplayName if not available
         let username = 'Unknown';
         try {
-            const tokenData = window.tokenManager?.getTokenData?.();
-            username = tokenData?.DisplayName || tokenData?.name || 'Unknown';
+            // Ưu tiên dùng identifier name (tên định danh)
+            if (currentUserIdentifier) {
+                username = currentUserIdentifier;
+            } else {
+                // Fallback to DisplayName from tokenManager
+                const tokenData = window.tokenManager?.getTokenData?.();
+                username = tokenData?.DisplayName || tokenData?.name || 'Unknown';
+            }
         } catch (e) {
             console.warn("[BULK-TAG-MODAL] Could not get username:", e);
         }
