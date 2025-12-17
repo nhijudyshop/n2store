@@ -14,6 +14,7 @@ const DEFAULT_COLUMN_VISIBILITY = {
     'order-code': false,
     'customer': true,
     'messages': true,
+    'messagesContent': true,  // NEW: Hiển thị nội dung tin nhắn (true) hoặc chỉ "-" (false)
     'comments': true,
     'phone': true,
     'qr': true,

@@ -7345,6 +7345,10 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         OriginalOrders: order.OriginalOrders
     });
 
+    // Check if user wants to show message content (from column visibility settings)
+    const columnSettings = window.columnVisibility?.load() || {};
+    const showContent = columnSettings.messagesContent !== false; // Default true
+
     // Sort by STT descending (largest first)
     const sortedOrders = [...order.OriginalOrders].sort((a, b) =>
         (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
@@ -7361,7 +7365,10 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         let hasUnread = false;
         let unreadCount = 0;
 
-        if (window.chatDataManager && channelId && psid) {
+        // If user disabled content display, always show "-" (no preview, no badge)
+        if (!showContent) {
+            displayMessage = '–';
+        } else if (window.chatDataManager && channelId && psid) {
             const msgInfo = columnType === 'messages'
                 ? window.chatDataManager.getLastMessageForOrder(originalOrder)
                 : window.chatDataManager.getLastCommentForOrder(channelId, psid, originalOrder);
@@ -7383,12 +7390,13 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         const cursorStyle = clickHandler ? 'cursor: pointer;' : 'cursor: default;';
         const hoverStyle = clickHandler ? `onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"` : '';
 
-        const unreadBadge = hasUnread ? '<span style="width: 6px; height: 6px; background: #ef4444; border-radius: 50%; flex-shrink: 0;"></span>' : '';
-        const fontWeight = hasUnread ? '600' : '400';
-        const color = hasUnread ? '#111827' : '#6b7280';
+        // Only show unread indicators if content display is enabled
+        const unreadBadge = (showContent && hasUnread) ? '<span style="width: 6px; height: 6px; background: #ef4444; border-radius: 50%; flex-shrink: 0;"></span>' : '';
+        const fontWeight = (showContent && hasUnread) ? '600' : '400';
+        const color = (showContent && hasUnread) ? '#111827' : '#6b7280';
 
-        // Always show unread count if > 0
-        const unreadText = unreadCount > 0 ? `<span style="font-size: 10px; color: #ef4444; font-weight: 600; margin-left: 4px;">${unreadCount} tin mới</span>` : '';
+        // Always show unread count if > 0 (only when content display is enabled)
+        const unreadText = (showContent && unreadCount > 0) ? `<span style="font-size: 10px; color: #ef4444; font-weight: 600; margin-left: 4px;">${unreadCount} tin mới</span>` : '';
 
         return `
             <div class="merged-detail-row" ${clickHandler ? `onclick="${clickHandler}; event.stopPropagation();"` : ''} 
