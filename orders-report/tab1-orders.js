@@ -9908,16 +9908,15 @@ window.closeChatModal = async function () {
     }
 }
 
-// Prevent chat modal from closing when clicking outside (on backdrop)
+// Close chat modal when clicking outside (on backdrop)
 document.addEventListener('click', function (event) {
     const modal = document.getElementById('chatModal');
     if (!modal || !modal.classList.contains('show')) return;
 
     const modalContent = modal.querySelector('.chat-modal-content');
-    // If click is on the backdrop (modal itself, not its content), prevent closing
+    // If click is on the backdrop (modal itself, not its content), close the modal
     if (event.target === modal && modalContent && !modalContent.contains(event.target)) {
-        event.stopPropagation();
-        event.preventDefault();
+        closeChatModal();
     }
 });
 
