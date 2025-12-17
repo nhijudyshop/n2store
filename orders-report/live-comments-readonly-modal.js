@@ -191,29 +191,51 @@
      */
     function findRelatedOrdersByPhone(currentOrder) {
         const phone = currentOrder.Telephone;
-        if (!phone || !window.allData) return [currentOrder];
+        if (!phone || !window.allData) return [{ order: currentOrder, indexInAllData: -1 }];
 
-        // Lọc các đơn có cùng SĐT và có dữ liệu Facebook
-        const relatedOrders = window.allData.filter(order =>
-            order.Telephone === phone &&
-            order.Facebook_ASUserId &&
-            order.Facebook_PostId
-        );
+        // Lọc các đơn có cùng SĐT (không cần check Facebook fields vì sẽ fetch sau)
+        const relatedOrders = [];
+        window.allData.forEach((order, index) => {
+            if (order.Telephone === phone) {
+                relatedOrders.push({ order, indexInAllData: index });
+            }
+        });
 
-        if (relatedOrders.length === 0) return [currentOrder];
+        if (relatedOrders.length === 0) return [{ order: currentOrder, indexInAllData: -1 }];
 
         // Sắp xếp: đơn hiện tại đầu tiên, còn lại theo thời gian (mới nhất trước)
         relatedOrders.sort((a, b) => {
             // Đơn hiện tại luôn đầu tiên
-            if (a.Id === currentOrder.Id) return -1;
-            if (b.Id === currentOrder.Id) return 1;
+            if (a.order.Id === currentOrder.Id) return -1;
+            if (b.order.Id === currentOrder.Id) return 1;
             // Còn lại sort theo DateCreated (mới nhất trước)
-            const dateA = new Date(a.DateCreated || 0);
-            const dateB = new Date(b.DateCreated || 0);
+            const dateA = new Date(a.order.DateCreated || 0);
+            const dateB = new Date(b.order.DateCreated || 0);
             return dateB - dateA;
         });
 
         return relatedOrders;
+    }
+
+    /**
+     * Fetch full order data từ API
+     */
+    async function fetchFullOrderData(orderId) {
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const url = `${API_BASE}/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+            const response = await fetch(url, {
+                headers: {
+                    ...headers,
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (err) {
+            console.warn('[LiveComments] Error fetching order', orderId, ':', err.message);
+            return null;
+        }
     }
 
     /**
@@ -229,7 +251,7 @@
 
     /**
      * Tạo HTML cho modal với dữ liệu từ nhiều đơn hàng liên quan
-     * @param {Array} ordersWithComments - Mảng {order, comments} đã có dữ liệu
+     * @param {Array} ordersWithComments - Mảng {order, comments, indexInAllData} đã có dữ liệu
      * @param {string} phone - Số điện thoại chung
      */
     function createRelatedOrdersModalHTML(ordersWithComments, phone) {
@@ -248,17 +270,19 @@
                 </div>
             `;
         } else {
-            ordersWithData.forEach((item, index) => {
+            ordersWithData.forEach((item) => {
                 const order = item.order;
                 const comments = mergeAndSortComments(item.comments);
                 const customerName = order.Partner?.Name || order.Facebook_UserName || order.Name || 'Khách hàng';
                 const pageName = order.CRMTeam?.Name || 'Page';
+                // STT là vị trí trong allData (1-based)
+                const stt = item.indexInAllData >= 0 ? item.indexInAllData + 1 : '?';
 
                 // Header section cho mỗi đơn hàng
                 contentHTML += `
                     <div style="margin-bottom: 20px;">
                         <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; margin-bottom: 12px;">
-                            <span style="background: white; color: #667eea; font-weight: 700; font-size: 14px; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">${index + 1}</span>
+                            <span style="background: white; color: #667eea; font-weight: 700; font-size: 14px; min-width: 28px; height: 28px; padding: 0 6px; border-radius: 14px; display: flex; align-items: center; justify-content: center;">${stt}</span>
                             <div style="flex: 1;">
                                 <div style="font-size: 14px; font-weight: 600; color: white;">${escapeHtml(customerName)}</div>
                                 <div style="font-size: 12px; color: rgba(255,255,255,0.85);">Page: ${escapeHtml(pageName)}</div>
@@ -431,7 +455,7 @@
         try {
             injectStyles();
 
-            // Lấy order data hiện tại
+            // Lấy order data hiện tại (đã có đầy đủ từ API expand)
             const fullOrderData = window.currentChatOrderData;
             if (!fullOrderData) {
                 showToast('Không có thông tin đơn hàng', 'error');
@@ -444,32 +468,47 @@
                 return;
             }
 
-            // Tìm tất cả đơn hàng có cùng SĐT
-            const relatedOrders = findRelatedOrdersByPhone(fullOrderData);
-            console.log('[LiveComments] Found', relatedOrders.length, 'related orders for phone:', phone);
+            // Tìm tất cả đơn hàng có cùng SĐT (trả về {order, indexInAllData})
+            const relatedOrdersInfo = findRelatedOrdersByPhone(fullOrderData);
+            console.log('[LiveComments] Found', relatedOrdersInfo.length, 'related orders for phone:', phone);
 
-            if (relatedOrders.length === 0) {
-                showToast('Không tìm thấy đơn hàng có dữ liệu Facebook', 'error');
+            if (relatedOrdersInfo.length === 0) {
+                showToast('Không tìm thấy đơn hàng', 'error');
                 return;
             }
 
             // Hiển thị loading
-            showToast(`Đang tải bình luận từ ${relatedOrders.length} đơn hàng...`, 'info');
+            showToast(`Đang tải bình luận từ ${relatedOrdersInfo.length} đơn hàng...`, 'info');
 
             // Tạo danh sách các fetch tasks cho mỗi đơn hàng
-            const fetchTasks = relatedOrders.map(async (order) => {
+            const fetchTasks = relatedOrdersInfo.map(async (info) => {
                 try {
-                    const facebookPostId = order.Facebook_PostId;
-                    const userId = order.Facebook_ASUserId;
+                    const { order: basicOrder, indexInAllData } = info;
+
+                    // Nếu là đơn hiện tại, dùng fullOrderData đã có sẵn
+                    // Nếu không, fetch full data từ API
+                    let orderData;
+                    if (basicOrder.Id === fullOrderData.Id) {
+                        orderData = fullOrderData;
+                    } else {
+                        orderData = await fetchFullOrderData(basicOrder.Id);
+                        if (!orderData) {
+                            return { order: basicOrder, comments: [], indexInAllData };
+                        }
+                    }
+
+                    const facebookPostId = orderData.Facebook_PostId;
+                    const userId = orderData.Facebook_ASUserId;
 
                     if (!facebookPostId || !userId) {
-                        return { order, comments: [] };
+                        console.log('[LiveComments] Order', basicOrder.Id, 'missing Facebook data');
+                        return { order: orderData, comments: [], indexInAllData };
                     }
 
                     // Parse pageId và postId từ Facebook_PostId (format: pageId_postId)
                     const parts = facebookPostId.split('_');
                     if (parts.length < 2) {
-                        return { order, comments: [] };
+                        return { order: orderData, comments: [], indexInAllData };
                     }
 
                     const pageId = parts[0];
@@ -477,10 +516,10 @@
 
                     // Fetch comments cho đơn hàng này
                     const result = await fetchLiveCommentsByUser(pageId, postId, userId);
-                    return { order, comments: result.items || [] };
+                    return { order: orderData, comments: result.items || [], indexInAllData };
                 } catch (err) {
-                    console.warn('[LiveComments] Error fetching for order', order.Id, ':', err.message);
-                    return { order, comments: [] };
+                    console.warn('[LiveComments] Error fetching for order', info.order.Id, ':', err.message);
+                    return { order: info.order, comments: [], indexInAllData: info.indexInAllData };
                 }
             });
 
