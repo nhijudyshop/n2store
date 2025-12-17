@@ -9908,6 +9908,19 @@ window.closeChatModal = async function () {
     }
 }
 
+// Prevent chat modal from closing when clicking outside (on backdrop)
+document.addEventListener('click', function (event) {
+    const modal = document.getElementById('chatModal');
+    if (!modal || !modal.classList.contains('show')) return;
+
+    const modalContent = modal.querySelector('.chat-modal-content');
+    // If click is on the backdrop (modal itself, not its content), prevent closing
+    if (event.target === modal && modalContent && !modalContent.contains(event.target)) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+});
+
 /**
  * Upload image with Firebase cache check
  * Returns uploaded image data or error
