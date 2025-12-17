@@ -1881,8 +1881,8 @@ class PancakeDataManager {
 
         console.log(`[PANCAKE] Updating local conversation status: ${conversationId} → ${isRead ? 'READ' : 'UNREAD'}`);
 
-        // Find conversation in allConversations array
-        const conversation = this.allConversations.find(c => c.id === conversationId);
+        // Find conversation in conversations array (NOT allConversations!)
+        const conversation = this.conversations.find(c => c.id === conversationId);
 
         if (conversation) {
             conversation.seen = isRead;
