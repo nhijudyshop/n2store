@@ -1842,7 +1842,9 @@ class PancakeDataManager {
      */
     async uploadImage(pageId, file) {
         try {
-            console.log(`[PANCAKE] Uploading image: ${file.name}, size: ${file.size}`);
+            const fileName = file.name || 'compressed-image.jpg';
+            const fileType = file.type || 'image/jpeg';
+            console.log(`[PANCAKE] Uploading image: ${fileName}, size: ${file.size}, type: ${fileType}`);
 
             // Get page_access_token for Official API (pages.fm)
             const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
@@ -1857,7 +1859,10 @@ class PancakeDataManager {
             );
 
             const formData = new FormData();
-            formData.append('file', file);
+            // ⭐ IMPORTANT: Add filename for Blob objects (compressed images)
+            // Pancake API needs filename to generate content_url
+            const filename = file.name || 'image.jpg';
+            formData.append('file', file, filename);
 
             console.log('[PANCAKE] Uploading to:', url);
             const response = await API_CONFIG.smartFetch(url, {
@@ -1884,7 +1889,13 @@ class PancakeDataManager {
                 return data;
             }
 
-            console.log('[PANCAKE] ✅ Upload success:', result);
+            // ⚠️ Warning if content_url is missing
+            if (!result.content_url) {
+                console.warn('[PANCAKE] ⚠️ Upload successful but content_url is NULL - Facebook may not display this image!');
+                console.warn('[PANCAKE] Response data:', JSON.stringify(data));
+            }
+
+            console.log('[PANCAKE] ✅ Upload success - content_id:', result.content_id, 'content_url:', result.content_url || 'NULL');
             return result;
 
         } catch (error) {

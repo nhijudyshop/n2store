@@ -74,14 +74,23 @@ window.compressImage = async function compressImage(
                     // If first attempt is already under limit, return it
                     if (blob.size <= maxSizeBytes) {
                         console.log(`[COMPRESS] ✅ Success on first try!`);
+
+                        // ⭐ Convert to File object
+                        const originalName = file.name || 'image.png';
+                        const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
+                        const compressedFileName = `${nameWithoutExt}_compressed.jpg`;
+                        const fileObject = new File([blob], compressedFileName, { type: 'image/jpeg' });
+
+                        console.log(`[COMPRESS] Created File object: ${compressedFileName}, type: ${fileObject.type}`);
+
                         resolve({
-                            blob,
+                            blob: fileObject,
                             width,
                             height,
                             originalSize: file.size,
-                            compressedSize: blob.size,
+                            compressedSize: fileObject.size,
                             quality: quality,
-                            compressionRatio: ((1 - blob.size / file.size) * 100).toFixed(1) + '%'
+                            compressionRatio: ((1 - fileObject.size / file.size) * 100).toFixed(1) + '%'
                         });
                         return;
                     }
@@ -116,14 +125,23 @@ window.compressImage = async function compressImage(
                         console.log(`[COMPRESS] ✅ Compression successful!`);
                     }
 
+                    // ⭐ Convert Blob to File object with proper name and type
+                    // This is critical for Pancake API to generate content_url
+                    const originalName = file.name || 'image.png';
+                    const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
+                    const compressedFileName = `${nameWithoutExt}_compressed.jpg`;
+                    const fileObject = new File([blob], compressedFileName, { type: 'image/jpeg' });
+
+                    console.log(`[COMPRESS] Created File object: ${compressedFileName}, type: ${fileObject.type}`);
+
                     resolve({
-                        blob,
+                        blob: fileObject,  // Now it's a File, not just a Blob
                         width,
                         height,
                         originalSize: file.size,
-                        compressedSize: blob.size,
+                        compressedSize: fileObject.size,
                         quality: quality,
-                        compressionRatio: ((1 - blob.size / file.size) * 100).toFixed(1) + '%'
+                        compressionRatio: ((1 - fileObject.size / file.size) * 100).toFixed(1) + '%'
                     });
                 };
 
