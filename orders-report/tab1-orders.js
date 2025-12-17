@@ -13067,35 +13067,19 @@ async function sendMessageInternal(messageData) {
             console.log('[MESSAGE] Adding', imagesDataArray.length, 'images to payload');
 
             // Pancake API format: content_ids là array of content IDs từ upload API
+            // Ref: https://developer.pancake.biz/#/ - Send Message API
+            // ⚠️ IMPORTANT: CHỈ gửi content_ids, KHÔNG gửi content_urls
+            // Facebook Messenger KHÔNG hỗ trợ external URLs từ content.pancake.vn
+            // Pancake sẽ tự động convert content_ids → Facebook attachments
             payload.content_ids = imagesDataArray
                 .map(img => img.content_id || img.id)
                 .filter(id => id); // Lọc bỏ null/undefined
 
-            // attachment_ids (Facebook attachment IDs if available)
-            payload.attachment_ids = imagesDataArray
-                .map(img => img.attachment_id || null)
-                .filter(id => id);
-
-            // content_urls array
-            payload.content_urls = imagesDataArray
-                .map(img => img.content_url || null)
-                .filter(url => url);
-
-            // dimensions array
-            payload.dimensions = imagesDataArray.map(img => ({
-                width: img.width || 0,
-                height: img.height || 0
-            }));
-
             // attachment_type bắt buộc khi có ảnh: PHOTO, VIDEO, DOCUMENT, AUDIO_ATTACHMENT_ID
             payload.attachment_type = 'PHOTO';
 
-            // send_by_platform
-            payload.send_by_platform = 'web';
-
             console.log('[MESSAGE] content_ids:', payload.content_ids);
-            console.log('[MESSAGE] content_urls:', payload.content_urls);
-            console.log('[MESSAGE] dimensions:', payload.dimensions);
+            console.log('[MESSAGE] attachment_type:', payload.attachment_type);
         }
 
         // Step 3: Send message via Official API (pages.fm)
