@@ -1868,6 +1868,47 @@ class PancakeDataManager {
     }
 
     /**
+     * Update conversation read status in local cache
+     * Called after successfully marking conversation as read/unread
+     * @param {string} conversationId - Conversation ID
+     * @param {boolean} isRead - true = mark as read, false = mark as unread
+     */
+    updateConversationReadStatus(conversationId, isRead) {
+        if (!conversationId) {
+            console.warn('[PANCAKE] updateConversationReadStatus: Missing conversationId');
+            return false;
+        }
+
+        console.log(`[PANCAKE] Updating local conversation status: ${conversationId} → ${isRead ? 'READ' : 'UNREAD'}`);
+
+        // Find conversation in allConversations array
+        const conversation = this.allConversations.find(c => c.id === conversationId);
+
+        if (conversation) {
+            conversation.seen = isRead;
+            conversation.unread_count = isRead ? 0 : (conversation.unread_count || 1);
+
+            // Update in maps as well
+            // Check all maps to ensure consistency
+            [this.inboxMapByPSID, this.inboxMapByFBID, this.commentMapByPSID, this.commentMapByFBID].forEach(map => {
+                for (const [key, conv] of map) {
+                    if (conv.id === conversationId) {
+                        conv.seen = isRead;
+                        conv.unread_count = isRead ? 0 : (conv.unread_count || 1);
+                        console.log(`[PANCAKE] ✅ Updated conversation in map:`, key);
+                    }
+                }
+            });
+
+            console.log('[PANCAKE] ✅ Local conversation data updated');
+            return true;
+        } else {
+            console.warn('[PANCAKE] ⚠️ Conversation not found in cache:', conversationId);
+            return false;
+        }
+    }
+
+    /**
      * Initialize - load token và fetch data
      * @returns {Promise<boolean>}
      */
