@@ -13,7 +13,7 @@ let currentInvoiceData = null;
 let currentInvoiceId = null;
 let uploadedImages = []; // Store uploaded images with base64 data
 let aiAnalysisResult = null; // Store AI analysis result
-let tokenManager = null; // Will be initialized on load
+// tokenManager is available globally from token-manager.js as window.tokenManager
 
 // =====================================================
 // DOM ELEMENTS
@@ -39,31 +39,35 @@ const elements = {
 };
 
 // =====================================================
-// INITIALIZE TOKEN MANAGER
+// WAIT FOR TOKEN MANAGER TO BE READY
 // =====================================================
-async function initializeTokenManager() {
+async function ensureTokenManagerReady() {
     try {
-        // Wait for TokenManager to be available
-        if (typeof TokenManager === 'undefined') {
-            console.warn('[INVOICE] TokenManager not loaded yet, waiting...');
-            await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait for window.tokenManager to be available
+        let retries = 0;
+        const maxRetries = 50; // 5 seconds max
+
+        while (!window.tokenManager && retries < maxRetries) {
+            console.log('[INVOICE] Waiting for tokenManager to be available...');
+            await new Promise(resolve => setTimeout(resolve, 100));
+            retries++;
         }
 
-        if (typeof TokenManager === 'undefined') {
+        if (!window.tokenManager) {
             throw new Error('TokenManager not available. Please make sure token-manager.js is loaded.');
         }
 
-        // Initialize TokenManager
-        tokenManager = new TokenManager();
-        console.log('[INVOICE] TokenManager initialized successfully');
+        console.log('[INVOICE] TokenManager is available');
 
         // Wait for full initialization (Firebase etc)
-        await tokenManager.waitForFirebaseAndInit();
-        console.log('[INVOICE] TokenManager fully initialized');
+        if (window.tokenManager.waitForFirebaseAndInit) {
+            await window.tokenManager.waitForFirebaseAndInit();
+            console.log('[INVOICE] TokenManager fully initialized');
+        }
 
-        return tokenManager;
+        return window.tokenManager;
     } catch (error) {
-        console.error('[INVOICE] Error initializing TokenManager:', error);
+        console.error('[INVOICE] Error ensuring TokenManager ready:', error);
         showNotification('Lỗi khởi tạo token manager: ' + error.message, 'error');
         throw error;
     }
@@ -94,19 +98,16 @@ async function fetchInvoiceData(invoiceId) {
     try {
         showLoading(true);
 
-        // Ensure tokenManager is initialized
-        if (!tokenManager) {
-            console.log('[FETCH] Initializing token manager...');
-            await initializeTokenManager();
-        }
+        // Ensure tokenManager is ready
+        await ensureTokenManagerReady();
 
         // Build API URL
         const apiUrl = `${CONFIG.CLOUDFLARE_PROXY}/api/odata/FastPurchaseOrder(${invoiceId})?$expand=Partner,PickingType,Company,Journal,Account,User,RefundOrder,PaymentJournal,Tax,OrderLines($expand=Product,ProductUOM,Account),DestConvertCurrencyUnit`;
 
         console.log('[FETCH] Fetching invoice data:', apiUrl);
 
-        // Use tokenManager.authenticatedFetch() - auto handles token refresh and 401 retry
-        const response = await tokenManager.authenticatedFetch(apiUrl, {
+        // Use window.tokenManager.authenticatedFetch() - auto handles token refresh and 401 retry
+        const response = await window.tokenManager.authenticatedFetch(apiUrl, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json, text/plain, */*',
