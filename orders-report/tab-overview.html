@@ -736,6 +736,7 @@
         let isFetching = false;
         let isLoadingTables = false; // Flag to prevent multiple simultaneous table loads
         let userManuallySelectedTable = false; // Flag to track if user manually selected a table from dropdown
+        let justReceivedFromTab1 = false; // Flag to prevent auto-load from Firebase when just received data from tab1
 
         const STORAGE_KEY = 'report_order_details_by_table';
         const FIREBASE_PATH = 'report_order_details';
@@ -999,11 +1000,19 @@
 
                     selector.value = currentTableName;
 
-                    // Only auto-load from Firebase if the table exists there
-                    if (optionExists) {
+                    // Only auto-load from Firebase if:
+                    // 1. The table exists in Firebase
+                    // 2. We did NOT just receive fresh data from tab1
+                    if (optionExists && !justReceivedFromTab1) {
                         setTimeout(() => {
                             loadTableDataFromFirebase(currentTableName);
                         }, 100);
+                    } else if (justReceivedFromTab1) {
+                        console.log(`[REPORT] ⏭️ Skipping auto-load from Firebase - just received fresh data from tab1 (${allOrders.length} orders)`);
+                        // Reset the flag
+                        justReceivedFromTab1 = false;
+                        // Still check Firebase status for helper UI
+                        checkFirebaseStatus();
                     }
                 }
             } catch (error) {
@@ -1163,6 +1172,7 @@
 
                 allOrders = event.data.orders || [];
                 currentTableName = tab1TableName;
+                justReceivedFromTab1 = true; // Prevent auto-load from Firebase
 
                 // Update selector - update text if exists, add new if not
                 const selector = document.getElementById('tableSelector');
