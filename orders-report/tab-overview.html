@@ -747,6 +747,9 @@
         let firebaseTableName = null;
         let firebaseDataFetchedAt = null;
 
+        // Anti-spam: Track which tables have already requested conversation fetch
+        const conversationFetchRequestedFor = new Set();
+
         // Initialize Firebase
         if (typeof firebase !== 'undefined' && !firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
@@ -1091,12 +1094,19 @@
 
                 // Request tab1 to fetch conversations for these orders
                 // This enables messages column to display content when viewing this data in tab1
+                // Anti-spam: Only send request once per table
                 if (firebaseData.orders && firebaseData.orders.length > 0) {
-                    console.log('[REPORT] 📤 Requesting tab1 to fetch conversations for Firebase orders...');
-                    window.parent.postMessage({
-                        type: 'FETCH_CONVERSATIONS_FOR_ORDERS',
-                        orders: firebaseData.orders
-                    }, '*');
+                    if (!conversationFetchRequestedFor.has(tableName)) {
+                        console.log('[REPORT] 📤 Requesting tab1 to fetch conversations for Firebase orders...');
+                        window.parent.postMessage({
+                            type: 'FETCH_CONVERSATIONS_FOR_ORDERS',
+                            orders: firebaseData.orders
+                        }, '*');
+                        conversationFetchRequestedFor.add(tableName);
+                        console.log('[REPORT] ✅ Marked table as conversation-fetched:', tableName);
+                    } else {
+                        console.log('[REPORT] ⏭️ Skipping conversation fetch - already requested for:', tableName);
+                    }
                 }
             } else {
                 console.log(`[REPORT] ⚠️ No data found for table: ${tableName}`);

@@ -9606,39 +9606,86 @@ window.addEventListener("message", function (event) {
 
     // Handle request to fetch conversations for orders loaded from Firebase
     if (event.data.type === "FETCH_CONVERSATIONS_FOR_ORDERS") {
-        console.log('📨 [CONVERSATIONS] Nhận request fetch conversations từ tab-overview');
-        const orders = event.data.orders || [];
-        console.log('📊 [CONVERSATIONS] Orders count:', orders.length);
-
-        if (orders.length > 0 && window.chatDataManager) {
-            // Parse channelIds from orders
-            const channelIds = [...new Set(
-                orders
-                    .map(order => {
-                        const postId = order.Facebook_PostId;
-                        if (!postId) return null;
-                        // Parse channelId from Facebook_PostId (format: "pageId_postId")
-                        const parts = postId.split('_');
-                        return parts.length > 0 ? parts[0] : null;
-                    })
-                    .filter(id => id)
-            )];
-
-            console.log('[CONVERSATIONS] Channel IDs to fetch:', channelIds);
-
-            if (channelIds.length > 0) {
-                // Fetch conversations
-                window.chatDataManager.fetchConversations(true, channelIds).then(() => {
-                    console.log('[CONVERSATIONS] ✅ Conversations fetched for Firebase orders');
-                    // Re-render table to show messages
-                    performTableSearch();
-                }).catch(err => {
-                    console.error('[CONVERSATIONS] ❌ Error fetching conversations:', err);
-                });
-            }
-        }
+        handleFetchConversationsRequest(event.data.orders || []);
     }
 });
+
+// Anti-spam: Track fetched channelIds and debounce requests
+const fetchedChannelIdsCache = new Set();
+let fetchConversationsDebounceTimer = null;
+let isFetchingConversationsFromOverview = false;
+
+function handleFetchConversationsRequest(orders) {
+    console.log('📨 [CONVERSATIONS] Nhận request fetch conversations từ tab-overview');
+    console.log('📊 [CONVERSATIONS] Orders count:', orders.length);
+
+    if (orders.length === 0 || !window.chatDataManager) {
+        console.log('[CONVERSATIONS] ⏭️ Skipping - no orders or chatDataManager not ready');
+        return;
+    }
+
+    // Prevent concurrent fetches
+    if (isFetchingConversationsFromOverview) {
+        console.log('[CONVERSATIONS] ⏭️ Skipping - already fetching');
+        return;
+    }
+
+    // Parse channelIds from orders
+    const allChannelIds = [...new Set(
+        orders
+            .map(order => {
+                const postId = order.Facebook_PostId;
+                if (!postId) return null;
+                // Parse channelId from Facebook_PostId (format: "pageId_postId")
+                const parts = postId.split('_');
+                return parts.length > 0 ? parts[0] : null;
+            })
+            .filter(id => id)
+    )];
+
+    // Filter out already fetched channelIds (anti-spam)
+    const newChannelIds = allChannelIds.filter(id => !fetchedChannelIdsCache.has(id));
+
+    console.log('[CONVERSATIONS] All channel IDs:', allChannelIds.length);
+    console.log('[CONVERSATIONS] New channel IDs (not cached):', newChannelIds.length);
+    console.log('[CONVERSATIONS] Cached channel IDs:', fetchedChannelIdsCache.size);
+
+    if (newChannelIds.length === 0) {
+        console.log('[CONVERSATIONS] ✅ All channels already fetched, skipping API call');
+        // Still re-render in case data changed
+        performTableSearch();
+        return;
+    }
+
+    // Debounce: Wait 500ms before fetching to avoid rapid consecutive calls
+    if (fetchConversationsDebounceTimer) {
+        clearTimeout(fetchConversationsDebounceTimer);
+    }
+
+    fetchConversationsDebounceTimer = setTimeout(async () => {
+        isFetchingConversationsFromOverview = true;
+
+        try {
+            console.log('[CONVERSATIONS] 🔄 Fetching conversations for', newChannelIds.length, 'channels...');
+
+            // Fetch conversations
+            await window.chatDataManager.fetchConversations(true, newChannelIds);
+
+            // Add to cache after successful fetch
+            newChannelIds.forEach(id => fetchedChannelIdsCache.add(id));
+
+            console.log('[CONVERSATIONS] ✅ Conversations fetched for Firebase orders');
+            console.log('[CONVERSATIONS] Cache size now:', fetchedChannelIdsCache.size);
+
+            // Re-render table to show messages
+            performTableSearch();
+        } catch (err) {
+            console.error('[CONVERSATIONS] ❌ Error fetching conversations:', err);
+        } finally {
+            isFetchingConversationsFromOverview = false;
+        }
+    }, 500); // 500ms debounce
+}
 
 function sendOrdersDataToTab3() {
     // Prepare orders data with STT (SessionIndex)
