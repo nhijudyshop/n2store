@@ -1143,14 +1143,15 @@
                 allOrders = event.data.orders || [];
                 currentTableName = tab1TableName;
 
-                // Update selector
+                // Update selector - update text if exists, add new if not
                 const selector = document.getElementById('tableSelector');
                 if (selector && currentTableName) {
-                    // Check if option exists, if not add it
                     let optionExists = false;
                     for (let option of selector.options) {
                         if (option.value === currentTableName) {
                             optionExists = true;
+                            // UPDATE: Always update option text with current order count from tab1
+                            option.textContent = `${currentTableName} (${allOrders.length} đơn - hiện tại)`;
                             break;
                         }
                     }
@@ -1158,7 +1159,7 @@
                     if (!optionExists) {
                         const newOption = document.createElement('option');
                         newOption.value = currentTableName;
-                        newOption.textContent = `${currentTableName} (${allOrders.length} đơn)`;
+                        newOption.textContent = `${currentTableName} (${allOrders.length} đơn - hiện tại)`;
                         selector.appendChild(newOption);
                     }
 
@@ -1275,6 +1276,12 @@
 
             if (!currentTableName) {
                 alert('Không xác định được tên bảng.');
+                return;
+            }
+
+            // Confirm before fetching - show exact number of orders
+            const confirmMsg = `Sẽ lấy chi tiết cho ${allOrders.length} đơn hàng và lưu vào bảng "${currentTableName}".\n\nBạn có muốn tiếp tục?`;
+            if (!confirm(confirmMsg)) {
                 return;
             }
 
