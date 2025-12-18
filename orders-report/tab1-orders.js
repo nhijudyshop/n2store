@@ -306,6 +306,19 @@ const TABLE_NAME_STORAGE_KEY = 'order_table_name';
 const TABLE_NAME_FIREBASE_PATH = 'settings/table_name';
 
 /**
+ * Update table name immediately when user types (without saving to Firebase)
+ * This ensures currentTableName is always in sync with the input field
+ */
+function updateTableNameOnInput() {
+    const input = document.getElementById('tableNameInput');
+    if (!input) return;
+
+    const tableName = input.value.trim() || 'Bảng 1';
+    currentTableName = tableName;
+    console.log('[TABLE-NAME] 📝 Updated currentTableName on input:', tableName);
+}
+
+/**
  * Save table name to localStorage and Firebase
  */
 async function saveTableName() {
