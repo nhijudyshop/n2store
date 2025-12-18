@@ -48,7 +48,7 @@ const QRGenerator = {
         const {
             uniqueCode,
             amount = 0,
-            template = 'compact2'
+            template = 'qr_only' // Changed from compact2 to hide account number
         } = options;
 
         const bank = this.BANK_CONFIG.ACB;

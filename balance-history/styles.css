@@ -25,7 +25,7 @@ body {
     transition: margin-left var(--transition-slow);
 }
 
-.sidebar.collapsed ~ .main-content {
+.sidebar.collapsed~.main-content {
     margin-left: 0;
 }
 
@@ -431,66 +431,77 @@ body {
 }
 
 /* Specific column widths for better layout */
-.data-table th:nth-child(1),  /* Ngày giờ */
+.data-table th:nth-child(1),
+/* Ngày giờ */
 .data-table td:nth-child(1) {
     width: 110px;
     font-size: 0.7rem;
     white-space: nowrap;
 }
 
-.data-table th:nth-child(2),  /* Ngân hàng */
+.data-table th:nth-child(2),
+/* Ngân hàng */
 .data-table td:nth-child(2) {
     width: 70px;
 }
 
-.data-table th:nth-child(3),  /* Loại */
+.data-table th:nth-child(3),
+/* Loại */
 .data-table td:nth-child(3) {
     width: 80px;
 }
 
-.data-table th:nth-child(4),  /* Số tiền */
+.data-table th:nth-child(4),
+/* Số tiền */
 .data-table td:nth-child(4) {
     width: 90px;
     white-space: nowrap;
 }
 
-.data-table th:nth-child(5),  /* Số dư */
+.data-table th:nth-child(5),
+/* Số dư */
 .data-table td:nth-child(5) {
     width: 90px;
     white-space: nowrap;
 }
 
-.data-table th:nth-child(6),  /* Nội dung */
+.data-table th:nth-child(6),
+/* Nội dung */
 .data-table td:nth-child(6) {
     max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.data-table th:nth-child(7),  /* Mã tham chiếu */
+.data-table th:nth-child(7),
+/* Mã tham chiếu */
 .data-table td:nth-child(7) {
     width: 90px;
     font-size: 0.7rem;
 }
 
-.data-table th:nth-child(8),  /* Tên khách hàng */
+.data-table th:nth-child(8),
+/* Tên khách hàng */
 .data-table td:nth-child(8) {
     max-width: 140px;
 }
 
-.data-table th:nth-child(9),  /* Số điện thoại */
+.data-table th:nth-child(9),
+/* Số điện thoại */
 .data-table td:nth-child(9) {
     width: 95px;
     white-space: nowrap;
     font-size: 0.75rem;
 }
 
-.data-table th:nth-child(10),  /* QR Code */
+.data-table th:nth-child(10),
+/* QR Code */
 .data-table td:nth-child(10) {
     width: 70px;
 }
 
-.data-table th:nth-child(11),  /* Thao tác */
+.data-table th:nth-child(11),
+/* Thao tác */
 .data-table td:nth-child(11) {
     width: 70px;
 }
@@ -584,6 +595,7 @@ body {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -605,6 +617,7 @@ body {
         opacity: 0;
         transform: scale(0.9);
     }
+
     to {
         opacity: 1;
         transform: scale(1);
@@ -749,7 +762,8 @@ body {
     }
 
     /* Hide less important columns on mobile */
-    .data-table th:nth-child(7),  /* Mã tham chiếu */
+    .data-table th:nth-child(7),
+    /* Mã tham chiếu */
     .data-table td:nth-child(7) {
         display: none;
     }
@@ -839,6 +853,7 @@ body {
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -850,6 +865,7 @@ body {
         transform: translateX(0);
         opacity: 1;
     }
+
     to {
         transform: translateX(100%);
         opacity: 0;
@@ -937,6 +953,7 @@ body {
         transform: translateY(-20px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -1252,5 +1269,136 @@ body {
     #customerListModal .modal-footer button {
         width: 100%;
         text-align: center;
+    }
+}
+
+/* =====================================================
+   INLINE QR FORM STYLES
+   ===================================================== */
+
+.inline-qr-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+    border: 1px solid #bae6fd;
+    border-radius: var(--radius-lg);
+}
+
+.inline-input {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    font-family: inherit;
+    transition: var(--transition-fast);
+    background: var(--surface);
+    color: var(--text-primary);
+    width: 160px;
+}
+
+.inline-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+}
+
+.inline-input::placeholder {
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+}
+
+/* Inline QR Display */
+.inline-qr-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: white;
+    border-radius: var(--radius);
+    border: 2px solid var(--success);
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.inline-qr-display img {
+    width: 50px;
+    height: 50px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}
+
+.inline-brand-name {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--primary);
+    background: linear-gradient(135deg, #e0f2fe, #dbeafe);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.inline-customer-info {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--success);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.inline-qr-code {
+    font-family: monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--gray-100);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Mobile responsive for inline QR form */
+@media (max-width: 1200px) {
+    .inline-qr-form {
+        flex-wrap: wrap;
+    }
+
+    .inline-input {
+        width: 140px;
+    }
+}
+
+@media (max-width: 768px) {
+    .inline-qr-form {
+        width: 100%;
+        flex-direction: column;
+        padding: 12px;
+    }
+
+    .inline-input {
+        width: 100%;
+    }
+
+    .inline-qr-form .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .inline-qr-display {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
     }
 }

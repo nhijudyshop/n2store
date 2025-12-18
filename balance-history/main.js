@@ -730,10 +730,257 @@ const generateQRBtn = document.getElementById('generateQRBtn');
 const qrModal = document.getElementById('qrModal');
 const closeQRModalBtn = document.getElementById('closeQRModalBtn');
 
-// Generate QR Button
+// Generate QR Button (without customer info)
 generateQRBtn?.addEventListener('click', () => {
     generateDepositQR();
 });
+
+// Inline QR Form - Generate QR with Customer Info
+const inlineGenerateQRBtn = document.getElementById('inlineGenerateQRBtn');
+const inlineCustomerName = document.getElementById('inlineCustomerName');
+const inlineCustomerPhone = document.getElementById('inlineCustomerPhone');
+const inlineQRDisplay = document.getElementById('inlineQRDisplay');
+const inlineQRImage = document.getElementById('inlineQRImage');
+const inlineQRCode = document.getElementById('inlineQRCode');
+const copyInlineQRBtn = document.getElementById('copyInlineQRBtn');
+const closeInlineQRBtn = document.getElementById('closeInlineQRBtn');
+
+// Store current QR URL for copy function
+let currentInlineQRUrl = '';
+let hasCopiedCurrentQR = false; // Track if current QR has been copied
+let currentCustomerInfo = ''; // Store customer name/phone for QR image
+
+inlineGenerateQRBtn?.addEventListener('click', () => {
+    generateDepositQRInline();
+});
+
+// Handle Enter key on inline inputs
+inlineCustomerName?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        generateDepositQRInline();
+    }
+});
+
+inlineCustomerPhone?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        generateDepositQRInline();
+    }
+});
+
+// Copy QR image to clipboard
+copyInlineQRBtn?.addEventListener('click', async () => {
+    if (!currentInlineQRUrl) return;
+
+    // Check if already copied this QR
+    const alreadyCopied = hasCopiedCurrentQR;
+
+    try {
+        // Create custom image with Canvas (without account number, with customer info)
+        const customImageBlob = await createCustomQRImage(currentInlineQRUrl, currentCustomerInfo);
+
+        // Copy to clipboard
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'image/png': customImageBlob
+            })
+        ]);
+
+        // Visual feedback
+        const originalHTML = copyInlineQRBtn.innerHTML;
+        copyInlineQRBtn.innerHTML = '<i data-lucide="check"></i>';
+        copyInlineQRBtn.classList.remove('btn-primary');
+        copyInlineQRBtn.classList.add('btn-success');
+
+        if (window.lucide) lucide.createIcons();
+
+        setTimeout(() => {
+            copyInlineQRBtn.innerHTML = originalHTML;
+            copyInlineQRBtn.classList.remove('btn-success');
+            copyInlineQRBtn.classList.add('btn-primary');
+            if (window.lucide) lucide.createIcons();
+        }, 1500);
+
+        // Show appropriate notification
+        if (window.NotificationManager) {
+            if (alreadyCopied) {
+                // Warning: already copied once
+                window.NotificationManager.showNotification('⚠️ Đã copy lần 2! Có thể bạn cần tạo QR mới cho khách khác?', 'warning');
+            } else {
+                window.NotificationManager.showNotification('Đã copy hình QR!', 'success');
+            }
+        }
+
+        // Mark as copied
+        hasCopiedCurrentQR = true;
+
+    } catch (error) {
+        console.error('Failed to copy QR image:', error);
+        // Fallback: copy URL
+        try {
+            await navigator.clipboard.writeText(currentInlineQRUrl);
+            if (window.NotificationManager) {
+                if (alreadyCopied) {
+                    window.NotificationManager.showNotification('⚠️ Đã copy URL lần 2! Có thể bạn cần tạo QR mới?', 'warning');
+                } else {
+                    window.NotificationManager.showNotification('Đã copy URL QR!', 'success');
+                }
+            }
+            hasCopiedCurrentQR = true;
+        } catch (e) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Không thể copy', 'error');
+            }
+        }
+    }
+});
+
+/**
+ * Create custom QR image with bank info but WITHOUT account number
+ * @param {string} qrUrl - Original QR URL
+ * @param {string} customerInfo - Customer name or phone to display
+ * @returns {Promise<Blob>} - PNG image blob
+ */
+async function createCustomQRImage(qrUrl, customerInfo = '') {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Load the QR image
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+
+            img.onload = () => {
+                // Canvas dimensions
+                const padding = 30;
+                const hasCustomer = customerInfo && customerInfo.trim();
+                const textAreaHeight = hasCustomer ? 105 : 80;
+                const canvasWidth = img.width + padding * 2;
+                const canvasHeight = img.height + padding * 2 + textAreaHeight;
+
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = canvasWidth;
+                canvas.height = canvasHeight;
+                const ctx = canvas.getContext('2d');
+
+                // White background
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+                // Draw QR code (centered)
+                const qrX = (canvasWidth - img.width) / 2;
+                ctx.drawImage(img, qrX, padding, img.width, img.height);
+
+                // Text area background (light gray)
+                const textAreaY = img.height + padding * 1.5;
+                ctx.fillStyle = '#f8f9fa';
+                ctx.fillRect(padding / 2, textAreaY, canvasWidth - padding, textAreaHeight);
+
+                // Draw text - WITHOUT account number
+                ctx.fillStyle = '#333333';
+                ctx.textAlign = 'center';
+                const centerX = canvasWidth / 2;
+
+                // Bank name
+                ctx.font = 'bold 16px Arial, sans-serif';
+                ctx.fillText('Ngân hàng: ACB', centerX, textAreaY + 28);
+
+                // Account holder name (NO account number!)
+                ctx.font = '15px Arial, sans-serif';
+                ctx.fillText('Chủ tài khoản: LAI THUY YEN NHI', centerX, textAreaY + 55);
+
+                // Customer info (if provided)
+                if (hasCustomer) {
+                    ctx.font = 'bold 14px Arial, sans-serif';
+                    ctx.fillStyle = '#10b981'; // Green color
+                    ctx.fillText('Khách hàng: ' + customerInfo, centerX, textAreaY + 82);
+                }
+
+                // Convert to blob
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('Failed to create blob'));
+                    }
+                }, 'image/png');
+            };
+
+            img.onerror = () => {
+                reject(new Error('Failed to load QR image'));
+            };
+
+            img.src = qrUrl;
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+// Close inline QR display
+closeInlineQRBtn?.addEventListener('click', () => {
+    if (inlineQRDisplay) {
+        inlineQRDisplay.style.display = 'none';
+        currentInlineQRUrl = '';
+    }
+});
+
+// Generate QR inline (no popup)
+async function generateDepositQRInline() {
+    if (!window.QRGenerator) {
+        console.error('QR Generator not loaded');
+        return;
+    }
+
+    const customerName = inlineCustomerName?.value?.trim() || '';
+    const customerPhone = inlineCustomerPhone?.value?.trim() || '';
+
+    // Generate QR code
+    const qrData = window.QRGenerator.generateDepositQR(0); // 0 = customer fills amount
+
+    // If customer info is provided, save it
+    if ((customerName || customerPhone) && window.CustomerInfoManager) {
+        await window.CustomerInfoManager.saveCustomerInfo(qrData.uniqueCode, {
+            name: customerName,
+            phone: customerPhone
+        });
+    }
+
+    // Display QR inline
+    const inlineCustomerInfo = document.getElementById('inlineCustomerInfo');
+    if (inlineQRDisplay && inlineQRImage && inlineQRCode) {
+        currentInlineQRUrl = qrData.qrUrl;
+        inlineQRImage.src = qrData.qrUrl;
+        inlineQRCode.textContent = qrData.uniqueCode;
+
+        // Show customer name only (no phone)
+        if (inlineCustomerInfo) {
+            const displayInfo = customerName || '';
+            inlineCustomerInfo.textContent = displayInfo;
+            inlineCustomerInfo.title = displayInfo; // Full text on hover
+            inlineCustomerInfo.style.display = displayInfo ? 'inline' : 'none';
+        }
+
+        // Store customer info for QR image (name or phone)
+        currentCustomerInfo = customerName || customerPhone || '';
+
+        inlineQRDisplay.style.display = 'flex';
+        hasCopiedCurrentQR = false; // Reset copy tracking for new QR
+
+        // Reinitialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+
+    // Clear the inline inputs after generating QR
+    if (inlineCustomerName) inlineCustomerName.value = '';
+    if (inlineCustomerPhone) inlineCustomerPhone.value = '';
+
+    // Show notification
+    if (window.NotificationManager) {
+        const msg = customerName ? `QR tạo cho ${customerName}` : 'Đã tạo QR code!';
+        window.NotificationManager.showNotification(msg, 'success');
+    }
+}
 
 // Close QR Modal
 closeQRModalBtn?.addEventListener('click', () => {
@@ -1578,17 +1825,17 @@ async function loadDebtForPhone(phone) {
                 const transactionListHtml = transactions.length > 0 ? `
                     <div id="debtDetail" style="display: none; margin-top: 8px; padding: 8px; background: #f9fafb; border-radius: 6px; font-size: 12px; text-align: left;">
                         ${transactions.slice(0, 20).map((t, i) => {
-                            const isLast = i === Math.min(transactions.length - 1, 19);
-                            const prefix = isLast ? '└──' : '├──';
-                            const dateStr = t.date ? new Date(t.date).toLocaleDateString('vi-VN') : 'N/A';
-                            const statusIcon = t.debt_added ? '✓' : '○';
-                            return `
+                    const isLast = i === Math.min(transactions.length - 1, 19);
+                    const prefix = isLast ? '└──' : '├──';
+                    const dateStr = t.date ? new Date(t.date).toLocaleDateString('vi-VN') : 'N/A';
+                    const statusIcon = t.debt_added ? '✓' : '○';
+                    return `
                                 <div style="padding: 2px 0; color: #374151; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     ${prefix} ${statusIcon} <strong>${formatCurrency(t.amount)}</strong>
                                     <span style="color: #9ca3af;">(${dateStr})</span>
                                 </div>
                             `;
-                        }).join('')}
+                }).join('')}
                         ${transactions.length > 20 ? `<div style="color: #9ca3af; font-style: italic;">... và ${transactions.length - 20} giao dịch khác</div>` : ''}
                     </div>
                 ` : '';

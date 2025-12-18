@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +13,7 @@
     <link rel="stylesheet" href="modern.css">
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <!-- Sidebar Navigation -->
     <aside class="sidebar" id="sidebar">
@@ -58,9 +60,29 @@
                 <div class="header-content">
                     <h1><i data-lucide="wallet"></i> Lịch sử biến động số dư</h1>
                     <div class="header-actions">
-                        <button id="generateQRBtn" class="btn btn-success">
-                            <i data-lucide="qr-code"></i> Tạo QR Chuyển Khoản
-                        </button>
+                        <!-- Inline QR Generator with Customer Info -->
+                        <div class="inline-qr-form">
+                            <input type="text" id="inlineCustomerName" class="inline-input"
+                                placeholder="Tên khách hàng">
+                            <input type="tel" id="inlineCustomerPhone" class="inline-input"
+                                placeholder="SĐT (tùy chọn)">
+                            <button id="inlineGenerateQRBtn" class="btn btn-success">
+                                <i data-lucide="qr-code"></i> Tạo QR
+                            </button>
+                            <!-- Inline QR Display -->
+                            <div id="inlineQRDisplay" class="inline-qr-display" style="display: none;">
+                                <img id="inlineQRImage" src="" alt="QR Code">
+                                <span id="inlineCustomerInfo" class="inline-customer-info"></span>
+                                <span id="inlineQRCode" class="inline-qr-code"></span>
+                                <button id="copyInlineQRBtn" class="btn btn-primary btn-sm" title="Copy hình QR">
+                                    <i data-lucide="copy"></i>
+                                </button>
+                                <button id="closeInlineQRBtn" class="btn btn-secondary btn-sm" title="Đóng">
+                                    <i data-lucide="x"></i>
+                                </button>
+                            </div>
+                        </div>
+
                         <button id="viewRawDataBtn" class="btn btn-secondary">
                             <i data-lucide="database"></i> Xem Raw Data
                         </button>
@@ -266,7 +288,8 @@
                     </button>
                     <span id="rawDataCount" style="margin-left: auto; color: #666;"></span>
                 </div>
-                <div id="rawDataContent" style="max-height: 70vh; overflow: auto; background: #f5f5f5; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-wrap: break-word;">
+                <div id="rawDataContent"
+                    style="max-height: 70vh; overflow: auto; background: #f5f5f5; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-wrap: break-word;">
                     <!-- Raw data will be inserted here -->
                 </div>
             </div>
@@ -296,7 +319,8 @@
             <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                 <!-- Loading State -->
                 <div id="customerListLoading" style="text-align: center; padding: 40px; display: none;">
-                    <i data-lucide="loader-2" class="animate-spin" style="width: 48px; height: 48px; color: #3b82f6;"></i>
+                    <i data-lucide="loader-2" class="animate-spin"
+                        style="width: 48px; height: 48px; color: #3b82f6;"></i>
                     <p style="margin-top: 15px; color: #6b7280;">Đang tải danh sách khách hàng...</p>
                 </div>
 
@@ -308,7 +332,8 @@
 
                 <!-- Customer List -->
                 <div id="customerListContent" style="display: none;">
-                    <div id="customerListCount" style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border-radius: 8px; color: #0369a1;">
+                    <div id="customerListCount"
+                        style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border-radius: 8px; color: #0369a1;">
                         <i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i>
                         <span>Tìm thấy <strong id="customerListTotal">0</strong> khách hàng</span>
                     </div>
@@ -329,8 +354,10 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-                <a href="../customer-management/index.html" target="_blank" class="btn btn-primary" style="text-decoration: none;">
+            <div class="modal-footer"
+                style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                <a href="../customer-management/index.html" target="_blank" class="btn btn-primary"
+                    style="text-decoration: none;">
                     <i data-lucide="external-link"></i> Mở Customer Management
                 </a>
                 <button class="btn btn-secondary" onclick="closeCustomerListModal()">Đóng</button>
@@ -347,22 +374,27 @@
             </div>
             <div class="modal-body">
                 <form id="editCustomerForm" style="display: flex; flex-direction: column; gap: 15px;">
-                    <div style="padding: 10px; background: #f8f9fa; border-radius: 6px; font-family: monospace; font-size: 13px; color: #495057;">
+                    <div
+                        style="padding: 10px; background: #f8f9fa; border-radius: 6px; font-family: monospace; font-size: 13px; color: #495057;">
                         <strong>Mã giao dịch:</strong> <span id="editCustomerUniqueCode"></span>
                     </div>
 
                     <div>
                         <label for="editCustomerName" style="display: block; margin-bottom: 5px; font-weight: 500;">
-                            <i data-lucide="user" style="width: 16px; height: 16px; vertical-align: middle;"></i> Tên khách hàng:
+                            <i data-lucide="user" style="width: 16px; height: 16px; vertical-align: middle;"></i> Tên
+                            khách hàng:
                         </label>
-                        <input type="text" id="editCustomerName" class="filter-input" placeholder="Nhập tên khách hàng" style="width: 100%;">
+                        <input type="text" id="editCustomerName" class="filter-input" placeholder="Nhập tên khách hàng"
+                            style="width: 100%;">
                     </div>
 
                     <div>
                         <label for="editCustomerPhone" style="display: block; margin-bottom: 5px; font-weight: 500;">
-                            <i data-lucide="phone" style="width: 16px; height: 16px; vertical-align: middle;"></i> Số điện thoại:
+                            <i data-lucide="phone" style="width: 16px; height: 16px; vertical-align: middle;"></i> Số
+                            điện thoại:
                         </label>
-                        <input type="tel" id="editCustomerPhone" class="filter-input" placeholder="Nhập số điện thoại" style="width: 100%;">
+                        <input type="tel" id="editCustomerPhone" class="filter-input" placeholder="Nhập số điện thoại"
+                            style="width: 100%;">
                     </div>
 
                     <div style="display: flex; gap: 10px; margin-top: 10px;">
@@ -399,4 +431,5 @@
         lucide.createIcons();
     </script>
 </body>
+
 </html>
