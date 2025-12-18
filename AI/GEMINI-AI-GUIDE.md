@@ -5,19 +5,201 @@
 
 ---
 
-## 🔑 API Keys Hiện Có
+## 🔑 API Keys
 
+> ⚠️ Keys được lưu trong **GitHub Secrets** (Settings → Secrets → Actions)
+>
+> - `GEMINI_KEYS` - 10 Google Gemini keys
+> - `HF_KEYS` - 3 HuggingFace keys
+
+---
+
+## 🔄 Key Rotation - Xoay Vòng Keys Tự Động
+
+### Cách 1: Load từ GitHub Secrets (GEMINI_KEYS, HF_KEYS)
+
+```javascript
+// ============================================
+// KEYS CONFIGURATION (từ GitHub Secrets)
+// ============================================
+// Keys được inject từ GitHub Secrets (xem GITHUB-SECRETS-GUIDE.md)
+const GEMINI_KEYS = (window.GEMINI_KEYS || process.env.GEMINI_KEYS || "").split(",").filter(k => k);
+const HF_KEYS = (window.HF_KEYS || process.env.HF_KEYS || "").split(",").filter(k => k);
+
+// ============================================
+// KEY ROTATION STATE
+// ============================================
+let currentGeminiIndex = 0;
+let currentHFIndex = 0;
+let failedGeminiKeys = new Set();
+let failedHFKeys = new Set();
+
+// ============================================
+// GET NEXT GEMINI KEY (xoay vòng + skip failed)
+// ============================================
+function getNextGeminiKey() {
+    const maxAttempts = GEMINI_KEYS.length * 2;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+        const key = GEMINI_KEYS[currentGeminiIndex];
+        currentGeminiIndex = (currentGeminiIndex + 1) % GEMINI_KEYS.length;
+
+        // Skip key đang bị rate limit
+        if (!failedGeminiKeys.has(key)) {
+            console.log(`🔑 Using Gemini key ${currentGeminiIndex}/${GEMINI_KEYS.length}`);
+            return key;
+        }
+        attempts++;
+    }
+
+    // Reset failed keys và thử lại
+    failedGeminiKeys.clear();
+    return GEMINI_KEYS[0];
+}
+
+// ============================================
+// GET NEXT HF KEY (xoay vòng + skip failed)
+// ============================================
+function getNextHFKey() {
+    const maxAttempts = HF_KEYS.length * 2;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+        const key = HF_KEYS[currentHFIndex];
+        currentHFIndex = (currentHFIndex + 1) % HF_KEYS.length;
+
+        if (!failedHFKeys.has(key)) {
+            console.log(`🤗 Using HF key ${currentHFIndex}/${HF_KEYS.length}`);
+            return key;
+        }
+        attempts++;
+    }
+
+    failedHFKeys.clear();
+    return HF_KEYS[0];
+}
+
+// ============================================
+// MARK KEY AS FAILED (tạm thời 30 giây)
+// ============================================
+function markGeminiKeyFailed(key) {
+    failedGeminiKeys.add(key);
+    console.warn(`⚠️ Gemini key failed, will retry in 30s`);
+    setTimeout(() => failedGeminiKeys.delete(key), 30000);
+}
+
+function markHFKeyFailed(key) {
+    failedHFKeys.add(key);
+    console.warn(`⚠️ HF key failed, will retry in 30s`);
+    setTimeout(() => failedHFKeys.delete(key), 30000);
+}
 ```
-AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM
-AIzaSyCtrNOTjOVbKgJwNwgG80ZIUSVQ9fkYqbE
-AIzaSyBl2AO6WmoJHwIlnFg6i0tcbbSyYHnoStM
-AIzaSyBwScrzLWofcQMJjB4iQNAmNzBgfWyc7Rs
-AIzaSyDOaFELikRXdJRjxslRtj_LUyFFiOEa2-E
-AIzaSyDfNAWbpvkfEzXoXfkzpDQuj3SCbXLXEdw
-AIzaSyCNO60AvMBspBCAK1WglXikhhuja9OarFg
-AIzaSyCs7Fgi3MbH4qd6GNdBm3Yq4aQzSijApBI
-AIzaSyDlQlD5QA4cUnaf93LFjFjHe1QnKZRVwGg
-AIzaSyDywVP6oaHYQCa60lz6-PnizD8zMw9bXiA
+
+### Cách 2: Gọi API với Auto-Retry
+
+```javascript
+// ============================================
+// CALL GEMINI API WITH AUTO-RETRY
+// ============================================
+async function callGeminiAPI(prompt, options = {}) {
+    const { model = "gemini-2.5-flash", maxRetries = GEMINI_KEYS.length } = options;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        const apiKey = getNextGeminiKey();
+        
+        try {
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                const error = await response.text();
+                
+                // 429 = Rate limit, 403 = Quota exceeded
+                if (response.status === 429 || response.status === 403) {
+                    markGeminiKeyFailed(apiKey);
+                    console.log(`🔄 Switching to next key (attempt ${attempt + 1}/${maxRetries})`);
+                    continue;
+                }
+                
+                // 503 = Server overloaded
+                if (response.status === 503) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    continue;
+                }
+                
+                throw new Error(`API Error ${response.status}: ${error}`);
+            }
+
+            const result = await response.json();
+            console.log(`✅ Success with key attempt ${attempt + 1}`);
+            return result.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+        } catch (error) {
+            console.error(`❌ Attempt ${attempt + 1} failed:`, error.message);
+            if (attempt === maxRetries - 1) throw error;
+        }
+    }
+}
+
+// ============================================
+// SỬ DỤNG
+// ============================================
+// Gọi đơn giản - tự động xoay key khi cần
+const result = await callGeminiAPI("Viết bài giới thiệu sản phẩm");
+console.log(result);
+```
+
+### Cách 3: Gọi HuggingFace với Auto-Retry
+
+```javascript
+async function callHuggingFaceAPI(prompt, options = {}) {
+    const { model = "meta-llama/Llama-3.3-70B-Instruct", maxRetries = HF_KEYS.length } = options;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        const apiKey = getNextHFKey();
+        
+        try {
+            const response = await fetch(
+                `https://api-inference.huggingface.co/models/${model}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        inputs: prompt,
+                        parameters: { max_new_tokens: 500 }
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                if (response.status === 429 || response.status === 503) {
+                    markHFKeyFailed(apiKey);
+                    await new Promise(r => setTimeout(r, 2000));
+                    continue;
+                }
+                throw new Error(`HF Error ${response.status}`);
+            }
+
+            const result = await response.json();
+            return result[0]?.generated_text || result;
+            
+        } catch (error) {
+            if (attempt === maxRetries - 1) throw error;
+        }
+    }
+}
 ```
 
 ---
