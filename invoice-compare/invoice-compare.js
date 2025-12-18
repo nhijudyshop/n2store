@@ -143,9 +143,10 @@ async function fetchInvoiceData(invoiceId) {
 // DISPLAY INVOICE DATA
 // =====================================================
 function displayInvoiceData(data) {
-    // Show sections
+    // Show data section (keep images section visible if user uploaded images)
     elements.dataSection.style.display = 'block';
-    elements.imagesSection.style.display = 'none'; // Will implement later
+    // Don't hide imagesSection - user may have uploaded images already
+    elements.imagesSection.style.display = 'block';
 
     // Display summary
     elements.invoiceNumber.textContent = data.Number || '-';
