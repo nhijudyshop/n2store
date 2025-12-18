@@ -163,6 +163,14 @@ const MENU_CONFIG = [
         adminOnly: true,
         permissionRequired: "lichsuchinhsua",
     },
+    {
+        href: "../tpos-pancake/index.html",
+        icon: "columns",
+        text: "Tpos - Pancake",
+        shortText: "Tpos-Pancake",
+        pageIdentifier: "tpos-pancake",
+        permissionRequired: "tpos-pancake",
+    },
 ];
 
 // localStorage key for custom menu names (cache)
