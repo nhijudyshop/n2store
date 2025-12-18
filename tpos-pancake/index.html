@@ -8,6 +8,7 @@
 
         <!-- External CSS -->
         <link rel="stylesheet" href="modern.css" />
+        <link rel="stylesheet" href="pancake-chat.css" />
 
         <!-- Lucide Icons -->
         <!-- N2Store Optimization: Core Utilities Loader -->
@@ -174,13 +175,7 @@
                             </div>
                         </div>
                         <div class="column-content" id="pancakeContent">
-                            <!-- Pancake iframe/content placeholder -->
-                            <div class="column-placeholder">
-                                <i data-lucide="layout-dashboard"></i>
-                                <h3>Khung Pancake</h3>
-                                <p>Giao diện Pancake sẽ được hiển thị tại đây</p>
-                                <span class="placeholder-hint">Bạn có thể gắn iframe hoặc nội dung tùy chỉnh</span>
-                            </div>
+                            <!-- Pancake Chat UI will be rendered here by pancake-chat.js -->
                         </div>
                     </div>
                 </div>
@@ -195,12 +190,18 @@
         <script src="../js/navigation-modern.js"></script>
         <script src="notification-system.js"></script>
 
+        <!-- API Config & Pancake Managers -->
+        <script src="../orders-report/api-config.js"></script>
+        <script src="../orders-report/pancake-token-manager.js"></script>
+        <script src="../orders-report/pancake-data-manager.js"></script>
+        <script src="pancake-chat.js"></script>
+
         <script>
             // Initialize global notification manager
             let globalNotificationManager = null;
 
             // Initialize Lucide icons and notification system
-            document.addEventListener("DOMContentLoaded", () => {
+            document.addEventListener("DOMContentLoaded", async () => {
                 // Initialize notification manager
                 if (typeof NotificationManager !== "undefined") {
                     globalNotificationManager = new NotificationManager();
@@ -210,6 +211,29 @@
                 // Initialize Lucide icons
                 if (typeof lucide !== "undefined") {
                     lucide.createIcons();
+                }
+
+                // Initialize Pancake Token Manager (for authentication)
+                if (typeof PancakeTokenManager !== "undefined" && window.pancakeTokenManager) {
+                    try {
+                        await window.pancakeTokenManager.initialize();
+                        console.log("[UI] PancakeTokenManager initialized");
+                    } catch (error) {
+                        console.error("[UI] Error initializing PancakeTokenManager:", error);
+                    }
+                }
+
+                // Initialize Pancake Chat Manager
+                if (typeof PancakeChatManager !== "undefined" && window.pancakeChatManager) {
+                    try {
+                        // Wait a bit for managers to be ready
+                        setTimeout(async () => {
+                            await window.pancakeChatManager.initialize('pancakeContent');
+                            console.log("[UI] PancakeChatManager initialized");
+                        }, 300);
+                    } catch (error) {
+                        console.error("[UI] Error initializing PancakeChatManager:", error);
+                    }
                 }
             });
         </script>
