@@ -43,36 +43,65 @@ const elements = {
 // =====================================================
 async function getTPOSToken() {
     try {
-        // Retrieve saved credentials
-        const savedCreds = localStorage.getItem('tpos_credentials');
-        if (!savedCreds) {
-            throw new Error('Vui lòng đăng nhập TPOS trước');
+        // Priority 1: Check bearer_token_data from localStorage
+        let bearerData = localStorage.getItem('bearer_token_data');
+
+        if (bearerData) {
+            try {
+                const tokenData = JSON.parse(bearerData);
+
+                // Check if token is expired (8 hours TTL)
+                const SESSION_TIMEOUT = 8 * 60 * 60 * 1000; // 8 hours
+                const isExpired = tokenData.timestamp && (Date.now() - tokenData.timestamp > SESSION_TIMEOUT);
+
+                if (!isExpired && tokenData.access_token) {
+                    console.log('[AUTH] Using cached bearer token');
+                    CONFIG.TPOS_AUTH_TOKEN = tokenData.access_token;
+                    return tokenData.access_token;
+                }
+            } catch (e) {
+                console.warn('[AUTH] Failed to parse bearer_token_data:', e);
+            }
         }
 
-        const creds = JSON.parse(savedCreds);
-
-        const response = await fetch(`${CONFIG.CLOUDFLARE_PROXY}/api/token`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                grant_type: 'password',
-                username: creds.username,
-                password: creds.password,
-                client_id: 'tmtWebApp',
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error('Không thể lấy token TPOS');
+        // Priority 2: Fallback to 'auth' key
+        const authData = localStorage.getItem('auth');
+        if (authData) {
+            try {
+                const tokenData = JSON.parse(authData);
+                if (tokenData.access_token) {
+                    console.log('[AUTH] Using token from auth key');
+                    CONFIG.TPOS_AUTH_TOKEN = tokenData.access_token;
+                    return tokenData.access_token;
+                }
+            } catch (e) {
+                console.warn('[AUTH] Failed to parse auth:', e);
+            }
         }
 
-        const data = await response.json();
-        CONFIG.TPOS_AUTH_TOKEN = data.access_token;
-        return data.access_token;
+        // Priority 3: Fallback to 'tpos_token' key
+        const tposToken = localStorage.getItem('tpos_token');
+        if (tposToken) {
+            try {
+                const tokenData = JSON.parse(tposToken);
+                if (tokenData.access_token) {
+                    console.log('[AUTH] Using token from tpos_token key');
+                    CONFIG.TPOS_AUTH_TOKEN = tokenData.access_token;
+                    return tokenData.access_token;
+                }
+            } catch (e) {
+                // Maybe it's just a plain string token
+                console.log('[AUTH] Using plain tpos_token');
+                CONFIG.TPOS_AUTH_TOKEN = tposToken;
+                return tposToken;
+            }
+        }
+
+        // No token found - need to login
+        throw new Error('Vui lòng đăng nhập vào hệ thống trước (orders-report hoặc trang chính)');
+
     } catch (error) {
-        console.error('Error getting TPOS token:', error);
+        console.error('[AUTH] Error getting TPOS token:', error);
         showNotification('Lỗi xác thực TPOS: ' + error.message, 'error');
         throw error;
     }
