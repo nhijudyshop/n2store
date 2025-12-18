@@ -1101,10 +1101,14 @@ class PancakeDataManager {
         }
 
         // Extract last message from Pancake conversation
-        const lastMessage = conversation.snippet || null;
+        // Use last_message.text from Pancake API (not snippet!)
+        const lastMessage = conversation.last_message?.text ||
+                           conversation.last_message?.message ||
+                           conversation.snippet ||
+                           null;
 
         console.log(`[DEBUG-DATA] getLastMessageForOrder: Found conversation ${conversation.id} for user ${userIdStr}`);
-        console.log(`[DEBUG-DATA] Snippet: "${lastMessage}", Unread: ${conversation.unread_count}`);
+        console.log(`[DEBUG-DATA] Last message text: "${lastMessage}", Unread: ${conversation.unread_count}`);
 
         // DEBUG: Log full conversation structure to understand available fields
         console.log(`[DEBUG-CONVERSATION] Full conversation object:`, conversation);
@@ -1421,7 +1425,11 @@ class PancakeDataManager {
         }
 
         // Extract last message info from conversation
-        const lastMessage = conversation.last_message || conversation.snippet || '';
+        // Use last_message.text from Pancake API (not snippet!)
+        const lastMessage = conversation.last_message?.text ||
+                           conversation.last_message?.message ||
+                           conversation.snippet ||
+                           '';
         const hasUnread = conversation.seen === false && conversation.unread_count > 0;
         const unreadCount = conversation.unread_count || 0;
 
@@ -1481,7 +1489,11 @@ class PancakeDataManager {
         }
 
         // Extract last comment info
-        const lastMessage = conversation.last_message || conversation.snippet || '';
+        // Use last_message.text from Pancake API (not snippet!)
+        const lastMessage = conversation.last_message?.text ||
+                           conversation.last_message?.message ||
+                           conversation.snippet ||
+                           '';
         const hasUnread = conversation.seen === false && conversation.unread_count > 0;
         const unreadCount = conversation.unread_count || 0;
 
