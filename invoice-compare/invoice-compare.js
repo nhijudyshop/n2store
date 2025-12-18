@@ -6,7 +6,6 @@
 // Configuration
 const CONFIG = {
     CLOUDFLARE_PROXY: 'https://chatomni-proxy.nhijudyshop.workers.dev',
-    TPOS_AUTH_TOKEN: null, // Will be fetched dynamically
 };
 
 // Global state
@@ -14,6 +13,7 @@ let currentInvoiceData = null;
 let currentInvoiceId = null;
 let uploadedImages = []; // Store uploaded images with base64 data
 let aiAnalysisResult = null; // Store AI analysis result
+let tokenManager = null; // Will be initialized on load
 
 // =====================================================
 // DOM ELEMENTS
@@ -39,41 +39,32 @@ const elements = {
 };
 
 // =====================================================
-// AUTHENTICATION - GET TPOS TOKEN
+// INITIALIZE TOKEN MANAGER
 // =====================================================
-async function getTPOSToken() {
+async function initializeTokenManager() {
     try {
-        // Retrieve saved credentials
-        const savedCreds = localStorage.getItem('tpos_credentials');
-        if (!savedCreds) {
-            throw new Error('Vui lòng đăng nhập TPOS trước');
+        // Wait for TokenManager to be available
+        if (typeof TokenManager === 'undefined') {
+            console.warn('[INVOICE] TokenManager not loaded yet, waiting...');
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        const creds = JSON.parse(savedCreds);
-
-        const response = await fetch(`${CONFIG.CLOUDFLARE_PROXY}/api/token`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                grant_type: 'password',
-                username: creds.username,
-                password: creds.password,
-                client_id: 'tmtWebApp',
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error('Không thể lấy token TPOS');
+        if (typeof TokenManager === 'undefined') {
+            throw new Error('TokenManager not available. Please make sure token-manager.js is loaded.');
         }
 
-        const data = await response.json();
-        CONFIG.TPOS_AUTH_TOKEN = data.access_token;
-        return data.access_token;
+        // Initialize TokenManager
+        tokenManager = new TokenManager();
+        console.log('[INVOICE] TokenManager initialized successfully');
+
+        // Wait for full initialization (Firebase etc)
+        await tokenManager.waitForFirebaseAndInit();
+        console.log('[INVOICE] TokenManager fully initialized');
+
+        return tokenManager;
     } catch (error) {
-        console.error('Error getting TPOS token:', error);
-        showNotification('Lỗi xác thực TPOS: ' + error.message, 'error');
+        console.error('[INVOICE] Error initializing TokenManager:', error);
+        showNotification('Lỗi khởi tạo token manager: ' + error.message, 'error');
         throw error;
     }
 }
@@ -103,9 +94,10 @@ async function fetchInvoiceData(invoiceId) {
     try {
         showLoading(true);
 
-        // Get token if not available
-        if (!CONFIG.TPOS_AUTH_TOKEN) {
-            await getTPOSToken();
+        // Ensure tokenManager is initialized
+        if (!tokenManager) {
+            console.log('[FETCH] Initializing token manager...');
+            await initializeTokenManager();
         }
 
         // Build API URL
@@ -113,22 +105,17 @@ async function fetchInvoiceData(invoiceId) {
 
         console.log('[FETCH] Fetching invoice data:', apiUrl);
 
-        const response = await fetch(apiUrl, {
+        // Use tokenManager.authenticatedFetch() - auto handles token refresh and 401 retry
+        const response = await tokenManager.authenticatedFetch(apiUrl, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json, text/plain, */*',
-                'Authorization': `Bearer ${CONFIG.TPOS_AUTH_TOKEN}`,
                 'tposappversion': '5.11.16.1',
                 'x-tpos-lang': 'vi',
             },
         });
 
         if (!response.ok) {
-            if (response.status === 401) {
-                // Token expired, retry once
-                await getTPOSToken();
-                return fetchInvoiceData(invoiceId);
-            }
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
