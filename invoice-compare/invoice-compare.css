@@ -439,6 +439,146 @@
     }
 }
 
+/* =====================================================
+   PANCAKE MODAL STYLES
+   ===================================================== */
+.pancake-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.pancake-modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.pancake-modal-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px 12px 0 0;
+    color: white;
+}
+
+.pancake-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pancake-modal-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: white;
+    transition: background 0.2s;
+}
+
+.pancake-modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.pancake-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.pancake-modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.pancake-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pancake-btn-primary {
+    background: #3b82f6;
+    color: white;
+}
+
+.pancake-btn-primary:hover {
+    background: #2563eb;
+}
+
+.pancake-btn-success {
+    background: #10b981;
+    color: white;
+}
+
+.pancake-btn-success:hover {
+    background: #059669;
+}
+
+.pancake-btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.pancake-btn-danger:hover {
+    background: #dc2626;
+}
+
+.pancake-btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.pancake-btn-secondary:hover {
+    background: #e5e7eb;
+}
+
+.pancake-btn-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.pancake-btn-warning:hover {
+    background: #d97706;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .invoice-compare-container {
