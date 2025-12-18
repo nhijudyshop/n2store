@@ -2758,9 +2758,25 @@
                     <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
                         <i class="fas fa-bullseye" style="color: #8b5cf6;"></i> Chiến Dịch Live
                     </h4>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <!-- User's Custom Campaigns -->
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label style="font-size: 12px; color: #6b7280;">Chọn chiến dịch:</label>
+                            <label style="font-size: 12px; color: #6b7280;">Chiến Dịch Live:</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <select id="modalUserCampaignSelect" style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                    <option value="">-- Chọn chiến dịch đã lưu --</option>
+                                </select>
+                                <button class="btn-primary" onclick="openCreateCampaignModal()"
+                                    style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 8px 12px; white-space: nowrap;"
+                                    title="Thêm chiến dịch mới">
+                                    <i class="fas fa-plus"></i> THÊM
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Time Frame Selection (from TPOS) -->
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; color: #6b7280;">Chọn khung thời gian chiến dịch:</label>
                             <select id="modalCampaignFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
                                 <option value="">Đang tải...</option>
                             </select>
@@ -3064,6 +3080,258 @@
                     modalLabel.textContent = originalLabel.textContent;
                 }
             }, 100);
+        }
+
+        // ============================================
+        // User Campaign Management Functions
+        // ============================================
+
+        // Load user campaigns from Firebase
+        async function loadUserCampaigns() {
+            const select = document.getElementById('modalUserCampaignSelect');
+            if (!select) return;
+
+            try {
+                // Check if Firebase is available
+                if (typeof firebase === 'undefined' || !firebase.database) {
+                    console.log('[USER-CAMPAIGNS] Firebase not available');
+                    return;
+                }
+
+                const db = firebase.database();
+                const snapshot = await db.ref('user_campaigns').once('value');
+                const campaigns = snapshot.val() || {};
+
+                // Clear existing options except first
+                select.innerHTML = '<option value="">-- Chọn chiến dịch đã lưu --</option>';
+
+                // Add campaigns
+                Object.entries(campaigns).forEach(([id, campaign]) => {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = campaign.name;
+                    option.dataset.timeFrame = campaign.timeFrame || '';
+                    option.dataset.customStartDate = campaign.customStartDate || '';
+                    select.appendChild(option);
+                });
+
+                console.log('[USER-CAMPAIGNS] Loaded', Object.keys(campaigns).length, 'campaigns');
+            } catch (error) {
+                console.error('[USER-CAMPAIGNS] Error loading campaigns:', error);
+            }
+        }
+
+        // Apply selected user campaign
+        function applyUserCampaign() {
+            const select = document.getElementById('modalUserCampaignSelect');
+            if (!select || !select.value) return;
+
+            const selectedOption = select.options[select.selectedIndex];
+            const timeFrame = selectedOption.dataset.timeFrame;
+            const customStartDate = selectedOption.dataset.customStartDate;
+
+            // Apply time frame to campaign filter
+            const modalCampaignFilter = document.getElementById('modalCampaignFilter');
+            if (modalCampaignFilter && timeFrame) {
+                modalCampaignFilter.value = timeFrame;
+                updateModalCustomDateVisibility();
+            }
+
+            // Apply custom start date if available
+            const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+            if (modalCustomStartDate && customStartDate) {
+                modalCustomStartDate.value = customStartDate;
+            }
+
+            if (typeof showNotification === 'function') {
+                showNotification('Đã áp dụng chiến dịch: ' + selectedOption.textContent, 'success');
+            }
+        }
+
+        // Add event listener for user campaign select
+        document.addEventListener('DOMContentLoaded', function() {
+            const userCampaignSelect = document.getElementById('modalUserCampaignSelect');
+            if (userCampaignSelect) {
+                userCampaignSelect.addEventListener('change', applyUserCampaign);
+            }
+        });
+
+        // Open Campaign Settings Modal - Extended
+        const originalOpenCampaignSettingsModal = openCampaignSettingsModal;
+        openCampaignSettingsModal = function() {
+            originalOpenCampaignSettingsModal();
+            loadUserCampaigns();
+        };
+    </script>
+
+    <!-- Create Campaign Modal -->
+    <div class="tag-modal" id="createCampaignModal" style="display: none;">
+        <div class="tag-modal-content" style="max-width: 500px;">
+            <div class="tag-modal-header">
+                <h3><i class="fas fa-plus-circle"></i> Thêm Chiến Dịch Mới</h3>
+                <button class="tag-modal-close" onclick="closeCreateCampaignModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tag-modal-body" style="padding: 20px;">
+                <!-- Campaign Name -->
+                <div style="margin-bottom: 20px;">
+                    <label style="font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 8px;">
+                        <i class="fas fa-tag" style="color: #8b5cf6;"></i> Tên chiến dịch:
+                    </label>
+                    <input type="text" id="newCampaignName" placeholder="VD: Chiến dịch Noel 2025"
+                        style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
+                </div>
+
+                <!-- Time Frame Selection -->
+                <div style="margin-bottom: 20px;">
+                    <label style="font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 8px;">
+                        <i class="fas fa-clock" style="color: #8b5cf6;"></i> Chọn khung thời gian chiến dịch:
+                    </label>
+                    <select id="newCampaignTimeFrame" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+                        <option value="">-- Chọn khung thời gian --</option>
+                    </select>
+                </div>
+
+                <!-- Custom Date Filter (shown when 'custom' is selected) -->
+                <div id="newCampaignCustomDateContainer" style="display: none; margin-bottom: 20px; padding: 12px; background: #ede9fe; border-radius: 6px; border: 2px solid #8b5cf6;">
+                    <label style="font-size: 12px; font-weight: 600; color: #8b5cf6; display: block; margin-bottom: 8px;">
+                        <i class="fas fa-magic"></i> Từ ngày custom (lọc theo ngày tạo đơn):
+                    </label>
+                    <input type="datetime-local" id="newCampaignCustomStartDate"
+                        style="width: 100%; padding: 8px 12px; border: 2px solid #8b5cf6; border-radius: 6px;" />
+                </div>
+
+                <!-- Info Box -->
+                <div style="padding: 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px;">
+                    <div style="font-size: 12px; color: #166534;">
+                        <i class="fas fa-info-circle"></i> Chiến dịch sẽ lưu lại cách lọc dữ liệu từ 3000 đơn tải về từ TPOS.
+                        Bạn có thể chọn lại chiến dịch này sau để áp dụng nhanh.
+                    </div>
+                </div>
+            </div>
+            <div class="tag-modal-footer">
+                <button class="tag-btn-cancel" onclick="closeCreateCampaignModal()">
+                    Hủy
+                </button>
+                <button class="tag-btn-save" onclick="saveNewCampaign()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <i class="fas fa-save"></i> Lưu Chiến Dịch
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Campaign Modal Script -->
+    <script>
+        // Open Create Campaign Modal
+        function openCreateCampaignModal() {
+            const modal = document.getElementById('createCampaignModal');
+            modal.style.display = 'flex';
+
+            // Reset form
+            document.getElementById('newCampaignName').value = '';
+            document.getElementById('newCampaignCustomStartDate').value = '';
+            document.getElementById('newCampaignCustomDateContainer').style.display = 'none';
+
+            // Copy options from modalCampaignFilter to newCampaignTimeFrame
+            const sourceSelect = document.getElementById('modalCampaignFilter');
+            const targetSelect = document.getElementById('newCampaignTimeFrame');
+            if (sourceSelect && targetSelect) {
+                targetSelect.innerHTML = '<option value="">-- Chọn khung thời gian --</option>';
+                Array.from(sourceSelect.options).forEach(opt => {
+                    if (opt.value) {
+                        const newOpt = document.createElement('option');
+                        newOpt.value = opt.value;
+                        newOpt.textContent = opt.textContent;
+                        targetSelect.appendChild(newOpt);
+                    }
+                });
+            }
+
+            // Focus on name input
+            document.getElementById('newCampaignName').focus();
+        }
+
+        // Close Create Campaign Modal
+        function closeCreateCampaignModal() {
+            document.getElementById('createCampaignModal').style.display = 'none';
+        }
+
+        // Handle time frame change in create modal
+        document.addEventListener('DOMContentLoaded', function() {
+            const timeFrameSelect = document.getElementById('newCampaignTimeFrame');
+            if (timeFrameSelect) {
+                timeFrameSelect.addEventListener('change', function() {
+                    const customDateContainer = document.getElementById('newCampaignCustomDateContainer');
+                    if (this.value === 'custom') {
+                        customDateContainer.style.display = 'block';
+                    } else {
+                        customDateContainer.style.display = 'none';
+                    }
+                });
+            }
+        });
+
+        // Save new campaign to Firebase
+        async function saveNewCampaign() {
+            const name = document.getElementById('newCampaignName').value.trim();
+            const timeFrame = document.getElementById('newCampaignTimeFrame').value;
+            const customStartDate = document.getElementById('newCampaignCustomStartDate').value;
+
+            // Validation
+            if (!name) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Vui lòng nhập tên chiến dịch!', 'error');
+                } else {
+                    alert('Vui lòng nhập tên chiến dịch!');
+                }
+                document.getElementById('newCampaignName').focus();
+                return;
+            }
+
+            if (!timeFrame) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Vui lòng chọn khung thời gian chiến dịch!', 'error');
+                } else {
+                    alert('Vui lòng chọn khung thời gian chiến dịch!');
+                }
+                return;
+            }
+
+            try {
+                // Check if Firebase is available
+                if (typeof firebase === 'undefined' || !firebase.database) {
+                    throw new Error('Firebase not available');
+                }
+
+                const db = firebase.database();
+                const campaignId = 'campaign_' + Date.now();
+
+                await db.ref('user_campaigns/' + campaignId).set({
+                    name: name,
+                    timeFrame: timeFrame,
+                    customStartDate: timeFrame === 'custom' ? customStartDate : '',
+                    createdAt: new Date().toISOString()
+                });
+
+                console.log('[USER-CAMPAIGNS] Saved campaign:', name);
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Đã lưu chiến dịch: ' + name, 'success');
+                }
+
+                // Close modal and reload campaigns
+                closeCreateCampaignModal();
+                loadUserCampaigns();
+
+            } catch (error) {
+                console.error('[USER-CAMPAIGNS] Error saving campaign:', error);
+                if (typeof showNotification === 'function') {
+                    showNotification('Lỗi lưu chiến dịch: ' + error.message, 'error');
+                } else {
+                    alert('Lỗi lưu chiến dịch: ' + error.message);
+                }
+            }
         }
     </script>
 
