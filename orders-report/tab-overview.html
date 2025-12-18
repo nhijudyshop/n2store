@@ -740,6 +740,7 @@
 
         const STORAGE_KEY = 'report_order_details_by_table';
         const FIREBASE_PATH = 'report_order_details';
+        const TABLE_NAME_SETTINGS_PATH = 'settings/table_name'; // Path to default table name (same as tab1)
         const BATCH_SIZE = 10;
         const BATCH_DELAY = 1000; // 1 second
 
@@ -761,6 +762,42 @@
         // =====================================================
         // FIREBASE FUNCTIONS
         // =====================================================
+
+        /**
+         * Load default table name from Firebase settings (same as tab1 uses)
+         * This ensures the dropdown auto-selects the correct table on page refresh
+         */
+        async function loadDefaultTableNameFromFirebase() {
+            if (!database) {
+                console.log('[REPORT] Firebase not available for loading default table name');
+                return 'Bảng 1'; // Default fallback
+            }
+
+            try {
+                const snapshot = await database.ref(TABLE_NAME_SETTINGS_PATH).once('value');
+                const data = snapshot.val();
+                if (data && data.name) {
+                    console.log('[REPORT] ✅ Loaded default table name from Firebase:', data.name);
+                    return data.name;
+                }
+            } catch (error) {
+                console.error('[REPORT] ❌ Error loading default table name:', error);
+            }
+
+            // Fallback to localStorage
+            try {
+                const stored = localStorage.getItem('order_table_name');
+                if (stored) {
+                    console.log('[REPORT] ✅ Loaded default table name from localStorage:', stored);
+                    return stored;
+                }
+            } catch (e) {
+                console.error('[REPORT] ❌ Error loading from localStorage:', e);
+            }
+
+            console.log('[REPORT] Using default table name: Bảng 1');
+            return 'Bảng 1'; // Default
+        }
 
         // Sanitize data for Firebase (remove invalid keys)
         function sanitizeForFirebase(obj) {
@@ -1860,13 +1897,17 @@
         // =====================================================
         // INITIALIZATION
         // =====================================================
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             console.log('[REPORT] Page loaded, initializing...');
 
             // Load cached data
             loadCachedData();
 
-            // Load available tables from Firebase
+            // Load default table name from Firebase (same as tab1) to auto-select on page refresh
+            currentTableName = await loadDefaultTableNameFromFirebase();
+            console.log('[REPORT] 📋 Default table set to:', currentTableName);
+
+            // Load available tables from Firebase (will auto-select currentTableName)
             loadAvailableTables();
 
             // Request data from tab1
