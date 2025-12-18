@@ -979,11 +979,32 @@
 
                 // Select current table if exists
                 if (currentTableName) {
+                    // Check if currentTableName option exists in dropdown
+                    let optionExists = false;
+                    for (let option of selector.options) {
+                        if (option.value === currentTableName) {
+                            optionExists = true;
+                            break;
+                        }
+                    }
+
+                    // If current table not in Firebase yet, add it to dropdown
+                    if (!optionExists && allOrders.length > 0) {
+                        const newOption = document.createElement('option');
+                        newOption.value = currentTableName;
+                        newOption.textContent = `${currentTableName} (${allOrders.length} đơn - hiện tại)`;
+                        selector.appendChild(newOption);
+                        console.log(`[REPORT] ➕ Added current table "${currentTableName}" to dropdown (not in Firebase yet)`);
+                    }
+
                     selector.value = currentTableName;
-                    // Auto-load data for current table
-                    setTimeout(() => {
-                        loadTableDataFromFirebase(currentTableName);
-                    }, 100);
+
+                    // Only auto-load from Firebase if the table exists there
+                    if (optionExists) {
+                        setTimeout(() => {
+                            loadTableDataFromFirebase(currentTableName);
+                        }, 100);
+                    }
                 }
             } catch (error) {
                 console.error('[REPORT] ❌ Error loading tables:', error);
