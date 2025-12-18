@@ -95,7 +95,7 @@ function getNextHFKey() {
 
 async function callGeminiAPI(prompt, options = {}) {
     const {
-        model = 'gemini-2.0-flash-exp',
+        model = 'gemini-flash-latest',
         maxRetries = Math.max(GEMINI_KEYS.length, 3),
         temperature = 0.7,
     } = options;
@@ -162,7 +162,7 @@ async function callGeminiAPI(prompt, options = {}) {
 
 async function analyzeImageWithGemini(base64Image, prompt, options = {}) {
     const {
-        model = 'gemini-2.0-flash-exp',
+        model = 'gemini-flash-latest',
         maxRetries = Math.max(GEMINI_KEYS.length, 3),
         mimeType = 'image/jpeg',
     } = options;
@@ -228,6 +228,9 @@ async function analyzeImageWithGemini(base64Image, prompt, options = {}) {
             await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
         }
     }
+
+    // If we get here, all retries failed
+    throw new Error(`Gemini Vision failed after ${maxRetries} attempts. All API keys are exhausted or rate limited.`);
 }
 
 // =====================================================

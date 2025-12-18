@@ -415,8 +415,8 @@ function displayComparisonResult(internalErrors, comparisonErrors) {
         html += '<div class="error-list">';
         comparisonErrors.forEach((error) => {
             const errorClass = error.type.includes('PRICE') || error.type.includes('AMOUNT') ? 'error-price' :
-                               error.type.includes('QTY') ? 'error-qty' :
-                               error.type === 'MISSING' ? 'error-missing' : 'error-extra';
+                error.type.includes('QTY') ? 'error-qty' :
+                    error.type === 'MISSING' ? 'error-missing' : 'error-extra';
 
             html += `
                 <div class="error-item ${errorClass}">
@@ -639,7 +639,7 @@ async function analyzeImagesWithAI() {
             image.base64,
             AI_ANALYSIS_PROMPT,
             {
-                model: 'gemini-2.0-flash-exp',
+                model: 'gemini-flash-latest',
                 mimeType: image.mimeType,
             }
         );
@@ -672,6 +672,11 @@ async function analyzeImagesWithAI() {
 
 function parseAIResult(rawText) {
     try {
+        // Check if rawText is valid
+        if (!rawText || typeof rawText !== 'string') {
+            throw new Error('AI không trả về kết quả. Vui lòng thử lại.');
+        }
+
         // Remove markdown code blocks if present
         let jsonText = rawText.trim();
         jsonText = jsonText.replace(/```json\n?/g, '');
@@ -898,7 +903,7 @@ elements.btnRefresh.addEventListener('click', () => {
  * or
  *   setGeminiKeys(['key1', 'key2', 'key3'])
  */
-window.setGeminiKeys = function(keys) {
+window.setGeminiKeys = function (keys) {
     const keyString = Array.isArray(keys) ? keys.join(',') : keys;
     localStorage.setItem('gemini_api_keys', keyString);
     window.GEMINI_KEYS = keyString;
@@ -910,7 +915,7 @@ window.setGeminiKeys = function(keys) {
 /**
  * Get current Gemini API keys
  */
-window.getGeminiKeys = function() {
+window.getGeminiKeys = function () {
     const keys = localStorage.getItem('gemini_api_keys') || '';
     const keyList = keys.split(',').filter(k => k.trim());
     console.log('[API-KEYS] Current keys count:', keyList.length);
@@ -920,7 +925,7 @@ window.getGeminiKeys = function() {
 /**
  * Clear Gemini API keys
  */
-window.clearGeminiKeys = function() {
+window.clearGeminiKeys = function () {
     localStorage.removeItem('gemini_api_keys');
     window.GEMINI_KEYS = '';
     console.log('[API-KEYS] ✅ API keys cleared');
