@@ -9,14 +9,10 @@
         <!-- External CSS -->
         <link rel="stylesheet" href="modern.css" />
 
-        <!-- N2Store Optimization: Core Utilities Loader (LOAD FIRST) -->
+        <!-- Lucide Icons -->
+        <!-- N2Store Optimization: Core Utilities Loader -->
         <script src="../js/core-loader.js"></script>
 
-        <!-- Navigation Manager - Load trước khi load page scripts -->
-        <script src="../js/navigation-modern.js"></script>
-        <script src="../js/common-utils.js"></script>
-
-        <!-- Lucide Icons CDN -->
         <script src="https://unpkg.com/lucide@latest"></script>
 
         <!-- Firebase SDKs -->
@@ -191,7 +187,28 @@
             </section>
         </main>
 
-        <!-- Script -->
+        <!-- Scripts -->
         <script src="script.js"></script>
+        <script src="../js/navigation-modern.js"></script>
+        <script src="notification-system.js"></script>
+
+        <script>
+            // Initialize global notification manager
+            let globalNotificationManager = null;
+
+            // Initialize Lucide icons and notification system
+            document.addEventListener("DOMContentLoaded", () => {
+                // Initialize notification manager
+                if (typeof NotificationManager !== "undefined") {
+                    globalNotificationManager = new NotificationManager();
+                    console.log("[UI] NotificationManager initialized");
+                }
+
+                // Initialize Lucide icons
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+            });
+        </script>
     </body>
 </html>
