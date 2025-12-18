@@ -1,7 +1,7 @@
 # Issues: Table Name & Message Display Sync
 
 > **Ngày tạo:** 2025-12-18
-> **Trạng thái:** Pending User Decision
+> **Trạng thái:** ✅ Resolved (2025-12-18)
 
 ---
 
@@ -37,18 +37,26 @@ Lý do chọn:
 6. Chờ hoàn thành → Bảng mới sẽ xuất hiện trong dropdown
 ```
 
-### TODO: Thêm UI Guidance
-- [ ] Thêm message helper dưới dropdown khi bảng hiện tại chưa có trong Firebase
-- [ ] Highlight nút "Lấy chi tiết đơn hàng" khi phát hiện bảng mới
+### TODO: Thêm UI Guidance ✅ DONE
+- [x] Thêm message helper dưới dropdown khi bảng hiện tại chưa có trong Firebase
+- [x] Highlight nút "Lấy chi tiết đơn hàng" khi phát hiện bảng mới
+
+**Đã implement (2025-12-18):**
+- Thêm `#tableHelperMessage` div dưới dropdown với animation fade-in
+- Thêm CSS class `highlight-pulse` cho nút fetch với animation pulse
+- Thêm function `updateTableHelperUI(showHelper)` để quản lý UI
+- Auto show/hide helper dựa trên `firebaseTableName` matching với `currentTableName`
 
 ### Files liên quan
 - `tab1-orders.js` dòng 311: `saveTableName()`
-- `tab-overview.html` dòng 1190: `startBatchFetch()`
-- `tab-overview.html` dòng 748: `saveToFirebase()`
+- `tab-overview.html` dòng 583-587: `#tableHelperMessage` (helper message)
+- `tab-overview.html` dòng 566-596: CSS animations
+- `tab-overview.html` dòng 898-922: `updateTableHelperUI()` function
+- `tab-overview.html` dòng 1276-1280: Remove highlight khi start fetch
 
 ---
 
-## Issue 2: Cột Tin Nhắn Hiển Thị "-"
+## Issue 2: Cột Tin Nhắn Hiển Thị "-" ✅ IMPROVED
 
 ### Mô tả
 - Cột tin nhắn trong bảng đơn hàng hiển thị "-" thay vì nội dung
@@ -64,21 +72,32 @@ Hiện "-" nếu:
 - `!orderChatInfo.channelId` - Không parse được từ Facebook_PostId
 - Setting `messagesContent === false` - User tắt hiển thị
 
+### Cải tiến UX (2025-12-18)
+**Thêm loading indicator** khi đang fetch conversations:
+- Thêm biến `isLoadingConversations` để track trạng thái fetch
+- Trong `renderMessagesColumn()` và `renderCommentsColumn()`: hiển thị spinner icon thay vì "-" khi đang fetch
+- User sẽ thấy spinner xoay → biết đang tải → sau đó hiện tin nhắn hoặc "-" (nếu không có data)
+
 ### Files liên quan
-- `tab1-orders.js` dòng 7261: `renderMessagesColumn()`
-- `tab1-orders.js` dòng 6350-6372: Fetch conversations sau render
+- `tab1-orders.js` dòng 6276: `isLoadingConversations` variable
+- `tab1-orders.js` dòng 6355: Set `isLoadingConversations = true` trước fetch
+- `tab1-orders.js` dòng 6378: Set `isLoadingConversations = false` sau fetch
+- `tab1-orders.js` dòng 7277-7279: Loading indicator trong `renderMessagesColumn()`
+- `tab1-orders.js` dòng 7322-7324: Loading indicator trong `renderCommentsColumn()`
 - `pancake-data-manager.js`: `getLastMessageForOrder()`
 - `column-visibility-manager.js` dòng 17: `messagesContent` setting
 
-### Flow hiện tại
+### Flow cải tiến
 ```
 loadCampaignList()
     ↓
-performTableSearch() → RENDER LẦN 1 (chưa có tin nhắn = "-")
+performTableSearch() → RENDER LẦN 1 (isLoadingConversations=true → spinner icon)
     ↓
 fetchConversations() → Gọi Pancake API
     ↓
-performTableSearch() → RENDER LẦN 2 (có tin nhắn ✅)
+isLoadingConversations = false
+    ↓
+performTableSearch() → RENDER LẦN 2 (có tin nhắn ✅ hoặc "-" nếu không có data)
 ```
 
 ---
