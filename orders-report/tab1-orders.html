@@ -233,7 +233,7 @@
                     <input type="text" id="tableNameInput"
                         placeholder="Bảng 1"
                         style="width: 100%; padding: 8px 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; font-weight: 500; text-align: center; background: white; color: #333; outline: none; transition: all 0.2s;"
-                        onblur="saveTableName()"
+                        oninput="updateTableNameOnInput()"
                         onfocus="this.style.borderColor='#4f46e5'; this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'"
                         onblur="this.style.borderColor='#667eea'; this.style.boxShadow='none'; saveTableName()"
                         title="Nhấn để chỉnh sửa tên bảng" />
@@ -264,47 +264,15 @@
                 <i class="fas fa-users-cog"></i>
                 Cài đặt phân chia nhân viên
             </button>
-            <label>Khoảng tải:</label>
-            <select id="skipRangeFilter" style="min-width: 150px">
-                <option value="0" selected>3000 đầu tiên</option>
-                <option value="3000">3000 tiếp theo</option>
-                <option value="6000">3000 thứ 3</option>
-                <option value="9000">3000 thứ 4</option>
-                <option value="12000">3000 thứ 5</option>
-            </select>
-            <button class="btn-primary" id="loadCampaignsBtn" style="background: #8b5cf6">
-                <i class="fas fa-sync-alt"></i>
-                Tải Chiến Dịch
+            <button class="btn-primary" id="campaignSettingsBtn" onclick="openCampaignSettingsModal()"
+                style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)"
+                title="Cài đặt chiến dịch, ngày tải, realtime, Pancake API">
+                <i class="fas fa-bullhorn"></i>
+                Cài Đặt Chiến Dịch
             </button>
-            <label>Chiến dịch Live:</label>
-            <select id="campaignFilter" style="min-width: 300px">
-                <option value="">Đang tải...</option>
-            </select>
-            <!-- Custom Date Filter Input (Hidden by default) -->
-            <div id="customDateFilterContainer" style="display: none; align-items: center; gap: 8px;">
-                <label style="color: #8b5cf6; font-weight: 600;">Từ ngày custom:</label>
-                <input type="datetime-local" id="customStartDate"
-                    style="border: 2px solid #8b5cf6; border-radius: 6px;" />
-            </div>
-            <label>Từ ngày:</label>
-            <input type="datetime-local" id="startDate" />
-            <label>Đến ngày:</label>
-            <input type="datetime-local" id="endDate" />
-
-
             <button class="btn-primary" id="clearCacheBtn" style="background: #ef4444">
                 <i class="fas fa-trash"></i>
                 Xóa Cache
-            </button>
-            <button class="btn-primary" id="pancakeSettingsBtn" onclick="openPancakeSettingsModal()"
-                style="background: #8b5cf6">
-                <i class="fas fa-cog"></i>
-                Cài đặt Pancake
-            </button>
-            <button class="btn-primary" id="chatApiToggleBtn" onclick="toggleChatAPISource()"
-                style="background: #3b82f6" title="Chọn nguồn API để hiển thị tin nhắn/bình luận">
-                <i class="fas fa-exchange-alt"></i>
-                <span id="chatApiSourceLabel">Pancake API</span>
             </button>
             <button class="btn-primary" id="mergeProductsBtn" onclick="showMergeDuplicateOrdersModal()"
                 style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)"
@@ -324,32 +292,39 @@
                 <i class="fas fa-tags"></i>
                 Xóa Tag Hàng Loạt
             </button>
-            <div
-                style="display: flex; align-items: center; gap: 8px; margin-left: 12px; background: #f3f4f6; padding: 4px 8px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <input type="checkbox" id="realtimeToggleCheckbox" onchange="toggleRealtimeMode(this.checked)"
-                        style="cursor: pointer; width: 16px; height: 16px;" checked>
-                    <label for="realtimeToggleCheckbox"
-                        style="cursor: pointer; font-size: 14px; font-weight: 500; color: #374151; user-select: none;">
-                        <i class="fas fa-bolt" style="color: #f59e0b; margin-right: 4px;"></i> Realtime
-                    </label>
-                </div>
 
-                <!-- Mode Switcher (Shown by default with Server 24/7 selected) -->
-                <div id="realtimeModeContainer"
-                    style="display: block; margin-left: 8px; padding-left: 8px; border-left: 1px solid #d1d5db;">
-                    <select id="realtimeModeSelect" onchange="changeRealtimeMode(this.value)"
-                        style="padding: 2px 6px; border-radius: 4px; border: 1px solid #d1d5db; font-size: 12px; background: white; cursor: pointer;">
-                        <option value="browser">Browser (Direct)</option>
-                        <option value="server" selected>Server (24/7)</option>
-                        <option value="localhost">Server (Localhost)</option>
-                    </select>
-                    <button onclick="window.realtimeManager.manualConnect()"
-                        style="margin-left: 6px; padding: 2px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; font-size: 12px; color: #4b5563;"
-                        title="Kết nối lại thủ công">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
+            <!-- Hidden elements - moved to Campaign Settings Modal -->
+            <div style="display: none;">
+                <select id="skipRangeFilter" style="min-width: 150px">
+                    <option value="0" selected>3000 đầu tiên</option>
+                    <option value="3000">3000 tiếp theo</option>
+                    <option value="6000">3000 thứ 3</option>
+                    <option value="9000">3000 thứ 4</option>
+                    <option value="12000">3000 thứ 5</option>
+                </select>
+                <!-- Load Campaigns Button (event listener attached in JS) -->
+                <button id="loadCampaignsBtn">Tải Chiến Dịch</button>
+                <select id="campaignFilter" style="min-width: 300px">
+                    <option value="">Đang tải...</option>
+                </select>
+                <!-- Custom Date Filter Container (referenced in JS) -->
+                <div id="customDateFilterContainer">
+                    <input type="datetime-local" id="customStartDate" />
                 </div>
+                <input type="datetime-local" id="startDate" />
+                <input type="datetime-local" id="endDate" />
+                <!-- Realtime controls (hidden, controlled via modal) -->
+                <input type="checkbox" id="realtimeToggleCheckbox" checked>
+                <select id="realtimeModeSelect">
+                    <option value="browser">Browser (Direct)</option>
+                    <option value="server" selected>Server (24/7)</option>
+                    <option value="localhost">Server (Localhost)</option>
+                </select>
+                <!-- Realtime mode container (referenced in JS) -->
+                <div id="realtimeModeContainer"></div>
+                <!-- Chat API toggle (hidden, controlled via modal) -->
+                <button id="chatApiToggleBtn"></button>
+                <span id="chatApiSourceLabel">Pancake API</span>
             </div>
 
             <!-- Table Filters Row -->
@@ -2744,6 +2719,353 @@
             </div>
         </div>
     </div>
+
+    <!-- Campaign Settings Modal -->
+    <div class="tag-modal" id="campaignSettingsModal" style="display: none;">
+        <div class="tag-modal-content" style="max-width: 700px;">
+            <div class="tag-modal-header">
+                <h3><i class="fas fa-bullhorn"></i> Cài Đặt Chiến Dịch</h3>
+                <button class="tag-modal-close" onclick="closeCampaignSettingsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tag-modal-body" style="padding: 20px;">
+                <!-- Load Settings Section -->
+                <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-download" style="color: #8b5cf6;"></i> Tải Dữ Liệu
+                    </h4>
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; color: #6b7280;">Khoảng tải:</label>
+                            <select id="modalSkipRangeFilter" style="min-width: 150px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                <option value="0" selected>3000 đầu tiên</option>
+                                <option value="3000">3000 tiếp theo</option>
+                                <option value="6000">3000 thứ 3</option>
+                                <option value="9000">3000 thứ 4</option>
+                                <option value="12000">3000 thứ 5</option>
+                            </select>
+                        </div>
+                        <button class="btn-primary" id="modalLoadCampaignsBtn" onclick="handleLoadCampaignsFromModal()" style="background: #8b5cf6; margin-top: 18px;">
+                            <i class="fas fa-sync-alt"></i>
+                            Tải Chiến Dịch
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Campaign Selection Section -->
+                <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-bullseye" style="color: #8b5cf6;"></i> Chiến Dịch Live
+                    </h4>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; color: #6b7280;">Chọn chiến dịch:</label>
+                            <select id="modalCampaignFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                <option value="">Đang tải...</option>
+                            </select>
+                        </div>
+                        <!-- Custom Date Filter -->
+                        <div id="modalCustomDateFilterContainer" style="display: none; padding: 12px; background: #ede9fe; border-radius: 6px; border: 2px solid #8b5cf6;">
+                            <label style="font-size: 12px; font-weight: 600; color: #8b5cf6; display: block; margin-bottom: 8px;">
+                                <i class="fas fa-magic"></i> Từ ngày custom (lọc theo ngày tạo đơn):
+                            </label>
+                            <input type="datetime-local" id="modalCustomStartDate"
+                                style="width: 100%; padding: 8px 12px; border: 2px solid #8b5cf6; border-radius: 6px;" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Date Range Section -->
+                <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-calendar-alt" style="color: #3b82f6;"></i> Khoảng Thời Gian
+                    </h4>
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; color: #6b7280;">Từ ngày:</label>
+                            <input type="datetime-local" id="modalStartDate"
+                                style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;" />
+                        </div>
+                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; color: #6b7280;">Đến ngày:</label>
+                            <input type="datetime-local" id="modalEndDate"
+                                style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Realtime Section -->
+                <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-bolt" style="color: #f59e0b;"></i> Cài Đặt Realtime
+                    </h4>
+                    <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="modalRealtimeToggleCheckbox"
+                                style="cursor: pointer; width: 18px; height: 18px;">
+                            <label for="modalRealtimeToggleCheckbox"
+                                style="cursor: pointer; font-size: 14px; font-weight: 500; color: #374151; user-select: none;">
+                                <i class="fas fa-bolt" style="color: #f59e0b; margin-right: 4px;"></i> Bật Realtime
+                            </label>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; color: #6b7280;">Chế độ:</label>
+                            <select id="modalRealtimeModeSelect"
+                                style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; font-size: 13px; background: white; cursor: pointer;">
+                                <option value="browser">Browser (Direct)</option>
+                                <option value="server" selected>Server (24/7)</option>
+                                <option value="localhost">Server (Localhost)</option>
+                            </select>
+                        </div>
+                        <button onclick="window.realtimeManager && window.realtimeManager.manualConnect()"
+                            style="padding: 8px 16px; border: 1px solid #d1d5db; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; color: #4b5563; margin-top: 18px;"
+                            title="Kết nối lại thủ công">
+                            <i class="fas fa-sync-alt"></i> Kết nối lại
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pancake API Section -->
+                <div style="padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-cookie-bite" style="color: #8b5cf6;"></i> Pancake API
+                    </h4>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <button class="btn-primary" onclick="openPancakeSettingsModal()"
+                            style="background: #8b5cf6;">
+                            <i class="fas fa-cog"></i>
+                            Cài đặt Pancake
+                        </button>
+                        <button class="btn-primary" id="modalChatApiToggleBtn" onclick="toggleChatAPISourceFromModal()"
+                            style="background: #3b82f6" title="Chọn nguồn API để hiển thị tin nhắn/bình luận">
+                            <i class="fas fa-exchange-alt"></i>
+                            <span id="modalChatApiSourceLabel">Pancake API</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="tag-modal-footer">
+                <button class="tag-btn-cancel" onclick="closeCampaignSettingsModal()">
+                    Đóng
+                </button>
+                <button class="tag-btn-save" onclick="applyCampaignSettings()" style="background: #8b5cf6;">
+                    <i class="fas fa-check"></i> Áp dụng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaign Settings Modal Script -->
+    <script>
+        // Open Campaign Settings Modal
+        function openCampaignSettingsModal() {
+            const modal = document.getElementById('campaignSettingsModal');
+            modal.style.display = 'flex';
+
+            // Sync values from hidden original elements to modal
+            syncOriginalToModal();
+        }
+
+        // Close Campaign Settings Modal
+        function closeCampaignSettingsModal() {
+            document.getElementById('campaignSettingsModal').style.display = 'none';
+        }
+
+        // Sync original hidden elements to modal inputs
+        function syncOriginalToModal() {
+            // Sync skip range filter
+            const originalSkipRange = document.getElementById('skipRangeFilter');
+            const modalSkipRange = document.getElementById('modalSkipRangeFilter');
+            if (originalSkipRange && modalSkipRange) {
+                modalSkipRange.value = originalSkipRange.value;
+            }
+
+            // Sync campaign filter
+            const originalCampaign = document.getElementById('campaignFilter');
+            const modalCampaign = document.getElementById('modalCampaignFilter');
+            if (originalCampaign && modalCampaign) {
+                // Copy options
+                modalCampaign.innerHTML = originalCampaign.innerHTML;
+                modalCampaign.value = originalCampaign.value;
+
+                // Show/hide custom date container based on selection
+                updateModalCustomDateVisibility();
+            }
+
+            // Sync dates
+            const originalCustomStartDate = document.getElementById('customStartDate');
+            const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+            if (originalCustomStartDate && modalCustomStartDate) {
+                modalCustomStartDate.value = originalCustomStartDate.value;
+            }
+
+            const originalStartDate = document.getElementById('startDate');
+            const modalStartDate = document.getElementById('modalStartDate');
+            if (originalStartDate && modalStartDate) {
+                modalStartDate.value = originalStartDate.value;
+            }
+
+            const originalEndDate = document.getElementById('endDate');
+            const modalEndDate = document.getElementById('modalEndDate');
+            if (originalEndDate && modalEndDate) {
+                modalEndDate.value = originalEndDate.value;
+            }
+
+            // Sync realtime checkbox
+            const originalRealtimeCheckbox = document.getElementById('realtimeToggleCheckbox');
+            const modalRealtimeCheckbox = document.getElementById('modalRealtimeToggleCheckbox');
+            if (originalRealtimeCheckbox && modalRealtimeCheckbox) {
+                modalRealtimeCheckbox.checked = originalRealtimeCheckbox.checked;
+            }
+
+            // Sync realtime mode
+            const originalRealtimeMode = document.getElementById('realtimeModeSelect');
+            const modalRealtimeMode = document.getElementById('modalRealtimeModeSelect');
+            if (originalRealtimeMode && modalRealtimeMode) {
+                modalRealtimeMode.value = originalRealtimeMode.value;
+            }
+
+            // Sync chat API source label
+            const originalLabel = document.getElementById('chatApiSourceLabel');
+            const modalLabel = document.getElementById('modalChatApiSourceLabel');
+            if (originalLabel && modalLabel) {
+                modalLabel.textContent = originalLabel.textContent;
+            }
+        }
+
+        // Update custom date container visibility based on campaign selection
+        function updateModalCustomDateVisibility() {
+            const modalCampaign = document.getElementById('modalCampaignFilter');
+            const modalCustomDateContainer = document.getElementById('modalCustomDateFilterContainer');
+            if (modalCampaign && modalCustomDateContainer) {
+                const selectedValue = modalCampaign.value;
+                if (selectedValue === 'custom') {
+                    modalCustomDateContainer.style.display = 'block';
+                } else {
+                    modalCustomDateContainer.style.display = 'none';
+                }
+            }
+        }
+
+        // Handle campaign change in modal
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalCampaignFilter = document.getElementById('modalCampaignFilter');
+            if (modalCampaignFilter) {
+                modalCampaignFilter.addEventListener('change', function() {
+                    updateModalCustomDateVisibility();
+                });
+            }
+        });
+
+        // Apply settings from modal to original elements
+        function applyCampaignSettings() {
+            // Sync skip range filter
+            const originalSkipRange = document.getElementById('skipRangeFilter');
+            const modalSkipRange = document.getElementById('modalSkipRangeFilter');
+            if (originalSkipRange && modalSkipRange) {
+                originalSkipRange.value = modalSkipRange.value;
+            }
+
+            // Sync campaign filter
+            const originalCampaign = document.getElementById('campaignFilter');
+            const modalCampaign = document.getElementById('modalCampaignFilter');
+            if (originalCampaign && modalCampaign) {
+                originalCampaign.value = modalCampaign.value;
+                // Trigger change event
+                originalCampaign.dispatchEvent(new Event('change'));
+            }
+
+            // Sync dates
+            const originalCustomStartDate = document.getElementById('customStartDate');
+            const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+            if (originalCustomStartDate && modalCustomStartDate) {
+                originalCustomStartDate.value = modalCustomStartDate.value;
+                originalCustomStartDate.dispatchEvent(new Event('change'));
+            }
+
+            const originalStartDate = document.getElementById('startDate');
+            const modalStartDate = document.getElementById('modalStartDate');
+            if (originalStartDate && modalStartDate) {
+                originalStartDate.value = modalStartDate.value;
+                originalStartDate.dispatchEvent(new Event('change'));
+            }
+
+            const originalEndDate = document.getElementById('endDate');
+            const modalEndDate = document.getElementById('modalEndDate');
+            if (originalEndDate && modalEndDate) {
+                originalEndDate.value = modalEndDate.value;
+                originalEndDate.dispatchEvent(new Event('change'));
+            }
+
+            // Sync realtime checkbox
+            const originalRealtimeCheckbox = document.getElementById('realtimeToggleCheckbox');
+            const modalRealtimeCheckbox = document.getElementById('modalRealtimeToggleCheckbox');
+            if (originalRealtimeCheckbox && modalRealtimeCheckbox && originalRealtimeCheckbox.checked !== modalRealtimeCheckbox.checked) {
+                originalRealtimeCheckbox.checked = modalRealtimeCheckbox.checked;
+                if (typeof toggleRealtimeMode === 'function') {
+                    toggleRealtimeMode(modalRealtimeCheckbox.checked);
+                }
+            }
+
+            // Sync realtime mode
+            const originalRealtimeMode = document.getElementById('realtimeModeSelect');
+            const modalRealtimeMode = document.getElementById('modalRealtimeModeSelect');
+            if (originalRealtimeMode && modalRealtimeMode && originalRealtimeMode.value !== modalRealtimeMode.value) {
+                originalRealtimeMode.value = modalRealtimeMode.value;
+                if (typeof changeRealtimeMode === 'function') {
+                    changeRealtimeMode(modalRealtimeMode.value);
+                }
+            }
+
+            closeCampaignSettingsModal();
+
+            // Show success notification
+            if (typeof showNotification === 'function') {
+                showNotification('Đã áp dụng cài đặt chiến dịch!', 'success');
+            }
+        }
+
+        // Load campaigns from modal
+        function handleLoadCampaignsFromModal() {
+            // Sync skip range first
+            const originalSkipRange = document.getElementById('skipRangeFilter');
+            const modalSkipRange = document.getElementById('modalSkipRangeFilter');
+            if (originalSkipRange && modalSkipRange) {
+                originalSkipRange.value = modalSkipRange.value;
+            }
+
+            // Call original load campaigns function
+            if (typeof handleLoadCampaigns === 'function') {
+                handleLoadCampaigns();
+            }
+
+            // Update modal campaign filter after a delay
+            setTimeout(function() {
+                const originalCampaign = document.getElementById('campaignFilter');
+                const modalCampaign = document.getElementById('modalCampaignFilter');
+                if (originalCampaign && modalCampaign) {
+                    modalCampaign.innerHTML = originalCampaign.innerHTML;
+                    modalCampaign.value = originalCampaign.value;
+                }
+            }, 2000);
+        }
+
+        // Toggle chat API source from modal
+        function toggleChatAPISourceFromModal() {
+            if (typeof toggleChatAPISource === 'function') {
+                toggleChatAPISource();
+            }
+            // Update modal label after toggle
+            setTimeout(function() {
+                const originalLabel = document.getElementById('chatApiSourceLabel');
+                const modalLabel = document.getElementById('modalChatApiSourceLabel');
+                if (originalLabel && modalLabel) {
+                    modalLabel.textContent = originalLabel.textContent;
+                }
+            }, 100);
+        }
+    </script>
 
     <!-- Pancake Settings Modal -->
     <div class="tag-modal" id="pancakeSettingsModal" style="display: none;">

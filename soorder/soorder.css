@@ -60,6 +60,41 @@
     align-items: center;
 }
 
+/* Quick Date Buttons */
+.quick-date-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-quick-date {
+    padding: 0.6rem 0.9rem;
+    background: var(--order-bg-light);
+    border: 2px solid var(--order-border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--order-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-quick-date:hover {
+    background: #eef2ff;
+    border-color: var(--order-primary-light);
+    color: var(--order-primary);
+}
+
+.btn-quick-date:active {
+    transform: scale(0.95);
+}
+
+.btn-quick-date.active {
+    background: var(--order-gradient);
+    border-color: var(--order-primary);
+    color: white;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
 .btn-nav {
     display: flex;
     align-items: center;

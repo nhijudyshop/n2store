@@ -18,22 +18,14 @@ window.SoOrderUtils = {
         return `${year}-${month}-${day}`;
     },
 
-    // Format date to Vietnamese display (e.g., "Thứ Hai, 04/12/2025")
+    // Format date to Vietnamese display (e.g., "Thứ 5, 18/12")
     formatDateDisplay(date) {
-        const days = [
-            "Chủ Nhật",
-            "Thứ Hai",
-            "Thứ Ba",
-            "Thứ Tư",
-            "Thứ Năm",
-            "Thứ Sáu",
-            "Thứ Bảy",
-        ];
-        const dayName = days[date.getDay()];
+        const days = ["CN", "2", "3", "4", "5", "6", "7"];
+        const dayIndex = date.getDay();
+        const dayName = dayIndex === 0 ? "CN" : `Thứ ${days[dayIndex]}`;
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
-        const year = date.getFullYear();
-        return `${dayName}, ${day}/${month}/${year}`;
+        return `${dayName}, ${day}/${month}`;
     },
 
     // Parse YYYY-MM-DD to Date object
@@ -112,6 +104,13 @@ window.SoOrderUtils = {
 
         state.currentDate = date;
         state.currentDateString = this.formatDate(date);
+
+        // Store last viewed date for returning from range mode
+        state.lastViewedDate = new Date(date);
+
+        // Clear active state from quick date buttons
+        const quickDateButtons = document.querySelectorAll(".btn-quick-date");
+        quickDateButtons.forEach((btn) => btn.classList.remove("active"));
 
         // Update date input and selector
         const elements = window.SoOrderElements;
@@ -238,16 +237,25 @@ window.SoOrderUtils = {
                 return;
             }
 
-            // Left arrow: previous day
-            if (e.key === "ArrowLeft") {
+            // Left arrow or Right arrow
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
                 e.preventDefault();
-                this.gotoPrevDay();
-            }
 
-            // Right arrow: next day
-            if (e.key === "ArrowRight") {
-                e.preventDefault();
-                this.gotoNextDay();
+                const state = window.SoOrderState;
+
+                // If in range mode, return to last viewed date
+                if (state.isRangeMode) {
+                    const dateToReturn = state.lastViewedDate || new Date();
+                    this.navigateToDate(dateToReturn);
+                    return;
+                }
+
+                // Single day mode - navigate prev/next
+                if (e.key === "ArrowLeft") {
+                    this.gotoPrevDay();
+                } else {
+                    this.gotoNextDay();
+                }
             }
         });
     },
