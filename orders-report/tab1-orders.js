@@ -6272,6 +6272,9 @@ async function handleSearch() {
 // Progressive loading state
 let isLoadingInBackground = false;
 
+// Track if conversations are being fetched (for loading indicator in messages column)
+let isLoadingConversations = false;
+
 
 async function fetchOrders() {
     try {
@@ -6348,6 +6351,9 @@ async function fetchOrders() {
         // Load conversations and comment conversations for first batch
         console.log('[PROGRESSIVE] Loading conversations for first batch...');
         if (window.chatDataManager) {
+            // Set loading state for messages column indicator
+            isLoadingConversations = true;
+
             // Collect unique channel IDs from orders (parse from Facebook_PostId)
             const channelIds = [...new Set(
                 allData
@@ -6367,6 +6373,9 @@ async function fetchOrders() {
                 await window.pancakeDataManager.fetchConversations(true);
                 console.log('[PANCAKE] ✅ Conversations fetched');
             }
+
+            // Clear loading state
+            isLoadingConversations = false;
 
             performTableSearch(); // Re-apply filters and merge with new chat data
         }
@@ -7264,6 +7273,11 @@ function renderMessagesColumn(order) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
+    // Show loading indicator when conversations are being fetched
+    if (isLoadingConversations) {
+        return '<td data-column="messages" style="text-align: center; color: #9ca3af;" title="Đang tải tin nhắn..."><i class="fas fa-spinner fa-spin" style="font-size: 12px; color: #667eea;"></i></td>';
+    }
+
     // Check if this is a merged order - always show STT-based format
     if (order.IsMerged && order.OriginalOrders && order.OriginalOrders.length > 1) {
         return renderMergedMessagesColumn(order, 'messages');
@@ -7302,6 +7316,11 @@ function renderCommentsColumn(order) {
     if (!window.chatDataManager) {
         console.log('[CHAT RENDER] chatDataManager not available');
         return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
+    }
+
+    // Show loading indicator when conversations are being fetched
+    if (isLoadingConversations) {
+        return '<td data-column="comments" style="text-align: center; color: #9ca3af;" title="Đang tải bình luận..."><i class="fas fa-spinner fa-spin" style="font-size: 12px; color: #667eea;"></i></td>';
     }
 
     // Check if this is a merged order - always show STT-based format

@@ -562,6 +562,39 @@
         .btn-clear-cache:hover {
             background: #e53935;
         }
+
+        /* Highlight effect for fetch button when new table detected */
+        .btn-action.highlight-pulse {
+            animation: highlightPulse 1.5s ease-in-out infinite;
+            box-shadow: 0 0 20px rgba(56, 239, 125, 0.6);
+        }
+
+        @keyframes highlightPulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 10px rgba(56, 239, 125, 0.4);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 25px rgba(56, 239, 125, 0.8);
+            }
+        }
+
+        /* Helper message animation */
+        #tableHelperMessage {
+            animation: fadeInSlide 0.3s ease-out;
+        }
+
+        @keyframes fadeInSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 
@@ -580,6 +613,11 @@
                         style="padding: 10px 16px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; font-weight: 500; background: white; color: #333; min-width: 200px; cursor: pointer;">
                         <option value="">-- Chọn bảng --</option>
                     </select>
+                    <!-- Message helper khi bảng chưa có trong Firebase -->
+                    <div id="tableHelperMessage" style="display: none; font-size: 12px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; color: #856404; max-width: 280px;">
+                        <i class="fas fa-info-circle"></i>
+                        <span id="tableHelperText">Bảng này chưa có dữ liệu chi tiết. Nhấn "Lấy chi tiết đơn hàng" để tải.</span>
+                    </div>
                 </div>
                 <button class="btn-action" onclick="loadAvailableTables()"
                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-top: 20px;">
@@ -852,6 +890,35 @@
             }, '*');
 
             console.log(`[REPORT] 📡 Broadcast table status: current=${currentTableName}, firebase=${firebaseTableName}, match=${isMatching}`);
+
+            // Update UI helper based on matching status
+            updateTableHelperUI(!isMatching && currentTableName);
+        }
+
+        // Update helper message and highlight fetch button
+        function updateTableHelperUI(showHelper) {
+            const helperMessage = document.getElementById('tableHelperMessage');
+            const helperText = document.getElementById('tableHelperText');
+            const fetchBtn = document.getElementById('btnBatchFetch');
+
+            if (showHelper && currentTableName) {
+                // Show helper message
+                helperMessage.style.display = 'block';
+                helperText.textContent = `Bảng "${currentTableName}" chưa có dữ liệu chi tiết. Nhấn "Lấy chi tiết đơn hàng" để tải.`;
+
+                // Highlight fetch button
+                fetchBtn.classList.add('highlight-pulse');
+
+                console.log(`[REPORT] 🔔 Showing helper: table "${currentTableName}" not in Firebase`);
+            } else {
+                // Hide helper message
+                helperMessage.style.display = 'none';
+
+                // Remove highlight
+                fetchBtn.classList.remove('highlight-pulse');
+
+                console.log(`[REPORT] ✅ Helper hidden: table "${currentTableName}" exists in Firebase`);
+            }
         }
 
         // Load cached data from localStorage
@@ -988,9 +1055,17 @@
 
                 saveCachedData();
                 console.log(`[REPORT] ✅ Loaded ${firebaseData.orders?.length || 0} orders for table: ${tableName}`);
+
+                // Hide helper - data exists
+                updateTableHelperUI(false);
             } else {
                 console.log(`[REPORT] ⚠️ No data found for table: ${tableName}`);
                 allOrders = [];
+
+                // Show helper - no data for this table
+                firebaseTableName = null;
+                firebaseDataFetchedAt = null;
+                updateTableHelperUI(true);
             }
         }
 
@@ -1206,7 +1281,11 @@
             isFetching = true;
             const btn = document.getElementById('btnBatchFetch');
             btn.disabled = true;
+            btn.classList.remove('highlight-pulse'); // Remove highlight when starting fetch
             btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải...';
+
+            // Hide helper message during fetch
+            document.getElementById('tableHelperMessage').style.display = 'none';
 
             // Show progress
             const progressContainer = document.getElementById('progressContainer');
