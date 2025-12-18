@@ -12,6 +12,8 @@ const CONFIG = {
 // Global state
 let currentInvoiceData = null;
 let currentInvoiceId = null;
+let uploadedImages = []; // Store uploaded images with base64 data
+let aiAnalysisResult = null; // Store AI analysis result
 
 // =====================================================
 // DOM ELEMENTS
@@ -21,6 +23,8 @@ const elements = {
     btnFetchInvoice: document.getElementById('btnFetchInvoice'),
     btnClear: document.getElementById('btnClear'),
     btnRefresh: document.getElementById('btnRefresh'),
+    imageUpload: document.getElementById('imageUpload'),
+    btnAnalyzeWithAI: document.getElementById('btnAnalyzeWithAI'),
     loadingOverlay: document.getElementById('loadingOverlay'),
     imagesSection: document.getElementById('imagesSection'),
     dataSection: document.getElementById('dataSection'),
@@ -506,16 +510,357 @@ function showNotification(message, type = 'info') {
 
 function clearAll() {
     elements.invoiceUrl.value = '';
-    elements.imagesSection.style.display = 'none';
+    elements.imagesSection.style.display = 'block';
     elements.dataSection.style.display = 'none';
     elements.resultSection.style.display = 'none';
+    elements.invoiceImages.innerHTML = '';
+    elements.btnAnalyzeWithAI.style.display = 'none';
     currentInvoiceData = null;
     currentInvoiceId = null;
+    uploadedImages = [];
+    aiAnalysisResult = null;
+}
+
+// =====================================================
+// IMAGE UPLOAD & DISPLAY
+// =====================================================
+
+async function handleImageUpload(files) {
+    try {
+        showLoading(true);
+        uploadedImages = [];
+
+        for (const file of files) {
+            if (!file.type.startsWith('image/')) {
+                continue;
+            }
+
+            const base64 = await window.GeminiAI.fileToBase64(file);
+            const imageUrl = URL.createObjectURL(file);
+
+            uploadedImages.push({
+                file: file,
+                base64: base64,
+                url: imageUrl,
+                mimeType: file.type,
+            });
+        }
+
+        displayUploadedImages();
+        showNotification(`Đã tải ${uploadedImages.length} ảnh`, 'success');
+
+        // Show AI analysis button
+        if (uploadedImages.length > 0) {
+            elements.btnAnalyzeWithAI.style.display = 'block';
+        }
+
+    } catch (error) {
+        console.error('Error uploading images:', error);
+        showNotification('Lỗi tải ảnh: ' + error.message, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+function displayUploadedImages() {
+    elements.invoiceImages.innerHTML = '';
+
+    uploadedImages.forEach((img, index) => {
+        const div = document.createElement('div');
+        div.className = 'invoice-image';
+        div.innerHTML = `
+            <img src="${img.url}" alt="Hóa đơn ${index + 1}" />
+            <button class="btn-remove-image" data-index="${index}">
+                <i data-lucide="x"></i>
+            </button>
+        `;
+        elements.invoiceImages.appendChild(div);
+    });
+
+    // Re-initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+
+    // Add remove handlers
+    document.querySelectorAll('.btn-remove-image').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = parseInt(e.currentTarget.dataset.index);
+            uploadedImages.splice(index, 1);
+            displayUploadedImages();
+            if (uploadedImages.length === 0) {
+                elements.btnAnalyzeWithAI.style.display = 'none';
+            }
+        });
+    });
+}
+
+// =====================================================
+// AI ANALYSIS
+// =====================================================
+
+const AI_ANALYSIS_PROMPT = `Bạn là chuyên gia phân tích hóa đơn. Hãy phân tích hình ảnh hóa đơn này và trích xuất thông tin theo format JSON sau:
+
+{
+  "invoice_info": {
+    "number": "Số hóa đơn",
+    "supplier": "Tên nhà cung cấp",
+    "date": "Ngày lập",
+    "total_amount": số tiền tổng (number),
+    "total_quantity": tổng số lượng (number)
+  },
+  "products": [
+    {
+      "code": "Mã hàng 5-6 số (VD: 1812, 53589)",
+      "name": "Tên sản phẩm đầy đủ",
+      "quantity": số lượng (number),
+      "unit_price": đơn giá (number),
+      "total": thành tiền (number)
+    }
+  ]
+}
+
+**QUAN TRỌNG:**
+- Mã hàng (code) là chuỗi 5-6 chữ số, thường xuất hiện ở đầu tên sản phẩm hoặc trong cột mã
+- Số lượng (quantity) phải là số, không có chữ
+- Đơn giá và thành tiền phải là số, không có dấu phẩy hay ký tự đặc biệt
+- Nếu có nhiều sản phẩm cùng mã hàng, hãy gộp chúng lại
+- KHÔNG thêm bất kỳ text nào ngoài JSON
+
+Chỉ trả về JSON, không thêm giải thích hay text khác.`;
+
+async function analyzeImagesWithAI() {
+    try {
+        showLoading(true);
+
+        if (!window.GeminiAI) {
+            throw new Error('Gemini AI chưa được tải. Vui lòng load lại trang.');
+        }
+
+        if (uploadedImages.length === 0) {
+            throw new Error('Chưa có ảnh nào được tải lên');
+        }
+
+        console.log('[AI-ANALYSIS] Starting analysis with', uploadedImages.length, 'images');
+
+        // Analyze first image (you can loop through all if needed)
+        const image = uploadedImages[0];
+
+        const result = await window.GeminiAI.analyzeImageWithGemini(
+            image.base64,
+            AI_ANALYSIS_PROMPT,
+            {
+                model: 'gemini-2.0-flash-exp',
+                mimeType: image.mimeType,
+            }
+        );
+
+        console.log('[AI-ANALYSIS] Raw result:', result);
+
+        // Parse JSON from result
+        aiAnalysisResult = parseAIResult(result);
+        console.log('[AI-ANALYSIS] Parsed result:', aiAnalysisResult);
+
+        // Display AI analysis result
+        displayAIAnalysisResult(aiAnalysisResult);
+
+        // Compare with JSON if available
+        if (currentInvoiceData) {
+            const comparisonErrors = compareAIWithJSON(aiAnalysisResult, currentInvoiceData);
+            const internalErrors = validateInternalConsistency(currentInvoiceData);
+            displayComparisonResult(internalErrors, comparisonErrors);
+        }
+
+        showNotification('Phân tích AI hoàn tất!', 'success');
+
+    } catch (error) {
+        console.error('[AI-ANALYSIS] Error:', error);
+        showNotification('Lỗi phân tích AI: ' + error.message, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+function parseAIResult(rawText) {
+    try {
+        // Remove markdown code blocks if present
+        let jsonText = rawText.trim();
+        jsonText = jsonText.replace(/```json\n?/g, '');
+        jsonText = jsonText.replace(/```\n?/g, '');
+        jsonText = jsonText.trim();
+
+        const parsed = JSON.parse(jsonText);
+        return parsed;
+    } catch (error) {
+        console.error('[PARSE] Failed to parse AI result:', error);
+        throw new Error('Không thể parse kết quả từ AI. Vui lòng thử lại.');
+    }
+}
+
+function displayAIAnalysisResult(aiResult) {
+    if (!aiResult || !aiResult.products) {
+        return;
+    }
+
+    // Create a section to display AI result
+    let html = '<h3>📊 Kết Quả Phân Tích AI:</h3>';
+    html += '<div class="data-summary">';
+    html += `<div class="summary-item"><span class="label">Số HĐ:</span><span class="value">${aiResult.invoice_info?.number || '-'}</span></div>`;
+    html += `<div class="summary-item"><span class="label">NCC:</span><span class="value">${aiResult.invoice_info?.supplier || '-'}</span></div>`;
+    html += `<div class="summary-item"><span class="label">Tổng Tiền:</span><span class="value">${formatCurrency(aiResult.invoice_info?.total_amount || 0)}</span></div>`;
+    html += `<div class="summary-item"><span class="label">Tổng SL:</span><span class="value">${aiResult.invoice_info?.total_quantity || 0}</span></div>`;
+    html += '</div>';
+
+    html += '<h4>Chi Tiết Sản Phẩm (AI):</h4>';
+    html += '<div class="product-list">';
+    aiResult.products.forEach(product => {
+        html += `
+            <div class="product-item">
+                <div class="product-code">${product.code || '-'}</div>
+                <div class="product-name">${product.name || '-'}</div>
+                <div class="product-qty">${product.quantity || 0}</div>
+                <div class="product-price">${formatCurrency(product.unit_price || 0)}</div>
+                <div class="product-total">${formatCurrency(product.total || 0)}</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    // Show in result section
+    elements.resultSection.style.display = 'block';
+    elements.comparisonResult.innerHTML = html + '<hr style="margin: 24px 0;">' + elements.comparisonResult.innerHTML;
+}
+
+// =====================================================
+// COMPARE AI RESULT WITH JSON
+// =====================================================
+
+function compareAIWithJSON(aiResult, jsonData) {
+    const errors = [];
+
+    if (!aiResult || !aiResult.products || !jsonData || !jsonData.OrderLines) {
+        return errors;
+    }
+
+    // Group JSON data by product code (5-6 digits)
+    const jsonGrouped = groupOrderLinesByCode(jsonData.OrderLines || []);
+
+    // Group AI data by product code
+    const aiGrouped = {};
+    aiResult.products.forEach(product => {
+        const code = product.code || extractProductCode(product.name);
+        if (!code) return;
+
+        if (!aiGrouped[code]) {
+            aiGrouped[code] = {
+                qty: 0,
+                amount: 0,
+                items: [],
+            };
+        }
+
+        aiGrouped[code].qty += product.quantity || 0;
+        aiGrouped[code].amount += product.total || 0;
+        aiGrouped[code].items.push(product);
+    });
+
+    console.log('[COMPARE] JSON grouped:', jsonGrouped);
+    console.log('[COMPARE] AI grouped:', aiGrouped);
+
+    // Compare each item in AI result with JSON
+    Object.keys(aiGrouped).forEach((code) => {
+        const ai = aiGrouped[code];
+        const json = jsonGrouped[code];
+
+        if (!json) {
+            // Missing in JSON (or extra in AI)
+            errors.push({
+                code: code,
+                type: 'EXTRA_IN_AI',
+                message: `Mã ${code} có trong hóa đơn nhưng KHÔNG có trong JSON TPOS`,
+                ai: ai,
+                json: null,
+            });
+            return;
+        }
+
+        // Check quantity
+        if (Math.abs(json.qty - ai.qty) > 0.01) {
+            errors.push({
+                code: code,
+                type: 'QTY_MISMATCH',
+                message: `Số lượng không khớp cho mã ${code}`,
+                ai: ai,
+                json: json,
+                difference: json.qty - ai.qty,
+            });
+        }
+
+        // Check amount
+        if (Math.abs(json.amount - ai.amount) > 0.01) {
+            // Check if it's a price error (x10 mistake)
+            const jsonPrice = json.amount / json.qty;
+            const aiPrice = ai.amount / ai.qty;
+
+            if (Math.abs(jsonPrice / aiPrice - 10) < 0.1 || Math.abs(aiPrice / jsonPrice - 10) < 0.1) {
+                errors.push({
+                    code: code,
+                    type: 'PRICE_ERROR_X10',
+                    message: `❌ LỖI NHẬP GIÁ X10 cho mã ${code}`,
+                    ai: ai,
+                    json: json,
+                    aiPrice: aiPrice,
+                    jsonPrice: jsonPrice,
+                    difference: json.amount - ai.amount,
+                });
+            } else {
+                errors.push({
+                    code: code,
+                    type: 'AMOUNT_MISMATCH',
+                    message: `Thành tiền không khớp cho mã ${code}`,
+                    ai: ai,
+                    json: json,
+                    difference: json.amount - ai.amount,
+                });
+            }
+        }
+
+        // Remove from grouped to find missing items
+        delete jsonGrouped[code];
+    });
+
+    // Check for items in JSON but not in AI (missing in invoice)
+    Object.keys(jsonGrouped).forEach((code) => {
+        errors.push({
+            code: code,
+            type: 'MISSING_IN_AI',
+            message: `Mã ${code} có trong JSON TPOS nhưng KHÔNG có trong hóa đơn`,
+            ai: null,
+            json: jsonGrouped[code],
+        });
+    });
+
+    return errors;
 }
 
 // =====================================================
 // EVENT HANDLERS
 // =====================================================
+
+// Image Upload
+elements.imageUpload.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+        handleImageUpload(files);
+    }
+});
+
+// AI Analysis Button
+elements.btnAnalyzeWithAI.addEventListener('click', async () => {
+    await analyzeImagesWithAI();
+});
+
+// Fetch Invoice Data
 elements.btnFetchInvoice.addEventListener('click', async () => {
     try {
         const url = elements.invoiceUrl.value.trim();
@@ -529,7 +874,14 @@ elements.btnFetchInvoice.addEventListener('click', async () => {
 
         // Validate internal consistency
         const internalErrors = validateInternalConsistency(currentInvoiceData);
-        displayComparisonResult(internalErrors, []);
+
+        // If AI result exists, compare with AI
+        if (aiAnalysisResult) {
+            const comparisonErrors = compareAIWithJSON(aiAnalysisResult, currentInvoiceData);
+            displayComparisonResult(internalErrors, comparisonErrors);
+        } else {
+            displayComparisonResult(internalErrors, []);
+        }
 
     } catch (error) {
         console.error('Error:', error);

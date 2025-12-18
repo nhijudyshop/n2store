@@ -23,6 +23,16 @@
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+        <!-- Load Gemini API Keys from GitHub Secrets -->
+        <script>
+            // Load API keys from GitHub Secrets (set by build process)
+            window.GEMINI_KEYS = window.GEMINI_KEYS || '';
+            window.HF_KEYS = window.HF_KEYS || '';
+        </script>
+
+        <!-- Gemini AI Helper -->
+        <script src="gemini-ai-helper.js"></script>
     </head>
 
     <body>
@@ -127,7 +137,7 @@
                     </div>
 
                     <!-- Invoice Images Section -->
-                    <div class="card images-section" id="imagesSection" style="display: none;">
+                    <div class="card images-section" id="imagesSection">
                         <div class="card-header">
                             <h2>
                                 <i data-lucide="image"></i>
@@ -135,6 +145,23 @@
                             </h2>
                         </div>
                         <div class="card-body">
+                            <div class="upload-section">
+                                <label for="imageUpload" class="upload-label">
+                                    <i data-lucide="upload"></i>
+                                    <span>Tải lên hình ảnh hóa đơn</span>
+                                </label>
+                                <input
+                                    type="file"
+                                    id="imageUpload"
+                                    accept="image/*"
+                                    multiple
+                                    style="display: none;"
+                                />
+                                <button id="btnAnalyzeWithAI" class="btn btn-primary" style="display: none; margin-top: 12px;">
+                                    <i data-lucide="sparkles"></i>
+                                    Phân Tích Với AI
+                                </button>
+                            </div>
                             <div id="invoiceImages" class="image-gallery">
                                 <!-- Images will be loaded here -->
                             </div>
