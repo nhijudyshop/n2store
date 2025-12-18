@@ -302,10 +302,15 @@
                     <option value="9000">3000 thứ 4</option>
                     <option value="12000">3000 thứ 5</option>
                 </select>
+                <!-- Load Campaigns Button (event listener attached in JS) -->
+                <button id="loadCampaignsBtn">Tải Chiến Dịch</button>
                 <select id="campaignFilter" style="min-width: 300px">
                     <option value="">Đang tải...</option>
                 </select>
-                <input type="datetime-local" id="customStartDate" />
+                <!-- Custom Date Filter Container (referenced in JS) -->
+                <div id="customDateFilterContainer">
+                    <input type="datetime-local" id="customStartDate" />
+                </div>
                 <input type="datetime-local" id="startDate" />
                 <input type="datetime-local" id="endDate" />
                 <!-- Realtime controls (hidden, controlled via modal) -->
@@ -315,6 +320,8 @@
                     <option value="server" selected>Server (24/7)</option>
                     <option value="localhost">Server (Localhost)</option>
                 </select>
+                <!-- Realtime mode container (referenced in JS) -->
+                <div id="realtimeModeContainer"></div>
                 <!-- Chat API toggle (hidden, controlled via modal) -->
                 <button id="chatApiToggleBtn"></button>
                 <span id="chatApiSourceLabel">Pancake API</span>
