@@ -18,11 +18,11 @@ window.SoOrderUtils = {
         return `${year}-${month}-${day}`;
     },
 
-    // Format date to Vietnamese display (e.g., "thứ 5, 18/12")
+    // Format date to Vietnamese display (e.g., "Thứ 5, 18/12")
     formatDateDisplay(date) {
         const days = ["CN", "2", "3", "4", "5", "6", "7"];
         const dayIndex = date.getDay();
-        const dayName = dayIndex === 0 ? "CN" : `thứ ${days[dayIndex]}`;
+        const dayName = dayIndex === 0 ? "CN" : `Thứ ${days[dayIndex]}`;
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
         return `${dayName}, ${day}/${month}`;
