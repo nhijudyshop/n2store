@@ -146,6 +146,15 @@ const MENU_CONFIG = [
         permissionRequired: "customer-management",
     },
     {
+        href: "../invoice-compare/index.html",
+        icon: "file-check-2",
+        text: "So Sánh Đơn Hàng",
+        shortText: "So Sánh",
+        pageIdentifier: "invoice-compare",
+        adminOnly: true,
+        permissionRequired: "invoice-compare",
+    },
+    {
         href: "../lichsuchinhsua/index.html",
         icon: "bar-chart-2",
         text: "Lịch Sử Chỉnh Sửa",
