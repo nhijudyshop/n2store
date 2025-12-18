@@ -9603,6 +9603,41 @@ window.addEventListener("message", function (event) {
 
         sendOrdersDataToOverview();
     }
+
+    // Handle request to fetch conversations for orders loaded from Firebase
+    if (event.data.type === "FETCH_CONVERSATIONS_FOR_ORDERS") {
+        console.log('📨 [CONVERSATIONS] Nhận request fetch conversations từ tab-overview');
+        const orders = event.data.orders || [];
+        console.log('📊 [CONVERSATIONS] Orders count:', orders.length);
+
+        if (orders.length > 0 && window.chatDataManager) {
+            // Parse channelIds from orders
+            const channelIds = [...new Set(
+                orders
+                    .map(order => {
+                        const postId = order.Facebook_PostId;
+                        if (!postId) return null;
+                        // Parse channelId from Facebook_PostId (format: "pageId_postId")
+                        const parts = postId.split('_');
+                        return parts.length > 0 ? parts[0] : null;
+                    })
+                    .filter(id => id)
+            )];
+
+            console.log('[CONVERSATIONS] Channel IDs to fetch:', channelIds);
+
+            if (channelIds.length > 0) {
+                // Fetch conversations
+                window.chatDataManager.fetchConversations(true, channelIds).then(() => {
+                    console.log('[CONVERSATIONS] ✅ Conversations fetched for Firebase orders');
+                    // Re-render table to show messages
+                    performTableSearch();
+                }).catch(err => {
+                    console.error('[CONVERSATIONS] ❌ Error fetching conversations:', err);
+                });
+            }
+        }
+    }
 });
 
 function sendOrdersDataToTab3() {
