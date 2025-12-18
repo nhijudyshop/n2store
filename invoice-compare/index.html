@@ -24,11 +24,17 @@
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-        <!-- Load Gemini API Keys from GitHub Secrets -->
+        <!-- Load Gemini API Keys -->
         <script>
-            // Load API keys from GitHub Secrets (set by build process)
-            window.GEMINI_KEYS = window.GEMINI_KEYS || '';
-            window.HF_KEYS = window.HF_KEYS || '';
+            // Load API keys from localStorage or GitHub Secrets
+            // Priority: localStorage → GitHub Secrets (build process)
+            const savedGeminiKeys = localStorage.getItem('gemini_api_keys') || '';
+            const savedHFKeys = localStorage.getItem('hf_api_keys') || '';
+
+            window.GEMINI_KEYS = savedGeminiKeys || window.GEMINI_KEYS || '';
+            window.HF_KEYS = savedHFKeys || window.HF_KEYS || '';
+
+            console.log('[API-KEYS] Gemini keys loaded:', window.GEMINI_KEYS ? 'Yes' : 'No');
         </script>
 
         <!-- Gemini AI Helper -->

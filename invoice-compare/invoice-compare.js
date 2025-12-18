@@ -888,6 +888,46 @@ elements.btnRefresh.addEventListener('click', () => {
 });
 
 // =====================================================
+// API KEY MANAGEMENT (Helper Functions)
+// =====================================================
+
+/**
+ * Set Gemini API keys in localStorage
+ * Usage in browser console:
+ *   setGeminiKeys('key1,key2,key3')
+ * or
+ *   setGeminiKeys(['key1', 'key2', 'key3'])
+ */
+window.setGeminiKeys = function(keys) {
+    const keyString = Array.isArray(keys) ? keys.join(',') : keys;
+    localStorage.setItem('gemini_api_keys', keyString);
+    window.GEMINI_KEYS = keyString;
+    console.log('[API-KEYS] ✅ Gemini API keys saved successfully');
+    console.log('[API-KEYS] Keys count:', keyString.split(',').filter(k => k.trim()).length);
+    return true;
+};
+
+/**
+ * Get current Gemini API keys
+ */
+window.getGeminiKeys = function() {
+    const keys = localStorage.getItem('gemini_api_keys') || '';
+    const keyList = keys.split(',').filter(k => k.trim());
+    console.log('[API-KEYS] Current keys count:', keyList.length);
+    return keyList;
+};
+
+/**
+ * Clear Gemini API keys
+ */
+window.clearGeminiKeys = function() {
+    localStorage.removeItem('gemini_api_keys');
+    window.GEMINI_KEYS = '';
+    console.log('[API-KEYS] ✅ API keys cleared');
+    return true;
+};
+
+// =====================================================
 // INITIALIZATION
 // =====================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -896,5 +936,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Lucide icons
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
+    }
+
+    // Display API key status
+    const keysCount = (window.GEMINI_KEYS || '').split(',').filter(k => k.trim()).length;
+    if (keysCount === 0) {
+        console.warn('[API-KEYS] ⚠️ No Gemini API keys configured');
+        console.log('[API-KEYS] 💡 To set keys, run in console: setGeminiKeys("YOUR_API_KEY")');
+        console.log('[API-KEYS] 📖 Get API key from: https://aistudio.google.com/apikey');
+    } else {
+        console.log('[API-KEYS] ✅ Gemini API keys loaded:', keysCount, 'keys');
     }
 });
