@@ -79,6 +79,14 @@ const MENU_CONFIG = [
         permissionRequired: "baocaosaleonline",
     },
     {
+        href: "../tpos-pancake/index.html",
+        icon: "columns",
+        text: "Tpos - Pancake",
+        shortText: "Tpos-Pancake",
+        pageIdentifier: "tpos-pancake",
+        permissionRequired: "tpos-pancake",
+    },
+    {
         href: "../product-search/index.html",
         icon: "search",
         text: "Tìm Kiếm Sản Phẩm",
@@ -162,14 +170,6 @@ const MENU_CONFIG = [
         pageIdentifier: "lichsuchinhsua",
         adminOnly: true,
         permissionRequired: "lichsuchinhsua",
-    },
-    {
-        href: "../tpos-pancake/index.html",
-        icon: "columns",
-        text: "Tpos - Pancake",
-        shortText: "Tpos-Pancake",
-        pageIdentifier: "tpos-pancake",
-        permissionRequired: "tpos-pancake",
     },
 ];
 
