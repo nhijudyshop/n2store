@@ -13,7 +13,7 @@ const QRGenerator = {
         ACB: {
             bin: '970416',
             name: 'ACB',
-            accountNo: '93616',
+            accountNo: '75918',
             accountName: 'LAI THUY YEN NHI'
         }
     },
