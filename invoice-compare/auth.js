@@ -1,7 +1,11 @@
 // =====================================================
-// AUTHENTICATION SYSTEM WITH AUTHMANAGER CLASS
+// AUTHENTICATION HANDLER FOR INVOICE COMPARE
+// Integrates with SharedAuthManager and provides fallback
 // =====================================================
 
+// =====================================================
+// AUTHMANAGER CLASS (Fallback when SharedAuthManager not available)
+// =====================================================
 class AuthManager {
     constructor() {
         this.currentUser = null;
@@ -123,84 +127,214 @@ class AuthManager {
 }
 
 // =====================================================
-// INITIALIZE AUTHMANAGER IMMEDIATELY
+// INITIALIZE AUTHMANAGER (as fallback)
 // =====================================================
+let authManager = null;
+if (typeof window.SharedAuthManager === 'undefined') {
+    authManager = new AuthManager();
+    window.authManager = authManager;
+    console.log("[AUTH] Local AuthManager initialized as fallback");
+}
 
-// Initialize authManager IMMEDIATELY
-const authManager = new AuthManager();
-window.authManager = authManager;
+// =====================================================
+// AUTHENTICATION CHECK FUNCTIONS
+// =====================================================
+function checkAuth() {
+    // Check if user is logged in via shared auth manager
+    if (typeof window.SharedAuthManager !== 'undefined') {
+        const isAuthenticated = window.SharedAuthManager.isAuthenticated();
 
-console.log("[AUTH] AuthManager initialized:", authManager.isAuthenticated());
-
-// Redirect to login if not authenticated (production mode)
-if (!authManager.isAuthenticated()) {
-    console.warn("[AUTH] User not authenticated, redirecting to login...");
-    // Allow a brief moment for any pending operations
-    setTimeout(() => {
-        if (!authManager.isAuthenticated()) {
-            localStorage.clear();
-            sessionStorage.clear();
-            window.location.href = "../index.html";
+        if (!isAuthenticated) {
+            console.warn('[AUTH] User not authenticated, redirecting to login');
+            window.location.href = '../index.html';
+            return false;
         }
-    }, 500);
+
+        // Get user info
+        const userInfo = window.SharedAuthManager.getUserInfo();
+        if (userInfo) {
+            updateUserDisplay(userInfo);
+        }
+
+        return true;
+    }
+
+    // Fallback to local AuthManager
+    if (authManager) {
+        if (!authManager.isAuthenticated()) {
+            console.warn("[AUTH] User not authenticated, redirecting to login...");
+            setTimeout(() => {
+                if (!authManager.isAuthenticated()) {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = "../index.html";
+                }
+            }, 500);
+            return false;
+        }
+
+        const userInfo = authManager.getUserInfo();
+        if (userInfo) {
+            updateUserDisplay(userInfo);
+        }
+        return true;
+    }
+
+    // Last resort: Check localStorage directly
+    const authData = localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth');
+    if (!authData) {
+        console.warn('[AUTH] No auth data found, redirecting to login');
+        window.location.href = '../index.html';
+        return false;
+    }
+
+    try {
+        const auth = JSON.parse(authData);
+        if (!auth.isLoggedIn) {
+            console.warn('[AUTH] User not logged in, redirecting');
+            window.location.href = '../index.html';
+            return false;
+        }
+
+        // Update user display
+        updateUserDisplay(auth);
+        return true;
+    } catch (error) {
+        console.error('[AUTH] Error parsing auth data:', error);
+        window.location.href = '../index.html';
+        return false;
+    }
+}
+
+// =====================================================
+// UPDATE USER DISPLAY
+// =====================================================
+function updateUserDisplay(userInfo) {
+    const userNameEl = document.getElementById('userName');
+    if (userNameEl && userInfo) {
+        const displayName = userInfo.displayName ||
+                          userInfo.username ||
+                          (userInfo.userType ? userInfo.userType.split("-")[0] : null) ||
+                          'User';
+        userNameEl.textContent = displayName;
+    }
+}
+
+// =====================================================
+// SETUP AUTH BUTTONS
+// =====================================================
+function setupAuthButtons() {
+    // Logout button
+    const btnLogout = document.getElementById('btnLogout');
+    if (btnLogout) {
+        btnLogout.addEventListener('click', handleLogout);
+    }
+
+    // Permissions button
+    const btnPermissions = document.getElementById('btnPermissions');
+    if (btnPermissions) {
+        btnPermissions.addEventListener('click', showPermissions);
+    }
+}
+
+// =====================================================
+// LOGOUT HANDLER
+// =====================================================
+function handleLogout() {
+    if (confirm('Bạn có chắc muốn đăng xuất?')) {
+        // Clear all auth data
+        localStorage.removeItem('loginindex_auth');
+        sessionStorage.removeItem('loginindex_auth');
+        localStorage.removeItem('tpos_credentials');
+        localStorage.removeItem('remember_login_preference');
+
+        // Clear via SharedAuthManager if available
+        if (typeof window.SharedAuthManager !== 'undefined') {
+            window.SharedAuthManager.logout();
+        } else if (authManager) {
+            authManager.clearAuth();
+        }
+
+        // Clear everything
+        localStorage.clear();
+        sessionStorage.clear();
+
+        console.log('[AUTH] User logged out');
+
+        // Redirect to login
+        window.location.href = '../index.html';
+    }
+}
+
+// =====================================================
+// SHOW PERMISSIONS
+// =====================================================
+function showPermissions() {
+    let permissionsHtml = 'Quyền Của Tôi:\n\n';
+
+    if (typeof window.SharedAuthManager !== 'undefined') {
+        const userInfo = window.SharedAuthManager.getUserInfo();
+
+        if (userInfo && userInfo.permissions) {
+            Object.keys(userInfo.permissions).forEach(key => {
+                if (userInfo.permissions[key]) {
+                    permissionsHtml += `• ${key}\n`;
+                }
+            });
+        } else if (userInfo && userInfo.userType === 'admin') {
+            permissionsHtml += '• Admin - Tất cả quyền';
+        } else {
+            permissionsHtml += 'Không có thông tin quyền';
+        }
+    } else if (authManager) {
+        const userInfo = authManager.getUserInfo();
+        if (userInfo) {
+            if (userInfo.checkLogin !== undefined) {
+                permissionsHtml += `• Level: ${userInfo.checkLogin}\n`;
+            }
+            if (userInfo.userType) {
+                permissionsHtml += `• Role: ${userInfo.userType}`;
+            }
+        }
+    } else {
+        // Fallback
+        const authData = localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth');
+        if (authData) {
+            const auth = JSON.parse(authData);
+            if (auth.userType === 'admin') {
+                permissionsHtml += '• Admin - Tất cả quyền';
+            } else {
+                permissionsHtml += '• User role: ' + (auth.userType || 'unknown');
+            }
+        }
+    }
+
+    alert(permissionsHtml);
 }
 
 // =====================================================
 // LEGACY FUNCTIONS (for backward compatibility)
 // =====================================================
 
-let authState = null;
-
 function getAuthState() {
+    if (typeof window.SharedAuthManager !== 'undefined') {
+        return window.SharedAuthManager.getUserInfo();
+    }
     return authManager ? authManager.getAuthState() : null;
 }
 
-function setAuthState(isLoggedIn, userType, checkLogin) {
-    authState = {
-        isLoggedIn: isLoggedIn,
-        userType: userType,
-        checkLogin: checkLogin,
-        timestamp: Date.now(),
-    };
-
-    try {
-        localStorage.setItem("loginindex_auth", JSON.stringify(authState));
-        if (authManager) {
-            authManager.currentUser = authState;
-        }
-    } catch (error) {
-        console.error("Error saving auth state:", error);
-    }
-}
-
-function clearAuthState() {
-    authState = null;
-    try {
-        localStorage.removeItem("loginindex_auth");
-        sessionStorage.removeItem("loginindex_auth");
-        clearLegacyAuth();
-    } catch (error) {
-        console.error("Error clearing auth state:", error);
-    }
-}
-
-function clearLegacyAuth() {
-    try {
-        localStorage.removeItem("isLoggedIn");
-        localStorage.removeItem("userType");
-        localStorage.removeItem("checkLogin");
-        localStorage.removeItem("remember_login_preference");
-        sessionStorage.clear();
-    } catch (error) {
-        console.error("Error clearing legacy auth:", error);
-    }
-}
-
 function isAuthenticated() {
+    if (typeof window.SharedAuthManager !== 'undefined') {
+        return window.SharedAuthManager.isAuthenticated();
+    }
     return authManager ? authManager.isAuthenticated() : false;
 }
 
 function hasPermission(requiredLevel) {
+    if (typeof window.SharedAuthManager !== 'undefined') {
+        const userInfo = window.SharedAuthManager.getUserInfo();
+        return userInfo && parseInt(userInfo.checkLogin) <= requiredLevel;
+    }
     return authManager ? authManager.hasPermission(requiredLevel) : false;
 }
 
@@ -209,14 +343,19 @@ function getUserName() {
     return auth && auth.userType ? auth.userType.split("-")[0] : "Admin";
 }
 
-function handleLogout() {
-    const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
-    if (confirmLogout) {
-        localStorage.clear();
-        sessionStorage.clear();
-        invalidateCache();
-        window.location.href = "../index.html";
-    }
+// =====================================================
+// INITIALIZATION
+// =====================================================
+
+// Run auth check immediately on load
+checkAuth();
+
+// Setup buttons when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupAuthButtons);
+} else {
+    // DOM already loaded
+    setupAuthButtons();
 }
 
-console.log("Authentication system loaded");
+console.log('[INVOICE-COMPARE-AUTH] Auth handler initialized');
