@@ -6,7 +6,6 @@
 // Configuration
 const CONFIG = {
     CLOUDFLARE_PROXY: 'https://chatomni-proxy.nhijudyshop.workers.dev',
-    TPOS_AUTH_TOKEN: null, // Will be fetched dynamically
 };
 
 // Global state
@@ -14,6 +13,7 @@ let currentInvoiceData = null;
 let currentInvoiceId = null;
 let uploadedImages = []; // Store uploaded images with base64 data
 let aiAnalysisResult = null; // Store AI analysis result
+let tokenManager = null; // Will be initialized on load
 
 // =====================================================
 // DOM ELEMENTS
@@ -39,70 +39,32 @@ const elements = {
 };
 
 // =====================================================
-// AUTHENTICATION - GET TPOS TOKEN
+// INITIALIZE TOKEN MANAGER
 // =====================================================
-async function getTPOSToken() {
+async function initializeTokenManager() {
     try {
-        // Priority 1: Check bearer_token_data from localStorage
-        let bearerData = localStorage.getItem('bearer_token_data');
-
-        if (bearerData) {
-            try {
-                const tokenData = JSON.parse(bearerData);
-
-                // Check if token is expired (8 hours TTL)
-                const SESSION_TIMEOUT = 8 * 60 * 60 * 1000; // 8 hours
-                const isExpired = tokenData.timestamp && (Date.now() - tokenData.timestamp > SESSION_TIMEOUT);
-
-                if (!isExpired && tokenData.access_token) {
-                    console.log('[AUTH] Using cached bearer token');
-                    CONFIG.TPOS_AUTH_TOKEN = tokenData.access_token;
-                    return tokenData.access_token;
-                }
-            } catch (e) {
-                console.warn('[AUTH] Failed to parse bearer_token_data:', e);
-            }
+        // Wait for TokenManager to be available
+        if (typeof TokenManager === 'undefined') {
+            console.warn('[INVOICE] TokenManager not loaded yet, waiting...');
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        // Priority 2: Fallback to 'auth' key
-        const authData = localStorage.getItem('auth');
-        if (authData) {
-            try {
-                const tokenData = JSON.parse(authData);
-                if (tokenData.access_token) {
-                    console.log('[AUTH] Using token from auth key');
-                    CONFIG.TPOS_AUTH_TOKEN = tokenData.access_token;
-                    return tokenData.access_token;
-                }
-            } catch (e) {
-                console.warn('[AUTH] Failed to parse auth:', e);
-            }
+        if (typeof TokenManager === 'undefined') {
+            throw new Error('TokenManager not available. Please make sure token-manager.js is loaded.');
         }
 
-        // Priority 3: Fallback to 'tpos_token' key
-        const tposToken = localStorage.getItem('tpos_token');
-        if (tposToken) {
-            try {
-                const tokenData = JSON.parse(tposToken);
-                if (tokenData.access_token) {
-                    console.log('[AUTH] Using token from tpos_token key');
-                    CONFIG.TPOS_AUTH_TOKEN = tokenData.access_token;
-                    return tokenData.access_token;
-                }
-            } catch (e) {
-                // Maybe it's just a plain string token
-                console.log('[AUTH] Using plain tpos_token');
-                CONFIG.TPOS_AUTH_TOKEN = tposToken;
-                return tposToken;
-            }
-        }
+        // Initialize TokenManager
+        tokenManager = new TokenManager();
+        console.log('[INVOICE] TokenManager initialized successfully');
 
-        // No token found - need to login
-        throw new Error('Vui lòng đăng nhập vào hệ thống trước (orders-report hoặc trang chính)');
+        // Wait for full initialization (Firebase etc)
+        await tokenManager.waitForFirebaseAndInit();
+        console.log('[INVOICE] TokenManager fully initialized');
 
+        return tokenManager;
     } catch (error) {
-        console.error('[AUTH] Error getting TPOS token:', error);
-        showNotification('Lỗi xác thực TPOS: ' + error.message, 'error');
+        console.error('[INVOICE] Error initializing TokenManager:', error);
+        showNotification('Lỗi khởi tạo token manager: ' + error.message, 'error');
         throw error;
     }
 }
@@ -132,9 +94,10 @@ async function fetchInvoiceData(invoiceId) {
     try {
         showLoading(true);
 
-        // Get token if not available
-        if (!CONFIG.TPOS_AUTH_TOKEN) {
-            await getTPOSToken();
+        // Ensure tokenManager is initialized
+        if (!tokenManager) {
+            console.log('[FETCH] Initializing token manager...');
+            await initializeTokenManager();
         }
 
         // Build API URL
@@ -142,22 +105,17 @@ async function fetchInvoiceData(invoiceId) {
 
         console.log('[FETCH] Fetching invoice data:', apiUrl);
 
-        const response = await fetch(apiUrl, {
+        // Use tokenManager.authenticatedFetch() - auto handles token refresh and 401 retry
+        const response = await tokenManager.authenticatedFetch(apiUrl, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json, text/plain, */*',
-                'Authorization': `Bearer ${CONFIG.TPOS_AUTH_TOKEN}`,
                 'tposappversion': '5.11.16.1',
                 'x-tpos-lang': 'vi',
             },
         });
 
         if (!response.ok) {
-            if (response.status === 401) {
-                // Token expired, retry once
-                await getTPOSToken();
-                return fetchInvoiceData(invoiceId);
-            }
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
