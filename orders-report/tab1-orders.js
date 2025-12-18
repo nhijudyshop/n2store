@@ -11011,19 +11011,6 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     chatInput.removeEventListener('input', handleChatInputInput);
     chatInput.addEventListener('input', handleChatInputInput);
 
-    // ============================================================================
-    // AUTO MARK AS READ - Event Listeners
-    // ============================================================================
-
-    // Focus event - mark as read immediately when user focuses input
-    chatInput.removeEventListener('focus', handleChatInputFocus);
-    chatInput.addEventListener('focus', handleChatInputFocus);
-
-    // Input event - mark as read after 1s of typing (debounced)
-    // Note: This is separate from handleChatInputInput which is for auto-resize
-    chatInput.addEventListener('input', handleChatInputTyping);
-
-    // ============================================================================
 
     if (type === 'comment') {
         if (markReadBtn) {
@@ -11272,10 +11259,6 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             };
                             updateReadBadge(false);
                             updateMarkButton(false);
-
-                            // Auto-mark as read after 2s (only for INBOX/message type)
-                            console.log('[MARK-READ] Scheduling auto-mark after 2s...');
-                            autoMarkAsRead(2000);
 
                             // Populate conversation selector if multiple INBOX conversations
                             if (inboxConversations.length > 1) {
@@ -11618,10 +11601,6 @@ function handleChatInputPaste(event) {
 
             const blob = item.getAsFile();
             currentPastedImage = blob;
-
-            // Auto-mark as read when user pastes image
-            console.log('[MARK-READ] Image pasted');
-            autoMarkAsRead(0);
 
             // Keep input enabled so user can press Enter to send or type additional text
             const chatInput = document.getElementById('chatReplyInput');
@@ -12321,22 +12300,6 @@ function handleChatInputKeyDown(event) {
  */
 function handleChatInputInput(event) {
     autoResizeTextarea(event.target);
-}
-
-/**
- * Handle focus event - mark as read immediately
- */
-function handleChatInputFocus() {
-    console.log('[MARK-READ] Input focused');
-    autoMarkAsRead(0);
-}
-
-/**
- * Handle typing - mark as read after 1s debounce
- */
-function handleChatInputTyping() {
-    console.log('[MARK-READ] User typing');
-    autoMarkAsRead(1000);
 }
 
 /**
