@@ -538,6 +538,13 @@
             } else if (e.data.type === "CAMPAIGN_STATUS_UPDATE") {
                 // Update campaign badge from overview tab
                 updateCampaignBadge(e.data);
+            } else if (e.data.type === "TABLE_NAME_CHANGED") {
+                // Forward table name change from Tab1 to Overview
+                const overviewFrame = document.getElementById("overviewFrame");
+                if (overviewFrame && overviewFrame.contentWindow) {
+                    overviewFrame.contentWindow.postMessage(e.data, "*");
+                    console.log('[MAIN] 📡 Forwarded TABLE_NAME_CHANGED to overview:', e.data.tableName);
+                }
             }
         });
 
