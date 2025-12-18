@@ -161,6 +161,39 @@ function setupEventListeners() {
     // DATE NAVIGATION
     // =====================================================
 
+    // Quick date buttons (7N, 15N, 30N)
+    const btn7Days = document.getElementById("btn7Days");
+    const btn15Days = document.getElementById("btn15Days");
+    const btn30Days = document.getElementById("btn30Days");
+
+    const handleQuickDateClick = async (days, clickedBtn) => {
+        const today = new Date();
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - (days - 1));
+        const startDateStr = utils.formatDate(startDate);
+        const endDateStr = utils.formatDate(today);
+
+        // Remove active class from all buttons
+        [btn7Days, btn15Days, btn30Days].forEach((btn) => {
+            if (btn) btn.classList.remove("active");
+        });
+
+        // Add active class to clicked button
+        if (clickedBtn) clickedBtn.classList.add("active");
+
+        await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr);
+    };
+
+    if (btn7Days) {
+        btn7Days.addEventListener("click", () => handleQuickDateClick(7, btn7Days));
+    }
+    if (btn15Days) {
+        btn15Days.addEventListener("click", () => handleQuickDateClick(15, btn15Days));
+    }
+    if (btn30Days) {
+        btn30Days.addEventListener("click", () => handleQuickDateClick(30, btn30Days));
+    }
+
     // Previous day button
     if (elements.btnPrevDay) {
         elements.btnPrevDay.addEventListener("click", () => {

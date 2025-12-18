@@ -39,6 +39,7 @@ window.SoOrderState = {
     rangeStartDate: null,
     rangeEndDate: null,
     rangeData: [], // Array of day data for the range
+    lastViewedDate: null, // Last viewed single day date (for returning from range mode)
 
     // Calendar state
     calendarViewDate: new Date(), // Current month being viewed in calendar
