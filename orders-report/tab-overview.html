@@ -1088,6 +1088,16 @@
 
                 // Hide helper - data exists
                 updateTableHelperUI(false);
+
+                // Request tab1 to fetch conversations for these orders
+                // This enables messages column to display content when viewing this data in tab1
+                if (firebaseData.orders && firebaseData.orders.length > 0) {
+                    console.log('[REPORT] 📤 Requesting tab1 to fetch conversations for Firebase orders...');
+                    window.parent.postMessage({
+                        type: 'FETCH_CONVERSATIONS_FOR_ORDERS',
+                        orders: firebaseData.orders
+                    }, '*');
+                }
             } else {
                 console.log(`[REPORT] ⚠️ No data found for table: ${tableName}`);
                 allOrders = [];

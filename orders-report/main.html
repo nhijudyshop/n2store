@@ -505,6 +505,13 @@
                 if (overviewFrame && overviewFrame.contentWindow) {
                     overviewFrame.contentWindow.postMessage(e.data, "*");
                 }
+            } else if (e.data.type === "FETCH_CONVERSATIONS_FOR_ORDERS") {
+                // Forward request from Overview to Tab1 to fetch conversations
+                console.log('[MAIN] 📨 Forwarding FETCH_CONVERSATIONS_FOR_ORDERS to Tab1');
+                const ordersFrame = document.getElementById("ordersFrame");
+                if (ordersFrame && ordersFrame.contentWindow) {
+                    ordersFrame.contentWindow.postMessage(e.data, "*");
+                }
             } else if (e.data.type === "RELOAD_TAB1_ONLY") {
                 // Tab3 requested reload Tab1 only - Tab3 will receive data via ORDERS_DATA_RESPONSE
                 console.log('[MAIN] 🔄 Reloading Tab1 only (Tab3 will receive data when ready)...');
