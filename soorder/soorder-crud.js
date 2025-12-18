@@ -518,24 +518,26 @@ window.SoOrderCRUD = {
                 currentDate.setDate(currentDate.getDate() + 1);
             }
 
-            // Load all documents for the date range
-            const rangeData = [];
-
-            for (const dateString of dateStrings) {
+            // Load all documents in PARALLEL using Promise.all
+            const promises = dateStrings.map(dateString => {
                 const docRef = config.orderLogsCollectionRef.doc(dateString);
-                const doc = await docRef.get();
+                return docRef.get();
+            });
 
+            const docs = await Promise.all(promises);
+
+            // Process results
+            const rangeData = docs.map((doc, index) => {
                 if (doc.exists) {
-                    rangeData.push(doc.data());
+                    return doc.data();
                 } else {
-                    // Add empty day data
-                    rangeData.push({
-                        date: dateString,
+                    return {
+                        date: dateStrings[index],
                         isHoliday: false,
                         orders: [],
-                    });
+                    };
                 }
-            }
+            });
 
             // Update state
             state.isRangeMode = true;
