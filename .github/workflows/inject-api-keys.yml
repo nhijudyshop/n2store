@@ -12,6 +12,8 @@ on:
 jobs:
   inject-keys:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
