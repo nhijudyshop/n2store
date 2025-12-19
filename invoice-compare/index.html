@@ -32,13 +32,13 @@
             const savedHFKeys = localStorage.getItem('hf_api_keys') || '';
 
             // Keys injected by GitHub Actions from secrets
-            // Pattern: window.GEMINI_KEYS = savedGeminiKeys || window.GEMINI_KEYS || '';
-            window.GEMINI_KEYS = savedGeminiKeys || window.GEMINI_KEYS || '';
-            window.HF_KEYS = savedHFKeys || window.HF_KEYS || '';
+            // Pattern: window.GEMINI_KEYS = savedGeminiKeys || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs, AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM,AIzaSyCtrNOTjOVbKgJwNwgG80ZIUSVQ9fkYqbE,AIzaSyBl2AO6WmoJHwIlnFg6i0tcbbSyYHnoStM,AIzaSyBwScrzLWofcQMJjB4iQNAmNzBgfWyc7Rs,AIzaSyDOaFELikRXdJRjxslRtj_LUyFFiOEa2-E,AIzaSyDfNAWbpvkfEzXoXfkzpDQuj3SCbXLXEdw,AIzaSyCNO60AvMBspBCAK1WglXikhhuja9OarFg,AIzaSyCs7Fgi3MbH4qd6GNdBm3Yq4aQzSijApBI,AIzaSyDlQlD5QA4cUnaf93LFjFjHe1QnKZRVwGg,AIzaSyDywVP6oaHYQCa60lz6-PnizD8zMw9bXiA' || '';
+            window.GEMINI_KEYS = savedGeminiKeys || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs, AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM,AIzaSyCtrNOTjOVbKgJwNwgG80ZIUSVQ9fkYqbE,AIzaSyBl2AO6WmoJHwIlnFg6i0tcbbSyYHnoStM,AIzaSyBwScrzLWofcQMJjB4iQNAmNzBgfWyc7Rs,AIzaSyDOaFELikRXdJRjxslRtj_LUyFFiOEa2-E,AIzaSyDfNAWbpvkfEzXoXfkzpDQuj3SCbXLXEdw,AIzaSyCNO60AvMBspBCAK1WglXikhhuja9OarFg,AIzaSyCs7Fgi3MbH4qd6GNdBm3Yq4aQzSijApBI,AIzaSyDlQlD5QA4cUnaf93LFjFjHe1QnKZRVwGg,AIzaSyDywVP6oaHYQCa60lz6-PnizD8zMw9bXiA' || '';
+            window.HF_KEYS = savedHFKeys || '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,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,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' || '';
 
             // Pro key (Google One) - ALWAYS used as final fallback
-            // Injected by GitHub Actions: window.GEMINI_PRO_KEY = window.GEMINI_PRO_KEY || '';
-            window.GEMINI_PRO_KEY = window.GEMINI_PRO_KEY || '';
+            // Injected by GitHub Actions: window.GEMINI_PRO_KEY = '' || '';
+            window.GEMINI_PRO_KEY = '' || '';
 
             // Build final key list: free keys first, Pro key always last
             if (window.GEMINI_PRO_KEY) {
