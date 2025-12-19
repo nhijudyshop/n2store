@@ -1732,11 +1732,11 @@
                             <tr>
                                 <th>STT</th>
                                 <th>Mã đơn</th>
+                                <th>Tags</th>
                                 <th>Khách hàng</th>
                                 <th>SĐT</th>
                                 <th>Số lượng</th>
                                 <th>Tổng tiền</th>
-                                <th>Tags</th>
                                 <th>Trạng thái</th>
                             </tr>
                         </thead>
@@ -1748,11 +1748,11 @@
                     <tr onclick="openOrderDetail('${order.orderId}', ${index})">
                         <td>${order.stt || index + 1}</td>
                         <td class="order-code">${order.orderCode || ''}</td>
+                        <td>${renderTagsCell(order.Tags)}</td>
                         <td>${order.customerName || ''}</td>
                         <td>${order.phone || ''}</td>
                         <td>${order.quantity || 0}</td>
                         <td class="amount">${(order.totalAmount || 0).toLocaleString('vi-VN')}đ</td>
-                        <td>${renderTagsCell(order.Tags)}</td>
                         <td>${order.state || ''}</td>
                     </tr>
                 `;
