@@ -88,6 +88,7 @@ const pancakeRoutes = require('./routes/pancake');
 const imageProxyRoutes = require('./routes/image-proxy');
 const sepayWebhookRoutes = require('./routes/sepay-webhook');
 const customersRoutes = require('./routes/customers');
+const cloudflareBackupRoutes = require('./routes/cloudflare-backup');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -96,6 +97,9 @@ app.use('/api/pancake', pancakeRoutes);
 app.use('/api/image-proxy', imageProxyRoutes);
 app.use('/api/sepay', sepayWebhookRoutes);
 app.use('/api/customers', customersRoutes);
+
+// Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
+app.use('/api', cloudflareBackupRoutes);
 // =====================================================
 // WEBSOCKET SERVER & CLIENT (REALTIME)
 // =====================================================
@@ -275,16 +279,40 @@ app.post('/api/realtime/start', (req, res) => {
 app.get('/', (req, res) => {
     res.json({
         name: 'N2Store API Fallback Server',
-        version: '1.0.0',
-        endpoints: [
-            'POST /api/token',
-            'POST /api/realtime/start',
-            'GET /api/odata/*',
-            'GET /api/api-ms/chatomni/*',
-            'GET /api/pancake/*',
-            'GET /api/image-proxy?url=<encoded_url>',
-            'GET /health'
-        ]
+        version: '2.0.0',
+        description: 'Backup server for Cloudflare Worker - Full API compatibility',
+        endpoints: {
+            core: [
+                'POST /api/token - TPOS Token with caching',
+                'GET /api/odata/* - TPOS OData proxy',
+                'GET /api/rest/* - TPOS REST API v2.0'
+            ],
+            pancake: [
+                'GET /api/pancake/* - Pancake API proxy',
+                'ALL /api/pancake-direct/* - Pancake 24h bypass',
+                'ALL /api/pancake-official/* - pages.fm Public API'
+            ],
+            facebook: [
+                'POST /api/facebook-send - Send message with tag',
+                'GET /api/fb-avatar - Facebook/Pancake avatar',
+                'GET /api/pancake-avatar - Pancake content avatar'
+            ],
+            media: [
+                'GET /api/image-proxy - Image proxy bypass CORS'
+            ],
+            utility: [
+                'GET /api/proxy - Generic proxy',
+                'GET /api/customers/* - Customers API (PostgreSQL)',
+                'POST /api/sepay/* - SePay webhook & balance'
+            ],
+            realtime: [
+                'POST /api/realtime/start - Start Pancake WebSocket client'
+            ],
+            health: [
+                'GET /health - Server health check',
+                'GET /api/debug/time - Server time diagnostic'
+            ]
+        }
     });
 });
 

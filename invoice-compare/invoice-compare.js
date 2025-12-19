@@ -3,9 +3,12 @@
    So sánh đơn hàng từ TPOS với hóa đơn
    ===================================================== */
 
-// Configuration
-const CONFIG = {
+// Use global CONFIG from config.js (with fallback support)
+// Fallback to default if config.js not loaded
+const INVOICE_CONFIG = window.CONFIG || {
     CLOUDFLARE_PROXY: 'https://chatomni-proxy.nhijudyshop.workers.dev',
+    get API_BASE_URL() { return this.CLOUDFLARE_PROXY; },
+    smartFetch: (url, options) => fetch(url, options)
 };
 
 // Global state
@@ -102,7 +105,7 @@ async function fetchInvoiceData(invoiceId) {
         await ensureTokenManagerReady();
 
         // Build API URL
-        const apiUrl = `${CONFIG.CLOUDFLARE_PROXY}/api/odata/FastPurchaseOrder(${invoiceId})?$expand=Partner,PickingType,Company,Journal,Account,User,RefundOrder,PaymentJournal,Tax,OrderLines($expand=Product,ProductUOM,Account),DestConvertCurrencyUnit`;
+        const apiUrl = `${INVOICE_CONFIG.API_BASE_URL}/api/odata/FastPurchaseOrder(${invoiceId})?$expand=Partner,PickingType,Company,Journal,Account,User,RefundOrder,PaymentJournal,Tax,OrderLines($expand=Product,ProductUOM,Account),DestConvertCurrencyUnit`;
 
         console.log('[FETCH] Fetching invoice data:', apiUrl);
 
@@ -526,8 +529,8 @@ function showToast(message, type = 'info') {
         text-align: center;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         ${type === 'success' ? 'background: #10b981; color: white;' :
-          type === 'error' ? 'background: #ef4444; color: white;' :
-          'background: #3b82f6; color: white;'}
+            type === 'error' ? 'background: #ef4444; color: white;' :
+                'background: #3b82f6; color: white;'}
     `;
     toast.textContent = message;
 
