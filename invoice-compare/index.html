@@ -31,10 +31,10 @@
             const savedGeminiKeys = localStorage.getItem('gemini_api_keys') || '';
             const savedHFKeys = localStorage.getItem('hf_api_keys') || '';
 
-            // Note: Never hardcode API keys - they will be revoked by Google if exposed
-            // Users should provide their own keys via localStorage or settings UI
-            window.GEMINI_KEYS = savedGeminiKeys || '';
-            window.HF_KEYS = savedHFKeys || '';
+            // Keys are injected by GitHub Actions workflow from secrets
+            // Priority: localStorage (user override) → GitHub Secrets (auto-injected)
+            window.GEMINI_KEYS = savedGeminiKeys || 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM,AIzaSyCtrNOTjOVbKgJwNwgG80ZIUSVQ9fkYqbE,AIzaSyBl2AO6WmoJHwIlnFg6i0tcbbSyYHnoStM,AIzaSyBwScrzLWofcQMJjB4iQNAmNzBgfWyc7Rs,AIzaSyDOaFELikRXdJRjxslRtj_LUyFFiOEa2-E,AIzaSyDfNAWbpvkfEzXoXfkzpDQuj3SCbXLXEdw,AIzaSyCNO60AvMBspBCAK1WglXikhhuja9OarFg,AIzaSyCs7Fgi3MbH4qd6GNdBm3Yq4aQzSijApBI,AIzaSyDlQlD5QA4cUnaf93LFjFjHe1QnKZRVwGg,AIzaSyDywVP6oaHYQCa60lz6-PnizD8zMw9bXiA' || '';
+            window.HF_KEYS = savedHFKeys || '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,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,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' || '';
 
             console.log('[API-KEYS] Gemini keys loaded:', window.GEMINI_KEYS ? 'Yes' : 'No');
         </script>
