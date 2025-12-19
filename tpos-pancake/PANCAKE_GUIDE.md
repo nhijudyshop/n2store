@@ -807,18 +807,34 @@ joinChannels() {
 }
 ```
 
-#### Bước 3: Heartbeat (Keep-Alive)
+#### Bước 3: Heartbeat (Keep-Alive) - KHÔNG PHẢI POLLING
+
+> [!IMPORTANT]
+> **Heartbeat ≠ Polling**. Heartbeat chỉ gửi ping rỗng `{}` để giữ kết nối WebSocket sống, KHÔNG fetch dữ liệu. Tin nhắn mới được server **PUSH** realtime ngay lập tức.
 
 ```javascript
 startHeartbeat() {
     this.heartbeatInterval = setInterval(() => {
         if (this.ws?.readyState === WebSocket.OPEN) {
-            // Phoenix heartbeat format
+            // Phoenix heartbeat - payload rỗng, chỉ giữ connection
             this.ws.send(JSON.stringify([null, ref, "phoenix", "heartbeat", {}]));
         }
     }, 30000); // 30 giây
 }
 ```
+
+**Tại sao cần Heartbeat?**
+- WebSocket bị timeout bởi load balancers, firewalls (~60s không hoạt động)
+- Heartbeat giữ connection "active" để nhận realtime push
+
+| | Polling (❌ Không dùng) | Heartbeat (✅ Hiện tại) |
+|---|------------------------|-------------------------|
+| **Mục đích** | Fetch dữ liệu mới | Giữ kết nối sống |
+| **Payload** | Request data | Rỗng `{}` |
+| **Response** | Data mới | Chỉ `{status: "ok"}` |
+| **Bandwidth** | Cao | Rất thấp (~50 bytes) |
+| **Tin nhắn mới** | Delay lên đến 30s | **Ngay lập tức (PUSH)** |
+
 
 ### 9.4 Message Format (Phoenix Protocol v2.0.0)
 
@@ -834,7 +850,7 @@ startHeartbeat() {
         id: "conv_123",
         snippet: "Tin nhắn mới...",
         seen: false,
-        updated_at: "2025-12-19T10:00:00Z"
+        updated_at: "2025-12-19T17:00:00+07:00"  // GMT+7 Vietnam
     }
 }]
 
@@ -1141,6 +1157,103 @@ const unreadCounts = await pancakeDataManager.fetchPagesWithUnreadCount();
 | `/statistics/tags` | Thống kê theo tag |
 | `/statistics/customer_engagements` | Thống kê tương tác khách hàng |
 | `/statistics/ads` | Thống kê quảng cáo |
+
+### 10.11 Xử Lý Múi Giờ (GMT+7 Vietnam)
+
+> [!IMPORTANT]
+> Pancake API trả về thời gian dạng **ISO 8601**. Cần convert sang **GMT+7** để hiển thị đúng giờ Việt Nam.
+
+#### Format Thời Gian Từ API
+
+| API Response | Ý Nghĩa | Convert Sang GMT+7 |
+|--------------|---------|-------------------|
+| `2025-12-19T10:00:00Z` | 10:00 UTC | **17:00** GMT+7 |
+| `2025-12-19T03:30:00Z` | 03:30 UTC | **10:30** GMT+7 |
+
+#### Code Convert Sang GMT+7
+
+```javascript
+/**
+ * Convert timestamp sang GMT+7 (Vietnam timezone)
+ * @param {string} isoString - ISO 8601 string từ API
+ * @returns {string} Formatted string "HH:mm dd/MM/yyyy"
+ */
+function formatToVietnamTime(isoString) {
+    const date = new Date(isoString);
+    
+    // Cách 1: Dùng Intl.DateTimeFormat (khuyến nghị)
+    return new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    }).format(date);
+    
+    // Cách 2: Manual offset (+7 hours)
+    // const vnTime = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+}
+
+// Ví dụ sử dụng
+const apiTime = "2025-12-19T10:00:00Z";
+console.log(formatToVietnamTime(apiTime)); // "17:00 19/12/2025"
+```
+
+#### Hiển Thị Thời Gian Tin Nhắn
+
+```javascript
+function formatMessageTime(message) {
+    const time = message.inserted_at || message.created_at;
+    if (!time) return '';
+    
+    const date = new Date(time);
+    const now = new Date();
+    
+    // Cùng ngày - chỉ hiện giờ
+    if (date.toDateString() === now.toDateString()) {
+        return new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
+    }
+    
+    // Khác ngày - hiện đầy đủ
+    return new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit'
+    }).format(date);
+}
+
+// Kết quả:
+// Cùng ngày: "17:30"
+// Khác ngày: "17:30 18/12"
+```
+
+#### Hiển Thị "Vừa xong", "5 phút trước"
+
+```javascript
+function formatRelativeTime(isoString) {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Vừa xong';
+    if (diffMins < 60) return `${diffMins} phút trước`;
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    if (diffDays < 7) return `${diffDays} ngày trước`;
+    
+    // Quá 7 ngày - hiện ngày tháng đầy đủ
+    return formatToVietnamTime(isoString);
+}
+```
 
 ---
 
