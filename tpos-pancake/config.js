@@ -4,6 +4,7 @@
 const firebaseConfig = {
     apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
     authDomain: "n2shop-69e37.firebaseapp.com",
+    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
     projectId: "n2shop-69e37",
     storageBucket: "n2shop-69e37-ne0q1",
     messagingSenderId: "598906493303",
@@ -21,8 +22,12 @@ const APP_CONFIG = {
 };
 
 // Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const app = firebase.app();
 const db = firebase.firestore();
+const database = firebase.database(); // Realtime Database for Pancake accounts
 const storageRef = firebase.storage().ref();
 const collectionRef = db.collection("livestream_reports");
 const historyCollectionRef = db.collection("edit_history");
