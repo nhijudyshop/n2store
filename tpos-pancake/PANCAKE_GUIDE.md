@@ -632,5 +632,588 @@ Token được lưu tại path: `pancake_jwt_tokens/accounts/{accountId}`
 
 ---
 
+## 8. 🖼️ Cách Hiển Thị Avatar (Chi Tiết Từ orders-report)
+
+### 8.1 Logic Hiển Thị Avatar
+
+Avatar được lấy thông qua hàm `getAvatarUrl()` trong `PancakeDataManager` với logic ưu tiên:
+
+```mermaid
+flowchart TD
+    A[getAvatarUrl được gọi] --> B{Có directAvatarUrl?}
+    B -->|Có| C{Kiểm tra format}
+    C -->|URL content.pancake.vn| D[Sử dụng trực tiếp]
+    C -->|Hash 32+ ký tự| E[Build URL: content.pancake.vn/2.1-25/avatars/HASH]
+    C -->|URL http khác| F[Sử dụng trực tiếp]
+    B -->|Không| G{Có fbId?}
+    G -->|Không| H[Trả về Default SVG Avatar]
+    G -->|Có| I[Gọi Proxy API fb-avatar]
+```
+
+### 8.2 Code Implementation
+
+```javascript
+// File: pancake-data-manager.js - Hàm getAvatarUrl()
+getAvatarUrl(fbId, pageId = null, token = null, directAvatarUrl = null) {
+    // 1. Ưu tiên avatar từ Pancake API trực tiếp
+    if (directAvatarUrl && typeof directAvatarUrl === 'string') {
+        // URL Pancake CDN - dùng trực tiếp
+        if (directAvatarUrl.includes('content.pancake.vn')) {
+            return directAvatarUrl;
+        }
+        // Hash - build URL
+        if (/^[a-f0-9]{32,}$/i.test(directAvatarUrl)) {
+            return `https://content.pancake.vn/2.1-25/avatars/${directAvatarUrl}`;
+        }
+        // URL http khác
+        if (directAvatarUrl.startsWith('http')) {
+            return directAvatarUrl;
+        }
+    }
+
+    // 2. Fallback: Default SVG nếu không có fbId
+    if (!fbId) {
+        return 'data:image/svg+xml,<svg>...</svg>';
+    }
+
+    // 3. Fallback: Gọi proxy API
+    let url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${fbId}`;
+    if (pageId) url += `&page=${pageId}`;
+    if (token) url += `&token=${encodeURIComponent(token)}`;
+    return url;
+}
+```
+
+### 8.3 Avatar URLs
+
+| Source | URL Pattern | Ví Dụ |
+|--------|-------------|-------|
+| **Pancake CDN** | `content.pancake.vn/2.1-25/avatars/{hash}` | `https://content.pancake.vn/2.1-25/avatars/abc123...` |
+| **Proxy API** | `chatomni-proxy.../api/fb-avatar?id={fbId}` | `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=100123456` |
+| **Default** | SVG Data URI | Inline SVG với circle và person icon |
+
+### 8.4 Cách Lấy Avatar Trong Conversation
+
+Khi fetch conversations từ Pancake API, avatar có thể được lấy từ:
+
+```javascript
+// Từ conversation.customers[0]
+const customer = conversation.customers?.[0];
+const avatarUrl = pancakeDataManager.getAvatarUrl(
+    customer?.fb_id,           // Facebook ID
+    conversation.page_id,      // Page ID
+    token,                     // JWT Token
+    customer?.avatar_url       // Direct avatar URL từ API (nếu có)
+);
+```
+
+---
+
+## 9. 🔌 Pancake Socket Server - Live Updates (Chi Tiết)
+
+### 9.1 Kiến Trúc WebSocket
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Pancake WS as Pancake WebSocket
+    participant Firebase
+
+    Browser->>Pancake WS: Connect wss://pancake.vn/socket/websocket?vsn=2.0.0
+    Pancake WS-->>Browser: Connection OK
+    
+    Browser->>Pancake WS: Join users:{userId}
+    Browser->>Pancake WS: Join multiple_pages:{userId}
+    
+    loop Every 30s
+        Browser->>Pancake WS: phoenix heartbeat
+        Pancake WS-->>Browser: heartbeat reply
+    end
+    
+    Pancake WS-->>Browser: pages:update_conversation
+    Browser->>Browser: Dispatch CustomEvent
+    Browser->>Firebase: Sync changes (optional)
+```
+
+### 9.2 Cấu Hình WebSocket
+
+```javascript
+// File: realtime-manager.js
+class RealtimeManager {
+    constructor() {
+        this.ws = null;
+        this.isConnected = false;
+        this.refCounter = 1;
+        this.url = "wss://pancake.vn/socket/websocket?vsn=2.0.0";
+        this.userId = null;
+        this.token = null;
+        this.pageIds = [];
+    }
+}
+```
+
+### 9.3 Flow Kết Nối
+
+#### Bước 1: Khởi Tạo
+
+```javascript
+async connect() {
+    // Lấy token từ PancakeTokenManager
+    this.token = await window.pancakeTokenManager.getToken();
+    
+    // Lấy User ID từ token payload
+    const tokenInfo = window.pancakeTokenManager.getTokenInfo();
+    this.userId = tokenInfo?.uid;
+    
+    // Lấy Page IDs từ PancakeDataManager
+    this.pageIds = window.pancakeDataManager.pageIds;
+    
+    // Mở WebSocket
+    this.ws = new WebSocket(this.url);
+}
+```
+
+#### Bước 2: Join Channels (Phoenix Protocol)
+
+```javascript
+joinChannels() {
+    // 1. Join User Channel
+    const userJoinMsg = [
+        ref, ref,
+        `users:${this.userId}`,
+        "phx_join",
+        {
+            accessToken: this.token,
+            userId: this.userId,
+            platform: "web"
+        }
+    ];
+    this.ws.send(JSON.stringify(userJoinMsg));
+
+    // 2. Join Multiple Pages Channel
+    const pagesJoinMsg = [
+        ref, ref,
+        `multiple_pages:${this.userId}`,
+        "phx_join",
+        {
+            accessToken: this.token,
+            userId: this.userId,
+            clientSession: this.generateClientSession(),
+            pageIds: this.pageIds.map(id => String(id)),
+            platform: "web"
+        }
+    ];
+    this.ws.send(JSON.stringify(pagesJoinMsg));
+}
+```
+
+#### Bước 3: Heartbeat (Keep-Alive)
+
+```javascript
+startHeartbeat() {
+    this.heartbeatInterval = setInterval(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+            // Phoenix heartbeat format
+            this.ws.send(JSON.stringify([null, ref, "phoenix", "heartbeat", {}]));
+        }
+    }, 30000); // 30 giây
+}
+```
+
+### 9.4 Message Format (Phoenix Protocol v2.0.0)
+
+```javascript
+// Format: [joinRef, ref, topic, event, payload]
+
+// Join response
+["1", "1", "users:12345", "phx_reply", { status: "ok" }]
+
+// Conversation update
+["2", null, "multiple_pages:12345", "pages:update_conversation", {
+    conversation: {
+        id: "conv_123",
+        snippet: "Tin nhắn mới...",
+        seen: false,
+        updated_at: "2025-12-19T10:00:00Z"
+    }
+}]
+
+// Heartbeat reply
+[null, "3", "phoenix", "phx_reply", { status: "ok" }]
+```
+
+### 9.5 Xử Lý Events
+
+```javascript
+handleMessage(data) {
+    const [joinRef, ref, topic, event, payload] = JSON.parse(data);
+    
+    switch (event) {
+        case 'pages:update_conversation':
+            // Dispatch event for UI update
+            window.dispatchEvent(new CustomEvent('realtimeConversationUpdate', {
+                detail: payload.conversation
+            }));
+            break;
+            
+        case 'order:tags_updated':
+            window.dispatchEvent(new CustomEvent('realtimeOrderTagsUpdate', {
+                detail: payload
+            }));
+            break;
+    }
+}
+```
+
+### 9.6 Chế Độ Kết Nối
+
+| Mode | Mô Tả | Use Case |
+|------|-------|----------|
+| **Browser** | Kết nối WS trực tiếp từ browser | Realtime khi mở app |
+| **Server** | Delegate cho backend server duy trì WS | 24/7 monitoring |
+| **Localhost** | Kết nối tới localhost:3000 | Development/testing |
+
+### 9.7 Server Mode (Optional)
+
+```javascript
+async connectServerMode() {
+    // Gọi API backend để start WebSocket client
+    const response = await fetch('https://chatomni-proxy.../api/realtime/start', {
+        method: 'POST',
+        body: JSON.stringify({
+            token: this.token,
+            userId: this.userId,
+            pageIds: this.pageIds,
+            cookie: `jwt=${this.token}`
+        })
+    });
+    
+    // Kết nối WS tới proxy để nhận updates
+    this.connectToProxyServer('wss://n2store-fallback.onrender.com');
+}
+```
+
+---
+
+## 10. 📱 Chi Tiết Tất Cả Chức Năng Pancake
+
+### 10.1 Quản Lý Token
+
+#### Token Retrieval Priority
+
+```mermaid
+flowchart LR
+    A[getToken] --> B{Memory Cache?}
+    B -->|Có & Valid| C[Return từ Memory]
+    B -->|Không| D{localStorage?}
+    D -->|Có & Valid| E[Return từ localStorage]
+    D -->|Không| F{Firebase?}
+    F -->|Có & Valid| G[Return từ Firebase]
+    F -->|Không| H{Cookie?}
+    H -->|Có| I[Return từ Cookie]
+    H -->|Không| J[Return null]
+```
+
+#### Storage Locations
+
+| Storage | Path/Key | Dữ Liệu |
+|---------|----------|---------|
+| **localStorage** | `pancake_jwt_token` | JWT token string |
+| **localStorage** | `pancake_jwt_token_expiry` | Expiry timestamp |
+| **localStorage** | `pancake_active_account_id` | Active account ID |
+| **Firebase** | `pancake_jwt_tokens/accounts/{accountId}` | Full account data |
+
+### 10.2 Quản Lý Conversations
+
+#### Fetch Conversations
+
+```javascript
+// GET /api/public_api/v2/pages/{pageId}/conversations
+const conversations = await pancakeDataManager.fetchConversations(forceRefresh);
+```
+
+#### Conversation Type Maps
+
+| Map | Key | Value | Use Case |
+|-----|-----|-------|----------|
+| `inboxMapByPSID` | Page Scoped ID | Conversation | Tìm inbox theo PSID |
+| `inboxMapByFBID` | Facebook ID | Conversation | Tìm inbox theo FB ID |
+| `commentMapByPSID` | PSID | Conversation | Tìm comment thread |
+| `commentMapByFBID` | FB ID | Conversation | Tìm comment thread |
+
+#### Search Conversations
+
+```javascript
+// POST /conversations/search
+const results = await pancakeDataManager.searchConversations(query, pageIds);
+// Returns: { conversations: [], customerId: string|null }
+```
+
+### 10.3 Quản Lý Messages
+
+#### Fetch Messages
+
+```javascript
+// GET /pages/{pageId}/conversations/{convId}/messages
+const { messages, conversation } = await pancakeDataManager.fetchMessagesForConversation(
+    pageId, 
+    conversationId, 
+    currentCount,  // Pagination offset
+    customerId     // Optional UUID
+);
+```
+
+#### Send Message (Inbox)
+
+```javascript
+// POST /pages/{pageId}/conversations/{convId}/messages
+const formData = new FormData();
+formData.append('action', 'reply_inbox');
+formData.append('message', 'Nội dung tin nhắn');
+
+// With image
+formData.append('content_ids', JSON.stringify([contentId]));
+formData.append('attachment_type', 'PHOTO');
+```
+
+#### Reply Comment
+
+```javascript
+formData.append('action', 'reply_comment');
+formData.append('message_id', commentId);  // Comment cần reply
+formData.append('message', 'Nội dung reply');
+```
+
+#### Private Reply (Nhắn riêng từ comment)
+
+```javascript
+formData.append('action', 'private_replies');
+formData.append('post_id', postId);
+formData.append('message_id', commentId);
+formData.append('from_id', senderId);
+formData.append('message', 'Tin nhắn riêng');
+```
+
+### 10.4 Upload Media
+
+```javascript
+// POST /pages/{pageId}/upload_contents
+const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
+const formData = new FormData();
+formData.append('file', file);
+
+const response = await fetch(
+    `${API_URL}/pages/${pageId}/upload_contents?page_access_token=${token}`,
+    { method: 'POST', body: formData }
+);
+// Response: { id: "content_id", attachment_type: "PHOTO", success: true }
+```
+
+### 10.5 Mark Read/Unread
+
+```javascript
+// Mark as Read
+// POST /pages/{pageId}/conversations/{convId}/read
+await pancakeDataManager.markConversationAsRead(pageId, conversationId);
+
+// Mark as Unread
+// POST /pages/{pageId}/conversations/{convId}/unread
+await pancakeDataManager.markConversationAsUnread(pageId, conversationId);
+```
+
+### 10.6 Tags Management
+
+```javascript
+// Add Tag
+// POST /pages/{pageId}/conversations/{convId}/tags
+await fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({
+        action: 'add',
+        tag_id: tagId
+    })
+});
+
+// Remove Tag
+await fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({
+        action: 'remove',
+        tag_id: tagId
+    })
+});
+```
+
+### 10.7 Hiển Thị Attachments
+
+#### Image Attachments
+
+```javascript
+if (att.type === 'image' || att.type === 'photo') {
+    const imageUrl = att.url || att.file_url;
+    return `<img src="${imageUrl}" class="chat-image" />`;
+}
+```
+
+#### Sticker
+
+```javascript
+// Type 1: att.type === 'sticker'
+if (att.type === 'sticker' && (att.url || att.file_url)) {
+    return `<img src="${stickerUrl}" class="chat-sticker" />`;
+}
+
+// Type 2: att.sticker_id
+if (att.sticker_id && (att.url || att.file_url)) {
+    return `<img src="${stickerUrl}" class="chat-sticker" />`;
+}
+
+// Type 3: Animated GIF
+if (att.type === 'animated_image_url' && att.url) {
+    return `<img src="${att.url}" class="chat-sticker" />`;
+}
+```
+
+#### Reactions
+
+```javascript
+// Reactions nằm trong attachments array
+const reactions = msg.attachments?.filter(att => att.type === 'reaction');
+reactions?.forEach(reaction => {
+    // reaction.emoji = "❤️", "👍", etc.
+    return `<span class="reaction-badge">${reaction.emoji}</span>`;
+});
+```
+
+#### Audio/Voice Messages
+
+```javascript
+if (att.type === 'audio') {
+    return `<audio controls src="${att.url}"></audio>`;
+}
+```
+
+#### Video
+
+```javascript
+if (att.type === 'video' && att.url) {
+    return `<video controls src="${att.url}" class="chat-video"></video>`;
+}
+```
+
+### 10.8 24-Hour Policy Check
+
+```javascript
+// Kiểm tra cửa sổ 24h để gửi tin nhắn inbox
+const { canSend, hoursSinceLastMessage, lastCustomerMessage } = 
+    await pancakeDataManager.check24HourWindow(pageId, conversationId, customerId);
+
+if (!canSend) {
+    // Phải dùng Facebook Message Tags hoặc reply comment
+    console.log(`Không thể gửi inbox, đã ${hoursSinceLastMessage}h kể từ tin nhắn cuối của khách`);
+}
+```
+
+### 10.9 Pages Management
+
+#### Fetch Pages
+
+```javascript
+// GET /api/v1/pages
+const pages = await pancakeDataManager.fetchPages(forceRefresh);
+// Tự động extract page_access_tokens từ settings
+```
+
+#### Get Unread Count Per Page
+
+```javascript
+// GET /api/v1/pages/unread_conv_pages_count
+const unreadCounts = await pancakeDataManager.fetchPagesWithUnreadCount();
+// Returns: [{ page_id: "123", unread_conv_count: 5 }, ...]
+```
+
+### 10.10 Statistics API
+
+| Endpoint | Mô Tả |
+|----------|-------|
+| `/statistics/pages` | Thống kê tổng quan page |
+| `/statistics/users` | Thống kê theo nhân viên |
+| `/statistics/tags` | Thống kê theo tag |
+| `/statistics/customer_engagements` | Thống kê tương tác khách hàng |
+| `/statistics/ads` | Thống kê quảng cáo |
+
+---
+
+## 11. 🔄 Data Flow Chi Tiết
+
+### 11.1 Khởi Tạo App
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant TokenMgr as PancakeTokenManager
+    participant DataMgr as PancakeDataManager
+    participant RealtimeMgr as RealtimeManager
+    participant Firebase
+    participant Pancake
+
+    App->>TokenMgr: initialize()
+    TokenMgr->>TokenMgr: loadFromLocalStorage()
+    TokenMgr->>Firebase: loadAccounts()
+    Firebase-->>TokenMgr: Accounts data
+    TokenMgr->>TokenMgr: setActiveAccount()
+    
+    App->>DataMgr: initialize()
+    DataMgr->>TokenMgr: getToken()
+    TokenMgr-->>DataMgr: JWT Token
+    DataMgr->>Pancake: fetchPages()
+    Pancake-->>DataMgr: Pages + page_access_tokens
+    DataMgr->>DataMgr: extractAndCachePageAccessTokens()
+    
+    App->>RealtimeMgr: initialize()
+    RealtimeMgr->>RealtimeMgr: connect()
+    RealtimeMgr->>Pancake: WebSocket Connect
+```
+
+### 11.2 Tải Tin Nhắn
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant DataMgr as PancakeDataManager
+    participant Cache
+    participant Pancake
+
+    UI->>DataMgr: fetchMessagesForConversation(pageId, convId)
+    DataMgr->>Cache: Check cache
+    
+    alt Cache hit
+        Cache-->>DataMgr: Cached messages
+        DataMgr-->>UI: Return immediately
+        DataMgr->>Pancake: Background refresh
+    else Cache miss
+        DataMgr->>Pancake: GET /messages
+        Pancake-->>DataMgr: Messages
+        DataMgr->>Cache: Update cache
+        DataMgr-->>UI: Return messages
+    end
+```
+
+---
+
+## 12. 📁 Files Reference (orders-report)
+
+| File | Mô Tả | Chức Năng Chính |
+|------|-------|-----------------|
+| `pancake-token-manager.js` | Token Management | JWT storage, retrieval, account switching |
+| `pancake-data-manager.js` | Data Management | Conversations, messages, avatar, cache |
+| `realtime-manager.js` | Realtime WebSocket | Phoenix protocol, live updates |
+| `api-config.js` | API Configuration | Proxy URLs, smartFetch, retry logic |
+| `comment-modal.js` | Comment Modal | Comment rendering, stickers, reactions |
+| `message-template-manager.js` | Bulk Messaging | Gửi tin nhắn hàng loạt |
+| `quick-reply-manager.js` | Quick Reply | Reply nhanh với ảnh |
+
+---
+
 *Tài liệu được cập nhật: 2025-12-19*
 
