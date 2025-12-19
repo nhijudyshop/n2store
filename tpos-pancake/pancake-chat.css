@@ -68,10 +68,154 @@
    ===================================================== */
 .pancake-chat-container {
     display: flex;
+    flex-direction: column;
     height: 100%;
     width: 100%;
     background: var(--pk-sidebar-bg);
     overflow: hidden;
+}
+
+/* =====================================================
+   HEADER TABS
+   ===================================================== */
+.pk-header-tabs {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--pk-border);
+    padding: 0 16px;
+    flex-shrink: 0;
+}
+
+.pk-header-tabs-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pk-pancake-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 16px;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--pk-primary);
+}
+
+.pk-header-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--pk-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pk-header-tab:hover {
+    background: var(--pk-hover-bg);
+    color: var(--pk-text-primary);
+}
+
+.pk-header-tab.active {
+    background: var(--pk-primary);
+    color: #ffffff;
+}
+
+.pk-header-tab svg {
+    width: 18px;
+    height: 18px;
+}
+
+.pk-header-tabs-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pk-header-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    color: var(--pk-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pk-header-icon-btn:hover {
+    background: var(--pk-hover-bg);
+    color: var(--pk-text-primary);
+}
+
+.pk-header-icon-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* =====================================================
+   TAB CONTENT CONTAINER
+   ===================================================== */
+.pk-tab-content-container {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
+
+.pk-tab-content {
+    display: none;
+    height: 100%;
+    width: 100%;
+}
+
+.pk-tab-content.active {
+    display: block;
+}
+
+.pk-conversations-layout {
+    display: flex;
+    height: 100%;
+    width: 100%;
+}
+
+.pk-tab-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--pk-text-secondary);
+}
+
+.pk-tab-placeholder svg {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.pk-tab-placeholder h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--pk-text-primary);
+}
+
+.pk-tab-placeholder p {
+    font-size: 14px;
+    margin: 0;
 }
 
 /* =====================================================
