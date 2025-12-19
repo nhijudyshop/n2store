@@ -11,11 +11,20 @@ class PancakeChatManager {
         this.searchQuery = '';
         this.filterType = 'all'; // 'all', 'unread', 'inbox', 'comment'
 
+        // Search state
+        this.isSearching = false;
+        this.searchResults = null;
+
         // Page Selector
         this.pages = [];
         this.pagesWithUnread = [];
         this.selectedPageId = null; // null = all pages
         this.isPageDropdownOpen = false;
+
+        // Conversation pagination
+        this.isLoadingMoreConversations = false;
+        this.hasMoreConversations = true;
+        this.lastConversationId = null; // For pagination param
 
         // WebSocket Realtime (Phoenix Protocol)
         this.socket = null;
@@ -57,6 +66,15 @@ class PancakeChatManager {
         this.container = null;
         this.conversationList = null;
         this.chatWindow = null;
+
+        // Scroll-to-bottom tracking
+        this.isScrolledToBottom = true;
+        this.newMessageCount = 0;
+
+        // Message pagination
+        this.isLoadingMoreMessages = false;
+        this.hasMoreMessages = true;
+        this.messageCurrentCount = 0; // Current message index for pagination
     }
 
     // =====================================================
@@ -223,6 +241,36 @@ class PancakeChatManager {
                             <div class="pk-loading-spinner"></div>
                         </div>
                     </div>
+
+                    <!-- Context Menu -->
+                    <div class="pk-context-menu" id="pkContextMenu" style="display: none;">
+                        <button class="pk-context-menu-item" data-action="mark-unread">
+                            <i data-lucide="mail"></i>
+                            <span>Đánh dấu chưa đọc</span>
+                        </button>
+                        <button class="pk-context-menu-item" data-action="mark-read">
+                            <i data-lucide="mail-open"></i>
+                            <span>Đánh dấu đã đọc</span>
+                        </button>
+                        <div class="pk-context-menu-divider"></div>
+                        <button class="pk-context-menu-item" data-action="add-note">
+                            <i data-lucide="file-text"></i>
+                            <span>Thêm ghi chú</span>
+                        </button>
+                        <button class="pk-context-menu-item" data-action="manage-tags">
+                            <i data-lucide="tag"></i>
+                            <span>Quản lý nhãn</span>
+                            <i data-lucide="chevron-right" class="pk-menu-arrow"></i>
+                        </button>
+                    </div>
+
+                    <!-- Tags Submenu -->
+                    <div class="pk-tags-menu" id="pkTagsMenu" style="display: none;">
+                        <div class="pk-tags-menu-header">Chọn nhãn</div>
+                        <div class="pk-tags-menu-list" id="pkTagsList">
+                            <div class="pk-loading-spinner" style="width: 20px; height: 20px;"></div>
+                        </div>
+                    </div>
                 </div>
 
                             <!-- Chat Window (Right Panel) -->
@@ -280,7 +328,28 @@ class PancakeChatManager {
         const container = document.getElementById('pkConversations');
         if (!container) return;
 
-        if (this.conversations.length === 0) {
+        // If currently searching (API in progress), don't render
+        if (this.isSearching) {
+            return;
+        }
+
+        // Use search results if available, otherwise use all conversations
+        let filtered = this.searchResults !== null ? this.searchResults : this.conversations;
+
+        // If search results are empty and we searched
+        if (this.searchResults !== null && this.searchResults.length === 0) {
+            container.innerHTML = `
+                <div class="pk-search-empty">
+                    <i data-lucide="search-x"></i>
+                    <span>Không tìm thấy kết quả cho "${this.escapeHtml(this.searchQuery)}"</span>
+                    <button class="pk-clear-search-btn" onclick="pancakeChatManager.clearSearch()">Xóa tìm kiếm</button>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        if (filtered.length === 0) {
             container.innerHTML = `
                 <div class="pk-empty-state" style="padding: 40px 20px;">
                     <i data-lucide="inbox"></i>
@@ -292,11 +361,8 @@ class PancakeChatManager {
             return;
         }
 
-        // Filter conversations
-        let filtered = this.conversations;
-
-        // Filter by selected page
-        if (this.selectedPageId) {
+        // Filter by selected page (only when not searching via API)
+        if (this.selectedPageId && this.searchResults === null) {
             // Find the selected page to get all possible IDs
             const selectedPage = this.pages.find(p => p.id === this.selectedPageId);
             const pageIdsToMatch = selectedPage
@@ -308,8 +374,9 @@ class PancakeChatManager {
             );
         }
 
-        // Filter by search query
-        if (this.searchQuery) {
+        // Local filtering by search query (for additional client-side filter)
+        // Skip if we already have API search results
+        if (this.searchQuery && this.searchResults === null) {
             const query = this.searchQuery.toLowerCase();
             filtered = filtered.filter(conv => {
                 const name = (conv.from?.name || conv.customers?.[0]?.name || '').toLowerCase();
@@ -358,6 +425,18 @@ class PancakeChatManager {
         const isActive = this.activeConversation?.id === conv.id;
         const tags = this.getTagsHtml(conv);
 
+        // Conversation type: INBOX, COMMENT, LIVESTREAM
+        const convType = conv.type || 'INBOX';
+        const isInbox = convType === 'INBOX';
+        const isComment = convType === 'COMMENT';
+
+        // Check if customer has phone number
+        const customer = conv.customers?.[0] || conv.from || {};
+        const hasPhone = customer.phone_numbers?.length > 0 ||
+            customer.phone ||
+            conv.recent_phone_numbers?.length > 0 ||
+            conv.has_phone === true;
+
         return `
             <div class="pk-conversation-item ${isActive ? 'active' : ''}" data-conv-id="${conv.id}" data-page-id="${conv.page_id}">
                 <div class="pk-avatar">
@@ -369,22 +448,28 @@ class PancakeChatManager {
                         <span class="pk-conversation-name">${this.escapeHtml(name)}</span>
                         <span class="pk-conversation-time">${time}</span>
                     </div>
-                    <div class="pk-conversation-preview ${isUnread ? 'unread' : ''}">${this.escapeHtml(preview)}</div>
+                    <div class="pk-conversation-preview ${isUnread ? 'unread' : ''}">${this.escapeHtml(this.parseMessageHtml(preview))}</div>
                     ${tags ? `<div class="pk-tags-container">${tags}</div>` : ''}
                 </div>
                 <div class="pk-conversation-actions">
-                    <div class="pk-action-buttons">
-                        <button class="pk-action-btn phone" title="Gọi điện">
+                    <div class="pk-action-icons">
+                        <!-- Phone indicator - only show if has phone -->
+                        ${hasPhone ? `
+                        <span class="pk-icon-indicator has-phone" title="Có SĐT">
                             <i data-lucide="phone"></i>
-                        </button>
-                        <button class="pk-action-btn email" title="Gửi mail">
-                            <i data-lucide="mail"></i>
-                        </button>
+                        </span>
+                        ` : ''}
+                        <!-- Conversation type indicator -->
+                        <span class="pk-icon-indicator ${isInbox ? 'inbox' : 'comment'}" title="${isInbox ? 'Tin nhắn' : 'Bình luận'}">
+                            <i data-lucide="${isInbox ? 'message-circle' : 'message-square'}"></i>
+                        </span>
                     </div>
                 </div>
+
             </div>
         `;
     }
+
 
     renderChatWindow(conv) {
         const chatWindow = document.getElementById('pkChatWindow');
@@ -424,12 +509,21 @@ class PancakeChatManager {
                 </div>
             </div>
 
+            <!-- Customer Stats Bar (below header, like Pancake.vn) -->
+            ${this.renderCustomerStatsBar(conv)}
+
             <!-- Chat Messages -->
             <div class="pk-chat-messages" id="pkChatMessages">
                 <div class="pk-loading">
                     <div class="pk-loading-spinner"></div>
                 </div>
             </div>
+
+            <!-- Scroll to Bottom Button -->
+            <button class="pk-scroll-to-bottom" id="pkScrollToBottom" title="Cuộn xuống tin nhắn mới nhất">
+                <i data-lucide="chevron-down"></i>
+                <span class="pk-new-msg-badge" id="pkNewMsgBadge">0</span>
+            </button>
 
             <!-- Quick Reply Bar -->
             <div class="pk-quick-reply-bar" id="pkQuickReplyBar">
@@ -448,14 +542,19 @@ class PancakeChatManager {
                     <button class="pk-input-btn" title="Đính kèm">
                         <i data-lucide="paperclip"></i>
                     </button>
-                    <button class="pk-input-btn" title="Hình ảnh">
+                    <button class="pk-input-btn" id="pkImageBtn" title="Hình ảnh">
                         <i data-lucide="image"></i>
                     </button>
+                    <input type="file" id="pkImageInput" accept="image/*" style="display: none;">
                     <button class="pk-input-btn" title="Emoji">
                         <i data-lucide="smile"></i>
                     </button>
                 </div>
                 <div class="pk-chat-input-wrapper">
+                    <div id="pkImagePreview" class="pk-image-preview" style="display: none;">
+                        <img id="pkPreviewImg" src="">
+                        <button class="pk-preview-remove" id="pkRemovePreview">×</button>
+                    </div>
                     <textarea id="pkChatInput" class="pk-chat-input" placeholder="Nhập tin nhắn..." rows="1"></textarea>
                 </div>
                 <button class="pk-send-btn" id="pkSendBtn" title="Gửi">
@@ -463,6 +562,7 @@ class PancakeChatManager {
                 </button>
             </div>
         `;
+
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -473,6 +573,95 @@ class PancakeChatManager {
 
         // Bind chat input events
         this.bindChatInputEvents();
+
+        // Bind scroll events for scroll-to-bottom button
+        this.bindScrollEvents();
+    }
+
+    renderCustomerStatsBar(conv) {
+        // Get customer stats from conversation data
+        const customer = conv.customers?.[0] || conv.from || {};
+
+        // Phone number - ensure it's a string
+        let phoneNumber = customer.phone_numbers?.[0] || customer.phone || conv.recent_phone_numbers?.[0] || '';
+        if (typeof phoneNumber !== 'string') phoneNumber = '';
+        const hasPhone = !!phoneNumber;
+
+        // Ad ID from ad_clicks array or conversation - ensure it's a string
+        let adId = conv.ad_clicks?.[0] || customer.ad_id || '';
+        if (typeof adId === 'object') adId = adId?.id || adId?.ad_id || '';
+        if (typeof adId !== 'string') adId = String(adId || '');
+        const hasAdId = !!adId;
+
+        // Comment count - from customer or conversation data
+        const commentCount = customer.comment_count || conv.comment_count || 0;
+
+        // Last comment time (if available)
+        const lastCommentTime = customer.last_comment_at || '';
+
+        // Order stats - may come from customer data if available
+        const successOrders = customer.success_order_count || customer.order_count || 0;
+        const returnedOrders = customer.returned_order_count || customer.cancel_count || 0;
+
+        // Calculate success rate
+        const totalOrders = successOrders + returnedOrders;
+        const successRate = totalOrders > 0 ? Math.round((successOrders / totalOrders) * 100) : 0;
+        const returnRate = totalOrders > 0 ? Math.round((returnedOrders / totalOrders) * 100) : 0;
+
+        // Warning if return rate is high (>30%)
+        const isWarning = returnRate > 30;
+
+        // Build phone+ad badge
+        let phoneBadge = '';
+        if (hasPhone || hasAdId) {
+            const displayText = hasAdId ? `Ad ${adId.slice(0, 16)}${adId.length > 16 ? '...' : ''}` : phoneNumber;
+            const fullText = hasAdId ? adId : phoneNumber;
+            phoneBadge = `
+                <span class="pk-phone-ad-badge ${hasPhone ? 'has-phone' : ''}" 
+                      data-copy="${this.escapeHtml(fullText)}" 
+                      title="Click để copy: ${this.escapeHtml(fullText)}">
+                    <i data-lucide="phone" class="pk-phone-icon"></i>
+                    <span class="pk-badge-text">${this.escapeHtml(displayText)}</span>
+                </span>
+            `;
+        }
+
+        // Build comment tooltip
+        const commentTooltip = lastCommentTime
+            ? `Khách hàng này đã bình luận trên trang ${commentCount} lần. Lần cuối vào ${this.formatMessageTime(lastCommentTime)}`
+            : `Khách hàng này đã bình luận trên trang ${commentCount} lần`;
+
+        // Build order tooltip
+        const orderTooltip = returnedOrders > 0
+            ? `Khách hàng này có ${successOrders} đơn hàng thành công, ${returnedOrders} đơn hoàn, tỉ lệ đơn thành công ${successRate}%`
+            : `Khách hàng này có ${successOrders} đơn hàng thành công`;
+
+        return `
+            <div class="pk-customer-stats-bar">
+                <div class="pk-stats-left">
+                    ${phoneBadge}
+                </div>
+                <div class="pk-stats-right">
+                    <span class="pk-stat-badge comment" title="${commentTooltip}">
+                        <i data-lucide="message-square"></i>
+                        <span>${commentCount}</span>
+                    </span>
+                    <span class="pk-stat-badge success" title="${orderTooltip}">
+                        <i data-lucide="check-circle"></i>
+                        <span>${successOrders}</span>
+                    </span>
+                    <span class="pk-stat-badge return" title="Đơn hoàn: ${returnedOrders}">
+                        <i data-lucide="undo-2"></i>
+                        <span>${returnedOrders}</span>
+                    </span>
+                    ${isWarning ? `
+                        <span class="pk-stat-badge warning" title="Cảnh báo: Tỉ lệ hoàn hàng cao (${returnRate}%)">
+                            <i data-lucide="alert-triangle"></i>
+                        </span>
+                    ` : ''}
+                </div>
+            </div>
+        `;
     }
 
     renderQuickReplies() {
@@ -511,8 +700,15 @@ class PancakeChatManager {
             return;
         }
 
+        // Sort messages by timestamp (oldest first) before grouping
+        const sortedMessages = [...this.messages].sort((a, b) => {
+            const timeA = new Date(a.inserted_at || a.created_time || 0).getTime();
+            const timeB = new Date(b.inserted_at || b.created_time || 0).getTime();
+            return timeA - timeB; // Oldest first
+        });
+
         // Group messages by date
-        const groupedMessages = this.groupMessagesByDate(this.messages);
+        const groupedMessages = this.groupMessagesByDate(sortedMessages);
 
         let html = '';
         for (const [date, msgs] of Object.entries(groupedMessages)) {
@@ -530,8 +726,14 @@ class PancakeChatManager {
             lucide.createIcons();
         }
 
-        // Scroll to bottom
-        container.scrollTop = container.scrollHeight;
+        // Only auto-scroll if user is at/near bottom, otherwise show notification
+        if (this.isScrolledToBottom) {
+            container.scrollTop = container.scrollHeight;
+        } else {
+            // User is scrolled up, increment new message count
+            this.newMessageCount++;
+            this.updateScrollButtonBadge();
+        }
     }
 
     renderMessage(msg) {
@@ -541,19 +743,111 @@ class PancakeChatManager {
         const sender = isOutgoing ? this.getSenderName(msg) : '';
         const attachments = msg.attachments || [];
 
+        // Filter out reactions from attachments (they're displayed separately)
+        const reactions = attachments.filter(att => att.type === 'reaction');
+        const mediaAttachments = attachments.filter(att => att.type !== 'reaction');
+
         let attachmentHtml = '';
-        if (attachments.length > 0) {
-            attachmentHtml = attachments.map(att => {
-                if (att.type === 'photo' || att.mime_type?.startsWith('image/')) {
-                    const imgUrl = att.url || att.preview_url || att.image_data?.url;
+        if (mediaAttachments.length > 0) {
+            attachmentHtml = mediaAttachments.map(att => {
+                // ========== IMAGE ==========
+                if (att.type === 'image' || att.type === 'photo' || att.mime_type?.startsWith('image/')) {
+                    const imgUrl = att.url || att.file_url || att.preview_url || att.image_data?.url;
+                    if (imgUrl) {
+                        return `
+                            <div class="pk-message-image">
+                                <img src="${imgUrl}" alt="Image" onclick="window.open('${imgUrl}', '_blank')" loading="lazy">
+                            </div>
+                        `;
+                    }
+                }
+
+                // ========== STICKER ==========
+                if (att.type === 'sticker' || att.sticker_id) {
+                    const stickerUrl = att.url || att.file_url || att.preview_url;
+                    if (stickerUrl) {
+                        return `
+                            <div class="pk-message-sticker">
+                                <img src="${stickerUrl}" alt="Sticker" loading="lazy">
+                            </div>
+                        `;
+                    }
+                }
+
+                // ========== ANIMATED STICKER / GIF ==========
+                if (att.type === 'animated_image_url' || att.type === 'animated_image_share') {
+                    const gifUrl = att.url || att.file_url;
+                    if (gifUrl) {
+                        return `
+                            <div class="pk-message-sticker">
+                                <img src="${gifUrl}" alt="GIF" loading="lazy">
+                            </div>
+                        `;
+                    }
+                }
+
+                // ========== VIDEO ==========
+                if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
+                    const videoUrl = att.url || att.file_url;
+                    if (videoUrl) {
+                        return `
+                            <div class="pk-message-video">
+                                <video controls src="${videoUrl}" preload="metadata">
+                                    Trình duyệt không hỗ trợ video.
+                                </video>
+                            </div>
+                        `;
+                    }
+                }
+
+                // ========== AUDIO / VOICE ==========
+                if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
+                    const audioUrl = att.url || att.file_url;
+                    if (audioUrl) {
+                        return `
+                            <div class="pk-message-audio">
+                                <audio controls src="${audioUrl}" preload="metadata">
+                                    Trình duyệt không hỗ trợ audio.
+                                </audio>
+                            </div>
+                        `;
+                    }
+                }
+
+                // ========== FILE / DOCUMENT ==========
+                if (att.type === 'file' || att.type === 'document') {
+                    const fileUrl = att.url || att.file_url;
+                    const fileName = att.name || att.filename || 'Tệp đính kèm';
+                    if (fileUrl) {
+                        return `
+                            <div class="pk-message-file">
+                                <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">
+                                    <i data-lucide="file-text"></i>
+                                    <span>${this.escapeHtml(fileName)}</span>
+                                </a>
+                            </div>
+                        `;
+                    }
+                }
+
+                // ========== LIKE/THUMBS UP (Facebook's big like button) ==========
+                if (att.type === 'like' || att.type === 'thumbsup') {
                     return `
-                        <div class="pk-message-image">
-                            <img src="${imgUrl}" alt="Image" onclick="window.open('${imgUrl}', '_blank')">
+                        <div class="pk-message-like">
+                            <span class="pk-like-icon">👍</span>
                         </div>
                     `;
                 }
+
                 return '';
             }).join('');
+        }
+
+        // Reactions HTML (displayed as badge on message)
+        let reactionsHtml = '';
+        if (reactions.length > 0) {
+            const reactionEmojis = reactions.map(r => r.emoji || '❤️').join('');
+            reactionsHtml = `<span class="pk-message-reactions">${reactionEmojis}</span>`;
         }
 
         return `
@@ -561,9 +855,10 @@ class PancakeChatManager {
                 ${attachmentHtml}
                 ${text ? `
                     <div class="pk-message-bubble">
-                        <div class="pk-message-text">${this.escapeHtml(text)}</div>
+                        <div class="pk-message-text">${this.escapeHtml(this.parseMessageHtml(text))}</div>
+                        ${reactionsHtml}
                     </div>
-                ` : ''}
+                ` : (reactionsHtml ? `<div class="pk-message-bubble">${reactionsHtml}</div>` : '')}
                 <div class="pk-message-meta">
                     <span class="pk-message-time">${time}</span>
                     ${sender ? `<span class="pk-message-sender">${this.escapeHtml(sender)}</span>` : ''}
@@ -575,6 +870,144 @@ class PancakeChatManager {
                 </div>
             </div>
         `;
+    }
+
+
+    // =====================================================
+    // REALTIME UPDATE (Like Messenger/Zalo/Telegram)
+    // =====================================================
+
+    /**
+     * Handle realtime conversation update - updates UI in-place without reload
+     * Like Messenger/Zalo - moves conversation to top and updates preview
+     */
+    handleRealtimeConversationUpdate(updatedConv) {
+        if (!updatedConv) return;
+
+        console.log('[PANCAKE-CHAT] 📨 Realtime update for conversation:', updatedConv.id);
+
+        // Find existing conversation in our list
+        const existingIndex = this.conversations.findIndex(c =>
+            c.id === updatedConv.id ||
+            c.id === updatedConv.conversation?.id
+        );
+
+        const convData = updatedConv.conversation || updatedConv;
+
+        if (existingIndex !== -1) {
+            // Update existing conversation data
+            const existingConv = this.conversations[existingIndex];
+
+            // Merge updates (keep existing data, override with new)
+            Object.assign(existingConv, {
+                snippet: convData.snippet || existingConv.snippet,
+                updated_at: convData.updated_at || new Date().toISOString(),
+                unread_count: (existingConv.unread_count || 0) + 1,
+                last_message: convData.last_message || existingConv.last_message
+            });
+
+            // Move to top of list (like Messenger)
+            this.conversations.splice(existingIndex, 1);
+            this.conversations.unshift(existingConv);
+
+            console.log('[PANCAKE-CHAT] ✅ Conversation moved to top');
+
+            // Update DOM in-place (no loading spinner!)
+            this.updateConversationInDOM(existingConv);
+        } else {
+            // New conversation - add to top
+            const newConv = {
+                id: convData.id,
+                page_id: convData.page_id || updatedConv.page_id,
+                snippet: convData.snippet || '',
+                updated_at: convData.updated_at || new Date().toISOString(),
+                unread_count: 1,
+                from: convData.from || convData.customers?.[0] || {},
+                customers: convData.customers || [],
+                type: convData.type || 'INBOX',
+                ...convData
+            };
+
+            this.conversations.unshift(newConv);
+            console.log('[PANCAKE-CHAT] ✅ New conversation added to top');
+
+            // Re-render just the conversation list (fast, no API call)
+            this.renderConversationList();
+        }
+
+        // Play notification sound or show visual indicator
+        this.showNewMessageIndicator();
+    }
+
+    /**
+     * Update a single conversation item in DOM without re-rendering everything
+     */
+    updateConversationInDOM(conv) {
+        const container = document.getElementById('pkConversations');
+        if (!container) return;
+
+        // Find the existing DOM element
+        const existingElement = container.querySelector(`[data-conv-id="${conv.id}"]`);
+
+        if (existingElement) {
+            // Update the content of existing element
+            const previewEl = existingElement.querySelector('.pk-conversation-preview');
+            const timeEl = existingElement.querySelector('.pk-conversation-time');
+            const badgeEl = existingElement.querySelector('.pk-unread-badge');
+            const avatarContainer = existingElement.querySelector('.pk-avatar');
+
+            if (previewEl) {
+                previewEl.textContent = conv.snippet || '';
+                previewEl.classList.add('unread');
+            }
+            if (timeEl) {
+                timeEl.textContent = this.formatTime(conv.updated_at);
+            }
+
+            // Update or add unread badge
+            if (conv.unread_count > 0) {
+                if (badgeEl) {
+                    badgeEl.textContent = conv.unread_count > 9 ? '9+' : conv.unread_count;
+                } else if (avatarContainer) {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'pk-unread-badge';
+                    newBadge.textContent = conv.unread_count > 9 ? '9+' : conv.unread_count;
+                    avatarContainer.appendChild(newBadge);
+                }
+            }
+
+            // Move element to top of list
+            if (container.firstChild !== existingElement) {
+                container.insertBefore(existingElement, container.firstChild);
+
+                // Add animation for visual feedback
+                existingElement.classList.add('pk-conv-updated');
+                setTimeout(() => existingElement.classList.remove('pk-conv-updated'), 1000);
+            }
+        } else {
+            // Element not in DOM, re-render list
+            this.renderConversationList();
+        }
+    }
+
+    /**
+     * Show visual indicator for new message
+     */
+    showNewMessageIndicator() {
+        // Flash the title or show notification
+        if (document.hidden) {
+            // Page is in background, maybe flash title
+            const originalTitle = document.title;
+            document.title = '💬 Tin nhắn mới!';
+            setTimeout(() => {
+                document.title = originalTitle;
+            }, 3000);
+        }
+
+        // Play sound (optional - uncomment if you have audio file)
+        // const audio = new Audio('/notification.mp3');
+        // audio.volume = 0.3;
+        // audio.play().catch(() => {});
     }
 
     // =====================================================
@@ -759,18 +1192,24 @@ class PancakeChatManager {
     }
 
     togglePageDropdown() {
+        console.log('[PANCAKE-CHAT] togglePageDropdown called, current state:', this.isPageDropdownOpen);
         this.isPageDropdownOpen = !this.isPageDropdownOpen;
 
         const dropdown = document.getElementById('pkPageDropdown');
         const btn = document.getElementById('pkPageSelectorBtn');
 
+        console.log('[PANCAKE-CHAT] Dropdown element found:', !!dropdown, 'Button found:', !!btn);
+        console.log('[PANCAKE-CHAT] New state:', this.isPageDropdownOpen);
+
         if (dropdown) {
             dropdown.classList.toggle('show', this.isPageDropdownOpen);
+            console.log('[PANCAKE-CHAT] Dropdown classes:', dropdown.className);
         }
         if (btn) {
             btn.classList.toggle('active', this.isPageDropdownOpen);
         }
     }
+
 
     saveSelectedPage() {
         try {
@@ -899,6 +1338,11 @@ class PancakeChatManager {
             this.messages = (result.messages || []).reverse(); // Reverse to show oldest first
             console.log('[PANCAKE-CHAT] Loaded messages:', this.messages.length, result.fromCache ? '(from cache)' : '(from API)');
 
+            // Reset pagination state for new conversation
+            this.messageCurrentCount = this.messages.length;
+            this.hasMoreMessages = true;
+            this.isLoadingMoreMessages = false;
+
             this.renderMessages();
 
             // Show indicator if from cache
@@ -976,11 +1420,21 @@ class PancakeChatManager {
 
         // Page Selector Button
         const pageSelectorBtn = document.getElementById('pkPageSelectorBtn');
+        console.log('[PANCAKE-CHAT] Page Selector Button found:', !!pageSelectorBtn);
         if (pageSelectorBtn) {
             pageSelectorBtn.addEventListener('click', (e) => {
+                console.log('[PANCAKE-CHAT] Page Selector Button clicked!');
                 e.stopPropagation();
                 this.togglePageDropdown();
             });
+            // Backup: add onclick attribute
+            pageSelectorBtn.onclick = (e) => {
+                console.log('[PANCAKE-CHAT] Page Selector Button onclick!');
+                e.stopPropagation();
+                this.togglePageDropdown();
+            };
+        } else {
+            console.error('[PANCAKE-CHAT] Page Selector Button NOT FOUND!');
         }
 
         // Page Dropdown - Page Selection
@@ -1019,12 +1473,43 @@ class PancakeChatManager {
             });
         });
 
-        // Search input
+        // Search input with debounced API search
         const searchInput = document.getElementById('pkSearchInput');
         if (searchInput) {
+            let searchTimeout = null;
+
             searchInput.addEventListener('input', (e) => {
-                this.searchQuery = e.target.value;
-                this.renderConversationList();
+                const query = e.target.value.trim();
+                this.searchQuery = query;
+
+                // Clear previous timeout
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                }
+
+                // If empty, show all conversations
+                if (!query) {
+                    this.isSearching = false;
+                    this.searchResults = null;
+                    this.renderConversationList();
+                    return;
+                }
+
+                // Debounce: wait 500ms before searching
+                searchTimeout = setTimeout(async () => {
+                    await this.performSearch(query);
+                }, 500);
+            });
+
+            // Clear search on Escape key
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    searchInput.value = '';
+                    this.searchQuery = '';
+                    this.isSearching = false;
+                    this.searchResults = null;
+                    this.renderConversationList();
+                }
             });
         }
 
@@ -1038,7 +1523,346 @@ class PancakeChatManager {
                     this.selectConversation(convId);
                 }
             });
+
+            // Infinite scroll for conversations
+            conversationsContainer.addEventListener('scroll', () => {
+                const threshold = 100; // pixels from bottom
+                const isNearBottom = conversationsContainer.scrollHeight - conversationsContainer.scrollTop - conversationsContainer.clientHeight < threshold;
+
+                if (isNearBottom &&
+                    this.hasMoreConversations &&
+                    !this.isLoadingMoreConversations &&
+                    !this.searchResults && // Don't load more during search
+                    this.conversations.length > 0) {
+                    this.loadMoreConversations();
+                }
+            });
+
+            // Right-click context menu
+            conversationsContainer.addEventListener('contextmenu', (e) => {
+                const convItem = e.target.closest('.pk-conversation-item');
+                if (convItem) {
+                    e.preventDefault();
+                    const convId = convItem.dataset.convId;
+                    const pageId = convItem.dataset.pageId;
+                    this.showContextMenu(e.clientX, e.clientY, convId, pageId);
+                }
+            });
         }
+
+        // Context menu actions
+        const contextMenu = document.getElementById('pkContextMenu');
+        if (contextMenu) {
+            contextMenu.addEventListener('click', async (e) => {
+                const menuItem = e.target.closest('.pk-context-menu-item');
+                if (menuItem) {
+                    const action = menuItem.dataset.action;
+                    await this.handleContextMenuAction(action);
+                    this.hideContextMenu();
+                }
+            });
+        }
+
+        // Hide context menu on click outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.pk-context-menu')) {
+                this.hideContextMenu();
+            }
+        });
+    }
+
+    /**
+     * Show context menu at position
+     */
+    showContextMenu(x, y, convId, pageId) {
+        this.contextMenuConvId = convId;
+        this.contextMenuPageId = pageId;
+
+        const menu = document.getElementById('pkContextMenu');
+        if (menu) {
+            menu.style.display = 'block';
+            menu.style.left = `${x}px`;
+            menu.style.top = `${y}px`;
+
+            // Initialize lucide icons
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+    }
+
+    /**
+     * Hide context menu
+     */
+    hideContextMenu() {
+        const menu = document.getElementById('pkContextMenu');
+        if (menu) {
+            menu.style.display = 'none';
+        }
+        const tagsMenu = document.getElementById('pkTagsMenu');
+        if (tagsMenu) {
+            tagsMenu.style.display = 'none';
+        }
+    }
+
+    /**
+     * Handle context menu actions
+     */
+    async handleContextMenuAction(action) {
+        const convId = this.contextMenuConvId;
+        const pageId = this.contextMenuPageId;
+
+        if (!convId || !pageId) return;
+
+        try {
+            if (action === 'mark-unread') {
+                await window.pancakeDataManager.markConversationAsUnread(pageId, convId);
+                // Update local state
+                const conv = this.conversations.find(c => c.id === convId);
+                if (conv) {
+                    conv.seen = false;
+                    conv.unread_count = conv.unread_count || 1;
+                    this.renderConversationList();
+                }
+                console.log('[PANCAKE-CHAT] Marked as unread:', convId);
+            } else if (action === 'mark-read') {
+                await window.pancakeDataManager.markConversationAsRead(pageId, convId);
+                // Update local state
+                const conv = this.conversations.find(c => c.id === convId);
+                if (conv) {
+                    conv.seen = true;
+                    conv.unread_count = 0;
+                    this.renderConversationList();
+                }
+                console.log('[PANCAKE-CHAT] Marked as read:', convId);
+            } else if (action === 'add-note') {
+                // Prompt for note
+                const note = prompt('Nhập ghi chú cho khách hàng:');
+                if (note && note.trim()) {
+                    const conv = this.conversations.find(c => c.id === convId);
+                    const customerId = conv?.customers?.[0]?.id;
+                    if (customerId) {
+                        const success = await window.pancakeDataManager.addCustomerNote(pageId, customerId, note.trim());
+                        if (success) {
+                            alert('Đã thêm ghi chú thành công!');
+                        } else {
+                            alert('Lỗi thêm ghi chú');
+                        }
+                    } else {
+                        alert('Không tìm thấy thông tin khách hàng');
+                    }
+                }
+            } else if (action === 'manage-tags') {
+                // Show tags submenu
+                await this.showTagsSubmenu(pageId, convId);
+                return; // Don't hide menu
+            }
+        } catch (error) {
+            console.error('[PANCAKE-CHAT] Context menu action error:', error);
+        }
+    }
+
+    /**
+     * Show tags submenu
+     */
+    async showTagsSubmenu(pageId, convId) {
+        const tagsMenu = document.getElementById('pkTagsMenu');
+        const tagsList = document.getElementById('pkTagsList');
+        const contextMenu = document.getElementById('pkContextMenu');
+
+        if (!tagsMenu || !tagsList || !contextMenu) return;
+
+        // Position next to context menu
+        const rect = contextMenu.getBoundingClientRect();
+        tagsMenu.style.display = 'block';
+        tagsMenu.style.left = `${rect.right + 5}px`;
+        tagsMenu.style.top = `${rect.top}px`;
+
+        // Show loading
+        tagsList.innerHTML = '<div class="pk-loading-spinner" style="width: 20px; height: 20px; margin: 10px auto;"></div>';
+
+        // Fetch tags
+        const tags = await window.pancakeDataManager.fetchTags(pageId);
+
+        // Get conversation's current tags
+        const conv = this.conversations.find(c => c.id === convId);
+        const convTags = conv?.tags || [];
+
+        // Render tags
+        if (tags.length === 0) {
+            tagsList.innerHTML = '<div class="pk-no-tags">Không có nhãn</div>';
+        } else {
+            tagsList.innerHTML = tags.map(tag => {
+                const isActive = convTags.includes(tag.id) || convTags.includes(String(tag.id));
+                return `
+                    <button class="pk-tag-item ${isActive ? 'active' : ''}" 
+                            data-tag-id="${tag.id}" 
+                            style="--tag-color: ${tag.color}">
+                        <span class="pk-tag-dot" style="background: ${tag.color}"></span>
+                        <span>${this.escapeHtml(tag.text)}</span>
+                        ${isActive ? '<i data-lucide="check" style="width: 14px; height: 14px;"></i>' : ''}
+                    </button>
+                `;
+            }).join('');
+
+            // Add click handlers
+            tagsList.querySelectorAll('.pk-tag-item').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const tagId = btn.dataset.tagId;
+                    const isActive = btn.classList.contains('active');
+                    const action = isActive ? 'remove' : 'add';
+
+                    // Toggle tag
+                    const success = await window.pancakeDataManager.addRemoveConversationTag(pageId, convId, tagId, action);
+                    if (success) {
+                        btn.classList.toggle('active');
+                        // Update local conversation tags
+                        if (conv) {
+                            if (action === 'add') {
+                                conv.tags = [...(conv.tags || []), tagId];
+                            } else {
+                                conv.tags = (conv.tags || []).filter(t => t !== tagId && t !== String(tagId));
+                            }
+                            this.renderConversationList();
+                        }
+                    }
+                });
+            });
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    /**
+     * Load more conversations (pagination)
+     */
+    async loadMoreConversations() {
+        if (this.isLoadingMoreConversations || !this.hasMoreConversations) {
+            return;
+        }
+
+        // Get last conversation ID for pagination
+        const lastConv = this.conversations[this.conversations.length - 1];
+        if (!lastConv) return;
+
+        this.lastConversationId = lastConv.id;
+        this.isLoadingMoreConversations = true;
+
+        console.log('[PANCAKE-CHAT] Loading more conversations... lastId:', this.lastConversationId);
+
+        // Show loading indicator at bottom
+        const container = document.getElementById('pkConversations');
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'pk-load-more-indicator';
+        loadingDiv.innerHTML = `
+            <div class="pk-loading-spinner" style="width: 20px; height: 20px;"></div>
+            <span>Đang tải thêm...</span>
+        `;
+        if (container) {
+            container.appendChild(loadingDiv);
+        }
+
+        try {
+            // Call the data manager to fetch more conversations
+            const moreConversations = await window.pancakeDataManager.fetchMoreConversations(this.lastConversationId);
+
+            loadingDiv.remove();
+
+            if (!moreConversations || moreConversations.length === 0) {
+                this.hasMoreConversations = false;
+                console.log('[PANCAKE-CHAT] No more conversations');
+            } else {
+                console.log('[PANCAKE-CHAT] Loaded', moreConversations.length, 'more conversations');
+
+                // Append to existing conversations
+                this.conversations = [...this.conversations, ...moreConversations];
+
+                // Re-render
+                this.renderConversationList();
+            }
+
+        } catch (error) {
+            console.error('[PANCAKE-CHAT] Error loading more conversations:', error);
+            loadingDiv.remove();
+        } finally {
+            this.isLoadingMoreConversations = false;
+        }
+    }
+
+    /**
+     * Perform search using Pancake API
+     * @param {string} query - Search query (name, phone, fb_id)
+     */
+    async performSearch(query) {
+        if (!query || query.length < 2) {
+            return;
+        }
+
+        console.log('[PANCAKE-CHAT] Searching for:', query);
+
+        // Show loading state
+        this.isSearching = true;
+        const container = document.getElementById('pkConversations');
+        if (container) {
+            container.innerHTML = `
+                <div class="pk-search-loading">
+                    <div class="pk-loading-spinner"></div>
+                    <span>Đang tìm kiếm "${this.escapeHtml(query)}"...</span>
+                </div>
+            `;
+        }
+
+        try {
+            // Call Pancake API search
+            const result = await pancakeDataManager.searchConversations(query);
+
+            if (result && result.conversations) {
+                console.log('[PANCAKE-CHAT] Search results:', result.conversations.length);
+                this.searchResults = result.conversations;
+            } else {
+                console.log('[PANCAKE-CHAT] No search results');
+                this.searchResults = [];
+            }
+
+            // Render results
+            this.renderConversationList();
+
+        } catch (error) {
+            console.error('[PANCAKE-CHAT] Search error:', error);
+            this.searchResults = [];
+
+            if (container) {
+                container.innerHTML = `
+                    <div class="pk-search-error">
+                        <i data-lucide="alert-circle"></i>
+                        <span>Lỗi tìm kiếm. Vui lòng thử lại.</span>
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            }
+        } finally {
+            this.isSearching = false;
+        }
+    }
+
+    /**
+     * Clear search and show all conversations
+     */
+    clearSearch() {
+        this.searchQuery = '';
+        this.searchResults = null;
+        this.isSearching = false;
+
+        // Clear input
+        const searchInput = document.getElementById('pkSearchInput');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
+        // Re-render
+        this.renderConversationList();
     }
 
     setFilterType(type) {
@@ -1124,11 +1948,285 @@ class PancakeChatManager {
                 }
             });
         }
+
+        // Phone/Ad badge click-to-copy
+        const statsBar = document.querySelector('.pk-customer-stats-bar');
+        if (statsBar) {
+            statsBar.addEventListener('click', (e) => {
+                const badge = e.target.closest('.pk-phone-ad-badge');
+                if (badge) {
+                    const textToCopy = badge.dataset.copy;
+                    if (textToCopy) {
+                        navigator.clipboard.writeText(textToCopy).then(() => {
+                            // Show feedback
+                            const originalText = badge.querySelector('.pk-badge-text').textContent;
+                            badge.querySelector('.pk-badge-text').textContent = 'Đã copy!';
+                            setTimeout(() => {
+                                badge.querySelector('.pk-badge-text').textContent = originalText;
+                            }, 1500);
+                        }).catch(err => {
+                            console.error('[PANCAKE-CHAT] Failed to copy:', err);
+                        });
+                    }
+                }
+            });
+        }
+
+        // Image upload button
+        const imageBtn = document.getElementById('pkImageBtn');
+        const imageInput = document.getElementById('pkImageInput');
+        if (imageBtn && imageInput) {
+            imageBtn.addEventListener('click', () => {
+                imageInput.click();
+            });
+
+            imageInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.handleImageSelect(file);
+                }
+            });
+        }
+
+        // Remove image preview
+        const removePreview = document.getElementById('pkRemovePreview');
+        if (removePreview) {
+            removePreview.addEventListener('click', () => {
+                this.clearImagePreview();
+            });
+        }
+    }
+
+    /**
+     * Handle image selection
+     */
+    handleImageSelect(file) {
+        if (!file.type.startsWith('image/')) {
+            alert('Vui lòng chọn file ảnh');
+            return;
+        }
+
+        // Store selected file
+        this.selectedImage = file;
+
+        // Show preview
+        const preview = document.getElementById('pkImagePreview');
+        const previewImg = document.getElementById('pkPreviewImg');
+        if (preview && previewImg) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    /**
+     * Clear image preview
+     */
+    clearImagePreview() {
+        this.selectedImage = null;
+        const preview = document.getElementById('pkImagePreview');
+        const previewImg = document.getElementById('pkPreviewImg');
+        const imageInput = document.getElementById('pkImageInput');
+
+        if (preview) preview.style.display = 'none';
+        if (previewImg) previewImg.src = '';
+        if (imageInput) imageInput.value = '';
+    }
+
+    /**
+     * Bind scroll events for chat messages container
+     * Shows/hides scroll-to-bottom button based on scroll position
+     */
+    bindScrollEvents() {
+        const container = document.getElementById('pkChatMessages');
+        const scrollBtn = document.getElementById('pkScrollToBottom');
+
+        if (!container || !scrollBtn) return;
+
+        // Reset state when opening new conversation
+        this.isScrolledToBottom = true;
+        this.newMessageCount = 0;
+        this.hasMoreMessages = true;
+        this.messageCurrentCount = this.messages.length;
+        this.updateScrollButtonVisibility(false);
+        this.updateScrollButtonBadge();
+
+        // Track scroll position
+        container.addEventListener('scroll', () => {
+            const threshold = 100; // pixels from bottom to consider "at bottom"
+            const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+
+            this.isScrolledToBottom = isAtBottom;
+
+            if (isAtBottom) {
+                // User scrolled to bottom, reset new message count
+                this.newMessageCount = 0;
+                this.updateScrollButtonBadge();
+                this.updateScrollButtonVisibility(false);
+            } else {
+                // User scrolled up, show button
+                this.updateScrollButtonVisibility(true);
+            }
+
+            // Detect scroll near top to load more messages
+            const scrollTopThreshold = 100; // pixels from top
+            if (container.scrollTop < scrollTopThreshold &&
+                this.hasMoreMessages &&
+                !this.isLoadingMoreMessages &&
+                this.messages.length > 0) {
+                this.loadMoreMessages();
+            }
+        });
+
+        // Scroll to bottom on button click
+        scrollBtn.addEventListener('click', () => {
+            this.scrollToBottom();
+        });
+    }
+
+    /**
+     * Load older messages (pagination)
+     */
+    async loadMoreMessages() {
+        if (this.isLoadingMoreMessages || !this.hasMoreMessages || !this.activeConversation) {
+            return;
+        }
+
+        this.isLoadingMoreMessages = true;
+        console.log('[PANCAKE-CHAT] Loading more messages... currentCount:', this.messageCurrentCount);
+
+        // Save scroll position to maintain after loading
+        const container = document.getElementById('pkChatMessages');
+        const scrollHeightBefore = container ? container.scrollHeight : 0;
+
+        // Show loading indicator at top
+        const loadMoreIndicator = document.createElement('div');
+        loadMoreIndicator.className = 'pk-load-more-indicator';
+        loadMoreIndicator.innerHTML = `
+            <div class="pk-loading-spinner" style="width: 24px; height: 24px;"></div>
+            <span>Đang tải tin nhắn cũ...</span>
+        `;
+        if (container) {
+            container.insertBefore(loadMoreIndicator, container.firstChild);
+        }
+
+        try {
+            const pageId = this.activeConversation.page_id;
+            const convId = this.activeConversation.id;
+            const customerId = this.activeConversation.customers?.[0]?.id || null;
+
+            const result = await window.pancakeDataManager.fetchMessagesForConversation(
+                pageId,
+                convId,
+                this.messageCurrentCount, // Pass current message count for pagination
+                customerId,
+                false
+            );
+
+            // Remove loading indicator
+            loadMoreIndicator.remove();
+
+            const olderMessages = result.messages || [];
+            console.log('[PANCAKE-CHAT] Loaded', olderMessages.length, 'older messages');
+
+            if (olderMessages.length === 0) {
+                this.hasMoreMessages = false;
+                // Show "no more messages" indicator
+                const noMoreDiv = document.createElement('div');
+                noMoreDiv.className = 'pk-no-more-messages';
+                noMoreDiv.textContent = '— Đầu cuộc hội thoại —';
+                if (container) {
+                    container.insertBefore(noMoreDiv, container.firstChild);
+                }
+            } else {
+                // Prepend older messages (they come in reverse order from API)
+                const reversedOlder = olderMessages.reverse();
+                this.messages = [...reversedOlder, ...this.messages];
+                this.messageCurrentCount = this.messages.length;
+
+                // Re-render messages
+                this.renderMessages();
+
+                // Maintain scroll position
+                if (container) {
+                    const scrollHeightAfter = container.scrollHeight;
+                    const scrollDelta = scrollHeightAfter - scrollHeightBefore;
+                    container.scrollTop = scrollDelta;
+                }
+            }
+
+        } catch (error) {
+            console.error('[PANCAKE-CHAT] Error loading more messages:', error);
+            loadMoreIndicator.remove();
+        } finally {
+            this.isLoadingMoreMessages = false;
+        }
+    }
+
+    /**
+     * Scroll chat to bottom with smooth animation
+     */
+    scrollToBottom() {
+        const container = document.getElementById('pkChatMessages');
+        if (!container) return;
+
+        container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth'
+        });
+
+        // Reset state
+        this.isScrolledToBottom = true;
+        this.newMessageCount = 0;
+        this.updateScrollButtonBadge();
+
+        // Hide button after a short delay (after animation completes)
+        setTimeout(() => {
+            this.updateScrollButtonVisibility(false);
+        }, 300);
+    }
+
+    /**
+     * Update scroll-to-bottom button visibility
+     */
+    updateScrollButtonVisibility(visible) {
+        const scrollBtn = document.getElementById('pkScrollToBottom');
+        if (scrollBtn) {
+            scrollBtn.classList.toggle('visible', visible);
+        }
+    }
+
+    /**
+     * Update new message badge on scroll button
+     */
+    updateScrollButtonBadge() {
+        const badge = document.getElementById('pkNewMsgBadge');
+        if (badge) {
+            if (this.newMessageCount > 0) {
+                badge.textContent = this.newMessageCount > 99 ? '99+' : this.newMessageCount;
+                badge.classList.add('visible');
+            } else {
+                badge.classList.remove('visible');
+            }
+        }
     }
 
     selectConversation(convId) {
-        const conv = this.conversations.find(c => c.id === convId);
-        if (!conv) return;
+        // Look in both regular conversations and search results
+        let conv = this.conversations.find(c => c.id === convId);
+
+        // If not found in conversations, check search results
+        if (!conv && this.searchResults) {
+            conv = this.searchResults.find(c => c.id === convId);
+        }
+
+        if (!conv) {
+            console.warn('[PANCAKE-CHAT] Conversation not found:', convId);
+            return;
+        }
 
         this.activeConversation = conv;
         this.renderConversationList(); // Update active state
@@ -1140,7 +2238,10 @@ class PancakeChatManager {
         if (!chatInput || !this.activeConversation) return;
 
         const text = chatInput.value.trim();
-        if (!text) return;
+        const hasImage = !!this.selectedImage;
+
+        // Must have text or image
+        if (!text && !hasImage) return;
 
         // Clear input
         chatInput.value = '';
@@ -1157,7 +2258,7 @@ class PancakeChatManager {
         // Add message to UI immediately (optimistic update)
         const tempMessage = {
             id: 'temp_' + Date.now(),
-            message: text,
+            message: text || '[Hình ảnh]',
             from: { id: this.activeConversation.page_id, name: 'You' },
             inserted_at: new Date().toISOString(),
             _temp: true
@@ -1166,18 +2267,39 @@ class PancakeChatManager {
         this.renderMessages();
 
         try {
-            // Send message via Pancake API
             const pageId = this.activeConversation.page_id;
             const convId = this.activeConversation.id;
             const customerId = this.activeConversation.customers?.[0]?.id || null;
             const action = this.activeConversation.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
 
-            console.log('[PANCAKE-CHAT] Sending message:', { pageId, convId, text, action });
+            let contentIds = [];
+            let attachmentType = null;
+
+            // Upload image if selected
+            if (hasImage) {
+                console.log('[PANCAKE-CHAT] Uploading image...');
+                const uploadResult = await window.pancakeDataManager.uploadMedia(pageId, this.selectedImage);
+
+                if (uploadResult.success && uploadResult.id) {
+                    contentIds = [uploadResult.id];
+                    attachmentType = uploadResult.attachment_type;
+                    console.log('[PANCAKE-CHAT] Image uploaded:', uploadResult);
+                } else {
+                    throw new Error('Upload ảnh thất bại');
+                }
+
+                // Clear preview
+                this.clearImagePreview();
+            }
+
+            console.log('[PANCAKE-CHAT] Sending message:', { pageId, convId, text, action, contentIds });
 
             const sentMessage = await window.pancakeDataManager.sendMessage(pageId, convId, {
                 text: text,
                 action: action,
-                customerId: customerId
+                customerId: customerId,
+                content_ids: contentIds,
+                attachment_type: attachmentType
             });
 
             console.log('[PANCAKE-CHAT] ✅ Message sent successfully:', sentMessage);
@@ -1275,9 +2397,23 @@ class PancakeChatManager {
     /**
      * Initialize WebSocket connection for realtime updates
      * Uses Phoenix Protocol v2.0.0 (Pancake's socket server)
+     * 
+     * NOTE: When using server mode (via realtime-manager.js), this function
+     * skips browser WebSocket since the server handles it via proxy.
      */
     async initializeWebSocket() {
         try {
+            // Check if server mode is enabled (handled by realtime-manager.js)
+            // In server mode, realtime-manager.js connects to wss://n2store-fallback.onrender.com
+            // which proxies Pancake WebSocket events. No need for browser WebSocket.
+            if (window.chatAPISettings && window.chatAPISettings.getRealtimeMode() === 'server') {
+                console.log('[PANCAKE-SOCKET] Server mode enabled, skipping browser WebSocket');
+                console.log('[PANCAKE-SOCKET] ✅ Using realtime-manager.js for WebSocket via wss://n2store-fallback.onrender.com');
+                // Start auto-refresh as backup
+                this.startAutoRefresh();
+                return true;
+            }
+
             // Prevent duplicate connection attempts
             if (this.isSocketConnected || this.isSocketConnecting) {
                 console.log('[PANCAKE-SOCKET] Already connected or connecting, skipping');
@@ -1338,6 +2474,7 @@ class PancakeChatManager {
             return false;
         }
     }
+
 
     /**
      * Handle WebSocket open event
@@ -1714,12 +2851,12 @@ class PancakeChatManager {
 
         // Try multiple avatar fields (different API responses use different field names)
         let directAvatarUrl = customer?.avatar ||
-                         customer?.picture?.data?.url ||
-                         customer?.profile_pic ||
-                         customer?.image_url ||
-                         conv.from?.picture?.data?.url ||
-                         conv.from?.profile_pic ||
-                         null;
+            customer?.picture?.data?.url ||
+            customer?.profile_pic ||
+            customer?.image_url ||
+            conv.from?.picture?.data?.url ||
+            conv.from?.profile_pic ||
+            null;
 
         // Use getAvatarUrl from data manager for better avatar resolution
         let avatarUrl = directAvatarUrl;
@@ -1789,9 +2926,15 @@ class PancakeChatManager {
         if (!timestamp) return '';
 
         try {
-            // Parse timestamp
-            const date = new Date(timestamp);
+            // Use parseTimestamp helper for proper UTC handling
+            const date = this.parseTimestamp(timestamp);
+            if (!date) {
+                console.warn('[PANCAKE-CHAT] Invalid timestamp:', timestamp);
+                return '';
+            }
+
             const now = new Date();
+
 
             // Use Intl.DateTimeFormat to get date parts in Vietnam timezone
             const vnFormatter = new Intl.DateTimeFormat('en-US', {
@@ -1858,11 +3001,18 @@ class PancakeChatManager {
         }
     }
 
+
     formatMessageTime(timestamp) {
         if (!timestamp) return '';
 
         try {
-            const date = new Date(timestamp);
+            // Use parseTimestamp helper for proper UTC handling
+            const date = this.parseTimestamp(timestamp);
+            if (!date) {
+                console.warn('[PANCAKE-CHAT] Invalid message timestamp:', timestamp);
+                return '';
+            }
+
             return new Intl.DateTimeFormat('vi-VN', {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -1874,6 +3024,8 @@ class PancakeChatManager {
             return '';
         }
     }
+
+
 
     groupMessagesByDate(messages) {
         const groups = {};
@@ -1896,7 +3048,10 @@ class PancakeChatManager {
         const todayKey = `${todayYear}-${todayMonth}-${todayDay}`;
 
         messages.forEach(msg => {
-            const date = new Date(msg.inserted_at || msg.created_time);
+            const timestamp = msg.inserted_at || msg.created_time;
+            const date = this.parseTimestamp(timestamp);
+            if (!date) return;
+
             const dateParts = vnFormatter.formatToParts(date);
 
             const dateYear = getPartValue(dateParts, 'year');
@@ -1926,12 +3081,84 @@ class PancakeChatManager {
         return groups;
     }
 
+    /**
+     * Parse timestamp from Pancake API to proper Date object
+     * Handles UTC timestamps without timezone suffix
+     */
+    parseTimestamp(timestamp) {
+        if (!timestamp) return null;
+
+        try {
+            let date;
+            if (typeof timestamp === 'string') {
+                // If timestamp doesn't have timezone info, assume it's UTC and add 'Z'
+                if (!timestamp.includes('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
+                    date = new Date(timestamp + 'Z');
+                } else {
+                    date = new Date(timestamp);
+                }
+            } else if (typeof timestamp === 'number') {
+                // Unix timestamp (seconds or milliseconds)
+                date = timestamp > 9999999999 ? new Date(timestamp) : new Date(timestamp * 1000);
+            } else {
+                date = new Date(timestamp);
+            }
+
+            return isNaN(date.getTime()) ? null : date;
+        } catch (error) {
+            return null;
+        }
+    }
+
+
     escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
+
+    /**
+     * Parse message HTML content from Pancake API to readable text
+     * Converts <div>, <br> tags to line breaks, strips other HTML
+     */
+    parseMessageHtml(html) {
+        if (!html) return '';
+
+        // If it doesn't contain HTML tags, return as-is
+        if (!html.includes('<')) return html;
+
+        try {
+            // Create a temporary element to parse HTML
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+
+            // Replace <br> and </div> with newlines before getting text
+            let text = temp.innerHTML;
+            text = text.replace(/<br\s*\/?>/gi, '\n');
+            text = text.replace(/<\/div>/gi, '\n');
+            text = text.replace(/<\/p>/gi, '\n');
+
+            // Update temp with modified HTML
+            temp.innerHTML = text;
+
+            // Get text content (strips all remaining tags)
+            let result = temp.textContent || temp.innerText || '';
+
+            // Clean up multiple consecutive newlines
+            result = result.replace(/\n{3,}/g, '\n\n');
+
+            // Trim leading/trailing whitespace
+            result = result.trim();
+
+            return result;
+        } catch (error) {
+            console.warn('[PANCAKE-CHAT] Error parsing message HTML:', error);
+            // Fallback: strip all HTML tags with regex
+            return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+    }
+
 
     renderLoadingState() {
         const container = document.getElementById('pkConversations');

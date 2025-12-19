@@ -617,6 +617,68 @@ class PancakeDataManager {
     }
 
     /**
+     * Fetch more conversations (pagination)
+     * @param {string} lastConversationId - ID of last conversation for pagination
+     * @returns {Promise<Array>} Array of additional conversations
+     */
+    async fetchMoreConversations(lastConversationId) {
+        try {
+            if (!lastConversationId) {
+                console.warn('[PANCAKE] fetchMoreConversations: No lastConversationId provided');
+                return [];
+            }
+
+            if (this.pageIds.length === 0) {
+                await this.fetchPages();
+            }
+
+            if (this.pageIds.length === 0) {
+                return [];
+            }
+
+            console.log('[PANCAKE] Fetching more conversations after:', lastConversationId);
+
+            const token = await this.getToken();
+
+            // Build query params with last_conversation_id for pagination
+            const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=0`).join('&');
+            const queryString = `${pagesParams}&unread_first=false&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web&last_conversation_id=${lastConversationId}`;
+
+            const url = window.API_CONFIG.buildUrl.pancake('conversations', queryString);
+
+            console.log('[PANCAKE] More conversations URL:', url);
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            const moreConversations = data.conversations || [];
+
+            console.log(`[PANCAKE] ✅ Fetched ${moreConversations.length} more conversations`);
+
+            // Append to existing conversations
+            if (moreConversations.length > 0) {
+                this.conversations = [...this.conversations, ...moreConversations];
+                this.buildConversationMap(); // Rebuild map
+            }
+
+            return moreConversations;
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error fetching more conversations:', error);
+            return [];
+        }
+    }
+
+    /**
      * Build Maps từ PSID và Facebook ID -> conversation để lookup nhanh
      * Phân loại dựa trên field "type": "INBOX" hoặc "COMMENT"
      * - INBOX messages: thường có from_psid
@@ -1220,9 +1282,9 @@ class PancakeDataManager {
         // Extract last message from Pancake conversation
         // Use last_message.text from Pancake API (not snippet!)
         const lastMessage = conversation.last_message?.text ||
-                           conversation.last_message?.message ||
-                           conversation.snippet ||
-                           null;
+            conversation.last_message?.message ||
+            conversation.snippet ||
+            null;
 
         console.log(`[DEBUG-DATA] getLastMessageForOrder: Found conversation ${conversation.id} for user ${userIdStr}`);
         console.log(`[DEBUG-DATA] Last message text: "${lastMessage}", Unread: ${conversation.unread_count}`);
@@ -1544,9 +1606,9 @@ class PancakeDataManager {
         // Extract last message info from conversation
         // Use last_message.text from Pancake API (not snippet!)
         const lastMessage = conversation.last_message?.text ||
-                           conversation.last_message?.message ||
-                           conversation.snippet ||
-                           '';
+            conversation.last_message?.message ||
+            conversation.snippet ||
+            '';
         const hasUnread = conversation.seen === false && conversation.unread_count > 0;
         const unreadCount = conversation.unread_count || 0;
 
@@ -1608,9 +1670,9 @@ class PancakeDataManager {
         // Extract last comment info
         // Use last_message.text from Pancake API (not snippet!)
         const lastMessage = conversation.last_message?.text ||
-                           conversation.last_message?.message ||
-                           conversation.snippet ||
-                           '';
+            conversation.last_message?.message ||
+            conversation.snippet ||
+            '';
         const hasUnread = conversation.seen === false && conversation.unread_count > 0;
         const unreadCount = conversation.unread_count || 0;
 
@@ -1759,8 +1821,8 @@ class PancakeDataManager {
                     conv.type === 'COMMENT' &&
                     conv.post_id === postId &&
                     (conv.from?.id === psid ||
-                     conv.from_psid === psid ||
-                     conv.customers?.some(c => c.fb_id === psid))
+                        conv.from_psid === psid ||
+                        conv.customers?.some(c => c.fb_id === psid))
                 );
 
                 if (matchingConvInMemory) {
@@ -1791,8 +1853,8 @@ class PancakeDataManager {
                                 c.type === 'COMMENT' &&
                                 c.post_id === postId &&
                                 (c.from?.id === psid ||
-                                 c.from_psid === psid ||
-                                 c.customers?.some(cust => cust.fb_id === psid))
+                                    c.from_psid === psid ||
+                                    c.customers?.some(cust => cust.fb_id === psid))
                             );
 
                             if (matchingConv) {
@@ -1995,6 +2057,175 @@ class PancakeDataManager {
             return data.success !== false;
         } catch (error) {
             console.error('[PANCAKE] ❌ Mark as unread failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Fetch tags for a page
+     * @param {string} pageId - Page ID
+     * @returns {Promise<Array>} List of tags
+     */
+    async fetchTags(pageId) {
+        try {
+            console.log(`[PANCAKE] Fetching tags for page: ${pageId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/tags`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Fetch tags failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Fetched tags:', data.tags?.length || 0);
+            return data.tags || [];
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Fetch tags failed:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Add or remove tag from conversation
+     * @param {string} pageId - Page ID
+     * @param {string} conversationId - Conversation ID
+     * @param {string} tagId - Tag ID
+     * @param {string} action - 'add' or 'remove'
+     * @returns {Promise<boolean>}
+     */
+    async addRemoveConversationTag(pageId, conversationId, tagId, action = 'add') {
+        try {
+            console.log(`[PANCAKE] ${action} tag ${tagId} for conversation: ${conversationId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/tags`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: action,
+                    tag_id: tagId
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`${action} tag failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log(`[PANCAKE] ✅ Tag ${action} success:`, data);
+            return data.success !== false;
+        } catch (error) {
+            console.error(`[PANCAKE] ❌ Tag ${action} failed:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Upload media (image/video) to Pancake
+     * @param {string} pageId - Page ID
+     * @param {File} file - File to upload
+     * @returns {Promise<Object>} { id: content_id, attachment_type, success }
+     */
+    async uploadMedia(pageId, file) {
+        try {
+            console.log(`[PANCAKE] Uploading media for page: ${pageId}`, file.name);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/upload_contents`,
+                pageAccessToken
+            );
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData
+                // Don't set Content-Type header - browser will set it with boundary
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Upload success:', data);
+
+            return {
+                id: data.id,
+                attachment_type: data.attachment_type || 'PHOTO',
+                success: data.success !== false
+            };
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Upload failed:', error);
+            return { id: null, success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Add note to customer
+     * @param {string} pageId - Page ID
+     * @param {string} customerId - Customer ID (page_customer_id)
+     * @param {string} message - Note content
+     * @returns {Promise<boolean>}
+     */
+    async addCustomerNote(pageId, customerId, message) {
+        try {
+            console.log(`[PANCAKE] Adding note for customer: ${customerId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/page_customers/${customerId}/notes`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Add note failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Note added:', data);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Add note failed:', error);
             return false;
         }
     }
