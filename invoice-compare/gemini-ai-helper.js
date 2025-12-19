@@ -13,7 +13,46 @@ let currentHFIndex = 0;
 const failedGeminiKeys = new Map(); // key -> timestamp
 const failedHFKeys = new Map();
 
-const FAILURE_TIMEOUT = 30000; // 30 seconds
+const FAILURE_TIMEOUT = 60000; // 60 seconds - increased to avoid rapid retries
+
+// Request rate limiting
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 2000; // 2 seconds between requests
+let requestCount = 0;
+const MAX_REQUESTS_PER_MINUTE = 10; // Limit requests per minute
+let requestResetTime = Date.now();
+
+// =====================================================
+// RATE LIMITING
+// =====================================================
+
+async function checkRateLimit() {
+    const now = Date.now();
+
+    // Reset counter every minute
+    if (now - requestResetTime > 60000) {
+        requestCount = 0;
+        requestResetTime = now;
+    }
+
+    // Check if we've exceeded rate limit
+    if (requestCount >= MAX_REQUESTS_PER_MINUTE) {
+        const waitTime = 60000 - (now - requestResetTime);
+        console.warn(`[RATE-LIMIT] Max requests per minute reached. Wait ${Math.ceil(waitTime/1000)}s`);
+        throw new Error(`Đã đạt giới hạn ${MAX_REQUESTS_PER_MINUTE} request/phút. Vui lòng chờ ${Math.ceil(waitTime/1000)} giây.`);
+    }
+
+    // Enforce minimum interval between requests
+    const timeSinceLastRequest = now - lastRequestTime;
+    if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+        const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+        console.log(`[RATE-LIMIT] Waiting ${waitTime}ms before next request`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+
+    lastRequestTime = Date.now();
+    requestCount++;
+}
 
 // =====================================================
 // KEY MANAGEMENT
@@ -96,9 +135,13 @@ function getNextHFKey() {
 async function callGeminiAPI(prompt, options = {}) {
     const {
         model = 'gemini-flash-latest',
-        maxRetries = Math.max(GEMINI_KEYS.length, 3),
+        // Try all keys (free keys first, Pro key last as fallback)
+        maxRetries = Math.max(GEMINI_KEYS.length, 1),
         temperature = 0.7,
     } = options;
+
+    // Check rate limit before making request
+    await checkRateLimit();
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         const apiKey = getNextGeminiKey();
@@ -163,9 +206,13 @@ async function callGeminiAPI(prompt, options = {}) {
 async function analyzeImageWithGemini(base64Image, prompt, options = {}) {
     const {
         model = 'gemini-flash-latest',
-        maxRetries = Math.max(GEMINI_KEYS.length, 3),
+        // Try all keys (free keys first, Pro key last as fallback)
+        maxRetries = Math.max(GEMINI_KEYS.length, 1),
         mimeType = 'image/jpeg',
     } = options;
+
+    // Check rate limit before making request
+    await checkRateLimit();
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         const apiKey = getNextGeminiKey();

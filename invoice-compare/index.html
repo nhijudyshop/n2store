@@ -32,6 +32,7 @@
             const savedHFKeys = localStorage.getItem('hf_api_keys') || '';
 
             // Note: Never hardcode API keys - they will be revoked by Google if exposed
+            // Users should provide their own keys via localStorage or settings UI
             window.GEMINI_KEYS = savedGeminiKeys || '';
             window.HF_KEYS = savedHFKeys || '';
 
@@ -163,7 +164,7 @@
                             <div class="upload-section">
                                 <label for="imageUpload" class="upload-label">
                                     <i data-lucide="upload"></i>
-                                    <span>Tải lên hình ảnh hóa đơn</span>
+                                    <span>Tải lên hoặc Ctrl+V để paste hình</span>
                                 </label>
                                 <input
                                     type="file"

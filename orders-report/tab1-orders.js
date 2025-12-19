@@ -192,11 +192,9 @@ let selectedOrderIds = new Set();
 let isLoading = false;
 let loadingAborted = false;
 let employeeRanges = []; // Employee STT ranges
-let currentTableName = 'Bảng 1'; // Current table name
 
 // Expose data for other modules
 window.getAllOrders = () => allData;
-window.getCurrentTableName = () => currentTableName;
 
 // Search State
 let searchQuery = "";
@@ -325,112 +323,6 @@ async function loadFilterPreferencesFromFirebase() {
         console.error('[FILTER-PREFS] ❌ Error loading:', error);
         return null;
     }
-}
-
-// =====================================================
-// TABLE NAME MANAGEMENT - localStorage & Firebase Sync
-// =====================================================
-const TABLE_NAME_STORAGE_KEY = 'order_table_name';
-const TABLE_NAME_FIREBASE_PATH = 'settings/table_name';
-
-/**
- * Update table name immediately when user types (without saving to Firebase)
- * This ensures currentTableName is always in sync with the input field
- */
-function updateTableNameOnInput() {
-    const input = document.getElementById('tableNameInput');
-    if (!input) return;
-
-    const tableName = input.value.trim() || 'Bảng 1';
-    currentTableName = tableName;
-    console.log('[TABLE-NAME] 📝 Updated currentTableName on input:', tableName);
-}
-
-/**
- * Save table name to localStorage and Firebase
- */
-async function saveTableName() {
-    const input = document.getElementById('tableNameInput');
-    if (!input) return;
-
-    const tableName = input.value.trim() || 'Bảng 1';
-    currentTableName = tableName;
-
-    // Save to localStorage
-    try {
-        localStorage.setItem(TABLE_NAME_STORAGE_KEY, tableName);
-        console.log('[TABLE-NAME] ✅ Saved to localStorage:', tableName);
-    } catch (e) {
-        console.error('[TABLE-NAME] ❌ Error saving to localStorage:', e);
-    }
-
-    // Save to Firebase
-    if (database) {
-        try {
-            await database.ref(TABLE_NAME_FIREBASE_PATH).set({
-                name: tableName,
-                updatedAt: firebase.database.ServerValue.TIMESTAMP
-            });
-            console.log('[TABLE-NAME] ✅ Saved to Firebase:', tableName);
-        } catch (error) {
-            console.error('[TABLE-NAME] ❌ Error saving to Firebase:', error);
-        }
-    }
-
-    // Update UI
-    input.value = tableName;
-
-    // Broadcast table name change to other tabs (especially tab-overview)
-    if (window.parent) {
-        window.parent.postMessage({
-            type: 'TABLE_NAME_CHANGED',
-            tableName: tableName
-        }, '*');
-        console.log('[TABLE-NAME] 📡 Broadcasted table name change:', tableName);
-    }
-}
-
-/**
- * Load table name from Firebase or localStorage
- */
-async function loadTableName() {
-    let tableName = 'Bảng 1'; // Default
-
-    // Try loading from Firebase first
-    if (database) {
-        try {
-            const snapshot = await database.ref(TABLE_NAME_FIREBASE_PATH).once('value');
-            const data = snapshot.val();
-            if (data && data.name) {
-                tableName = data.name;
-                console.log('[TABLE-NAME] ✅ Loaded from Firebase:', tableName);
-            }
-        } catch (error) {
-            console.error('[TABLE-NAME] ❌ Error loading from Firebase:', error);
-        }
-    }
-
-    // Fallback to localStorage
-    if (tableName === 'Bảng 1') {
-        try {
-            const stored = localStorage.getItem(TABLE_NAME_STORAGE_KEY);
-            if (stored) {
-                tableName = stored;
-                console.log('[TABLE-NAME] ✅ Loaded from localStorage:', tableName);
-            }
-        } catch (e) {
-            console.error('[TABLE-NAME] ❌ Error loading from localStorage:', e);
-        }
-    }
-
-    // Update state and UI
-    currentTableName = tableName;
-    const input = document.getElementById('tableNameInput');
-    if (input) {
-        input.value = tableName;
-    }
-
-    return tableName;
 }
 
 // =====================================================
@@ -859,10 +751,6 @@ window.addEventListener("DOMContentLoaded", async function () {
     } else {
         console.warn('[TAG-REALTIME] Firebase not available, listeners not setup');
     }
-
-    // Load table name
-    await loadTableName();
-    console.log('[TABLE-NAME] Current table name:', currentTableName);
 
     // Scroll to top button
     const scrollBtn = document.getElementById("scrollToTopBtn");
@@ -9234,7 +9122,6 @@ window.addEventListener("message", function (event) {
     if (event.data.type === "REQUEST_ORDERS_DATA_FROM_OVERVIEW") {
         console.log('📨 [OVERVIEW] Nhận request orders data từ tab Báo Cáo Tổng Hợp');
         console.log('📊 [OVERVIEW] allData length:', allData.length);
-        console.log('📋 [OVERVIEW] Current table name:', currentTableName);
 
         // Check if data is loaded
         if (!allData || allData.length === 0) {
@@ -9379,8 +9266,8 @@ function sendOrdersDataToTab3() {
 }
 
 function sendOrdersDataToOverview() {
-    // Prepare orders data with STT (SessionIndex) - use displayed/filtered data
-    const ordersDataToSend = displayedData.map((order, index) => ({
+    // Prepare orders data with STT (SessionIndex) - use ALL data (not filtered)
+    const ordersDataToSend = allData.map((order, index) => ({
         stt: order.SessionIndex || (index + 1).toString(), // Use SessionIndex as STT
         orderId: order.Id,
         orderCode: order.Code,
@@ -9408,18 +9295,28 @@ function sendOrdersDataToOverview() {
 
     // Send to overview tab via parent window forwarding
     if (window.parent) {
-        console.log('[OVERVIEW] 🔍 DEBUG currentTableName value:', currentTableName, 'type:', typeof currentTableName);
-        console.log('[OVERVIEW] 🔍 DEBUG window.getCurrentTableName():', window.getCurrentTableName ? window.getCurrentTableName() : 'function not defined');
+        // Get campaign name directly from activeCampaignLabel
+        const activeCampaignLabel = document.getElementById('activeCampaignLabel');
+        let campaignName = null;
 
-        const tableNameToSend = currentTableName || 'Bảng 1';
+        if (activeCampaignLabel) {
+            // Extract text content, remove icon HTML
+            campaignName = activeCampaignLabel.textContent.trim();
+            // Check if it's still loading or empty
+            if (campaignName === 'Đang tải...' || campaignName === '') {
+                campaignName = null;
+            }
+        }
+
+        console.log('[OVERVIEW] 📋 Campaign name from activeCampaignLabel:', campaignName);
 
         window.parent.postMessage({
             type: 'ORDERS_DATA_RESPONSE',
             orders: ordersDataToSend,
-            tableName: tableNameToSend, // Include table name for mapping with fallback
+            tableName: campaignName, // Campaign name (null if not selected)
             timestamp: Date.now()
         }, '*');
-        console.log(`📤 [OVERVIEW] Đã gửi ${ordersDataToSend.length} đơn hàng với table name "${tableNameToSend}" về tab Báo Cáo Tổng Hợp`);
+        console.log(`📤 [OVERVIEW] Đã gửi ${ordersDataToSend.length} đơn hàng với campaign "${campaignName}" về tab Báo Cáo Tổng Hợp`);
     }
 }
 
