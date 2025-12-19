@@ -1014,25 +1014,30 @@ window.setGeminiKeys = function (keys) {
  *   addFreeKeys('free_key_1,free_key_2')
  * or
  *   addFreeKeys(['free_key_1', 'free_key_2'])
+ *
+ * Note: Pro key is ALWAYS added at the end automatically
+ * Only save free keys to localStorage (Pro key added at runtime)
  */
 window.addFreeKeys = function (freeKeys) {
+    const proKey = window.GEMINI_PRO_KEY || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs';
+
     const freeKeyArray = Array.isArray(freeKeys)
         ? freeKeys
         : freeKeys.split(',').map(k => k.trim()).filter(k => k);
 
-    // Pro key is always last (fallback)
-    const proKey = window.GEMINI_PRO_KEY || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs';
+    // Remove Pro key if accidentally included (it will be added at runtime)
+    const cleanFreeKeys = freeKeyArray.filter(k => k !== proKey);
 
-    // Combine: free keys first, pro key last
-    const allKeys = [...freeKeyArray, proKey];
-    const keyString = allKeys.join(',');
+    // Save only free keys to localStorage
+    localStorage.setItem('gemini_api_keys', cleanFreeKeys.join(','));
 
-    localStorage.setItem('gemini_api_keys', keyString);
-    window.GEMINI_KEYS = keyString;
+    // Update runtime: free keys + Pro key at the end
+    const allKeys = [...cleanFreeKeys, proKey];
+    window.GEMINI_KEYS = allKeys.join(',');
 
     console.log('[API-KEYS] ✅ Keys configured:');
-    console.log('[API-KEYS]   - Free keys:', freeKeyArray.length);
-    console.log('[API-KEYS]   - Pro key: 1 (fallback)');
+    console.log('[API-KEYS]   - Free keys:', cleanFreeKeys.length);
+    console.log('[API-KEYS]   - Pro key: Always last (auto-added)');
     console.log('[API-KEYS]   - Total:', allKeys.length);
     return true;
 };

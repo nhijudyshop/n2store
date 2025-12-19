@@ -24,8 +24,11 @@ jobs:
 
       - name: Inject API Keys into HTML
         run: |
-          # Inject GEMINI_KEYS
+          # Inject GEMINI_KEYS (free keys)
           sed -i "s|window.GEMINI_KEYS = savedGeminiKeys \|\| window.GEMINI_KEYS \|\| '';|window.GEMINI_KEYS = savedGeminiKeys \|\| '${{ secrets.GEMINI_KEYS }}' \|\| '';|g" invoice-compare/index.html
+
+          # Inject GEMINI_PRO_KEY (Pro key as fallback)
+          sed -i "s|window.GEMINI_PRO_KEY = window.GEMINI_PRO_KEY \|\| '';|window.GEMINI_PRO_KEY = '${{ secrets.GEMINI_PRO_KEY }}' \|\| '';|g" invoice-compare/index.html
 
           # Inject HF_KEYS
           sed -i "s|window.HF_KEYS = savedHFKeys \|\| window.HF_KEYS \|\| '';|window.HF_KEYS = savedHFKeys \|\| '${{ secrets.HF_KEYS }}' \|\| '';|g" invoice-compare/index.html
@@ -35,7 +38,8 @@ jobs:
       - name: Verify injection
         run: |
           echo "Checking if keys were injected..."
-          grep -q "GEMINI_KEYS = savedGeminiKeys" invoice-compare/index.html && echo "✅ GEMINI_KEYS pattern found" || echo "❌ Pattern not found"
+          grep -q "GEMINI_KEYS = savedGeminiKeys" invoice-compare/index.html && echo "✅ GEMINI_KEYS pattern found" || echo "❌ GEMINI_KEYS pattern not found"
+          grep -q "GEMINI_PRO_KEY = " invoice-compare/index.html && echo "✅ GEMINI_PRO_KEY pattern found" || echo "❌ GEMINI_PRO_KEY pattern not found"
 
       - name: Commit changes (if any)
         run: |
@@ -60,8 +64,14 @@ jobs:
           echo "Keys have been injected into:"
           echo "  - invoice-compare/index.html"
           echo ""
+          echo "Injected keys:"
+          echo "  - GEMINI_KEYS: Free keys (tried first)"
+          echo "  - GEMINI_PRO_KEY: Pro key (fallback, always last)"
+          echo "  - HF_KEYS: HuggingFace keys"
+          echo ""
           echo "The application will now automatically use keys from:"
           echo "  1. localStorage (if user set manually)"
           echo "  2. GitHub Secrets (injected by this workflow)"
+          echo "  3. Pro key as final fallback"
           echo ""
           echo "=================================================="
