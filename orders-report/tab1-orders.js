@@ -9258,7 +9258,7 @@ function sendOrdersDataToTab3() {
     // Updated to avoid "SecurityError: Blocked a frame with origin 'null'"
     if (window.parent) {
         window.parent.postMessage({
-            type: 'ORDERS_DATA_RESPONSE', // Changed to match main.html handler
+            type: 'ORDERS_DATA_RESPONSE_TAB3', // Specific type for Tab3 only
             orders: ordersDataToSend
         }, '*');
         console.log(`📤 Đã gửi ${ordersDataToSend.length} đơn hàng về parent để forward sang tab 3`);
@@ -9311,7 +9311,7 @@ function sendOrdersDataToOverview() {
         console.log('[OVERVIEW] 📋 Campaign name from activeCampaignLabel:', campaignName);
 
         window.parent.postMessage({
-            type: 'ORDERS_DATA_RESPONSE',
+            type: 'ORDERS_DATA_RESPONSE_OVERVIEW', // Specific type for Overview only
             orders: ordersDataToSend,
             tableName: campaignName, // Campaign name (null if not selected)
             timestamp: Date.now()

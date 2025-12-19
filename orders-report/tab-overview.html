@@ -1193,7 +1193,7 @@
         // =====================================================
         window.addEventListener('message', function(event) {
             // Handle orders data response
-            if (event.data.type === 'ORDERS_DATA_RESPONSE') {
+            if (event.data.type === 'ORDERS_DATA_RESPONSE_OVERVIEW') {
                 console.log('[REPORT] Received orders data:', event.data.orders?.length || 0);
                 console.log('[REPORT] Received campaign name:', event.data.tableName);
                 console.log('[REPORT] User manually selected table:', userManuallySelectedTable);
