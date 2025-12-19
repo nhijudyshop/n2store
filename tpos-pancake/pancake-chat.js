@@ -1240,17 +1240,27 @@ class PancakeChatManager {
         const customer = conv.customers?.[0] || conv.from;
         const name = customer?.name || 'U';
         const initial = name.charAt(0).toUpperCase();
-        const avatarUrl = customer?.avatar || null;
+
+        // Try multiple avatar fields (different API responses use different field names)
+        const avatarUrl = customer?.avatar ||
+                         customer?.picture?.data?.url ||
+                         customer?.profile_pic ||
+                         customer?.image_url ||
+                         conv.from?.picture?.data?.url ||
+                         conv.from?.profile_pic ||
+                         null;
 
         if (type === 'chat') {
             if (avatarUrl) {
-                return `<img src="${avatarUrl}" class="pk-chat-avatar" alt="${this.escapeHtml(name)}">`;
+                return `<img src="${avatarUrl}" class="pk-chat-avatar" alt="${this.escapeHtml(name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="pk-chat-avatar-placeholder" style="display: none;">${initial}</div>`;
             }
             return `<div class="pk-chat-avatar-placeholder">${initial}</div>`;
         }
 
         if (avatarUrl) {
-            return `<img src="${avatarUrl}" alt="${this.escapeHtml(name)}">`;
+            return `<img src="${avatarUrl}" alt="${this.escapeHtml(name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="pk-avatar-placeholder" style="display: none;">${initial}</div>`;
         }
         return `<div class="pk-avatar-placeholder">${initial}</div>`;
     }
@@ -1286,29 +1296,59 @@ class PancakeChatManager {
 
     formatTime(timestamp) {
         if (!timestamp) return '';
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diff = now - date;
 
-        // If today, show time
-        if (diff < 24 * 60 * 60 * 1000 && date.getDate() === now.getDate()) {
-            return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        try {
+            // Parse timestamp and convert to Vietnam timezone (UTC+7)
+            const date = new Date(timestamp);
+            const now = new Date();
+
+            // Convert both dates to Vietnam time for comparison
+            const vnDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            const vnNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+
+            const diff = vnNow - vnDate;
+
+            // If today, show time (HH:mm format in Vietnam timezone)
+            if (diff < 24 * 60 * 60 * 1000 && vnDate.getDate() === vnNow.getDate()) {
+                return date.toLocaleTimeString('vi-VN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Ho_Chi_Minh'
+                });
+            }
+
+            // If this week, show day
+            if (diff < 7 * 24 * 60 * 60 * 1000) {
+                const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                return days[vnDate.getDay()];
+            }
+
+            // Otherwise show date
+            return date.toLocaleDateString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                timeZone: 'Asia/Ho_Chi_Minh'
+            });
+        } catch (error) {
+            console.warn('[PANCAKE-CHAT] Error formatting time:', error);
+            return '';
         }
-
-        // If this week, show day
-        if (diff < 7 * 24 * 60 * 60 * 1000) {
-            const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-            return days[date.getDay()];
-        }
-
-        // Otherwise show date
-        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
     }
 
     formatMessageTime(timestamp) {
         if (!timestamp) return '';
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+        try {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Ho_Chi_Minh'
+            });
+        } catch (error) {
+            console.warn('[PANCAKE-CHAT] Error formatting message time:', error);
+            return '';
+        }
     }
 
     groupMessagesByDate(messages) {
