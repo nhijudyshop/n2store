@@ -165,6 +165,36 @@
     height: 20px;
 }
 
+/* WebSocket Status Indicator */
+.pk-socket-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-right: 4px;
+}
+
+.pk-socket-icon {
+    width: 18px;
+    height: 18px;
+    transition: color 0.3s ease;
+}
+
+.pk-socket-icon.connected {
+    color: #22c55e;
+    animation: pk-pulse 2s ease-in-out infinite;
+}
+
+.pk-socket-icon.disconnected {
+    color: #ef4444;
+}
+
+@keyframes pk-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
 /* =====================================================
    TAB CONTENT CONTAINER
    ===================================================== */
