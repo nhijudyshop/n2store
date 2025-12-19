@@ -277,6 +277,7 @@ Nếu đang xem conversation đó → fetchMessagesForConversation()
 | `/api/pancake-official/pages/{id}/conversations/{convId}/tags` | POST | Add/remove tag |
 | `/api/pancake-official/pages/{id}/upload_contents` | POST | Upload image |
 | `/api/pancake-official/pages/{id}/page_customers/{custId}/notes` | POST | Add note |
+| `/api/pancake-direct/pages/{id}/conversations/{convId}/typing` | POST | Typing indicator (requires JWT) |
 
 ---
 
