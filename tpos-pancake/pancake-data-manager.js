@@ -2227,6 +2227,87 @@ class PancakeDataManager {
             return false;
         }
     }
+
+    /**
+     * Gửi tin nhắn (inbox hoặc comment reply)
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} conversationId - Conversation ID
+     * @param {Object} messageData - Message data: { text, attachments, action, customerId }
+     * @returns {Promise<Object>} Sent message object
+     */
+    async sendMessage(pageId, conversationId, messageData) {
+        try {
+            console.log(`[PANCAKE] Sending message to pageId=${pageId}, convId=${conversationId}`);
+
+            // Skip Instagram pages
+            if (pageId.startsWith('igo_')) {
+                console.warn(`[PANCAKE] Cannot send message to Instagram page: ${pageId}`);
+                throw new Error('Không thể gửi tin nhắn đến trang Instagram');
+            }
+
+            // Get page_access_token for Public API
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            // Determine action based on conversation type
+            const { text, attachments = [], action = 'reply_inbox', customerId } = messageData;
+
+            if (!text && attachments.length === 0) {
+                throw new Error('Message must have text or attachments');
+            }
+
+            // Build request payload
+            const payload = {
+                action: action, // 'reply_inbox', 'reply_comment', or 'private_replies'
+                message: text || '',
+                conversation_id: conversationId
+            };
+
+            // Add attachments if present
+            if (attachments.length > 0) {
+                payload.content_ids = attachments.map(att => att.content_id || att.id).filter(Boolean);
+            }
+
+            // Add customer_id if available (required by some endpoints)
+            if (customerId) {
+                payload.customer_id = customerId;
+            }
+
+            // Build URL: POST /pages/{pageId}/conversations/{conversationId}/messages
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/messages`,
+                pageAccessToken
+            );
+
+            console.log('[PANCAKE] Sending message:', payload);
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            }, 3, true); // skipFallback = true for sending messages
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[PANCAKE] Send message failed:', response.status, errorText);
+                throw new Error(`Gửi tin nhắn thất bại: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] Message sent successfully:', data);
+
+            // Return sent message
+            return data.message || data;
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error sending message:', error);
+            throw error;
+        }
+    }
 }
 
 // Create global instance
