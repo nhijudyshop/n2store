@@ -135,7 +135,8 @@ function getNextHFKey() {
 async function callGeminiAPI(prompt, options = {}) {
     const {
         model = 'gemini-flash-latest',
-        maxRetries = Math.min(GEMINI_KEYS.length, 2), // Reduced retries to avoid spam
+        // Try all keys (free keys first, Pro key last as fallback)
+        maxRetries = Math.max(GEMINI_KEYS.length, 1),
         temperature = 0.7,
     } = options;
 
@@ -205,7 +206,8 @@ async function callGeminiAPI(prompt, options = {}) {
 async function analyzeImageWithGemini(base64Image, prompt, options = {}) {
     const {
         model = 'gemini-flash-latest',
-        maxRetries = Math.min(GEMINI_KEYS.length, 2), // Reduced retries to avoid spam
+        // Try all keys (free keys first, Pro key last as fallback)
+        maxRetries = Math.max(GEMINI_KEYS.length, 1),
         mimeType = 'image/jpeg',
     } = options;
 

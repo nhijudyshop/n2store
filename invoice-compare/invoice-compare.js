@@ -1009,6 +1009,35 @@ window.setGeminiKeys = function (keys) {
 };
 
 /**
+ * Add free keys with Pro key as fallback
+ * Usage in browser console:
+ *   addFreeKeys('free_key_1,free_key_2')
+ * or
+ *   addFreeKeys(['free_key_1', 'free_key_2'])
+ */
+window.addFreeKeys = function (freeKeys) {
+    const freeKeyArray = Array.isArray(freeKeys)
+        ? freeKeys
+        : freeKeys.split(',').map(k => k.trim()).filter(k => k);
+
+    // Pro key is always last (fallback)
+    const proKey = window.GEMINI_PRO_KEY || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs';
+
+    // Combine: free keys first, pro key last
+    const allKeys = [...freeKeyArray, proKey];
+    const keyString = allKeys.join(',');
+
+    localStorage.setItem('gemini_api_keys', keyString);
+    window.GEMINI_KEYS = keyString;
+
+    console.log('[API-KEYS] ✅ Keys configured:');
+    console.log('[API-KEYS]   - Free keys:', freeKeyArray.length);
+    console.log('[API-KEYS]   - Pro key: 1 (fallback)');
+    console.log('[API-KEYS]   - Total:', allKeys.length);
+    return true;
+};
+
+/**
  * Get current Gemini API keys
  */
 window.getGeminiKeys = function () {

@@ -31,10 +31,22 @@
             const savedGeminiKeys = localStorage.getItem('gemini_api_keys') || '';
             const savedHFKeys = localStorage.getItem('hf_api_keys') || '';
 
-            window.GEMINI_KEYS = savedGeminiKeys || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs' || '';
+            // Pro key (Google One) - used as fallback when free keys are limited
+            const GEMINI_PRO_KEY = 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs';
+
+            // Free keys first, Pro key last as fallback
+            const defaultGeminiKeys = [
+                // Add free keys here (they will be tried first)
+                // Pro key as last resort
+                GEMINI_PRO_KEY
+            ].join(',');
+
+            window.GEMINI_KEYS = savedGeminiKeys || defaultGeminiKeys;
+            window.GEMINI_PRO_KEY = GEMINI_PRO_KEY; // Export for reference
             window.HF_KEYS = savedHFKeys || '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,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,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' || '';
 
             console.log('[API-KEYS] Gemini keys loaded:', window.GEMINI_KEYS ? 'Yes' : 'No');
+            console.log('[API-KEYS] Pro key available as fallback');
         </script>
 
         <!-- Gemini AI Helper -->
