@@ -31,8 +31,9 @@
             const savedGeminiKeys = localStorage.getItem('gemini_api_keys') || '';
             const savedHFKeys = localStorage.getItem('hf_api_keys') || '';
 
-            window.GEMINI_KEYS = savedGeminiKeys || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs' || '';
-            window.HF_KEYS = savedHFKeys || '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,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,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' || '';
+            // Note: Never hardcode API keys - they will be revoked by Google if exposed
+            window.GEMINI_KEYS = savedGeminiKeys || '';
+            window.HF_KEYS = savedHFKeys || '';
 
             console.log('[API-KEYS] Gemini keys loaded:', window.GEMINI_KEYS ? 'Yes' : 'No');
         </script>
