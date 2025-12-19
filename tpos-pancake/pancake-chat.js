@@ -98,8 +98,54 @@ class PancakeChatManager {
     render() {
         this.container.innerHTML = `
             <div class="pancake-chat-container">
-                <!-- Conversation List (Left Panel) -->
-                <div class="pk-conversation-list" id="pkConversationList">
+                <!-- Header Tabs -->
+                <div class="pk-header-tabs">
+                    <div class="pk-header-tabs-left">
+                        <div class="pk-pancake-logo">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#00a884"/>
+                                <path d="M2 17L12 22L22 17V12L12 17L2 12V17Z" fill="#00a884" opacity="0.7"/>
+                            </svg>
+                            <span>Pancake</span>
+                        </div>
+                        <button class="pk-header-tab active" data-tab="conversations">
+                            <i data-lucide="message-circle"></i>
+                            <span>Hoi thoai</span>
+                        </button>
+                        <button class="pk-header-tab" data-tab="orders">
+                            <i data-lucide="shopping-bag"></i>
+                            <span>Don hang</span>
+                        </button>
+                        <button class="pk-header-tab" data-tab="posts">
+                            <i data-lucide="file-text"></i>
+                            <span>Bai viet</span>
+                        </button>
+                        <button class="pk-header-tab" data-tab="stats">
+                            <i data-lucide="bar-chart-2"></i>
+                            <span>Thong ke</span>
+                        </button>
+                        <button class="pk-header-tab" data-tab="settings">
+                            <i data-lucide="settings"></i>
+                            <span>Cai dat</span>
+                        </button>
+                    </div>
+                    <div class="pk-header-tabs-right">
+                        <button class="pk-header-icon-btn" title="Thong bao">
+                            <i data-lucide="bell"></i>
+                        </button>
+                        <button class="pk-header-icon-btn" title="Tai khoan">
+                            <i data-lucide="user"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab Content Container -->
+                <div class="pk-tab-content-container">
+                    <!-- Conversations Tab (active) -->
+                    <div class="pk-tab-content active" id="pkTabConversations">
+                        <div class="pk-conversations-layout">
+                            <!-- Conversation List (Left Panel) -->
+                            <div class="pk-conversation-list" id="pkConversationList">
                     <!-- Page Selector -->
                     <div class="pk-page-selector" style="position: relative;">
                         <button class="pk-page-selector-btn" id="pkPageSelectorBtn">
@@ -151,12 +197,51 @@ class PancakeChatManager {
                     </div>
                 </div>
 
-                <!-- Chat Window (Right Panel) -->
-                <div class="pk-chat-window" id="pkChatWindow">
-                    <div class="pk-empty-state">
-                        <i data-lucide="message-square"></i>
-                        <h3>Chon hoi thoai</h3>
-                        <p>Chon mot cuoc tro chuyen tu danh sach ben trai de bat dau nhan tin</p>
+                            <!-- Chat Window (Right Panel) -->
+                            <div class="pk-chat-window" id="pkChatWindow">
+                                <div class="pk-empty-state">
+                                    <i data-lucide="message-square"></i>
+                                    <h3>Chon hoi thoai</h3>
+                                    <p>Chon mot cuoc tro chuyen tu danh sach ben trai de bat dau nhan tin</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Orders Tab -->
+                    <div class="pk-tab-content" id="pkTabOrders">
+                        <div class="pk-tab-placeholder">
+                            <i data-lucide="shopping-bag"></i>
+                            <h3>Don hang</h3>
+                            <p>Quan ly don hang - Dang phat trien</p>
+                        </div>
+                    </div>
+
+                    <!-- Posts Tab -->
+                    <div class="pk-tab-content" id="pkTabPosts">
+                        <div class="pk-tab-placeholder">
+                            <i data-lucide="file-text"></i>
+                            <h3>Bai viet</h3>
+                            <p>Quan ly bai viet - Dang phat trien</p>
+                        </div>
+                    </div>
+
+                    <!-- Stats Tab -->
+                    <div class="pk-tab-content" id="pkTabStats">
+                        <div class="pk-tab-placeholder">
+                            <i data-lucide="bar-chart-2"></i>
+                            <h3>Thong ke</h3>
+                            <p>Bao cao thong ke - Dang phat trien</p>
+                        </div>
+                    </div>
+
+                    <!-- Settings Tab -->
+                    <div class="pk-tab-content" id="pkTabSettings">
+                        <div class="pk-tab-placeholder">
+                            <i data-lucide="settings"></i>
+                            <h3>Cai dat</h3>
+                            <p>Cau hinh he thong - Dang phat trien</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -844,6 +929,15 @@ class PancakeChatManager {
     // =====================================================
 
     bindEvents() {
+        // Header Tabs
+        const headerTabs = document.querySelectorAll('.pk-header-tab');
+        headerTabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const tabName = e.currentTarget.dataset.tab;
+                this.switchTab(tabName);
+            });
+        });
+
         // Page Selector Button
         const pageSelectorBtn = document.getElementById('pkPageSelectorBtn');
         if (pageSelectorBtn) {
@@ -915,6 +1009,40 @@ class PancakeChatManager {
         this.filterType = type;
         console.log('[PANCAKE-CHAT] Filter changed to:', this.filterType);
         this.renderConversationList();
+    }
+
+    switchTab(tabName) {
+        console.log('[PANCAKE-CHAT] Switching to tab:', tabName);
+
+        // Update tab buttons
+        const headerTabs = document.querySelectorAll('.pk-header-tab');
+        headerTabs.forEach(tab => {
+            if (tab.dataset.tab === tabName) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+
+        // Update tab content
+        const tabContents = document.querySelectorAll('.pk-tab-content');
+        const tabContentMap = {
+            'conversations': 'pkTabConversations',
+            'orders': 'pkTabOrders',
+            'posts': 'pkTabPosts',
+            'stats': 'pkTabStats',
+            'settings': 'pkTabSettings'
+        };
+
+        tabContents.forEach(content => {
+            content.classList.remove('active');
+        });
+
+        const targetTabId = tabContentMap[tabName];
+        const targetTab = document.getElementById(targetTabId);
+        if (targetTab) {
+            targetTab.classList.add('active');
+        }
     }
 
     bindChatInputEvents() {
