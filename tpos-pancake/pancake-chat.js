@@ -295,7 +295,15 @@ class PancakeChatManager {
 
         // Filter by selected page
         if (this.selectedPageId) {
-            filtered = filtered.filter(conv => conv.page_id === this.selectedPageId);
+            // Find the selected page to get all possible IDs
+            const selectedPage = this.pages.find(p => p.id === this.selectedPageId);
+            const pageIdsToMatch = selectedPage
+                ? [selectedPage.id, selectedPage.fb_page_id, selectedPage.page_id].filter(Boolean)
+                : [this.selectedPageId];
+
+            filtered = filtered.filter(conv =>
+                pageIdsToMatch.includes(conv.page_id)
+            );
         }
 
         // Filter by search query
