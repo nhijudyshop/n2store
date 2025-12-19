@@ -4132,12 +4132,39 @@
                     if (customStartDate) {
                         customStartDate.value = campaign.customStartDate;
                     }
-                }
 
-                // Call handleCampaignChange to reload orders
-                if (typeof handleCampaignChange === 'function') {
-                    console.log('[CAMPAIGN] Reloading orders for campaign:', campaign.name);
-                    await handleCampaignChange();
+                    // Show custom date container
+                    const customDateContainer = document.getElementById('customDateFilterContainer');
+                    if (customDateContainer) {
+                        customDateContainer.style.display = 'flex';
+                    }
+
+                    // Set selectedCampaign for custom mode
+                    if (typeof selectedCampaign !== 'undefined') {
+                        selectedCampaign = { isCustom: true };
+                    }
+
+                    // For custom campaigns, directly trigger search since date is already set
+                    console.log('[CAMPAIGN] Custom campaign, directly triggering search for:', campaign.name);
+                    if (typeof handleSearch === 'function') {
+                        await handleSearch();
+                    }
+
+                    // Setup TAG listeners
+                    if (typeof setupTagRealtimeListeners === 'function') {
+                        setupTagRealtimeListeners();
+                    }
+
+                    // Connect realtime server
+                    if (window.realtimeManager) {
+                        window.realtimeManager.connectServerMode();
+                    }
+                } else {
+                    // For non-custom campaigns, use handleCampaignChange
+                    if (typeof handleCampaignChange === 'function') {
+                        console.log('[CAMPAIGN] Reloading orders for campaign:', campaign.name);
+                        await handleCampaignChange();
+                    }
                 }
             }
 
@@ -4213,12 +4240,40 @@
                         if (customStartDate) {
                             customStartDate.value = campaign.customStartDate;
                         }
-                    }
 
-                    // Call handleCampaignChange to reload orders
-                    if (typeof handleCampaignChange === 'function') {
-                        console.log('[CAMPAIGN] Campaign changed, reloading orders for:', campaign.name);
-                        await handleCampaignChange();
+                        // Show custom date container
+                        const customDateContainer = document.getElementById('customDateFilterContainer');
+                        if (customDateContainer) {
+                            customDateContainer.style.display = 'flex';
+                        }
+
+                        // Set selectedCampaign for custom mode
+                        if (typeof selectedCampaign !== 'undefined') {
+                            selectedCampaign = { isCustom: true };
+                        }
+
+                        // For custom campaigns, directly trigger search since date is already set
+                        // (handleCampaignChange returns early for custom mode without searching)
+                        console.log('[CAMPAIGN] Custom campaign, directly triggering search for:', campaign.name);
+                        if (typeof handleSearch === 'function') {
+                            await handleSearch();
+                        }
+
+                        // Setup TAG listeners
+                        if (typeof setupTagRealtimeListeners === 'function') {
+                            setupTagRealtimeListeners();
+                        }
+
+                        // Connect realtime server
+                        if (window.realtimeManager) {
+                            window.realtimeManager.connectServerMode();
+                        }
+                    } else {
+                        // For non-custom campaigns, use handleCampaignChange
+                        if (typeof handleCampaignChange === 'function') {
+                            console.log('[CAMPAIGN] Campaign changed, reloading orders for:', campaign.name);
+                            await handleCampaignChange();
+                        }
                     }
                 }
 
