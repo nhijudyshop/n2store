@@ -5559,20 +5559,43 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             }
         } else if (savedPrefs && savedPrefs.selectedCampaignValue !== undefined && savedPrefs.selectedCampaignValue !== 'custom') {
             // 🎯 Restore saved campaign selection from Firebase
+            // ⭐ FIX: Ưu tiên tìm theo displayName thay vì index để tránh lỗi khi thứ tự campaigns thay đổi
             const savedValue = savedPrefs.selectedCampaignValue;
+            const savedName = savedPrefs.selectedCampaignName;
 
-            // Check if the saved value exists in current options
-            let optionExists = false;
-            for (let i = 0; i < select.options.length; i++) {
-                if (select.options[i].value === String(savedValue)) {
-                    optionExists = true;
-                    break;
+            let foundOptionIndex = -1;
+
+            // ⭐ Ưu tiên 1: Tìm theo displayName (chính xác hơn)
+            if (savedName) {
+                for (let i = 0; i < select.options.length; i++) {
+                    const optionCampaign = select.options[i].dataset.campaign;
+                    if (optionCampaign) {
+                        try {
+                            const campaign = JSON.parse(optionCampaign);
+                            if (campaign.displayName === savedName) {
+                                foundOptionIndex = i;
+                                console.log('[FILTER-PREFS] ✅ Found campaign by displayName:', savedName, '→ index:', i);
+                                break;
+                            }
+                        } catch (e) { }
+                    }
                 }
             }
 
-            if (optionExists) {
-                console.log('[FILTER-PREFS] Restoring saved campaign selection:', savedValue);
-                select.value = savedValue;
+            // ⭐ Fallback: Tìm theo index (cách cũ)
+            if (foundOptionIndex === -1) {
+                for (let i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === String(savedValue)) {
+                        foundOptionIndex = i;
+                        console.log('[FILTER-PREFS] Found campaign by index (fallback):', savedValue);
+                        break;
+                    }
+                }
+            }
+
+            if (foundOptionIndex !== -1) {
+                console.log('[FILTER-PREFS] Restoring saved campaign selection:', savedName || savedValue);
+                select.selectedIndex = foundOptionIndex;
                 customDateContainer.style.display = "none";
             } else {
                 // Saved campaign not in current list, use first campaign
@@ -5700,9 +5723,11 @@ async function handleCampaignChange() {
         customDateContainer.style.display = "none";
 
         // 🔥 Save campaign selection to Firebase (not custom mode)
-        if (select.value && select.value !== '') {
+        // ⭐ FIX: Lưu displayName thay vì index để tránh lỗi khi thứ tự campaigns thay đổi
+        if (select.value && select.value !== '' && selectedCampaign?.displayName) {
             saveFilterPreferencesToFirebase({
                 selectedCampaignValue: select.value,
+                selectedCampaignName: selectedCampaign.displayName, // ⭐ Lưu tên campaign
                 isCustomMode: false,
                 customStartDate: null
             });
