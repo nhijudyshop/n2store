@@ -243,10 +243,40 @@ try {
 // =====================================================
 // FILTER PREFERENCES - Firebase Sync #FIREBASE
 // =====================================================
-const FILTER_PREFS_PATH = 'settings/filter_preferences';
 
 /**
- * Save filter preferences to Firebase
+ * Get current user ID for filter preferences (per-user storage)
+ * @returns {string} - User ID from Firebase auth or localStorage fallback
+ */
+function getFilterPrefsUserId() {
+    // Try to get from Firebase auth
+    if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+        return firebase.auth().currentUser.uid;
+    }
+    // Try to get from window.campaignManager (initialized in HTML)
+    if (window.campaignManager && window.campaignManager.currentUserId) {
+        return window.campaignManager.currentUserId;
+    }
+    // Fallback to localStorage
+    let userId = localStorage.getItem('campaign_user_id');
+    if (!userId) {
+        userId = 'user_' + Date.now();
+        localStorage.setItem('campaign_user_id', userId);
+    }
+    return userId;
+}
+
+/**
+ * Get filter preferences Firebase path for current user
+ * @returns {string} - Firebase path like "user_preferences/{userId}/filter_preferences"
+ */
+function getFilterPrefsPath() {
+    const userId = getFilterPrefsUserId();
+    return `user_preferences/${userId}/filter_preferences`;
+}
+
+/**
+ * Save filter preferences to Firebase (per-user)
  * @param {Object} prefs - { selectedCampaignValue, isCustomMode, customStartDate }
  */
 async function saveFilterPreferencesToFirebase(prefs) {
@@ -256,20 +286,21 @@ async function saveFilterPreferencesToFirebase(prefs) {
     }
 
     try {
+        const path = getFilterPrefsPath();
         const updateData = {
             ...prefs,
             updatedAt: firebase.database.ServerValue.TIMESTAMP
         };
 
-        await database.ref(FILTER_PREFS_PATH).set(updateData);
-        console.log('[FILTER-PREFS] ✅ Saved to Firebase:', updateData);
+        await database.ref(path).set(updateData);
+        console.log('[FILTER-PREFS] ✅ Saved to Firebase:', path, updateData);
     } catch (error) {
         console.error('[FILTER-PREFS] ❌ Error saving:', error);
     }
 }
 
 /**
- * Load filter preferences from Firebase
+ * Load filter preferences from Firebase (per-user)
  * @returns {Object|null} - { selectedCampaignValue, isCustomMode, customStartDate } or null
  */
 async function loadFilterPreferencesFromFirebase() {
@@ -279,14 +310,15 @@ async function loadFilterPreferencesFromFirebase() {
     }
 
     try {
-        const snapshot = await database.ref(FILTER_PREFS_PATH).once('value');
+        const path = getFilterPrefsPath();
+        const snapshot = await database.ref(path).once('value');
         const prefs = snapshot.val();
 
         if (prefs) {
-            console.log('[FILTER-PREFS] ✅ Loaded from Firebase:', prefs);
+            console.log('[FILTER-PREFS] ✅ Loaded from Firebase:', path, prefs);
             return prefs;
         } else {
-            console.log('[FILTER-PREFS] No saved preferences found');
+            console.log('[FILTER-PREFS] No saved preferences found at:', path);
             return null;
         }
     } catch (error) {
