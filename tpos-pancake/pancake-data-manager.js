@@ -152,14 +152,19 @@ class PancakeDataManager {
             console.log('[PANCAKE] Pages response data:', data);
 
             if (data.success && data.categorized && data.categorized.activated) {
-                this.pages = data.categorized.activated;
-                this.pageIds = data.categorized.activated_page_ids || [];
+                // Filter out Instagram pages (prefix "igo_") to avoid subscription errors
+                const allPages = data.categorized.activated;
+                const allPageIds = data.categorized.activated_page_ids || [];
+
+                this.pages = allPages.filter(page => !page.id.startsWith('igo_'));
+                this.pageIds = allPageIds.filter(pageId => !pageId.startsWith('igo_'));
+
                 this.lastPageFetchTime = Date.now();
-                console.log(`[PANCAKE] ✅ Fetched ${this.pages.length} pages`);
+                console.log(`[PANCAKE] ✅ Fetched ${this.pages.length} pages (filtered out ${allPages.length - this.pages.length} Instagram pages)`);
                 console.log('[PANCAKE] Page IDs:', this.pageIds);
 
-                // Extract and cache page_access_tokens from settings
-                this.extractAndCachePageAccessTokens(data.categorized.activated);
+                // Extract and cache page_access_tokens from settings (only for filtered pages)
+                this.extractAndCachePageAccessTokens(this.pages);
 
                 return this.pages;
             } else {
@@ -311,7 +316,9 @@ class PancakeDataManager {
             }
 
             // Use pageIds from parameter or default to all pageIds
-            const searchPageIds = pageIds || this.pageIds;
+            // Filter out Instagram pages to avoid subscription errors
+            let searchPageIds = pageIds || this.pageIds;
+            searchPageIds = searchPageIds.filter(id => !id.startsWith('igo_'));
 
             if (searchPageIds.length === 0) {
                 await this.fetchPages();
@@ -382,6 +389,12 @@ class PancakeDataManager {
         try {
             if (!pageId || !fbId) {
                 console.warn('[PANCAKE] fetchConversationsByCustomerFbId: Missing pageId or fbId');
+                return { conversations: [], customerUuid: null, success: false };
+            }
+
+            // Skip Instagram pages to avoid subscription errors
+            if (pageId.startsWith('igo_')) {
+                console.warn(`[PANCAKE] Skipping Instagram page: ${pageId}`);
                 return { conversations: [], customerUuid: null, success: false };
             }
 
@@ -846,6 +859,12 @@ class PancakeDataManager {
         const cacheKey = `${pageId}_${conversationId}`;
 
         try {
+            // Skip Instagram pages to avoid subscription errors
+            if (pageId.startsWith('igo_')) {
+                console.warn(`[PANCAKE] Skipping Instagram page: ${pageId}`);
+                return { messages: [], conversation: null, customers: [], customerId: null, fromCache: false };
+            }
+
             console.log(`[PANCAKE] Fetching messages for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`);
 
             // Check cache first (only if not pagination and not force refresh)
@@ -998,6 +1017,12 @@ class PancakeDataManager {
      */
     async fetchInboxPreview(pageId, customerId) {
         try {
+            // Skip Instagram pages to avoid subscription errors
+            if (pageId.startsWith('igo_')) {
+                console.warn(`[PANCAKE] Skipping Instagram page: ${pageId}`);
+                return { conversationId: null, messages: [], success: false };
+            }
+
             console.log(`[PANCAKE] Fetching inbox preview for pageId=${pageId}, customerId=${customerId}`);
 
             const token = await this.getToken();
@@ -1607,6 +1632,12 @@ class PancakeDataManager {
      */
     async fetchMessages(pageId, psid, cursorOrCount = null, customerId = null) {
         try {
+            // Skip Instagram pages to avoid subscription errors
+            if (pageId.startsWith('igo_')) {
+                console.warn(`[PANCAKE] Skipping Instagram page: ${pageId}`);
+                return { messages: [], conversation: null, conversationId: null, customerId: null };
+            }
+
             console.log(`[PANCAKE] fetchMessages called: pageId=${pageId}, psid=${psid}, cursorOrCount=${cursorOrCount}, customerId=${customerId}`);
 
             // Determine if cursorOrCount is a number (currentCount) or null/conversationId (old behavior)
@@ -1706,6 +1737,12 @@ class PancakeDataManager {
      */
     async fetchComments(pageId, psid, conversationId = null, postId = null, customerName = null) {
         try {
+            // Skip Instagram pages to avoid subscription errors
+            if (pageId.startsWith('igo_')) {
+                console.warn(`[PANCAKE] Skipping Instagram page: ${pageId}`);
+                return { messages: [], conversation: null };
+            }
+
             console.log(`[PANCAKE] fetchComments called: pageId=${pageId}, psid=${psid}, convId=${conversationId}, postId=${postId}`);
 
             // For comments, find conversation in COMMENT map
