@@ -409,6 +409,9 @@ class PancakeChatManager {
 
             // Render conversation list
             this.renderConversationList();
+
+            // Pre-load page access tokens in background for faster message loading
+            this.preloadPageAccessTokens();
         } catch (error) {
             console.error('[PANCAKE-CHAT] Error loading conversations:', error);
             this.renderErrorState('Khong the tai danh sach hoi thoai');
@@ -417,7 +420,34 @@ class PancakeChatManager {
         }
     }
 
-    async loadMessages(conv) {
+    // Pre-load page access tokens for all pages in conversations
+    async preloadPageAccessTokens() {
+        if (!window.pancakeTokenManager) return;
+
+        try {
+            // Get unique page IDs from conversations
+            const pageIds = [...new Set(this.conversations.map(conv => conv.page_id).filter(Boolean))];
+            console.log('[PANCAKE-CHAT] Pre-loading page access tokens for', pageIds.length, 'pages...');
+
+            // Load tokens in parallel (don't await each one)
+            const promises = pageIds.map(pageId =>
+                window.pancakeTokenManager.getOrGeneratePageAccessToken(pageId)
+                    .catch(err => console.warn(`[PANCAKE-CHAT] Failed to pre-load token for page ${pageId}:`, err))
+            );
+
+            // Wait for all with timeout
+            await Promise.race([
+                Promise.all(promises),
+                new Promise(resolve => setTimeout(resolve, 5000)) // 5s timeout
+            ]);
+
+            console.log('[PANCAKE-CHAT] Page access tokens pre-loaded');
+        } catch (error) {
+            console.warn('[PANCAKE-CHAT] Pre-load page tokens failed:', error);
+        }
+    }
+
+    async loadMessages(conv, forceRefresh = false) {
         if (!window.pancakeDataManager || !conv) return;
 
         const messagesContainer = document.getElementById('pkChatMessages');
@@ -425,6 +455,7 @@ class PancakeChatManager {
             messagesContainer.innerHTML = `
                 <div class="pk-loading">
                     <div class="pk-loading-spinner"></div>
+                    <p style="margin-top: 10px; color: #666;">Dang tai tin nhan...</p>
                 </div>
             `;
         }
@@ -436,24 +467,41 @@ class PancakeChatManager {
 
             console.log('[PANCAKE-CHAT] Loading messages for:', { pageId, convId, customerId });
 
-            const result = await window.pancakeDataManager.fetchMessagesForConversation(
-                pageId,
-                convId,
-                null,
-                customerId
-            );
+            // Create a timeout promise (10 seconds)
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout: Qua lau khong phan hoi')), 10000);
+            });
+
+            // Race between fetch and timeout
+            const result = await Promise.race([
+                window.pancakeDataManager.fetchMessagesForConversation(
+                    pageId,
+                    convId,
+                    null,
+                    customerId,
+                    forceRefresh
+                ),
+                timeoutPromise
+            ]);
 
             this.messages = (result.messages || []).reverse(); // Reverse to show oldest first
-            console.log('[PANCAKE-CHAT] Loaded messages:', this.messages.length);
+            console.log('[PANCAKE-CHAT] Loaded messages:', this.messages.length, result.fromCache ? '(from cache)' : '(from API)');
 
             this.renderMessages();
 
-            // Mark as read
+            // Show indicator if from cache
+            if (result.fromCache && messagesContainer) {
+                // Refresh in background if from cache
+                this.refreshMessagesInBackground(pageId, convId, customerId);
+            }
+
+            // Mark as read (don't await to not block UI)
             if (conv.unread_count > 0) {
-                await window.pancakeDataManager.markConversationAsRead(pageId, convId);
-                conv.unread_count = 0;
-                conv.seen = true;
-                this.renderConversationList();
+                window.pancakeDataManager.markConversationAsRead(pageId, convId).then(() => {
+                    conv.unread_count = 0;
+                    conv.seen = true;
+                    this.renderConversationList();
+                }).catch(err => console.warn('[PANCAKE-CHAT] Could not mark as read:', err));
             }
         } catch (error) {
             console.error('[PANCAKE-CHAT] Error loading messages:', error);
@@ -463,10 +511,40 @@ class PancakeChatManager {
                         <i data-lucide="alert-circle"></i>
                         <h3>Loi tai tin nhan</h3>
                         <p>${error.message || 'Khong the tai tin nhan'}</p>
+                        <button class="pk-retry-btn" onclick="window.pancakeChatManager.loadMessages(window.pancakeChatManager.activeConversation, true)" style="margin-top: 10px; padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Thu lai
+                        </button>
                     </div>
                 `;
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             }
+        }
+    }
+
+    // Refresh messages in background after showing cached data
+    async refreshMessagesInBackground(pageId, convId, customerId) {
+        try {
+            console.log('[PANCAKE-CHAT] Refreshing messages in background...');
+            const result = await window.pancakeDataManager.fetchMessagesForConversation(
+                pageId,
+                convId,
+                null,
+                customerId,
+                true // forceRefresh
+            );
+
+            // Only update if this is still the active conversation
+            if (this.activeConversation?.id === convId) {
+                const newMessages = (result.messages || []).reverse();
+                // Only re-render if messages changed
+                if (newMessages.length !== this.messages.length) {
+                    console.log('[PANCAKE-CHAT] Background refresh: messages updated');
+                    this.messages = newMessages;
+                    this.renderMessages();
+                }
+            }
+        } catch (error) {
+            console.warn('[PANCAKE-CHAT] Background refresh failed:', error.message);
         }
     }
 
