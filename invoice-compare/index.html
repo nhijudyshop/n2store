@@ -296,28 +296,15 @@
                         <!-- Instructions -->
                         <div style="padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; margin-bottom: 12px;">
                             <div style="font-size: 12px; color: #92400e; font-weight: 500; margin-bottom: 6px;">
-                                📋 Cách lấy Access Token (JWT):
+                                📋 Cách lấy JWT token:
                             </div>
-                            <div style="font-size: 11px; color: #92400e; margin-bottom: 8px;">
-                                <strong>Cách 1 - Từ Personal Settings (khuyến nghị):</strong>
-                                <ol style="margin: 4px 0 0 0; padding-left: 18px;">
-                                    <li>Đăng nhập <a href="https://pancake.vn" target="_blank" style="color: #d97706;">pancake.vn</a></li>
-                                    <li>Vào <strong>Account → Personal Settings</strong></li>
-                                    <li>Copy <strong>Access Token</strong> và paste vào ô trên</li>
-                                </ol>
-                            </div>
-                            <div style="font-size: 11px; color: #92400e;">
-                                <strong>Cách 2 - Từ Cookie (DevTools):</strong>
-                                <ol style="margin: 4px 0 0 0; padding-left: 18px;">
-                                    <li>Đăng nhập <a href="https://pancake.vn" target="_blank" style="color: #d97706;">pancake.vn</a></li>
-                                    <li>Mở DevTools (F12) → Console</li>
-                                    <li>Gõ: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code></li>
-                                    <li>Copy giá trị sau "jwt=" và paste vào ô trên</li>
-                                </ol>
-                            </div>
-                            <div style="font-size: 10px; color: #78350f; margin-top: 8px; font-style: italic;">
-                                ⏱️ Token có thời hạn 90 ngày hoặc cho đến khi logout khỏi Pancake.
-                            </div>
+                            <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #92400e;">
+                                <li>Mở tab mới: <a href="https://pancake.vn" target="_blank" style="color: #d97706;">https://pancake.vn</a></li>
+                                <li>Đăng nhập vào tài khoản Pancake</li>
+                                <li>Mở DevTools (F12) → Console tab</li>
+                                <li>Gõ: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code></li>
+                                <li>Copy giá trị sau "jwt=" và paste vào ô trên</li>
+                            </ol>
                         </div>
 
                         <!-- Actions -->
@@ -335,11 +322,11 @@
                     </div>
                 </div>
                 <div class="pancake-modal-footer">
-                    <button class="pancake-btn pancake-btn-danger" onclick="clearAllPancakeAccounts()">
-                        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Xóa tất cả
-                    </button>
                     <button class="pancake-btn pancake-btn-secondary" onclick="closePancakeSettingsModal()">
                         Đóng
+                    </button>
+                    <button class="pancake-btn pancake-btn-danger" onclick="clearAllPancakeAccounts()">
+                        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Xóa tất cả
                     </button>
                 </div>
             </div>
