@@ -31,10 +31,10 @@
             const savedGeminiKeys = localStorage.getItem('gemini_api_keys') || '';
             const savedHFKeys = localStorage.getItem('hf_api_keys') || '';
 
-            // Note: Never hardcode API keys - they will be revoked by Google if exposed
-            // Users should provide their own keys via localStorage or settings UI
-            window.GEMINI_KEYS = savedGeminiKeys || '';
-            window.HF_KEYS = savedHFKeys || '';
+            // Keys are injected by GitHub Actions workflow from secrets
+            // Priority: localStorage (user override) → GitHub Secrets (auto-injected)
+            window.GEMINI_KEYS = savedGeminiKeys || window.GEMINI_KEYS || '';
+            window.HF_KEYS = savedHFKeys || window.HF_KEYS || '';
 
             console.log('[API-KEYS] Gemini keys loaded:', window.GEMINI_KEYS ? 'Yes' : 'No');
         </script>
