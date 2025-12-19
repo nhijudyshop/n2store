@@ -473,38 +473,39 @@
 }
 
 .pancake-modal-header {
-    padding: 16px 24px;
+    padding: 8px 16px;
     border-bottom: 1px solid #e5e7eb;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: white;
     border-radius: 12px 12px 0 0;
-    color: white;
 }
 
 .pancake-modal-header h3 {
     margin: 0;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     display: flex;
     align-items: center;
     gap: 10px;
+    color: #374151;
 }
 
 .pancake-modal-close {
-    background: rgba(255, 255, 255, 0.2);
+    background: none;
     border: none;
     font-size: 20px;
     cursor: pointer;
-    padding: 6px 10px;
-    border-radius: 6px;
-    color: white;
-    transition: background 0.2s;
+    padding: 4px 12px;
+    border-radius: 4px;
+    color: #6b7280;
+    transition: all 0.2s;
 }
 
 .pancake-modal-close:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: #f3f4f6;
+    color: #111827;
 }
 
 .pancake-modal-body {
