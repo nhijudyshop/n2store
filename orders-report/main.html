@@ -494,12 +494,14 @@
                         "*"
                     );
                 }
-            } else if (e.data.type === "ORDERS_DATA_RESPONSE") {
-                // Forward orders data from Tab 1 to Tab 3 and Overview
+            } else if (e.data.type === "ORDERS_DATA_RESPONSE_TAB3") {
+                // Forward orders data from Tab 1 to Tab 3 ONLY
                 const productAssignmentFrame = document.getElementById("productAssignmentFrame");
                 if (productAssignmentFrame && productAssignmentFrame.contentWindow) {
                     productAssignmentFrame.contentWindow.postMessage(e.data, "*");
                 }
+            } else if (e.data.type === "ORDERS_DATA_RESPONSE_OVERVIEW") {
+                // Forward orders data from Tab 1 to Overview ONLY
                 const overviewFrame = document.getElementById("overviewFrame");
                 if (overviewFrame && overviewFrame.contentWindow) {
                     overviewFrame.contentWindow.postMessage(e.data, "*");

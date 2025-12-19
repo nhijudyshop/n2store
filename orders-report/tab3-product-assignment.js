@@ -1630,7 +1630,7 @@
 
     // Listen for orders data updates from parent window
     window.addEventListener('message', (event) => {
-        if (event.data.type === 'ORDERS_DATA_UPDATE' || event.data.type === 'ORDERS_DATA_RESPONSE') {
+        if (event.data.type === 'ORDERS_DATA_UPDATE' || event.data.type === 'ORDERS_DATA_RESPONSE_TAB3') {
             ordersData = event.data.orders;
             ordersDataRequestAttempts = 0; // Reset attempts counter
             // Cache in memory only, no localStorage
