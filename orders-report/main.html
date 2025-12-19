@@ -307,6 +307,10 @@
                     <i data-lucide="file-bar-chart" class="tab-icon"></i>
                     Báo Cáo Tổng Hợp
                 </button>
+                <button class="tab-button" onclick="switchTab('quick-view')" data-tab="quick-view">
+                    <i data-lucide="zap" class="tab-icon"></i>
+                    Quick View
+                </button>
 
                 <!-- Campaign Firebase Badge -->
                 <div class="campaign-badge-wrapper">
@@ -356,6 +360,10 @@
 
         <div id="reportOnlineTab" class="tab-content">
             <iframe id="reportOnlineFrame" src="https://nhijudyshop.github.io/n2store/orders-report/main.html"></iframe>
+        </div>
+
+        <div id="quickViewTab" class="tab-content">
+            <iframe id="quickViewFrame" src="tab-quick-view.html"></iframe>
         </div>
     </main>
 
@@ -425,6 +433,10 @@
             } else if (tabName === "report-online") {
                 document
                     .getElementById("reportOnlineTab")
+                    .classList.add("active");
+            } else if (tabName === "quick-view") {
+                document
+                    .getElementById("quickViewTab")
                     .classList.add("active");
             }
 
@@ -650,7 +662,7 @@
         window.addEventListener("DOMContentLoaded", function () {
             // Restore last active tab or default to orders
             const savedTab = localStorage.getItem("currentTab");
-            if (savedTab && ["orders", "statistics", "product-assignment", "overview", "report-online"].includes(savedTab)) {
+            if (savedTab && ["orders", "statistics", "product-assignment", "overview", "report-online", "quick-view"].includes(savedTab)) {
                 switchTab(savedTab);
             } else {
                 switchTab("orders");
