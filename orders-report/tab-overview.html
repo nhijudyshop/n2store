@@ -619,7 +619,7 @@
                         <span id="tableHelperText">Bảng này chưa có dữ liệu chi tiết. Nhấn "Lấy chi tiết đơn hàng" để tải.</span>
                     </div>
                 </div>
-                <button class="btn-action" onclick="loadAvailableTables()"
+                <button class="btn-action" onclick="refreshAllData()"
                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-top: 20px;">
                     <i class="fas fa-sync-alt"></i> Làm mới danh sách
                 </button>
@@ -1375,6 +1375,26 @@
 
         function setRefreshLoading(loading) {
             // Button removed - function kept for compatibility
+        }
+
+        /**
+         * Refresh all data - called by "Làm mới danh sách" button
+         * This requests fresh data from Tab1 AND reloads the table list from Firebase
+         */
+        function refreshAllData() {
+            console.log('[REPORT] 🔄 Refreshing all data...');
+
+            // Reset flags to allow fresh data
+            userManuallySelectedTable = false;
+            justReceivedFromTab1 = false;
+
+            // Request fresh data from Tab1
+            requestDataFromTab1();
+
+            // Also reload table list from Firebase (after a short delay to avoid race condition)
+            setTimeout(() => {
+                loadAvailableTables();
+            }, 500);
         }
 
         // =====================================================
