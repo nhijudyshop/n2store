@@ -2957,6 +2957,8 @@ class PancakeDataManager {
     /**
      * Send typing indicator (typing on/off)
      * POST /pages/{page_id}/conversations/{conversation_id}/typing
+     * NOTE: Typing indicator only works with pancake-direct (pancake.vn/api/v1/)
+     *       NOT with pancake-official (pages.fm/api/public_api/v1/)
      * @param {string} pageId - Page ID
      * @param {string} conversationId - Conversation ID
      * @param {boolean} isTyping - true = typing on, false = typing off
@@ -2964,14 +2966,20 @@ class PancakeDataManager {
      */
     async sendTypingIndicator(pageId, conversationId, isTyping = true) {
         try {
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
-            if (!pageAccessToken) {
+            // Get JWT token and access_token for pancake-direct
+            const jwtToken = await window.pancakeTokenManager?.getToken();
+            const accessToken = await window.pancakeTokenManager?.getToken(); // Same as JWT for this API
+
+            if (!jwtToken) {
                 return false;
             }
 
-            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+            // Use pancake-direct which goes to pancake.vn/api/v1/ (typing not available on pages.fm)
+            const url = window.API_CONFIG.buildUrl.pancakeDirect(
                 `pages/${pageId}/conversations/${conversationId}/typing`,
-                pageAccessToken
+                pageId,
+                jwtToken,
+                accessToken
             );
 
             const response = await window.API_CONFIG.smartFetch(url, {
