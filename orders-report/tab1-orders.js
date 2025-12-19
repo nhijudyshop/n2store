@@ -5884,6 +5884,8 @@ async function fetchOrders() {
             `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
         );
         sendDataToTab2();
+        // Also update Overview tab with first batch
+        sendOrdersDataToOverview();
 
         // Load conversations and comment conversations for first batch
         console.log('[PROGRESSIVE] Loading conversations for first batch...');
@@ -5999,6 +6001,8 @@ async function fetchOrders() {
                         sendDataToTab2();
                         // Auto-update Tab3 with full data after background loading completes
                         sendOrdersDataToTab3();
+                        // Auto-update Overview tab with full data after background loading completes
+                        sendOrdersDataToOverview();
                     }
 
                 } catch (error) {
@@ -9295,20 +9299,36 @@ function sendOrdersDataToOverview() {
 
     // Send to overview tab via parent window forwarding
     if (window.parent) {
-        // Get campaign name directly from activeCampaignLabel
-        const activeCampaignLabel = document.getElementById('activeCampaignLabel');
+        // FIXED: Get campaign name from multiple sources for reliability
         let campaignName = null;
 
-        if (activeCampaignLabel) {
-            // Extract text content, remove icon HTML
-            campaignName = activeCampaignLabel.textContent.trim();
-            // Check if it's still loading or empty
-            if (campaignName === 'Đang tải...' || campaignName === '') {
-                campaignName = null;
+        // 1. Primary source: window.campaignManager.activeCampaign (most reliable)
+        if (window.campaignManager && window.campaignManager.activeCampaign && window.campaignManager.activeCampaign.name) {
+            campaignName = window.campaignManager.activeCampaign.name;
+            console.log('[OVERVIEW] 📋 Campaign name from campaignManager:', campaignName);
+        }
+
+        // 2. Fallback: DOM element activeCampaignLabel
+        if (!campaignName) {
+            const activeCampaignLabel = document.getElementById('activeCampaignLabel');
+            if (activeCampaignLabel) {
+                // Extract text content, remove icon HTML
+                const labelText = activeCampaignLabel.textContent.trim();
+                // Check if it's still loading or empty
+                if (labelText && labelText !== 'Đang tải...' && labelText !== '') {
+                    campaignName = labelText;
+                    console.log('[OVERVIEW] 📋 Campaign name from DOM label:', campaignName);
+                }
             }
         }
 
-        console.log('[OVERVIEW] 📋 Campaign name from activeCampaignLabel:', campaignName);
+        // 3. Last fallback: Get from first order's LiveCampaignName
+        if (!campaignName && allData.length > 0 && allData[0].LiveCampaignName) {
+            campaignName = allData[0].LiveCampaignName;
+            console.log('[OVERVIEW] 📋 Campaign name from first order:', campaignName);
+        }
+
+        console.log('[OVERVIEW] 📋 Final campaign name to send:', campaignName);
 
         window.parent.postMessage({
             type: 'ORDERS_DATA_RESPONSE_OVERVIEW', // Specific type for Overview only

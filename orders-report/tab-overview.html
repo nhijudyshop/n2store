@@ -737,6 +737,7 @@
         let isLoadingTables = false; // Flag to prevent multiple simultaneous table loads
         let userManuallySelectedTable = false; // Flag to track if user manually selected a table from dropdown
         let justReceivedFromTab1 = false; // Flag to prevent auto-load from Firebase when just received data from tab1
+        let dataReceivedFromTab1 = false; // Flag to track if data was received from Tab1 (for retry logic)
 
         const STORAGE_KEY = 'report_order_details_by_table';
         const FIREBASE_PATH = 'report_order_details';
@@ -1198,6 +1199,9 @@
                 console.log('[REPORT] Received campaign name:', event.data.tableName);
                 console.log('[REPORT] User manually selected table:', userManuallySelectedTable);
 
+                // Mark that we received data from Tab1 (for retry logic)
+                dataReceivedFromTab1 = true;
+
                 // Check if campaign is selected in Tab 1
                 if (!event.data.tableName) {
                     console.log('[REPORT] ⚠️ No campaign selected in Tab 1');
@@ -1334,9 +1338,14 @@
         // =====================================================
         // REQUEST DATA FROM TAB1
         // =====================================================
-        function requestDataFromTab1() {
-            console.log('[REPORT] Requesting data from tab1...');
+        let requestRetryCount = 0;
+        const MAX_RETRY_COUNT = 5;
+        const RETRY_DELAY = 2000; // 2 seconds between retries
 
+        function requestDataFromTab1() {
+            console.log('[REPORT] Requesting data from tab1... (attempt', requestRetryCount + 1, ')');
+
+            dataReceivedFromTab1 = false; // Reset flag before request
             setRefreshLoading(true);
             showLoading('Đang tải dữ liệu từ tab Quản Lý Đơn Hàng...');
 
@@ -1344,12 +1353,24 @@
                 type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
             }, '*');
 
+            // Retry logic - if no data after RETRY_DELAY, try again
             setTimeout(() => {
-                if (allOrders.length === 0) {
-                    setRefreshLoading(false);
-                    showEmptyState('Không thể lấy dữ liệu. Vui lòng mở tab "Quản Lý Đơn Hàng" trước.');
+                if (!dataReceivedFromTab1 && allOrders.length === 0) {
+                    requestRetryCount++;
+                    if (requestRetryCount < MAX_RETRY_COUNT) {
+                        console.log('[REPORT] ⏳ No data received from Tab1, retrying... (', requestRetryCount, '/', MAX_RETRY_COUNT, ')');
+                        requestDataFromTab1();
+                    } else {
+                        setRefreshLoading(false);
+                        showEmptyState('Không thể lấy dữ liệu. Vui lòng mở tab "Quản Lý Đơn Hàng" và tải dữ liệu trước.');
+                        requestRetryCount = 0; // Reset for next time
+                    }
+                } else {
+                    // Data received successfully
+                    requestRetryCount = 0;
+                    console.log('[REPORT] ✅ Data received from Tab1 successfully');
                 }
-            }, 10000);
+            }, RETRY_DELAY);
         }
 
         function setRefreshLoading(loading) {
