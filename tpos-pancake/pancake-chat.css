@@ -2089,3 +2089,213 @@
 .pk-new-msg-badge.visible {
     display: flex;
 }
+
+/* =====================================================
+   EMOJI PICKER STYLES
+   ===================================================== */
+.pk-emoji-picker {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    width: 320px;
+    max-height: 280px;
+    background: var(--pk-sidebar-bg);
+    border: 1px solid var(--pk-border);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.pk-emoji-categories {
+    display: flex;
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--pk-border);
+    background: var(--pk-header-bg);
+}
+
+.pk-emoji-cat {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pk-emoji-cat:hover {
+    background: var(--pk-hover-bg);
+}
+
+.pk-emoji-cat.active {
+    background: var(--pk-primary);
+    color: white;
+}
+
+.pk-emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    padding: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.pk-emoji-item {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.15s;
+}
+
+.pk-emoji-item:hover {
+    background: var(--pk-hover-bg);
+    transform: scale(1.1);
+}
+
+/* Typing Indicator */
+.pk-typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background: var(--pk-msg-incoming);
+    border-radius: 18px;
+    width: fit-content;
+    margin: 8px 0;
+}
+
+.pk-typing-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--pk-text-secondary);
+    border-radius: 50%;
+    animation: pk-typing-bounce 1.4s infinite ease-in-out;
+}
+
+.pk-typing-dot:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.pk-typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.pk-typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes pk-typing-bounce {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.5;
+    }
+    30% {
+        transform: translateY(-4px);
+        opacity: 1;
+    }
+}
+
+/* Message Status Icons */
+.pk-message-status {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+}
+
+.pk-message-status svg {
+    width: 14px;
+    height: 14px;
+    color: var(--pk-text-secondary);
+}
+
+.pk-message-status.sent svg {
+    color: var(--pk-text-secondary);
+}
+
+.pk-message-status.delivered svg {
+    color: var(--pk-text-secondary);
+}
+
+.pk-message-status.seen svg {
+    color: var(--pk-primary);
+}
+
+/* Private Reply Button */
+.pk-private-reply-btn {
+    background: var(--pk-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.2s;
+}
+
+.pk-private-reply-btn:hover {
+    background: var(--pk-primary-dark);
+}
+
+.pk-private-reply-btn svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* Comment Actions */
+.pk-comment-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.pk-message:hover .pk-comment-actions {
+    opacity: 1;
+}
+
+.pk-comment-action-btn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--pk-text-secondary);
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.pk-comment-action-btn:hover {
+    background: var(--pk-hover-bg);
+    color: var(--pk-primary);
+}
+
+.pk-comment-action-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.pk-comment-action-btn.liked {
+    color: #e74c3c;
+}
+
+.pk-comment-action-btn.hidden {
+    color: #f39c12;
+}
