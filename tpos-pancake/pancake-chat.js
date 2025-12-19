@@ -20,8 +20,10 @@ class PancakeChatManager {
         // WebSocket Realtime (Phoenix Protocol)
         this.socket = null;
         this.socketReconnectAttempts = 0;
-        this.socketMaxReconnectAttempts = 10;
+        this.socketMaxReconnectAttempts = 3; // Reduced from 10 - WebSocket often blocked on GitHub Pages
         this.socketReconnectDelay = 2000; // Start with 2s, exponential backoff
+        this.socketReconnectTimer = null; // Timer for reconnection
+        this.isSocketConnecting = false; // Flag to prevent duplicate connections
         this.heartbeatInterval = null;
         this.HEARTBEAT_INTERVAL = 30000; // 30 seconds heartbeat
         this.socketJoinRef = 0;
@@ -1276,15 +1278,31 @@ class PancakeChatManager {
      */
     async initializeWebSocket() {
         try {
+            // Prevent duplicate connection attempts
+            if (this.isSocketConnected || this.isSocketConnecting) {
+                console.log('[PANCAKE-SOCKET] Already connected or connecting, skipping');
+                return this.isSocketConnected;
+            }
+
+            // Check if socket is still in CONNECTING state
+            if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
+                console.log('[PANCAKE-SOCKET] Socket still connecting, skipping');
+                return true;
+            }
+
+            this.isSocketConnecting = true;
+
             // Get user ID from token
             if (!window.pancakeTokenManager) {
                 console.warn('[PANCAKE-SOCKET] Token manager not available');
+                this.isSocketConnecting = false;
                 return false;
             }
 
             const token = await window.pancakeTokenManager.getToken();
             if (!token) {
                 console.warn('[PANCAKE-SOCKET] No token available for WebSocket');
+                this.isSocketConnecting = false;
                 return false;
             }
 
@@ -1292,6 +1310,7 @@ class PancakeChatManager {
             const payload = window.pancakeTokenManager.decodeToken(token);
             if (!payload || !payload.uid) {
                 console.warn('[PANCAKE-SOCKET] Cannot get user ID from token');
+                this.isSocketConnecting = false;
                 return false;
             }
 
@@ -1315,6 +1334,7 @@ class PancakeChatManager {
             return true;
         } catch (error) {
             console.error('[PANCAKE-SOCKET] Error initializing WebSocket:', error);
+            this.isSocketConnecting = false;
             return false;
         }
     }
@@ -1325,8 +1345,15 @@ class PancakeChatManager {
     onSocketOpen() {
         console.log('[PANCAKE-SOCKET] ✅ WebSocket connected');
         this.isSocketConnected = true;
+        this.isSocketConnecting = false;
         this.socketReconnectAttempts = 0;
         this.socketReconnectDelay = 2000;
+
+        // Clear any pending reconnect timer
+        if (this.socketReconnectTimer) {
+            clearTimeout(this.socketReconnectTimer);
+            this.socketReconnectTimer = null;
+        }
 
         // Update UI status indicator
         this.updateSocketStatusUI(true);
@@ -1347,6 +1374,7 @@ class PancakeChatManager {
     onSocketClose(event) {
         console.log('[PANCAKE-SOCKET] WebSocket closed:', event.code, event.reason);
         this.isSocketConnected = false;
+        this.isSocketConnecting = false;
 
         // Update UI status indicator
         this.updateSocketStatusUI(false);
@@ -1354,13 +1382,19 @@ class PancakeChatManager {
         // Stop heartbeat
         this.stopHeartbeat();
 
+        // Clear any existing reconnect timer
+        if (this.socketReconnectTimer) {
+            clearTimeout(this.socketReconnectTimer);
+            this.socketReconnectTimer = null;
+        }
+
         // Attempt reconnection with exponential backoff
         if (this.socketReconnectAttempts < this.socketMaxReconnectAttempts) {
             this.socketReconnectAttempts++;
             const delay = Math.min(this.socketReconnectDelay * Math.pow(1.5, this.socketReconnectAttempts - 1), 30000);
             console.log(`[PANCAKE-SOCKET] Reconnecting in ${delay}ms (attempt ${this.socketReconnectAttempts}/${this.socketMaxReconnectAttempts})`);
 
-            setTimeout(() => {
+            this.socketReconnectTimer = setTimeout(() => {
                 this.initializeWebSocket();
             }, delay);
         } else {
@@ -1600,6 +1634,12 @@ class PancakeChatManager {
     closeWebSocket() {
         this.stopHeartbeat();
 
+        // Clear reconnect timer
+        if (this.socketReconnectTimer) {
+            clearTimeout(this.socketReconnectTimer);
+            this.socketReconnectTimer = null;
+        }
+
         if (this.socket) {
             this.socket.onclose = null; // Prevent reconnection
             this.socket.close();
@@ -1607,6 +1647,7 @@ class PancakeChatManager {
         }
 
         this.isSocketConnected = false;
+        this.isSocketConnecting = false;
         this.updateSocketStatusUI(false);
     }
 
