@@ -297,8 +297,6 @@
                         title="Nhấn để thay đổi chiến dịch">
                         <i class="fas fa-spinner fa-spin"></i> Đang tải...
                     </div>
-                    <!-- Hidden input for backward compatibility -->
-                    <input type="hidden" id="tableNameInput" value="" />
                 </div>
                 <div class="stats-item">
                     <div class="stats-value" id="totalOrdersCount">0</div>
@@ -3680,12 +3678,6 @@
             // Update stats card label
             updateActiveCampaignLabel(campaign.name);
 
-            // Update hidden tableNameInput for compatibility
-            const tableNameInput = document.getElementById('tableNameInput');
-            if (tableNameInput) {
-                tableNameInput.value = campaign.name;
-            }
-
             // Update Campaign Settings modal displays
             updateCampaignSettingsUI(campaign);
 
@@ -4153,12 +4145,6 @@
             updateActiveCampaignLabel(campaign.name);
             updateCampaignSettingsUI(campaign);
 
-            // Update hidden tableNameInput for compatibility
-            const tableNameInput = document.getElementById('tableNameInput');
-            if (tableNameInput) {
-                tableNameInput.value = campaign.name;
-            }
-
             // Apply time frame and RELOAD orders
             const campaignFilter = document.getElementById('campaignFilter');
             if (campaignFilter && campaign.timeFrame) {
@@ -4247,12 +4233,6 @@
             // Update UI labels
             updateActiveCampaignLabel(campaign.name);
             updateCampaignSettingsUI(campaign);
-
-            // Update hidden tableNameInput
-            const tableNameInput = document.getElementById('tableNameInput');
-            if (tableNameInput) {
-                tableNameInput.value = campaign.name;
-            }
 
             // Sync realtime settings
             const originalRealtimeCheckbox = document.getElementById('realtimeToggleCheckbox');

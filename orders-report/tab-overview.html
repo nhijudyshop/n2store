@@ -1195,10 +1195,18 @@
             // Handle orders data response
             if (event.data.type === 'ORDERS_DATA_RESPONSE') {
                 console.log('[REPORT] Received orders data:', event.data.orders?.length || 0);
-                console.log('[REPORT] Received table name:', event.data.tableName);
+                console.log('[REPORT] Received campaign name:', event.data.tableName);
                 console.log('[REPORT] User manually selected table:', userManuallySelectedTable);
 
-                const tab1TableName = event.data.tableName || 'Bảng 1';
+                // Check if campaign is selected in Tab 1
+                if (!event.data.tableName) {
+                    console.log('[REPORT] ⚠️ No campaign selected in Tab 1');
+                    setRefreshLoading(false);
+                    showEmptyState('Vui lòng chọn và tải chiến dịch ở "Quản Lý Đơn Hàng" trước');
+                    return;
+                }
+
+                const tab1TableName = event.data.tableName;
 
                 // If user has manually selected a table from dropdown, don't override their selection
                 if (userManuallySelectedTable && currentTableName && currentTableName !== tab1TableName) {
