@@ -487,14 +487,72 @@ function showLoading(show) {
 }
 
 function showNotification(message, type = 'info') {
-    // Simple alert for now - can be enhanced with better UI
+    // Only show alert for errors - use console for success/info
     if (type === 'error') {
         alert('❌ ' + message);
     } else if (type === 'success') {
-        alert('✅ ' + message);
+        // Show toast notification instead of alert
+        showToast('✅ ' + message, 'success');
+        console.log('[SUCCESS]', message);
     } else {
-        alert('ℹ️ ' + message);
+        showToast('ℹ️ ' + message, 'info');
+        console.log('[INFO]', message);
     }
+}
+
+// Toast notification (non-blocking)
+function showToast(message, type = 'info') {
+    // Remove existing toast
+    const existingToast = document.getElementById('toast-notification');
+    if (existingToast) {
+        existingToast.remove();
+    }
+
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.id = 'toast-notification';
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 10000;
+        animation: toastSlideUp 0.3s ease;
+        max-width: 90%;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        ${type === 'success' ? 'background: #10b981; color: white;' :
+          type === 'error' ? 'background: #ef4444; color: white;' :
+          'background: #3b82f6; color: white;'}
+    `;
+    toast.textContent = message;
+
+    // Add animation style if not exists
+    if (!document.getElementById('toast-style')) {
+        const style = document.createElement('style');
+        style.id = 'toast-style';
+        style.textContent = `
+            @keyframes toastSlideUp {
+                from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+                to { opacity: 1; transform: translateX(-50%) translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(toast);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(20px)';
+        toast.style.transition = 'all 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 function clearAll() {
@@ -849,9 +907,47 @@ elements.imageUpload.addEventListener('change', (e) => {
     }
 });
 
-// AI Analysis Button
+// Paste Image (Ctrl+V)
+document.addEventListener('paste', async (e) => {
+    // Check if clipboard has image data
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageItems = [];
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+                imageItems.push(file);
+            }
+        }
+    }
+
+    if (imageItems.length > 0) {
+        e.preventDefault();
+        console.log('[PASTE] Received', imageItems.length, 'image(s) from clipboard');
+        await handleImageUpload(imageItems);
+    }
+});
+
+// AI Analysis Button - with debounce to prevent spam clicking
+let isAnalyzing = false;
 elements.btnAnalyzeWithAI.addEventListener('click', async () => {
-    await analyzeImagesWithAI();
+    if (isAnalyzing) {
+        console.log('[AI] Analysis already in progress, ignoring click');
+        return;
+    }
+    isAnalyzing = true;
+    elements.btnAnalyzeWithAI.disabled = true;
+    elements.btnAnalyzeWithAI.style.opacity = '0.6';
+
+    try {
+        await analyzeImagesWithAI();
+    } finally {
+        isAnalyzing = false;
+        elements.btnAnalyzeWithAI.disabled = false;
+        elements.btnAnalyzeWithAI.style.opacity = '1';
+    }
 });
 
 // Fetch Invoice Data
@@ -909,6 +1005,35 @@ window.setGeminiKeys = function (keys) {
     window.GEMINI_KEYS = keyString;
     console.log('[API-KEYS] ✅ Gemini API keys saved successfully');
     console.log('[API-KEYS] Keys count:', keyString.split(',').filter(k => k.trim()).length);
+    return true;
+};
+
+/**
+ * Add free keys with Pro key as fallback
+ * Usage in browser console:
+ *   addFreeKeys('free_key_1,free_key_2')
+ * or
+ *   addFreeKeys(['free_key_1', 'free_key_2'])
+ */
+window.addFreeKeys = function (freeKeys) {
+    const freeKeyArray = Array.isArray(freeKeys)
+        ? freeKeys
+        : freeKeys.split(',').map(k => k.trim()).filter(k => k);
+
+    // Pro key is always last (fallback)
+    const proKey = window.GEMINI_PRO_KEY || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs';
+
+    // Combine: free keys first, pro key last
+    const allKeys = [...freeKeyArray, proKey];
+    const keyString = allKeys.join(',');
+
+    localStorage.setItem('gemini_api_keys', keyString);
+    window.GEMINI_KEYS = keyString;
+
+    console.log('[API-KEYS] ✅ Keys configured:');
+    console.log('[API-KEYS]   - Free keys:', freeKeyArray.length);
+    console.log('[API-KEYS]   - Pro key: 1 (fallback)');
+    console.log('[API-KEYS]   - Total:', allKeys.length);
     return true;
 };
 
