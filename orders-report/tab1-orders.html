@@ -120,6 +120,67 @@
             padding: 0 8px;
         }
 
+        /* Search Filter Dropdown Styles */
+        .search-filter-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white !important;
+            border: none !important;
+            border-radius: 6px;
+            padding: 6px 12px !important;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+        }
+
+        .search-filter-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .search-filter-btn span {
+            color: white !important;
+        }
+
+        .search-filter-btn i {
+            color: rgba(255, 255, 255, 0.8) !important;
+            font-size: 10px;
+        }
+
+        .search-filter-select {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 28px 6px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+        }
+
+        .search-filter-select:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .search-filter-select:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+        }
+
+        .search-filter-select option {
+            background: white;
+            color: #374151;
+        }
+
         /* Status Grid Styles */
         .status-grid {
             display: grid;
@@ -328,90 +389,6 @@
                 <span id="chatApiSourceLabel">Pancake API</span>
             </div>
 
-            <!-- Table Filters Row -->
-            <div
-                style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid #e5e7eb; margin-top: 8px;">
-                <!-- TAG Filter -->
-                <label>TAG:</label>
-                <div class="custom-dropdown" id="tagFilterDropdown" style="min-width: 200px;">
-                    <div class="dropdown-selected" onclick="toggleTagDropdown()" id="tagFilterSelected">
-                        <span>Tất cả</span>
-                        <i class="fas fa-chevron-down"></i>
-                    </div>
-                    <div class="dropdown-container" id="tagFilterContainer">
-                        <input type="text" id="tagFilterInput" placeholder="Tìm tag..." onkeyup="filterTagDropdown()"
-                            onclick="event.stopPropagation()">
-                        <div id="tagFilterOptions" class="dropdown-options">
-                            <!-- Options populated by JS -->
-                        </div>
-                    </div>
-                    <input type="hidden" id="tagFilter" value="all">
-                </div>
-
-                <!-- Messages Filter -->
-                <label>Tin nhắn:</label>
-                <select id="conversationFilter" onchange="performTableSearch()" style="min-width: 150px;">
-                    <option value="all" selected>Tất cả</option>
-                    <option value="unread">Chưa đọc</option>
-                    <option value="read">Đã đọc</option>
-                </select>
-
-                <!-- Status Filter -->
-                <label>Trạng thái:</label>
-                <select id="statusFilter" onchange="performTableSearch()" style="min-width: 150px;">
-                    <option value="all" selected>Tất cả</option>
-                    <option value="Draft">Nháp</option>
-                    <option value="Confirmed">Đơn hàng</option>
-                </select>
-            </div>
-
-            <!-- Bulk Tag Assignment Row -->
-            <div
-                style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #e5e7eb; margin-top: 12px;">
-                <label style="font-weight: 600; color: #374151;">Gán tag hàng loạt:</label>
-
-                <!-- STT Input Container -->
-                <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; max-width: 400px;">
-                    <div style="position: relative;">
-                        <input type="text" id="bulkTagSTTInput" placeholder="Nhập STT (VD: 1, 2, 5-10, 15)"
-                            style="width: 100%; padding: 8px 40px 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;"
-                            onkeydown="handleBulkTagSTTInput(event)">
-                        <button onclick="clearBulkTagSTT()"
-                            style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #9ca3af; cursor: pointer; padding: 4px;"
-                            title="Xóa tất cả">
-                            <i class="fas fa-times-circle"></i>
-                        </button>
-                    </div>
-                    <div id="bulkTagSTTDisplay" style="display: flex; gap: 4px; flex-wrap: wrap; min-height: 20px;">
-                        <!-- STT pills will be displayed here -->
-                    </div>
-                </div>
-
-                <!-- Tag Dropdown -->
-                <label>Chọn tag:</label>
-                <div class="custom-dropdown" id="bulkTagDropdown" style="min-width: 250px;">
-                    <div class="dropdown-selected" onclick="toggleBulkTagDropdown()" id="bulkTagSelected">
-                        <span style="color: #9ca3af;">-- Chọn tag --</span>
-                        <i class="fas fa-chevron-down"></i>
-                    </div>
-                    <div class="dropdown-container" id="bulkTagContainer">
-                        <input type="text" id="bulkTagSearchInput" placeholder="Tìm tag..."
-                            onkeyup="filterBulkTagDropdown()" onclick="event.stopPropagation()">
-                        <div id="bulkTagOptions" class="dropdown-options">
-                            <!-- Options populated by JS -->
-                        </div>
-                    </div>
-                    <input type="hidden" id="bulkTagValue" value="">
-                </div>
-
-                <!-- Assign Button -->
-                <button class="btn-primary" id="bulkAssignTagBtn" onclick="executeBulkTagAssignment()"
-                    style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 8px 20px; display: flex; align-items: center; gap: 8px;"
-                    title="Gán tag cho các đơn hàng theo STT đã nhập">
-                    <i class="fas fa-tags"></i>
-                    Gán tag
-                </button>
-            </div>
         </div>
 
         <!-- Action Buttons Section (New) -->
@@ -489,14 +466,55 @@
         </div>
         <!-- Search Section -->
         <div class="search-section" id="searchSection">
-            <div class="search-wrapper">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" class="search-input" id="tableSearchInput"
-                    placeholder="Tìm kiếm theo mã ĐH, tên khách hàng, SĐT, địa chỉ, ghi chú, trạng thái..."
-                    autocomplete="off" />
-                <button class="search-clear" id="searchClearBtn">
-                    <i class="fas fa-times"></i>
-                </button>
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <div class="search-wrapper" style="flex: 1; max-width: 300px;">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="search-input" id="tableSearchInput"
+                        placeholder="Tìm kiếm..."
+                        autocomplete="off" />
+                    <button class="search-clear" id="searchClearBtn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <!-- TAG Filter -->
+                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 12px; font-weight: 500; color: #6b7280;">TAG:</label>
+                    <div class="custom-dropdown" id="tagFilterDropdown" style="min-width: 150px;">
+                        <div class="dropdown-selected search-filter-btn" onclick="toggleTagDropdown()" id="tagFilterSelected">
+                            <span>Tất cả</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="dropdown-container" id="tagFilterContainer">
+                            <input type="text" id="tagFilterInput" placeholder="Tìm tag..." onkeyup="filterTagDropdown()"
+                                onclick="event.stopPropagation()">
+                            <div id="tagFilterOptions" class="dropdown-options">
+                                <!-- Options populated by JS -->
+                            </div>
+                        </div>
+                        <input type="hidden" id="tagFilter" value="all">
+                    </div>
+                </div>
+
+                <!-- Messages Filter -->
+                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 12px; font-weight: 500; color: #6b7280;">Tin nhắn:</label>
+                    <select id="conversationFilter" onchange="performTableSearch()" class="search-filter-select">
+                        <option value="all" selected>Tất cả</option>
+                        <option value="unread">Chưa đọc</option>
+                        <option value="read">Đã đọc</option>
+                    </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 12px; font-weight: 500; color: #6b7280;">Trạng thái:</label>
+                    <select id="statusFilter" onchange="performTableSearch()" class="search-filter-select">
+                        <option value="all" selected>Tất cả</option>
+                        <option value="Draft">Nháp</option>
+                        <option value="Confirmed">Đơn hàng</option>
+                    </select>
+                </div>
             </div>
             <div class="search-info">
                 <div>
