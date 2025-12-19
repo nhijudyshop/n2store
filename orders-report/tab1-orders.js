@@ -9379,8 +9379,8 @@ function sendOrdersDataToTab3() {
 }
 
 function sendOrdersDataToOverview() {
-    // Prepare orders data with STT (SessionIndex) - use displayed/filtered data
-    const ordersDataToSend = displayedData.map((order, index) => ({
+    // Prepare orders data with STT (SessionIndex) - use ALL data (not filtered)
+    const ordersDataToSend = allData.map((order, index) => ({
         stt: order.SessionIndex || (index + 1).toString(), // Use SessionIndex as STT
         orderId: order.Id,
         orderCode: order.Code,
