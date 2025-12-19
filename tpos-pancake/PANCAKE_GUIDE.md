@@ -533,6 +533,67 @@ Token được lưu tại path: `pancake_jwt_tokens/accounts/{accountId}`
 
 ## 📋 Checklist Cần Làm (Dựa trên UI Tham Khảo)
 
+### ⚠️ BUG HIỆN TẠI (Cần Fix Ngay)
+
+> [!CAUTION]
+> **Hai vấn đề nghiêm trọng trong UI hiện tại:**
+
+![Screenshot hiện tại](uploaded_image_1766118242145.png)
+
+#### 1. ❌ Thời Gian Hiển Thị SAI (UTC thay vì GMT+7)
+
+| Vấn Đề | Chi Tiết |
+|--------|----------|
+| **Hiện tại** | Hiển thị `04:22`, `04:21`... (UTC) |
+| **Đúng ra** | Phải hiển thị `11:22`, `11:21`... (GMT+7) |
+| **Nguyên nhân** | API trả về UTC, code chưa convert sang GMT+7 |
+
+**Fix cần làm:**
+```javascript
+// TRƯỚC (sai - hiển thị UTC)
+const time = new Date(message.inserted_at);
+return `${time.getHours()}:${time.getMinutes()}`;
+
+// SAU (đúng - hiển thị GMT+7)
+const time = new Date(message.inserted_at);
+return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',  // ← Quan trọng!
+    hour: '2-digit',
+    minute: '2-digit'
+}).format(time);
+```
+
+#### 2. ❌ Avatar Chưa Load (Chỉ Hiện Chữ Cái)
+
+| Vấn Đề | Chi Tiết |
+|--------|----------|
+| **Hiện tại** | Hiển thị vòng tròn với chữ cái (E, Q, N, T) |
+| **Đúng ra** | Phải hiển thị avatar Facebook của khách hàng |
+| **Nguyên nhân** | Chưa gọi `getAvatarUrl()` hoặc avatar_url từ API null |
+
+**Fix cần làm:**
+```javascript
+// Lấy avatar đúng cách
+const customer = conversation.customers?.[0];
+const avatarUrl = pancakeDataManager.getAvatarUrl(
+    customer?.fb_id,
+    conversation.page_id,
+    token,
+    customer?.avatar_url  // Avatar từ Pancake API
+);
+
+// Nếu vẫn null, fallback sang initial letter
+if (!avatarUrl || avatarUrl.includes('data:image/svg')) {
+    // Hiển thị initial letter (E, Q, N...)
+    showInitialAvatar(customer?.name);
+} else {
+    // Hiển thị avatar thật
+    img.src = avatarUrl;
+}
+```
+
+---
+
 ### 🔴 Ưu Tiên Cao (Bắt buộc)
 
 - [ ] **Page Selector** (Góc trên phải)
