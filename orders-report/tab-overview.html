@@ -1676,6 +1676,37 @@
             return amount.toLocaleString('vi-VN');
         }
 
+        /**
+         * Render tags cell for orders table
+         * @param {string|Array} tags - Tags data (can be JSON string or array)
+         * @returns {string} HTML string for tags
+         */
+        function renderTagsCell(tags) {
+            if (!tags) return '<span style="color: #999;">-</span>';
+
+            try {
+                // Parse if it's a JSON string
+                let tagsArray = tags;
+                if (typeof tags === 'string') {
+                    tagsArray = JSON.parse(tags);
+                }
+
+                if (!Array.isArray(tagsArray) || tagsArray.length === 0) {
+                    return '<span style="color: #999;">-</span>';
+                }
+
+                // Render each tag as a badge
+                return tagsArray.map(tag => {
+                    const tagName = tag.Name || tag.name || tag;
+                    const tagColor = tag.Color || tag.color || '#667eea';
+                    return `<span class="tag-badge" style="background: ${tagColor}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin: 1px; display: inline-block;">${tagName}</span>`;
+                }).join('');
+            } catch (e) {
+                // If parsing fails, just display the raw value
+                return `<span style="color: #999;">${tags}</span>`;
+            }
+        }
+
         // =====================================================
         // RENDER ORDERS TABLE
         // =====================================================
@@ -1705,6 +1736,7 @@
                                 <th>SĐT</th>
                                 <th>Số lượng</th>
                                 <th>Tổng tiền</th>
+                                <th>Tags</th>
                                 <th>Trạng thái</th>
                             </tr>
                         </thead>
@@ -1720,6 +1752,7 @@
                         <td>${order.phone || ''}</td>
                         <td>${order.quantity || 0}</td>
                         <td class="amount">${(order.totalAmount || 0).toLocaleString('vi-VN')}đ</td>
+                        <td>${renderTagsCell(order.Tags)}</td>
                         <td>${order.state || ''}</td>
                     </tr>
                 `;
