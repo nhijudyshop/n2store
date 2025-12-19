@@ -18,6 +18,10 @@ class PancakeDataManager {
         this.lastFetchTime = null;
         this.lastPageFetchTime = null;
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
+        // Messages cache for faster loading
+        this.messagesCache = new Map(); // key: `${pageId}_${conversationId}` -> { messages, timestamp }
+        this.MESSAGES_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache for messages
     }
 
     /**
@@ -830,15 +834,34 @@ class PancakeDataManager {
 
     /**
      * Lấy messages chi tiết của một conversation từ Pancake API
+     * Với caching và retry mechanism
      * @param {string} pageId - Facebook Page ID
      * @param {string} conversationId - Pancake Conversation ID
      * @param {number} currentCount - Vị trí message (optional, for pagination)
      * @param {number} customerId - Customer ID (PartnerId) - required by backend API
-     * @returns {Promise<Object>} { messages: Array, conversation: Object }
+     * @param {boolean} forceRefresh - Force refresh from API (skip cache)
+     * @returns {Promise<Object>} { messages: Array, conversation: Object, fromCache: boolean }
      */
-    async fetchMessagesForConversation(pageId, conversationId, currentCount = null, customerId = null) {
+    async fetchMessagesForConversation(pageId, conversationId, currentCount = null, customerId = null, forceRefresh = false) {
+        const cacheKey = `${pageId}_${conversationId}`;
+
         try {
             console.log(`[PANCAKE] Fetching messages for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`);
+
+            // Check cache first (only if not pagination and not force refresh)
+            if (!forceRefresh && currentCount === null) {
+                const cached = this.messagesCache.get(cacheKey);
+                if (cached && (Date.now() - cached.timestamp) < this.MESSAGES_CACHE_DURATION) {
+                    console.log(`[PANCAKE] ✅ Using cached messages (${cached.messages.length} messages)`);
+                    return {
+                        messages: cached.messages,
+                        conversation: cached.conversation,
+                        customers: cached.customers,
+                        customerId: cached.customerId,
+                        fromCache: true
+                    };
+                }
+            }
 
             // Get page_access_token for Official API (pages.fm)
             const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
@@ -861,40 +884,109 @@ class PancakeDataManager {
                 pageAccessToken
             ) + extraParams;
 
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
+            // Retry mechanism with exponential backoff
+            let lastError = null;
+            const maxRetries = 3;
+            const delays = [0, 1000, 2000]; // No delay first try, then 1s, 2s
+
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                if (attempt > 0) {
+                    console.log(`[PANCAKE] Retry attempt ${attempt + 1}/${maxRetries} after ${delays[attempt]}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delays[attempt]));
                 }
-            }, 3, true); // skipFallback = true for messages
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                try {
+                    const response = await API_CONFIG.smartFetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    }, 3, true); // skipFallback = true for messages
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    console.log(`[PANCAKE] ✅ Fetched ${data.messages?.length || 0} messages`);
+
+                    // Extract customer_id from customers array if available
+                    const customers = data.customers || data.conv_customers || [];
+                    const extractedCustomerId = customers.length > 0 ? customers[0].id : null;
+                    if (extractedCustomerId) {
+                        console.log(`[PANCAKE] ✅ Extracted customer_id from response: ${extractedCustomerId}`);
+                    }
+
+                    const result = {
+                        messages: data.messages || [],
+                        conversation: data.conversation || null,
+                        customers: customers,
+                        customerId: extractedCustomerId,
+                        fromCache: false
+                    };
+
+                    // Cache the result (only if not pagination)
+                    if (currentCount === null && result.messages.length > 0) {
+                        this.messagesCache.set(cacheKey, {
+                            messages: result.messages,
+                            conversation: result.conversation,
+                            customers: result.customers,
+                            customerId: result.customerId,
+                            timestamp: Date.now()
+                        });
+                        console.log(`[PANCAKE] Messages cached for ${cacheKey}`);
+                    }
+
+                    return result;
+
+                } catch (fetchError) {
+                    lastError = fetchError;
+                    console.warn(`[PANCAKE] Fetch attempt ${attempt + 1} failed:`, fetchError.message);
+                }
             }
 
-            const data = await response.json();
-            console.log(`[PANCAKE] Fetched ${data.messages?.length || 0} messages`);
-
-            // Extract customer_id from customers array if available
-            const customers = data.customers || data.conv_customers || [];
-            const extractedCustomerId = customers.length > 0 ? customers[0].id : null;
-            if (extractedCustomerId) {
-                console.log(`[PANCAKE] ✅ Extracted customer_id from response: ${extractedCustomerId}`);
-            }
-
-            return {
-                messages: data.messages || [],
-                conversation: data.conversation || null,
-                customers: customers,
-                customerId: extractedCustomerId // Return customer_id for caller to use
-            };
+            // All retries failed, throw the last error
+            throw lastError || new Error('Failed to fetch messages after retries');
 
         } catch (error) {
             console.error('[PANCAKE] Error fetching messages:', error);
+
+            // Return cached data if available (even if expired)
+            const cached = this.messagesCache.get(cacheKey);
+            if (cached) {
+                console.log(`[PANCAKE] ⚠️ Returning expired cached messages due to error`);
+                return {
+                    messages: cached.messages,
+                    conversation: cached.conversation,
+                    customers: cached.customers,
+                    customerId: cached.customerId,
+                    fromCache: true,
+                    error: error.message
+                };
+            }
+
             return {
                 messages: [],
-                conversation: null
+                conversation: null,
+                fromCache: false,
+                error: error.message
             };
+        }
+    }
+
+    /**
+     * Clear messages cache for a specific conversation or all
+     * @param {string} pageId - Optional page ID
+     * @param {string} conversationId - Optional conversation ID
+     */
+    clearMessagesCache(pageId = null, conversationId = null) {
+        if (pageId && conversationId) {
+            const cacheKey = `${pageId}_${conversationId}`;
+            this.messagesCache.delete(cacheKey);
+            console.log(`[PANCAKE] Messages cache cleared for ${cacheKey}`);
+        } else {
+            this.messagesCache.clear();
+            console.log(`[PANCAKE] All messages cache cleared`);
         }
     }
 
