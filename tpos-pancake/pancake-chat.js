@@ -906,23 +906,16 @@ class PancakeChatManager {
         );
 
         const convData = updatedConv.conversation || updatedConv;
-        const convId = convData.id || updatedConv.id;
-
-        // Check if this is the currently active conversation
-        const isActiveConversation = this.activeConversation &&
-            (this.activeConversation.id === convId ||
-             this.activeConversation.id === updatedConv.id);
 
         if (existingIndex !== -1) {
             // Update existing conversation data
             const existingConv = this.conversations[existingIndex];
 
             // Merge updates (keep existing data, override with new)
-            // Don't increment unread if this is the active conversation
             Object.assign(existingConv, {
                 snippet: convData.snippet || existingConv.snippet,
                 updated_at: convData.updated_at || new Date().toISOString(),
-                unread_count: isActiveConversation ? 0 : (existingConv.unread_count || 0) + 1,
+                unread_count: (existingConv.unread_count || 0) + 1,
                 last_message: convData.last_message || existingConv.last_message
             });
 
@@ -955,62 +948,8 @@ class PancakeChatManager {
             this.renderConversationList();
         }
 
-        // If this is the active conversation, fetch and display new messages
-        if (isActiveConversation) {
-            console.log('[PANCAKE-CHAT] 🔄 Active conversation updated - fetching new messages...');
-            this.fetchNewMessagesForActiveConversation();
-        } else {
-            // Play notification sound or show visual indicator only for non-active conversations
-            this.showNewMessageIndicator();
-        }
-    }
-
-    /**
-     * Fetch only new messages for the active conversation (realtime update)
-     * This is called when a realtime update is received for the currently open conversation
-     */
-    async fetchNewMessagesForActiveConversation() {
-        if (!this.activeConversation || !window.pancakeDataManager) return;
-
-        try {
-            const pageId = this.activeConversation.page_id;
-            const convId = this.activeConversation.id;
-            const customerId = this.activeConversation.customers?.[0]?.id || null;
-
-            // Fetch messages (will get latest including new ones)
-            const result = await window.pancakeDataManager.fetchMessagesForConversation(
-                pageId,
-                convId,
-                0, // Start from 0 to get latest messages
-                customerId
-            );
-
-            if (result && result.messages) {
-                // Get current message IDs
-                const existingIds = new Set(this.messages.map(m => m.id));
-
-                // Find new messages (not already in our list)
-                const newMessages = result.messages.filter(m => !existingIds.has(m.id) && !m._temp);
-
-                if (newMessages.length > 0) {
-                    console.log(`[PANCAKE-CHAT] 📥 Found ${newMessages.length} new message(s)`);
-
-                    // Add new messages to the end
-                    this.messages.push(...newMessages);
-
-                    // Re-render messages
-                    this.renderMessages();
-
-                    // Scroll to bottom to show new message
-                    this.scrollToBottom();
-
-                    // Mark as read since user is viewing
-                    window.pancakeDataManager.markConversationAsRead(pageId, convId);
-                }
-            }
-        } catch (error) {
-            console.error('[PANCAKE-CHAT] Error fetching new messages:', error);
-        }
+        // Play notification sound or show visual indicator
+        this.showNewMessageIndicator();
     }
 
     /**
@@ -2488,9 +2427,7 @@ class PancakeChatManager {
             _temp: true
         };
         this.messages.push(tempMessage);
-        this.isScrolledToBottom = true; // Force scroll for own message
         this.renderMessages();
-        this.scrollToBottom(); // Scroll immediately to show optimistic update
 
         try {
             const pageId = this.activeConversation.page_id;
@@ -2535,15 +2472,11 @@ class PancakeChatManager {
             if (sentMessage) {
                 this.messages.push(sentMessage);
             }
-
-            // Force scroll to bottom after sending own message
-            this.isScrolledToBottom = true;
             this.renderMessages();
-            this.scrollToBottom();
 
             // Update conversation preview
             if (this.activeConversation) {
-                this.activeConversation.snippet = text || '[Hình ảnh]';
+                this.activeConversation.snippet = text;
                 this.activeConversation.updated_at = new Date().toISOString();
                 this.renderConversationList();
             }
