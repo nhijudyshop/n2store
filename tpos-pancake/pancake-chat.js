@@ -11,6 +11,12 @@ class PancakeChatManager {
         this.searchQuery = '';
         this.filterType = 'all'; // 'all', 'unread', 'inbox', 'comment'
 
+        // Page Selector
+        this.pages = [];
+        this.pagesWithUnread = [];
+        this.selectedPageId = null; // null = all pages
+        this.isPageDropdownOpen = false;
+
         // Quick reply templates
         this.quickReplies = [
             { label: 'NV My KH dat', color: 'blue', template: '' },
@@ -62,7 +68,10 @@ class PancakeChatManager {
         }
 
         if (window.pancakeDataManager) {
-            // Fetch initial data
+            // Load pages first (for Page Selector)
+            await this.loadPages();
+
+            // Fetch initial conversations
             await this.loadConversations();
         } else {
             console.warn('[PANCAKE-CHAT] PancakeDataManager not available');
@@ -84,6 +93,39 @@ class PancakeChatManager {
             <div class="pancake-chat-container">
                 <!-- Conversation List (Left Panel) -->
                 <div class="pk-conversation-list" id="pkConversationList">
+                    <!-- Page Selector -->
+                    <div class="pk-page-selector" style="position: relative;">
+                        <button class="pk-page-selector-btn" id="pkPageSelectorBtn">
+                            <div class="pk-page-avatar-placeholder" id="pkSelectedPageAvatar">
+                                <i data-lucide="layout-grid"></i>
+                            </div>
+                            <div class="pk-page-info">
+                                <div class="pk-page-name" id="pkSelectedPageName">Tat ca Pages</div>
+                                <div class="pk-page-hint" id="pkSelectedPageHint">Chon page de loc hoi thoai</div>
+                            </div>
+                            <span class="pk-page-unread-badge" id="pkTotalUnreadBadge" style="display: none;">0</span>
+                            <i data-lucide="chevron-down" class="pk-page-selector-icon"></i>
+                        </button>
+
+                        <!-- Page Dropdown -->
+                        <div class="pk-page-dropdown" id="pkPageDropdown">
+                            <div class="pk-page-dropdown-header">Chon Page</div>
+                            <div id="pkPageList">
+                                <div class="pk-loading">
+                                    <div class="pk-loading-spinner"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Tabs -->
+                    <div class="pk-filter-tabs">
+                        <button class="pk-filter-tab active" data-filter="all">Tat ca</button>
+                        <button class="pk-filter-tab" data-filter="inbox">Inbox</button>
+                        <button class="pk-filter-tab" data-filter="comment">Comment</button>
+                        <button class="pk-filter-tab" data-filter="unread">Chua doc</button>
+                    </div>
+
                     <!-- Search Header -->
                     <div class="pk-search-header">
                         <div class="pk-search-wrapper">
@@ -91,10 +133,6 @@ class PancakeChatManager {
                                 <i data-lucide="search"></i>
                                 <input type="text" id="pkSearchInput" placeholder="Tim kiem">
                             </div>
-                            <button class="pk-filter-btn" id="pkFilterBtn">
-                                <i data-lucide="sliders-horizontal"></i>
-                                <span>Loc theo</span>
-                            </button>
                         </div>
                     </div>
 
@@ -136,6 +174,13 @@ class PancakeChatManager {
 
         // Filter conversations
         let filtered = this.conversations;
+
+        // Filter by selected page
+        if (this.selectedPageId) {
+            filtered = filtered.filter(conv => conv.page_id === this.selectedPageId);
+        }
+
+        // Filter by search query
         if (this.searchQuery) {
             const query = this.searchQuery.toLowerCase();
             filtered = filtered.filter(conv => {
@@ -144,12 +189,28 @@ class PancakeChatManager {
                 return name.includes(query) || snippet.includes(query);
             });
         }
+
+        // Filter by type
         if (this.filterType === 'unread') {
             filtered = filtered.filter(conv => conv.unread_count > 0);
         } else if (this.filterType === 'inbox') {
             filtered = filtered.filter(conv => conv.type === 'INBOX');
         } else if (this.filterType === 'comment') {
             filtered = filtered.filter(conv => conv.type === 'COMMENT');
+        }
+
+        if (filtered.length === 0) {
+            const selectedPage = this.pages.find(p => p.id === this.selectedPageId);
+            const pageName = selectedPage?.name || 'page nay';
+            container.innerHTML = `
+                <div class="pk-empty-state" style="padding: 40px 20px;">
+                    <i data-lucide="inbox"></i>
+                    <h3>Khong co hoi thoai</h3>
+                    <p>Khong tim thay hoi thoai nao ${this.selectedPageId ? `trong ${pageName}` : ''}</p>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
         }
 
         container.innerHTML = filtered.map(conv => this.renderConversationItem(conv)).join('');
@@ -389,6 +450,229 @@ class PancakeChatManager {
     }
 
     // =====================================================
+    // PAGE SELECTOR METHODS
+    // =====================================================
+
+    async loadPages() {
+        if (!window.pancakeDataManager) {
+            console.warn('[PANCAKE-CHAT] PancakeDataManager not available for loading pages');
+            return;
+        }
+
+        try {
+            console.log('[PANCAKE-CHAT] Loading pages...');
+
+            // Fetch pages list
+            this.pages = await window.pancakeDataManager.fetchPages(false) || [];
+            console.log('[PANCAKE-CHAT] Loaded pages:', this.pages.length);
+
+            // Fetch unread counts
+            this.pagesWithUnread = await window.pancakeDataManager.fetchPagesWithUnreadCount() || [];
+            console.log('[PANCAKE-CHAT] Loaded pages with unread:', this.pagesWithUnread.length);
+
+            // Load saved page selection from localStorage
+            this.loadSelectedPage();
+
+            // Render page list dropdown
+            this.renderPageDropdown();
+
+            // Update selected page display
+            this.updateSelectedPageDisplay();
+
+        } catch (error) {
+            console.error('[PANCAKE-CHAT] Error loading pages:', error);
+        }
+    }
+
+    renderPageDropdown() {
+        const container = document.getElementById('pkPageList');
+        if (!container) return;
+
+        // Calculate total unread
+        const totalUnread = this.pagesWithUnread.reduce((sum, p) => sum + (p.unread_conv_count || 0), 0);
+
+        let html = `
+            <!-- All Pages Option -->
+            <div class="pk-page-item all-pages ${!this.selectedPageId ? 'active' : ''}" data-page-id="">
+                <div class="pk-all-pages-icon">
+                    <i data-lucide="layout-grid"></i>
+                </div>
+                <div class="pk-page-info">
+                    <div class="pk-page-name">Tat ca Pages</div>
+                    <div class="pk-page-hint">${this.pages.length} pages</div>
+                </div>
+                ${totalUnread > 0 ? `<span class="pk-page-unread-badge">${totalUnread}</span>` : ''}
+            </div>
+        `;
+
+        // Render each page
+        for (const page of this.pages) {
+            const pageId = page.id;
+            const pageName = page.name || page.page_name || 'Page';
+            const isActive = this.selectedPageId === pageId;
+
+            // Find unread count for this page
+            const pageUnread = this.pagesWithUnread.find(p =>
+                p.page_id === pageId ||
+                p.page_id === page.fb_page_id ||
+                p.page_id === page.page_id
+            );
+            const unreadCount = pageUnread?.unread_conv_count || 0;
+
+            // Get avatar
+            const avatarUrl = page.avatar || page.picture?.data?.url || null;
+            const avatarHtml = avatarUrl
+                ? `<img src="${avatarUrl}" class="pk-page-avatar" alt="${this.escapeHtml(pageName)}">`
+                : `<div class="pk-page-avatar-placeholder">${pageName.charAt(0).toUpperCase()}</div>`;
+
+            html += `
+                <div class="pk-page-item ${isActive ? 'active' : ''}" data-page-id="${pageId}">
+                    ${avatarHtml}
+                    <div class="pk-page-info">
+                        <div class="pk-page-name">${this.escapeHtml(pageName)}</div>
+                        <div class="pk-page-hint">ID: ${page.fb_page_id || pageId}</div>
+                    </div>
+                    ${unreadCount > 0 ? `<span class="pk-page-unread-badge">${unreadCount}</span>` : ''}
+                </div>
+            `;
+        }
+
+        container.innerHTML = html;
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    updateSelectedPageDisplay() {
+        const nameEl = document.getElementById('pkSelectedPageName');
+        const hintEl = document.getElementById('pkSelectedPageHint');
+        const avatarEl = document.getElementById('pkSelectedPageAvatar');
+        const badgeEl = document.getElementById('pkTotalUnreadBadge');
+
+        if (!nameEl) return;
+
+        if (this.selectedPageId) {
+            // Find selected page
+            const page = this.pages.find(p => p.id === this.selectedPageId);
+            if (page) {
+                nameEl.textContent = page.name || page.page_name || 'Page';
+                hintEl.textContent = `ID: ${page.fb_page_id || page.id}`;
+
+                // Update avatar
+                const avatarUrl = page.avatar || page.picture?.data?.url || null;
+                if (avatarUrl) {
+                    avatarEl.innerHTML = `<img src="${avatarUrl}" class="pk-page-avatar" style="width: 32px; height: 32px;" alt="">`;
+                } else {
+                    avatarEl.innerHTML = (page.name || 'P').charAt(0).toUpperCase();
+                    avatarEl.className = 'pk-page-avatar-placeholder';
+                }
+
+                // Update unread badge
+                const pageUnread = this.pagesWithUnread.find(p =>
+                    p.page_id === this.selectedPageId ||
+                    p.page_id === page.fb_page_id
+                );
+                const unreadCount = pageUnread?.unread_conv_count || 0;
+                if (unreadCount > 0) {
+                    badgeEl.textContent = unreadCount;
+                    badgeEl.style.display = 'flex';
+                } else {
+                    badgeEl.style.display = 'none';
+                }
+            }
+        } else {
+            // All pages selected
+            nameEl.textContent = 'Tat ca Pages';
+            hintEl.textContent = `${this.pages.length} pages`;
+            avatarEl.innerHTML = '<i data-lucide="layout-grid"></i>';
+            avatarEl.className = 'pk-page-avatar-placeholder';
+
+            // Show total unread
+            const totalUnread = this.pagesWithUnread.reduce((sum, p) => sum + (p.unread_conv_count || 0), 0);
+            if (totalUnread > 0) {
+                badgeEl.textContent = totalUnread;
+                badgeEl.style.display = 'flex';
+            } else {
+                badgeEl.style.display = 'none';
+            }
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+    }
+
+    selectPage(pageId) {
+        console.log('[PANCAKE-CHAT] Selecting page:', pageId || 'ALL');
+
+        this.selectedPageId = pageId || null;
+        this.isPageDropdownOpen = false;
+
+        // Save to localStorage
+        this.saveSelectedPage();
+
+        // Update UI
+        this.updateSelectedPageDisplay();
+        this.renderPageDropdown();
+
+        // Hide dropdown
+        const dropdown = document.getElementById('pkPageDropdown');
+        if (dropdown) {
+            dropdown.classList.remove('show');
+        }
+        const btn = document.getElementById('pkPageSelectorBtn');
+        if (btn) {
+            btn.classList.remove('active');
+        }
+
+        // Re-render conversation list with filter
+        this.renderConversationList();
+    }
+
+    togglePageDropdown() {
+        this.isPageDropdownOpen = !this.isPageDropdownOpen;
+
+        const dropdown = document.getElementById('pkPageDropdown');
+        const btn = document.getElementById('pkPageSelectorBtn');
+
+        if (dropdown) {
+            dropdown.classList.toggle('show', this.isPageDropdownOpen);
+        }
+        if (btn) {
+            btn.classList.toggle('active', this.isPageDropdownOpen);
+        }
+    }
+
+    saveSelectedPage() {
+        try {
+            if (this.selectedPageId) {
+                localStorage.setItem('pancake_selected_page', this.selectedPageId);
+            } else {
+                localStorage.removeItem('pancake_selected_page');
+            }
+        } catch (e) {
+            console.warn('[PANCAKE-CHAT] Could not save selected page:', e);
+        }
+    }
+
+    loadSelectedPage() {
+        try {
+            const savedPageId = localStorage.getItem('pancake_selected_page');
+            if (savedPageId) {
+                // Verify page still exists
+                const pageExists = this.pages.some(p => p.id === savedPageId);
+                if (pageExists) {
+                    this.selectedPageId = savedPageId;
+                    console.log('[PANCAKE-CHAT] Loaded saved page:', savedPageId);
+                }
+            }
+        } catch (e) {
+            console.warn('[PANCAKE-CHAT] Could not load selected page:', e);
+        }
+    }
+
+    // =====================================================
     // DATA LOADING
     // =====================================================
 
@@ -553,20 +837,57 @@ class PancakeChatManager {
     // =====================================================
 
     bindEvents() {
+        // Page Selector Button
+        const pageSelectorBtn = document.getElementById('pkPageSelectorBtn');
+        if (pageSelectorBtn) {
+            pageSelectorBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.togglePageDropdown();
+            });
+        }
+
+        // Page Dropdown - Page Selection
+        const pageList = document.getElementById('pkPageList');
+        if (pageList) {
+            pageList.addEventListener('click', (e) => {
+                const pageItem = e.target.closest('.pk-page-item');
+                if (pageItem) {
+                    const pageId = pageItem.dataset.pageId;
+                    this.selectPage(pageId);
+                }
+            });
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('pkPageDropdown');
+            const btn = document.getElementById('pkPageSelectorBtn');
+            if (dropdown && btn && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+                dropdown.classList.remove('show');
+                btn.classList.remove('active');
+                this.isPageDropdownOpen = false;
+            }
+        });
+
+        // Filter Tabs
+        const filterTabs = document.querySelectorAll('.pk-filter-tab');
+        filterTabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const filterType = e.target.dataset.filter;
+                this.setFilterType(filterType);
+
+                // Update active state
+                filterTabs.forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+            });
+        });
+
         // Search input
         const searchInput = document.getElementById('pkSearchInput');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 this.searchQuery = e.target.value;
                 this.renderConversationList();
-            });
-        }
-
-        // Filter button
-        const filterBtn = document.getElementById('pkFilterBtn');
-        if (filterBtn) {
-            filterBtn.addEventListener('click', () => {
-                this.showFilterMenu();
             });
         }
 
@@ -581,6 +902,12 @@ class PancakeChatManager {
                 }
             });
         }
+    }
+
+    setFilterType(type) {
+        this.filterType = type;
+        console.log('[PANCAKE-CHAT] Filter changed to:', this.filterType);
+        this.renderConversationList();
     }
 
     bindChatInputEvents() {
@@ -814,20 +1141,13 @@ class PancakeChatManager {
         }
     }
 
-    showFilterMenu() {
-        // Simple filter toggle for now
-        const filters = ['all', 'unread', 'inbox', 'comment'];
-        const currentIndex = filters.indexOf(this.filterType);
-        this.filterType = filters[(currentIndex + 1) % filters.length];
-        console.log('[PANCAKE-CHAT] Filter changed to:', this.filterType);
-        this.renderConversationList();
-    }
-
     // =====================================================
     // PUBLIC API
     // =====================================================
 
     async refresh() {
+        // Refresh pages and conversations
+        await this.loadPages();
         await this.loadConversations();
     }
 
