@@ -285,36 +285,64 @@
     color: var(--pk-text-primary);
 }
 
-/* Staff Tag */
-.pk-staff-tag {
+/* Tags Container */
+.pk-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+/* Tag Badge (like "BOOM" in Pancake.vn) */
+.pk-tag-badge {
     display: inline-flex;
     align-items: center;
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: 10px;
     font-size: 11px;
-    font-weight: 500;
-    margin-top: 4px;
+    font-weight: 600;
     width: fit-content;
+    text-transform: uppercase;
 }
 
-.pk-staff-tag.green {
+.pk-tag-badge.red {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.pk-tag-badge.green {
     background: #dcfce7;
     color: #166534;
 }
 
-.pk-staff-tag.blue {
+.pk-tag-badge.blue {
     background: #dbeafe;
     color: #1d4ed8;
 }
 
-.pk-staff-tag.orange {
+.pk-tag-badge.orange {
     background: #ffedd5;
     color: #c2410c;
 }
 
-.pk-staff-tag.purple {
+.pk-tag-badge.purple {
     background: #f3e8ff;
     color: #7c3aed;
+}
+
+.pk-tag-badge.pink {
+    background: #fce7f3;
+    color: #be185d;
+}
+
+.pk-tag-badge.teal {
+    background: #ccfbf1;
+    color: #115e59;
+}
+
+.pk-tag-badge.yellow {
+    background: #fef9c3;
+    color: #854d0e;
 }
 
 /* Conversation Actions */

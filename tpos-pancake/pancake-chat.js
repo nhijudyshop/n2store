@@ -17,6 +17,10 @@ class PancakeChatManager {
         this.selectedPageId = null; // null = all pages
         this.isPageDropdownOpen = false;
 
+        // Auto-refresh
+        this.autoRefreshInterval = null;
+        this.AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
+
         // Quick reply templates
         this.quickReplies = [
             { label: 'NV My KH dat', color: 'blue', template: '' },
@@ -79,6 +83,9 @@ class PancakeChatManager {
 
         // Bind events
         this.bindEvents();
+
+        // Start auto-refresh
+        this.startAutoRefresh();
 
         console.log('[PANCAKE-CHAT] Initialized successfully');
         return true;
@@ -228,7 +235,7 @@ class PancakeChatManager {
         const unreadCount = conv.unread_count || 0;
         const isUnread = unreadCount > 0;
         const isActive = this.activeConversation?.id === conv.id;
-        const staffTag = this.getStaffTag(conv);
+        const tags = this.getTagsHtml(conv);
 
         return `
             <div class="pk-conversation-item ${isActive ? 'active' : ''}" data-conv-id="${conv.id}" data-page-id="${conv.page_id}">
@@ -242,7 +249,7 @@ class PancakeChatManager {
                         <span class="pk-conversation-time">${time}</span>
                     </div>
                     <div class="pk-conversation-preview ${isUnread ? 'unread' : ''}">${this.escapeHtml(preview)}</div>
-                    ${staffTag ? `<span class="pk-staff-tag ${staffTag.color}">${staffTag.label}</span>` : ''}
+                    ${tags ? `<div class="pk-tags-container">${tags}</div>` : ''}
                 </div>
                 <div class="pk-conversation-actions">
                     <div class="pk-action-buttons">
@@ -975,28 +982,125 @@ class PancakeChatManager {
         chatInput.value = '';
         chatInput.style.height = 'auto';
 
+        // Disable send button during sending
+        const sendBtn = document.getElementById('pkSendBtn');
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i data-lucide="loader" class="pk-spin"></i>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
         // Add message to UI immediately (optimistic update)
         const tempMessage = {
             id: 'temp_' + Date.now(),
             message: text,
             from: { id: this.activeConversation.page_id, name: 'You' },
-            inserted_at: new Date().toISOString()
+            inserted_at: new Date().toISOString(),
+            _temp: true
         };
         this.messages.push(tempMessage);
         this.renderMessages();
 
         try {
-            // TODO: Implement actual message sending via Pancake API
-            console.log('[PANCAKE-CHAT] Sending message:', text);
+            // Send message via Pancake API
+            const pageId = this.activeConversation.page_id;
+            const convId = this.activeConversation.id;
+            const customerId = this.activeConversation.customers?.[0]?.id || null;
+            const action = this.activeConversation.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
 
-            // For now, just log - actual implementation would use Pancake API
-            // await window.pancakeDataManager.sendMessage(pageId, convId, text);
+            console.log('[PANCAKE-CHAT] Sending message:', { pageId, convId, text, action });
+
+            const sentMessage = await window.pancakeDataManager.sendMessage(pageId, convId, {
+                text: text,
+                action: action,
+                customerId: customerId
+            });
+
+            console.log('[PANCAKE-CHAT] ✅ Message sent successfully:', sentMessage);
+
+            // Replace temp message with real message
+            this.messages = this.messages.filter(m => m.id !== tempMessage.id);
+            if (sentMessage) {
+                this.messages.push(sentMessage);
+            }
+            this.renderMessages();
+
+            // Update conversation preview
+            if (this.activeConversation) {
+                this.activeConversation.snippet = text;
+                this.activeConversation.updated_at = new Date().toISOString();
+                this.renderConversationList();
+            }
 
         } catch (error) {
-            console.error('[PANCAKE-CHAT] Error sending message:', error);
+            console.error('[PANCAKE-CHAT] ❌ Error sending message:', error);
+
             // Remove temp message on error
             this.messages = this.messages.filter(m => m.id !== tempMessage.id);
             this.renderMessages();
+
+            // Show error notification
+            alert(`Lỗi gửi tin nhắn: ${error.message || 'Vui lòng thử lại'}`);
+
+        } finally {
+            // Re-enable send button
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i data-lucide="send"></i>';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        }
+    }
+
+    // =====================================================
+    // AUTO-REFRESH
+    // =====================================================
+
+    startAutoRefresh() {
+        // Stop any existing interval
+        this.stopAutoRefresh();
+
+        console.log(`[PANCAKE-CHAT] Starting auto-refresh (every ${this.AUTO_REFRESH_INTERVAL / 1000}s)`);
+
+        // Set up periodic refresh
+        this.autoRefreshInterval = setInterval(async () => {
+            try {
+                console.log('[PANCAKE-CHAT] Auto-refreshing conversations...');
+
+                // Refresh pages with unread counts
+                if (window.pancakeDataManager) {
+                    this.pagesWithUnread = await window.pancakeDataManager.fetchPagesWithUnreadCount() || [];
+                    this.updateSelectedPageDisplay();
+                }
+
+                // Refresh conversations (in background, don't show loading)
+                if (window.pancakeDataManager && !this.isLoading) {
+                    const conversations = await window.pancakeDataManager.fetchConversations(false); // Don't force, use cache if fresh
+
+                    if (conversations && conversations.length > 0) {
+                        // Update conversations list
+                        const oldCount = this.conversations.length;
+                        this.conversations = conversations;
+
+                        // Re-render if count changed or has unread
+                        const hasNewUnread = conversations.some(c => c.unread_count > 0);
+                        if (conversations.length !== oldCount || hasNewUnread) {
+                            console.log('[PANCAKE-CHAT] ✅ Conversations updated:', conversations.length);
+                            this.renderConversationList();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('[PANCAKE-CHAT] Auto-refresh failed:', error.message);
+            }
+        }, this.AUTO_REFRESH_INTERVAL);
+    }
+
+    stopAutoRefresh() {
+        if (this.autoRefreshInterval) {
+            console.log('[PANCAKE-CHAT] Stopping auto-refresh');
+            clearInterval(this.autoRefreshInterval);
+            this.autoRefreshInterval = null;
         }
     }
 
@@ -1023,19 +1127,19 @@ class PancakeChatManager {
         return `<div class="pk-avatar-placeholder">${initial}</div>`;
     }
 
-    getStaffTag(conv) {
-        // Determine staff tag based on conversation tags or assigned staff
+    getTagsHtml(conv) {
+        // Render all tags as colored badges (like "BOOM" in Pancake.vn)
         const tags = conv.tags || [];
-        if (tags.length > 0) {
-            // Return first tag as staff tag
-            const tag = tags[0];
-            const colors = ['green', 'blue', 'orange', 'purple'];
-            return {
-                label: tag.name || tag,
-                color: colors[Math.floor(Math.random() * colors.length)]
-            };
-        }
-        return null;
+        if (tags.length === 0) return '';
+
+        // Map tag colors (use tag.color if available, otherwise assign from palette)
+        const colorPalette = ['red', 'green', 'blue', 'orange', 'purple', 'pink', 'teal'];
+
+        return tags.map((tag, index) => {
+            const tagName = tag.name || tag.tag_name || tag;
+            const tagColor = tag.color || tag.tag_color || colorPalette[index % colorPalette.length];
+            return `<span class="pk-tag-badge ${tagColor}">${this.escapeHtml(tagName)}</span>`;
+        }).join('');
     }
 
     getChatStatus(conv) {
