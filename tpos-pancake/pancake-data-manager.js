@@ -2539,6 +2539,620 @@ class PancakeDataManager {
             throw error;
         }
     }
+
+    // =====================================================
+    // ADDITIONAL API METHODS
+    // =====================================================
+
+    /**
+     * Send private reply to a comment (nhắn riêng từ comment)
+     * Uses action: 'private_replies'
+     * @param {string} pageId - Page ID
+     * @param {string} conversationId - Conversation ID (comment conversation)
+     * @param {string} text - Message text
+     * @param {string} customerId - Customer ID
+     * @returns {Promise<Object>} Sent message object
+     */
+    async sendPrivateReply(pageId, conversationId, text, customerId = null) {
+        return this.sendMessage(pageId, conversationId, {
+            text: text,
+            action: 'private_replies',
+            customerId: customerId
+        });
+    }
+
+    /**
+     * Hide a comment
+     * POST /pages/{page_id}/comments/{comment_id}/hide
+     * @param {string} pageId - Page ID
+     * @param {string} commentId - Comment ID
+     * @returns {Promise<boolean>}
+     */
+    async hideComment(pageId, commentId) {
+        try {
+            console.log(`[PANCAKE] Hiding comment: ${commentId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/comments/${commentId}/hide`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Hide comment failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Comment hidden:', commentId);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Hide comment failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Unhide a comment
+     * POST /pages/{page_id}/comments/{comment_id}/unhide
+     * @param {string} pageId - Page ID
+     * @param {string} commentId - Comment ID
+     * @returns {Promise<boolean>}
+     */
+    async unhideComment(pageId, commentId) {
+        try {
+            console.log(`[PANCAKE] Unhiding comment: ${commentId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/comments/${commentId}/unhide`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Unhide comment failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Comment unhidden:', commentId);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Unhide comment failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Like a comment
+     * POST /pages/{page_id}/comments/{comment_id}/like
+     * @param {string} pageId - Page ID
+     * @param {string} commentId - Comment ID
+     * @returns {Promise<boolean>}
+     */
+    async likeComment(pageId, commentId) {
+        try {
+            console.log(`[PANCAKE] Liking comment: ${commentId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/comments/${commentId}/like`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Like comment failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Comment liked:', commentId);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Like comment failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Unlike a comment
+     * DELETE /pages/{page_id}/comments/{comment_id}/like
+     * @param {string} pageId - Page ID
+     * @param {string} commentId - Comment ID
+     * @returns {Promise<boolean>}
+     */
+    async unlikeComment(pageId, commentId) {
+        try {
+            console.log(`[PANCAKE] Unliking comment: ${commentId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/comments/${commentId}/like`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Unlike comment failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Comment unliked:', commentId);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Unlike comment failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Delete a comment
+     * DELETE /pages/{page_id}/comments/{comment_id}
+     * @param {string} pageId - Page ID
+     * @param {string} commentId - Comment ID
+     * @returns {Promise<boolean>}
+     */
+    async deleteComment(pageId, commentId) {
+        try {
+            console.log(`[PANCAKE] Deleting comment: ${commentId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/comments/${commentId}`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Delete comment failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Comment deleted:', commentId);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Delete comment failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Fetch customer info
+     * GET /pages/{page_id}/page_customers/{customer_id}
+     * @param {string} pageId - Page ID
+     * @param {string} customerId - Customer ID (page_customer_id)
+     * @returns {Promise<Object|null>} Customer info
+     */
+    async fetchCustomerInfo(pageId, customerId) {
+        try {
+            console.log(`[PANCAKE] Fetching customer info: ${customerId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/page_customers/${customerId}`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Fetch customer info failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Customer info fetched:', data);
+            return data.customer || data;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Fetch customer info failed:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Update customer info
+     * PUT /pages/{page_id}/page_customers/{customer_id}
+     * @param {string} pageId - Page ID
+     * @param {string} customerId - Customer ID (page_customer_id)
+     * @param {Object} customerData - Data to update { name, phone, email, address, note }
+     * @returns {Promise<boolean>}
+     */
+    async updateCustomerInfo(pageId, customerId, customerData) {
+        try {
+            console.log(`[PANCAKE] Updating customer info: ${customerId}`, customerData);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/page_customers/${customerId}`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(customerData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Update customer info failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Customer info updated:', data);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Update customer info failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Fetch list of employees for a page
+     * GET /pages/{page_id}/employees
+     * @param {string} pageId - Page ID
+     * @returns {Promise<Array>} List of employees
+     */
+    async fetchEmployees(pageId) {
+        try {
+            console.log(`[PANCAKE] Fetching employees for page: ${pageId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/employees`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Fetch employees failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Employees fetched:', data.employees?.length || 0);
+            return data.employees || [];
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Fetch employees failed:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Assign employee to conversation
+     * POST /pages/{page_id}/conversations/{conversation_id}/assign
+     * @param {string} pageId - Page ID
+     * @param {string} conversationId - Conversation ID
+     * @param {string} employeeId - Employee ID to assign
+     * @returns {Promise<boolean>}
+     */
+    async assignEmployeeToConversation(pageId, conversationId, employeeId) {
+        try {
+            console.log(`[PANCAKE] Assigning employee ${employeeId} to conversation: ${conversationId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/assign`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employee_id: employeeId })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Assign employee failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Employee assigned:', data);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Assign employee failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Unassign employee from conversation
+     * DELETE /pages/{page_id}/conversations/{conversation_id}/assign
+     * @param {string} pageId - Page ID
+     * @param {string} conversationId - Conversation ID
+     * @returns {Promise<boolean>}
+     */
+    async unassignEmployeeFromConversation(pageId, conversationId) {
+        try {
+            console.log(`[PANCAKE] Unassigning employee from conversation: ${conversationId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/assign`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Unassign employee failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Employee unassigned:', data);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Unassign employee failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Send typing indicator (typing on/off)
+     * POST /pages/{page_id}/conversations/{conversation_id}/typing
+     * @param {string} pageId - Page ID
+     * @param {string} conversationId - Conversation ID
+     * @param {boolean} isTyping - true = typing on, false = typing off
+     * @returns {Promise<boolean>}
+     */
+    async sendTypingIndicator(pageId, conversationId, isTyping = true) {
+        try {
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                return false;
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/typing`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ typing: isTyping })
+            });
+
+            return response.ok;
+        } catch (error) {
+            // Silent fail for typing indicator
+            return false;
+        }
+    }
+
+    /**
+     * Fetch quick reply templates for a page
+     * GET /pages/{page_id}/quick_replies
+     * @param {string} pageId - Page ID
+     * @returns {Promise<Array>} List of quick reply templates
+     */
+    async fetchQuickReplies(pageId) {
+        try {
+            console.log(`[PANCAKE] Fetching quick replies for page: ${pageId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/quick_replies`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Fetch quick replies failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Quick replies fetched:', data.quick_replies?.length || 0);
+            return data.quick_replies || [];
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Fetch quick replies failed:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch customer notes
+     * GET /pages/{page_id}/page_customers/{customer_id}/notes
+     * @param {string} pageId - Page ID
+     * @param {string} customerId - Customer ID
+     * @returns {Promise<Array>} List of notes
+     */
+    async fetchCustomerNotes(pageId, customerId) {
+        try {
+            console.log(`[PANCAKE] Fetching notes for customer: ${customerId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/page_customers/${customerId}/notes`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Fetch customer notes failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Customer notes fetched:', data.notes?.length || 0);
+            return data.notes || [];
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Fetch customer notes failed:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Delete customer note
+     * DELETE /pages/{page_id}/page_customers/{customer_id}/notes/{note_id}
+     * @param {string} pageId - Page ID
+     * @param {string} customerId - Customer ID
+     * @param {string} noteId - Note ID
+     * @returns {Promise<boolean>}
+     */
+    async deleteCustomerNote(pageId, customerId, noteId) {
+        try {
+            console.log(`[PANCAKE] Deleting note: ${noteId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/page_customers/${customerId}/notes/${noteId}`,
+                pageAccessToken
+            );
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Delete note failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Note deleted:', noteId);
+            return data.success !== false;
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Delete note failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Fetch post statistics
+     * GET /pages/{page_id}/posts
+     * @param {string} pageId - Page ID
+     * @param {number} limit - Number of posts to fetch
+     * @returns {Promise<Array>} List of posts with stats
+     */
+    async fetchPosts(pageId, limit = 20) {
+        try {
+            console.log(`[PANCAKE] Fetching posts for page: ${pageId}`);
+
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/posts`,
+                pageAccessToken
+            ) + `&limit=${limit}`;
+
+            const response = await window.API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Fetch posts failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] ✅ Posts fetched:', data.posts?.length || 0);
+            return data.posts || [];
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Fetch posts failed:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch conversations by fb_id (customer facebook id)
+     * GET /conversations/customer/{fb_id}?pages[{pageId}]=0
+     * @param {string} pageId - Page ID
+     * @param {string} fbId - Facebook User ID
+     * @returns {Promise<Object>} { conversations, customerUuid, success }
+     */
+    async fetchConversationsByFbId(pageId, fbId) {
+        return this.fetchConversationsByCustomerFbId(pageId, fbId);
+    }
 }
 
 // Create global instance

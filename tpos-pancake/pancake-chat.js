@@ -546,9 +546,22 @@ class PancakeChatManager {
                         <i data-lucide="image"></i>
                     </button>
                     <input type="file" id="pkImageInput" accept="image/*" style="display: none;">
-                    <button class="pk-input-btn" title="Emoji">
+                    <button class="pk-input-btn" id="pkEmojiBtn" title="Emoji">
                         <i data-lucide="smile"></i>
                     </button>
+                </div>
+                <!-- Emoji Picker Popup -->
+                <div id="pkEmojiPicker" class="pk-emoji-picker" style="display: none;">
+                    <div class="pk-emoji-categories">
+                        <button class="pk-emoji-cat active" data-category="recent" title="Gần đây">🕐</button>
+                        <button class="pk-emoji-cat" data-category="smileys" title="Mặt cười">😊</button>
+                        <button class="pk-emoji-cat" data-category="gestures" title="Cử chỉ">👋</button>
+                        <button class="pk-emoji-cat" data-category="hearts" title="Trái tim">❤️</button>
+                        <button class="pk-emoji-cat" data-category="animals" title="Động vật">🐱</button>
+                        <button class="pk-emoji-cat" data-category="food" title="Đồ ăn">🍔</button>
+                        <button class="pk-emoji-cat" data-category="objects" title="Đồ vật">💡</button>
+                    </div>
+                    <div class="pk-emoji-grid" id="pkEmojiGrid"></div>
                 </div>
                 <div class="pk-chat-input-wrapper">
                     <div id="pkImagePreview" class="pk-image-preview" style="display: none;">
@@ -1995,6 +2008,156 @@ class PancakeChatManager {
                 this.clearImagePreview();
             });
         }
+
+        // Emoji picker
+        this.bindEmojiPicker();
+
+        // Typing indicator (send typing status when user types)
+        this.bindTypingIndicator();
+    }
+
+    /**
+     * Bind emoji picker events
+     */
+    bindEmojiPicker() {
+        const emojiBtn = document.getElementById('pkEmojiBtn');
+        const emojiPicker = document.getElementById('pkEmojiPicker');
+        const emojiGrid = document.getElementById('pkEmojiGrid');
+        const chatInput = document.getElementById('pkChatInput');
+
+        if (!emojiBtn || !emojiPicker || !emojiGrid) return;
+
+        // Emoji data by category
+        this.emojiData = {
+            recent: ['😊', '👍', '❤️', '😂', '🙏', '😍', '🔥', '✨'],
+            smileys: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '😮‍💨', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐'],
+            gestures: ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪'],
+            hearts: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '❤️‍🔥', '❤️‍🩹', '♥️'],
+            animals: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐻‍❄️', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🪱', '🐛', '🦋', '🐌', '🐞'],
+            food: ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🫓', '🥪', '🥙', '🧆', '🌮', '🌯', '🫔', '🥗', '🥘', '🫕', '🥫', '🍝'],
+            objects: ['💡', '🔦', '🏮', '🪔', '📱', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '💽', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥', '📽️', '🎞️', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙️', '🎚️', '🎛️', '🧭', '⏱️', '⏲️', '⏰', '🕰️', '⌛', '⏳', '📡', '🔋', '🔌', '💎', '⚙️', '🔧', '🔨', '🛠️', '⛏️', '🔩', '🪛', '🔑', '🗝️', '🔒', '🔓', '🔏', '🔐']
+        };
+
+        // Load recent emojis from localStorage
+        const savedRecent = localStorage.getItem('pk_recent_emojis');
+        if (savedRecent) {
+            try {
+                this.emojiData.recent = JSON.parse(savedRecent);
+            } catch (e) {}
+        }
+
+        // Toggle emoji picker
+        emojiBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = emojiPicker.style.display === 'block';
+            emojiPicker.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) {
+                this.renderEmojiGrid('recent');
+            }
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+                emojiPicker.style.display = 'none';
+            }
+        });
+
+        // Category switching
+        emojiPicker.querySelectorAll('.pk-emoji-cat').forEach(cat => {
+            cat.addEventListener('click', () => {
+                emojiPicker.querySelectorAll('.pk-emoji-cat').forEach(c => c.classList.remove('active'));
+                cat.classList.add('active');
+                this.renderEmojiGrid(cat.dataset.category);
+            });
+        });
+
+        // Emoji selection
+        emojiGrid.addEventListener('click', (e) => {
+            const emojiItem = e.target.closest('.pk-emoji-item');
+            if (emojiItem && chatInput) {
+                const emoji = emojiItem.textContent;
+
+                // Insert emoji at cursor position
+                const start = chatInput.selectionStart;
+                const end = chatInput.selectionEnd;
+                chatInput.value = chatInput.value.substring(0, start) + emoji + chatInput.value.substring(end);
+                chatInput.selectionStart = chatInput.selectionEnd = start + emoji.length;
+                chatInput.focus();
+
+                // Add to recent emojis
+                this.addToRecentEmojis(emoji);
+            }
+        });
+    }
+
+    /**
+     * Render emoji grid for a category
+     */
+    renderEmojiGrid(category) {
+        const grid = document.getElementById('pkEmojiGrid');
+        if (!grid || !this.emojiData[category]) return;
+
+        grid.innerHTML = this.emojiData[category].map(emoji =>
+            `<button class="pk-emoji-item" title="${emoji}">${emoji}</button>`
+        ).join('');
+    }
+
+    /**
+     * Add emoji to recent list
+     */
+    addToRecentEmojis(emoji) {
+        // Remove if exists
+        const idx = this.emojiData.recent.indexOf(emoji);
+        if (idx > -1) {
+            this.emojiData.recent.splice(idx, 1);
+        }
+        // Add to front
+        this.emojiData.recent.unshift(emoji);
+        // Keep only 24 recent
+        this.emojiData.recent = this.emojiData.recent.slice(0, 24);
+        // Save to localStorage
+        localStorage.setItem('pk_recent_emojis', JSON.stringify(this.emojiData.recent));
+    }
+
+    /**
+     * Bind typing indicator (sends typing status to API)
+     */
+    bindTypingIndicator() {
+        const chatInput = document.getElementById('pkChatInput');
+        if (!chatInput || !this.activeConversation) return;
+
+        let typingTimeout = null;
+        let isTyping = false;
+
+        chatInput.addEventListener('input', () => {
+            if (!this.activeConversation) return;
+
+            // Send typing on
+            if (!isTyping) {
+                isTyping = true;
+                window.pancakeDataManager?.sendTypingIndicator(
+                    this.activeConversation.page_id,
+                    this.activeConversation.id,
+                    true
+                );
+            }
+
+            // Clear previous timeout
+            if (typingTimeout) {
+                clearTimeout(typingTimeout);
+            }
+
+            // Set timeout to stop typing
+            typingTimeout = setTimeout(() => {
+                isTyping = false;
+                window.pancakeDataManager?.sendTypingIndicator(
+                    this.activeConversation.page_id,
+                    this.activeConversation.id,
+                    false
+                );
+            }, 2000); // Stop typing after 2s of no input
+        });
     }
 
     /**
