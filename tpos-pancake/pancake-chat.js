@@ -1740,37 +1740,69 @@ class PancakeChatManager {
         if (!timestamp) return '';
 
         try {
-            // Parse timestamp and convert to Vietnam timezone (UTC+7)
+            // Parse timestamp
             const date = new Date(timestamp);
             const now = new Date();
 
-            // Convert both dates to Vietnam time for comparison
-            const vnDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-            const vnNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            // Use Intl.DateTimeFormat to get date parts in Vietnam timezone
+            const vnFormatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
 
-            const diff = vnNow - vnDate;
+            // Get date parts for comparison
+            const dateParts = vnFormatter.formatToParts(date);
+            const nowParts = vnFormatter.formatToParts(now);
+
+            const getPartValue = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
+
+            const dateYear = getPartValue(dateParts, 'year');
+            const dateMonth = getPartValue(dateParts, 'month');
+            const dateDay = getPartValue(dateParts, 'day');
+
+            const nowYear = getPartValue(nowParts, 'year');
+            const nowMonth = getPartValue(nowParts, 'month');
+            const nowDay = getPartValue(nowParts, 'day');
+
+            // Check if same day in Vietnam timezone
+            const isSameDay = dateYear === nowYear && dateMonth === nowMonth && dateDay === nowDay;
 
             // If today, show time (HH:mm format in Vietnam timezone)
-            if (diff < 24 * 60 * 60 * 1000 && vnDate.getDate() === vnNow.getDate()) {
-                return date.toLocaleTimeString('vi-VN', {
+            if (isSameDay) {
+                return new Intl.DateTimeFormat('vi-VN', {
                     hour: '2-digit',
                     minute: '2-digit',
-                    timeZone: 'Asia/Ho_Chi_Minh'
-                });
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    hour12: false
+                }).format(date);
             }
 
-            // If this week, show day
-            if (diff < 7 * 24 * 60 * 60 * 1000) {
-                const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-                return days[vnDate.getDay()];
+            // Calculate days difference
+            const vnDateObj = new Date(dateYear, dateMonth - 1, dateDay);
+            const vnNowObj = new Date(nowYear, nowMonth - 1, nowDay);
+            const diffDays = Math.floor((vnNowObj - vnDateObj) / (24 * 60 * 60 * 1000));
+
+            // If within last 7 days, show day of week
+            if (diffDays > 0 && diffDays < 7) {
+                const dayOfWeek = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    weekday: 'short'
+                }).format(date);
+                const days = { 'Sun': 'CN', 'Mon': 'T2', 'Tue': 'T3', 'Wed': 'T4', 'Thu': 'T5', 'Fri': 'T6', 'Sat': 'T7' };
+                return days[dayOfWeek] || dayOfWeek;
             }
 
             // Otherwise show date
-            return date.toLocaleDateString('vi-VN', {
+            return new Intl.DateTimeFormat('vi-VN', {
                 day: '2-digit',
                 month: '2-digit',
                 timeZone: 'Asia/Ho_Chi_Minh'
-            });
+            }).format(date);
         } catch (error) {
             console.warn('[PANCAKE-CHAT] Error formatting time:', error);
             return '';
@@ -1782,11 +1814,12 @@ class PancakeChatManager {
 
         try {
             const date = new Date(timestamp);
-            return date.toLocaleTimeString('vi-VN', {
+            return new Intl.DateTimeFormat('vi-VN', {
                 hour: '2-digit',
                 minute: '2-digit',
-                timeZone: 'Asia/Ho_Chi_Minh'
-            });
+                timeZone: 'Asia/Ho_Chi_Minh',
+                hour12: false
+            }).format(date);
         } catch (error) {
             console.warn('[PANCAKE-CHAT] Error formatting message time:', error);
             return '';
@@ -1795,29 +1828,50 @@ class PancakeChatManager {
 
     groupMessagesByDate(messages) {
         const groups = {};
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const now = new Date();
+
+        // Get today's date in Vietnam timezone
+        const vnFormatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+
+        const nowParts = vnFormatter.formatToParts(now);
+        const getPartValue = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
+
+        const todayYear = getPartValue(nowParts, 'year');
+        const todayMonth = getPartValue(nowParts, 'month');
+        const todayDay = getPartValue(nowParts, 'day');
+        const todayKey = `${todayYear}-${todayMonth}-${todayDay}`;
 
         messages.forEach(msg => {
             const date = new Date(msg.inserted_at || msg.created_time);
-            date.setHours(0, 0, 0, 0);
+            const dateParts = vnFormatter.formatToParts(date);
 
-            let dateKey;
-            if (date.getTime() === today.getTime()) {
-                dateKey = 'Hôm nay';
+            const dateYear = getPartValue(dateParts, 'year');
+            const dateMonth = getPartValue(dateParts, 'month');
+            const dateDay = getPartValue(dateParts, 'day');
+            const dateKey = `${dateYear}-${dateMonth}-${dateDay}`;
+
+            let displayKey;
+            if (dateKey === todayKey) {
+                displayKey = 'Hôm nay';
             } else {
-                dateKey = date.toLocaleDateString('vi-VN', {
+                displayKey = new Intl.DateTimeFormat('vi-VN', {
                     weekday: 'long',
                     day: '2-digit',
                     month: '2-digit',
-                    year: 'numeric'
-                });
+                    year: 'numeric',
+                    timeZone: 'Asia/Ho_Chi_Minh'
+                }).format(date);
             }
 
-            if (!groups[dateKey]) {
-                groups[dateKey] = [];
+            if (!groups[displayKey]) {
+                groups[displayKey] = [];
             }
-            groups[dateKey].push(msg);
+            groups[displayKey].push(msg);
         });
 
         return groups;
