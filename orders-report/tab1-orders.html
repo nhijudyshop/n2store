@@ -2799,7 +2799,7 @@
     </div>
 
     <!-- Manage Campaigns Modal -->
-    <div class="tag-modal" id="manageCampaignsModal" style="display: none;">
+    <div class="tag-modal" id="manageCampaignsModal" style="display: none; z-index: 10100;">
         <div class="tag-modal-content" style="max-width: 600px;">
             <div class="tag-modal-header">
                 <h3><i class="fas fa-cog"></i> Quản Lý Chiến Dịch</h3>
@@ -2823,7 +2823,7 @@
     </div>
 
     <!-- Edit Campaign Modal -->
-    <div class="tag-modal" id="editCampaignModal" style="display: none;">
+    <div class="tag-modal" id="editCampaignModal" style="display: none; z-index: 10200;">
         <div class="tag-modal-content" style="max-width: 500px;">
             <div class="tag-modal-header">
                 <h3><i class="fas fa-edit"></i> Chỉnh Sửa Chiến Dịch</h3>
@@ -4080,43 +4080,89 @@
             }
         };
 
-        // Override applyUserCampaign to save active campaign
+        // Override applyUserCampaign to save active campaign AND reload orders
         const _originalApplyUserCampaign = typeof applyUserCampaign === 'function' ? applyUserCampaign : null;
         applyUserCampaign = async function() {
             const select = document.getElementById('modalUserCampaignSelect');
             if (!select || !select.value) return;
 
             const campaignId = select.value;
+            const campaign = window.campaignManager.allCampaigns[campaignId];
+            if (!campaign) return;
+
+            // Save as active campaign
             await saveActiveCampaign(campaignId);
-            await applyActiveCampaign();
+
+            // Update UI labels
+            updateActiveCampaignLabel(campaign.name);
+            updateCampaignSettingsUI(campaign);
+
+            // Update hidden tableNameInput for compatibility
+            const tableNameInput = document.getElementById('tableNameInput');
+            if (tableNameInput) {
+                tableNameInput.value = campaign.name;
+            }
+
+            // Apply time frame and RELOAD orders
+            const campaignFilter = document.getElementById('campaignFilter');
+            if (campaignFilter && campaign.timeFrame) {
+                campaignFilter.value = campaign.timeFrame;
+
+                // Apply custom start date if needed
+                if (campaign.timeFrame === 'custom' && campaign.customStartDate) {
+                    const customStartDate = document.getElementById('customStartDate');
+                    if (customStartDate) {
+                        customStartDate.value = campaign.customStartDate;
+                    }
+                }
+
+                // Call handleCampaignChange to reload orders
+                if (typeof handleCampaignChange === 'function') {
+                    console.log('[CAMPAIGN] Reloading orders for campaign:', campaign.name);
+                    await handleCampaignChange();
+                }
+            }
 
             if (typeof showNotification === 'function') {
-                showNotification('Đã chọn chiến dịch: ' + window.campaignManager.activeCampaign.name, 'success');
+                showNotification('Đã chọn và tải chiến dịch: ' + campaign.name, 'success');
             }
         };
 
-        // Override applyCampaignSettings to also save active campaign
+        // Override applyCampaignSettings - check if campaign changed and reload if needed
         const _originalApplyCampaignSettings = typeof applyCampaignSettings === 'function' ? applyCampaignSettings : null;
         applyCampaignSettings = async function() {
             // Get selected campaign from dropdown
             const select = document.getElementById('modalUserCampaignSelect');
-            if (select && select.value) {
-                await saveActiveCampaign(select.value);
-            }
+            const selectedCampaignId = select ? select.value : null;
 
-            // Apply the active campaign
-            if (window.campaignManager.activeCampaign) {
-                await applyActiveCampaign();
-
-                // Trigger data reload by calling the original campaign change handler
-                const campaignFilter = document.getElementById('campaignFilter');
-                if (campaignFilter) {
-                    campaignFilter.value = window.campaignManager.activeCampaign.timeFrame;
-                    campaignFilter.dispatchEvent(new Event('change'));
+            if (!selectedCampaignId) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Vui lòng chọn một chiến dịch!', 'error');
                 }
+                return;
             }
 
-            // Sync other settings (realtime, etc.)
+            const campaign = window.campaignManager.allCampaigns[selectedCampaignId];
+            if (!campaign) return;
+
+            // Check if campaign is different from current active
+            const currentActiveId = window.campaignManager.activeCampaignId;
+            const needReload = currentActiveId !== selectedCampaignId;
+
+            // Save as active campaign
+            await saveActiveCampaign(selectedCampaignId);
+
+            // Update UI labels
+            updateActiveCampaignLabel(campaign.name);
+            updateCampaignSettingsUI(campaign);
+
+            // Update hidden tableNameInput
+            const tableNameInput = document.getElementById('tableNameInput');
+            if (tableNameInput) {
+                tableNameInput.value = campaign.name;
+            }
+
+            // Sync realtime settings
             const originalRealtimeCheckbox = document.getElementById('realtimeToggleCheckbox');
             const modalRealtimeCheckbox = document.getElementById('modalRealtimeToggleCheckbox');
             if (originalRealtimeCheckbox && modalRealtimeCheckbox && originalRealtimeCheckbox.checked !== modalRealtimeCheckbox.checked) {
@@ -4136,6 +4182,36 @@
             }
 
             closeCampaignSettingsModal();
+
+            // Reload orders if campaign changed
+            if (needReload) {
+                const campaignFilter = document.getElementById('campaignFilter');
+                if (campaignFilter && campaign.timeFrame) {
+                    campaignFilter.value = campaign.timeFrame;
+
+                    // Apply custom start date if needed
+                    if (campaign.timeFrame === 'custom' && campaign.customStartDate) {
+                        const customStartDate = document.getElementById('customStartDate');
+                        if (customStartDate) {
+                            customStartDate.value = campaign.customStartDate;
+                        }
+                    }
+
+                    // Call handleCampaignChange to reload orders
+                    if (typeof handleCampaignChange === 'function') {
+                        console.log('[CAMPAIGN] Campaign changed, reloading orders for:', campaign.name);
+                        await handleCampaignChange();
+                    }
+                }
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Đã chuyển sang chiến dịch: ' + campaign.name, 'success');
+                }
+            } else {
+                if (typeof showNotification === 'function') {
+                    showNotification('Đã lưu cài đặt!', 'success');
+                }
+            }
 
             if (typeof showNotification === 'function') {
                 showNotification('Đã áp dụng cài đặt chiến dịch!', 'success');
