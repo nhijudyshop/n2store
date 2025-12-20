@@ -401,75 +401,136 @@ function renderTable(data) {
         return;
     }
 
-    tableBody.innerHTML = data.map(row => {
-        // Extract unique code from content (look for N2 prefix pattern - exactly 18 chars)
-        const content = row.content || '';
-        const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
-        const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
+    // Build rows with gap detection
+    const rows = [];
 
-        // Get customer info if unique code exists
-        let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
-        if (uniqueCode && window.CustomerInfoManager) {
-            customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+    for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const currentRef = parseInt(row.reference_code);
+
+        // Check for gap with the NEXT row (since data is sorted DESC by date)
+        // If current is 2567 and next is 2565, there's a gap of 2566
+        if (i < data.length - 1) {
+            const nextRow = data[i + 1];
+            const nextRef = parseInt(nextRow.reference_code);
+
+            // Only check if both are valid numbers
+            if (!isNaN(currentRef) && !isNaN(nextRef) && currentRef - nextRef > 1) {
+                // There are missing reference codes between current and next
+                for (let missing = currentRef - 1; missing > nextRef; missing--) {
+                    rows.push(renderGapRow(missing, nextRef, currentRef, nextRow.transaction_date, row.transaction_date));
+                }
+            }
         }
 
-        return `
-        <tr>
-            <td>${formatDateTime(row.transaction_date)}</td>
-            <td>${row.gateway}</td>
-            <td>
-                <span class="badge ${row.transfer_type === 'in' ? 'badge-success' : 'badge-danger'}">
-                    <i class="fas fa-arrow-${row.transfer_type === 'in' ? 'down' : 'up'}"></i>
-                    ${row.transfer_type === 'in' ? 'Tiền vào' : 'Tiền ra'}
-                </span>
-            </td>
-            <td class="${row.transfer_type === 'in' ? 'amount-in' : 'amount-out'}">
-                ${row.transfer_type === 'in' ? '+' : '-'}${formatCurrency(row.transfer_amount)}
-            </td>
-            <td>${formatCurrency(row.accumulated)}</td>
-            <td>${truncateText(content || 'N/A', 50)}</td>
-            <td>${row.reference_code || 'N/A'}</td>
-            <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-                ${uniqueCode ? `
-                    <div style="display: flex; align-items: center; gap: 5px;">
-                        <span>${customerDisplay.name}</span>
-                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
-                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
-                        </button>
-                    </div>
-                ` : '<span style="color: #999;">N/A</span>'}
-            </td>
-            <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-                ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
-                    <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
-                        ${customerDisplay.phone}
-                        <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
-                    </a>
-                ` : '<span style="color: #999;">N/A</span>'}
-            </td>
-            <td class="text-center">
-                ${uniqueCode ? `
-                    <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
-                        <i data-lucide="qr-code"></i>
-                    </button>
-                    <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
-                        <i data-lucide="copy"></i>
-                    </button>
-                ` : '<span style="color: #999;">N/A</span>'}
-            </td>
-            <td class="text-center">
-                <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
-                    Chi tiết
-                </button>
-            </td>
-        </tr>
-        `;
-    }).join('');
+        // Add the actual transaction row
+        rows.push(renderTransactionRow(row));
+    }
+
+    tableBody.innerHTML = rows.join('');
 
     // Reinitialize Lucide icons for dynamically added buttons
     if (window.lucide) {
         lucide.createIcons();
     }
+}
+
+/**
+ * Render a single transaction row
+ */
+function renderTransactionRow(row) {
+    // Extract unique code from content (look for N2 prefix pattern - exactly 18 chars)
+    const content = row.content || '';
+    const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
+    const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
+
+    // Get customer info if unique code exists
+    let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
+    if (uniqueCode && window.CustomerInfoManager) {
+        customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+    }
+
+    return `
+    <tr>
+        <td>${formatDateTime(row.transaction_date)}</td>
+        <td>${row.gateway}</td>
+        <td>
+            <span class="badge ${row.transfer_type === 'in' ? 'badge-success' : 'badge-danger'}">
+                <i class="fas fa-arrow-${row.transfer_type === 'in' ? 'down' : 'up'}"></i>
+                ${row.transfer_type === 'in' ? 'Tiền vào' : 'Tiền ra'}
+            </span>
+        </td>
+        <td class="${row.transfer_type === 'in' ? 'amount-in' : 'amount-out'}">
+            ${row.transfer_type === 'in' ? '+' : '-'}${formatCurrency(row.transfer_amount)}
+        </td>
+        <td>${formatCurrency(row.accumulated)}</td>
+        <td>${truncateText(content || 'N/A', 50)}</td>
+        <td>${row.reference_code || 'N/A'}</td>
+        <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
+            ${uniqueCode ? `
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span>${customerDisplay.name}</span>
+                    <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
+                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                    </button>
+                </div>
+            ` : '<span style="color: #999;">N/A</span>'}
+        </td>
+        <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
+            ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
+                <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                    ${customerDisplay.phone}
+                    <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
+                </a>
+            ` : '<span style="color: #999;">N/A</span>'}
+        </td>
+        <td class="text-center">
+            ${uniqueCode ? `
+                <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
+                    <i data-lucide="qr-code"></i>
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
+                    <i data-lucide="copy"></i>
+                </button>
+            ` : '<span style="color: #999;">N/A</span>'}
+        </td>
+        <td class="text-center">
+            <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
+                Chi tiết
+            </button>
+        </td>
+    </tr>
+    `;
+}
+
+/**
+ * Render a gap warning row for missing reference code
+ */
+function renderGapRow(missingRef, prevRef, nextRef, prevDate, nextDate) {
+    return `
+    <tr class="gap-row" style="background: linear-gradient(90deg, #fef3c7 0%, #fffbeb 50%, #fef3c7 100%); border: 2px dashed #f59e0b;">
+        <td style="text-align: center; color: #92400e; font-style: italic;">
+            <i data-lucide="alert-triangle" style="width: 16px; height: 16px; color: #d97706;"></i>
+        </td>
+        <td colspan="5" style="color: #92400e; font-weight: 500;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="alert-circle" style="width: 18px; height: 18px; color: #d97706;"></i>
+                <span>Giao dịch bị thiếu - Có thể webhook không nhận được</span>
+            </div>
+        </td>
+        <td style="font-family: monospace; font-weight: bold; color: #d97706; font-size: 1.1em; text-align: center;">
+            ${missingRef}
+        </td>
+        <td colspan="3" style="color: #92400e; font-size: 12px;">
+            Giữa ${prevRef} và ${nextRef}
+        </td>
+        <td style="text-align: center;">
+            <button class="btn btn-sm" onclick="ignoreGap('${missingRef}')" title="Bỏ qua gap này" style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; padding: 4px 8px;">
+                <i data-lucide="eye-off" style="width: 14px; height: 14px;"></i>
+            </button>
+        </td>
+    </tr>
+    `;
 }
 
 // Render Statistics
