@@ -43,9 +43,12 @@ class TposChatManager {
             room: 'tomato.tpos.vn',
             apiBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
 
-            // Facebook Page ID for live video detection (default)
-            pageId: '270136663390370'
+            // Facebook Page ID for live video detection
+            // Load from localStorage or use default
+            pageId: localStorage.getItem('tpos_selected_page_id') || '270136663390370'
         };
+
+        console.log('[TPOS-CHAT] Initial pageId:', this.config.pageId);
 
         // Pages data (from Pancake API)
         this.pages = [];
