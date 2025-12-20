@@ -41,8 +41,15 @@ class TposChatManager {
             rtWsUrl: 'wss://rt-2.tpos.app/socket.io/?EIO=4&transport=websocket',
             namespace: '/chatomni',
             room: 'tomato.tpos.vn',
-            apiBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api'
+            apiBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
+
+            // Facebook Page ID for live video detection
+            pageId: '270136663390370'
         };
+
+        // Live video data
+        this.liveVideos = [];
+        this.currentLiveVideo = null;
 
         // Server mode connection
         this.serverSocket = null;
@@ -105,8 +112,20 @@ class TposChatManager {
 
                 // Check if we have a valid token
                 if (window.tposTokenManager.isTokenValid()) {
-                    console.log('[TPOS-CHAT] Valid token found, connecting WebSocket...');
+                    console.log('[TPOS-CHAT] Valid token found');
+
+                    // Auto-detect active live video
+                    console.log('[TPOS-CHAT] Detecting active live...');
+                    await this.detectActiveLive();
+
+                    // Connect WebSocket
+                    console.log('[TPOS-CHAT] Connecting WebSocket...');
                     await this.connectWebSocket();
+
+                    // If there's an active live, fetch session indexes
+                    if (this.currentPostId) {
+                        await this.fetchSessionIndexes(this.currentPostId);
+                    }
                 } else {
                     console.log('[TPOS-CHAT] No valid token, will fetch on demand');
                     this.showLoginPrompt();
@@ -219,10 +238,10 @@ class TposChatManager {
     // =====================================================
 
     bindEvents() {
-        // Post selector
+        // Post selector - show live video selector modal
         const postSelector = this.container.querySelector('#tposPostSelector');
         if (postSelector) {
-            postSelector.addEventListener('click', () => this.showPostSelector());
+            postSelector.addEventListener('click', () => this.showLiveVideoSelector());
         }
 
         // Refresh button
@@ -620,6 +639,176 @@ class TposChatManager {
         if (statusEl) {
             statusEl.className = `tpos-socket-status ${connected ? 'connected' : 'disconnected'}`;
             statusEl.querySelector('span:last-child').textContent = connected ? 'Online' : 'Offline';
+        }
+    }
+
+    // =====================================================
+    // LIVE VIDEO DETECTION
+    // =====================================================
+
+    async fetchLiveVideos() {
+        console.log('[TPOS-CHAT] Fetching live videos...');
+
+        try {
+            const url = `${this.config.apiBaseUrl}/facebook-graph/livevideo?pageid=${this.config.pageId}&limit=10&facebook_Type=page`;
+
+            let response;
+            if (window.tposTokenManager) {
+                response = await window.tposTokenManager.authenticatedFetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': '*/*',
+                        'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8'
+                    }
+                });
+            } else {
+                const authHeader = await this.getAuthHeader();
+                response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': '*/*',
+                        'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+                        ...authHeader
+                    }
+                });
+            }
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const result = await response.json();
+            this.liveVideos = result.data || [];
+            console.log('[TPOS-CHAT] Found', this.liveVideos.length, 'videos');
+
+            return this.liveVideos;
+        } catch (error) {
+            console.error('[TPOS-CHAT] Error fetching live videos:', error);
+            return [];
+        }
+    }
+
+    async detectActiveLive() {
+        await this.fetchLiveVideos();
+
+        // Find video with statusLive: 1 (currently live)
+        const activeLive = this.liveVideos.find(video => video.statusLive === 1);
+
+        if (activeLive) {
+            console.log('[TPOS-CHAT] Found active live:', activeLive.objectId, '-', activeLive.title);
+            this.currentLiveVideo = activeLive;
+            this.currentPostId = activeLive.objectId;
+            this.updatePostSelectorUI(activeLive);
+            return activeLive;
+        } else {
+            console.log('[TPOS-CHAT] No active live found');
+            this.currentLiveVideo = null;
+
+            // Show most recent video as option
+            if (this.liveVideos.length > 0) {
+                const mostRecent = this.liveVideos[0];
+                this.updatePostSelectorUI(null, mostRecent);
+            } else {
+                this.updatePostSelectorUI(null, null);
+            }
+            return null;
+        }
+    }
+
+    updatePostSelectorUI(activeLive, fallbackVideo = null) {
+        const selectorText = this.container?.querySelector('#tposSelectedPost');
+        if (!selectorText) return;
+
+        if (activeLive) {
+            // Currently live
+            const title = activeLive.title?.substring(0, 30) + (activeLive.title?.length > 30 ? '...' : '');
+            selectorText.innerHTML = `
+                <span class="live-indicator">🔴 LIVE</span>
+                <span class="live-title">${this.escapeHtml(title)}</span>
+                <span class="live-comments">(${activeLive.countComment || 0} comments)</span>
+            `;
+            selectorText.classList.add('has-live');
+            selectorText.classList.remove('no-live');
+        } else if (fallbackVideo) {
+            // No live but has recent videos
+            const title = fallbackVideo.title?.substring(0, 30) + (fallbackVideo.title?.length > 30 ? '...' : '');
+            selectorText.innerHTML = `
+                <span class="no-live-indicator">⚫ Không live</span>
+                <span class="live-title">${this.escapeHtml(title)}</span>
+            `;
+            selectorText.classList.remove('has-live');
+            selectorText.classList.add('no-live');
+        } else {
+            // No videos at all
+            selectorText.innerHTML = `<span class="no-live-indicator">Không có video nào</span>`;
+            selectorText.classList.remove('has-live');
+            selectorText.classList.add('no-live');
+        }
+    }
+
+    showLiveVideoSelector() {
+        // Create modal to select from live videos
+        const existingModal = document.getElementById('tposLiveVideoModal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'tposLiveVideoModal';
+        modal.className = 'tpos-modal';
+        modal.innerHTML = `
+            <div class="tpos-modal-content">
+                <div class="tpos-modal-header">
+                    <h3>Chọn Video Live</h3>
+                    <button class="tpos-modal-close" onclick="document.getElementById('tposLiveVideoModal').remove()">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="tpos-modal-body">
+                    ${this.liveVideos.length === 0 ? `
+                        <div class="tpos-empty-state">
+                            <p>Không có video nào</p>
+                        </div>
+                    ` : this.liveVideos.map(video => `
+                        <div class="tpos-video-item ${video.statusLive === 1 ? 'is-live' : ''}"
+                             onclick="window.tposChatManager.selectLiveVideo('${video.objectId}')">
+                            <img src="${video.thumbnail?.url || ''}" alt="" class="tpos-video-thumb">
+                            <div class="tpos-video-info">
+                                <div class="tpos-video-title">
+                                    ${video.statusLive === 1 ? '<span class="live-badge">🔴 LIVE</span>' : ''}
+                                    ${this.escapeHtml(video.title?.substring(0, 50) || 'Untitled')}
+                                </div>
+                                <div class="tpos-video-meta">
+                                    ${video.countComment || 0} comments • ${this.formatDate(video.channelCreatedTime)}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="tpos-modal-footer">
+                    <button class="tpos-btn" onclick="window.tposChatManager.detectActiveLive(); document.getElementById('tposLiveVideoModal').remove();">
+                        <i data-lucide="refresh-cw"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    selectLiveVideo(objectId) {
+        const video = this.liveVideos.find(v => v.objectId === objectId);
+        if (video) {
+            this.currentLiveVideo = video;
+            this.currentPostId = objectId;
+            this.updatePostSelectorUI(video.statusLive === 1 ? video : null, video.statusLive !== 1 ? video : null);
+            console.log('[TPOS-CHAT] Selected video:', objectId);
+
+            // Close modal
+            const modal = document.getElementById('tposLiveVideoModal');
+            if (modal) modal.remove();
+
+            // Fetch session indexes for this video
+            this.fetchSessionIndexes(objectId);
         }
     }
 
