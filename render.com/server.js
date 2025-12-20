@@ -261,10 +261,185 @@ class RealtimeClient {
     }
 }
 
+// =====================================================
+// TPOS REALTIME CLIENT (Socket.IO Protocol)
+// =====================================================
+
+class TposRealtimeClient {
+    constructor() {
+        this.ws = null;
+        this.url = "wss://ws.chatomni.tpos.app/socket.io/?EIO=4&transport=websocket";
+        this.isConnected = false;
+        this.heartbeatInterval = null;
+        this.reconnectTimer = null;
+
+        // TPOS specific data
+        this.token = null;
+        this.room = 'tomato.tpos.vn';
+    }
+
+    start(token, room = 'tomato.tpos.vn') {
+        this.token = token;
+        this.room = room;
+        this.connect();
+    }
+
+    connect() {
+        if (this.isConnected || !this.token) return;
+
+        console.log('[TPOS-WS] Connecting to TPOS...');
+        const headers = {
+            'Origin': 'https://nhijudyshop.github.io',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        };
+
+        this.ws = new WebSocket(this.url, {
+            headers: headers
+        });
+
+        this.ws.on('open', () => {
+            console.log('[TPOS-WS] WebSocket connected, sending handshake...');
+            // Socket.IO namespace connect
+            this.ws.send('40/chatomni,');
+        });
+
+        this.ws.on('close', (code, reason) => {
+            console.log('[TPOS-WS] Closed', code, reason?.toString());
+            this.isConnected = false;
+            this.stopHeartbeat();
+
+            // Reconnect after 5 seconds
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = setTimeout(() => this.connect(), 5000);
+        });
+
+        this.ws.on('error', (err) => {
+            console.error('[TPOS-WS] Error:', err.message);
+        });
+
+        this.ws.on('message', (data) => {
+            const message = data.toString();
+            this.handleMessage(message);
+        });
+    }
+
+    handleMessage(data) {
+        // Socket.IO protocol messages
+        if (data === '2') {
+            // Ping from server, respond with pong
+            this.ws.send('3');
+            return;
+        }
+
+        if (data.startsWith('0{')) {
+            // Transport info (sid, upgrades, pingInterval, etc.)
+            console.log('[TPOS-WS] Received transport info');
+            return;
+        }
+
+        if (data.startsWith('40/chatomni,')) {
+            // Namespace connected, now join room
+            console.log('[TPOS-WS] Namespace connected, joining room:', this.room);
+            this.isConnected = true;
+            this.joinRoom();
+            this.startHeartbeat();
+            return;
+        }
+
+        if (data.startsWith('42/chatomni,')) {
+            // Event message
+            const jsonStr = data.substring('42/chatomni,'.length);
+            try {
+                const [eventName, payload] = JSON.parse(jsonStr);
+                this.handleEvent(eventName, payload);
+            } catch (e) {
+                console.error('[TPOS-WS] Parse error:', e);
+            }
+        }
+    }
+
+    handleEvent(eventName, payload) {
+        console.log('[TPOS-WS] Event:', eventName);
+
+        // Broadcast to connected frontend clients
+        broadcastToClients({
+            type: 'tpos:event',
+            event: eventName,
+            payload: payload
+        });
+
+        // Handle specific events
+        if (eventName === 'on-events') {
+            try {
+                const eventData = typeof payload === 'string' ? JSON.parse(payload) : payload;
+                console.log('[TPOS-WS] TPOS Event:', eventData.EventName || eventData.Type);
+
+                // Broadcast parsed event data
+                broadcastToClients({
+                    type: 'tpos:parsed-event',
+                    data: eventData
+                });
+            } catch (e) {
+                // Already parsed or invalid
+            }
+        }
+    }
+
+    joinRoom() {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+        const joinMessage = `42/chatomni,["join",{"room":"${this.room}","token":"${this.token}"}]`;
+        this.ws.send(joinMessage);
+        console.log('[TPOS-WS] Joined room:', this.room);
+    }
+
+    startHeartbeat() {
+        this.stopHeartbeat();
+        // Socket.IO uses ping/pong every 25 seconds (from pingInterval)
+        this.heartbeatInterval = setInterval(() => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send('2'); // Ping
+            }
+        }, 25000);
+    }
+
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    }
+
+    stop() {
+        this.stopHeartbeat();
+        clearTimeout(this.reconnectTimer);
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
+        this.isConnected = false;
+        console.log('[TPOS-WS] Stopped');
+    }
+
+    getStatus() {
+        return {
+            connected: this.isConnected,
+            room: this.room,
+            hasToken: !!this.token
+        };
+    }
+}
+
+// Initialize Global TPOS Client
+const tposRealtimeClient = new TposRealtimeClient();
+
 // Initialize Global Client
 const realtimeClient = new RealtimeClient();
 
-// API to start the client from the browser
+// API to start the Pancake client from the browser
 app.post('/api/realtime/start', (req, res) => {
     const { token, userId, pageIds, cookie } = req.body;
     if (!token || !userId || !pageIds) {
@@ -273,6 +448,28 @@ app.post('/api/realtime/start', (req, res) => {
 
     realtimeClient.start(token, userId, pageIds, cookie);
     res.json({ success: true, message: 'Realtime client started on server' });
+});
+
+// API to start the TPOS client from the browser
+app.post('/api/realtime/tpos/start', (req, res) => {
+    const { token, room } = req.body;
+    if (!token) {
+        return res.status(400).json({ error: 'Missing token' });
+    }
+
+    tposRealtimeClient.start(token, room || 'tomato.tpos.vn');
+    res.json({ success: true, message: 'TPOS Realtime client started on server' });
+});
+
+// API to stop the TPOS client
+app.post('/api/realtime/tpos/stop', (req, res) => {
+    tposRealtimeClient.stop();
+    res.json({ success: true, message: 'TPOS Realtime client stopped' });
+});
+
+// API to get TPOS client status
+app.get('/api/realtime/tpos/status', (req, res) => {
+    res.json(tposRealtimeClient.getStatus());
 });
 
 // Root route
@@ -306,7 +503,10 @@ app.get('/', (req, res) => {
                 'POST /api/sepay/* - SePay webhook & balance'
             ],
             realtime: [
-                'POST /api/realtime/start - Start Pancake WebSocket client'
+                'POST /api/realtime/start - Start Pancake WebSocket client',
+                'POST /api/realtime/tpos/start - Start TPOS WebSocket client',
+                'POST /api/realtime/tpos/stop - Stop TPOS WebSocket client',
+                'GET /api/realtime/tpos/status - Get TPOS client status'
             ],
             health: [
                 'GET /health - Server health check',
