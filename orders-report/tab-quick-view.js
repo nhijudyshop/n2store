@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         loadDefaultInterval();
 
         // 5. Load available tags
-        loadAvailableTags();
+        await loadAvailableTags();
 
         // 6. Load orders
         await loadLatest50Orders();
@@ -567,9 +567,11 @@ function renderTagList() {
         const matchesSearch = !searchValue || tag.Name.toLowerCase().includes(searchValue);
         const hiddenClass = matchesSearch ? '' : 'hidden';
         const selectedClass = isSelected ? 'selected' : '';
+        // Encode tag name for safe use in onclick (handles quotes and special chars)
+        const encodedName = encodeURIComponent(tag.Name);
 
         return `
-            <div class="tag-option ${selectedClass} ${hiddenClass}" onclick="toggleTag('${tag.Id}', '${escapeHtml(tag.Name)}', '${tag.Color || '#6b7280'}')">
+            <div class="tag-option ${selectedClass} ${hiddenClass}" onclick="toggleTagEncoded('${tag.Id}', '${encodedName}', '${tag.Color || '#6b7280'}')">
                 <span class="tag-color-dot" style="background-color: ${tag.Color || '#6b7280'};"></span>
                 <span class="tag-option-name">${escapeHtml(tag.Name)}</span>
                 ${isSelected ? '<i class="fas fa-check" style="color: #10b981;"></i>' : ''}
@@ -593,6 +595,12 @@ function toggleTag(tagId, tagName, tagColor) {
 
     renderSelectedTagsPills();
     renderTagList();
+}
+
+// Wrapper function that decodes encoded tag name
+function toggleTagEncoded(tagId, encodedName, tagColor) {
+    const tagName = decodeURIComponent(encodedName);
+    toggleTag(tagId, tagName, tagColor);
 }
 
 function removeSelectedTag(tagId) {
@@ -784,6 +792,12 @@ function updateColorPreview() {
     document.getElementById('newTagColor').value = hex;
 }
 
+// Sync from color picker to hex input
+function syncColorFromPicker() {
+    const color = document.getElementById('newTagColor').value;
+    document.getElementById('newTagColorHex').value = color;
+}
+
 async function createNewTag() {
     const name = document.getElementById('newTagName').value.trim().toUpperCase();
     const color = document.getElementById('newTagColor').value || '#3b82f6';
@@ -917,19 +931,39 @@ function normalizePhoneForQR(phone) {
 }
 
 function getOrCreateQRForPhone(phone) {
-    // Try to get from localStorage first
-    const storageKey = `qr_code_${phone}`;
-    let code = localStorage.getItem(storageKey);
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return null;
 
-    if (!code) {
-        // Generate new code: last 4 digits of phone + random
-        const last4 = phone.slice(-4);
-        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        code = `${last4}${random}`;
-        localStorage.setItem(storageKey, code);
+    // Use same cache format as Tab 1 for consistency
+    const QR_CACHE_KEY = 'n2store_qr_codes_v2';
+    let cache = {};
+    try {
+        cache = JSON.parse(localStorage.getItem(QR_CACHE_KEY) || '{}');
+    } catch (e) {
+        cache = {};
     }
 
-    return code;
+    // Check cache first
+    if (cache[normalizedPhone]?.uniqueCode) {
+        return cache[normalizedPhone].uniqueCode;
+    }
+
+    // Generate new code with same format as Tab 1
+    const timestamp = Date.now().toString(36).toUpperCase().slice(-8);
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const sequence = Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0');
+    const uniqueCode = `N2${timestamp}${random}${sequence}`;
+
+    // Save to cache
+    cache[normalizedPhone] = {
+        uniqueCode: uniqueCode,
+        createdAt: new Date().toISOString(),
+        synced: false
+    };
+    localStorage.setItem(QR_CACHE_KEY, JSON.stringify(cache));
+
+    console.log(`[QUICK-VIEW] Created QR for ${normalizedPhone}: ${uniqueCode}`);
+    return uniqueCode;
 }
 
 async function copyQRCode(code) {
@@ -1210,6 +1244,7 @@ window.closeTagModal = closeTagModal;
 window.saveOrderTags = saveOrderTags;
 window.quickAssignTag = quickAssignTag;
 window.toggleTag = toggleTag;
+window.toggleTagEncoded = toggleTagEncoded;
 window.removeSelectedTag = removeSelectedTag;
 window.filterTags = filterTags;
 window.handleTagInputKeydown = handleTagInputKeydown;
@@ -1217,6 +1252,7 @@ window.openCreateTagModal = openCreateTagModal;
 window.closeCreateTagModal = closeCreateTagModal;
 window.createNewTag = createNewTag;
 window.updateColorPreview = updateColorPreview;
+window.syncColorFromPicker = syncColorFromPicker;
 window.refreshTags = refreshTags;
 window.showQRModal = showQRModal;
 window.closeOrderQRModal = closeOrderQRModal;

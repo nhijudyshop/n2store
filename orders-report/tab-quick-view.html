@@ -135,7 +135,8 @@
                     </label>
                     <div style="display: flex; gap: 12px; align-items: center;">
                         <input type="color" id="newTagColor" value="#3b82f6"
-                            style="width: 60px; height: 40px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer;" />
+                            style="width: 60px; height: 40px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer;"
+                            onchange="syncColorFromPicker()" oninput="syncColorFromPicker()" />
                         <input type="text" id="newTagColorHex" value="#3b82f6" placeholder="#000000"
                             style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 14px;"
                             oninput="updateColorPreview()" />
