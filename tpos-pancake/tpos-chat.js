@@ -1,6 +1,7 @@
 /* =====================================================
    TPOS CHAT MANAGER - Giao dien Live Comments TPOS
    WebSocket Real-time + Session Index Badge
+   Uses TokenManager for authentication
    ===================================================== */
 
 class TposChatManager {
@@ -23,6 +24,7 @@ class TposChatManager {
         this.isSocketConnected = false;
         this.socketReconnectAttempts = 0;
         this.socketMaxReconnectAttempts = 5;
+        this.heartbeatInterval = null;
 
         // TPOS API Config
         this.config = {
@@ -64,34 +66,54 @@ class TposChatManager {
         // Bind events
         this.bindEvents();
 
-        // Try to load TPOS token and connect
-        await this.loadTposToken();
+        // Wait for TokenManager to initialize
+        await this.waitForTokenManager();
 
         console.log('[TPOS-CHAT] Initialized successfully');
         return true;
     }
 
     // =====================================================
-    // TOKEN MANAGEMENT
+    // TOKEN MANAGEMENT - Uses global TokenManager
     // =====================================================
 
-    async loadTposToken() {
-        // Try to get TPOS token from localStorage or Firebase
-        const savedToken = localStorage.getItem('tpos_access_token');
-        if (savedToken) {
-            this.accessToken = savedToken;
-            // Connect WebSocket after token loaded
-            await this.connectWebSocket();
+    async waitForTokenManager() {
+        // Wait for TokenManager to be ready
+        if (window.tposTokenManager) {
+            try {
+                await window.tposTokenManager.waitForFirebaseAndInit();
+                console.log('[TPOS-CHAT] TokenManager ready');
+
+                // Check if we have a valid token
+                if (window.tposTokenManager.isTokenValid()) {
+                    console.log('[TPOS-CHAT] Valid token found, connecting WebSocket...');
+                    await this.connectWebSocket();
+                } else {
+                    console.log('[TPOS-CHAT] No valid token, will fetch on demand');
+                    this.showLoginPrompt();
+                }
+            } catch (error) {
+                console.error('[TPOS-CHAT] Error initializing TokenManager:', error);
+                this.showLoginPrompt();
+            }
         } else {
-            console.log('[TPOS-CHAT] No TPOS token found. Please login.');
+            console.warn('[TPOS-CHAT] TokenManager not available');
             this.showLoginPrompt();
         }
     }
 
-    setAccessToken(token) {
-        this.accessToken = token;
-        localStorage.setItem('tpos_access_token', token);
-        console.log('[TPOS-CHAT] Token saved');
+    async getAccessToken() {
+        if (window.tposTokenManager) {
+            return await window.tposTokenManager.getToken();
+        }
+        return null;
+    }
+
+    async getAuthHeader() {
+        if (window.tposTokenManager) {
+            return await window.tposTokenManager.getAuthHeader();
+        }
+        return {};
     }
 
     // =====================================================
@@ -222,7 +244,8 @@ class TposChatManager {
     // =====================================================
 
     async connectWebSocket() {
-        if (!this.accessToken) {
+        const token = await this.getAccessToken();
+        if (!token) {
             console.warn('[TPOS-CHAT] No access token for WebSocket');
             return false;
         }
@@ -247,15 +270,15 @@ class TposChatManager {
 
             this.chatSocket = new WebSocket(wsUrl);
 
-            this.chatSocket.onopen = () => {
+            this.chatSocket.onopen = async () => {
                 console.log('[TPOS-CHAT] WebSocket connected');
 
                 // Send Socket.IO handshake
                 this.chatSocket.send('40/chatomni,');
 
                 // Join room after small delay
-                setTimeout(() => {
-                    this.joinRoom();
+                setTimeout(async () => {
+                    await this.joinRoom();
                 }, 500);
 
                 this.updateSocketStatus(true);
@@ -287,12 +310,13 @@ class TposChatManager {
         });
     }
 
-    joinRoom() {
+    async joinRoom() {
         if (!this.chatSocket || this.chatSocket.readyState !== WebSocket.OPEN) {
             return;
         }
 
-        const joinMessage = `42/chatomni,["join",{"room":"${this.config.room}","token":"${this.accessToken}"}]`;
+        const token = await this.getAccessToken();
+        const joinMessage = `42/chatomni,["join",{"room":"${this.config.room}","token":"${token}"}]`;
         this.chatSocket.send(joinMessage);
         console.log('[TPOS-CHAT] Joined room:', this.config.room);
 
@@ -422,22 +446,36 @@ class TposChatManager {
     // =====================================================
 
     async fetchSessionIndexes(postId) {
-        if (!this.accessToken || !postId) return;
+        if (!postId) return;
 
         console.log('[TPOS-CHAT] Fetching session indexes for post:', postId);
 
         try {
             const url = `${this.config.apiBaseUrl}/odata/SaleOnline_Facebook_Post/ODataService.GetCommentOrders?$expand=orders&PostId=${postId}`;
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Accept': '*/*',
-                    'Authorization': `Bearer ${this.accessToken}`,
-                    'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                    'tposappversion': '5.11.16.1'
-                }
-            });
+            // Use TokenManager's authenticatedFetch for auto token management
+            let response;
+            if (window.tposTokenManager) {
+                response = await window.tposTokenManager.authenticatedFetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': '*/*',
+                        'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+                        'tposappversion': '5.11.16.1'
+                    }
+                });
+            } else {
+                const authHeader = await this.getAuthHeader();
+                response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': '*/*',
+                        ...authHeader,
+                        'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+                        'tposappversion': '5.11.16.1'
+                    }
+                });
+            }
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
@@ -638,12 +676,66 @@ class TposChatManager {
         if (listEl) {
             listEl.innerHTML = `
                 <div class="tpos-empty-state">
-                    <i data-lucide="log-in"></i>
-                    <h3>Chưa đăng nhập TPOS</h3>
-                    <p>Vui lòng cài đặt token TPOS để sử dụng tính năng này</p>
+                    <i data-lucide="key"></i>
+                    <h3>Đang lấy token TPOS...</h3>
+                    <p>Hệ thống sẽ tự động xác thực</p>
+                    <div class="tpos-loading-spinner" style="margin-top: 16px;"></div>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            // Auto fetch token
+            this.autoFetchToken();
+        }
+    }
+
+    async autoFetchToken() {
+        try {
+            if (window.tposTokenManager) {
+                console.log('[TPOS-CHAT] Auto-fetching token...');
+                await window.tposTokenManager.getToken();
+
+                // Token fetched, now connect WebSocket
+                await this.connectWebSocket();
+
+                // Show empty state with instructions
+                this.showEmptyState();
+            }
+        } catch (error) {
+            console.error('[TPOS-CHAT] Auto-fetch token failed:', error);
+            this.showTokenError(error.message);
+        }
+    }
+
+    showTokenError(errorMessage) {
+        const listEl = this.container.querySelector('#tposCommentsList');
+        if (listEl) {
+            listEl.innerHTML = `
+                <div class="tpos-empty-state">
+                    <i data-lucide="alert-circle"></i>
+                    <h3>Lỗi xác thực</h3>
+                    <p>${errorMessage}</p>
                     <button class="tpos-action-btn primary" onclick="window.tposChatManager.showSettings()" style="margin-top: 16px;">
-                        <i data-lucide="settings"></i>
-                        <span>Cài đặt</span>
+                        <i data-lucide="refresh-cw"></i>
+                        <span>Thử lại</span>
+                    </button>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    showEmptyState() {
+        const listEl = this.container.querySelector('#tposCommentsList');
+        if (listEl) {
+            listEl.innerHTML = `
+                <div class="tpos-empty-state">
+                    <i data-lucide="message-circle"></i>
+                    <h3>Sẵn sàng</h3>
+                    <p>Chọn bài Live để xem comments real-time</p>
+                    <button class="tpos-action-btn primary" onclick="window.tposChatManager.showPostSelector()" style="margin-top: 16px;">
+                        <i data-lucide="play-circle"></i>
+                        <span>Chọn bài Live</span>
                     </button>
                 </div>
             `;
@@ -657,10 +749,40 @@ class TposChatManager {
     }
 
     showSettings() {
-        const token = prompt('Nhập TPOS Access Token:', this.accessToken || '');
-        if (token) {
-            this.setAccessToken(token);
-            this.connectWebSocket();
+        if (window.tposTokenManager) {
+            const tokenInfo = window.tposTokenManager.getTokenInfo();
+            let message = '=== TPOS Token Info ===\n\n';
+
+            if (tokenInfo.hasToken) {
+                message += `✅ Token: ${tokenInfo.token}\n`;
+                message += `📅 Hết hạn: ${tokenInfo.expiresAt}\n`;
+                message += `⏱️ Còn lại: ${tokenInfo.timeRemaining}\n`;
+                message += `${tokenInfo.isValid ? '✅ Trạng thái: Còn hạn' : '❌ Trạng thái: Hết hạn'}\n\n`;
+                message += 'Bấm OK để làm mới token, Cancel để đóng.';
+
+                if (confirm(message)) {
+                    window.tposTokenManager.refresh().then(() => {
+                        alert('✅ Token đã được làm mới!');
+                        this.connectWebSocket();
+                    }).catch(err => {
+                        alert('❌ Lỗi: ' + err.message);
+                    });
+                }
+            } else {
+                message += '❌ Chưa có token\n\n';
+                message += 'Bấm OK để lấy token mới.';
+
+                if (confirm(message)) {
+                    window.tposTokenManager.getToken().then(() => {
+                        alert('✅ Token đã được lấy!');
+                        this.connectWebSocket();
+                    }).catch(err => {
+                        alert('❌ Lỗi: ' + err.message);
+                    });
+                }
+            }
+        } else {
+            alert('TokenManager chưa sẵn sàng. Vui lòng reload trang.');
         }
     }
 
