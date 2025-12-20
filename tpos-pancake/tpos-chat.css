@@ -943,3 +943,114 @@
     width: 16px;
     height: 16px;
 }
+
+/* =====================================================
+   PAGE SELECTOR
+   ===================================================== */
+
+.tpos-page-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--tpos-border-color);
+    background: white;
+    color: var(--tpos-text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.tpos-page-btn:hover {
+    background: var(--tpos-hover-bg);
+    border-color: var(--tpos-primary);
+}
+
+.tpos-page-btn svg {
+    width: 14px;
+    height: 14px;
+    color: var(--tpos-text-tertiary);
+}
+
+.tpos-page-avatar-small {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+/* Page item in modal */
+.tpos-page-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.tpos-page-item:hover {
+    background: var(--tpos-hover-bg);
+}
+
+.tpos-page-item.selected {
+    background: linear-gradient(135deg, #f3e8ff, #fff);
+    border: 1px solid #c4b5fd;
+}
+
+.tpos-page-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--tpos-header-bg);
+    flex-shrink: 0;
+}
+
+.tpos-page-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.tpos-page-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.tpos-page-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--tpos-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tpos-page-id {
+    font-size: 12px;
+    color: var(--tpos-text-tertiary);
+    margin-top: 2px;
+}
+
+.tpos-page-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: #ef4444;
+    color: white;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.tpos-page-check {
+    width: 20px;
+    height: 20px;
+    color: var(--tpos-primary);
+}

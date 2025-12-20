@@ -43,9 +43,13 @@ class TposChatManager {
             room: 'tomato.tpos.vn',
             apiBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
 
-            // Facebook Page ID for live video detection
+            // Facebook Page ID for live video detection (default)
             pageId: '270136663390370'
         };
+
+        // Pages data (from Pancake API)
+        this.pages = [];
+        this.selectedPage = null;
 
         // Live video data
         this.liveVideos = [];
@@ -114,6 +118,11 @@ class TposChatManager {
                 if (window.tposTokenManager.isTokenValid()) {
                     console.log('[TPOS-CHAT] Valid token found');
 
+                    // Fetch pages from Pancake (also loads saved page selection)
+                    console.log('[TPOS-CHAT] Fetching pages...');
+                    await this.fetchPages();
+                    this.updatePageSelectorUI();
+
                     // Auto-detect active live video
                     console.log('[TPOS-CHAT] Detecting active live...');
                     await this.detectActiveLive();
@@ -173,6 +182,11 @@ class TposChatManager {
                             </svg>
                             <span>TPOS Live</span>
                         </div>
+                        <button class="tpos-page-btn" id="tposPageBtn" title="Chọn Page">
+                            <i data-lucide="globe"></i>
+                            <span>Chọn Page</span>
+                            <i data-lucide="chevron-down"></i>
+                        </button>
                         <button class="tpos-post-selector" id="tposPostSelector">
                             <span id="tposSelectedPost">Chọn bài Live...</span>
                             <i data-lucide="chevron-down"></i>
@@ -238,6 +252,12 @@ class TposChatManager {
     // =====================================================
 
     bindEvents() {
+        // Page selector - show page selector modal
+        const pageBtn = this.container.querySelector('#tposPageBtn');
+        if (pageBtn) {
+            pageBtn.addEventListener('click', () => this.showPageSelector());
+        }
+
         // Post selector - show live video selector modal
         const postSelector = this.container.querySelector('#tposPostSelector');
         if (postSelector) {
@@ -640,6 +660,188 @@ class TposChatManager {
             statusEl.className = `tpos-socket-status ${connected ? 'connected' : 'disconnected'}`;
             statusEl.querySelector('span:last-child').textContent = connected ? 'Online' : 'Offline';
         }
+    }
+
+    // =====================================================
+    // PAGE SELECTION (from Pancake API)
+    // =====================================================
+
+    async fetchPages() {
+        console.log('[TPOS-CHAT] Fetching pages from Pancake...');
+
+        try {
+            // Get Pancake token from pancakeDataManager
+            let token = null;
+            if (window.pancakeDataManager) {
+                token = await window.pancakeDataManager.getToken();
+            }
+
+            if (!token) {
+                console.warn('[TPOS-CHAT] No Pancake token available');
+                return [];
+            }
+
+            const url = `${this.config.apiBaseUrl}/pancake/pages/unread_conv_pages_count?access_token=${token}`;
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                // Filter out Instagram pages (igo_*) and map to our format
+                this.pages = result.data
+                    .filter(p => !p.page_id.startsWith('igo_'))
+                    .map(p => ({
+                        page_id: p.page_id,
+                        unread_count: p.unread_conv_count || 0,
+                        // Try to get page name from Pancake cached pages
+                        page_name: this.getPageName(p.page_id)
+                    }));
+
+                console.log('[TPOS-CHAT] Found', this.pages.length, 'pages');
+
+                // Auto-select saved page or first page
+                const savedPageId = localStorage.getItem('tpos_selected_page_id');
+                if (savedPageId) {
+                    const savedPage = this.pages.find(p => p.page_id === savedPageId);
+                    if (savedPage) {
+                        this.selectPage(savedPage.page_id, false);
+                    }
+                }
+
+                return this.pages;
+            }
+
+            return [];
+        } catch (error) {
+            console.error('[TPOS-CHAT] Error fetching pages:', error);
+            return [];
+        }
+    }
+
+    getPageName(pageId) {
+        // Try to get page name from Pancake data manager
+        if (window.pancakeDataManager?.pages) {
+            const page = window.pancakeDataManager.pages.find(p =>
+                p.page_id === pageId ||
+                p.fb_page_id === pageId ||
+                p.id === pageId
+            );
+            if (page) return page.page_name || page.name;
+        }
+        // Return pageId as fallback
+        return pageId;
+    }
+
+    showPageSelector() {
+        // Refresh pages list first
+        this.fetchPages().then(() => {
+            const existingModal = document.getElementById('tposPageSelectorModal');
+            if (existingModal) existingModal.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'tposPageSelectorModal';
+            modal.className = 'tpos-modal';
+            modal.innerHTML = `
+                <div class="tpos-modal-content">
+                    <div class="tpos-modal-header">
+                        <h3>Chọn Page</h3>
+                        <button class="tpos-modal-close" onclick="document.getElementById('tposPageSelectorModal').remove()">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <div class="tpos-modal-body">
+                        ${this.pages.length === 0 ? `
+                            <div class="tpos-empty-state">
+                                <p>Không tìm thấy page nào</p>
+                                <small>Đảm bảo đã đăng nhập Pancake</small>
+                            </div>
+                        ` : this.pages.map(page => `
+                            <div class="tpos-page-item ${page.page_id === this.config.pageId ? 'selected' : ''}"
+                                 onclick="window.tposChatManager.selectPage('${page.page_id}')">
+                                <div class="tpos-page-avatar">
+                                    <img src="https://graph.facebook.com/${page.page_id}/picture?type=square"
+                                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23e5e7eb%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 font-size=%2240%22 text-anchor=%22middle%22 fill=%22%239ca3af%22>P</text></svg>'"
+                                         alt="">
+                                </div>
+                                <div class="tpos-page-info">
+                                    <div class="tpos-page-name">${this.escapeHtml(page.page_name)}</div>
+                                    <div class="tpos-page-id">${page.page_id}</div>
+                                </div>
+                                ${page.unread_count > 0 ? `
+                                    <span class="tpos-page-badge">${page.unread_count}</span>
+                                ` : ''}
+                                ${page.page_id === this.config.pageId ? `
+                                    <i data-lucide="check" class="tpos-page-check"></i>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Close on backdrop click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
+    }
+
+    selectPage(pageId, closeModal = true) {
+        const page = this.pages.find(p => p.page_id === pageId);
+        if (page) {
+            this.selectedPage = page;
+            this.config.pageId = pageId;
+            localStorage.setItem('tpos_selected_page_id', pageId);
+            console.log('[TPOS-CHAT] Selected page:', pageId, '-', page.page_name);
+
+            // Update header UI
+            this.updatePageSelectorUI();
+
+            if (closeModal) {
+                const modal = document.getElementById('tposPageSelectorModal');
+                if (modal) modal.remove();
+
+                // Re-detect live videos for new page
+                this.detectActiveLive();
+            }
+        }
+    }
+
+    updatePageSelectorUI() {
+        const pageBtn = this.container?.querySelector('#tposPageBtn');
+        if (!pageBtn) return;
+
+        if (this.selectedPage) {
+            pageBtn.innerHTML = `
+                <img src="https://graph.facebook.com/${this.selectedPage.page_id}/picture?type=square"
+                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23e5e7eb%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 font-size=%2240%22 text-anchor=%22middle%22 fill=%22%239ca3af%22>P</text></svg>'"
+                     class="tpos-page-avatar-small">
+                <span>${this.escapeHtml(this.selectedPage.page_name?.substring(0, 15) || this.selectedPage.page_id)}</span>
+                <i data-lucide="chevron-down"></i>
+            `;
+        } else {
+            pageBtn.innerHTML = `
+                <i data-lucide="globe"></i>
+                <span>Chọn Page</span>
+                <i data-lucide="chevron-down"></i>
+            `;
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     // =====================================================
