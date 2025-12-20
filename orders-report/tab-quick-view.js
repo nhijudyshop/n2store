@@ -27,12 +27,40 @@
 
 // Data storage
 let displayedData = [];
+let allLoadedData = []; // All loaded orders (for infinite scroll)
 let availableTags = [];
 
 // Current order for modals
 let currentEditOrderId = null;
 let currentEditOrderCode = null;
 let selectedTags = [];
+
+// Infinite scroll
+const INITIAL_LOAD = 50;
+const LOAD_MORE_COUNT = 30;
+let currentSkip = 0;
+let isLoadingMore = false;
+let hasMoreData = true;
+let totalOrderCount = 0;
+
+// Column visibility
+const COLUMN_SETTINGS_KEY = 'quickViewColumnVisibility';
+const COLUMN_CONFIG = [
+    { id: 'stt', label: 'STT', default: true },
+    { id: 'name', label: 'Tên KH', default: true },
+    { id: 'phone', label: 'SĐT', default: true },
+    { id: 'tag', label: 'TAG', default: true },
+    { id: 'note', label: 'Ghi chú', default: true },
+    { id: 'debt', label: 'Công nợ', default: true },
+    { id: 'address', label: 'Địa chỉ', default: true },
+    { id: 'qr', label: 'QR', default: true },
+    { id: 'chat', label: 'Chat', default: true },
+    { id: 'edit', label: 'Sửa', default: true },
+    { id: 'total', label: 'Tổng tiền', default: true },
+    { id: 'paid', label: 'Đã CK', default: true },
+    { id: 'date', label: 'Ngày tạo', default: true }
+];
+let columnVisibility = {};
 
 // Refresh system
 const REFRESH_INTERVALS = [3000, 5000, 10000, 15000, 30000, 60000];
@@ -78,19 +106,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         // 4. Load default refresh interval
         loadDefaultInterval();
 
-        // 5. Load available tags
+        // 5. Load column visibility settings
+        loadColumnVisibility();
+
+        // 6. Load available tags
         await loadAvailableTags();
 
-        // 6. Load orders
-        await loadLatest50Orders();
+        // 7. Load orders
+        await loadInitialOrders();
 
-        // 7. Setup Firebase realtime listeners
+        // 8. Setup Firebase realtime listeners
         setupFirebaseListeners();
 
-        // 8. Start auto-refresh
+        // 9. Setup infinite scroll
+        setupInfiniteScroll();
+
+        // 10. Start auto-refresh
         startAutoRefresh();
 
-        // 9. Setup keyboard shortcuts
+        // 11. Setup keyboard shortcuts
         setupKeyboardShortcuts();
 
         const loadTime = performance.now() - startTime;
@@ -205,18 +239,23 @@ function buildDateFilter() {
     return `(DateCreated ge ${fromDate} and DateCreated le ${toDate})`;
 }
 
-async function loadLatest50Orders() {
-    console.log('[QUICK-VIEW] Loading 50 latest orders...');
+async function loadInitialOrders() {
+    console.log('[QUICK-VIEW] Loading initial orders...');
     showLoading(true);
     const startTime = performance.now();
+
+    // Reset state
+    currentSkip = 0;
+    allLoadedData = [];
+    displayedData = [];
+    hasMoreData = true;
 
     try {
         const headers = await window.tokenManager.getAuthHeader();
         const dateFilter = buildDateFilter();
 
-        // Use same endpoint as Tab 1: /ODataService.GetView (without $select - filter columns on client)
         const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?' +
-            '$top=50&' +
+            `$top=${INITIAL_LOAD}&` +
             '$skip=0&' +
             '$orderby=DateCreated desc&' +
             '$filter=' + encodeURIComponent(dateFilter) + '&' +
@@ -234,25 +273,116 @@ async function loadLatest50Orders() {
         }
 
         const data = await response.json();
+        totalOrderCount = data['@odata.count'] || 0;
+
         // Extract only needed columns on client side
-        displayedData = extractColumns(data.value || []);
+        allLoadedData = extractColumns(data.value || []);
+        currentSkip = allLoadedData.length;
+        hasMoreData = allLoadedData.length < totalOrderCount;
 
         // Add SessionIndex
-        displayedData.forEach((order, index) => {
+        allLoadedData.forEach((order, index) => {
             order.SessionIndex = index + 1;
         });
 
+        displayedData = [...allLoadedData];
         renderTable();
         updateOrderCount();
+        updatePaginationInfo();
 
         const loadTime = performance.now() - startTime;
-        console.log(`[QUICK-VIEW] Loaded ${displayedData.length} orders in ${loadTime.toFixed(0)}ms`);
+        console.log(`[QUICK-VIEW] Loaded ${displayedData.length}/${totalOrderCount} orders in ${loadTime.toFixed(0)}ms`);
 
     } catch (error) {
         console.error('[QUICK-VIEW] Load error:', error);
         showToast('Lỗi tải dữ liệu: ' + error.message, 'error');
     } finally {
         showLoading(false);
+    }
+}
+
+async function loadMoreOrders() {
+    if (isLoadingMore || !hasMoreData) return;
+
+    console.log('[QUICK-VIEW] Loading more orders from skip:', currentSkip);
+    isLoadingMore = true;
+    showLoadingMore(true);
+
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const dateFilter = buildDateFilter();
+
+        const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?' +
+            `$top=${LOAD_MORE_COUNT}&` +
+            `$skip=${currentSkip}&` +
+            '$orderby=DateCreated desc&' +
+            '$filter=' + encodeURIComponent(dateFilter);
+
+        const response = await API_CONFIG.smartFetch(apiUrl, {
+            headers: {
+                ...headers,
+                'accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const newOrders = extractColumns(data.value || []);
+
+        if (newOrders.length === 0) {
+            hasMoreData = false;
+        } else {
+            // Add SessionIndex continuing from last
+            const lastIndex = allLoadedData.length;
+            newOrders.forEach((order, index) => {
+                order.SessionIndex = lastIndex + index + 1;
+            });
+
+            allLoadedData = [...allLoadedData, ...newOrders];
+            displayedData = [...allLoadedData];
+            currentSkip += newOrders.length;
+            hasMoreData = currentSkip < totalOrderCount;
+
+            // Append new rows to table (don't re-render all)
+            appendOrderRows(newOrders);
+            updateOrderCount();
+            updatePaginationInfo();
+        }
+
+        console.log(`[QUICK-VIEW] Loaded ${newOrders.length} more orders (total: ${displayedData.length}/${totalOrderCount})`);
+
+    } catch (error) {
+        console.error('[QUICK-VIEW] Load more error:', error);
+        showToast('Lỗi tải thêm: ' + error.message, 'error');
+    } finally {
+        isLoadingMore = false;
+        showLoadingMore(false);
+    }
+}
+
+function appendOrderRows(orders) {
+    const tbody = document.getElementById('tableBody');
+    const html = orders.map(order => renderOrderRow(order)).join('');
+    tbody.insertAdjacentHTML('beforeend', html);
+    applyColumnVisibility();
+}
+
+function showLoadingMore(show) {
+    const scrollHint = document.getElementById('scrollHint');
+    if (scrollHint) {
+        scrollHint.innerHTML = show
+            ? '<i class="fas fa-spinner fa-spin"></i> Đang tải thêm...'
+            : hasMoreData ? 'Cuộn xuống để tải thêm' : 'Đã tải hết';
+    }
+}
+
+function updatePaginationInfo() {
+    const pageInfo = document.getElementById('pageInfo');
+    if (pageInfo) {
+        pageInfo.textContent = `Hiển thị ${displayedData.length}/${totalOrderCount} đơn`;
     }
 }
 
@@ -296,6 +426,7 @@ function renderTable() {
     }
 
     tbody.innerHTML = displayedData.map(order => renderOrderRow(order)).join('');
+    applyColumnVisibility();
 }
 
 function renderOrderRow(order) {
@@ -312,7 +443,7 @@ function renderOrderRow(order) {
     const channelId = order.CRMTeamId || '';
     const psid = order.Facebook_UserId || '';
 
-    // Tags
+    // Tags with remove button
     const tagsHtml = renderTagsHtml(order.Tags, orderId, orderCode);
 
     // Debt display
@@ -324,29 +455,31 @@ function renderOrderRow(order) {
 
     return `
         <tr data-order-id="${orderId}">
-            <td class="cell-stt">${order.SessionIndex}</td>
-            <td class="cell-name" data-column="name">
+            <td data-column="stt" class="cell-stt">${order.SessionIndex}</td>
+            <td data-column="name" class="cell-name">
                 <a href="javascript:void(0)" onclick="openChat('${orderId}', '${channelId}', '${psid}')">${escapeHtml(name)}</a>
             </td>
-            <td class="cell-phone" data-column="phone">
+            <td data-column="phone" class="cell-phone">
+                ${phone ? `<i class="fas fa-copy copy-phone-btn" onclick="copyPhone('${phone}'); event.stopPropagation();" title="Copy SĐT" style="cursor: pointer; color: #9ca3af; font-size: 11px; margin-right: 4px;"></i>` : ''}
                 ${escapeHtml(phone)}
-                ${phone ? `<button class="btn-copy-phone" onclick="copyPhone('${phone}')" title="Copy"><i class="fas fa-copy"></i></button>` : ''}
             </td>
-            <td class="cell-tag" data-column="tag">
-                <div class="tag-buttons">
-                    <button class="tag-icon-btn" onclick="openTagModal('${orderId}', '${orderCode}')" title="Quản lý tag">
-                        <i class="fas fa-tags"></i>
-                    </button>
-                    <button class="quick-tag-btn" onclick="quickAssignTag('${orderId}', '${orderCode}', 'xử lý')" title="Xử lý + định danh">
-                        <i class="fas fa-clock"></i>
-                    </button>
-                    <button class="quick-tag-btn quick-tag-ok" onclick="quickAssignTag('${orderId}', '${orderCode}', 'ok')" title="OK + định danh">
-                        <i class="fas fa-check"></i>
-                    </button>
+            <td data-column="tag" class="cell-tag">
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                    <div class="tag-buttons">
+                        <button class="tag-icon-btn" onclick="openTagModal('${orderId}', '${orderCode}')" title="Quản lý tag">
+                            <i class="fas fa-tags"></i>
+                        </button>
+                        <button class="quick-tag-btn" onclick="quickAssignTag('${orderId}', '${orderCode}', 'xử lý')" title="Xử lý + định danh">
+                            <i class="fas fa-clock"></i>
+                        </button>
+                        <button class="quick-tag-btn quick-tag-ok" onclick="quickAssignTag('${orderId}', '${orderCode}', 'ok')" title="OK + định danh">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </div>
+                    <div class="tag-list">${tagsHtml}</div>
                 </div>
-                <div class="tag-list">${tagsHtml}</div>
             </td>
-            <td class="cell-note" data-column="note">
+            <td data-column="note" class="cell-note">
                 <div class="note-content">
                     <span class="note-text" title="${escapeHtml(note)}">${escapeHtml(note) || '-'}</span>
                     <button class="btn-edit-note" onclick="openNoteModal('${orderId}')" title="Sửa ghi chú">
@@ -354,14 +487,14 @@ function renderOrderRow(order) {
                     </button>
                 </div>
             </td>
-            <td class="cell-debt ${debtClass}" data-column="debt">${debtText}</td>
-            <td class="cell-address" data-column="address" title="${escapeHtml(address)}">${escapeHtml(address) || '-'}</td>
-            <td class="cell-action">
+            <td data-column="debt" class="cell-debt ${debtClass}">${debtText}</td>
+            <td data-column="address" class="cell-address" title="${escapeHtml(address)}">${escapeHtml(address) || '-'}</td>
+            <td data-column="qr" class="cell-action">
                 <button class="btn-action btn-qr" onclick="showQRModal('${phone}', ${debt})" title="QR Code">
                     <i class="fas fa-qrcode"></i>
                 </button>
             </td>
-            <td class="cell-action">
+            <td data-column="chat" class="cell-action">
                 <button class="btn-action btn-chat" onclick="openChat('${orderId}', '${channelId}', '${psid}')" title="Chat">
                     <i class="fas fa-comment"></i>
                 </button>
@@ -369,14 +502,14 @@ function renderOrderRow(order) {
                     <i class="fas fa-comments"></i>
                 </button>
             </td>
-            <td class="cell-action">
+            <td data-column="edit" class="cell-action">
                 <button class="btn-action btn-edit" onclick="editOrder('${orderId}')" title="Sửa đơn">
                     <i class="fas fa-edit"></i>
                 </button>
             </td>
-            <td class="cell-money" data-column="revenue">${formatCurrency(revenue)}</td>
-            <td class="cell-money" data-column="paid">${formatCurrency(paid)}</td>
-            <td class="cell-date" data-column="date">${dateDisplay}</td>
+            <td data-column="total" class="cell-money">${formatCurrency(revenue)}</td>
+            <td data-column="paid" class="cell-money">${formatCurrency(paid)}</td>
+            <td data-column="date" class="cell-date">${dateDisplay}</td>
         </tr>
     `;
 }
@@ -391,12 +524,65 @@ function renderTagsHtml(tagsJson, orderId, orderCode) {
         return tags.map(tag => {
             const color = tag.Color || '#6b7280';
             const name = tag.Name || 'Unknown';
-            return `<span class="tag-badge" style="background-color: ${color};">${escapeHtml(name)}</span>`;
+            return `
+                <div class="tag-badge-container">
+                    <span class="tag-badge" style="background-color: ${color}; cursor: pointer;" onclick="openTagModal('${orderId}', '${orderCode}'); event.stopPropagation();">
+                        ${escapeHtml(name)}
+                    </span>
+                    <button class="tag-remove-btn" onclick="quickRemoveTag('${orderId}', '${orderCode}', '${tag.Id}'); event.stopPropagation();" title="Xóa tag này">&times;</button>
+                </div>
+            `;
         }).join('');
 
     } catch (e) {
         console.warn('[QUICK-VIEW] Parse tags error:', e);
         return '';
+    }
+}
+
+async function quickRemoveTag(orderId, orderCode, tagId) {
+    const order = displayedData.find(o => o.Id === orderId);
+    if (!order) return;
+
+    let currentTags = [];
+    try {
+        currentTags = order.Tags ? JSON.parse(order.Tags) : [];
+    } catch (e) {
+        currentTags = [];
+    }
+
+    // Remove the tag
+    const newTags = currentTags.filter(t => String(t.Id) !== String(tagId));
+
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+
+        const response = await API_CONFIG.smartFetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
+            {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    Tags: newTags,
+                    OrderId: orderId
+                })
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        updateTagCellOnly(orderId, orderCode, newTags);
+        emitTagUpdate(orderId, orderCode, newTags);
+        showToast('Đã xóa tag', 'success');
+
+    } catch (error) {
+        console.error('[QUICK-VIEW] Remove tag error:', error);
+        showToast('Lỗi xóa tag: ' + error.message, 'error');
     }
 }
 
@@ -447,9 +633,9 @@ async function smartRefresh() {
         const headers = await window.tokenManager.getAuthHeader();
         const dateFilter = buildDateFilter();
 
-        // Use same endpoint as Tab 1: /ODataService.GetView (without $select - filter columns on client)
+        // Refresh only top orders (INITIAL_LOAD)
         const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?' +
-            '$top=50&' +
+            `$top=${INITIAL_LOAD}&` +
             '$skip=0&' +
             '$orderby=DateCreated desc&' +
             '$filter=' + encodeURIComponent(dateFilter) + '&' +
@@ -465,7 +651,7 @@ async function smartRefresh() {
         if (!response.ok) return;
 
         const data = await response.json();
-        // Extract only needed columns on client side
+        totalOrderCount = data['@odata.count'] || totalOrderCount;
         const newData = extractColumns(data.value || []);
 
         // Add SessionIndex
@@ -473,19 +659,45 @@ async function smartRefresh() {
             order.SessionIndex = index + 1;
         });
 
-        // Check for changes and update
+        // Smart merge: update existing orders, add new ones at top
         let hasChanges = false;
-        newData.forEach((newOrder, index) => {
-            const oldOrder = displayedData.find(o => o.Id === newOrder.Id);
-            if (!oldOrder || hasOrderChanged(oldOrder, newOrder)) {
+        const existingIds = new Set(allLoadedData.map(o => o.Id));
+        const newIds = new Set(newData.map(o => o.Id));
+
+        // Check for changes in top orders
+        newData.forEach((newOrder) => {
+            const oldOrder = allLoadedData.find(o => o.Id === newOrder.Id);
+            if (!oldOrder) {
+                hasChanges = true; // New order
+            } else if (hasOrderChanged(oldOrder, newOrder)) {
                 hasChanges = true;
+                // Update existing order data
+                Object.assign(oldOrder, newOrder);
             }
         });
 
-        if (hasChanges || newData.length !== displayedData.length) {
-            displayedData = newData;
+        if (hasChanges) {
+            // Merge new orders at top, keep loaded orders that aren't in top anymore
+            const mergedData = [...newData];
+            allLoadedData.forEach(order => {
+                if (!newIds.has(order.Id)) {
+                    mergedData.push(order);
+                }
+            });
+
+            // Re-index all
+            mergedData.forEach((order, index) => {
+                order.SessionIndex = index + 1;
+            });
+
+            allLoadedData = mergedData;
+            displayedData = [...allLoadedData];
+            currentSkip = allLoadedData.length;
+            hasMoreData = currentSkip < totalOrderCount;
+
             renderTable();
             updateOrderCount();
+            updatePaginationInfo();
         }
 
         // Restore scroll position
@@ -508,7 +720,7 @@ function hasOrderChanged(oldOrder, newOrder) {
 
 function manualRefresh() {
     console.log('[QUICK-VIEW] Manual refresh');
-    loadLatest50Orders();
+    loadInitialOrders();
     updateLastRefreshTime();
 }
 
@@ -1156,6 +1368,118 @@ function emitTagUpdate(orderId, orderCode, tags) {
 // #endregion
 
 // ============================================================================
+// #region INFINITE SCROLL
+// ============================================================================
+
+function setupInfiniteScroll() {
+    const tableContainer = document.getElementById('tableContainer');
+    if (!tableContainer) return;
+
+    tableContainer.addEventListener('scroll', handleTableScroll);
+    console.log('[QUICK-VIEW] Infinite scroll setup');
+}
+
+function handleTableScroll() {
+    const tableContainer = document.getElementById('tableContainer');
+    if (!tableContainer || isLoadingMore || !hasMoreData) return;
+
+    const scrollTop = tableContainer.scrollTop;
+    const scrollHeight = tableContainer.scrollHeight;
+    const clientHeight = tableContainer.clientHeight;
+
+    // Load more when within 200px of bottom
+    if (scrollTop + clientHeight >= scrollHeight - 200) {
+        loadMoreOrders();
+    }
+}
+
+// #endregion
+
+// ============================================================================
+// #region COLUMN VISIBILITY
+// ============================================================================
+
+function loadColumnVisibility() {
+    try {
+        const saved = localStorage.getItem(COLUMN_SETTINGS_KEY);
+        if (saved) {
+            columnVisibility = JSON.parse(saved);
+        } else {
+            // Set defaults
+            COLUMN_CONFIG.forEach(col => {
+                columnVisibility[col.id] = col.default;
+            });
+        }
+    } catch (e) {
+        console.warn('[QUICK-VIEW] Load column visibility error:', e);
+        COLUMN_CONFIG.forEach(col => {
+            columnVisibility[col.id] = col.default;
+        });
+    }
+    console.log('[QUICK-VIEW] Column visibility loaded:', columnVisibility);
+}
+
+function saveColumnVisibility() {
+    try {
+        localStorage.setItem(COLUMN_SETTINGS_KEY, JSON.stringify(columnVisibility));
+        console.log('[QUICK-VIEW] Column visibility saved');
+    } catch (e) {
+        console.warn('[QUICK-VIEW] Save column visibility error:', e);
+    }
+}
+
+function applyColumnVisibility() {
+    COLUMN_CONFIG.forEach(col => {
+        const isVisible = columnVisibility[col.id] !== false;
+        const display = isVisible ? '' : 'none';
+
+        // Apply to header
+        const th = document.querySelector(`th[data-column="${col.id}"]`);
+        if (th) th.style.display = display;
+
+        // Apply to all cells
+        const cells = document.querySelectorAll(`td[data-column="${col.id}"]`);
+        cells.forEach(cell => cell.style.display = display);
+    });
+}
+
+function openColumnSettingsModal() {
+    renderColumnSettingsBody();
+    document.getElementById('columnSettingsModal').classList.add('show');
+    setModalOpen('columnSettings');
+}
+
+function closeColumnSettingsModal() {
+    document.getElementById('columnSettingsModal').classList.remove('show');
+    setModalClosed();
+}
+
+function renderColumnSettingsBody() {
+    const body = document.getElementById('columnSettingsBody');
+
+    body.innerHTML = COLUMN_CONFIG.map(col => {
+        const isChecked = columnVisibility[col.id] !== false;
+        return `
+            <div class="column-toggle-item">
+                <span class="column-toggle-label">${col.label}</span>
+                <label class="column-toggle-switch">
+                    <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleColumnVisibility('${col.id}', this.checked)">
+                    <span class="column-toggle-slider"></span>
+                </label>
+            </div>
+        `;
+    }).join('');
+}
+
+function toggleColumnVisibility(columnId, isVisible) {
+    columnVisibility[columnId] = isVisible;
+    saveColumnVisibility();
+    applyColumnVisibility();
+}
+
+// #endregion
+
+// ============================================================================
 // #region CROSS-TAB COMMUNICATION
 // ============================================================================
 
@@ -1275,6 +1599,7 @@ function closeAllModals() {
     closeCreateTagModal();
     closeOrderQRModal();
     closeNoteModal();
+    closeColumnSettingsModal();
 }
 
 // #endregion
@@ -1312,5 +1637,9 @@ window.openChat = openChat;
 window.openComment = openComment;
 window.editOrder = editOrder;
 window.copyPhone = copyPhone;
+window.quickRemoveTag = quickRemoveTag;
+window.openColumnSettingsModal = openColumnSettingsModal;
+window.closeColumnSettingsModal = closeColumnSettingsModal;
+window.toggleColumnVisibility = toggleColumnVisibility;
 
 // #endregion
