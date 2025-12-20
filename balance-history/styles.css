@@ -1402,3 +1402,63 @@ body {
         flex-wrap: wrap;
     }
 }
+
+/* =====================================================
+   GAP DETECTION - MISSING TRANSACTIONS
+   ===================================================== */
+
+/* Gap Warning Card Animation */
+.gap-warning {
+    animation: pulseWarning 2s infinite;
+    border-color: #fbbf24 !important;
+}
+
+@keyframes pulseWarning {
+    0%, 100% {
+        box-shadow: var(--shadow), 0 0 0 0 rgba(251, 191, 36, 0.4);
+    }
+    50% {
+        box-shadow: var(--shadow), 0 0 0 8px rgba(251, 191, 36, 0);
+    }
+}
+
+.gap-warning:hover {
+    animation: none;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg), 0 0 0 4px rgba(251, 191, 36, 0.3);
+}
+
+/* Gap Modal */
+#gapsModal .modal-header h2 {
+    color: #d97706;
+}
+
+#gapsModal .modal-header h2 i {
+    color: #d97706;
+}
+
+/* Gap Table Rows */
+#gapsTableBody tr:hover {
+    background-color: #fffbeb;
+}
+
+/* Badge for Gap Status */
+.badge-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+}
+
+/* Spinning animation for loader */
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}

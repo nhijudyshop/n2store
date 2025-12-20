@@ -1941,7 +1941,315 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         connectRealtimeUpdates();
     }, 1000);
+
+    // Load gap detection data
+    setTimeout(() => {
+        loadGapData();
+    }, 2000);
 });
+
+// =====================================================
+// GAP DETECTION (MISSING TRANSACTIONS)
+// =====================================================
+
+let gapsData = [];
+
+/**
+ * Load gap detection data from backend
+ */
+async function loadGapData() {
+    try {
+        console.log('[GAPS] Loading gap data...');
+
+        // First, trigger gap detection
+        const detectResponse = await fetch(`${API_BASE_URL}/api/sepay/detect-gaps`);
+        const detectResult = await detectResponse.json();
+
+        if (detectResult.success && detectResult.total_gaps > 0) {
+            gapsData = detectResult.gaps || [];
+            updateGapCard(detectResult.total_gaps);
+            console.log('[GAPS] Found', detectResult.total_gaps, 'gaps');
+        } else {
+            // No gaps found
+            gapsData = [];
+            updateGapCard(0);
+            console.log('[GAPS] No gaps found');
+        }
+
+    } catch (error) {
+        console.error('[GAPS] Error loading gap data:', error);
+        updateGapCard(0);
+    }
+}
+
+/**
+ * Update the gap card in statistics
+ */
+function updateGapCard(count) {
+    const gapCard = document.getElementById('gapCard');
+    const totalGaps = document.getElementById('totalGaps');
+    const gapHint = document.getElementById('gapHint');
+
+    if (count > 0) {
+        gapCard.style.display = 'block';
+        totalGaps.textContent = count;
+        gapHint.textContent = 'Nhấn để xem chi tiết';
+
+        // Add warning animation
+        gapCard.classList.add('gap-warning');
+    } else {
+        gapCard.style.display = 'none';
+    }
+
+    // Reinitialize Lucide icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+/**
+ * Show gaps modal
+ */
+async function showGapsModal() {
+    const modal = document.getElementById('gapsModal');
+    const loadingEl = document.getElementById('gapsLoading');
+    const emptyEl = document.getElementById('gapsEmpty');
+    const contentEl = document.getElementById('gapsContent');
+
+    // Show modal and loading state
+    modal.style.display = 'block';
+    loadingEl.style.display = 'block';
+    emptyEl.style.display = 'none';
+    contentEl.style.display = 'none';
+
+    // Reinitialize icons
+    if (window.lucide) lucide.createIcons();
+
+    try {
+        // Fetch gaps from backend
+        const response = await fetch(`${API_BASE_URL}/api/sepay/gaps?status=detected`);
+        const result = await response.json();
+
+        loadingEl.style.display = 'none';
+
+        if (result.success && result.data && result.data.length > 0) {
+            gapsData = result.data;
+            renderGapsList(result.data);
+            contentEl.style.display = 'block';
+        } else if (gapsData.length > 0) {
+            // Use cached data from detect-gaps
+            renderGapsList(gapsData);
+            contentEl.style.display = 'block';
+        } else {
+            emptyEl.style.display = 'block';
+        }
+
+        // Reinitialize icons
+        if (window.lucide) lucide.createIcons();
+
+    } catch (error) {
+        console.error('[GAPS] Error fetching gaps:', error);
+        loadingEl.style.display = 'none';
+
+        if (gapsData.length > 0) {
+            renderGapsList(gapsData);
+            contentEl.style.display = 'block';
+        } else {
+            emptyEl.style.display = 'block';
+        }
+    }
+}
+
+/**
+ * Render gaps list in modal
+ */
+function renderGapsList(gaps) {
+    const tbody = document.getElementById('gapsTableBody');
+    const totalEl = document.getElementById('gapsTotal');
+
+    totalEl.textContent = gaps.length;
+
+    tbody.innerHTML = gaps.map((gap, index) => {
+        const status = gap.status || 'detected';
+        const statusBadge = status === 'detected'
+            ? '<span class="badge badge-warning">Phát hiện</span>'
+            : status === 'ignored'
+            ? '<span class="badge badge-secondary">Bỏ qua</span>'
+            : '<span class="badge badge-success">Đã xử lý</span>';
+
+        return `
+        <tr>
+            <td>${index + 1}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #d97706;">
+                ${gap.missing_reference_code}
+            </td>
+            <td style="font-family: monospace; color: #6b7280;">
+                ${gap.previous_reference_code || 'N/A'}
+                ${gap.previous_date ? `<br><small style="color: #9ca3af;">${formatDateTime(gap.previous_date)}</small>` : ''}
+            </td>
+            <td style="font-family: monospace; color: #6b7280;">
+                ${gap.next_reference_code || 'N/A'}
+                ${gap.next_date ? `<br><small style="color: #9ca3af;">${formatDateTime(gap.next_date)}</small>` : ''}
+            </td>
+            <td>${statusBadge}</td>
+            <td>
+                <button class="btn btn-secondary btn-sm" onclick="ignoreGap('${gap.missing_reference_code}')" title="Bỏ qua">
+                    <i data-lucide="eye-off" style="width: 14px; height: 14px;"></i>
+                </button>
+            </td>
+        </tr>
+        `;
+    }).join('');
+
+    // Reinitialize icons
+    if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Close gaps modal
+ */
+function closeGapsModal() {
+    const modal = document.getElementById('gapsModal');
+    modal.style.display = 'none';
+}
+
+/**
+ * Ignore a specific gap (mark as not a real transaction)
+ */
+async function ignoreGap(referenceCode) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/gaps/${referenceCode}/ignore`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(`Đã bỏ qua mã ${referenceCode}`, 'success');
+            }
+
+            // Reload gaps data
+            await loadGapData();
+
+            // Refresh modal if open
+            const modal = document.getElementById('gapsModal');
+            if (modal.style.display === 'block') {
+                showGapsModal();
+            }
+        } else {
+            throw new Error(result.error || 'Failed to ignore gap');
+        }
+
+    } catch (error) {
+        console.error('[GAPS] Error ignoring gap:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Lỗi khi bỏ qua gap: ' + error.message, 'error');
+        }
+    }
+}
+
+/**
+ * Re-detect gaps (rescan)
+ */
+async function rescanGaps() {
+    const detectBtn = document.getElementById('detectGapsBtn');
+    if (detectBtn) {
+        detectBtn.disabled = true;
+        detectBtn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> Đang quét...';
+    }
+
+    try {
+        await loadGapData();
+
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Đã quét lại gaps', 'success');
+        }
+
+        // Refresh modal
+        showGapsModal();
+
+    } catch (error) {
+        console.error('[GAPS] Error rescanning:', error);
+    } finally {
+        if (detectBtn) {
+            detectBtn.disabled = false;
+            detectBtn.innerHTML = '<i data-lucide="search"></i> Quét lại';
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
+/**
+ * Retry all items in the failed webhook queue
+ */
+async function retryFailedQueue() {
+    const retryBtn = document.getElementById('retryAllGapsBtn');
+    if (retryBtn) {
+        retryBtn.disabled = true;
+        retryBtn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> Đang retry...';
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/failed-queue/retry-all`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(result.message, 'success');
+            }
+
+            // Reload gaps after retry
+            await loadGapData();
+
+            // Reload main data
+            loadData();
+            loadStatistics();
+
+            // Refresh modal
+            showGapsModal();
+        } else {
+            throw new Error(result.error || 'Failed to retry');
+        }
+
+    } catch (error) {
+        console.error('[GAPS] Error retrying failed queue:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Lỗi khi retry: ' + error.message, 'error');
+        }
+    } finally {
+        if (retryBtn) {
+            retryBtn.disabled = false;
+            retryBtn.innerHTML = '<i data-lucide="refresh-cw"></i> Retry Failed Queue';
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
+// Setup Gaps Modal Event Listeners
+const gapsModal = document.getElementById('gapsModal');
+const closeGapsModalBtn = document.getElementById('closeGapsModalBtn');
+const detectGapsBtn = document.getElementById('detectGapsBtn');
+const retryAllGapsBtn = document.getElementById('retryAllGapsBtn');
+
+closeGapsModalBtn?.addEventListener('click', closeGapsModal);
+
+gapsModal?.addEventListener('click', (e) => {
+    if (e.target === gapsModal) {
+        closeGapsModal();
+    }
+});
+
+detectGapsBtn?.addEventListener('click', rescanGaps);
+retryAllGapsBtn?.addEventListener('click', retryFailedQueue);
+
+// Export functions for global access
+window.showGapsModal = showGapsModal;
+window.closeGapsModal = closeGapsModal;
+window.ignoreGap = ignoreGap;
+window.rescanGaps = rescanGaps;
+window.retryFailedQueue = retryFailedQueue;
 
 // Disconnect when page unloads
 window.addEventListener('beforeunload', () => {
