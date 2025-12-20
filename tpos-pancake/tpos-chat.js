@@ -31,12 +31,21 @@ class TposChatManager {
 
         // TPOS API Config
         this.config = {
+            // Server mode (recommended) - uses render.com server to maintain persistent connection
+            serverMode: true,
+            serverBaseUrl: 'https://n2store-fallback.onrender.com',
+            serverWsUrl: 'wss://n2store-fallback.onrender.com',
+
+            // Browser mode (fallback) - direct connection from browser
             chatWsUrl: 'wss://ws.chatomni.tpos.app/socket.io/?EIO=4&transport=websocket',
             rtWsUrl: 'wss://rt-2.tpos.app/socket.io/?EIO=4&transport=websocket',
             namespace: '/chatomni',
             room: 'tomato.tpos.vn',
             apiBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api'
         };
+
+        // Server mode connection
+        this.serverSocket = null;
 
         // DOM Elements
         this.container = null;
@@ -261,7 +270,11 @@ class TposChatManager {
         }
 
         // Already connected? Skip unless forced
-        if (this.isSocketConnected && this.chatSocket?.readyState === WebSocket.OPEN) {
+        const isConnected = this.config.serverMode
+            ? (this.isSocketConnected && this.serverSocket?.readyState === WebSocket.OPEN)
+            : (this.isSocketConnected && this.chatSocket?.readyState === WebSocket.OPEN);
+
+        if (isConnected) {
             console.log('[TPOS-CHAT] Already connected, skipping...');
             return true;
         }
@@ -273,11 +286,17 @@ class TposChatManager {
         }
 
         this.isConnecting = true;
-        console.log('[TPOS-CHAT] Connecting to WebSocket...');
 
         try {
-            // Connect to Chat WebSocket
-            await this.connectChatSocket();
+            if (this.config.serverMode) {
+                // Server mode - use render.com server
+                console.log('[TPOS-CHAT] Using SERVER MODE (render.com)');
+                await this.connectServerMode(token);
+            } else {
+                // Browser mode - direct connection
+                console.log('[TPOS-CHAT] Using BROWSER MODE (direct)');
+                await this.connectChatSocket();
+            }
             this.isConnecting = false;
             return true;
         } catch (error) {
@@ -285,6 +304,116 @@ class TposChatManager {
             this.isConnecting = false;
             this.updateSocketStatus(false);
             return false;
+        }
+    }
+
+    async connectServerMode(token) {
+        // Step 1: Tell server to start TPOS WebSocket client
+        console.log('[TPOS-CHAT] Starting TPOS client on server...');
+        const startResponse = await fetch(`${this.config.serverBaseUrl}/api/realtime/tpos/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: token,
+                room: this.config.room
+            })
+        });
+
+        if (!startResponse.ok) {
+            throw new Error('Failed to start TPOS client on server');
+        }
+
+        const result = await startResponse.json();
+        console.log('[TPOS-CHAT] Server response:', result);
+
+        // Step 2: Connect to server's WebSocket to receive events
+        return this.connectToServerWebSocket();
+    }
+
+    connectToServerWebSocket() {
+        return new Promise((resolve, reject) => {
+            const wsUrl = this.config.serverWsUrl;
+            console.log('[TPOS-CHAT] Connecting to server WebSocket:', wsUrl);
+
+            // Close existing socket if any
+            if (this.serverSocket) {
+                try {
+                    this.serverSocket.onclose = null;
+                    this.serverSocket.onerror = null;
+                    this.serverSocket.close();
+                } catch (e) {
+                    // Ignore
+                }
+            }
+
+            this.serverSocket = new WebSocket(wsUrl);
+
+            this.serverSocket.onopen = () => {
+                console.log('[TPOS-CHAT] Connected to server WebSocket');
+                this.updateSocketStatus(true);
+                this.socketReconnectAttempts = 0;
+                resolve(true);
+            };
+
+            this.serverSocket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    this.handleServerMessage(data);
+                } catch (e) {
+                    // Ignore parse errors
+                }
+            };
+
+            this.serverSocket.onclose = () => {
+                console.log('[TPOS-CHAT] Server WebSocket disconnected');
+                this.updateSocketStatus(false);
+                this.scheduleReconnect();
+            };
+
+            this.serverSocket.onerror = (error) => {
+                console.error('[TPOS-CHAT] Server WebSocket error:', error);
+                reject(error);
+            };
+
+            // Timeout
+            setTimeout(() => {
+                if (this.serverSocket?.readyState !== WebSocket.OPEN) {
+                    reject(new Error('Server connection timeout'));
+                }
+            }, 10000);
+        });
+    }
+
+    handleServerMessage(data) {
+        // Handle different message types from server
+        if (data.type === 'tpos:event') {
+            console.log('[TPOS-CHAT] TPOS Event from server:', data.event);
+            // Handle event similar to direct connection
+            if (data.event === 'on-events') {
+                this.processTPOSEvent(data.payload);
+            }
+        } else if (data.type === 'tpos:parsed-event') {
+            console.log('[TPOS-CHAT] TPOS Parsed Event:', data.data?.EventName || data.data?.Type);
+            this.processTPOSEvent(data.data);
+        }
+    }
+
+    processTPOSEvent(eventData) {
+        if (!eventData) return;
+
+        const eventString = typeof eventData === 'string' ? eventData : JSON.stringify(eventData);
+
+        // Handle the event same as handleSocketMessage
+        const event = typeof eventData === 'string' ? JSON.parse(eventData) : eventData;
+        console.log('[TPOS-CHAT] Processing event:', event.EventName || event.Type);
+
+        // Process based on event type
+        if (event.EventName === 'chatomni.on-message' || event.Type === 'Comment') {
+            // New comment/message
+            this.handleNewComment(event);
+        } else if (event.Type === 'SaleOnline_Order') {
+            // Order update
+            this.handleOrderUpdate(event);
         }
     }
 
@@ -451,6 +580,15 @@ class TposChatManager {
 
         // Update comment count
         this.updateCommentCount();
+    }
+
+    handleOrderUpdate(orderData) {
+        console.log('[TPOS-CHAT] Order update:', orderData);
+
+        // Dispatch event for other modules to handle
+        window.dispatchEvent(new CustomEvent('tposOrderUpdate', {
+            detail: orderData
+        }));
     }
 
     scheduleReconnect() {
@@ -887,6 +1025,12 @@ class TposChatManager {
             this.rtSocket.onerror = null;
             this.rtSocket.close();
             this.rtSocket = null;
+        }
+        if (this.serverSocket) {
+            this.serverSocket.onclose = null;
+            this.serverSocket.onerror = null;
+            this.serverSocket.close();
+            this.serverSocket = null;
         }
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
