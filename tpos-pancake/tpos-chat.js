@@ -855,6 +855,7 @@ class TposChatManager {
         console.log('[TPOS-CHAT] Fetching live videos...');
 
         try {
+            // Use proxy URL (Cloudflare Worker forwards to tomato.tpos.vn/api/...)
             const url = `${this.config.apiBaseUrl}/facebook-graph/livevideo?pageid=${this.config.pageId}&limit=10&facebook_Type=page`;
 
             let response;
