@@ -35,6 +35,10 @@
                     </button>
                     <span class="last-refresh" id="lastRefreshTime">--</span>
                 </div>
+                <!-- Column Settings -->
+                <button class="btn-column-settings" onclick="openColumnSettingsModal()" title="Cài đặt cột">
+                    <i class="fas fa-columns"></i> Cột
+                </button>
                 <!-- Manual refresh -->
                 <button class="btn-refresh" onclick="manualRefresh()" title="Làm mới (F5)">
                     <i class="fas fa-sync-alt"></i> Làm mới
@@ -55,25 +59,43 @@
             <table class="quick-view-table" id="ordersTable">
                 <thead>
                     <tr>
-                        <th style="width: 50px;">STT</th>
-                        <th style="width: 150px;">Tên KH</th>
-                        <th style="width: 120px;">SĐT</th>
-                        <th style="width: 200px;">TAG</th>
-                        <th style="width: 200px;">Ghi chú</th>
-                        <th style="width: 100px;">Công nợ</th>
-                        <th style="width: 200px;">Địa chỉ</th>
-                        <th style="width: 60px;">QR</th>
-                        <th style="width: 80px;">Chat</th>
-                        <th style="width: 60px;">Sửa</th>
-                        <th style="width: 100px;">Tổng tiền</th>
-                        <th style="width: 80px;">Đã CK</th>
-                        <th style="width: 120px;">Ngày tạo</th>
+                        <th data-column="stt">STT</th>
+                        <th data-column="name">Tên KH</th>
+                        <th data-column="phone">SĐT</th>
+                        <th data-column="tag">TAG</th>
+                        <th data-column="note">Ghi chú</th>
+                        <th data-column="debt">Công nợ</th>
+                        <th data-column="address">Địa chỉ</th>
+                        <th data-column="qr">QR</th>
+                        <th data-column="chat">Chat</th>
+                        <th data-column="edit">Sửa</th>
+                        <th data-column="total">Tổng tiền</th>
+                        <th data-column="paid">Đã CK</th>
+                        <th data-column="date">Ngày tạo</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody">
                     <!-- Orders will be rendered here -->
                 </tbody>
             </table>
+            <!-- Pagination Info -->
+            <div class="pagination-info" id="paginationInfo">
+                <span class="page-info" id="pageInfo">Hiển thị 0 đơn</span>
+                <span class="scroll-hint" id="scrollHint">Cuộn xuống để tải thêm</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column Settings Modal -->
+    <div class="column-settings-modal" id="columnSettingsModal">
+        <div class="column-settings-content">
+            <div class="column-settings-header">
+                <h3><i class="fas fa-columns"></i> Cài đặt hiển thị cột</h3>
+                <button class="modal-close-btn" onclick="closeColumnSettingsModal()">&times;</button>
+            </div>
+            <div class="column-settings-body" id="columnSettingsBody">
+                <!-- Column toggles will be rendered here -->
+            </div>
         </div>
     </div>
 
