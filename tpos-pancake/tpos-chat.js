@@ -25,6 +25,9 @@ class TposChatManager {
         this.socketReconnectAttempts = 0;
         this.socketMaxReconnectAttempts = 5;
         this.heartbeatInterval = null;
+        this.reconnectTimeout = null;
+        this.isInitialized = false;
+        this.isConnecting = false;
 
         // TPOS API Config
         this.config = {
@@ -47,6 +50,12 @@ class TposChatManager {
     // =====================================================
 
     async initialize(containerId = 'tposContent') {
+        // Prevent multiple initializations
+        if (this.isInitialized) {
+            console.log('[TPOS-CHAT] Already initialized, skipping...');
+            return true;
+        }
+
         console.log('[TPOS-CHAT] Initializing...');
 
         this.container = document.getElementById(containerId);
@@ -69,6 +78,7 @@ class TposChatManager {
         // Wait for TokenManager to initialize
         await this.waitForTokenManager();
 
+        this.isInitialized = true;
         console.log('[TPOS-CHAT] Initialized successfully');
         return true;
     }
@@ -244,20 +254,35 @@ class TposChatManager {
     // =====================================================
 
     async connectWebSocket() {
+        // Prevent concurrent connection attempts
+        if (this.isConnecting) {
+            console.log('[TPOS-CHAT] Connection already in progress, skipping...');
+            return false;
+        }
+
+        // Already connected? Skip unless forced
+        if (this.isSocketConnected && this.chatSocket?.readyState === WebSocket.OPEN) {
+            console.log('[TPOS-CHAT] Already connected, skipping...');
+            return true;
+        }
+
         const token = await this.getAccessToken();
         if (!token) {
             console.warn('[TPOS-CHAT] No access token for WebSocket');
             return false;
         }
 
+        this.isConnecting = true;
         console.log('[TPOS-CHAT] Connecting to WebSocket...');
 
         try {
             // Connect to Chat WebSocket
             await this.connectChatSocket();
+            this.isConnecting = false;
             return true;
         } catch (error) {
             console.error('[TPOS-CHAT] WebSocket connection failed:', error);
+            this.isConnecting = false;
             this.updateSocketStatus(false);
             return false;
         }
@@ -267,6 +292,18 @@ class TposChatManager {
         return new Promise((resolve, reject) => {
             const wsUrl = this.config.chatWsUrl;
             console.log('[TPOS-CHAT] Connecting to:', wsUrl);
+
+            // Close existing socket if any (prevent duplicate connections)
+            if (this.chatSocket) {
+                try {
+                    this.chatSocket.onclose = null; // Prevent triggering reconnect
+                    this.chatSocket.onerror = null;
+                    this.chatSocket.close();
+                    console.log('[TPOS-CHAT] Closed existing socket before reconnect');
+                } catch (e) {
+                    // Ignore close errors
+                }
+            }
 
             this.chatSocket = new WebSocket(wsUrl);
 
@@ -422,12 +459,19 @@ class TposChatManager {
             return;
         }
 
+        // Cancel any pending reconnect timeout (prevent multiple reconnects)
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+
         const delay = Math.min(2000 * Math.pow(2, this.socketReconnectAttempts), 30000);
         this.socketReconnectAttempts++;
 
         console.log(`[TPOS-CHAT] Reconnecting in ${delay}ms (attempt ${this.socketReconnectAttempts})`);
 
-        setTimeout(() => {
+        this.reconnectTimeout = setTimeout(() => {
+            this.reconnectTimeout = null;
             this.connectWebSocket();
         }, delay);
     }
@@ -825,20 +869,43 @@ class TposChatManager {
     // =====================================================
 
     destroy() {
+        // Cancel pending reconnect
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+
+        // Close sockets with proper cleanup
         if (this.chatSocket) {
+            this.chatSocket.onclose = null; // Prevent triggering reconnect
+            this.chatSocket.onerror = null;
             this.chatSocket.close();
+            this.chatSocket = null;
         }
         if (this.rtSocket) {
+            this.rtSocket.onclose = null;
+            this.rtSocket.onerror = null;
             this.rtSocket.close();
+            this.rtSocket = null;
         }
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
         }
+
+        this.isSocketConnected = false;
+        this.isInitialized = false;
+        console.log('[TPOS-CHAT] Destroyed and cleaned up');
     }
 }
 
-// Create global instance
-window.tposChatManager = new TposChatManager();
+// Create global instance (singleton pattern)
+if (!window.tposChatManager) {
+    window.tposChatManager = new TposChatManager();
+    console.log('[TPOS-CHAT] TposChatManager created');
+} else {
+    console.log('[TPOS-CHAT] TposChatManager already exists, reusing');
+}
 
 // Auto-initialize when DOM ready
 document.addEventListener('DOMContentLoaded', () => {
