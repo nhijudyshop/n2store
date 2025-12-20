@@ -138,6 +138,18 @@
                         <small>Cập nhật mới nhất</small>
                     </div>
                 </div>
+
+                <!-- Gap Detection Card -->
+                <div class="stat-card" id="gapCard" style="display: none; cursor: pointer;" onclick="showGapsModal()">
+                    <div class="stat-icon" style="background: #fef3c7; color: #d97706;">
+                        <i data-lucide="alert-triangle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Giao dịch thiếu</h3>
+                        <p class="stat-value" id="totalGaps" style="color: #d97706;">0</p>
+                        <small id="gapHint">Nhấn để xem chi tiết</small>
+                    </div>
+                </div>
             </div>
 
             <!-- Quick Date Filters -->
@@ -406,6 +418,68 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Missing Transactions (Gaps) Modal -->
+    <div id="gapsModal" class="modal">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
+            <div class="modal-header">
+                <h2><i data-lucide="alert-triangle"></i> Giao dịch bị thiếu</h2>
+                <button class="modal-close" id="closeGapsModalBtn">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <!-- Loading State -->
+                <div id="gapsLoading" style="text-align: center; padding: 40px;">
+                    <i data-lucide="loader-2" class="animate-spin" style="width: 48px; height: 48px; color: #d97706;"></i>
+                    <p style="margin-top: 15px; color: #6b7280;">Đang phân tích mã tham chiếu...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div id="gapsEmpty" style="text-align: center; padding: 40px; display: none;">
+                    <i data-lucide="check-circle" style="width: 48px; height: 48px; color: #10b981;"></i>
+                    <p style="margin-top: 15px; color: #10b981; font-weight: 600;">Không có giao dịch thiếu!</p>
+                    <p style="color: #6b7280;">Tất cả mã tham chiếu đều liên tục.</p>
+                </div>
+
+                <!-- Gaps List -->
+                <div id="gapsContent" style="display: none;">
+                    <div id="gapsInfo" style="margin-bottom: 15px; padding: 12px; background: #fef3c7; border-left: 4px solid #d97706; border-radius: 4px;">
+                        <i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i>
+                        <span>Phát hiện <strong id="gapsTotal">0</strong> mã tham chiếu bị thiếu trong hệ thống.</span>
+                        <p style="margin-top: 8px; font-size: 13px; color: #92400e;">
+                            Đây có thể là các giao dịch webhook bị lỗi hoặc không nhận được.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                        <button id="detectGapsBtn" class="btn btn-primary btn-sm">
+                            <i data-lucide="search"></i> Quét lại
+                        </button>
+                        <button id="retryAllGapsBtn" class="btn btn-success btn-sm">
+                            <i data-lucide="refresh-cw"></i> Retry Failed Queue
+                        </button>
+                    </div>
+
+                    <table class="data-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Mã tham chiếu thiếu</th>
+                                <th>Trước đó</th>
+                                <th>Sau đó</th>
+                                <th>Trạng thái</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gapsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeGapsModal()">Đóng</button>
             </div>
         </div>
     </div>
