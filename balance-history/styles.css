@@ -1442,6 +1442,29 @@ body {
     background-color: #fffbeb;
 }
 
+/* Gap Row in Main Transaction Table */
+.gap-row {
+    animation: gapPulse 2s ease-in-out infinite;
+}
+
+.gap-row:hover {
+    animation: none;
+    background: #fef3c7 !important;
+}
+
+@keyframes gapPulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.gap-row td {
+    padding: 12px 8px !important;
+}
+
 /* Badge for Gap Status */
 .badge-warning {
     background-color: #fef3c7;
