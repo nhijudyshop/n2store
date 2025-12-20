@@ -232,10 +232,16 @@ router.post('/webhook', async (req, res) => {
             error.message
         );
 
+        // Save to failed queue for retry
+        if (req.body && typeof req.body === 'object') {
+            await saveToFailedQueue(db, req.body, error.message);
+        }
+
         res.status(500).json({
             success: false,
             error: 'Failed to process webhook',
-            message: error.message
+            message: error.message,
+            queued_for_retry: true
         });
     }
 });
@@ -1137,6 +1143,453 @@ router.post('/update-debt', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to update debt',
+            message: error.message
+        });
+    }
+});
+
+// =====================================================
+// FAILED WEBHOOK QUEUE ENDPOINTS
+// =====================================================
+
+/**
+ * Helper function: Save webhook to failed queue
+ */
+async function saveToFailedQueue(db, webhookData, errorMessage) {
+    try {
+        await db.query(`
+            INSERT INTO failed_webhook_queue (
+                sepay_id, gateway, transaction_date, account_number,
+                code, content, transfer_type, transfer_amount,
+                accumulated, sub_account, reference_code, description,
+                raw_data, last_error, status
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'pending'
+            )
+            ON CONFLICT DO NOTHING
+        `, [
+            webhookData.id,
+            webhookData.gateway,
+            webhookData.transactionDate,
+            webhookData.accountNumber,
+            webhookData.code || null,
+            webhookData.content || null,
+            webhookData.transferType,
+            webhookData.transferAmount,
+            webhookData.accumulated,
+            webhookData.subAccount || null,
+            webhookData.referenceCode || null,
+            webhookData.description || null,
+            JSON.stringify(webhookData),
+            errorMessage
+        ]);
+        console.log('[FAILED-QUEUE] ✅ Saved webhook to failed queue:', webhookData.id);
+        return true;
+    } catch (queueError) {
+        console.error('[FAILED-QUEUE] ❌ Failed to save to queue:', queueError.message);
+        return false;
+    }
+}
+
+/**
+ * GET /api/sepay/failed-queue
+ * List all failed webhooks
+ */
+router.get('/failed-queue', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { status = 'pending', limit = 50, page = 1 } = req.query;
+
+    try {
+        const offset = (page - 1) * limit;
+
+        // Get total count
+        const countResult = await db.query(
+            `SELECT COUNT(*) FROM failed_webhook_queue WHERE status = $1`,
+            [status]
+        );
+        const total = parseInt(countResult.rows[0].count);
+
+        // Get items
+        const result = await db.query(`
+            SELECT
+                id, sepay_id, gateway, transaction_date, account_number,
+                reference_code, transfer_type, transfer_amount, content,
+                status, retry_count, max_retries, last_error,
+                created_at, last_retry_at
+            FROM failed_webhook_queue
+            WHERE status = $1
+            ORDER BY created_at DESC
+            LIMIT $2 OFFSET $3
+        `, [status, limit, offset]);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error('[FAILED-QUEUE] Error listing:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to list failed webhooks',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/failed-queue/:id/retry
+ * Retry a specific failed webhook
+ */
+router.post('/failed-queue/:id/retry', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+
+    try {
+        // Get failed webhook
+        const queueResult = await db.query(
+            `SELECT * FROM failed_webhook_queue WHERE id = $1`,
+            [id]
+        );
+
+        if (queueResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Failed webhook not found'
+            });
+        }
+
+        const failedWebhook = queueResult.rows[0];
+
+        // Check max retries
+        if (failedWebhook.retry_count >= failedWebhook.max_retries) {
+            return res.status(400).json({
+                success: false,
+                error: 'Max retries exceeded',
+                retry_count: failedWebhook.retry_count,
+                max_retries: failedWebhook.max_retries
+            });
+        }
+
+        // Update status to processing
+        await db.query(
+            `UPDATE failed_webhook_queue SET status = 'processing', last_retry_at = CURRENT_TIMESTAMP WHERE id = $1`,
+            [id]
+        );
+
+        // Try to insert into balance_history
+        const webhookData = failedWebhook.raw_data;
+
+        const insertQuery = `
+            INSERT INTO balance_history (
+                sepay_id, gateway, transaction_date, account_number,
+                code, content, transfer_type, transfer_amount,
+                accumulated, sub_account, reference_code, description,
+                raw_data, webhook_received_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP
+            )
+            ON CONFLICT (sepay_id) DO NOTHING
+            RETURNING id
+        `;
+
+        const values = [
+            webhookData.id,
+            webhookData.gateway,
+            webhookData.transactionDate,
+            webhookData.accountNumber,
+            webhookData.code || null,
+            webhookData.content || null,
+            webhookData.transferType,
+            webhookData.transferAmount,
+            webhookData.accumulated,
+            webhookData.subAccount || null,
+            webhookData.referenceCode || null,
+            webhookData.description || null,
+            JSON.stringify(webhookData)
+        ];
+
+        const result = await db.query(insertQuery, values);
+
+        if (result.rows.length > 0) {
+            // Success - update queue status
+            await db.query(`
+                UPDATE failed_webhook_queue
+                SET status = 'success', processed_at = CURRENT_TIMESTAMP, retry_count = retry_count + 1
+                WHERE id = $1
+            `, [id]);
+
+            console.log('[FAILED-QUEUE] ✅ Retry successful for queue ID:', id);
+
+            res.json({
+                success: true,
+                message: 'Webhook retry successful',
+                balance_history_id: result.rows[0].id
+            });
+        } else {
+            // Duplicate or other issue
+            await db.query(`
+                UPDATE failed_webhook_queue
+                SET status = 'success', processed_at = CURRENT_TIMESTAMP, retry_count = retry_count + 1,
+                    last_error = 'Duplicate - already exists in balance_history'
+                WHERE id = $1
+            `, [id]);
+
+            res.json({
+                success: true,
+                message: 'Transaction already exists in balance_history',
+                duplicate: true
+            });
+        }
+
+    } catch (error) {
+        console.error('[FAILED-QUEUE] Retry error:', error);
+
+        // Update retry count and error
+        await db.query(`
+            UPDATE failed_webhook_queue
+            SET status = 'pending', retry_count = retry_count + 1, last_error = $2
+            WHERE id = $1
+        `, [id, error.message]);
+
+        res.status(500).json({
+            success: false,
+            error: 'Retry failed',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/failed-queue/retry-all
+ * Retry all pending failed webhooks
+ */
+router.post('/failed-queue/retry-all', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        // Get all pending webhooks that haven't exceeded max retries
+        const pendingResult = await db.query(`
+            SELECT id FROM failed_webhook_queue
+            WHERE status = 'pending' AND retry_count < max_retries
+            ORDER BY created_at ASC
+            LIMIT 100
+        `);
+
+        const results = {
+            total: pendingResult.rows.length,
+            success: 0,
+            failed: 0,
+            details: []
+        };
+
+        for (const row of pendingResult.rows) {
+            try {
+                // Simplified retry - call the same logic as single retry
+                const queueResult = await db.query(
+                    `SELECT raw_data FROM failed_webhook_queue WHERE id = $1`,
+                    [row.id]
+                );
+
+                if (queueResult.rows.length === 0) continue;
+
+                const webhookData = queueResult.rows[0].raw_data;
+
+                const insertResult = await db.query(`
+                    INSERT INTO balance_history (
+                        sepay_id, gateway, transaction_date, account_number,
+                        code, content, transfer_type, transfer_amount,
+                        accumulated, sub_account, reference_code, description,
+                        raw_data, webhook_received_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
+                    ON CONFLICT (sepay_id) DO NOTHING
+                    RETURNING id
+                `, [
+                    webhookData.id,
+                    webhookData.gateway,
+                    webhookData.transactionDate,
+                    webhookData.accountNumber,
+                    webhookData.code || null,
+                    webhookData.content || null,
+                    webhookData.transferType,
+                    webhookData.transferAmount,
+                    webhookData.accumulated,
+                    webhookData.subAccount || null,
+                    webhookData.referenceCode || null,
+                    webhookData.description || null,
+                    JSON.stringify(webhookData)
+                ]);
+
+                await db.query(`
+                    UPDATE failed_webhook_queue
+                    SET status = 'success', processed_at = CURRENT_TIMESTAMP, retry_count = retry_count + 1
+                    WHERE id = $1
+                `, [row.id]);
+
+                results.success++;
+                results.details.push({ id: row.id, status: 'success' });
+
+            } catch (retryError) {
+                await db.query(`
+                    UPDATE failed_webhook_queue
+                    SET retry_count = retry_count + 1, last_error = $2
+                    WHERE id = $1
+                `, [row.id, retryError.message]);
+
+                results.failed++;
+                results.details.push({ id: row.id, status: 'failed', error: retryError.message });
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Retry complete: ${results.success}/${results.total} successful`,
+            results
+        });
+
+    } catch (error) {
+        console.error('[FAILED-QUEUE] Retry all error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Retry all failed',
+            message: error.message
+        });
+    }
+});
+
+// =====================================================
+// REFERENCE CODE GAP DETECTION
+// =====================================================
+
+/**
+ * GET /api/sepay/detect-gaps
+ * Detect gaps in reference codes
+ */
+router.get('/detect-gaps', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        // Get all reference codes, sorted
+        const result = await db.query(`
+            SELECT reference_code, sepay_id, transaction_date
+            FROM balance_history
+            WHERE reference_code IS NOT NULL AND reference_code ~ '^[0-9]+$'
+            ORDER BY CAST(reference_code AS INTEGER) ASC
+        `);
+
+        const gaps = [];
+        const rows = result.rows;
+
+        for (let i = 1; i < rows.length; i++) {
+            const prev = parseInt(rows[i - 1].reference_code);
+            const curr = parseInt(rows[i].reference_code);
+
+            // Check for gaps
+            if (curr - prev > 1) {
+                for (let missing = prev + 1; missing < curr; missing++) {
+                    gaps.push({
+                        missing_reference_code: String(missing),
+                        previous_reference_code: rows[i - 1].reference_code,
+                        next_reference_code: rows[i].reference_code,
+                        previous_date: rows[i - 1].transaction_date,
+                        next_date: rows[i].transaction_date
+                    });
+                }
+            }
+        }
+
+        // Store detected gaps
+        for (const gap of gaps) {
+            try {
+                await db.query(`
+                    INSERT INTO reference_code_gaps (missing_reference_code, previous_reference_code, next_reference_code)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (missing_reference_code) DO NOTHING
+                `, [gap.missing_reference_code, gap.previous_reference_code, gap.next_reference_code]);
+            } catch (gapError) {
+                // Table might not exist, ignore
+            }
+        }
+
+        res.json({
+            success: true,
+            total_gaps: gaps.length,
+            gaps: gaps.slice(0, 100), // Limit response size
+            message: gaps.length > 0 ? `Found ${gaps.length} missing reference codes` : 'No gaps detected'
+        });
+
+    } catch (error) {
+        console.error('[DETECT-GAPS] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to detect gaps',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sepay/gaps
+ * List all detected gaps
+ */
+router.get('/gaps', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { status = 'detected' } = req.query;
+
+    try {
+        const result = await db.query(`
+            SELECT * FROM reference_code_gaps
+            WHERE status = $1
+            ORDER BY CAST(missing_reference_code AS INTEGER) ASC
+            LIMIT 100
+        `, [status]);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            total: result.rows.length
+        });
+
+    } catch (error) {
+        console.error('[GAPS] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to list gaps',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/gaps/:referenceCode/ignore
+ * Mark a gap as ignored (transaction doesn't exist)
+ */
+router.post('/gaps/:referenceCode/ignore', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { referenceCode } = req.params;
+
+    try {
+        await db.query(`
+            UPDATE reference_code_gaps
+            SET status = 'ignored', resolved_at = CURRENT_TIMESTAMP
+            WHERE missing_reference_code = $1
+        `, [referenceCode]);
+
+        res.json({
+            success: true,
+            message: `Gap ${referenceCode} marked as ignored`
+        });
+
+    } catch (error) {
+        console.error('[GAPS] Ignore error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to ignore gap',
             message: error.message
         });
     }
