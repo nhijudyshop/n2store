@@ -805,6 +805,73 @@ export default {
         }
       }
 
+      // ========== SEPAY WEBHOOK PROXY ==========
+      // Handle SePay webhooks with explicit header forwarding
+      if (pathname.startsWith('/api/sepay/')) {
+        const sepayPath = pathname.replace(/^\/api\/sepay\//, '');
+        const targetUrl = `https://n2store-fallback.onrender.com/api/sepay/${sepayPath}${url.search}`;
+
+        console.log('[SEPAY-PROXY] ========================================');
+        console.log('[SEPAY-PROXY] Forwarding to:', targetUrl);
+        console.log('[SEPAY-PROXY] Method:', request.method);
+
+        // Build headers - explicitly copy Authorization
+        const sepayHeaders = new Headers();
+        sepayHeaders.set('Content-Type', request.headers.get('Content-Type') || 'application/json');
+        sepayHeaders.set('Accept', 'application/json');
+        sepayHeaders.set('User-Agent', 'Cloudflare-Worker-SePay-Proxy/1.0');
+
+        // CRITICAL: Forward the Authorization header from SePay
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          sepayHeaders.set('Authorization', authHeader);
+          console.log('[SEPAY-PROXY] Authorization header forwarded');
+        } else {
+          console.log('[SEPAY-PROXY] WARNING: No Authorization header in request');
+        }
+
+        try {
+          // Read body for POST/PUT requests
+          let requestBody = null;
+          if (request.method !== 'GET' && request.method !== 'HEAD') {
+            requestBody = await request.arrayBuffer();
+            console.log('[SEPAY-PROXY] Request body size:', requestBody.byteLength, 'bytes');
+          }
+
+          const sepayResponse = await fetch(targetUrl, {
+            method: request.method,
+            headers: sepayHeaders,
+            body: requestBody,
+          });
+
+          console.log('[SEPAY-PROXY] Response status:', sepayResponse.status);
+          console.log('[SEPAY-PROXY] ========================================');
+
+          // Clone response and add CORS headers
+          const newSepayResponse = new Response(sepayResponse.body, sepayResponse);
+          newSepayResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newSepayResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+          newSepayResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+
+          return newSepayResponse;
+
+        } catch (sepayError) {
+          console.error('[SEPAY-PROXY] Error:', sepayError.message);
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'SePay proxy failed',
+            message: sepayError.message,
+            target: targetUrl
+          }), {
+            status: 502,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
       let isTPOSRequest = false;
@@ -822,10 +889,6 @@ export default {
         // Chat Server (Render) - Using same server as realtime
         const chatPath = pathname.replace(/^\/api\/chat\//, '');
         targetUrl = `https://n2store-fallback.onrender.com/api/chat/${chatPath}${url.search}`;
-      } else if (pathname.startsWith('/api/sepay/')) {
-        // Sepay Webhook & Balance History (Render)
-        const sepayPath = pathname.replace(/^\/api\/sepay\//, '');
-        targetUrl = `https://n2store-fallback.onrender.com/api/sepay/${sepayPath}${url.search}`;
       } else if (pathname.startsWith('/api/customers/') || pathname === '/api/customers') {
         // Customers API (Render) - PostgreSQL backend
         const customersPath = pathname.replace(/^\/api\/customers\/?/, '');

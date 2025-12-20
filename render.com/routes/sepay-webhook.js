@@ -7,20 +7,35 @@ const express = require('express');
 const router = express.Router();
 
 /**
+ * GET /api/sepay/ping
+ * Health check endpoint - also helps wake up sleeping Render server
+ */
+router.get('/ping', (req, res) => {
+    console.log('[SEPAY-PING] Health check received');
+    res.json({
+        success: true,
+        message: 'SePay webhook endpoint is healthy',
+        timestamp: new Date().toISOString(),
+        api_key_configured: !!process.env.SEPAY_API_KEY
+    });
+});
+
+/**
  * POST /api/sepay/webhook
  * Nhận webhook từ Sepay khi có giao dịch mới
  *
  * Docs: https://docs.sepay.vn/tich-hop-webhooks.html
  */
 router.post('/webhook', async (req, res) => {
+    const startTime = Date.now();
     const db = req.app.locals.chatDb; // Sử dụng PostgreSQL connection từ server.js
 
-    // Log request để debug
-    console.log('[SEPAY-WEBHOOK] Received webhook:', {
-        method: req.method,
-        headers: req.headers,
-        body: req.body
-    });
+    // Log request để debug (sanitized - không log full headers vì có thể chứa API key)
+    console.log('[SEPAY-WEBHOOK] ========================================');
+    console.log('[SEPAY-WEBHOOK] Received webhook at:', new Date().toISOString());
+    console.log('[SEPAY-WEBHOOK] Has Authorization header:', !!req.headers['authorization']);
+    console.log('[SEPAY-WEBHOOK] Content-Type:', req.headers['content-type']);
+    console.log('[SEPAY-WEBHOOK] Body:', JSON.stringify(req.body).substring(0, 500));
 
     // ============================================
     // AUTHENTICATION - Verify API Key (if enabled)
@@ -195,15 +210,21 @@ router.post('/webhook', async (req, res) => {
             }
         }
 
+        const processingTime = Date.now() - startTime;
+        console.log('[SEPAY-WEBHOOK] ✅ Completed in', processingTime, 'ms');
+        console.log('[SEPAY-WEBHOOK] ========================================');
+
         // Trả về response theo spec của Sepay
         res.status(200).json({
             success: true,
             id: insertedId,
-            message: 'Transaction recorded successfully'
+            message: 'Transaction recorded successfully',
+            processing_time_ms: processingTime
         });
 
     } catch (error) {
-        console.error('[SEPAY-WEBHOOK] ❌ Error processing webhook:', error);
+        const processingTime = Date.now() - startTime;
+        console.error('[SEPAY-WEBHOOK] ❌ Error processing webhook after', processingTime, 'ms:', error);
 
         // Log error
         await logWebhook(db, req.body?.id, req, 500,
