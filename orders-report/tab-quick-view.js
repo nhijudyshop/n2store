@@ -179,6 +179,32 @@ function setupKeyboardShortcuts() {
 // #region FETCH - Data Fetching
 // ============================================================================
 
+// Columns needed for Quick View - extract from response on client side
+const QUICK_VIEW_COLUMNS = ['Id', 'Code', 'Name', 'PartnerName', 'Telephone', 'Tags', 'Note', 'Address', 'Street', 'Ward', 'District', 'City', 'Revenue', 'AmountDepot', 'AmountTotal', 'DateCreated', 'CRMTeamId', 'Facebook_UserId'];
+
+function extractColumns(orders) {
+    return orders.map(order => {
+        const extracted = {};
+        QUICK_VIEW_COLUMNS.forEach(col => {
+            if (order.hasOwnProperty(col)) {
+                extracted[col] = order[col];
+            }
+        });
+        return extracted;
+    });
+}
+
+function buildDateFilter() {
+    const now = new Date();
+    const oneMonthAgo = new Date(now);
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    const toDate = now.toISOString();
+    const fromDate = oneMonthAgo.toISOString();
+
+    return `(DateCreated ge ${fromDate} and DateCreated le ${toDate})`;
+}
+
 async function loadLatest50Orders() {
     console.log('[QUICK-VIEW] Loading 50 latest orders...');
     showLoading(true);
@@ -186,14 +212,15 @@ async function loadLatest50Orders() {
 
     try {
         const headers = await window.tokenManager.getAuthHeader();
+        const dateFilter = buildDateFilter();
 
-        // Use same endpoint as Tab 1: /ODataService.GetView
+        // Use same endpoint as Tab 1: /ODataService.GetView (without $select - filter columns on client)
         const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?' +
             '$top=50&' +
             '$skip=0&' +
             '$orderby=DateCreated desc&' +
-            '$count=true&' +
-            '$select=Id,Code,Name,PartnerName,Telephone,Tags,Note,Address,Street,Ward,District,City,Revenue,AmountDepot,AmountTotal,DateCreated,CRMTeamId,Facebook_UserId';
+            '$filter=' + encodeURIComponent(dateFilter) + '&' +
+            '$count=true';
 
         const response = await API_CONFIG.smartFetch(apiUrl, {
             headers: {
@@ -207,7 +234,8 @@ async function loadLatest50Orders() {
         }
 
         const data = await response.json();
-        displayedData = data.value || [];
+        // Extract only needed columns on client side
+        displayedData = extractColumns(data.value || []);
 
         // Add SessionIndex
         displayedData.forEach((order, index) => {
@@ -417,20 +445,28 @@ async function smartRefresh() {
 
     try {
         const headers = await window.tokenManager.getAuthHeader();
-        // Use same endpoint as Tab 1: /ODataService.GetView
+        const dateFilter = buildDateFilter();
+
+        // Use same endpoint as Tab 1: /ODataService.GetView (without $select - filter columns on client)
         const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?' +
             '$top=50&' +
             '$skip=0&' +
             '$orderby=DateCreated desc&' +
-            '$count=true&' +
-            '$select=Id,Code,Name,PartnerName,Telephone,Tags,Note,Address,Street,Ward,District,City,Revenue,AmountDepot,AmountTotal,DateCreated,CRMTeamId,Facebook_UserId';
+            '$filter=' + encodeURIComponent(dateFilter) + '&' +
+            '$count=true';
 
-        const response = await API_CONFIG.smartFetch(apiUrl, { headers });
+        const response = await API_CONFIG.smartFetch(apiUrl, {
+            headers: {
+                ...headers,
+                'accept': 'application/json'
+            }
+        });
 
         if (!response.ok) return;
 
         const data = await response.json();
-        const newData = data.value || [];
+        // Extract only needed columns on client side
+        const newData = extractColumns(data.value || []);
 
         // Add SessionIndex
         newData.forEach((order, index) => {
