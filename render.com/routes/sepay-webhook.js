@@ -1595,4 +1595,135 @@ router.post('/gaps/:referenceCode/ignore', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/sepay/fetch-by-reference/:referenceCode
+ * Fetch transaction from Sepay API by reference code and insert to database
+ */
+router.post('/fetch-by-reference/:referenceCode', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { referenceCode } = req.params;
+
+    console.log('[FETCH-BY-REF] Fetching transaction with reference code:', referenceCode);
+
+    try {
+        // Get Sepay API credentials from environment
+        const SEPAY_API_KEY = process.env.SEPAY_API_KEY;
+        const SEPAY_ACCOUNT_NUMBER = process.env.SEPAY_ACCOUNT_NUMBER || '5354IBT1';
+
+        if (!SEPAY_API_KEY) {
+            return res.status(400).json({
+                success: false,
+                error: 'SEPAY_API_KEY not configured'
+            });
+        }
+
+        // Call Sepay API to get transaction by reference code
+        // Sepay API: GET /userapi/transactions/list?account_number=xxx&reference_number=xxx
+        const sepayUrl = `https://my.sepay.vn/userapi/transactions/list?account_number=${SEPAY_ACCOUNT_NUMBER}&reference_number=${referenceCode}`;
+
+        console.log('[FETCH-BY-REF] Calling Sepay API:', sepayUrl);
+
+        const sepayResponse = await fetch(sepayUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${SEPAY_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!sepayResponse.ok) {
+            const errorText = await sepayResponse.text();
+            console.error('[FETCH-BY-REF] Sepay API error:', sepayResponse.status, errorText);
+            return res.status(sepayResponse.status).json({
+                success: false,
+                error: `Sepay API error: ${sepayResponse.status}`,
+                message: errorText
+            });
+        }
+
+        const sepayData = await sepayResponse.json();
+        console.log('[FETCH-BY-REF] Sepay response:', JSON.stringify(sepayData).substring(0, 500));
+
+        // Check if transaction found
+        if (!sepayData.transactions || sepayData.transactions.length === 0) {
+            return res.json({
+                success: false,
+                error: 'Transaction not found in Sepay',
+                message: `Không tìm thấy giao dịch với mã tham chiếu ${referenceCode}`
+            });
+        }
+
+        const transaction = sepayData.transactions[0];
+
+        // Insert transaction to database
+        const insertQuery = `
+            INSERT INTO balance_history (
+                sepay_id, gateway, transaction_date, account_number,
+                code, content, transfer_type, transfer_amount,
+                accumulated, sub_account, reference_code, description,
+                raw_data, webhook_received_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP
+            )
+            ON CONFLICT (sepay_id) DO NOTHING
+            RETURNING id
+        `;
+
+        const values = [
+            transaction.id,
+            transaction.gateway || transaction.bank_brand_name,
+            transaction.transaction_date,
+            transaction.account_number || SEPAY_ACCOUNT_NUMBER,
+            transaction.code || null,
+            transaction.transaction_content || transaction.content || null,
+            transaction.amount_in > 0 ? 'in' : 'out',
+            transaction.amount_in > 0 ? transaction.amount_in : transaction.amount_out,
+            transaction.accumulated || 0,
+            transaction.sub_account || null,
+            transaction.reference_number || referenceCode,
+            transaction.description || null,
+            JSON.stringify(transaction)
+        ];
+
+        const result = await db.query(insertQuery, values);
+
+        if (result.rows.length > 0) {
+            // Mark gap as resolved
+            await db.query(`
+                UPDATE reference_code_gaps
+                SET status = 'resolved', resolved_at = CURRENT_TIMESTAMP
+                WHERE missing_reference_code = $1
+            `, [referenceCode]);
+
+            console.log('[FETCH-BY-REF] ✅ Transaction inserted:', result.rows[0].id);
+
+            res.json({
+                success: true,
+                message: `Đã lấy được giao dịch ${referenceCode}`,
+                id: result.rows[0].id,
+                transaction: {
+                    id: result.rows[0].id,
+                    reference_code: referenceCode,
+                    amount: transaction.amount_in > 0 ? transaction.amount_in : transaction.amount_out,
+                    type: transaction.amount_in > 0 ? 'in' : 'out'
+                }
+            });
+        } else {
+            res.json({
+                success: true,
+                message: 'Giao dịch đã tồn tại trong hệ thống',
+                duplicate: true
+            });
+        }
+
+    } catch (error) {
+        console.error('[FETCH-BY-REF] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch transaction',
+            message: error.message
+        });
+    }
+});
+
 module.exports = router;

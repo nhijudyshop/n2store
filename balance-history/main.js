@@ -515,20 +515,21 @@ function renderGapRow(missingRef, prevRef, nextRef, prevDate, nextDate) {
         <td colspan="5" style="color: #92400e; font-weight: 500;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <i data-lucide="alert-circle" style="width: 18px; height: 18px; color: #d97706;"></i>
-                <span>Giao dịch bị thiếu - Có thể webhook không nhận được</span>
+                <span>Giao dịch bị thiếu - Webhook không nhận được</span>
             </div>
         </td>
         <td style="font-family: monospace; font-weight: bold; color: #d97706; font-size: 1.1em; text-align: center;">
             ${missingRef}
         </td>
-        <td colspan="3" style="color: #92400e; font-size: 12px;">
-            Giữa ${prevRef} và ${nextRef}
-        </td>
-        <td style="text-align: center;">
-            <button class="btn btn-sm" onclick="ignoreGap('${missingRef}')" title="Bỏ qua gap này" style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; padding: 4px 8px;">
+        <td colspan="3" style="text-align: center;">
+            <button class="btn btn-sm" onclick="fetchMissingTransaction('${missingRef}')" title="Lấy lại giao dịch từ Sepay" style="background: #3b82f6; color: white; border: none; padding: 4px 10px; margin-right: 4px;">
+                <i data-lucide="download" style="width: 14px; height: 14px;"></i> Lấy lại
+            </button>
+            <button class="btn btn-sm" onclick="ignoreGap('${missingRef}')" title="Bỏ qua" style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; padding: 4px 8px;">
                 <i data-lucide="eye-off" style="width: 14px; height: 14px;"></i>
             </button>
         </td>
+        <td></td>
     </tr>
     `;
 }
@@ -2305,12 +2306,83 @@ gapsModal?.addEventListener('click', (e) => {
 detectGapsBtn?.addEventListener('click', rescanGaps);
 retryAllGapsBtn?.addEventListener('click', retryFailedQueue);
 
+// Filter Gaps Only Button
+let showGapsOnly = false;
+const filterGapsOnlyBtn = document.getElementById('filterGapsOnlyBtn');
+
+filterGapsOnlyBtn?.addEventListener('click', () => {
+    showGapsOnly = !showGapsOnly;
+
+    if (showGapsOnly) {
+        filterGapsOnlyBtn.style.background = '#f59e0b';
+        filterGapsOnlyBtn.style.color = 'white';
+        filterGapsOnlyBtn.innerHTML = '<i data-lucide="alert-triangle"></i> Đang lọc GD thiếu';
+
+        // Hide all non-gap rows
+        document.querySelectorAll('#tableBody tr:not(.gap-row)').forEach(row => {
+            row.style.display = 'none';
+        });
+
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Đang hiển thị chỉ giao dịch thiếu', 'info');
+        }
+    } else {
+        filterGapsOnlyBtn.style.background = '#fef3c7';
+        filterGapsOnlyBtn.style.color = '#92400e';
+        filterGapsOnlyBtn.innerHTML = '<i data-lucide="alert-triangle"></i> Chỉ GD thiếu';
+
+        // Show all rows
+        document.querySelectorAll('#tableBody tr').forEach(row => {
+            row.style.display = '';
+        });
+    }
+
+    if (window.lucide) lucide.createIcons();
+});
+
+/**
+ * Fetch missing transaction from Sepay API by reference code
+ */
+async function fetchMissingTransaction(referenceCode) {
+    if (window.NotificationManager) {
+        window.NotificationManager.showNotification(`Đang lấy giao dịch ${referenceCode}...`, 'info');
+    }
+
+    try {
+        // Call Sepay API to fetch transaction by reference code
+        const response = await fetch(`${API_BASE_URL}/api/sepay/fetch-by-reference/${referenceCode}`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(`Đã lấy được giao dịch ${referenceCode}!`, 'success');
+            }
+
+            // Reload data to show the new transaction
+            await loadGapData();
+            loadData();
+            loadStatistics();
+        } else {
+            throw new Error(result.error || result.message || 'Không tìm thấy giao dịch');
+        }
+
+    } catch (error) {
+        console.error('[GAPS] Error fetching missing transaction:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(`Không thể lấy GD ${referenceCode}: ${error.message}`, 'error');
+        }
+    }
+}
+
 // Export functions for global access
 window.showGapsModal = showGapsModal;
 window.closeGapsModal = closeGapsModal;
 window.ignoreGap = ignoreGap;
 window.rescanGaps = rescanGaps;
 window.retryFailedQueue = retryFailedQueue;
+window.fetchMissingTransaction = fetchMissingTransaction;
 
 // Disconnect when page unloads
 window.addEventListener('beforeunload', () => {
