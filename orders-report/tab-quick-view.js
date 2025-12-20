@@ -186,12 +186,21 @@ async function loadLatest50Orders() {
 
     try {
         const headers = await window.tokenManager.getAuthHeader();
-        const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order?' +
-            '$orderby=DateCreated desc&' +
+
+        // Use same endpoint as Tab 1: /ODataService.GetView
+        const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?' +
             '$top=50&' +
+            '$skip=0&' +
+            '$orderby=DateCreated desc&' +
+            '$count=true&' +
             '$select=Id,Code,Name,PartnerName,Telephone,Tags,Note,Address,Street,Ward,District,City,Revenue,AmountDepot,AmountTotal,DateCreated,CRMTeamId,Facebook_UserId';
 
-        const response = await API_CONFIG.smartFetch(apiUrl, { headers });
+        const response = await API_CONFIG.smartFetch(apiUrl, {
+            headers: {
+                ...headers,
+                'accept': 'application/json'
+            }
+        });
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
@@ -408,9 +417,12 @@ async function smartRefresh() {
 
     try {
         const headers = await window.tokenManager.getAuthHeader();
-        const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order?' +
-            '$orderby=DateCreated desc&' +
+        // Use same endpoint as Tab 1: /ODataService.GetView
+        const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?' +
             '$top=50&' +
+            '$skip=0&' +
+            '$orderby=DateCreated desc&' +
+            '$count=true&' +
             '$select=Id,Code,Name,PartnerName,Telephone,Tags,Note,Address,Street,Ward,District,City,Revenue,AmountDepot,AmountTotal,DateCreated,CRMTeamId,Facebook_UserId';
 
         const response = await API_CONFIG.smartFetch(apiUrl, { headers });
