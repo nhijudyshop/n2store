@@ -417,17 +417,20 @@ class PancakeDataManager {
 
             const conversations = data.conversations || [];
 
-            // DEBUG: Log first conversation structure to find real PSID field
+            // DEBUG: Log ALL conversations to find INBOX with from_psid
             if (conversations.length > 0) {
-                const firstConv = conversations[0];
-                console.log('[PANCAKE] 🔍 DEBUG First conversation structure:', JSON.stringify({
-                    id: firstConv.id,
-                    type: firstConv.type,
-                    from_psid: firstConv.from_psid,
-                    from: firstConv.from,
-                    customers: firstConv.customers?.map(c => ({ id: c.id, fb_id: c.fb_id, name: c.name })),
-                    page_id: firstConv.page_id
-                }, null, 2));
+                console.log('[PANCAKE] 🔍 DEBUG All conversations:');
+                conversations.forEach((conv, idx) => {
+                    console.log(`[PANCAKE]   [${idx}] type=${conv.type}, from_psid=${conv.from_psid}, from.id=${conv.from?.id}, id=${conv.id}`);
+                });
+
+                // Find INBOX conversation (should have from_psid)
+                const inboxConv = conversations.find(c => c.type === 'INBOX');
+                if (inboxConv) {
+                    console.log('[PANCAKE] ✅ Found INBOX conversation with from_psid:', inboxConv.from_psid);
+                } else {
+                    console.log('[PANCAKE] ⚠️ No INBOX conversation found - customer may only have COMMENTs');
+                }
             }
 
             // Extract customer UUID from first conversation
@@ -437,9 +440,18 @@ class PancakeDataManager {
                 console.log(`[PANCAKE] ✅ Found customer UUID: ${customerUuid}`);
             }
 
+            // Find real Facebook PSID from INBOX conversation
+            let realFacebookPSID = null;
+            const inboxConv = conversations.find(c => c.type === 'INBOX');
+            if (inboxConv && inboxConv.from_psid) {
+                realFacebookPSID = inboxConv.from_psid;
+                console.log(`[PANCAKE] ✅ Found real Facebook PSID from INBOX: ${realFacebookPSID}`);
+            }
+
             return {
                 conversations,
                 customerUuid,
+                realFacebookPSID,  // Add this to response
                 success: true
             };
 
