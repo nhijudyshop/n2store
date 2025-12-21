@@ -872,107 +872,53 @@ export default {
         }
       }
 
-      // ========== FACEBOOK GRAPH API - LIVE VIDEOS ==========
-      // GET /api/facebook-graph/livevideo?pageid=xxx&limit=10&facebook_Type=page&access_token=xxx
-      // Forwards to Facebook Graph API to get live videos from a page
+      // ========== FACEBOOK GRAPH API - LIVE VIDEOS (via TPOS) ==========
+      // GET /api/facebook-graph/livevideo?pageid=xxx&limit=10&facebook_Type=page
+      // Proxies to tomato.tpos.vn/api/facebook-graph/livevideo (TPOS endpoint)
       if (pathname === '/api/facebook-graph/livevideo' && request.method === 'GET') {
-        const pageId = url.searchParams.get('pageid');
-        const limit = url.searchParams.get('limit') || '10';
-        const accessToken = url.searchParams.get('access_token');
-        const facebookType = url.searchParams.get('facebook_Type'); // 'page' or 'user'
+        const targetUrl = `https://tomato.tpos.vn/api/facebook-graph/livevideo${url.search}`;
 
         console.log('[FACEBOOK-GRAPH-LIVE] ========================================');
-        console.log('[FACEBOOK-GRAPH-LIVE] Page ID:', pageId);
-        console.log('[FACEBOOK-GRAPH-LIVE] Limit:', limit);
-        console.log('[FACEBOOK-GRAPH-LIVE] Type:', facebookType);
+        console.log('[FACEBOOK-GRAPH-LIVE] Proxying to TPOS:', targetUrl);
 
-        if (!pageId) {
-          return new Response(JSON.stringify({
-            success: false,
-            error: 'Missing pageid parameter',
-            usage: '/api/facebook-graph/livevideo?pageid=<page_id>&limit=10&facebook_Type=page&access_token=<token>'
-          }), {
-            status: 400,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            },
-          });
+        // Build headers for TPOS
+        const tposHeaders = new Headers();
+
+        // Copy Authorization header from original request
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          tposHeaders.set('Authorization', authHeader);
         }
 
-        if (!accessToken) {
-          return new Response(JSON.stringify({
-            success: false,
-            error: 'Missing access_token parameter',
-            usage: '/api/facebook-graph/livevideo?pageid=<page_id>&limit=10&facebook_Type=page&access_token=<token>'
-          }), {
-            status: 400,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            },
-          });
-        }
+        // Set required headers for TPOS
+        tposHeaders.set('Accept', '*/*');
+        tposHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
+        tposHeaders.set('tposappversion', '5.11.16.1');
+        tposHeaders.set('Origin', 'https://tomato.tpos.vn');
+        tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
+        tposHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
 
         try {
-          // Build Facebook Graph API URL for live videos
-          // https://graph.facebook.com/v21.0/{page_id}/live_videos?fields=id,title,status,embed_html,permalink_url,creation_time&limit=10&access_token=xxx
-          const graphApiUrl = `https://graph.facebook.com/v21.0/${pageId}/live_videos`;
-          const graphParams = new URLSearchParams({
-            fields: 'id,title,status,embed_html,permalink_url,creation_time,video',
-            limit: limit,
-            access_token: accessToken
-          });
-
-          const fullGraphUrl = `${graphApiUrl}?${graphParams.toString()}`;
-          console.log('[FACEBOOK-GRAPH-LIVE] Calling Graph API:', graphApiUrl);
-
-          const graphResponse = await fetch(fullGraphUrl, {
+          const tposResponse = await fetch(targetUrl, {
             method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-            },
+            headers: tposHeaders,
           });
 
-          const graphData = await graphResponse.json();
-          console.log('[FACEBOOK-GRAPH-LIVE] Response status:', graphResponse.status);
+          console.log('[FACEBOOK-GRAPH-LIVE] TPOS Response status:', tposResponse.status);
           console.log('[FACEBOOK-GRAPH-LIVE] ========================================');
 
-          if (graphData.error) {
-            console.error('[FACEBOOK-GRAPH-LIVE] Graph API error:', graphData.error);
-            return new Response(JSON.stringify({
-              success: false,
-              error: graphData.error.message || 'Facebook Graph API error',
-              error_code: graphData.error.code,
-              error_type: graphData.error.type,
-            }), {
-              status: graphResponse.status,
-              headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-              },
-            });
-          }
+          // Clone response and add CORS headers
+          const newResponse = new Response(tposResponse.body, tposResponse);
+          newResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+          newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, tposappversion, x-tpos-lang');
 
-          // Success - return live videos data
-          return new Response(JSON.stringify({
-            success: true,
-            data: graphData.data || [],
-            paging: graphData.paging || null,
-          }), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            },
-          });
+          return newResponse;
 
         } catch (error) {
           console.error('[FACEBOOK-GRAPH-LIVE] Error:', error.message);
           return new Response(JSON.stringify({
-            success: false,
-            error: 'Failed to fetch live videos from Facebook',
+            error: 'Failed to fetch live videos from TPOS',
             message: error.message
           }), {
             status: 500,
