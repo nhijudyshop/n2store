@@ -3725,6 +3725,41 @@
             if (modalSelect && window.campaignManager.activeCampaignId) {
                 modalSelect.value = window.campaignManager.activeCampaignId;
             }
+
+            // ✅ SYNC DATE FIELDS - Critical for fetchOrders() to use correct dates
+            if (campaign && campaign.customStartDate) {
+                // Sync to modal visible fields
+                const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+                const modalCustomEndDate = document.getElementById('modalCustomEndDate');
+                if (modalCustomStartDate) {
+                    modalCustomStartDate.value = campaign.customStartDate;
+                }
+                if (modalCustomEndDate) {
+                    modalCustomEndDate.value = campaign.customEndDate || '';
+                }
+
+                // Sync to hidden fields (used by fetchOrders)
+                const customStartDate = document.getElementById('customStartDate');
+                const customEndDate = document.getElementById('customEndDate');
+                if (customStartDate) {
+                    customStartDate.value = campaign.customStartDate;
+                }
+                if (customEndDate) {
+                    customEndDate.value = campaign.customEndDate || '';
+                }
+
+                // Also sync to startDate/endDate for backward compatibility
+                const startDate = document.getElementById('startDate');
+                const endDate = document.getElementById('endDate');
+                if (startDate) {
+                    startDate.value = campaign.customStartDate;
+                }
+                if (endDate) {
+                    endDate.value = campaign.customEndDate || '';
+                }
+
+                console.log('[CAMPAIGN-SYNC] Synced dates:', campaign.customStartDate, '->', campaign.customEndDate);
+            }
         }
 
         // Get display text for time frame
