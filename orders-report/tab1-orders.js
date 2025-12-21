@@ -686,6 +686,12 @@ window.addEventListener("DOMContentLoaded", async function () {
         .getElementById("customStartDate")
         .addEventListener("change", handleCustomDateChange);
 
+    // 🎯 Event listener for custom end date - trigger search when manually changed
+    const customEndDateInput = document.getElementById("customEndDate");
+    if (customEndDateInput) {
+        customEndDateInput.addEventListener("change", handleCustomEndDateChange);
+    }
+
     // Event listener for employee campaign selector
     const employeeCampaignSelector = document.getElementById('employeeCampaignSelector');
     if (employeeCampaignSelector) {
@@ -773,12 +779,13 @@ window.addEventListener("DOMContentLoaded", async function () {
         tableWrapper.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
-    // Tags sẽ được load SAU KHI load xong đơn hàng và hiển thị bảng
-    // NOTE: chatDataManager is now available (pancakeDataManager) for chat column rendering
-    console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
+    // 🎯 ĐƠN GIẢN HÓA: Chỉ dùng Custom Mode
+    // 1. Load saved preferences từ Firebase (customStartDate, customEndDate)
+    // 2. Load employee ranges
+    // 3. Tải orders trực tiếp
+    console.log('[AUTO-LOAD] Khởi tạo Custom Mode...');
     console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
-    await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
+    await initializeCustomMode();
 
     // Search functionality
     const searchInput = document.getElementById("tableSearchInput");
@@ -850,6 +857,104 @@ window.addEventListener("DOMContentLoaded", async function () {
         }
     });
 });
+
+// =====================================================
+// INITIALIZE CUSTOM MODE (SIMPLIFIED FLOW)
+// =====================================================
+/**
+ * Hàm khởi tạo đơn giản hóa - Chỉ dùng Custom Mode
+ * Flow: Load saved preferences → Set dates → Load employee ranges → Fetch orders
+ */
+async function initializeCustomMode() {
+    try {
+        console.log('[CUSTOM-MODE] Initializing...');
+
+        // 1. Load saved preferences từ Firebase
+        const savedPrefs = await loadFilterPreferencesFromFirebase();
+        console.log('[CUSTOM-MODE] Loaded preferences:', savedPrefs);
+
+        // 2. Set dates (from saved or default)
+        const customStartDateInput = document.getElementById('customStartDate');
+        const customEndDateInput = document.getElementById('customEndDate');
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+
+        if (savedPrefs && savedPrefs.customStartDate) {
+            // Restore from Firebase
+            customStartDateInput.value = savedPrefs.customStartDate;
+
+            // Restore customEndDate or calculate +2 days
+            if (savedPrefs.customEndDate) {
+                customEndDateInput.value = savedPrefs.customEndDate;
+            } else {
+                // Auto-calculate +2 days
+                const startDate = new Date(savedPrefs.customStartDate);
+                const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
+                endDate.setHours(23, 59, 0, 0);
+                customEndDateInput.value = formatDateTimeLocal(endDate);
+            }
+
+            console.log('[CUSTOM-MODE] Restored dates from Firebase:', customStartDateInput.value, '->', customEndDateInput.value);
+        } else {
+            // Default: today 00:00 -> today+2 23:59
+            const now = new Date();
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+            const endOfTodayPlus2 = new Date(startOfToday.getTime() + 2 * 24 * 60 * 60 * 1000);
+            endOfTodayPlus2.setHours(23, 59, 0, 0);
+
+            customStartDateInput.value = formatDateTimeLocal(startOfToday);
+            customEndDateInput.value = formatDateTimeLocal(endOfTodayPlus2);
+
+            console.log('[CUSTOM-MODE] Using default dates:', customStartDateInput.value, '->', customEndDateInput.value);
+        }
+
+        // Sync to startDate/endDate for API compatibility
+        startDateInput.value = customStartDateInput.value;
+        endDateInput.value = customEndDateInput.value;
+
+        // 3. Set selectedCampaign to custom mode
+        selectedCampaign = { isCustom: true };
+
+        // 4. Update UI label
+        const activeCampaignLabel = document.getElementById('activeCampaignLabel');
+        if (activeCampaignLabel) {
+            const startDisplay = new Date(customStartDateInput.value).toLocaleDateString('vi-VN');
+            const endDisplay = new Date(customEndDateInput.value).toLocaleDateString('vi-VN');
+            activeCampaignLabel.innerHTML = `<i class="fas fa-calendar-check"></i> ${startDisplay} - ${endDisplay}`;
+        }
+
+        // 5. Load employee ranges (general, no campaign)
+        console.log('[CUSTOM-MODE] Loading employee ranges...');
+        await loadEmployeeRangesForCampaign(null);
+
+        // 6. Show notification
+        if (window.notificationManager) {
+            const startDisplay = new Date(customStartDateInput.value).toLocaleDateString('vi-VN');
+            const endDisplay = new Date(customEndDateInput.value).toLocaleDateString('vi-VN');
+            window.notificationManager.info(
+                `Đang tải đơn hàng: ${startDisplay} - ${endDisplay}`,
+                2000
+            );
+        }
+
+        // 7. Fetch orders with custom date range
+        await handleSearch();
+
+        // 8. Connect realtime
+        if (window.realtimeManager) {
+            console.log('[CUSTOM-MODE] Connecting to Realtime Server...');
+            window.realtimeManager.connectServerMode();
+        }
+
+        console.log('[CUSTOM-MODE] ✅ Initialization complete');
+
+    } catch (error) {
+        console.error('[CUSTOM-MODE] ❌ Initialization error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi khởi tạo: ' + error.message);
+        }
+    }
+}
 
 // #region ═══════════════════════════════════════════════════════════════════════
 // ║                   SECTION 4: EMPLOYEE RANGE MANAGEMENT                      ║
@@ -5690,26 +5795,33 @@ async function handleCampaignChange() {
     }
 }
 
-// 🎯 Handle custom date filter change - auto-trigger search
+// 🎯 Handle custom start date change - auto-fill end date (+2 days) and trigger search
 async function handleCustomDateChange() {
-    // Only proceed if in custom mode
-    if (!selectedCampaign?.isCustom) {
+    const customStartDateInput = document.getElementById("customStartDate");
+    const customEndDateInput = document.getElementById("customEndDate");
+
+    if (!customStartDateInput.value) {
+        console.log('[CUSTOM-FILTER] Start date cleared, waiting for valid date...');
         return;
     }
 
-    const customStartDateValue = document.getElementById("customStartDate").value;
-    if (!customStartDateValue) {
-        console.log('[CUSTOM-FILTER] Custom date cleared, waiting for valid date...');
-        return;
-    }
+    // Auto-fill end date = start date + 2 days
+    const startDate = new Date(customStartDateInput.value);
+    const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
+    endDate.setHours(23, 59, 0, 0);
+    customEndDateInput.value = formatDateTimeLocal(endDate);
 
-    console.log(`[CUSTOM-FILTER] Custom date changed to: ${customStartDateValue}`);
+    console.log(`[CUSTOM-FILTER] Date range: ${customStartDateInput.value} -> ${customEndDateInput.value}`);
 
-    // 🔥 Save custom date to Firebase
+    // Ensure custom mode is set
+    selectedCampaign = { isCustom: true };
+
+    // 🔥 Save custom dates to Firebase
     saveFilterPreferencesToFirebase({
         selectedCampaignValue: 'custom',
         isCustomMode: true,
-        customStartDate: customStartDateValue
+        customStartDate: customStartDateInput.value,
+        customEndDate: customEndDateInput.value
     });
 
     // Cleanup old listeners and data
@@ -5717,11 +5829,46 @@ async function handleCustomDateChange() {
 
     // Notify user
     if (window.notificationManager) {
+        const startDisplay = new Date(customStartDateInput.value).toLocaleDateString('vi-VN');
+        const endDisplay = new Date(customEndDateInput.value).toLocaleDateString('vi-VN');
         window.notificationManager.info(
-            `Đang tải đơn hàng từ ngày: ${new Date(customStartDateValue).toLocaleString('vi-VN')}`,
+            `Đang tải đơn hàng: ${startDisplay} - ${endDisplay}`,
             2000
         );
     }
+
+    // Trigger search
+    await handleSearch();
+
+    // Setup new TAG listeners
+    setupTagRealtimeListeners();
+}
+
+// 🎯 Handle custom end date change - just trigger search (no auto-fill)
+async function handleCustomEndDateChange() {
+    const customStartDateInput = document.getElementById("customStartDate");
+    const customEndDateInput = document.getElementById("customEndDate");
+
+    if (!customStartDateInput.value || !customEndDateInput.value) {
+        console.log('[CUSTOM-FILTER] Missing start or end date...');
+        return;
+    }
+
+    console.log(`[CUSTOM-FILTER] End date changed: ${customStartDateInput.value} -> ${customEndDateInput.value}`);
+
+    // Ensure custom mode is set
+    selectedCampaign = { isCustom: true };
+
+    // 🔥 Save custom dates to Firebase
+    saveFilterPreferencesToFirebase({
+        selectedCampaignValue: 'custom',
+        isCustomMode: true,
+        customStartDate: customStartDateInput.value,
+        customEndDate: customEndDateInput.value
+    });
+
+    // Cleanup old listeners and data
+    cleanupTagRealtimeListeners();
 
     // Trigger search
     await handleSearch();
@@ -5738,17 +5885,7 @@ async function reloadTableData() {
     if (icon) icon.classList.add('fa-spin');
 
     try {
-        // 🎯 Also allow custom mode
-        const isCustomMode = selectedCampaign?.isCustom;
-        if (!isCustomMode && !selectedCampaign?.campaignId && !selectedCampaign?.campaignIds) {
-            if (window.notificationManager) {
-                window.notificationManager.warning("Vui lòng chọn chiến dịch trước khi tải lại");
-            } else {
-                alert("Vui lòng chọn chiến dịch trước khi tải lại");
-            }
-            return;
-        }
-
+        // 🎯 SIMPLIFIED: Always use Custom Mode - just reload with current date range
         await handleSearch();
 
         if (window.notificationManager) {
@@ -5768,34 +5905,38 @@ async function reloadTableData() {
 }
 
 async function handleSearch() {
-    // 🎯 Check for custom mode OR normal campaign mode
-    const isCustomMode = selectedCampaign?.isCustom;
+    // 🎯 SIMPLIFIED: Always use Custom Mode
+    // Validate custom date range
+    const customStartDateValue = document.getElementById("customStartDate").value;
+    const customEndDateValue = document.getElementById("customEndDate").value;
 
-    if (!isCustomMode && !selectedCampaign?.campaignId && !selectedCampaign?.campaignIds) {
-        alert("Vui lòng chọn chiến dịch");
-        return;
-    }
-
-    // Validate dates
-    const startDateValue = document.getElementById("startDate").value;
-    const endDateValue = document.getElementById("endDate").value;
-
-    if (!startDateValue || !endDateValue) {
-        alert("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)");
-        return;
-    }
-
-    // 🎯 Custom mode: validate custom start date
-    if (isCustomMode) {
-        const customStartDateValue = document.getElementById("customStartDate").value;
-        if (!customStartDateValue) {
-            if (window.notificationManager) {
-                window.notificationManager.error("Vui lòng chọn ngày bắt đầu custom", 3000);
-            } else {
-                alert("Vui lòng chọn ngày bắt đầu custom");
-            }
-            return;
+    if (!customStartDateValue) {
+        if (window.notificationManager) {
+            window.notificationManager.error("Vui lòng chọn Từ ngày", 3000);
+        } else {
+            alert("Vui lòng chọn Từ ngày");
         }
+        return;
+    }
+
+    if (!customEndDateValue) {
+        if (window.notificationManager) {
+            window.notificationManager.error("Vui lòng chọn Đến ngày", 3000);
+        } else {
+            alert("Vui lòng chọn Đến ngày");
+        }
+        return;
+    }
+
+    // Ensure selectedCampaign is set to custom mode
+    selectedCampaign = { isCustom: true };
+
+    // Update UI label with date range
+    const activeCampaignLabel = document.getElementById('activeCampaignLabel');
+    if (activeCampaignLabel) {
+        const startDisplay = new Date(customStartDateValue).toLocaleDateString('vi-VN');
+        const endDisplay = new Date(customEndDateValue).toLocaleDateString('vi-VN');
+        activeCampaignLabel.innerHTML = `<i class="fas fa-calendar-check"></i> ${startDisplay} - ${endDisplay}`;
     }
 
     // Abort any ongoing background loading
@@ -5831,36 +5972,18 @@ async function fetchOrders() {
         const isCustomMode = selectedCampaign?.isCustom;
         let filter;
 
-        if (isCustomMode) {
-            // 🎯 CUSTOM MODE: Filter by DateCreated >= customStartDate and <= endDate
-            // API requires both ge and le with parentheses
-            const customStartDate = convertToUTC(document.getElementById("customStartDate").value);
-            const endDate = convertToUTC(document.getElementById("endDate").value);
-            filter = `(DateCreated ge ${customStartDate} and DateCreated le ${endDate})`;
-            console.log(`[FETCH-CUSTOM] Fetching ALL orders with DateCreated >= ${customStartDate} and <= ${endDate}`);
-        } else {
-            // NORMAL MODE: Filter by date range AND campaign
-            const startDate = convertToUTC(
-                document.getElementById("startDate").value,
-            );
-            const endDate = convertToUTC(document.getElementById("endDate").value);
+        // 🎯 SIMPLIFIED: Always use Custom Mode with customStartDate and customEndDate
+        const customStartDateValue = document.getElementById("customStartDate").value;
+        const customEndDateValue = document.getElementById("customEndDate").value || document.getElementById("endDate").value;
 
-            // Xử lý campaignId có thể là array (nhiều campaigns cùng ngày) hoặc single value
-            const campaignIds = selectedCampaign.campaignIds || (Array.isArray(selectedCampaign.campaignId) ? selectedCampaign.campaignId : [selectedCampaign.campaignId]);
-
-            // Tạo filter cho nhiều campaign IDs
-            let campaignFilter;
-            if (campaignIds.length === 1) {
-                campaignFilter = `LiveCampaignId eq ${campaignIds[0]}`;
-            } else {
-                // Tạo filter dạng: (LiveCampaignId eq 123 or LiveCampaignId eq 456 or ...)
-                const campaignConditions = campaignIds.map(id => `LiveCampaignId eq ${id}`).join(' or ');
-                campaignFilter = `(${campaignConditions})`;
-            }
-
-            filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate}) and ${campaignFilter}`;
-            console.log(`[FETCH] Fetching orders for ${campaignIds.length} campaign(s): ${campaignIds.join(', ')}`);
+        if (!customStartDateValue || !customEndDateValue) {
+            throw new Error("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)");
         }
+
+        const customStartDate = convertToUTC(customStartDateValue);
+        const customEndDate = convertToUTC(customEndDateValue);
+        filter = `(DateCreated ge ${customStartDate} and DateCreated le ${customEndDate})`;
+        console.log(`[FETCH-CUSTOM] Fetching orders: ${customStartDateValue} -> ${customEndDateValue}`);
 
         const PAGE_SIZE = 1000; // API fetch size for background loading
         const INITIAL_PAGE_SIZE = 50; // Smaller size for instant first load
