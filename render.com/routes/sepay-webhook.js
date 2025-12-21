@@ -755,6 +755,185 @@ router.get('/debt-summary', async (req, res) => {
 });
 
 /**
+ * POST /api/sepay/debt-summary-batch
+ * Get total debt for multiple phone numbers in ONE request
+ * Reduces 80 API calls → 1 API call
+ *
+ * Body: { phones: ["0901234567", "0912345678", ...] }
+ * Response: {
+ *   success: true,
+ *   data: {
+ *     "901234567": { total_debt: 500000, source: "balance_history" },
+ *     "912345678": { total_debt: 0, source: "no_data" },
+ *     ...
+ *   }
+ * }
+ */
+router.post('/debt-summary-batch', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phones } = req.body;
+
+    if (!phones || !Array.isArray(phones) || phones.length === 0) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required parameter: phones (array)'
+        });
+    }
+
+    // Limit to 200 phones per request
+    if (phones.length > 200) {
+        return res.status(400).json({
+            success: false,
+            error: 'Too many phones. Maximum 200 per request.'
+        });
+    }
+
+    try {
+        const results = {};
+
+        // Normalize all phones
+        const normalizedPhones = phones.map(phone => {
+            let normalized = (phone || '').replace(/\D/g, '');
+            if (normalized.startsWith('84') && normalized.length > 9) {
+                normalized = normalized.substring(2);
+            }
+            if (normalized.startsWith('0')) {
+                normalized = normalized.substring(1);
+            }
+            return normalized;
+        }).filter(p => p.length >= 9);
+
+        const uniquePhones = [...new Set(normalizedPhones)];
+
+        if (uniquePhones.length === 0) {
+            return res.json({ success: true, data: {} });
+        }
+
+        // 1. Batch query customers table for all phones
+        const phoneConditions = uniquePhones.flatMap(p => [p, '0' + p]);
+        const customerPlaceholders = phoneConditions.map((_, i) => `$${i + 1}`).join(', ');
+
+        const customerQuery = `
+            SELECT phone, debt, debt_adjusted_at
+            FROM customers
+            WHERE phone IN (${customerPlaceholders})
+        `;
+        const customerResult = await db.query(customerQuery, phoneConditions);
+
+        // Build customer map
+        const customerMap = {};
+        customerResult.rows.forEach(row => {
+            let normalizedPhone = row.phone.replace(/\D/g, '');
+            if (normalizedPhone.startsWith('0')) {
+                normalizedPhone = normalizedPhone.substring(1);
+            }
+            // Keep the one with higher debt or has adjustment
+            if (!customerMap[normalizedPhone] ||
+                (row.debt || 0) > (customerMap[normalizedPhone].debt || 0) ||
+                row.debt_adjusted_at) {
+                customerMap[normalizedPhone] = {
+                    debt: parseFloat(row.debt) || 0,
+                    debt_adjusted_at: row.debt_adjusted_at
+                };
+            }
+        });
+
+        // 2. Batch query QR codes for all phones
+        const qrQuery = `
+            SELECT customer_phone, unique_code
+            FROM balance_customer_info
+            WHERE customer_phone IN (${customerPlaceholders})
+        `;
+        const qrResult = await db.query(qrQuery, phoneConditions);
+
+        // Build QR map: phone -> [qr_codes]
+        const qrMap = {};
+        qrResult.rows.forEach(row => {
+            let normalizedPhone = (row.customer_phone || '').replace(/\D/g, '');
+            if (normalizedPhone.startsWith('0')) {
+                normalizedPhone = normalizedPhone.substring(1);
+            }
+            if (!qrMap[normalizedPhone]) {
+                qrMap[normalizedPhone] = [];
+            }
+            if (row.unique_code) {
+                qrMap[normalizedPhone].push(row.unique_code.toUpperCase());
+            }
+        });
+
+        // 3. Get all unique QR codes and batch query transactions
+        const allQRCodes = [...new Set(Object.values(qrMap).flat())];
+
+        let transactionMap = {}; // qrCode -> total_amount
+        if (allQRCodes.length > 0) {
+            const qrPlaceholders = allQRCodes.map((_, i) => `$${i + 1}`).join(', ');
+            const txQuery = `
+                SELECT
+                    UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) as qr_code,
+                    SUM(transfer_amount) as total_amount
+                FROM balance_history
+                WHERE transfer_type = 'in'
+                  AND UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) IN (${qrPlaceholders})
+                GROUP BY UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}'))
+            `;
+            const txResult = await db.query(txQuery, allQRCodes);
+
+            txResult.rows.forEach(row => {
+                if (row.qr_code) {
+                    transactionMap[row.qr_code] = parseInt(row.total_amount) || 0;
+                }
+            });
+        }
+
+        // 4. Calculate debt for each phone
+        for (const phone of uniquePhones) {
+            const customer = customerMap[phone] || { debt: 0, debt_adjusted_at: null };
+            const qrCodes = qrMap[phone] || [];
+
+            let totalDebt = 0;
+            let source = 'no_data';
+
+            if (customer.debt_adjusted_at) {
+                // Admin adjusted: use customer.debt as baseline
+                // Note: For batch, we simplify and just use customer.debt
+                totalDebt = customer.debt;
+                source = 'admin_adjusted';
+            } else if (qrCodes.length > 0) {
+                // Sum transactions from all QR codes
+                totalDebt = qrCodes.reduce((sum, qr) => sum + (transactionMap[qr] || 0), 0);
+                source = totalDebt > 0 ? 'balance_history' : 'no_transactions';
+            } else {
+                // Fallback to customer.debt
+                totalDebt = customer.debt;
+                source = customer.debt > 0 ? 'customers_table' : 'no_data';
+            }
+
+            results[phone] = {
+                total_debt: totalDebt,
+                source: source
+            };
+        }
+
+        // Log summary (not individual phones to reduce noise)
+        console.log(`[DEBT-SUMMARY-BATCH] Processed ${uniquePhones.length} phones`);
+
+        res.json({
+            success: true,
+            data: results,
+            count: Object.keys(results).length
+        });
+
+    } catch (error) {
+        console.error('[DEBT-SUMMARY-BATCH] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch debt summary batch',
+            message: error.message
+        });
+    }
+});
+
+/**
  * GET /api/sepay/customer-info/:uniqueCode
  * Lấy thông tin khách hàng theo mã giao dịch
  */
