@@ -9414,6 +9414,18 @@ window.addEventListener("message", function (event) {
     if (event.data.type === "FETCH_CONVERSATIONS_FOR_ORDERS") {
         handleFetchConversationsRequest(event.data.orders || []);
     }
+
+    // Handle request for employee ranges from overview tab
+    if (event.data.type === "REQUEST_EMPLOYEE_RANGES") {
+        console.log('📨 [EMPLOYEE] Nhận request employee ranges từ tab Báo Cáo Tổng Hợp');
+        console.log('📊 [EMPLOYEE] employeeRanges length:', employeeRanges.length);
+
+        // Send employee ranges back to overview
+        window.parent.postMessage({
+            type: 'EMPLOYEE_RANGES_RESPONSE',
+            ranges: employeeRanges || []
+        }, '*');
+    }
 });
 
 // Anti-spam: Track fetched channelIds and debounce requests

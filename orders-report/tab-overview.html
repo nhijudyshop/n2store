@@ -614,6 +614,385 @@
                 transform: translateY(0);
             }
         }
+
+        /* Statistics Tables */
+        .stats-table-wrapper {
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .stats-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .stats-table th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .stats-table tbody tr {
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+        }
+
+        .stats-table tbody tr:hover {
+            background: #f8f9ff;
+        }
+
+        .stats-table td {
+            padding: 10px 15px;
+            color: #333;
+        }
+
+        .stats-table .tag-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stats-table .tag-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .stats-table .amount {
+            color: #11998e;
+            font-weight: 600;
+        }
+
+        .stats-table .percentage {
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .stats-table .btn-view-detail {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .stats-table .btn-view-detail:hover {
+            background: #eff6ff;
+            color: #4c51bf;
+        }
+
+        /* Section Badge */
+        .section-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 10px;
+            font-weight: 500;
+        }
+
+        /* Add Tag Button */
+        .btn-add-tag {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-left: auto;
+            transition: all 0.2s;
+        }
+
+        .btn-add-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
+        }
+
+        .content-section h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Employee Stats Cards */
+        .employee-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .employee-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .employee-card-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .employee-card-header .employee-stt {
+            font-size: 12px;
+            color: #666;
+            background: #e0e0e0;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .employee-card-header .employee-total {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .employee-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .employee-stat-item {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .employee-stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .employee-stat-item .tag-name {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .employee-stat-item .tag-name .tag-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        .employee-stat-item .tag-count {
+            font-size: 20px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .employee-stat-item .tag-percent {
+            font-size: 11px;
+            color: #667eea;
+        }
+
+        /* Add Tag Modal */
+        .add-tag-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .add-tag-modal.show {
+            display: flex;
+        }
+
+        .add-tag-modal-content {
+            background: white;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .add-tag-modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .add-tag-modal-header h3 {
+            margin: 0;
+            color: #667eea;
+        }
+
+        .add-tag-modal-body {
+            padding: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .tag-search-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            transition: border-color 0.2s;
+        }
+
+        .tag-search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tag-list-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .tag-list-item:hover {
+            background: #f8f9ff;
+        }
+
+        .tag-list-item.selected {
+            background: #eff6ff;
+            border: 2px solid #667eea;
+        }
+
+        .tag-list-item .tag-color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+        }
+
+        .tag-list-item .tag-name {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .tag-list-item .tag-check {
+            color: #667eea;
+            opacity: 0;
+        }
+
+        .tag-list-item.selected .tag-check {
+            opacity: 1;
+        }
+
+        /* Orders Detail Modal (for viewing filtered orders) */
+        .orders-detail-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .orders-detail-modal.show {
+            display: flex;
+        }
+
+        .orders-detail-modal-content {
+            background: white;
+            border-radius: 15px;
+            width: 95%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .orders-detail-modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .orders-detail-modal-header h3 {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .orders-detail-modal-body {
+            padding: 20px;
+            max-height: calc(90vh - 80px);
+            overflow-y: auto;
+        }
+
+        .modal-close-white {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .modal-close-white:hover {
+            opacity: 1;
+        }
     </style>
 </head>
 
@@ -700,9 +1079,77 @@
                     <div class="stat-label">Khách hàng</div>
                 </div>
             </div>
-        </div>
 
-        <!-- Tab: Cached Details -->
+            <!-- Statistics Sections (from cached data) -->
+            <div id="statisticsContainer" style="display: none;">
+                <!-- Product Statistics -->
+                <div class="content-section" id="productStatsSection">
+                    <h2>
+                        <i class="fas fa-box"></i> Thống Kê Sản Phẩm
+                        <span class="section-badge" id="productStatsBadge">0</span>
+                    </h2>
+                    <div class="stats-table-wrapper">
+                        <table class="stats-table" id="productStatsTable">
+                            <thead>
+                                <tr>
+                                    <th>Mã SP</th>
+                                    <th>Tên sản phẩm</th>
+                                    <th>Số lượng</th>
+                                    <th>Số đơn</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="productStatsBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tag Statistics - Summary -->
+                <div class="content-section" id="tagStatsSection">
+                    <h2>
+                        <i class="fas fa-tags"></i> Thống Kê Theo Tag - Tổng Hợp
+                        <button class="btn-add-tag" onclick="openAddTagModal()">
+                            <i class="fas fa-plus"></i> Thêm tag
+                        </button>
+                    </h2>
+                    <div class="stats-table-wrapper">
+                        <table class="stats-table" id="tagStatsTable">
+                            <thead>
+                                <tr>
+                                    <th>Tag</th>
+                                    <th>Số đơn</th>
+                                    <th>Tỷ lệ</th>
+                                    <th>Tổng tiền</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tagStatsBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Employee Statistics -->
+                <div class="content-section" id="employeeStatsSection">
+                    <h2>
+                        <i class="fas fa-users"></i> Thống Kê Theo Nhân Viên
+                    </h2>
+                    <div id="employeeStatsContainer">
+                        <!-- Employee cards will be rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty state when no cached data -->
+            <div id="statsEmptyState" class="content-section">
+                <div class="empty-state">
+                    <i class="fas fa-chart-bar"></i>
+                    <h3>Chưa có dữ liệu thống kê</h3>
+                    <p>Nhấn <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu và xem thống kê chi tiết</p>
+                </div>
+            </div>
+        </div>
         <div class="main-tab-content" id="tabDetails">
             <div id="cachedDetailsArea">
                 <div class="empty-state">
@@ -723,6 +1170,35 @@
             </div>
             <div class="modal-body" id="modalBody">
                 <!-- Content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Tag Modal -->
+    <div class="add-tag-modal" id="addTagModal">
+        <div class="add-tag-modal-content">
+            <div class="add-tag-modal-header">
+                <h3><i class="fas fa-plus-circle"></i> Thêm Tag Thống Kê</h3>
+                <button class="modal-close" onclick="closeAddTagModal()">&times;</button>
+            </div>
+            <div class="add-tag-modal-body">
+                <input type="text" class="tag-search-input" id="tagSearchInput" placeholder="Tìm kiếm tag..." oninput="filterTagList()">
+                <div class="tag-list" id="tagListContainer">
+                    <!-- Tags will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders Detail Modal (for viewing filtered orders) -->
+    <div class="orders-detail-modal" id="ordersDetailModal">
+        <div class="orders-detail-modal-content">
+            <div class="orders-detail-modal-header">
+                <h3 id="ordersDetailTitle"><i class="fas fa-list"></i> Chi tiết đơn hàng</h3>
+                <button class="modal-close-white" onclick="closeOrdersDetailModal()">&times;</button>
+            </div>
+            <div class="orders-detail-modal-body" id="ordersDetailBody">
+                <!-- Orders will be loaded here -->
             </div>
         </div>
     </div>
@@ -763,6 +1239,31 @@
 
         // Anti-spam: Track which tables have already requested conversation fetch
         const conversationFetchRequestedFor = new Set();
+
+        // =====================================================
+        // STATISTICS STATE
+        // =====================================================
+        let employeeRanges = []; // Employee assignment ranges from Tab1
+        let availableTags = []; // Tags from TPOS
+        let trackedTags = []; // Tags currently being tracked for statistics
+
+        // Default tracked tag patterns
+        const DEFAULT_TRACKED_TAGS = [
+            { pattern: 'giỏ trống', type: 'exact', displayName: 'Giỏ Trống', color: '#f59e0b' },
+            { pattern: 'xả khách lạ', type: 'exact', displayName: 'Xả Khách Lạ', color: '#ef4444' },
+            { pattern: 'đã gộp không chốt', type: 'exact', displayName: 'Gộp Đơn', color: '#8b5cf6' },
+            { pattern: 'đã đi đơn gấp', type: 'exact', displayName: 'Đã Đi Đơn Gấp', color: '#10b981' },
+            { pattern: 'ok', type: 'startsWith', displayName: 'OK + NV', color: '#22c55e' },
+            { pattern: 'qua lấy', type: 'exact', displayName: 'Qua Lấy', color: '#3b82f6' },
+            { pattern: 'xử lý', type: 'startsWith', displayName: 'Xử Lý + NV', color: '#f97316' },
+            { pattern: 'chờ live', type: 'exact', displayName: 'Chờ Live', color: '#ec4899' },
+            { pattern: 'chờ hàng', type: 'exact', displayName: 'Chờ Hàng', color: '#6366f1' },
+            { pattern: 'xả đơn', type: 'startsWith', displayName: 'Xả Đơn', color: '#14b8a6' }
+        ];
+
+        // Firebase paths for statistics
+        const TRACKED_TAGS_PATH = 'settings/tracked_tags';
+        const EMPLOYEE_RANGES_PATH = 'settings/employee_ranges';
 
         // Initialize Firebase
         if (typeof firebase !== 'undefined' && !firebase.apps.length) {
@@ -991,6 +1492,724 @@
         }
 
         // =====================================================
+        // STATISTICS FUNCTIONS
+        // =====================================================
+
+        /**
+         * Load employee ranges from Firebase
+         */
+        async function loadEmployeeRanges() {
+            if (!database) return;
+
+            try {
+                // Try campaign-specific first
+                if (currentTableName) {
+                    const safeName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
+                    const campaignSnapshot = await database.ref(`settings/employee_ranges_by_campaign/${safeName}`).once('value');
+                    if (campaignSnapshot.exists()) {
+                        employeeRanges = campaignSnapshot.val() || [];
+                        console.log('[REPORT] ✅ Loaded campaign-specific employee ranges:', employeeRanges.length);
+                        return;
+                    }
+                }
+
+                // Fallback to general
+                const snapshot = await database.ref(EMPLOYEE_RANGES_PATH).once('value');
+                employeeRanges = snapshot.val() || [];
+                console.log('[REPORT] ✅ Loaded general employee ranges:', employeeRanges.length);
+            } catch (error) {
+                console.error('[REPORT] ❌ Error loading employee ranges:', error);
+                employeeRanges = [];
+            }
+        }
+
+        /**
+         * Load available tags from Firebase (cached from TPOS)
+         */
+        async function loadAvailableTagsFromFirebase() {
+            if (!database) return;
+
+            try {
+                const snapshot = await database.ref('settings/tags').once('value');
+                availableTags = snapshot.val() || [];
+                console.log('[REPORT] ✅ Loaded available tags:', availableTags.length);
+            } catch (error) {
+                console.error('[REPORT] ❌ Error loading available tags:', error);
+                availableTags = [];
+            }
+        }
+
+        /**
+         * Load tracked tags settings from Firebase
+         */
+        async function loadTrackedTags() {
+            if (!database) return;
+
+            try {
+                const snapshot = await database.ref(TRACKED_TAGS_PATH).once('value');
+                const saved = snapshot.val();
+                if (saved && Array.isArray(saved)) {
+                    trackedTags = saved;
+                } else {
+                    trackedTags = [...DEFAULT_TRACKED_TAGS];
+                }
+                console.log('[REPORT] ✅ Loaded tracked tags:', trackedTags.length);
+            } catch (error) {
+                console.error('[REPORT] ❌ Error loading tracked tags:', error);
+                trackedTags = [...DEFAULT_TRACKED_TAGS];
+            }
+        }
+
+        /**
+         * Save tracked tags to Firebase
+         */
+        async function saveTrackedTags() {
+            if (!database) return;
+
+            try {
+                await database.ref(TRACKED_TAGS_PATH).set(trackedTags);
+                console.log('[REPORT] ✅ Saved tracked tags');
+            } catch (error) {
+                console.error('[REPORT] ❌ Error saving tracked tags:', error);
+            }
+        }
+
+        /**
+         * Request employee ranges from Tab1 and save to Firebase
+         */
+        async function requestAndSaveEmployeeRanges() {
+            return new Promise((resolve) => {
+                console.log('[REPORT] 📡 Requesting employee ranges from Tab1...');
+
+                // Set up one-time listener for response
+                const handler = async (event) => {
+                    if (event.data.type === 'EMPLOYEE_RANGES_RESPONSE') {
+                        window.removeEventListener('message', handler);
+
+                        const ranges = event.data.ranges || [];
+                        console.log('[REPORT] ✅ Received employee ranges:', ranges.length);
+
+                        if (ranges.length > 0 && database && currentTableName) {
+                            try {
+                                // Save to campaign-specific path
+                                const safeName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
+                                await database.ref(`settings/employee_ranges_by_campaign/${safeName}`).set(ranges);
+                                console.log('[REPORT] ✅ Saved employee ranges to Firebase for:', currentTableName);
+                            } catch (error) {
+                                console.error('[REPORT] ❌ Error saving employee ranges:', error);
+                            }
+                        }
+
+                        resolve(ranges);
+                    }
+                };
+
+                window.addEventListener('message', handler);
+
+                // Request employee ranges from Tab1
+                window.parent.postMessage({
+                    type: 'REQUEST_EMPLOYEE_RANGES'
+                }, '*');
+
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                    window.removeEventListener('message', handler);
+                    console.log('[REPORT] ⏱️ Employee ranges request timed out');
+                    resolve([]);
+                }, 5000);
+            });
+        }
+
+        /**
+         * Get employee name by STT
+         */
+        function getEmployeeBySTT(stt) {
+            if (!stt || !employeeRanges.length) return null;
+
+            const sttNum = parseInt(stt);
+            if (isNaN(sttNum)) return null;
+
+            for (const range of employeeRanges) {
+                if (sttNum >= range.start && sttNum <= range.end) {
+                    return range;
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Match tag name against pattern
+         */
+        function matchTagPattern(tagName, pattern) {
+            if (!tagName || !pattern) return false;
+
+            const normalizedTag = tagName.toLowerCase().trim();
+            const normalizedPattern = pattern.pattern.toLowerCase().trim();
+
+            if (pattern.type === 'exact') {
+                return normalizedTag === normalizedPattern;
+            } else if (pattern.type === 'startsWith') {
+                return normalizedTag.startsWith(normalizedPattern);
+            }
+            return false;
+        }
+
+        /**
+         * Parse order tags
+         */
+        function parseOrderTags(tagsData) {
+            try {
+                if (!tagsData) return [];
+                if (typeof tagsData === 'string') {
+                    return JSON.parse(tagsData);
+                }
+                return Array.isArray(tagsData) ? tagsData : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        /**
+         * Calculate product statistics from cached orders
+         */
+        function calculateProductStats(orders) {
+            const productMap = new Map(); // key: ProductCode, value: { name, quantity, orderCount, orderIds }
+
+            orders.forEach(order => {
+                const details = order.Details || [];
+                const orderId = order.Id || order.Code;
+
+                details.forEach(item => {
+                    const code = item.ProductCode || item.DefaultCode || item.Barcode || 'N/A';
+                    const name = item.ProductName || item.ProductNameGet || item.name || 'Không rõ';
+                    const qty = item.Quantity || item.ProductUOMQty || 0;
+
+                    if (productMap.has(code)) {
+                        const existing = productMap.get(code);
+                        existing.quantity += qty;
+                        if (!existing.orderIds.includes(orderId)) {
+                            existing.orderIds.push(orderId);
+                        }
+                    } else {
+                        productMap.set(code, {
+                            code,
+                            name,
+                            quantity: qty,
+                            orderIds: [orderId]
+                        });
+                    }
+                });
+            });
+
+            // Convert to array and sort by quantity desc
+            return Array.from(productMap.values())
+                .map(p => ({ ...p, orderCount: p.orderIds.length }))
+                .sort((a, b) => b.quantity - a.quantity);
+        }
+
+        /**
+         * Calculate tag statistics from cached orders
+         */
+        function calculateTagStats(orders) {
+            const totalOrders = orders.length;
+            const tagStats = [];
+
+            // Initialize stats for each tracked tag
+            trackedTags.forEach(trackedTag => {
+                tagStats.push({
+                    pattern: trackedTag.pattern,
+                    type: trackedTag.type,
+                    displayName: trackedTag.displayName,
+                    color: trackedTag.color,
+                    count: 0,
+                    totalAmount: 0,
+                    orders: []
+                });
+            });
+
+            // Count orders for each tag
+            orders.forEach(order => {
+                const orderTags = parseOrderTags(order.Tags);
+                const orderAmount = order.TotalAmount || 0;
+
+                orderTags.forEach(orderTag => {
+                    const tagName = orderTag.Name || orderTag.name || '';
+
+                    tagStats.forEach(stat => {
+                        if (matchTagPattern(tagName, stat)) {
+                            stat.count++;
+                            stat.totalAmount += orderAmount;
+                            stat.orders.push(order);
+                        }
+                    });
+                });
+            });
+
+            // Calculate percentages
+            tagStats.forEach(stat => {
+                stat.percentage = totalOrders > 0 ? ((stat.count / totalOrders) * 100).toFixed(1) : 0;
+            });
+
+            return tagStats.filter(s => s.count > 0).sort((a, b) => b.count - a.count);
+        }
+
+        /**
+         * Calculate employee-based tag statistics
+         */
+        function calculateEmployeeTagStats(orders) {
+            if (!employeeRanges.length) return [];
+
+            const employeeStats = [];
+
+            employeeRanges.forEach(emp => {
+                const empOrders = orders.filter(order => {
+                    const stt = parseInt(order.SessionIndex || 0);
+                    return stt >= emp.start && stt <= emp.end;
+                });
+
+                if (empOrders.length === 0) return;
+
+                const tagBreakdown = [];
+
+                // Calculate tag stats for this employee
+                trackedTags.forEach(trackedTag => {
+                    let count = 0;
+                    let matchedOrders = [];
+
+                    empOrders.forEach(order => {
+                        const orderTags = parseOrderTags(order.Tags);
+
+                        for (const orderTag of orderTags) {
+                            const tagName = orderTag.Name || orderTag.name || '';
+                            if (matchTagPattern(tagName, trackedTag)) {
+                                count++;
+                                matchedOrders.push(order);
+                                break; // Count each order only once per tag pattern
+                            }
+                        }
+                    });
+
+                    if (count > 0) {
+                        tagBreakdown.push({
+                            displayName: trackedTag.displayName,
+                            color: trackedTag.color,
+                            count,
+                            percentage: ((count / empOrders.length) * 100).toFixed(1),
+                            orders: matchedOrders
+                        });
+                    }
+                });
+
+                employeeStats.push({
+                    name: emp.name,
+                    start: emp.start,
+                    end: emp.end,
+                    totalOrders: empOrders.length,
+                    tagBreakdown: tagBreakdown.sort((a, b) => b.count - a.count),
+                    allOrders: empOrders
+                });
+            });
+
+            return employeeStats.filter(e => e.totalOrders > 0);
+        }
+
+        /**
+         * Render all statistics
+         */
+        function renderStatistics() {
+            const cached = cachedOrderDetails[currentTableName];
+            const orders = cached?.orders || [];
+
+            const statsContainer = document.getElementById('statisticsContainer');
+            const emptyState = document.getElementById('statsEmptyState');
+
+            if (orders.length === 0) {
+                statsContainer.style.display = 'none';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            statsContainer.style.display = 'block';
+            emptyState.style.display = 'none';
+
+            // Calculate all stats
+            const productStats = calculateProductStats(orders);
+            const tagStats = calculateTagStats(orders);
+            const employeeStats = calculateEmployeeTagStats(orders);
+
+            // Render product stats
+            renderProductStatsTable(productStats);
+
+            // Render tag stats
+            renderTagStatsTable(tagStats, orders.length);
+
+            // Render employee stats
+            renderEmployeeStats(employeeStats);
+        }
+
+        /**
+         * Render product statistics table
+         */
+        function renderProductStatsTable(stats) {
+            const tbody = document.getElementById('productStatsBody');
+            const badge = document.getElementById('productStatsBadge');
+
+            badge.textContent = stats.length;
+
+            if (stats.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">Không có dữ liệu sản phẩm</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = stats.map(p => `
+                <tr>
+                    <td><strong>${p.code}</strong></td>
+                    <td>${p.name}</td>
+                    <td><strong>${p.quantity.toLocaleString('vi-VN')}</strong></td>
+                    <td>${p.orderCount.toLocaleString('vi-VN')}</td>
+                    <td>
+                        <button class="btn-view-detail" onclick="viewProductOrders('${p.code}')" title="Xem chi tiết">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        /**
+         * Render tag statistics table
+         */
+        function renderTagStatsTable(stats, totalOrders) {
+            const tbody = document.getElementById('tagStatsBody');
+
+            if (stats.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">Không có dữ liệu tag</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = stats.map(s => `
+                <tr>
+                    <td>
+                        <div class="tag-cell">
+                            <span class="tag-color" style="background-color: ${s.color}"></span>
+                            <span>${s.displayName}</span>
+                        </div>
+                    </td>
+                    <td><strong>${s.count.toLocaleString('vi-VN')}</strong></td>
+                    <td class="percentage">${s.percentage}%</td>
+                    <td class="amount">${formatCurrency(s.totalAmount)}</td>
+                    <td>
+                        <button class="btn-view-detail" onclick="viewTagOrders('${s.pattern}', '${s.type}')" title="Xem chi tiết">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        /**
+         * Render employee statistics
+         */
+        function renderEmployeeStats(stats) {
+            const container = document.getElementById('employeeStatsContainer');
+
+            if (stats.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="padding: 30px;">
+                        <i class="fas fa-user-slash" style="font-size: 40px; color: #ddd;"></i>
+                        <h3 style="color: #999;">Chưa cài đặt phân chia nhân viên</h3>
+                        <p style="color: #999;">Vui lòng cài đặt phân chia nhân viên ở tab "Quản Lý Đơn Hàng"</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = stats.map(emp => `
+                <div class="employee-card">
+                    <div class="employee-card-header">
+                        <h3>
+                            <i class="fas fa-user"></i> ${emp.name}
+                            <span class="employee-stt">STT ${emp.start} - ${emp.end}</span>
+                        </h3>
+                        <span class="employee-total">
+                            Tổng: <strong>${emp.totalOrders}</strong> đơn
+                            <button class="btn-view-detail" onclick="viewEmployeeOrders('${emp.name}', ${emp.start}, ${emp.end})" title="Xem tất cả đơn" style="margin-left: 10px;">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </span>
+                    </div>
+                    <div class="employee-stats-grid">
+                        ${emp.tagBreakdown.map(tag => `
+                            <div class="employee-stat-item" onclick="viewEmployeeTagOrders('${emp.name}', ${emp.start}, ${emp.end}, '${tag.displayName}')">
+                                <div class="tag-name">
+                                    <span class="tag-dot" style="background-color: ${tag.color}"></span>
+                                    ${tag.displayName}
+                                </div>
+                                <div class="tag-count">${tag.count}</div>
+                                <div class="tag-percent">${tag.percentage}% của ${emp.name}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // =====================================================
+        // MODAL FUNCTIONS
+        // =====================================================
+
+        /**
+         * Open add tag modal
+         */
+        function openAddTagModal() {
+            const modal = document.getElementById('addTagModal');
+            modal.classList.add('show');
+            renderTagList();
+        }
+
+        /**
+         * Close add tag modal
+         */
+        function closeAddTagModal() {
+            const modal = document.getElementById('addTagModal');
+            modal.classList.remove('show');
+        }
+
+        /**
+         * Render tag list in add tag modal
+         */
+        function renderTagList() {
+            const container = document.getElementById('tagListContainer');
+            const searchInput = document.getElementById('tagSearchInput');
+            const searchTerm = searchInput.value.toLowerCase().trim();
+
+            // Filter tags
+            let filteredTags = availableTags;
+            if (searchTerm) {
+                filteredTags = availableTags.filter(tag =>
+                    (tag.Name || '').toLowerCase().includes(searchTerm) ||
+                    (tag.NameNosign || '').toLowerCase().includes(searchTerm)
+                );
+            }
+
+            if (filteredTags.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999;">Không tìm thấy tag</p>';
+                return;
+            }
+
+            // Check which tags are already tracked
+            const trackedPatterns = trackedTags.map(t => t.pattern.toLowerCase());
+
+            container.innerHTML = filteredTags.slice(0, 50).map(tag => {
+                const tagName = tag.Name || '';
+                const isTracked = trackedPatterns.some(p => tagName.toLowerCase().startsWith(p) || tagName.toLowerCase() === p);
+
+                return `
+                    <div class="tag-list-item ${isTracked ? 'selected' : ''}" onclick="toggleTrackedTag('${tagName}', '${tag.Color || '#6b7280'}')">
+                        <span class="tag-color-box" style="background-color: ${tag.Color || '#6b7280'}"></span>
+                        <span class="tag-name">${tagName}</span>
+                        <i class="fas fa-check tag-check"></i>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Filter tag list
+         */
+        function filterTagList() {
+            renderTagList();
+        }
+
+        /**
+         * Toggle tracked tag
+         */
+        async function toggleTrackedTag(tagName, color) {
+            const pattern = tagName.toLowerCase().trim();
+            const existingIndex = trackedTags.findIndex(t => t.pattern === pattern);
+
+            if (existingIndex >= 0) {
+                trackedTags.splice(existingIndex, 1);
+            } else {
+                trackedTags.push({
+                    pattern: pattern,
+                    type: 'exact',
+                    displayName: tagName,
+                    color: color
+                });
+            }
+
+            await saveTrackedTags();
+            renderTagList();
+            renderStatistics();
+        }
+
+        /**
+         * Close orders detail modal
+         */
+        function closeOrdersDetailModal() {
+            const modal = document.getElementById('ordersDetailModal');
+            modal.classList.remove('show');
+        }
+
+        /**
+         * View orders by product code
+         */
+        function viewProductOrders(productCode) {
+            const cached = cachedOrderDetails[currentTableName];
+            const orders = cached?.orders || [];
+
+            const filteredOrders = orders.filter(order => {
+                const details = order.Details || [];
+                return details.some(item => {
+                    const code = item.ProductCode || item.DefaultCode || item.Barcode || '';
+                    return code === productCode;
+                });
+            });
+
+            showOrdersDetailModal(`Đơn hàng có sản phẩm: ${productCode}`, filteredOrders);
+        }
+
+        /**
+         * View orders by tag
+         */
+        function viewTagOrders(pattern, type) {
+            const cached = cachedOrderDetails[currentTableName];
+            const orders = cached?.orders || [];
+
+            const filteredOrders = orders.filter(order => {
+                const orderTags = parseOrderTags(order.Tags);
+                return orderTags.some(tag => {
+                    const tagName = tag.Name || tag.name || '';
+                    return matchTagPattern(tagName, { pattern, type });
+                });
+            });
+
+            const displayName = trackedTags.find(t => t.pattern === pattern)?.displayName || pattern;
+            showOrdersDetailModal(`Đơn hàng có tag: ${displayName}`, filteredOrders);
+        }
+
+        /**
+         * View all orders for an employee
+         */
+        function viewEmployeeOrders(name, start, end) {
+            const cached = cachedOrderDetails[currentTableName];
+            const orders = cached?.orders || [];
+
+            const filteredOrders = orders.filter(order => {
+                const stt = parseInt(order.SessionIndex || 0);
+                return stt >= start && stt <= end;
+            });
+
+            showOrdersDetailModal(`Đơn hàng của ${name} (STT ${start}-${end})`, filteredOrders);
+        }
+
+        /**
+         * View orders for employee by tag
+         */
+        function viewEmployeeTagOrders(empName, start, end, tagDisplayName) {
+            const cached = cachedOrderDetails[currentTableName];
+            const orders = cached?.orders || [];
+
+            const trackedTag = trackedTags.find(t => t.displayName === tagDisplayName);
+            if (!trackedTag) return;
+
+            const filteredOrders = orders.filter(order => {
+                const stt = parseInt(order.SessionIndex || 0);
+                if (stt < start || stt > end) return false;
+
+                const orderTags = parseOrderTags(order.Tags);
+                return orderTags.some(tag => {
+                    const tagName = tag.Name || tag.name || '';
+                    return matchTagPattern(tagName, trackedTag);
+                });
+            });
+
+            showOrdersDetailModal(`${empName} - ${tagDisplayName}`, filteredOrders);
+        }
+
+        /**
+         * Show orders detail modal
+         */
+        function showOrdersDetailModal(title, orders) {
+            const modal = document.getElementById('ordersDetailModal');
+            const titleEl = document.getElementById('ordersDetailTitle');
+            const body = document.getElementById('ordersDetailBody');
+
+            titleEl.innerHTML = `<i class="fas fa-list"></i> ${title} <span style="font-size: 14px; opacity: 0.8;">(${orders.length} đơn)</span>`;
+
+            if (orders.length === 0) {
+                body.innerHTML = `
+                    <div class="empty-state" style="padding: 40px;">
+                        <i class="fas fa-inbox" style="font-size: 50px; color: #ddd;"></i>
+                        <h3 style="color: #999;">Không có đơn hàng</h3>
+                    </div>
+                `;
+            } else {
+                body.innerHTML = `
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Mã đơn</th>
+                                <th>Tag</th>
+                                <th>Khách hàng</th>
+                                <th>SĐT</th>
+                                <th>SP</th>
+                                <th>Tổng tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${orders.map(order => `
+                                <tr onclick="openCachedOrderDetailFromModal(${orders.indexOf(order)}, '${order.Code}')" style="cursor: pointer;">
+                                    <td>${order.SessionIndex || '-'}</td>
+                                    <td class="order-code">${order.Code || ''}</td>
+                                    <td><div class="tags-cell">${parseOrderTagsHtml(order.Tags)}</div></td>
+                                    <td>${order.Name || order.PartnerName || ''}</td>
+                                    <td>${order.Telephone || ''}</td>
+                                    <td>${(order.Details || []).length}</td>
+                                    <td class="amount">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            modal.classList.add('show');
+
+            // Store orders for detail view
+            window._currentFilteredOrders = orders;
+        }
+
+        /**
+         * Open order detail from modal
+         */
+        function openCachedOrderDetailFromModal(index, orderCode) {
+            const orders = window._currentFilteredOrders || [];
+            const order = orders[index];
+            if (!order) return;
+
+            // Close the list modal first
+            closeOrdersDetailModal();
+
+            // Open detail modal
+            const modal = document.getElementById('orderDetailModal');
+            modal.classList.add('show');
+            renderOrderDetailModal({ orderCode: order.Code }, order);
+        }
+
+        // Close modals on background click
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('add-tag-modal')) {
+                closeAddTagModal();
+            }
+            if (e.target.classList.contains('orders-detail-modal')) {
+                closeOrdersDetailModal();
+            }
+        });
+
+        // =====================================================
         // TABLE SELECTION & MANAGEMENT
         // =====================================================
 
@@ -1172,6 +2391,10 @@
             // Update UI for Chi tiết đã tải tab
             updateCachedCountBadge();
             renderCachedDetailsTab();
+
+            // Update statistics
+            await loadEmployeeRanges();
+            renderStatistics();
         }
 
         // Save cached data to localStorage (only metadata, not full orders)
@@ -1295,6 +2518,11 @@
                 updateStats();
                 updateCachedCountBadge();
                 renderCachedDetailsTab();
+
+                // Load employee ranges and render statistics
+                loadEmployeeRanges().then(() => {
+                    renderStatistics();
+                });
 
                 // Check Firebase status for this table
                 checkFirebaseStatus();
@@ -1534,12 +2762,19 @@
                 // Save to Firebase
                 const firebaseSaved = await saveToFirebase(currentTableName, cacheData);
 
+                // Request and save employee ranges from Tab1
+                await requestAndSaveEmployeeRanges();
+
                 // Reset button state
                 resetButtonState();
 
                 // Update UI
                 updateCachedCountBadge();
                 renderCachedDetailsTab();
+
+                // Update statistics
+                await loadEmployeeRanges();
+                renderStatistics();
 
                 // Show completion message
                 const firebaseMsg = firebaseSaved ? '✅ Đã lưu Firebase' : '❌ Lỗi lưu Firebase';
@@ -1973,12 +3208,23 @@
             currentTableName = await loadDefaultTableNameFromFirebase();
             console.log('[REPORT] 📋 Default table set to:', currentTableName);
 
+            // Load statistics settings
+            await Promise.all([
+                loadEmployeeRanges(),
+                loadAvailableTagsFromFirebase(),
+                loadTrackedTags()
+            ]);
+            console.log('[REPORT] 📊 Statistics settings loaded');
+
             // Load available tables from Firebase (for Chi tiết đã tải dropdown)
             await loadAvailableTables();
 
             // Update UI for Chi tiết đã tải tab (from Firebase cache)
             updateCachedCountBadge();
             renderCachedDetailsTab();
+
+            // Render statistics if cached data exists
+            renderStatistics();
 
             console.log(`[REPORT] 🎉 Firebase init complete. cachedOrders for "${currentTableName}": ${cachedOrderDetails[currentTableName]?.orders?.length || 0}`);
 
