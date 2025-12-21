@@ -417,6 +417,19 @@ class PancakeDataManager {
 
             const conversations = data.conversations || [];
 
+            // DEBUG: Log first conversation structure to find real PSID field
+            if (conversations.length > 0) {
+                const firstConv = conversations[0];
+                console.log('[PANCAKE] 🔍 DEBUG First conversation structure:', JSON.stringify({
+                    id: firstConv.id,
+                    type: firstConv.type,
+                    from_psid: firstConv.from_psid,
+                    from: firstConv.from,
+                    customers: firstConv.customers?.map(c => ({ id: c.id, fb_id: c.fb_id, name: c.name })),
+                    page_id: firstConv.page_id
+                }, null, 2));
+            }
+
             // Extract customer UUID from first conversation
             let customerUuid = null;
             if (conversations.length > 0 && conversations[0].customers && conversations[0].customers.length > 0) {
