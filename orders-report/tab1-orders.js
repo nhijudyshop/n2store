@@ -6002,6 +6002,9 @@ async function fetchOrders() {
 
                     // Final update
                     if (!loadingAborted) {
+                        // Set flag to false BEFORE calling performTableSearch
+                        // so renderByEmployee() knows loading is complete
+                        isLoadingInBackground = false;
                         console.log('[PROGRESSIVE] Background loading completed');
                         performTableSearch(); // Final merge and render
                         updateSearchResultCount();
@@ -6018,6 +6021,7 @@ async function fetchOrders() {
                 } catch (error) {
                     console.error('[PROGRESSIVE] Background loading error:', error);
                 } finally {
+                    // Ensure flag is always reset even on error or abort
                     isLoadingInBackground = false;
                 }
             })();
