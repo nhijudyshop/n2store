@@ -306,6 +306,32 @@ body {
     text-align: center;
 }
 
+/* Sortable column headers */
+.table th[data-column="phone"],
+.table th[data-column="address"],
+.table th[data-column="debt"],
+.table th[data-column="total"],
+.table th[data-column="quantity"] {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+.table th[data-column="phone"]:hover,
+.table th[data-column="address"]:hover,
+.table th[data-column="debt"]:hover,
+.table th[data-column="total"]:hover,
+.table th[data-column="quantity"]:hover {
+    background-color: #e5e7eb;
+}
+
+.sort-icon {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 10px;
+    vertical-align: middle;
+}
+
 /* Merged edit dropdown - ensure it doesn't overlap sticky header */
 .merged-edit-dropdown .merged-edit-options {
     z-index: 50 !important;
