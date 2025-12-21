@@ -143,6 +143,37 @@
             }
         }
 
+        /* Mobile Optimization Overrides */
+        @media (max-width: 768px) {
+
+            /* Force hide global mobile top bar */
+            .mobile-top-bar {
+                display: none !important;
+            }
+
+            /* Reset body padding from JS injection */
+            body {
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+            }
+
+            .main-content {
+                padding-top: 60px !important;
+                /* Space for new header */
+                padding-bottom: 0 !important;
+            }
+
+            /* Hide desktop tab nav */
+            .tab-navigation {
+                display: none !important;
+            }
+
+            /* Adjust iframe height for mobile */
+            iframe {
+                height: calc(100vh - 60px) !important;
+            }
+        }
+
         .sync-icon {
             width: 16px;
             height: 16px;
@@ -199,7 +230,7 @@
 
         .campaign-badge:hover {
             transform: scale(1.02);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
         /* Campaign Tooltip */
@@ -210,7 +241,7 @@
             right: 0;
             background: white;
             border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             padding: 12px 16px;
             font-size: 12px;
             z-index: 1000;
@@ -249,42 +280,85 @@
 </head>
 
 <body>
+    <!-- Mobile Tab Header (Dropdown Style) -->
+    <div class="mobile-tab-header" id="mobileTabHeader">
+        <div class="mobile-header-content" onclick="toggleMobileDropdown()">
+            <div class="mobile-header-left">
+                <i data-lucide="zap" class="mobile-logo-icon"></i>
+                <span class="mobile-header-title" id="mobileHeaderTitle">Quản Lý Đơn Hàng</span>
+            </div>
+            <i data-lucide="chevron-down" class="mobile-header-arrow" id="mobileHeaderArrow"></i>
+        </div>
+
+        <div class="mobile-tab-dropdown" id="mobileTabDropdown">
+            <div class="mobile-dropdown-item active" onclick="switchMobileTab('orders', 'Quản Lý Đơn Hàng')"
+                data-mobile-tab="orders">
+                <i data-lucide="shopping-cart"></i>
+                <span>Quản Lý Đơn Hàng</span>
+                <i data-lucide="check" class="check-icon"></i>
+            </div>
+            <div class="mobile-dropdown-item" onclick="switchMobileTab('product-assignment', 'Gán Sản Phẩm - STT')"
+                data-mobile-tab="product-assignment">
+                <i data-lucide="link"></i>
+                <span>Gán Sản Phẩm - STT</span>
+                <i data-lucide="check" class="check-icon"></i>
+            </div>
+            <div class="mobile-dropdown-item" onclick="switchMobileTab('statistics', 'Thống Kê')"
+                data-mobile-tab="statistics">
+                <i data-lucide="bar-chart-3"></i>
+                <span>Thống Kê</span>
+                <i data-lucide="check" class="check-icon"></i>
+            </div>
+            <div class="mobile-dropdown-item" onclick="switchMobileTab('overview', 'Báo Cáo Tổng Hợp')"
+                data-mobile-tab="overview">
+                <i data-lucide="file-bar-chart"></i>
+                <span>Báo Cáo Tổng Hợp</span>
+                <i data-lucide="check" class="check-icon"></i>
+            </div>
+            <div class="mobile-dropdown-item" onclick="window.location.href='../index.html'"
+                style="border-top: 1px solid #eee; margin-top: 4px; color: #ef4444;">
+                <i data-lucide="log-out"></i>
+                <span>Thoát Báo Cáo</span>
+            </div>
+        </div>
+        <div class="mobile-dropdown-overlay" id="mobileDropdownOverlay" onclick="closeMobileDropdown()"></div>
+    </div>
     <!-- Sidebar Navigation -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <i data-lucide="zap"></i>
-                    <span>N2Shop</span>
-                </div>
-                <button class="sidebar-toggle" id="sidebarToggle">
-                    <i data-lucide="panel-left-close"></i>
-                </button>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i data-lucide="zap"></i>
+                <span>N2Shop</span>
             </div>
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i data-lucide="panel-left-close"></i>
+            </button>
+        </div>
 
-            <nav class="sidebar-nav" id="sidebarNav">
-                <!-- Menu items auto-generated -->
-            </nav>
+        <nav class="sidebar-nav" id="sidebarNav">
+            <!-- Menu items auto-generated -->
+        </nav>
 
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar">
-                        <i data-lucide="user-circle"></i>
-                    </div>
-                    <div class="user-details">
-                        <div class="user-name" id="userName">Admin</div>
-                        <div class="user-role">Quản trị viên</div>
-                    </div>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i data-lucide="user-circle"></i>
                 </div>
-                <button class="btn-permissions" id="btnPermissions">
-                    <i data-lucide="shield-check"></i>
-                    <span>Xem Quyền Của Tôi</span>
-                </button>
-                <button class="btn-logout" id="btnLogout">
-                    <i data-lucide="log-out"></i>
-                    <span>Đăng xuất</span>
-                </button>
+                <div class="user-details">
+                    <div class="user-name" id="userName">Admin</div>
+                    <div class="user-role">Quản trị viên</div>
+                </div>
             </div>
-        </aside>
+            <button class="btn-permissions" id="btnPermissions">
+                <i data-lucide="shield-check"></i>
+                <span>Xem Quyền Của Tôi</span>
+            </button>
+            <button class="btn-logout" id="btnLogout">
+                <i data-lucide="log-out"></i>
+                <span>Đăng xuất</span>
+            </button>
+        </div>
+    </aside>
 
     <!-- Main Content -->
     <main class="main-content">
@@ -382,13 +456,15 @@
             // Save current tab to localStorage
             localStorage.setItem("currentTab", tabName);
 
-            // Update tab buttons
+            // Update tab buttons (Desktop)
             document.querySelectorAll(".tab-button").forEach((btn) => {
                 btn.classList.remove("active");
             });
-            document
-                .querySelector(`[data-tab="${tabName}"]`)
-                .classList.add("active");
+            const desktopBtn = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+            if (desktopBtn) desktopBtn.classList.add("active");
+
+            // Update Mobile Header & Dropdown
+            updateMobileHeader(tabName);
 
             // Update tab content
             document.querySelectorAll(".tab-content").forEach((content) => {
@@ -396,19 +472,13 @@
             });
 
             if (tabName === "orders") {
-                document
-                    .getElementById("ordersTab")
-                    .classList.add("active");
+                document.getElementById("ordersTab").classList.add("active");
             } else if (tabName === "statistics") {
-                document
-                    .getElementById("statisticsTab")
-                    .classList.add("active");
+                document.getElementById("statisticsTab").classList.add("active");
                 // Trigger statistics refresh when switching to it
                 refreshStatistics();
             } else if (tabName === "product-assignment") {
-                document
-                    .getElementById("productAssignmentTab")
-                    .classList.add("active");
+                document.getElementById("productAssignmentTab").classList.add("active");
                 // Send orders data to product assignment tab
                 const ordersFrame = document.getElementById("ordersFrame");
                 if (ordersFrame && ordersFrame.contentWindow) {
@@ -419,17 +489,67 @@
                     );
                 }
             } else if (tabName === "overview") {
-                document
-                    .getElementById("overviewTab")
-                    .classList.add("active");
+                document.getElementById("overviewTab").classList.add("active");
             } else if (tabName === "report-online") {
-                document
-                    .getElementById("reportOnlineTab")
-                    .classList.add("active");
+                document.getElementById("reportOnlineTab").classList.add("active");
             }
 
             // Reinitialize icons after DOM change
             setTimeout(() => lucide.createIcons(), 100);
+        }
+
+        // Mobile Functions
+        function toggleMobileDropdown() {
+            const dropdown = document.getElementById('mobileTabDropdown');
+            const overlay = document.getElementById('mobileDropdownOverlay');
+            const arrow = document.getElementById('mobileHeaderArrow');
+
+            if (dropdown.classList.contains('show')) {
+                closeMobileDropdown();
+            } else {
+                dropdown.classList.add('show');
+                overlay.classList.add('show');
+                arrow.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        function closeMobileDropdown() {
+            const dropdown = document.getElementById('mobileTabDropdown');
+            const overlay = document.getElementById('mobileDropdownOverlay');
+            const arrow = document.getElementById('mobileHeaderArrow');
+
+            dropdown.classList.remove('show');
+            overlay.classList.remove('show');
+            arrow.style.transform = 'rotate(0deg)';
+        }
+
+        function switchMobileTab(tabName, title) {
+            switchTab(tabName);
+            closeMobileDropdown();
+        }
+
+        function updateMobileHeader(tabName) {
+            // Update Title
+            const titleMap = {
+                'orders': 'Quản Lý Đơn Hàng',
+                'product-assignment': 'Gán Sản Phẩm - STT',
+                'statistics': 'Thống Kê',
+                'overview': 'Báo Cáo Tổng Hợp',
+                'report-online': 'Báo Cáo Online'
+            };
+
+            const titleElement = document.getElementById('mobileHeaderTitle');
+            if (titleElement) {
+                titleElement.textContent = titleMap[tabName] || 'Báo Cáo';
+            }
+
+            // Update Active State in Dropdown
+            document.querySelectorAll('.mobile-dropdown-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.mobileTab === tabName) {
+                    item.classList.add('active');
+                }
+            });
         }
 
         // Listen for filter changes from Tab 1
