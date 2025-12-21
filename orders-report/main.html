@@ -295,10 +295,6 @@
                     <i data-lucide="shopping-cart" class="tab-icon"></i>
                     Quản Lý Đơn Hàng
                 </button>
-                <button class="tab-button" onclick="switchTab('quick-view')" data-tab="quick-view">
-                    <i data-lucide="zap" class="tab-icon"></i>
-                    Quick View
-                </button>
                 <button class="tab-button" onclick="switchTab('product-assignment')" data-tab="product-assignment">
                     <i data-lucide="link" class="tab-icon"></i>
                     Gán Sản Phẩm - STT
@@ -343,10 +339,6 @@
         <!-- Tab Content -->
         <div id="ordersTab" class="tab-content active">
             <iframe id="ordersFrame" src="tab1-orders.html"></iframe>
-        </div>
-
-        <div id="quickViewTab" class="tab-content">
-            <iframe id="quickViewFrame" src="tab-quick-view.html"></iframe>
         </div>
 
         <div id="statisticsTab" class="tab-content">
@@ -406,10 +398,6 @@
             if (tabName === "orders") {
                 document
                     .getElementById("ordersTab")
-                    .classList.add("active");
-            } else if (tabName === "quick-view") {
-                document
-                    .getElementById("quickViewTab")
                     .classList.add("active");
             } else if (tabName === "statistics") {
                 document
@@ -487,42 +475,6 @@
             } else if (e.data.type === "SWITCH_TO_TAB1") {
                 // Switch to orders tab
                 switchTab("orders");
-            } else if (e.data.type === "OPEN_CHAT_IN_TAB1") {
-                // Quick View requesting to open chat in Tab 1
-                switchTab("orders");
-                setTimeout(() => {
-                    const ordersFrame = document.getElementById("ordersFrame");
-                    if (ordersFrame && ordersFrame.contentWindow && ordersFrame.contentWindow.openChatModal) {
-                        ordersFrame.contentWindow.openChatModal(
-                            e.data.orderId,
-                            e.data.channelId,
-                            e.data.psid
-                        );
-                    }
-                }, 300);
-            } else if (e.data.type === "OPEN_COMMENTS_IN_TAB1") {
-                // Quick View requesting to open comments in Tab 1
-                switchTab("orders");
-                setTimeout(() => {
-                    const ordersFrame = document.getElementById("ordersFrame");
-                    if (ordersFrame && ordersFrame.contentWindow && ordersFrame.contentWindow.openChatModal) {
-                        ordersFrame.contentWindow.openChatModal(
-                            e.data.orderId,
-                            e.data.channelId,
-                            e.data.psid,
-                            'comment'
-                        );
-                    }
-                }, 300);
-            } else if (e.data.type === "OPEN_EDIT_IN_TAB1") {
-                // Quick View requesting to open edit modal in Tab 1
-                switchTab("orders");
-                setTimeout(() => {
-                    const ordersFrame = document.getElementById("ordersFrame");
-                    if (ordersFrame && ordersFrame.contentWindow && ordersFrame.contentWindow.openEditOrderModal) {
-                        ordersFrame.contentWindow.openEditOrderModal(e.data.orderId);
-                    }
-                }, 300);
             } else if (e.data.type === "REQUEST_ORDERS_DATA_FROM_TAB3") {
                 // Tab 3 requesting orders data
                 const ordersFrame = document.getElementById("ordersFrame");
