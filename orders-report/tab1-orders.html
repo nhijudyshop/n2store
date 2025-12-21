@@ -2899,10 +2899,34 @@
                 </button>
             </div>
             <div class="tag-modal-body" style="padding: 20px;">
-                <!-- Custom Date Range Section (Simplified - Only Custom Mode) -->
+                <!-- User Campaigns Section -->
+                <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-bullseye" style="color: #8b5cf6;"></i> Chiến Dịch Đã Lưu
+                    </h4>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <select id="modalUserCampaignSelect" style="flex: 1; padding: 10px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-weight: 500;">
+                                <option value="">-- Chọn chiến dịch đã lưu --</option>
+                            </select>
+                            <button class="btn-primary" onclick="openManageCampaignsModal()"
+                                style="background: #6b7280; padding: 10px 12px; white-space: nowrap;"
+                                title="Quản lý chiến dịch">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                            <button class="btn-primary" onclick="openCreateCampaignModal()"
+                                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 10px 12px; white-space: nowrap;"
+                                title="Thêm chiến dịch mới">
+                                <i class="fas fa-plus"></i> THÊM
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Date Range Section -->
                 <div style="margin-bottom: 24px; padding: 16px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-radius: 8px; border: 2px solid #8b5cf6;">
                     <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #7c3aed; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-calendar-check" style="color: #8b5cf6;"></i> Khoảng Thời Gian Lọc Đơn (Custom Mode)
+                        <i class="fas fa-calendar-check" style="color: #8b5cf6;"></i> Khoảng Thời Gian Lọc Đơn
                     </h4>
                     <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
@@ -2931,32 +2955,12 @@
                     <select id="modalCampaignFilter">
                         <option value="custom" selected>Custom</option>
                     </select>
-                    <select id="modalUserCampaignSelect">
-                        <option value="">--</option>
-                    </select>
+                    <input type="datetime-local" id="modalStartDate" />
+                    <input type="datetime-local" id="modalEndDate" />
                     <div id="modalCustomDateFilterContainer"></div>
                     <div id="campaignTimeFrameLabel"></div>
                     <div id="campaignCustomDateDisplay"></div>
                     <div id="campaignCustomDateLabel"></div>
-                </div>
-
-                <!-- Date Range Section -->
-                <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-calendar-alt" style="color: #3b82f6;"></i> Khoảng Thời Gian
-                    </h4>
-                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
-                            <label style="font-size: 12px; color: #6b7280;">Từ ngày:</label>
-                            <input type="datetime-local" id="modalStartDate"
-                                style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;" />
-                        </div>
-                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
-                            <label style="font-size: 12px; color: #6b7280;">Đến ngày:</label>
-                            <input type="datetime-local" id="modalEndDate"
-                                style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;" />
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Realtime Section -->
@@ -3225,8 +3229,8 @@
                     const option = document.createElement('option');
                     option.value = id;
                     option.textContent = campaign.name;
-                    option.dataset.timeFrame = campaign.timeFrame || '';
                     option.dataset.customStartDate = campaign.customStartDate || '';
+                    option.dataset.customEndDate = campaign.customEndDate || '';
                     select.appendChild(option);
                 });
 
@@ -3236,30 +3240,34 @@
             }
         }
 
-        // Apply selected user campaign
+        // Apply selected user campaign - load customStartDate and customEndDate
         function applyUserCampaign() {
             const select = document.getElementById('modalUserCampaignSelect');
             if (!select || !select.value) return;
 
             const selectedOption = select.options[select.selectedIndex];
-            const timeFrame = selectedOption.dataset.timeFrame;
             const customStartDate = selectedOption.dataset.customStartDate;
+            const customEndDate = selectedOption.dataset.customEndDate;
 
-            // Apply time frame to campaign filter
-            const modalCampaignFilter = document.getElementById('modalCampaignFilter');
-            if (modalCampaignFilter && timeFrame) {
-                modalCampaignFilter.value = timeFrame;
-                updateModalCustomDateVisibility();
-            }
-
-            // Apply custom start date if available
+            // Apply custom start date
             const modalCustomStartDate = document.getElementById('modalCustomStartDate');
             if (modalCustomStartDate && customStartDate) {
                 modalCustomStartDate.value = customStartDate;
             }
 
+            // Apply custom end date (or auto-calculate +2 days)
+            const modalCustomEndDate = document.getElementById('modalCustomEndDate');
+            if (modalCustomEndDate) {
+                if (customEndDate) {
+                    modalCustomEndDate.value = customEndDate;
+                } else if (customStartDate) {
+                    // Auto-calculate +2 days if end date not saved
+                    autoFillCustomEndDate();
+                }
+            }
+
             if (typeof showNotification === 'function') {
-                showNotification('Đã áp dụng chiến dịch: ' + selectedOption.textContent, 'success');
+                showNotification('Đã chọn chiến dịch: ' + selectedOption.textContent, 'success');
             }
         }
 
@@ -3298,29 +3306,32 @@
                         style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
                 </div>
 
-                <!-- Time Frame Selection -->
-                <div style="margin-bottom: 20px;">
-                    <label style="font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 8px;">
-                        <i class="fas fa-clock" style="color: #8b5cf6;"></i> Chọn khung thời gian chiến dịch:
+                <!-- Custom Date Range -->
+                <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-radius: 8px; border: 2px solid #8b5cf6;">
+                    <label style="font-size: 13px; font-weight: 600; color: #7c3aed; display: block; margin-bottom: 12px;">
+                        <i class="fas fa-calendar-check" style="color: #8b5cf6;"></i> Khoảng thời gian lọc đơn:
                     </label>
-                    <select id="newCampaignTimeFrame" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
-                        <option value="">-- Chọn khung thời gian --</option>
-                    </select>
-                </div>
-
-                <!-- Custom Date Filter (shown when 'custom' is selected) -->
-                <div id="newCampaignCustomDateContainer" style="display: none; margin-bottom: 20px; padding: 12px; background: #ede9fe; border-radius: 6px; border: 2px solid #8b5cf6;">
-                    <label style="font-size: 12px; font-weight: 600; color: #8b5cf6; display: block; margin-bottom: 8px;">
-                        <i class="fas fa-magic"></i> Từ ngày custom (lọc theo ngày tạo đơn):
-                    </label>
-                    <input type="datetime-local" id="newCampaignCustomStartDate"
-                        style="width: 100%; padding: 8px 12px; border: 2px solid #8b5cf6; border-radius: 6px;" />
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 180px;">
+                            <label style="font-size: 11px; color: #7c3aed; display: block; margin-bottom: 4px;">Từ ngày:</label>
+                            <input type="datetime-local" id="newCampaignCustomStartDate"
+                                style="width: 100%; padding: 8px 10px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                        <div style="flex: 1; min-width: 180px;">
+                            <label style="font-size: 11px; color: #7c3aed; display: block; margin-bottom: 4px;">Đến ngày:</label>
+                            <input type="datetime-local" id="newCampaignCustomEndDate"
+                                style="width: 100%; padding: 8px 10px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 11px; color: #6b7280;">
+                        <i class="fas fa-info-circle" style="color: #8b5cf6;"></i> Đến ngày tự động = Từ ngày + 2 ngày
+                    </div>
                 </div>
 
                 <!-- Info Box -->
                 <div style="padding: 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px;">
                     <div style="font-size: 12px; color: #166534;">
-                        <i class="fas fa-info-circle"></i> Chiến dịch sẽ lưu lại cách lọc dữ liệu từ 3000 đơn tải về từ TPOS.
+                        <i class="fas fa-info-circle"></i> Chiến dịch sẽ lưu lại khoảng thời gian lọc đơn.
                         Bạn có thể chọn lại chiến dịch này sau để áp dụng nhanh.
                     </div>
                 </div>
@@ -3346,21 +3357,16 @@
             // Reset form
             document.getElementById('newCampaignName').value = '';
             document.getElementById('newCampaignCustomStartDate').value = '';
-            document.getElementById('newCampaignCustomDateContainer').style.display = 'none';
+            document.getElementById('newCampaignCustomEndDate').value = '';
 
-            // Copy options from modalCampaignFilter to newCampaignTimeFrame
-            const sourceSelect = document.getElementById('modalCampaignFilter');
-            const targetSelect = document.getElementById('newCampaignTimeFrame');
-            if (sourceSelect && targetSelect) {
-                targetSelect.innerHTML = '<option value="">-- Chọn khung thời gian --</option>';
-                Array.from(sourceSelect.options).forEach(opt => {
-                    if (opt.value) {
-                        const newOpt = document.createElement('option');
-                        newOpt.value = opt.value;
-                        newOpt.textContent = opt.textContent;
-                        targetSelect.appendChild(newOpt);
-                    }
-                });
+            // Copy current dates from main modal if available
+            const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+            const modalCustomEndDate = document.getElementById('modalCustomEndDate');
+            if (modalCustomStartDate && modalCustomStartDate.value) {
+                document.getElementById('newCampaignCustomStartDate').value = modalCustomStartDate.value;
+            }
+            if (modalCustomEndDate && modalCustomEndDate.value) {
+                document.getElementById('newCampaignCustomEndDate').value = modalCustomEndDate.value;
             }
 
             // Focus on name input
@@ -3372,16 +3378,24 @@
             document.getElementById('createCampaignModal').style.display = 'none';
         }
 
-        // Handle time frame change in create modal
+        // Auto-fill end date when start date changes in create modal
         document.addEventListener('DOMContentLoaded', function() {
-            const timeFrameSelect = document.getElementById('newCampaignTimeFrame');
-            if (timeFrameSelect) {
-                timeFrameSelect.addEventListener('change', function() {
-                    const customDateContainer = document.getElementById('newCampaignCustomDateContainer');
-                    if (this.value === 'custom') {
-                        customDateContainer.style.display = 'block';
-                    } else {
-                        customDateContainer.style.display = 'none';
+            const newCampaignStartDate = document.getElementById('newCampaignCustomStartDate');
+            if (newCampaignStartDate) {
+                newCampaignStartDate.addEventListener('change', function() {
+                    const endDateInput = document.getElementById('newCampaignCustomEndDate');
+                    if (this.value && endDateInput) {
+                        const startDate = new Date(this.value);
+                        const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
+                        endDate.setHours(23, 59, 0, 0);
+
+                        const year = endDate.getFullYear();
+                        const month = String(endDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(endDate.getDate()).padStart(2, '0');
+                        const hours = String(endDate.getHours()).padStart(2, '0');
+                        const minutes = String(endDate.getMinutes()).padStart(2, '0');
+
+                        endDateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
                     }
                 });
             }
@@ -3390,8 +3404,8 @@
         // Save new campaign to Firebase
         async function saveNewCampaign() {
             const name = document.getElementById('newCampaignName').value.trim();
-            const timeFrame = document.getElementById('newCampaignTimeFrame').value;
             const customStartDate = document.getElementById('newCampaignCustomStartDate').value;
+            const customEndDate = document.getElementById('newCampaignCustomEndDate').value;
 
             // Validation
             if (!name) {
@@ -3404,11 +3418,11 @@
                 return;
             }
 
-            if (!timeFrame) {
+            if (!customStartDate) {
                 if (typeof showNotification === 'function') {
-                    showNotification('Vui lòng chọn khung thời gian chiến dịch!', 'error');
+                    showNotification('Vui lòng chọn Từ ngày!', 'error');
                 } else {
-                    alert('Vui lòng chọn khung thời gian chiến dịch!');
+                    alert('Vui lòng chọn Từ ngày!');
                 }
                 return;
             }
@@ -3424,8 +3438,8 @@
 
                 await db.ref('user_campaigns/' + campaignId).set({
                     name: name,
-                    timeFrame: timeFrame,
-                    customStartDate: timeFrame === 'custom' ? customStartDate : '',
+                    customStartDate: customStartDate,
+                    customEndDate: customEndDate || '',
                     createdAt: new Date().toISOString()
                 });
 
