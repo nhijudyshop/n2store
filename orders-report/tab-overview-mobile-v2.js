@@ -609,6 +609,12 @@
         // Set initial mobile state
         state.isMobile = isMobile();
 
+        // Create mobile UI elements immediately if mobile
+        if (state.isMobile) {
+            createMobileHeader();
+            createMobileFAB();
+        }
+
         // Listen for statistics rendered event
         window.addEventListener('statisticsRendered', handleStatisticsRendered);
 
@@ -633,6 +639,163 @@
     }
 
     // ========================================
+    // MOBILE HEADER & FAB
+    // ========================================
+
+    /**
+     * Create mobile-optimized header
+     */
+    function createMobileHeader() {
+        // Check if already exists
+        if (document.querySelector('.mobile-header')) {
+            return;
+        }
+
+        const header = document.createElement('div');
+        header.className = 'mobile-header';
+        header.innerHTML = `
+            <div class="mobile-header-title">
+                <i class="fas fa-chart-bar"></i>
+                <span>Báo Cáo</span>
+            </div>
+            <select id="mobileTableSelector" class="mobile-campaign-selector" onchange="handleTableChange()">
+                <option value="">Chọn live</option>
+            </select>
+        `;
+
+        // Insert at top of body
+        document.body.insertBefore(header, document.body.firstChild);
+
+        // Sync with desktop selector
+        syncMobileTableSelector();
+
+        log('✅ Mobile header created');
+    }
+
+    /**
+     * Sync mobile table selector with desktop
+     */
+    function syncMobileTableSelector() {
+        const desktopSelector = document.getElementById('tableSelector');
+        const mobileSelector = document.getElementById('mobileTableSelector');
+
+        if (!desktopSelector || !mobileSelector) return;
+
+        // Copy options
+        mobileSelector.innerHTML = desktopSelector.innerHTML;
+
+        // Sync value
+        mobileSelector.value = desktopSelector.value;
+
+        // Keep in sync
+        const originalHandler = window.handleTableChange;
+        window.handleTableChange = function() {
+            if (originalHandler) originalHandler();
+            if (mobileSelector && desktopSelector) {
+                mobileSelector.value = desktopSelector.value;
+                desktopSelector.value = mobileSelector.value;
+            }
+        };
+    }
+
+    /**
+     * Create floating action button (FAB)
+     */
+    function createMobileFAB() {
+        // Check if already exists
+        if (document.querySelector('.mobile-fab-container')) {
+            return;
+        }
+
+        // Create FAB main button
+        const fabContainer = document.createElement('div');
+        fabContainer.className = 'mobile-fab-container';
+        fabContainer.innerHTML = `
+            <button class="mobile-fab success" id="mobileFabMain" title="Actions">
+                <i class="fas fa-ellipsis-v"></i>
+            </button>
+        `;
+
+        document.body.appendChild(fabContainer);
+
+        // Create FAB menu (bottom sheet)
+        const fabMenu = document.createElement('div');
+        fabMenu.className = 'mobile-fab-menu';
+        fabMenu.id = 'mobileFabMenu';
+        fabMenu.innerHTML = `
+            <div class="mobile-fab-menu-header">
+                <div class="mobile-fab-menu-title">Thao tác</div>
+                <button class="mobile-fab-menu-close" onclick="window.MobileUtils.closeFABMenu()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mobile-fab-menu-item" onclick="refreshAllData(); window.MobileUtils.closeFABMenu();">
+                <i class="fas fa-sync-alt"></i>
+                <div class="mobile-fab-menu-item-content">
+                    <div class="mobile-fab-menu-item-title">Làm mới danh sách</div>
+                    <div class="mobile-fab-menu-item-desc">Tải lại dữ liệu từ nguồn</div>
+                </div>
+            </div>
+            <div class="mobile-fab-menu-item" onclick="startBatchFetch(); window.MobileUtils.closeFABMenu();">
+                <i class="fas fa-download"></i>
+                <div class="mobile-fab-menu-item-content">
+                    <div class="mobile-fab-menu-item-title">Lấy chi tiết đơn hàng</div>
+                    <div class="mobile-fab-menu-item-desc">Tải chi tiết từ Firebase</div>
+                </div>
+            </div>
+            <div class="mobile-fab-menu-item" onclick="switchMainTab('details'); window.MobileUtils.closeFABMenu();">
+                <i class="fas fa-database"></i>
+                <div class="mobile-fab-menu-item-content">
+                    <div class="mobile-fab-menu-item-title">Chi tiết đã tải</div>
+                    <div class="mobile-fab-menu-item-desc">Xem dữ liệu đã lưu</div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(fabMenu);
+
+        // Create backdrop
+        const backdrop = document.createElement('div');
+        backdrop.className = 'mobile-fab-backdrop';
+        backdrop.id = 'mobileFabBackdrop';
+        backdrop.onclick = () => closeFABMenu();
+
+        document.body.appendChild(backdrop);
+
+        // Add click handler to main FAB
+        document.getElementById('mobileFabMain').onclick = () => openFABMenu();
+
+        log('✅ Mobile FAB created');
+    }
+
+    /**
+     * Open FAB menu
+     */
+    function openFABMenu() {
+        const menu = document.getElementById('mobileFabMenu');
+        const backdrop = document.getElementById('mobileFabBackdrop');
+
+        if (menu && backdrop) {
+            menu.classList.add('show');
+            backdrop.classList.add('show');
+            haptic(15);
+        }
+    }
+
+    /**
+     * Close FAB menu
+     */
+    function closeFABMenu() {
+        const menu = document.getElementById('mobileFabMenu');
+        const backdrop = document.getElementById('mobileFabBackdrop');
+
+        if (menu && backdrop) {
+            menu.classList.remove('show');
+            backdrop.classList.remove('show');
+        }
+    }
+
+    // ========================================
     // PUBLIC API
     // ========================================
 
@@ -645,6 +808,10 @@
         applyMobileUI,
         removeMobileUI,
         toggleCollapsible,
+
+        // Mobile UI
+        openFABMenu,
+        closeFABMenu,
 
         // Config
         CONFIG,
