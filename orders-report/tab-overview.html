@@ -659,6 +659,20 @@
             </button>
         </div>
 
+        <!-- Progress Bar (outside tabs - always visible when loading) -->
+        <div class="progress-container" id="progressContainer" style="display: none;">
+            <h3 style="margin: 0 0 15px 0; color: #667eea;">
+                <i class="fas fa-spinner spinning"></i> Đang tải chi tiết đơn hàng...
+            </h3>
+            <div class="progress-bar-wrapper">
+                <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="progress-text">
+                <span id="progressText">0 / 0</span>
+                <span id="progressPercent">0%</span>
+            </div>
+        </div>
+
         <!-- Tab: Overview -->
         <div class="main-tab-content active" id="tabOverview">
             <!-- Stats Cards -->
@@ -682,20 +696,6 @@
                     <div class="stat-icon purple"><i class="fas fa-users"></i></div>
                     <div class="stat-value" id="statTotalCustomers">0</div>
                     <div class="stat-label">Khách hàng</div>
-                </div>
-            </div>
-
-            <!-- Progress Bar (hidden by default) -->
-            <div class="progress-container" id="progressContainer" style="display: none;">
-                <h3 style="margin: 0 0 15px 0; color: #667eea;">
-                    <i class="fas fa-spinner spinning"></i> Đang tải chi tiết đơn hàng...
-                </h3>
-                <div class="progress-bar-wrapper">
-                    <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
-                </div>
-                <div class="progress-text">
-                    <span id="progressText">0 / 0</span>
-                    <span id="progressPercent">0%</span>
                 </div>
             </div>
 
