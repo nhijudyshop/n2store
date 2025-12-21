@@ -865,7 +865,15 @@ window.addEventListener("DOMContentLoaded", async function () {
  * Hàm khởi tạo đơn giản hóa - Chỉ dùng Custom Mode
  * Flow: Load saved preferences → Set dates → Load employee ranges → Fetch orders
  */
+let customModeInitialized = false; // Guard flag
 async function initializeCustomMode() {
+    // Prevent duplicate initialization
+    if (customModeInitialized) {
+        console.log('[CUSTOM-MODE] Already initialized, skipping...');
+        return;
+    }
+    customModeInitialized = true;
+
     try {
         console.log('[CUSTOM-MODE] Initializing...');
 
@@ -883,27 +891,27 @@ async function initializeCustomMode() {
             // Restore from Firebase
             customStartDateInput.value = savedPrefs.customStartDate;
 
-            // Restore customEndDate or calculate +2 days
+            // Restore customEndDate or calculate +3 days
             if (savedPrefs.customEndDate) {
                 customEndDateInput.value = savedPrefs.customEndDate;
             } else {
-                // Auto-calculate +2 days
+                // Auto-calculate +3 days at 00:00
                 const startDate = new Date(savedPrefs.customStartDate);
-                const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
-                endDate.setHours(23, 59, 0, 0);
+                const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+                endDate.setHours(0, 0, 0, 0);
                 customEndDateInput.value = formatDateTimeLocal(endDate);
             }
 
             console.log('[CUSTOM-MODE] Restored dates from Firebase:', customStartDateInput.value, '->', customEndDateInput.value);
         } else {
-            // Default: today 00:00 -> today+2 23:59
+            // Default: today 00:00 -> today+3 days 00:00
             const now = new Date();
             const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-            const endOfTodayPlus2 = new Date(startOfToday.getTime() + 2 * 24 * 60 * 60 * 1000);
-            endOfTodayPlus2.setHours(23, 59, 0, 0);
+            const endOfTodayPlus3 = new Date(startOfToday.getTime() + 3 * 24 * 60 * 60 * 1000);
+            endOfTodayPlus3.setHours(0, 0, 0, 0); // Set to 00:00 AM
 
             customStartDateInput.value = formatDateTimeLocal(startOfToday);
-            customEndDateInput.value = formatDateTimeLocal(endOfTodayPlus2);
+            customEndDateInput.value = formatDateTimeLocal(endOfTodayPlus3);
 
             console.log('[CUSTOM-MODE] Using default dates:', customStartDateInput.value, '->', customEndDateInput.value);
         }
@@ -5795,7 +5803,7 @@ async function handleCampaignChange() {
     }
 }
 
-// 🎯 Handle custom start date change - auto-fill end date (+2 days) and trigger search
+// 🎯 Handle custom start date change - auto-fill end date (+3 days) and trigger search
 async function handleCustomDateChange() {
     const customStartDateInput = document.getElementById("customStartDate");
     const customEndDateInput = document.getElementById("customEndDate");
@@ -5805,10 +5813,10 @@ async function handleCustomDateChange() {
         return;
     }
 
-    // Auto-fill end date = start date + 2 days
+    // Auto-fill end date = start date + 3 days at 00:00
     const startDate = new Date(customStartDateInput.value);
-    const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
-    endDate.setHours(23, 59, 0, 0);
+    const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+    endDate.setHours(0, 0, 0, 0);
     customEndDateInput.value = formatDateTimeLocal(endDate);
 
     console.log(`[CUSTOM-FILTER] Date range: ${customStartDateInput.value} -> ${customEndDateInput.value}`);
@@ -5962,8 +5970,17 @@ let isLoadingInBackground = false;
 // Track if conversations are being fetched (for loading indicator in messages column)
 let isLoadingConversations = false;
 
+// Guard flag to prevent duplicate fetchOrders calls
+let isFetchingOrders = false;
 
 async function fetchOrders() {
+    // Prevent duplicate calls
+    if (isFetchingOrders) {
+        console.log('[FETCH-ORDERS] Already fetching, skipping duplicate call...');
+        return;
+    }
+    isFetchingOrders = true;
+
     try {
         showLoading(true);
         loadingAborted = false;
@@ -6175,6 +6192,9 @@ async function fetchOrders() {
         }
 
         showLoading(false);
+    } finally {
+        // Reset fetching flag to allow subsequent calls
+        isFetchingOrders = false;
     }
 }
 

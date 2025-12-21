@@ -2883,7 +2883,7 @@
                     </div>
                     <div style="margin-top: 8px; padding: 6px 10px; background: white; border-radius: 4px; font-size: 11px; color: #6b7280;">
                         <i class="fas fa-info-circle" style="color: #8b5cf6;"></i>
-                        "Đến ngày" tự động = "Từ ngày" + 2 ngày
+                        "Đến ngày" tự động = "Từ ngày" + 3 ngày
                     </div>
                 </div>
                 <!-- Hidden time frame for backward compatibility -->
@@ -2957,7 +2957,7 @@
                     </div>
                     <div style="margin-top: 12px; padding: 8px 12px; background: white; border-radius: 6px; font-size: 12px; color: #6b7280;">
                         <i class="fas fa-info-circle" style="color: #8b5cf6;"></i>
-                        Khi điền "Từ ngày", "Đến ngày" sẽ tự động được điền = Từ ngày + 2 ngày
+                        Khi điền "Từ ngày", "Đến ngày" sẽ tự động được điền = Từ ngày + 3 ngày
                     </div>
                 </div>
 
@@ -3088,17 +3088,17 @@
             }
         }
 
-        // Auto-fill end date when start date changes (+2 days)
+        // Auto-fill end date when start date changes (+3 days at 00:00)
         function autoFillCustomEndDate() {
             const modalCustomStartDate = document.getElementById('modalCustomStartDate');
             const modalCustomEndDate = document.getElementById('modalCustomEndDate');
 
             if (modalCustomStartDate && modalCustomEndDate && modalCustomStartDate.value) {
                 const startDate = new Date(modalCustomStartDate.value);
-                const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000); // +2 days
+                const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days
 
-                // Set end date to end of day (23:59)
-                endDate.setHours(23, 59, 0, 0);
+                // Set end date to 00:00 AM
+                endDate.setHours(0, 0, 0, 0);
 
                 // Format as datetime-local
                 const year = endDate.getFullYear();
@@ -3335,7 +3335,7 @@
                         </div>
                     </div>
                     <div style="margin-top: 8px; font-size: 11px; color: #6b7280;">
-                        <i class="fas fa-info-circle" style="color: #8b5cf6;"></i> Đến ngày tự động = Từ ngày + 2 ngày
+                        <i class="fas fa-info-circle" style="color: #8b5cf6;"></i> Đến ngày tự động = Từ ngày + 3 ngày
                     </div>
                 </div>
 
@@ -3397,8 +3397,8 @@
                     const endDateInput = document.getElementById('newCampaignCustomEndDate');
                     if (this.value && endDateInput) {
                         const startDate = new Date(this.value);
-                        const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
-                        endDate.setHours(23, 59, 0, 0);
+                        const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days
+                        endDate.setHours(0, 0, 0, 0); // 00:00 AM
 
                         const year = endDate.getFullYear();
                         const month = String(endDate.getMonth() + 1).padStart(2, '0');
@@ -3495,13 +3495,22 @@
         // ============================================
 
         // Initialize campaign system on page load
+        let campaignSystemInitializing = false; // Guard flag to prevent duplicate initialization
         async function initCampaignSystem() {
+            // Prevent duplicate initialization
+            if (campaignSystemInitializing || window.campaignManager.initialized) {
+                console.log('[CAMPAIGN] Already initializing or initialized, skipping...');
+                return;
+            }
+            campaignSystemInitializing = true;
+
             console.log('[CAMPAIGN] Initializing campaign system...');
 
             try {
                 // Wait for Firebase to be ready
                 if (typeof firebase === 'undefined' || !firebase.database) {
                     console.log('[CAMPAIGN] Waiting for Firebase...');
+                    campaignSystemInitializing = false; // Reset flag so it can retry
                     setTimeout(initCampaignSystem, 500);
                     return;
                 }
@@ -3939,23 +3948,25 @@
             if (endDateInput && campaign.customEndDate) {
                 endDateInput.value = campaign.customEndDate;
             } else if (endDateInput && startDateInput.value) {
-                // Auto-fill end date = start date + 2 days
+                // Auto-fill end date = start date + 3 days at 00:00
                 const startDate = new Date(startDateInput.value);
-                const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
+                const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+                endDate.setHours(0, 0, 0, 0);
                 endDateInput.value = endDate.toISOString().slice(0, 16);
             }
 
             document.getElementById('editCampaignModal').style.display = 'flex';
         }
 
-        // Auto-fill end date when start date changes in Edit Campaign Modal
+        // Auto-fill end date when start date changes in Edit Campaign Modal (+3 days at 00:00)
         function autoFillEditCampaignEndDate() {
             const startDateInput = document.getElementById('editCampaignCustomStartDate');
             const endDateInput = document.getElementById('editCampaignCustomEndDate');
 
             if (startDateInput && endDateInput && startDateInput.value) {
                 const startDate = new Date(startDateInput.value);
-                const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
+                const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+                endDate.setHours(0, 0, 0, 0);
                 endDateInput.value = endDate.toISOString().slice(0, 16);
             }
         }
