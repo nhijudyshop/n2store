@@ -1064,9 +1064,8 @@
                     // 1. The table exists in Firebase
                     // 2. We did NOT just receive fresh data from tab1
                     if (optionExists && !justReceivedFromTab1) {
-                        setTimeout(() => {
-                            loadTableDataFromFirebase(currentTableName);
-                        }, 100);
+                        console.log(`[REPORT] 📥 Auto-loading data for table: ${currentTableName}`);
+                        await loadTableDataFromFirebase(currentTableName);
                     } else if (justReceivedFromTab1) {
                         console.log(`[REPORT] ⏭️ Skipping auto-load from Firebase - just received fresh data from tab1 (${allOrders.length} orders)`);
                         // Reset the flag
@@ -1443,95 +1442,111 @@
 
             isFetching = true;
             const btn = document.getElementById('btnBatchFetch');
-            btn.disabled = true;
-            btn.classList.remove('highlight-pulse'); // Remove highlight when starting fetch
-            btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải...';
-
-            // Hide helper message during fetch
-            document.getElementById('tableHelperMessage').style.display = 'none';
-
-            // Show progress
             const progressContainer = document.getElementById('progressContainer');
-            progressContainer.style.display = 'block';
 
-            const fetchedOrders = [];
-            const total = allOrders.length;
-            let completed = 0;
-            let errors = 0;
-
-            console.log(`[REPORT] Starting batch fetch for ${total} orders (table: ${currentTableName})`);
-
-            // Process in batches of BATCH_SIZE
-            for (let i = 0; i < total; i += BATCH_SIZE) {
-                const batch = allOrders.slice(i, i + BATCH_SIZE);
-
-                // Fetch batch in parallel
-                const promises = batch.map(async (order) => {
-                    try {
-                        const detail = await fetchOrderData(order.orderId);
-                        return { success: true, orderId: order.orderId, data: detail };
-                    } catch (error) {
-                        console.error(`[REPORT] Error fetching order ${order.orderId}:`, error);
-                        return { success: false, orderId: order.orderId, error: error.message };
-                    }
-                });
-
-                const results = await Promise.all(promises);
-
-                // Process results
-                results.forEach(result => {
-                    completed++;
-                    if (result.success) {
-                        fetchedOrders.push(result.data);
-                    } else {
-                        errors++;
-                    }
-
-                    // Update progress
-                    const percent = Math.round((completed / total) * 100);
-                    document.getElementById('progressBar').style.width = percent + '%';
-                    document.getElementById('progressText').textContent = `${completed} / ${total}`;
-                    document.getElementById('progressPercent').textContent = percent + '%';
-                });
-
-                // Delay before next batch (if not last batch)
-                if (i + BATCH_SIZE < total) {
-                    await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+            // Helper function to reset button state
+            function resetButtonState() {
+                isFetching = false;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download"></i> Lấy chi tiết đơn hàng';
+                }
+                if (progressContainer) {
+                    progressContainer.style.display = 'none';
                 }
             }
 
-            // Save to cache with timestamp
-            const cacheData = {
-                tableName: currentTableName, // Include table name
-                orders: fetchedOrders,
-                fetchedAt: new Date().toISOString(),
-                totalOrders: total,
-                successCount: fetchedOrders.length,
-                errorCount: errors
-            };
+            try {
+                btn.disabled = true;
+                btn.classList.remove('highlight-pulse'); // Remove highlight when starting fetch
+                btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải...';
 
-            cachedOrderDetails[currentTableName] = cacheData;
-            saveCachedData();
+                // Hide helper message during fetch
+                document.getElementById('tableHelperMessage').style.display = 'none';
 
-            // Save to Firebase
-            const firebaseSaved = await saveToFirebase(currentTableName, cacheData);
+                // Show progress
+                progressContainer.style.display = 'block';
 
-            // Hide progress, restore button
-            progressContainer.style.display = 'none';
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-download"></i> Lấy chi tiết đơn hàng';
-            isFetching = false;
+                const fetchedOrders = [];
+                const total = allOrders.length;
+                let completed = 0;
+                let errors = 0;
 
-            // Update UI
-            updateCachedCountBadge();
-            renderCachedDetailsTab();
+                console.log(`[REPORT] Starting batch fetch for ${total} orders (table: ${currentTableName})`);
 
-            // Show completion message
-            const firebaseMsg = firebaseSaved ? '✅ Đã lưu Firebase' : '❌ Lỗi lưu Firebase';
-            alert(`Hoàn thành!\n- Đã tải: ${fetchedOrders.length}/${total} đơn hàng\n- Lỗi: ${errors}\n- Bảng: ${currentTableName}\n- ${firebaseMsg}`);
+                // Process in batches of BATCH_SIZE
+                for (let i = 0; i < total; i += BATCH_SIZE) {
+                    const batch = allOrders.slice(i, i + BATCH_SIZE);
 
-            // Switch to details tab
-            switchMainTab('details');
+                    // Fetch batch in parallel
+                    const promises = batch.map(async (order) => {
+                        try {
+                            const detail = await fetchOrderData(order.orderId);
+                            return { success: true, orderId: order.orderId, data: detail };
+                        } catch (error) {
+                            console.error(`[REPORT] Error fetching order ${order.orderId}:`, error);
+                            return { success: false, orderId: order.orderId, error: error.message };
+                        }
+                    });
+
+                    const results = await Promise.all(promises);
+
+                    // Process results
+                    results.forEach(result => {
+                        completed++;
+                        if (result.success) {
+                            fetchedOrders.push(result.data);
+                        } else {
+                            errors++;
+                        }
+
+                        // Update progress
+                        const percent = Math.round((completed / total) * 100);
+                        document.getElementById('progressBar').style.width = percent + '%';
+                        document.getElementById('progressText').textContent = `${completed} / ${total}`;
+                        document.getElementById('progressPercent').textContent = percent + '%';
+                    });
+
+                    // Delay before next batch (if not last batch)
+                    if (i + BATCH_SIZE < total) {
+                        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+                    }
+                }
+
+                // Save to cache with timestamp
+                const cacheData = {
+                    tableName: currentTableName, // Include table name
+                    orders: fetchedOrders,
+                    fetchedAt: new Date().toISOString(),
+                    totalOrders: total,
+                    successCount: fetchedOrders.length,
+                    errorCount: errors
+                };
+
+                cachedOrderDetails[currentTableName] = cacheData;
+                saveCachedData();
+
+                // Save to Firebase
+                const firebaseSaved = await saveToFirebase(currentTableName, cacheData);
+
+                // Reset button state
+                resetButtonState();
+
+                // Update UI
+                updateCachedCountBadge();
+                renderCachedDetailsTab();
+
+                // Show completion message
+                const firebaseMsg = firebaseSaved ? '✅ Đã lưu Firebase' : '❌ Lỗi lưu Firebase';
+                alert(`Hoàn thành!\n- Đã tải: ${fetchedOrders.length}/${total} đơn hàng\n- Lỗi: ${errors}\n- Bảng: ${currentTableName}\n- ${firebaseMsg}`);
+
+                // Switch to details tab
+                switchMainTab('details');
+            } catch (error) {
+                console.error('[REPORT] ❌ Error in batch fetch:', error);
+                resetButtonState();
+                alert(`Lỗi khi tải chi tiết đơn hàng: ${error.message}`);
+            }
         }
 
         // =====================================================
@@ -1576,6 +1591,24 @@
 
             const cached = cachedOrderDetails[currentTableName];
             const orders = cached.orders || [];
+
+            // If metadata exists but orders haven't been loaded from Firebase yet, trigger load
+            if (orders.length === 0 && (cached.orderCount > 0 || cached.successCount > 0)) {
+                area.innerHTML = `
+                    <div class="loading-state">
+                        <i class="fas fa-spinner"></i>
+                        <h3>Đang tải dữ liệu từ Firebase...</h3>
+                        <p>Bảng: ${currentTableName}</p>
+                    </div>
+                `;
+                // Trigger loading from Firebase
+                loadTableDataFromFirebase(currentTableName).then(() => {
+                    renderCachedDetailsTab();
+                    updateCachedCountBadge();
+                });
+                return;
+            }
+
             const fetchedAt = new Date(cached.fetchedAt);
 
             let html = `
@@ -2002,17 +2035,29 @@
         document.addEventListener('DOMContentLoaded', async function() {
             console.log('[REPORT] Page loaded, initializing...');
 
-            // Load cached data
+            // Reset fetching state on page load (in case it was stuck from previous session)
+            isFetching = false;
+            const fetchBtn = document.getElementById('btnBatchFetch');
+            if (fetchBtn) {
+                fetchBtn.disabled = false;
+                fetchBtn.innerHTML = '<i class="fas fa-download"></i> Lấy chi tiết đơn hàng';
+            }
+
+            // Load cached data (metadata only from localStorage)
             loadCachedData();
 
             // Load default table name from Firebase (same as tab1) to auto-select on page refresh
             currentTableName = await loadDefaultTableNameFromFirebase();
             console.log('[REPORT] 📋 Default table set to:', currentTableName);
 
-            // Load available tables from Firebase (will auto-select currentTableName)
-            loadAvailableTables();
+            // Load available tables from Firebase (will auto-select currentTableName and load data)
+            await loadAvailableTables();
 
-            // Request data from tab1
+            // Update UI with loaded data
+            updateCachedCountBadge();
+            renderCachedDetailsTab();
+
+            // Request data from tab1 (for overview)
             setTimeout(() => {
                 requestDataFromTab1();
             }, 500);
