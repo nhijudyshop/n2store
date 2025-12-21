@@ -1,0 +1,450 @@
+2025-12-21T03:58:23Z clientIP="104.23.175.114" requestID="e4f0e2cd-0c3d-4513" responseTimeMS=1185 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:23Z clientIP="104.23.175.115" requestID="43a8b0fb-bccb-4cc1" responseTimeMS=2080 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:23Z clientIP="104.23.175.114" requestID="8f461907-a037-4fc0" responseTimeMS=1176 responseBytes=435 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:23Z clientIP="104.23.175.114" requestID="71018cf6-c18e-4ced" responseTimeMS=1269 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:23Z clientIP="104.23.175.115" requestID="3c8af9a9-4767-42b5" responseTimeMS=1269 responseBytes=435 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:23Z clientIP="104.23.175.115" requestID="426a644e-75dd-4c76" responseTimeMS=1061 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24.448144781Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:58:24.448348217Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:58:24.448668107Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.448681497Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.542927845Z [DEBT-SUMMARY] Using all transactions: 0
+2025-12-21T03:58:24.543351138Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.543405329Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.543845152Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.543923565Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.544326577Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.54445137Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.544887603Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:58:24.545139171Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.545146171Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.545521222Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.545531262Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.545953795Z [DEBT-SUMMARY] Using all transactions: 200000
+2025-12-21T03:58:24.546618435Z [DEBT-SUMMARY] Using all transactions: 0
+2025-12-21T03:58:24.547774689Z [DEBT-SUMMARY] Using all transactions: 0
+2025-12-21T03:58:24.642281605Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.642299876Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.64276942Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.64278101Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.64310963Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.64311669Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.643581234Z [DEBT-SUMMARY] QR codes found: [ 'N2MJDWZ8H7UPZ4BOTI' ]
+2025-12-21T03:58:24.64378103Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.64378681Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.644955525Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:58:24.64513478Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.64514096Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.645574483Z [DEBT-SUMMARY] Using all transactions: 100000
+2025-12-21T03:58:24.646196992Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.646203102Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.646598914Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.646609744Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.646934354Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.646940164Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.647996646Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.648006506Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.650467989Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.65048144Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.65048551Z [DEBT-SUMMARY] QR codes found: [ 'N2MJDWIHS7MPPT7C5T', 'N2MJDWIIA7W2ZVCAFL' ]
+2025-12-21T03:58:24.65048902Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="fdf8e2c5-aaa2-4524" responseTimeMS=1160 responseBytes=435 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="de56ba0a-e67b-44eb" responseTimeMS=1227 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="95f9e3f4-7e99-456b" responseTimeMS=964 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="65229a1a-8cb1-4571" responseTimeMS=974 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24.65049229Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.6504949Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.65049786Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.65082083Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.65082964Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.651475749Z [DEBT-SUMMARY] QR codes found: [ 'N2MJDWJNK25LSIC62M', 'N2MJEFJ5RQ94QLYKPJ' ]
+2025-12-21T03:58:24.651634474Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.651640354Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.652232212Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.652237672Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.742257994Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.742275534Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.742991866Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:58:24.743321035Z [DEBT-SUMMARY] QR codes found: [ 'N2MJDWKWDZF6ODCZTI' ]
+2025-12-21T03:58:24.743605094Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.743615624Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.744089798Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.744095609Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.744542832Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.744555062Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.745189741Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.745197002Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.745666385Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:58:24.745920163Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.745927113Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.746404098Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.746415988Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.747004875Z [DEBT-SUMMARY] QR codes found: [ 'N2MJEDRHJM99R2G5HM' ]
+2025-12-21T03:58:24.747184721Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.747190831Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.747641224Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.747652905Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.747960434Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.747966184Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.748301004Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.748307004Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.748607953Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.748620953Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.75019058Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.750201731Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.750469969Z [DEBT-SUMMARY] Using all transactions: 0
+2025-12-21T03:58:24.843021136Z [DEBT-SUMMARY] QR codes found: [ 'N2MJEEK8CJEK2ZXUDL' ]
+2025-12-21T03:58:24.843513251Z [DEBT-SUMMARY] Using all transactions: 0
+2025-12-21T03:58:24.942550311Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:58:24.942573602Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:58:24.944135369Z [DEBT-SUMMARY] Using all transactions: 0
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="36fa0bab-412f-4b8a" responseTimeMS=1767 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="0f70bad3-301a-47e8" responseTimeMS=1185 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="6955efb6-0f6d-4b9e" responseTimeMS=1360 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="29c68a49-0bf7-4e67" responseTimeMS=1186 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="c4673e89-fca5-409f" responseTimeMS=775 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="7c9a1568-851b-4dda" responseTimeMS=676 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="14af0f32-b8e3-40fd" responseTimeMS=970 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="9e7bac68-ba48-448a" responseTimeMS=1266 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="c81ef908-ec00-4af4" responseTimeMS=1759 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="0cd23d10-cf3b-4f8d" responseTimeMS=1064 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="79cccd47-f63b-4fe3" responseTimeMS=962 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="24e848d0-4358-4c23" responseTimeMS=1638 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="f27e35e0-e6b3-48d1" responseTimeMS=1078 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="45f0a3c9-c44a-489a" responseTimeMS=982 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="ddc434f2-56cd-4957" responseTimeMS=1127 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="416b4160-7243-4ebf" responseTimeMS=977 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="c3fbab35-7f34-4410" responseTimeMS=774 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="88fbfa48-e8a7-42cf" responseTimeMS=662 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="6a0dad28-27f3-4a82" responseTimeMS=879 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="7077645f-3379-44be" responseTimeMS=954 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="74090147-095c-4800" responseTimeMS=878 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="c36e9909-8f74-449d" responseTimeMS=679 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="4f0e4889-8ce7-4823" responseTimeMS=782 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="d67d4ab2-5f62-4d0b" responseTimeMS=854 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="cbc2dc1f-5742-4916" responseTimeMS=778 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="f4799b83-bcdb-4548" responseTimeMS=1677 responseBytes=541 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="2bd7b70b-5406-4db2" responseTimeMS=1157 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="2f95a9df-22d3-41be" responseTimeMS=1776 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="e4d062c8-ca8f-410d" responseTimeMS=1668 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="25e52811-1fd0-4bbc" responseTimeMS=987 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="433bc976-9490-4811" responseTimeMS=1234 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="f13fea8b-1da6-4729" responseTimeMS=1276 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="a229d98d-c6f6-4aeb" responseTimeMS=1586 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="6e0a10c7-ec29-4242" responseTimeMS=1080 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="dcb653d3-08a4-42c1" responseTimeMS=1374 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="86935f43-03c3-462f" responseTimeMS=1167 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="2b8634b6-5ba3-450d" responseTimeMS=1177 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="c6ccc933-e93b-4865" responseTimeMS=782 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="78c08337-1e87-45b4" responseTimeMS=781 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="519e12eb-d172-48d8" responseTimeMS=1769 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="8b219faf-acad-4f1f" responseTimeMS=1167 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="b73a8891-e975-4a19" responseTimeMS=1179 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="be933928-0095-4466" responseTimeMS=1182 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="05792966-3203-40f4" responseTimeMS=1176 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="6199d28f-6dc0-46de" responseTimeMS=875 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="3d977da2-dec0-4e63" responseTimeMS=960 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:25Z clientIP="104.23.175.114" requestID="e83e3a1a-bb6a-45bd" responseTimeMS=1072 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:25.04284486Z [DEBT-SUMMARY] Using all transactions: 0
+2025-12-21T03:58:25.043353905Z [DEBT-SUMMARY] Using all transactions: 0
+2025-12-21T03:58:25.143067976Z [DEBT-SUMMARY] Using all transactions: 100000
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="a329865e-2de5-4cc5" responseTimeMS=681 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="4b716cc2-2e3b-46a6" responseTimeMS=966 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="fa6bb5dc-d0ab-45da" responseTimeMS=1075 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="b0c396c0-f315-4b2f" responseTimeMS=671 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="7cc0bfc3-e7da-4dbd" responseTimeMS=1365 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="ef581df7-6bea-429f" responseTimeMS=584 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="372968f3-c5ba-4874" responseTimeMS=683 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="476ef9ff-a04b-4b3c" responseTimeMS=782 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="f91c8673-9b2b-4651" responseTimeMS=967 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="2295e6a0-a0a3-45b3" responseTimeMS=969 responseBytes=433 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="6561ee13-8444-4fea" responseTimeMS=1064 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="4fc45adf-f811-4c99" responseTimeMS=1081 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="8893a1b4-fe91-4f33" responseTimeMS=1231 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="5f859769-bbaf-42a8" responseTimeMS=1216 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="4cdff45a-0fd3-453a" responseTimeMS=1176 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="a0ba2813-2c13-4576" responseTimeMS=1482 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="8a9afb2a-ba5d-4895" responseTimeMS=971 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="3fb74a23-0f16-4301" responseTimeMS=1679 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="52ee0a13-073a-449f" responseTimeMS=957 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="b22de21e-4cb0-41c7" responseTimeMS=680 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="76a21a37-407d-401f" responseTimeMS=1238 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="46619b54-d6f3-4e76" responseTimeMS=1270 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="d3607ae5-fc99-4dcd" responseTimeMS=967 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="414ec0fb-c83a-455c" responseTimeMS=439 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="1df4f33f-40d8-48cb" responseTimeMS=1175 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="55266f7b-f725-41f7" responseTimeMS=1781 responseBytes=561 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="b6ae1c5a-9500-49fb" responseTimeMS=678 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.114" requestID="bd4e9395-e6c6-4110" responseTimeMS=679 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:24Z clientIP="104.23.175.115" requestID="2cf8882e-275c-4c92" responseTimeMS=688 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:25Z clientIP="104.23.175.115" requestID="7472daeb-81b9-4c00" responseTimeMS=1176 responseBytes=517 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:25Z clientIP="104.23.175.114" requestID="0e1ecb04-d2e1-4f2a" responseTimeMS=968 responseBytes=439 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:28.182378191Z [TPOS-WS] Closed 1005 
+2025-12-21T03:58:28.711343141Z [SERVER-WS] New Message/Comment: 270136663390370_24607127595646427
+2025-12-21T03:58:32Z clientIP="108.162.226.117" requestID="dc946ee3-84c2-4028" responseTimeMS=60010 responseBytes=320 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:58:32.349637832Z ❌ [BALANCE-SSE] Client disconnected (Total: 16)
+2025-12-21T03:58:33.182101395Z [TPOS-WS] Connecting to TPOS...
+2025-12-21T03:58:33.417352724Z [TPOS-WS] WebSocket connected, sending handshake...
+2025-12-21T03:58:33.417405125Z [TPOS-WS] Received transport info
+2025-12-21T03:58:53.079786474Z [SERVER-WS] New Message/Comment: 117267091364524_6391318234313918
+2025-12-21T03:58:53.773774931Z [SERVER-WS] New Message/Comment: 117267091364524_28739760672338657
+2025-12-21T03:58:56.694692948Z [SERVER-WS] New Message/Comment: 117267091364524_28739760672338657
+2025-12-21T03:59:01.921897619Z [SERVER-WS] New Message/Comment: 117267091364524_8098390626951697
+2025-12-21T03:59:02.044074909Z [SERVER-WS] New Message/Comment: 117267091364524_28739760672338657
+2025-12-21T03:59:10.270385877Z [SERVER-WS] New Message/Comment: 117267091364524_28739760672338657
+2025-12-21T03:59:18.4744057Z [TPOS-WS] Closed 1005 
+2025-12-21T03:59:23.222187387Z [SERVER-WS] New Message/Comment: 270136663390370_8961278923945368
+2025-12-21T03:59:23.473931338Z [TPOS-WS] Connecting to TPOS...
+2025-12-21T03:59:23.788615254Z [TPOS-WS] WebSocket connected, sending handshake...
+2025-12-21T03:59:23.788792999Z [TPOS-WS] Received transport info
+2025-12-21T03:59:24.504956027Z [SERVER-WS] New Message/Comment: 270136663390370_4604790069637549
+2025-12-21T03:59:58.143892844Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.144452111Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.144868773Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.145301277Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.145724979Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.146457101Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.146828822Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.147224324Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.147680777Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.148074269Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.148507332Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.149057048Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.149519842Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.149971205Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.150357237Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.150739628Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.151189172Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.242243485Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.242548914Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.242691708Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.243471691Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.244331407Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.248340107Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.24878506Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.34211328Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.342276625Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.342464741Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.342646286Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.343051948Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.343181482Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.343674277Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.343814511Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.344351627Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.345766339Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.346282565Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.34680861Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.347314615Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.442072148Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.44279506Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.443393138Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.4441254Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.44413203Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.44515581Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.445168871Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.445545622Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.445556292Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.446136149Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.44614215Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.446606583Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.446617974Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.447073897Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.447080658Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.542298175Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.542526641Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.542690706Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.542863191Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.543018156Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.543182401Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.543186731Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.543611074Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.543619524Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.543922653Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.543925163Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.544323765Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.544327485Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.544811389Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.54483672Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.545182981Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.545189111Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.545956984Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.545964584Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.642322315Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.642342915Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.642751498Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.642761108Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.643084997Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.643242182Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.643413697Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.643420658Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.643721156Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.643725207Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.645142919Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.645156129Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.645567251Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.645580622Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.645946803Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.645955083Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.646249292Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.646251732Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.646585702Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:58.64687927Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.646883531Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.647152729Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.647156569Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.647460098Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.647472058Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.647921261Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.647925092Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.64820134Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.64820608Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.64855868Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.648568071Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.741919792Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.741943293Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.742388246Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.742397486Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.742751017Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.742754687Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.743038985Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.743042175Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.743323874Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.743328654Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.743661554Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.743702235Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.743952782Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.743958523Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.745131048Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.745140608Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.745431917Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.745440567Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.842279763Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.842298343Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.842765287Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.842777328Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.843100407Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.843108037Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.843424567Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.843434847Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.843762387Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.843769347Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.844159899Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.844166559Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.84453149Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.84454423Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.844797228Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.844804038Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.845258352Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.845265392Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.845626823Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.845637773Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.845837969Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.845843229Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.847073146Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.847083426Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.847091526Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.847098387Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.847398055Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.847406766Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.848004923Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.848011354Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.848259211Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.848265501Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.8485538Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.848615292Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.849113027Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.849119817Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.849396975Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.849402685Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.849672053Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.849684033Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.850030074Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.850040454Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.850264971Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.850270141Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.850483147Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.850493548Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.94220395Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.94221843Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.942766527Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.94287684Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.943440677Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.943452067Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.943598131Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.943607632Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.944439127Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.944450757Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58.944453897Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:58.944456777Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:59.023645976Z [2025-12-21T03:59:59.023Z] GET /api/sepay/debt-summary?phone=0907265058
+2025-12-21T03:59:59.023673217Z [DEBT-SUMMARY] Fetching for phone: 0907265058 -> normalized: 907265058
+2025-12-21T03:59:59.02475286Z [DEBT-SUMMARY] Customer debt: 0 adjusted_at: null
+2025-12-21T03:59:59.025272555Z [DEBT-SUMMARY] QR codes found: []
+2025-12-21T03:59:59.025277685Z [DEBT-SUMMARY] Fallback to customers.debt: 0
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="db15fdab-24d7-40f9" responseTimeMS=1270 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="12e0ab14-f2a1-4e93" responseTimeMS=1269 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="df7f37dc-3114-4c56" responseTimeMS=1363 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="4f68928c-efae-4bf9" responseTimeMS=1362 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="55b54c9d-bceb-410f" responseTimeMS=1458 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="b546c057-8bc9-4498" responseTimeMS=1461 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="e8b0ee8c-6e4c-4580" responseTimeMS=1462 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="9b2b0afa-4178-4fd9" responseTimeMS=1270 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="728f9d22-f3b7-489e" responseTimeMS=1281 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="cc9fe5ed-aede-4aea" responseTimeMS=1371 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="1bc76cd0-7c39-48b9" responseTimeMS=1363 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="66a8f987-3cba-4cbd" responseTimeMS=1463 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="f73583c6-0ddd-4f04" responseTimeMS=1462 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="7c82fb54-6b9a-4707" responseTimeMS=1363 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="0ee43409-fb5e-424a" responseTimeMS=1363 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="ab8066e9-ca82-4ea0" responseTimeMS=1464 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="338225e6-e69e-49cf" responseTimeMS=1462 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="f9df99d9-dffc-45eb" responseTimeMS=1462 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="4f2cc231-1183-4049" responseTimeMS=1559 responseBytes=435 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="424ae136-bba7-4797" responseTimeMS=1556 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="d5ad5f07-eb97-4916" responseTimeMS=1655 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="acacead2-f4a8-48e5" responseTimeMS=1652 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="f5ff6f55-3820-411f" responseTimeMS=1652 responseBytes=435 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="3ded6cdb-1c72-44d2" responseTimeMS=1660 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="a648c6c9-c33f-44bb" responseTimeMS=1655 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="2de6d711-1521-4f22" responseTimeMS=1754 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="30c53f28-c5ff-4060" responseTimeMS=1272 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="778f090e-0523-45da" responseTimeMS=1268 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="5a533d0a-0959-421d" responseTimeMS=1463 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="d9d037d9-d730-4402" responseTimeMS=1461 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="d3a0d62c-fe7e-435d" responseTimeMS=1462 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="48e84faa-4ba9-40b9" responseTimeMS=1461 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="abb7e9c4-932d-47ab" responseTimeMS=1652 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="c863e9c5-18e3-4fe7" responseTimeMS=1653 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="aab7d4e1-aea0-4128" responseTimeMS=1658 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="1dc4cfd7-7206-4d0a" responseTimeMS=1765 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="fb64f30f-2226-45e3" responseTimeMS=1767 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="277272dd-9ca4-48b7" responseTimeMS=1361 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="d888e94e-73db-4216" responseTimeMS=1557 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="84c3b85d-6154-454a" responseTimeMS=1650 responseBytes=434 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="d9fd1cbf-f16f-495a" responseTimeMS=1462 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="522c4bf9-5cda-405b" responseTimeMS=1462 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="8a8814bd-29ac-4188" responseTimeMS=1556 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="2ee1a191-d5d2-4932" responseTimeMS=1556 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="51d8f37f-14a5-4069" responseTimeMS=1557 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="128554b7-45b9-430b" responseTimeMS=1668 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="2316265a-ff23-49ee" responseTimeMS=1673 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="302a5212-df35-457a" responseTimeMS=1653 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="8440ab9b-e387-4edd" responseTimeMS=1653 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="bf8c864f-e128-486b" responseTimeMS=1675 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="65a04125-f6c8-4efd" responseTimeMS=1753 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="f457703c-27dc-4b54" responseTimeMS=1563 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="5a9158dd-0592-4ef8" responseTimeMS=1660 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="5b5e7f9e-e5b8-404e" responseTimeMS=1651 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="fe5819d8-64cf-494a" responseTimeMS=1672 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="0cb0421a-d161-4f8e" responseTimeMS=1658 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="97657ba2-1f10-4edb" responseTimeMS=1673 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="5c08599a-6d08-4db2" responseTimeMS=1657 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="be2bf7f8-592f-468a" responseTimeMS=1661 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="4a22d17d-84a5-4a0e" responseTimeMS=1752 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="0bd57854-3da1-4604" responseTimeMS=1560 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="e8246379-bef8-43e5" responseTimeMS=1562 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.115" requestID="5659f544-2690-4b50" responseTimeMS=1654 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="724bddbf-ec40-4fbc" responseTimeMS=1657 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:58Z clientIP="104.23.175.114" requestID="e211c99f-b8eb-4938" responseTimeMS=1753 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T03:59:59Z clientIP="104.23.175.114" requestID="49740a83-9891-4a5b" responseTimeMS=3 responseBytes=436 userAgent="Cloudflare-Worker-SePay-Proxy/1.0"
+2025-12-21T04:00:08.845842451Z [TPOS-WS] Closed 1005 
