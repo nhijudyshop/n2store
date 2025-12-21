@@ -752,6 +752,9 @@ class TposChatManager {
             const existingModal = document.getElementById('tposPageSelectorModal');
             if (existingModal) existingModal.remove();
 
+            // Load custom pages from localStorage
+            const customPages = this.getCustomPages();
+
             const modal = document.createElement('div');
             modal.id = 'tposPageSelectorModal';
             modal.className = 'tpos-modal';
@@ -764,12 +767,13 @@ class TposChatManager {
                         </button>
                     </div>
                     <div class="tpos-modal-body">
-                        ${this.pages.length === 0 ? `
+                        ${this.pages.length === 0 && customPages.length === 0 ? `
                             <div class="tpos-empty-state">
                                 <p>Không tìm thấy page nào</p>
-                                <small>Đảm bảo đã đăng nhập Pancake</small>
+                                <small>Đảm bảo đã đăng nhập Pancake hoặc thêm page thủ công bên dưới</small>
                             </div>
-                        ` : this.pages.map(page => `
+                        ` : ''}
+                        ${this.pages.map(page => `
                             <div class="tpos-page-item ${page.page_id === this.config.pageId ? 'selected' : ''}"
                                  onclick="window.tposChatManager.selectPage('${page.page_id}')">
                                 <div class="tpos-page-avatar">
@@ -789,6 +793,35 @@ class TposChatManager {
                                 ` : ''}
                             </div>
                         `).join('')}
+                        ${customPages.filter(cp => !this.pages.some(p => p.page_id === cp.page_id)).map(page => `
+                            <div class="tpos-page-item custom-page ${page.page_id === this.config.pageId ? 'selected' : ''}"
+                                 onclick="window.tposChatManager.selectCustomPage('${page.page_id}')">
+                                <div class="tpos-page-avatar">
+                                    <img src="https://graph.facebook.com/${page.page_id}/picture?type=square"
+                                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23e5e7eb%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 font-size=%2240%22 text-anchor=%22middle%22 fill=%22%239ca3af%22>P</text></svg>'"
+                                         alt="">
+                                </div>
+                                <div class="tpos-page-info">
+                                    <div class="tpos-page-name">${this.escapeHtml(page.page_name || 'Custom Page')}</div>
+                                    <div class="tpos-page-id">${page.page_id}</div>
+                                </div>
+                                ${page.page_id === this.config.pageId ? `
+                                    <i data-lucide="check" class="tpos-page-check"></i>
+                                ` : ''}
+                                <button class="tpos-remove-page-btn" onclick="event.stopPropagation(); window.tposChatManager.removeCustomPage('${page.page_id}')" title="Xóa page">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="tpos-modal-footer">
+                        <div class="tpos-add-page-form">
+                            <input type="text" id="tposCustomPageId" placeholder="Nhập Page ID (vd: 270136663390370)" class="tpos-input">
+                            <input type="text" id="tposCustomPageName" placeholder="Tên page (tùy chọn)" class="tpos-input">
+                            <button onclick="window.tposChatManager.addCustomPage()" class="tpos-btn-primary">
+                                <i data-lucide="plus"></i> Thêm Page
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -799,8 +832,101 @@ class TposChatManager {
                 if (e.target === modal) modal.remove();
             });
 
+            // Enter key to add page
+            const pageIdInput = modal.querySelector('#tposCustomPageId');
+            pageIdInput?.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.addCustomPage();
+            });
+
             if (typeof lucide !== 'undefined') lucide.createIcons();
         });
+    }
+
+    getCustomPages() {
+        try {
+            const stored = localStorage.getItem('tpos_custom_pages');
+            return stored ? JSON.parse(stored) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    saveCustomPages(pages) {
+        localStorage.setItem('tpos_custom_pages', JSON.stringify(pages));
+    }
+
+    addCustomPage() {
+        const pageIdInput = document.getElementById('tposCustomPageId');
+        const pageNameInput = document.getElementById('tposCustomPageName');
+
+        const pageId = pageIdInput?.value?.trim();
+        const pageName = pageNameInput?.value?.trim();
+
+        if (!pageId) {
+            alert('Vui lòng nhập Page ID');
+            return;
+        }
+
+        // Validate: only numbers
+        if (!/^\d+$/.test(pageId)) {
+            alert('Page ID không hợp lệ (chỉ chứa số)');
+            return;
+        }
+
+        const customPages = this.getCustomPages();
+
+        // Check if already exists
+        if (customPages.some(p => p.page_id === pageId) || this.pages.some(p => p.page_id === pageId)) {
+            alert('Page này đã tồn tại');
+            return;
+        }
+
+        // Add new custom page
+        customPages.push({
+            page_id: pageId,
+            page_name: pageName || `Page ${pageId}`,
+            is_custom: true
+        });
+
+        this.saveCustomPages(customPages);
+        console.log('[TPOS-CHAT] Added custom page:', pageId);
+
+        // Refresh modal
+        this.showPageSelector();
+    }
+
+    removeCustomPage(pageId) {
+        if (!confirm('Xóa page này khỏi danh sách?')) return;
+
+        const customPages = this.getCustomPages();
+        const filtered = customPages.filter(p => p.page_id !== pageId);
+        this.saveCustomPages(filtered);
+
+        console.log('[TPOS-CHAT] Removed custom page:', pageId);
+
+        // Refresh modal
+        this.showPageSelector();
+    }
+
+    selectCustomPage(pageId) {
+        const customPages = this.getCustomPages();
+        const page = customPages.find(p => p.page_id === pageId);
+
+        if (page) {
+            this.selectedPage = page;
+            this.config.pageId = pageId;
+            localStorage.setItem('tpos_selected_page_id', pageId);
+            console.log('[TPOS-CHAT] Selected custom page:', pageId, '-', page.page_name);
+
+            // Update header UI
+            this.updatePageSelectorUI();
+
+            const modal = document.getElementById('tposPageSelectorModal');
+            if (modal) modal.remove();
+
+            // Re-detect live videos for new page
+            this.detectActiveLive();
+        }
     }
 
     selectPage(pageId, closeModal = true) {
