@@ -90,27 +90,27 @@
         display: none !important;
     }
 
-    /* Hide parent's mobile-top-bar and fix bottom-nav */
+    /* COMPLETELY HIDE parent's mobile navigation elements */
     .mobile-top-bar {
         display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
     }
 
     .mobile-bottom-nav {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        max-width: 100vw !important;
-        padding: 8px 4px !important;
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
     }
 
-    .mobile-bottom-nav::-webkit-scrollbar {
-        display: none;
-    }
-
-    /* Adjust body padding for mobile headers */
+    /* Adjust body padding - NO bottom padding since bottom-nav is hidden */
     body {
         padding-top: 110px !important; /* Space for campaign header + tab nav */
-        padding-bottom: 65px !important; /* Space for bottom nav */
+        padding-bottom: 0 !important; /* No bottom nav */
     }
 
     /* Progress bar - compact and fixed */

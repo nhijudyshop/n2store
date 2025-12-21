@@ -609,8 +609,9 @@
         // Set initial mobile state
         state.isMobile = isMobile();
 
-        // Create mobile UI elements if mobile
+        // Force hide parent navigation elements
         if (state.isMobile) {
+            hideParentNavigation();
             createMobileHeader();
             createTabNavigation();
         }
@@ -641,6 +642,36 @@
     // ========================================
     // MOBILE HEADER & TAB NAVIGATION
     // ========================================
+
+    /**
+     * Force hide parent navigation elements
+     */
+    function hideParentNavigation() {
+        // Find and hide mobile-top-bar
+        const topBar = document.querySelector('.mobile-top-bar');
+        if (topBar) {
+            topBar.style.display = 'none';
+            topBar.style.visibility = 'hidden';
+            topBar.style.height = '0';
+            topBar.style.overflow = 'hidden';
+            log('✅ Hidden mobile-top-bar');
+        }
+
+        // Find and hide mobile-bottom-nav
+        const bottomNav = document.querySelector('.mobile-bottom-nav');
+        if (bottomNav) {
+            bottomNav.style.display = 'none';
+            bottomNav.style.visibility = 'hidden';
+            bottomNav.style.height = '0';
+            bottomNav.style.overflow = 'hidden';
+            log('✅ Hidden mobile-bottom-nav');
+        }
+
+        // Check periodically in case elements are added later
+        setTimeout(() => {
+            hideParentNavigation();
+        }, 500);
+    }
 
     /**
      * Create mobile header with campaign selector
