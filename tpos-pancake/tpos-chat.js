@@ -33,8 +33,8 @@ class TposChatManager {
         this.config = {
             // Server mode (recommended) - uses render.com server to maintain persistent connection
             serverMode: true,
-            serverBaseUrl: 'https://n2store-fallback.onrender.com',
-            serverWsUrl: 'wss://n2store-fallback.onrender.com',
+            serverBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev',  // Proxy via Cloudflare for CORS
+            serverWsUrl: 'wss://n2store-fallback.onrender.com',  // WebSocket connects directly to Render
 
             // Browser mode (fallback) - direct connection from browser
             chatWsUrl: 'wss://ws.chatomni.tpos.app/socket.io/?EIO=4&transport=websocket',
