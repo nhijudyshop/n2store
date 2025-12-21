@@ -1851,6 +1851,22 @@
 
             // Render employee stats
             renderEmployeeStats(employeeStats);
+
+            // Dispatch event for mobile UI (after DOM updates)
+            setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('statisticsRendered', {
+                    detail: {
+                        timestamp: Date.now(),
+                        hasData: orders.length > 0,
+                        counts: {
+                            products: productStats.length,
+                            tags: tagStats.length,
+                            employees: employeeStats.length
+                        }
+                    }
+                }));
+                console.log('[REPORT] 📱 statisticsRendered event dispatched');
+            }, 150);
         }
 
         /**
@@ -3255,9 +3271,9 @@
         };
     </script>
 
-    <!-- Mobile-specific JavaScript utilities -->
-    <!-- TEMPORARILY DISABLED - Causes timing issues with statistics rendering -->
-    <!-- <script src="tab-overview-mobile.js"></script> -->
+    <!-- Mobile-specific JavaScript V2 - Event-based system -->
+    <!-- V2 uses event-driven architecture to avoid timing issues -->
+    <script src="tab-overview-mobile-v2.js"></script>
 </body>
 
 </html>
