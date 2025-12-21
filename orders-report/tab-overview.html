@@ -350,6 +350,25 @@
             margin-bottom: 10px;
         }
 
+        /* Order Tags Styling */
+        .order-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+            color: white;
+            margin: 1px 2px;
+            white-space: nowrap;
+        }
+
+        .tags-cell {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            max-width: 150px;
+        }
+
         /* Order Detail Modal */
         .modal-overlay {
             display: none;
@@ -1593,6 +1612,7 @@
                                 <tr>
                                     <th>STT</th>
                                     <th>Mã đơn</th>
+                                    <th>Tag</th>
                                     <th>Khách hàng</th>
                                     <th>SĐT</th>
                                     <th>SP</th>
@@ -1606,10 +1626,12 @@
 
             orders.forEach((order, index) => {
                 const productCount = order.Details?.length || 0;
+                const tagsHtml = parseOrderTagsHtml(order.Tags);
                 html += `
                     <tr onclick="openCachedOrderDetail(${index})">
                         <td>${order.SessionIndex || index + 1}</td>
                         <td class="order-code">${order.Code || ''}</td>
+                        <td><div class="tags-cell">${tagsHtml}</div></td>
                         <td>${order.Name || order.PartnerName || ''}</td>
                         <td>${order.Telephone || ''}</td>
                         <td>${productCount}</td>
@@ -1696,26 +1718,30 @@
                 ` : ''}
                 <div class="content-section">
                     <h2><i class="fas fa-list"></i> Danh sách đơn hàng (${allOrders.length})</h2>
-                    <table class="orders-table">
-                        <thead>
-                            <tr>
-                                <th>STT</th>
-                                <th>Mã đơn</th>
-                                <th>Khách hàng</th>
-                                <th>SĐT</th>
-                                <th>Số lượng</th>
-                                <th>Tổng tiền</th>
-                                <th>Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                    <div style="overflow-x: auto;">
+                        <table class="orders-table">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Mã đơn</th>
+                                    <th>Tag</th>
+                                    <th>Khách hàng</th>
+                                    <th>SĐT</th>
+                                    <th>Số lượng</th>
+                                    <th>Tổng tiền</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
             `;
 
             allOrders.forEach((order, index) => {
+                const tagsHtml = parseOrderTagsHtml(order.Tags);
                 html += `
                     <tr onclick="openOrderDetail('${order.orderId}', ${index})">
                         <td>${order.stt || index + 1}</td>
                         <td class="order-code">${order.orderCode || ''}</td>
+                        <td><div class="tags-cell">${tagsHtml}</div></td>
                         <td>${order.customerName || ''}</td>
                         <td>${order.phone || ''}</td>
                         <td>${order.quantity || 0}</td>
@@ -1725,7 +1751,7 @@
                 `;
             });
 
-            html += `</tbody></table></div>`;
+            html += `</tbody></table></div></div>`;
             contentArea.innerHTML = html;
         }
 
@@ -1886,6 +1912,33 @@
         // =====================================================
         // UTILITY FUNCTIONS
         // =====================================================
+
+        /**
+         * Parse order tags from JSON and render as HTML
+         * @param {string|Array} tagsData - Tags JSON string or array
+         * @returns {string} HTML string for displaying tags
+         */
+        function parseOrderTagsHtml(tagsData) {
+            try {
+                let tags = tagsData;
+
+                // Parse JSON string if needed
+                if (typeof tagsData === 'string') {
+                    tags = JSON.parse(tagsData);
+                }
+
+                if (!Array.isArray(tags) || tags.length === 0) {
+                    return '';
+                }
+
+                return tags.map(tag =>
+                    `<span class="order-tag" style="background-color: ${tag.Color || '#6b7280'};" title="${tag.Name || ''}">${tag.Name || ''}</span>`
+                ).join('');
+            } catch (e) {
+                return '';
+            }
+        }
+
         function formatDate(dateStr) {
             if (!dateStr) return '';
             try {
