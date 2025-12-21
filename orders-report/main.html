@@ -553,6 +553,20 @@
                     overviewFrame.contentWindow.postMessage(e.data, "*");
                     console.log('[MAIN] 📡 Forwarded TABLE_NAME_CHANGED to overview:', e.data.tableName);
                 }
+            } else if (e.data.type === "REQUEST_EMPLOYEE_RANGES") {
+                // Forward request from Overview to Tab1 for employee ranges
+                console.log('[MAIN] 📨 Forwarding REQUEST_EMPLOYEE_RANGES to Tab1');
+                const ordersFrame = document.getElementById("ordersFrame");
+                if (ordersFrame && ordersFrame.contentWindow) {
+                    ordersFrame.contentWindow.postMessage(e.data, "*");
+                }
+            } else if (e.data.type === "EMPLOYEE_RANGES_RESPONSE") {
+                // Forward employee ranges response from Tab1 to Overview
+                console.log('[MAIN] 📨 Forwarding EMPLOYEE_RANGES_RESPONSE to Overview');
+                const overviewFrame = document.getElementById("overviewFrame");
+                if (overviewFrame && overviewFrame.contentWindow) {
+                    overviewFrame.contentWindow.postMessage(e.data, "*");
+                }
             }
         });
 

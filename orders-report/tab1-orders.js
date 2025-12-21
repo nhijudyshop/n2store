@@ -191,7 +191,13 @@ const itemsPerPage = 50;
 let selectedOrderIds = new Set();
 let isLoading = false;
 let loadingAborted = false;
+let isRendering = false; // Flag to prevent duplicate renders during scroll
 let employeeRanges = []; // Employee STT ranges
+let selectedCampaign = null; // Campaign được chọn từ dropdown (fix race condition với campaignManager)
+
+// Table Sorting State
+let currentSortColumn = null; // 'phone', 'address', 'debt', 'total', 'quantity'
+let currentSortDirection = null; // 'asc', 'desc', null
 
 // Expose data for other modules
 window.getAllOrders = () => allData;
@@ -708,29 +714,28 @@ window.addEventListener("DOMContentLoaded", async function () {
     }
 
     // Initialize Pancake Token Manager & Data Manager
-    // IMPORTANT: Wait for this to complete before loading campaigns
-    // so that chat columns can display properly on first render
-    let pancakeInitialized = false;
+    // ✅ DEFERRED: Không await để không blocking - chạy background
+    // Chat columns sẽ hiển thị "-" trước, cập nhật sau khi init xong
+    window.pancakeInitPromise = null;
     if (window.pancakeTokenManager && window.pancakeDataManager) {
-        console.log('[PANCAKE] Initializing Pancake managers...');
+        console.log('[PANCAKE] Initializing Pancake managers (deferred)...');
 
-        // Initialize token manager first
+        // Initialize token manager first (sync)
         window.pancakeTokenManager.initialize();
 
-        // Then initialize data manager and WAIT for it
-        try {
-            pancakeInitialized = await window.pancakeDataManager.initialize();
-            if (pancakeInitialized) {
-                console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully');
-                // Set chatDataManager alias for compatibility
+        // ✅ DEFER: Chạy background, không await
+        window.pancakeInitPromise = window.pancakeDataManager.initialize().then(result => {
+            if (result) {
+                console.log('[PANCAKE] ✅ PancakeDataManager initialized in background');
                 window.chatDataManager = window.pancakeDataManager;
             } else {
                 console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
-                console.warn('[PANCAKE] Please set JWT token in Pancake Settings');
             }
-        } catch (error) {
+            return result;
+        }).catch(error => {
             console.error('[PANCAKE] ❌ Error initializing PancakeDataManager:', error);
-        }
+            return false;
+        });
     } else {
         console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
@@ -768,12 +773,56 @@ window.addEventListener("DOMContentLoaded", async function () {
         tableWrapper.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
-    // Tags sẽ được load SAU KHI load xong đơn hàng và hiển thị bảng
-    // NOTE: chatDataManager is now available (pancakeDataManager) for chat column rendering
-    console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
-    console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
-    await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
+    // ✅ FAST LOAD: Check Custom Mode từ Firebase TRƯỚC
+    // Nếu Custom mode → SKIP loadCampaignList(), fetch orders ngay
+    const savedPrefs = await loadFilterPreferencesFromFirebase();
+    const isCustomModeFromPrefs = savedPrefs?.isCustomMode === true;
+
+    const startDateValue = document.getElementById("startDate").value;
+    const endDateValue = document.getElementById("endDate").value;
+
+    if (isCustomModeFromPrefs && savedPrefs.customStartDate) {
+        console.log('[FAST-LOAD] ✅ Custom mode detected, skipping loadCampaignList for instant load');
+        console.log('[FAST-LOAD] Custom start date:', savedPrefs.customStartDate);
+
+        // Gán selectedCampaign ngay
+        selectedCampaign = { isCustom: true };
+
+        // Set custom date
+        const customStartDateInput = document.getElementById('customStartDate');
+        if (customStartDateInput) {
+            customStartDateInput.value = savedPrefs.customStartDate;
+        }
+
+        // Show custom date container
+        const customDateContainer = document.getElementById('customDateFilterContainer');
+        if (customDateContainer) {
+            customDateContainer.style.display = 'flex';
+        }
+
+        // Populate dropdown với chỉ Custom option (tạm thời)
+        const select = document.getElementById('campaignFilter');
+        if (select) {
+            select.innerHTML = '<option value="custom" selected>🔮 Custom (đang tải chiến dịch...)</option>';
+        }
+
+        // Fetch orders NGAY - không cần đợi loadCampaignList
+        console.log('[FAST-LOAD] Fetching orders immediately...');
+        await handleSearch();
+
+        // Background: Load campaigns để populate dropdown đầy đủ (không blocking)
+        console.log('[FAST-LOAD] Loading campaigns in background...');
+        loadCampaignList(0, startDateValue, endDateValue, false).then(() => {
+            console.log('[BACKGROUND] ✅ Campaigns loaded in background');
+        }).catch(err => {
+            console.error('[BACKGROUND] Error loading campaigns:', err);
+        });
+    } else {
+        // Normal flow - cần loadCampaignList trước
+        console.log('[AUTO-LOAD] Normal mode, loading campaigns from TPOS API...');
+        console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
+        await loadCampaignList(0, startDateValue, endDateValue, true);
+    }
 
     // Search functionality
     const searchInput = document.getElementById("tableSearchInput");
@@ -5119,6 +5168,9 @@ function performTableSearch() {
     // Merge products button (mergeProductsBtn) still works independently
     // filteredData = mergeOrdersByPhone(filteredData);
 
+    // Reset sorting when filters change
+    resetSorting();
+
     displayedData = filteredData;
     renderTable();
     updateStats();
@@ -5803,6 +5855,7 @@ async function handleSearch() {
     document.getElementById("tableSearchInput").value = "";
     document.getElementById("searchClearBtn").classList.remove("active");
     allData = [];
+    renderedCount = 0; // Reset rendered count to prevent duplicate rows
     await fetchOrders();
 }
 
@@ -5854,11 +5907,12 @@ async function fetchOrders() {
         }
 
         const PAGE_SIZE = 1000; // API fetch size for background loading
-        const INITIAL_PAGE_SIZE = 50; // Smaller size for instant first load
+        const INITIAL_PAGE_SIZE = 20; // ✅ Giảm từ 50 → 20 để hiển thị nhanh hơn
         const UPDATE_EVERY = 200; // Update UI every 200 orders
         let skip = 0;
         let hasMore = true;
         allData = [];
+        renderedCount = 0; // Reset rendered count to prevent duplicate rows on new fetch
         const headers = await window.tokenManager.getAuthHeader();
 
         // ===== PHASE 1: Load first batch and show immediately =====
@@ -5887,37 +5941,35 @@ async function fetchOrders() {
         // Also update Overview tab with first batch
         sendOrdersDataToOverview();
 
-        // Load conversations and comment conversations for first batch
-        console.log('[PROGRESSIVE] Loading conversations for first batch...');
-        if (window.chatDataManager) {
-            // Set loading state for messages column indicator
-            isLoadingConversations = true;
+        // ✅ OPTIMIZED: Load conversations in BACKGROUND - không blocking UI
+        // Cột tin nhắn/bình luận sẽ hiển thị "-" trước, cập nhật sau khi load xong
+        console.log('[PROGRESSIVE] Loading conversations in background...');
 
-            // Collect unique channel IDs from orders (parse from Facebook_PostId)
-            const channelIds = [...new Set(
-                allData
-                    .map(order => window.chatDataManager.parseChannelId(order.Facebook_PostId))
-                    .filter(id => id) // Remove null/undefined
-            )];
-            console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
+        // Set loading state for messages column indicator
+        isLoadingConversations = true;
 
-            // FIX: fetchConversations now uses Type="all" to fetch both messages and comments in 1 request
-            // No need to call both methods anymore - this reduces API calls by 50%!
-            // Force refresh (true) to always fetch fresh data when searching
-            await window.chatDataManager.fetchConversations(true, channelIds);
+        // Collect unique channel IDs from orders (parse from Facebook_PostId)
+        const channelIds = [...new Set(
+            allData
+                .map(order => {
+                    if (window.chatDataManager && window.chatDataManager.parseChannelId) {
+                        return window.chatDataManager.parseChannelId(order.Facebook_PostId);
+                    }
+                    // Fallback: extract from Facebook_PostId format "pageId_postId"
+                    const postId = order.Facebook_PostId;
+                    if (postId && postId.includes('_')) {
+                        return postId.split('_')[0];
+                    }
+                    return null;
+                })
+                .filter(id => id) // Remove null/undefined
+        )];
+        console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
 
-            // Fetch Pancake conversations for unread info
-            if (window.pancakeDataManager) {
-                console.log('[PANCAKE] Fetching conversations for unread info...');
-                await window.pancakeDataManager.fetchConversations(true);
-                console.log('[PANCAKE] ✅ Conversations fetched');
-            }
-
-            // Clear loading state
-            isLoadingConversations = false;
-
-            performTableSearch(); // Re-apply filters and merge with new chat data
-        }
+        // ✅ BACKGROUND: Không await - chạy song song với các task khác
+        fetchConversationsAndUpdateCells(channelIds).catch(err => {
+            console.error('[PROGRESSIVE] Error in background conversations:', err);
+        });
 
         // Load tags in background
         loadAvailableTags().catch(err => console.error('[TAGS] Error loading tags:', err));
@@ -5992,6 +6044,9 @@ async function fetchOrders() {
 
                     // Final update
                     if (!loadingAborted) {
+                        // Set flag to false BEFORE calling performTableSearch
+                        // so renderByEmployee() knows loading is complete
+                        isLoadingInBackground = false;
                         console.log('[PROGRESSIVE] Background loading completed');
                         performTableSearch(); // Final merge and render
                         updateSearchResultCount();
@@ -6008,6 +6063,7 @@ async function fetchOrders() {
                 } catch (error) {
                     console.error('[PROGRESSIVE] Background loading error:', error);
                 } finally {
+                    // Ensure flag is always reset even on error or abort
                     isLoadingInBackground = false;
                 }
             })();
@@ -6318,6 +6374,184 @@ function updateOrderInTable(orderId, updatedOrderData) {
 //     }, 100);
 // }
 
+// =====================================================
+// TABLE SORTING FUNCTIONS
+// =====================================================
+
+/**
+ * Apply sorting to displayedData based on currentSortColumn and currentSortDirection
+ */
+function applySorting() {
+    if (!currentSortColumn || !currentSortDirection) return;
+
+    const sortableColumns = {
+        'phone': { field: 'Telephone', type: 'string' },
+        'address': { field: 'Address', type: 'string' },
+        'debt': { field: null, type: 'debt' }, // Special: get from cache
+        'total': { field: 'TotalAmount', type: 'number' },
+        'quantity': { field: 'TotalQuantity', type: 'number' }
+    };
+
+    const config = sortableColumns[currentSortColumn];
+    if (!config) return;
+
+    displayedData.sort((a, b) => {
+        let aVal, bVal;
+
+        if (config.type === 'debt') {
+            // Get debt from cache
+            aVal = getCachedDebt(a.Telephone) || 0;
+            bVal = getCachedDebt(b.Telephone) || 0;
+        } else if (config.type === 'number') {
+            aVal = Number(a[config.field]) || 0;
+            bVal = Number(b[config.field]) || 0;
+        } else {
+            // String type
+            aVal = (a[config.field] || '').toString().trim();
+            bVal = (b[config.field] || '').toString().trim();
+        }
+
+        // Sorting logic
+        if (config.type === 'string') {
+            // Empty strings first when ascending
+            const aEmpty = !aVal;
+            const bEmpty = !bVal;
+
+            if (currentSortDirection === 'asc') {
+                if (aEmpty && !bEmpty) return -1;
+                if (!aEmpty && bEmpty) return 1;
+                if (aEmpty && bEmpty) return 0;
+                return aVal.localeCompare(bVal, 'vi');
+            } else {
+                if (aEmpty && !bEmpty) return 1;
+                if (!aEmpty && bEmpty) return -1;
+                if (aEmpty && bEmpty) return 0;
+                return bVal.localeCompare(aVal, 'vi');
+            }
+        } else {
+            // Number type (including debt)
+            if (currentSortDirection === 'asc') {
+                return aVal - bVal;
+            } else {
+                return bVal - aVal;
+            }
+        }
+    });
+}
+
+/**
+ * Handle column header click for sorting
+ * @param {string} column - Column name (phone, address, debt, total, quantity)
+ */
+function handleSortClick(column) {
+    const sortableColumns = ['phone', 'address', 'debt', 'total', 'quantity'];
+    if (!sortableColumns.includes(column)) return;
+
+    if (currentSortColumn === column) {
+        // Same column: cycle asc → desc → null
+        if (currentSortDirection === 'asc') {
+            currentSortDirection = 'desc';
+        } else if (currentSortDirection === 'desc') {
+            currentSortDirection = null;
+            currentSortColumn = null;
+        }
+    } else {
+        // Different column: reset and start with asc
+        currentSortColumn = column;
+        currentSortDirection = 'asc';
+    }
+
+    // Update header icons
+    updateSortIcons();
+
+    // Re-apply sorting and render
+    if (currentSortColumn && currentSortDirection) {
+        displayedData = [...filteredData];
+        applySorting();
+    } else {
+        displayedData = [...filteredData];
+    }
+    renderTable();
+}
+
+/**
+ * Update sort icons on table headers (supports multiple tables)
+ */
+function updateSortIcons() {
+    const sortableColumns = ['phone', 'address', 'debt', 'total', 'quantity'];
+
+    sortableColumns.forEach(col => {
+        // Find all headers with this column (main table + employee tables)
+        const headers = document.querySelectorAll(`th[data-column="${col}"]`);
+
+        headers.forEach(th => {
+            // Remove existing icon
+            const existingIcon = th.querySelector('.sort-icon');
+            if (existingIcon) existingIcon.remove();
+
+            // Add new icon
+            const icon = document.createElement('span');
+            icon.className = 'sort-icon';
+            icon.style.marginLeft = '4px';
+            icon.style.fontSize = '10px';
+
+            if (currentSortColumn === col) {
+                if (currentSortDirection === 'asc') {
+                    icon.innerHTML = '▲';
+                    icon.style.color = '#3b82f6';
+                } else if (currentSortDirection === 'desc') {
+                    icon.innerHTML = '▼';
+                    icon.style.color = '#3b82f6';
+                }
+            } else {
+                icon.innerHTML = '⇅';
+                icon.style.color = '#9ca3af';
+            }
+
+            th.appendChild(icon);
+        });
+    });
+}
+
+/**
+ * Reset sorting state
+ */
+function resetSorting() {
+    currentSortColumn = null;
+    currentSortDirection = null;
+    updateSortIcons();
+}
+
+/**
+ * Initialize sortable headers using event delegation
+ */
+function initSortableHeaders() {
+    const sortableColumns = ['phone', 'address', 'debt', 'total', 'quantity'];
+
+    // Use event delegation on document for dynamically created tables
+    document.addEventListener('click', (e) => {
+        const th = e.target.closest('th[data-column]');
+        if (!th) return;
+
+        const column = th.getAttribute('data-column');
+        if (sortableColumns.includes(column)) {
+            handleSortClick(column);
+        }
+    });
+
+    // Initialize icons after table loads
+    setTimeout(updateSortIcons, 500);
+}
+
+// Initialize on DOM ready (only once)
+let sortableHeadersInitialized = false;
+document.addEventListener('DOMContentLoaded', () => {
+    if (!sortableHeadersInitialized) {
+        sortableHeadersInitialized = true;
+        initSortableHeaders();
+    }
+});
+
 function renderTable() {
     if (displayedData.length === 0) {
         const tbody = document.getElementById("tableBody");
@@ -6350,9 +6584,15 @@ function renderTable() {
     if (window.columnVisibility) {
         window.columnVisibility.initialize();
     }
+
+    // Update sort icons after rendering
+    updateSortIcons();
 }
 
 function renderAllOrders() {
+    // Set rendering flag to prevent loadMoreRows() from running during render
+    isRendering = true;
+
     const tableContainer = document.getElementById('tableContainer');
 
     // Show the default table wrapper
@@ -6365,7 +6605,6 @@ function renderAllOrders() {
     const existingSections = tableContainer.querySelectorAll('.employee-section');
     existingSections.forEach(section => section.remove());
 
-    // Render all orders in the default table
     // Render all orders in the default table
     const tbody = document.getElementById("tableBody");
 
@@ -6383,6 +6622,15 @@ function renderAllOrders() {
         </td>`;
         tbody.appendChild(spacer);
     }
+
+    // Batch fetch debts for all phones in initial data (ONE API call instead of 50!)
+    const phonesToFetch = initialData.map(order => order.Telephone).filter(Boolean);
+    if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
+        batchFetchDebts(phonesToFetch);
+    }
+
+    // Clear rendering flag after render is complete
+    isRendering = false;
 }
 
 // =====================================================
@@ -6409,10 +6657,12 @@ function handleTableScroll(e) {
 }
 
 function loadMoreRows() {
-    // Check if we have more data to render
-    if (renderedCount >= displayedData.length) return;
+    // Prevent appending during active render or if we have no more data
+    if (isRendering || renderedCount >= displayedData.length) return;
 
     const tbody = document.getElementById("tableBody");
+    if (!tbody) return; // Safety check
+
     const spacer = document.getElementById("table-spacer");
 
     // Remove spacer temporarily
@@ -6452,9 +6702,59 @@ function loadMoreRows() {
         </td>`;
         tbody.appendChild(newSpacer);
     }
+
+    // Batch fetch debts for newly loaded phones
+    const phonesToFetch = nextBatch.map(order => order.Telephone).filter(Boolean);
+    if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
+        batchFetchDebts(phonesToFetch);
+    }
 }
 
 function renderByEmployee() {
+    // Set rendering flag to prevent any race conditions
+    isRendering = true;
+
+    const tableContainer = document.getElementById('tableContainer');
+
+    // If background loading is in progress, show loading placeholder and wait for completion
+    // This ensures employee sections show complete data
+    if (isLoadingInBackground) {
+        console.log('[EMPLOYEE-VIEW] Waiting for background loading to complete...');
+
+        // Hide the default table
+        const defaultTableWrapper = tableContainer.querySelector('.table-wrapper');
+        if (defaultTableWrapper) {
+            defaultTableWrapper.style.display = 'none';
+        }
+
+        // Remove existing employee sections
+        const existingSections = tableContainer.querySelectorAll('.employee-section');
+        existingSections.forEach(section => section.remove());
+
+        // Show loading placeholder
+        let loadingPlaceholder = tableContainer.querySelector('.employee-loading-placeholder');
+        if (!loadingPlaceholder) {
+            loadingPlaceholder = document.createElement('div');
+            loadingPlaceholder.className = 'employee-loading-placeholder';
+            loadingPlaceholder.style.cssText = 'text-align: center; padding: 60px 20px; color: #6b7280;';
+            loadingPlaceholder.innerHTML = `
+                <i class="fas fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 16px; display: block;"></i>
+                <div style="font-size: 16px; font-weight: 500;">Đang tải dữ liệu đơn hàng...</div>
+                <div style="font-size: 13px; margin-top: 8px;">Vui lòng đợi cho tới khi tải xong toàn bộ dữ liệu</div>
+            `;
+            tableContainer.appendChild(loadingPlaceholder);
+        }
+
+        isRendering = false;
+        return; // performTableSearch() will be called again when loading completes
+    }
+
+    // Remove loading placeholder if exists
+    const loadingPlaceholder = tableContainer.querySelector('.employee-loading-placeholder');
+    if (loadingPlaceholder) {
+        loadingPlaceholder.remove();
+    }
+
     // Group data by employee
     const dataByEmployee = {};
 
@@ -6483,8 +6783,7 @@ function renderByEmployee() {
         orderedEmployees.push('Khác');
     }
 
-    // Hide the default table container
-    const tableContainer = document.getElementById('tableContainer');
+    // Hide the default table container (tableContainer already declared above)
     const defaultTableWrapper = tableContainer.querySelector('.table-wrapper');
     if (defaultTableWrapper) {
         defaultTableWrapper.style.display = 'none';
@@ -6563,6 +6862,15 @@ function renderByEmployee() {
             updateActionButtons();
         });
     });
+
+    // Batch fetch debts for all phones in displayed data (ONE API call!)
+    const phonesToFetch = displayedData.map(order => order.Telephone).filter(Boolean);
+    if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
+        batchFetchDebts(phonesToFetch);
+    }
+
+    // Clear rendering flag after render is complete
+    isRendering = false;
 }
 
 function createRowHTML(order) {
@@ -6884,6 +7192,125 @@ function renderCommentsColumn(order) {
     // Always render with clickable cell (even when showing "-") as long as we have channelId and psid
     // This allows users to open the modal even when there are no comments yet
     return renderChatColumnWithData(order, commentInfo, channelId, psid, 'comments');
+}
+
+// =====================================================
+// ✅ CELL-BY-CELL UPDATE - Update message/comment cells without full re-render
+// =====================================================
+
+/**
+ * Update all message and comment cells after conversations are loaded
+ * This avoids full table re-render and is much faster
+ */
+function updateAllMessageCells() {
+    console.log('[CELL-UPDATE] Updating message cells for', displayedData.length, 'orders...');
+    const startTime = performance.now();
+
+    let updatedCount = 0;
+    displayedData.forEach(order => {
+        const updated = updateMessageCellsForOrder(order);
+        if (updated) updatedCount++;
+    });
+
+    const elapsed = performance.now() - startTime;
+    console.log(`[CELL-UPDATE] ✅ Updated ${updatedCount} cells in ${elapsed.toFixed(0)}ms`);
+}
+
+/**
+ * Update message and comment cells for a single order
+ * @param {Object} order - Order object
+ * @returns {boolean} - True if cells were updated
+ */
+function updateMessageCellsForOrder(order) {
+    // Find row by order ID (handle merged orders with combined IDs)
+    const orderId = order.Id;
+    const checkbox = document.querySelector(`input[name="orderCheckbox"][value="${orderId}"]`);
+    if (!checkbox) return false;
+
+    const row = checkbox.closest('tr');
+    if (!row) return false;
+
+    // Update messages cell
+    const msgCell = row.querySelector('[data-column="messages"]');
+    if (msgCell) {
+        const newMsgHtml = renderMessagesColumn(order);
+        // Extract just the inner content (without outer <td> tags)
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newMsgHtml;
+        const newCell = tempDiv.querySelector('td');
+        if (newCell) {
+            msgCell.innerHTML = newCell.innerHTML;
+            // Copy attributes
+            Array.from(newCell.attributes).forEach(attr => {
+                if (attr.name !== 'data-column') {
+                    msgCell.setAttribute(attr.name, attr.value);
+                }
+            });
+        }
+    }
+
+    // Update comments cell
+    const cmmCell = row.querySelector('[data-column="comments"]');
+    if (cmmCell) {
+        const newCmmHtml = renderCommentsColumn(order);
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newCmmHtml;
+        const newCell = tempDiv.querySelector('td');
+        if (newCell) {
+            cmmCell.innerHTML = newCell.innerHTML;
+            Array.from(newCell.attributes).forEach(attr => {
+                if (attr.name !== 'data-column') {
+                    cmmCell.setAttribute(attr.name, attr.value);
+                }
+            });
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Fetch conversations in background and update cells when done
+ * @param {Array} channelIds - Channel IDs to fetch
+ */
+async function fetchConversationsAndUpdateCells(channelIds) {
+    console.log('[BACKGROUND-CONV] Starting background conversations fetch...');
+    const startTime = performance.now();
+
+    try {
+        // Wait for pancake init if it's still running
+        if (window.pancakeInitPromise) {
+            console.log('[BACKGROUND-CONV] Waiting for pancake init...');
+            await window.pancakeInitPromise;
+        }
+
+        if (!window.chatDataManager) {
+            console.warn('[BACKGROUND-CONV] chatDataManager not available');
+            isLoadingConversations = false;
+            return;
+        }
+
+        // Fetch conversations
+        await window.chatDataManager.fetchConversations(true, channelIds);
+
+        // Fetch Pancake conversations for unread info
+        if (window.pancakeDataManager) {
+            await window.pancakeDataManager.fetchConversations(true);
+        }
+
+        // Clear loading state
+        isLoadingConversations = false;
+
+        // Update cells instead of full re-render
+        updateAllMessageCells();
+
+        const elapsed = performance.now() - startTime;
+        console.log(`[BACKGROUND-CONV] ✅ Conversations loaded and cells updated in ${elapsed.toFixed(0)}ms`);
+
+    } catch (error) {
+        console.error('[BACKGROUND-CONV] Error:', error);
+        isLoadingConversations = false;
+    }
 }
 
 // #region ═══════════════════════════════════════════════════════════════════════
@@ -9148,6 +9575,18 @@ window.addEventListener("message", function (event) {
     if (event.data.type === "FETCH_CONVERSATIONS_FOR_ORDERS") {
         handleFetchConversationsRequest(event.data.orders || []);
     }
+
+    // Handle request for employee ranges from overview tab
+    if (event.data.type === "REQUEST_EMPLOYEE_RANGES") {
+        console.log('📨 [EMPLOYEE] Nhận request employee ranges từ tab Báo Cáo Tổng Hợp');
+        console.log('📊 [EMPLOYEE] employeeRanges length:', employeeRanges.length);
+
+        // Send employee ranges back to overview
+        window.parent.postMessage({
+            type: 'EMPLOYEE_RANGES_RESPONSE',
+            ranges: employeeRanges || []
+        }, '*');
+    }
 });
 
 // Anti-spam: Track fetched channelIds and debounce requests
@@ -9346,6 +9785,7 @@ function sendOrdersDataToOverview() {
 // Make these global so they can be accessed from other modules (e.g., chat-modal-products.js)
 window.currentChatChannelId = null;
 window.currentChatPSID = null;
+window.currentRealFacebookPSID = null;  // Real Facebook PSID (from_psid) for Graph API
 window.currentConversationId = null;  // Lưu conversation ID cho reply
 
 // Module-scoped variables (not needed externally)
@@ -10914,6 +11354,23 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             window.currentConversationId = inboxConv.id;
                             window.currentInboxConversationId = inboxConv.id;
 
+                            // DEBUG: Log conversation structure to find real PSID field
+                            console.log('[CHAT-MODAL] 🔍 DEBUG Conversation data:', JSON.stringify({
+                                id: inboxConv.id,
+                                from_psid: inboxConv.from_psid,
+                                from: inboxConv.from,
+                                customers: inboxConv.customers,
+                                page_id: inboxConv.page_id
+                            }, null, 2));
+
+                            // IMPORTANT: Save the real Facebook PSID from conversation data
+                            // This is needed for Facebook Graph API (different from Pancake internal ID)
+                            // Try multiple sources: from_psid, from.id, customers[0].fb_id
+                            window.currentRealFacebookPSID = inboxConv.from_psid
+                                || inboxConv.from?.id
+                                || (inboxConv.customers && inboxConv.customers[0]?.fb_id);
+                            console.log('[CHAT-MODAL] ✅ Real Facebook PSID:', window.currentRealFacebookPSID);
+
                             console.log('[CHAT-MODAL] ✅ Using INBOX conversationId:', window.currentConversationId);
 
                             // Initialize read state for INBOX
@@ -11074,6 +11531,7 @@ window.closeChatModal = async function () {
     // Reset pagination state
     window.currentChatChannelId = null;
     window.currentChatPSID = null;
+    window.currentRealFacebookPSID = null;
     currentChatType = null;
     currentChatCursor = null;
     window.allChatMessages = [];
@@ -13161,11 +13619,42 @@ async function sendMessageInternal(messageData) {
             // Get the original message text from the messageData
             const originalMessage = messageData.message || '';
             const pageId = messageData.channelId || window.currentChatChannelId;
-            const psid = window.currentChatPSID;
 
-            // Auto-send via Facebook Tag (POST_PURCHASE_UPDATE) for 24h error
-            if (error.is24HourError && originalMessage && pageId && psid) {
-                console.log('[MESSAGE] 🔄 Auto-sending via Facebook Tag for 24h error');
+            // IMPORTANT: Get the real Facebook PSID from conversation data
+            // window.currentChatPSID may be Pancake internal ID, not Facebook PSID
+            // Facebook Graph API requires the real PSID (from_psid or customers[0].fb_id)
+            let psid = null;
+
+            // Try to use the saved real Facebook PSID first
+            if (window.currentRealFacebookPSID) {
+                psid = window.currentRealFacebookPSID;
+                console.log('[MESSAGE] ✅ Using saved real Facebook PSID:', psid);
+            }
+            // Fallback: Try to get from current conversation data (cached)
+            else if (window.currentConversationId && window.pancakeDataManager) {
+                const convId = window.currentConversationId;
+                // Search in inboxMapByPSID values
+                for (const [key, conv] of window.pancakeDataManager.inboxMapByPSID) {
+                    if (conv.id === convId) {
+                        psid = conv.from_psid || (conv.customers && conv.customers[0]?.fb_id);
+                        if (psid) {
+                            console.log('[MESSAGE] ✅ Got real PSID from cached conversation:', psid);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Last fallback to currentChatPSID if no real PSID found
+            if (!psid) {
+                psid = window.currentChatPSID;
+                console.log('[MESSAGE] ⚠️ Using currentChatPSID as last fallback:', psid);
+            }
+
+            // Auto-send via Facebook Tag (POST_PURCHASE_UPDATE) for 24h error or 551 error
+            if ((error.is24HourError || error.isUserUnavailable) && originalMessage && pageId && psid) {
+                const errorType = error.is24HourError ? '24h error' : '551 (user unavailable)';
+                console.log(`[MESSAGE] 🔄 Auto-sending via Facebook Tag for ${errorType}`);
 
                 // Extract image URLs from uploadedImagesData
                 const imageUrls = [];
@@ -13188,10 +13677,10 @@ async function sendMessageInternal(messageData) {
                 // Auto-send without showing modal
                 window.sendViaFacebookTagFromModal(encodeURIComponent(originalMessage), pageId, psid, imageUrls);
             } else {
-                // For 551 error or missing data, just show notification
+                // For missing data, just show notification
                 let message = error.is24HourError
                     ? '⚠️ Không thể gửi Inbox (đã quá 24h). Thử gửi qua Facebook Message Tag hoặc dùng COMMENT!'
-                    : '⚠️ Không thể gửi Inbox (người dùng không có mặt). Vui lòng dùng COMMENT!';
+                    : '⚠️ Không thể gửi Inbox (người dùng không có mặt). Đang thử gửi qua Facebook...';
 
                 if (window.notificationManager) {
                     window.notificationManager.show(message, 'warning', 8000);
@@ -20458,6 +20947,8 @@ function formatDebtCurrency(amount) {
 
 /**
  * Render debt column HTML
+ * NOTE: This now only shows cached value or loading spinner.
+ * Actual fetching is done by batchFetchDebts() after table render.
  * @param {string} phone - Phone number
  * @returns {string} HTML string for debt column
  */
@@ -20472,17 +20963,13 @@ function renderDebtColumn(phone) {
     const cachedDebt = getCachedDebt(normalizedPhone);
 
     if (cachedDebt !== null) {
-        // Has cached value
+        // Has cached value - display immediately
         const color = cachedDebt > 0 ? '#10b981' : '#9ca3af';
         return `<span style="color: ${color}; font-weight: 500; font-size: 12px;">${formatDebtCurrency(cachedDebt)}</span>`;
     }
 
-    // No cache - show loading and fetch async
-    fetchDebtForPhone(normalizedPhone).then(debt => {
-        // Update all cells with this phone number after fetch
-        updateDebtCells(normalizedPhone, debt);
-    });
-
+    // No cache - show loading spinner (batchFetchDebts will update this later)
+    // Do NOT call fetchDebtForPhone here to avoid spam!
     return `<span class="debt-loading" data-phone="${normalizedPhone}" style="color: #9ca3af; font-size: 11px;"><i class="fas fa-spinner fa-spin"></i></span>`;
 }
 
@@ -20502,7 +20989,8 @@ function updateDebtCells(phone, debt) {
 }
 
 /**
- * Batch fetch debts for multiple phones (call after table render)
+ * Batch fetch debts for multiple phones using NEW batch API
+ * Reduces 80 API calls → 1 API call!
  * @param {Array<string>} phones - Array of phone numbers
  */
 async function batchFetchDebts(phones) {
@@ -20511,13 +20999,48 @@ async function batchFetchDebts(phones) {
 
     if (uncachedPhones.length === 0) return;
 
-    console.log(`[DEBT] Batch fetching ${uncachedPhones.length} phones...`);
+    console.log(`[DEBT-BATCH] Fetching ${uncachedPhones.length} phones in ONE request...`);
 
-    // Fetch in parallel (limit to 10 concurrent)
-    const batchSize = 10;
-    for (let i = 0; i < uncachedPhones.length; i += batchSize) {
-        const batch = uncachedPhones.slice(i, i + batchSize);
-        await Promise.all(batch.map(phone => fetchDebtForPhone(phone)));
+    try {
+        // Call batch API - ONE request for ALL phones!
+        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary-batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phones: uncachedPhones })
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            console.log(`[DEBT-BATCH] ✅ Received ${result.count || Object.keys(result.data).length} results`);
+
+            // Update cache and UI for all phones
+            for (const [phone, debtData] of Object.entries(result.data)) {
+                const totalDebt = debtData.total_debt || 0;
+                saveDebtToCache(phone, totalDebt);
+                updateDebtCells(phone, totalDebt);
+            }
+
+            // Handle phones that weren't in the response (set to 0)
+            for (const phone of uncachedPhones) {
+                if (!result.data[phone]) {
+                    saveDebtToCache(phone, 0);
+                    updateDebtCells(phone, 0);
+                }
+            }
+        } else {
+            console.error('[DEBT-BATCH] ❌ API error:', result.error);
+            // Fallback: set all to 0
+            for (const phone of uncachedPhones) {
+                updateDebtCells(phone, 0);
+            }
+        }
+    } catch (error) {
+        console.error('[DEBT-BATCH] ❌ Network error:', error);
+        // Fallback: set all to 0
+        for (const phone of uncachedPhones) {
+            updateDebtCells(phone, 0);
+        }
     }
 }
 

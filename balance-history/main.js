@@ -401,75 +401,137 @@ function renderTable(data) {
         return;
     }
 
-    tableBody.innerHTML = data.map(row => {
-        // Extract unique code from content (look for N2 prefix pattern - exactly 18 chars)
-        const content = row.content || '';
-        const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
-        const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
+    // Build rows with gap detection
+    const rows = [];
 
-        // Get customer info if unique code exists
-        let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
-        if (uniqueCode && window.CustomerInfoManager) {
-            customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+    for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const currentRef = parseInt(row.reference_code);
+
+        // Check for gap with the NEXT row (since data is sorted DESC by date)
+        // If current is 2567 and next is 2565, there's a gap of 2566
+        if (i < data.length - 1) {
+            const nextRow = data[i + 1];
+            const nextRef = parseInt(nextRow.reference_code);
+
+            // Only check if both are valid numbers
+            if (!isNaN(currentRef) && !isNaN(nextRef) && currentRef - nextRef > 1) {
+                // There are missing reference codes between current and next
+                for (let missing = currentRef - 1; missing > nextRef; missing--) {
+                    rows.push(renderGapRow(missing, nextRef, currentRef, nextRow.transaction_date, row.transaction_date));
+                }
+            }
         }
 
-        return `
-        <tr>
-            <td>${formatDateTime(row.transaction_date)}</td>
-            <td>${row.gateway}</td>
-            <td>
-                <span class="badge ${row.transfer_type === 'in' ? 'badge-success' : 'badge-danger'}">
-                    <i class="fas fa-arrow-${row.transfer_type === 'in' ? 'down' : 'up'}"></i>
-                    ${row.transfer_type === 'in' ? 'Tiền vào' : 'Tiền ra'}
-                </span>
-            </td>
-            <td class="${row.transfer_type === 'in' ? 'amount-in' : 'amount-out'}">
-                ${row.transfer_type === 'in' ? '+' : '-'}${formatCurrency(row.transfer_amount)}
-            </td>
-            <td>${formatCurrency(row.accumulated)}</td>
-            <td>${truncateText(content || 'N/A', 50)}</td>
-            <td>${row.reference_code || 'N/A'}</td>
-            <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-                ${uniqueCode ? `
-                    <div style="display: flex; align-items: center; gap: 5px;">
-                        <span>${customerDisplay.name}</span>
-                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
-                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
-                        </button>
-                    </div>
-                ` : '<span style="color: #999;">N/A</span>'}
-            </td>
-            <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-                ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
-                    <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
-                        ${customerDisplay.phone}
-                        <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
-                    </a>
-                ` : '<span style="color: #999;">N/A</span>'}
-            </td>
-            <td class="text-center">
-                ${uniqueCode ? `
-                    <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
-                        <i data-lucide="qr-code"></i>
-                    </button>
-                    <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
-                        <i data-lucide="copy"></i>
-                    </button>
-                ` : '<span style="color: #999;">N/A</span>'}
-            </td>
-            <td class="text-center">
-                <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
-                    Chi tiết
-                </button>
-            </td>
-        </tr>
-        `;
-    }).join('');
+        // Add the actual transaction row
+        rows.push(renderTransactionRow(row));
+    }
+
+    tableBody.innerHTML = rows.join('');
 
     // Reinitialize Lucide icons for dynamically added buttons
     if (window.lucide) {
         lucide.createIcons();
     }
+}
+
+/**
+ * Render a single transaction row
+ */
+function renderTransactionRow(row) {
+    // Extract unique code from content (look for N2 prefix pattern - exactly 18 chars)
+    const content = row.content || '';
+    const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
+    const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
+
+    // Get customer info if unique code exists
+    let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
+    if (uniqueCode && window.CustomerInfoManager) {
+        customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+    }
+
+    return `
+    <tr>
+        <td>${formatDateTime(row.transaction_date)}</td>
+        <td>${row.gateway}</td>
+        <td>
+            <span class="badge ${row.transfer_type === 'in' ? 'badge-success' : 'badge-danger'}">
+                <i class="fas fa-arrow-${row.transfer_type === 'in' ? 'down' : 'up'}"></i>
+                ${row.transfer_type === 'in' ? 'Tiền vào' : 'Tiền ra'}
+            </span>
+        </td>
+        <td class="${row.transfer_type === 'in' ? 'amount-in' : 'amount-out'}">
+            ${row.transfer_type === 'in' ? '+' : '-'}${formatCurrency(row.transfer_amount)}
+        </td>
+        <td>${formatCurrency(row.accumulated)}</td>
+        <td>${truncateText(content || 'N/A', 50)}</td>
+        <td>${row.reference_code || 'N/A'}</td>
+        <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
+            ${uniqueCode ? `
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span>${customerDisplay.name}</span>
+                    <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
+                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                    </button>
+                </div>
+            ` : '<span style="color: #999;">N/A</span>'}
+        </td>
+        <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
+            ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
+                <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                    ${customerDisplay.phone}
+                    <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
+                </a>
+            ` : '<span style="color: #999;">N/A</span>'}
+        </td>
+        <td class="text-center">
+            ${uniqueCode ? `
+                <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
+                    <i data-lucide="qr-code"></i>
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
+                    <i data-lucide="copy"></i>
+                </button>
+            ` : '<span style="color: #999;">N/A</span>'}
+        </td>
+        <td class="text-center">
+            <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
+                Chi tiết
+            </button>
+        </td>
+    </tr>
+    `;
+}
+
+/**
+ * Render a gap warning row for missing reference code
+ */
+function renderGapRow(missingRef, prevRef, nextRef, prevDate, nextDate) {
+    return `
+    <tr class="gap-row" style="background: linear-gradient(90deg, #fef3c7 0%, #fffbeb 50%, #fef3c7 100%); border: 2px dashed #f59e0b;">
+        <td style="text-align: center; color: #92400e; font-style: italic;">
+            <i data-lucide="alert-triangle" style="width: 16px; height: 16px; color: #d97706;"></i>
+        </td>
+        <td colspan="5" style="color: #92400e; font-weight: 500;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="alert-circle" style="width: 18px; height: 18px; color: #d97706;"></i>
+                <span>Giao dịch bị thiếu - Webhook không nhận được</span>
+            </div>
+        </td>
+        <td style="font-family: monospace; font-weight: bold; color: #d97706; font-size: 1.1em; text-align: center;">
+            ${missingRef}
+        </td>
+        <td colspan="3" style="text-align: center;">
+            <button class="btn btn-sm" onclick="fetchMissingTransaction('${missingRef}')" title="Lấy lại giao dịch từ Sepay" style="background: #3b82f6; color: white; border: none; padding: 4px 10px; margin-right: 4px;">
+                <i data-lucide="download" style="width: 14px; height: 14px;"></i> Lấy lại
+            </button>
+            <button class="btn btn-sm" onclick="ignoreGap('${missingRef}')" title="Bỏ qua" style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; padding: 4px 8px;">
+                <i data-lucide="eye-off" style="width: 14px; height: 14px;"></i>
+            </button>
+        </td>
+        <td></td>
+    </tr>
+    `;
 }
 
 // Render Statistics
@@ -1519,6 +1581,92 @@ const customerListCache = {};
 const CUSTOMER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
+ * Get TPOS bearer token from localStorage
+ * @returns {string|null} - Bearer token or null if not found
+ */
+function getTposToken() {
+    try {
+        const tokenData = localStorage.getItem('bearer_token_data');
+        if (tokenData) {
+            const parsed = JSON.parse(tokenData);
+            // Check if token is still valid (with 5 minute buffer)
+            if (parsed.access_token && parsed.expires_at) {
+                const bufferTime = 5 * 60 * 1000;
+                if (Date.now() < (parsed.expires_at - bufferTime)) {
+                    return parsed.access_token;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[CUSTOMER-LIST] Error reading token:', error);
+    }
+    return null;
+}
+
+/**
+ * Fallback to TPOS OData API when proxy API returns empty
+ * @param {string} phone - Phone number to search
+ * @returns {Promise<Array>} - Array of customers from TPOS
+ */
+async function fetchCustomersFromTpos(phone) {
+    const token = getTposToken();
+    if (!token) {
+        console.warn('[CUSTOMER-LIST] No valid TPOS token available for fallback');
+        return [];
+    }
+
+    try {
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Name=${encodeURIComponent(phone)}&$top=50&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'&$count=true`;
+
+        console.log('[CUSTOMER-LIST] Fallback to TPOS OData API:', tposUrl);
+
+        const response = await fetch(tposUrl, {
+            headers: {
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'authorization': `Bearer ${token}`,
+                'x-requested-with': 'XMLHttpRequest'
+            }
+        });
+
+        if (!response.ok) {
+            console.warn('[CUSTOMER-LIST] TPOS API returned status:', response.status);
+            return [];
+        }
+
+        const result = await response.json();
+
+        if (!result.value || result.value.length === 0) {
+            console.log('[CUSTOMER-LIST] TPOS API returned no results');
+            return [];
+        }
+
+        console.log('[CUSTOMER-LIST] TPOS API found', result.value.length, 'customers');
+
+        // Transform TPOS response to match expected customer format
+        return result.value.map(tposCustomer => ({
+            id: tposCustomer.Id,
+            tpos_id: tposCustomer.Id,
+            name: tposCustomer.Name || tposCustomer.DisplayName || '',
+            phone: tposCustomer.Phone || '',
+            address: tposCustomer.Street || tposCustomer.FullAddress || '',
+            email: tposCustomer.Email || '',
+            status: tposCustomer.StatusText || tposCustomer.Status || 'Bình thường',
+            debt: tposCustomer.Debit || 0,
+            source: 'TPOS',
+            // Additional TPOS fields
+            facebook_id: tposCustomer.FacebookASIds || null,
+            zalo: tposCustomer.Zalo || null,
+            created_at: tposCustomer.DateCreated || null,
+            updated_at: tposCustomer.LastUpdated || null
+        }));
+
+    } catch (error) {
+        console.error('[CUSTOMER-LIST] TPOS fallback error:', error);
+        return [];
+    }
+}
+
+/**
  * Show customers list by phone number
  * @param {string} phone - Phone number to search
  */
@@ -1574,11 +1722,28 @@ async function showCustomersByPhone(phone) {
         }
 
         // Filter customers with exact phone match
-        const customers = (customersResult.data || []).filter(c => {
+        let customers = (customersResult.data || []).filter(c => {
             const customerPhone = (c.phone || '').replace(/\D/g, '');
             const searchPhone = phone.replace(/\D/g, '');
             return customerPhone === searchPhone || customerPhone.endsWith(searchPhone) || searchPhone.endsWith(customerPhone);
         });
+
+        // Fallback to TPOS OData API if proxy returned empty results
+        if (customers.length === 0) {
+            console.log('[CUSTOMER-LIST] Proxy API returned empty, trying TPOS fallback...');
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Đang tìm kiếm trong TPOS...', 'info');
+            }
+
+            const tposCustomers = await fetchCustomersFromTpos(phone);
+            if (tposCustomers.length > 0) {
+                customers = tposCustomers;
+                console.log('[CUSTOMER-LIST] Using TPOS fallback results:', customers.length, 'customers');
+                if (window.NotificationManager) {
+                    window.NotificationManager.showNotification(`Tìm thấy ${customers.length} khách hàng từ TPOS`, 'success');
+                }
+            }
+        }
 
         renderCustomerList(customers, balanceStats, phone);
 
@@ -1941,7 +2106,386 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         connectRealtimeUpdates();
     }, 1000);
+
+    // Load gap detection data
+    setTimeout(() => {
+        loadGapData();
+    }, 2000);
 });
+
+// =====================================================
+// GAP DETECTION (MISSING TRANSACTIONS)
+// =====================================================
+
+let gapsData = [];
+
+/**
+ * Load gap detection data from backend
+ */
+async function loadGapData() {
+    try {
+        console.log('[GAPS] Loading gap data...');
+
+        // First, trigger gap detection
+        const detectResponse = await fetch(`${API_BASE_URL}/api/sepay/detect-gaps`);
+        const detectResult = await detectResponse.json();
+
+        if (detectResult.success && detectResult.total_gaps > 0) {
+            gapsData = detectResult.gaps || [];
+            updateGapCard(detectResult.total_gaps);
+            console.log('[GAPS] Found', detectResult.total_gaps, 'gaps');
+        } else {
+            // No gaps found
+            gapsData = [];
+            updateGapCard(0);
+            console.log('[GAPS] No gaps found');
+        }
+
+    } catch (error) {
+        console.error('[GAPS] Error loading gap data:', error);
+        updateGapCard(0);
+    }
+}
+
+/**
+ * Update the gap card in statistics
+ */
+function updateGapCard(count) {
+    const gapCard = document.getElementById('gapCard');
+    const totalGaps = document.getElementById('totalGaps');
+    const gapHint = document.getElementById('gapHint');
+
+    if (count > 0) {
+        gapCard.style.display = 'block';
+        totalGaps.textContent = count;
+        gapHint.textContent = 'Nhấn để xem chi tiết';
+
+        // Add warning animation
+        gapCard.classList.add('gap-warning');
+    } else {
+        gapCard.style.display = 'none';
+    }
+
+    // Reinitialize Lucide icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+/**
+ * Show gaps modal
+ */
+async function showGapsModal() {
+    const modal = document.getElementById('gapsModal');
+    const loadingEl = document.getElementById('gapsLoading');
+    const emptyEl = document.getElementById('gapsEmpty');
+    const contentEl = document.getElementById('gapsContent');
+
+    // Show modal and loading state
+    modal.style.display = 'block';
+    loadingEl.style.display = 'block';
+    emptyEl.style.display = 'none';
+    contentEl.style.display = 'none';
+
+    // Reinitialize icons
+    if (window.lucide) lucide.createIcons();
+
+    try {
+        // Fetch gaps from backend
+        const response = await fetch(`${API_BASE_URL}/api/sepay/gaps?status=detected`);
+        const result = await response.json();
+
+        loadingEl.style.display = 'none';
+
+        if (result.success && result.data && result.data.length > 0) {
+            gapsData = result.data;
+            renderGapsList(result.data);
+            contentEl.style.display = 'block';
+        } else if (gapsData.length > 0) {
+            // Use cached data from detect-gaps
+            renderGapsList(gapsData);
+            contentEl.style.display = 'block';
+        } else {
+            emptyEl.style.display = 'block';
+        }
+
+        // Reinitialize icons
+        if (window.lucide) lucide.createIcons();
+
+    } catch (error) {
+        console.error('[GAPS] Error fetching gaps:', error);
+        loadingEl.style.display = 'none';
+
+        if (gapsData.length > 0) {
+            renderGapsList(gapsData);
+            contentEl.style.display = 'block';
+        } else {
+            emptyEl.style.display = 'block';
+        }
+    }
+}
+
+/**
+ * Render gaps list in modal
+ */
+function renderGapsList(gaps) {
+    const tbody = document.getElementById('gapsTableBody');
+    const totalEl = document.getElementById('gapsTotal');
+
+    totalEl.textContent = gaps.length;
+
+    tbody.innerHTML = gaps.map((gap, index) => {
+        const status = gap.status || 'detected';
+        const statusBadge = status === 'detected'
+            ? '<span class="badge badge-warning">Phát hiện</span>'
+            : status === 'ignored'
+            ? '<span class="badge badge-secondary">Bỏ qua</span>'
+            : '<span class="badge badge-success">Đã xử lý</span>';
+
+        return `
+        <tr>
+            <td>${index + 1}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #d97706;">
+                ${gap.missing_reference_code}
+            </td>
+            <td style="font-family: monospace; color: #6b7280;">
+                ${gap.previous_reference_code || 'N/A'}
+                ${gap.previous_date ? `<br><small style="color: #9ca3af;">${formatDateTime(gap.previous_date)}</small>` : ''}
+            </td>
+            <td style="font-family: monospace; color: #6b7280;">
+                ${gap.next_reference_code || 'N/A'}
+                ${gap.next_date ? `<br><small style="color: #9ca3af;">${formatDateTime(gap.next_date)}</small>` : ''}
+            </td>
+            <td>${statusBadge}</td>
+            <td>
+                <button class="btn btn-secondary btn-sm" onclick="ignoreGap('${gap.missing_reference_code}')" title="Bỏ qua">
+                    <i data-lucide="eye-off" style="width: 14px; height: 14px;"></i>
+                </button>
+            </td>
+        </tr>
+        `;
+    }).join('');
+
+    // Reinitialize icons
+    if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Close gaps modal
+ */
+function closeGapsModal() {
+    const modal = document.getElementById('gapsModal');
+    modal.style.display = 'none';
+}
+
+/**
+ * Ignore a specific gap (mark as not a real transaction)
+ */
+async function ignoreGap(referenceCode) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/gaps/${referenceCode}/ignore`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(`Đã bỏ qua mã ${referenceCode}`, 'success');
+            }
+
+            // Reload gaps data
+            await loadGapData();
+
+            // Refresh modal if open
+            const modal = document.getElementById('gapsModal');
+            if (modal.style.display === 'block') {
+                showGapsModal();
+            }
+        } else {
+            throw new Error(result.error || 'Failed to ignore gap');
+        }
+
+    } catch (error) {
+        console.error('[GAPS] Error ignoring gap:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Lỗi khi bỏ qua gap: ' + error.message, 'error');
+        }
+    }
+}
+
+/**
+ * Re-detect gaps (rescan)
+ */
+async function rescanGaps() {
+    const detectBtn = document.getElementById('detectGapsBtn');
+    if (detectBtn) {
+        detectBtn.disabled = true;
+        detectBtn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> Đang quét...';
+    }
+
+    try {
+        await loadGapData();
+
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Đã quét lại gaps', 'success');
+        }
+
+        // Refresh modal
+        showGapsModal();
+
+    } catch (error) {
+        console.error('[GAPS] Error rescanning:', error);
+    } finally {
+        if (detectBtn) {
+            detectBtn.disabled = false;
+            detectBtn.innerHTML = '<i data-lucide="search"></i> Quét lại';
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
+/**
+ * Retry all items in the failed webhook queue
+ */
+async function retryFailedQueue() {
+    const retryBtn = document.getElementById('retryAllGapsBtn');
+    if (retryBtn) {
+        retryBtn.disabled = true;
+        retryBtn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> Đang retry...';
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/failed-queue/retry-all`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(result.message, 'success');
+            }
+
+            // Reload gaps after retry
+            await loadGapData();
+
+            // Reload main data
+            loadData();
+            loadStatistics();
+
+            // Refresh modal
+            showGapsModal();
+        } else {
+            throw new Error(result.error || 'Failed to retry');
+        }
+
+    } catch (error) {
+        console.error('[GAPS] Error retrying failed queue:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Lỗi khi retry: ' + error.message, 'error');
+        }
+    } finally {
+        if (retryBtn) {
+            retryBtn.disabled = false;
+            retryBtn.innerHTML = '<i data-lucide="refresh-cw"></i> Retry Failed Queue';
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
+// Setup Gaps Modal Event Listeners
+const gapsModal = document.getElementById('gapsModal');
+const closeGapsModalBtn = document.getElementById('closeGapsModalBtn');
+const detectGapsBtn = document.getElementById('detectGapsBtn');
+const retryAllGapsBtn = document.getElementById('retryAllGapsBtn');
+
+closeGapsModalBtn?.addEventListener('click', closeGapsModal);
+
+gapsModal?.addEventListener('click', (e) => {
+    if (e.target === gapsModal) {
+        closeGapsModal();
+    }
+});
+
+detectGapsBtn?.addEventListener('click', rescanGaps);
+retryAllGapsBtn?.addEventListener('click', retryFailedQueue);
+
+// Filter Gaps Only Button
+let showGapsOnly = false;
+const filterGapsOnlyBtn = document.getElementById('filterGapsOnlyBtn');
+
+filterGapsOnlyBtn?.addEventListener('click', () => {
+    showGapsOnly = !showGapsOnly;
+
+    if (showGapsOnly) {
+        filterGapsOnlyBtn.style.background = '#f59e0b';
+        filterGapsOnlyBtn.style.color = 'white';
+        filterGapsOnlyBtn.innerHTML = '<i data-lucide="alert-triangle"></i> Đang lọc GD thiếu';
+
+        // Hide all non-gap rows
+        document.querySelectorAll('#tableBody tr:not(.gap-row)').forEach(row => {
+            row.style.display = 'none';
+        });
+
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Đang hiển thị chỉ giao dịch thiếu', 'info');
+        }
+    } else {
+        filterGapsOnlyBtn.style.background = '#fef3c7';
+        filterGapsOnlyBtn.style.color = '#92400e';
+        filterGapsOnlyBtn.innerHTML = '<i data-lucide="alert-triangle"></i> Chỉ GD thiếu';
+
+        // Show all rows
+        document.querySelectorAll('#tableBody tr').forEach(row => {
+            row.style.display = '';
+        });
+    }
+
+    if (window.lucide) lucide.createIcons();
+});
+
+/**
+ * Fetch missing transaction from Sepay API by reference code
+ */
+async function fetchMissingTransaction(referenceCode) {
+    if (window.NotificationManager) {
+        window.NotificationManager.showNotification(`Đang lấy giao dịch ${referenceCode}...`, 'info');
+    }
+
+    try {
+        // Call Sepay API to fetch transaction by reference code
+        const response = await fetch(`${API_BASE_URL}/api/sepay/fetch-by-reference/${referenceCode}`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(`Đã lấy được giao dịch ${referenceCode}!`, 'success');
+            }
+
+            // Reload data to show the new transaction
+            await loadGapData();
+            loadData();
+            loadStatistics();
+        } else {
+            throw new Error(result.error || result.message || 'Không tìm thấy giao dịch');
+        }
+
+    } catch (error) {
+        console.error('[GAPS] Error fetching missing transaction:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(`Không thể lấy GD ${referenceCode}: ${error.message}`, 'error');
+        }
+    }
+}
+
+// Export functions for global access
+window.showGapsModal = showGapsModal;
+window.closeGapsModal = closeGapsModal;
+window.ignoreGap = ignoreGap;
+window.rescanGaps = rescanGaps;
+window.retryFailedQueue = retryFailedQueue;
+window.fetchMissingTransaction = fetchMissingTransaction;
 
 // Disconnect when page unloads
 window.addEventListener('beforeunload', () => {

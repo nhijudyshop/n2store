@@ -7,9 +7,10 @@
     <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- External CSS (v=20241219 for cache busting) -->
-    <link rel="stylesheet" href="modern.css?v=20241219" />
-    <link rel="stylesheet" href="pancake-chat.css?v=20241219" />
+    <!-- External CSS (v=20241220 for cache busting) -->
+    <link rel="stylesheet" href="modern.css?v=20241220" />
+    <link rel="stylesheet" href="pancake-chat.css?v=20241220" />
+    <link rel="stylesheet" href="tpos-chat.css?v=20241220" />
 
     <!-- Lucide Icons -->
     <!-- N2Store Optimization: Core Utilities Loader -->
@@ -148,13 +149,7 @@
                         </div>
                     </div>
                     <div class="column-content" id="tposContent">
-                        <!-- TPOS iframe/content placeholder -->
-                        <div class="column-placeholder">
-                            <i data-lucide="monitor"></i>
-                            <h3>Khung TPOS</h3>
-                            <p>Giao diện TPOS sẽ được hiển thị tại đây</p>
-                            <span class="placeholder-hint">Bạn có thể gắn iframe hoặc nội dung tùy chỉnh</span>
-                        </div>
+                        <!-- TPOS Chat UI will be rendered here by tpos-chat.js -->
                     </div>
                 </div>
 
@@ -311,7 +306,11 @@
     <script src="pancake-chat.js?v=20241219"></script>
 
     <!-- Realtime WebSocket Manager (Server Mode) -->
-    <script src="realtime-manager.js?v=20241219"></script>
+    <script src="realtime-manager.js?v=20241220"></script>
+
+    <!-- TPOS Token Manager & Chat Manager -->
+    <script src="tpos-token-manager.js?v=20241220"></script>
+    <script src="tpos-chat.js?v=20241220"></script>
 
     <script>
         // =====================================================
@@ -391,6 +390,18 @@
                     }, 300);
                 } catch (error) {
                     console.error("[UI] Error initializing PancakeChatManager:", error);
+                }
+            }
+
+            // Initialize TPOS Chat Manager
+            if (typeof TposChatManager !== "undefined" && window.tposChatManager) {
+                try {
+                    setTimeout(async () => {
+                        await window.tposChatManager.initialize('tposContent');
+                        console.log("[UI] TposChatManager initialized");
+                    }, 400);
+                } catch (error) {
+                    console.error("[UI] Error initializing TposChatManager:", error);
                 }
             }
 

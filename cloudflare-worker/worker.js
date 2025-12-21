@@ -805,6 +805,131 @@ export default {
         }
       }
 
+      // ========== SEPAY WEBHOOK PROXY ==========
+      // Handle SePay webhooks with explicit header forwarding
+      if (pathname.startsWith('/api/sepay/')) {
+        const sepayPath = pathname.replace(/^\/api\/sepay\//, '');
+        const targetUrl = `https://n2store-fallback.onrender.com/api/sepay/${sepayPath}${url.search}`;
+
+        console.log('[SEPAY-PROXY] ========================================');
+        console.log('[SEPAY-PROXY] Forwarding to:', targetUrl);
+        console.log('[SEPAY-PROXY] Method:', request.method);
+
+        // Build headers - explicitly copy Authorization
+        const sepayHeaders = new Headers();
+        sepayHeaders.set('Content-Type', request.headers.get('Content-Type') || 'application/json');
+        sepayHeaders.set('Accept', 'application/json');
+        sepayHeaders.set('User-Agent', 'Cloudflare-Worker-SePay-Proxy/1.0');
+
+        // CRITICAL: Forward the Authorization header from SePay
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          sepayHeaders.set('Authorization', authHeader);
+          console.log('[SEPAY-PROXY] Authorization header forwarded');
+        } else {
+          console.log('[SEPAY-PROXY] WARNING: No Authorization header in request');
+        }
+
+        try {
+          // Read body for POST/PUT requests
+          let requestBody = null;
+          if (request.method !== 'GET' && request.method !== 'HEAD') {
+            requestBody = await request.arrayBuffer();
+            console.log('[SEPAY-PROXY] Request body size:', requestBody.byteLength, 'bytes');
+          }
+
+          const sepayResponse = await fetch(targetUrl, {
+            method: request.method,
+            headers: sepayHeaders,
+            body: requestBody,
+          });
+
+          console.log('[SEPAY-PROXY] Response status:', sepayResponse.status);
+          console.log('[SEPAY-PROXY] ========================================');
+
+          // Clone response and add CORS headers
+          const newSepayResponse = new Response(sepayResponse.body, sepayResponse);
+          newSepayResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newSepayResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+          newSepayResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+
+          return newSepayResponse;
+
+        } catch (sepayError) {
+          console.error('[SEPAY-PROXY] Error:', sepayError.message);
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'SePay proxy failed',
+            message: sepayError.message,
+            target: targetUrl
+          }), {
+            status: 502,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
+      // ========== FACEBOOK GRAPH API - LIVE VIDEOS (via TPOS) ==========
+      // GET /api/facebook-graph/livevideo?pageid=xxx&limit=10&facebook_Type=page
+      // Proxies to tomato.tpos.vn/api/facebook-graph/livevideo (TPOS endpoint)
+      if (pathname === '/api/facebook-graph/livevideo' && request.method === 'GET') {
+        const targetUrl = `https://tomato.tpos.vn/api/facebook-graph/livevideo${url.search}`;
+
+        console.log('[FACEBOOK-GRAPH-LIVE] ========================================');
+        console.log('[FACEBOOK-GRAPH-LIVE] Proxying to TPOS:', targetUrl);
+
+        // Build headers for TPOS
+        const tposHeaders = new Headers();
+
+        // Copy Authorization header from original request
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          tposHeaders.set('Authorization', authHeader);
+        }
+
+        // Set required headers for TPOS
+        tposHeaders.set('Accept', '*/*');
+        tposHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
+        tposHeaders.set('tposappversion', '5.11.16.1');
+        tposHeaders.set('Origin', 'https://tomato.tpos.vn');
+        tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
+        tposHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+
+        try {
+          const tposResponse = await fetch(targetUrl, {
+            method: 'GET',
+            headers: tposHeaders,
+          });
+
+          console.log('[FACEBOOK-GRAPH-LIVE] TPOS Response status:', tposResponse.status);
+          console.log('[FACEBOOK-GRAPH-LIVE] ========================================');
+
+          // Clone response and add CORS headers
+          const newResponse = new Response(tposResponse.body, tposResponse);
+          newResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+          newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, tposappversion, x-tpos-lang');
+
+          return newResponse;
+
+        } catch (error) {
+          console.error('[FACEBOOK-GRAPH-LIVE] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Failed to fetch live videos from TPOS',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
       let isTPOSRequest = false;
@@ -818,14 +943,14 @@ export default {
       } else if (pathname === '/api/realtime/start') {
         // Realtime Server (Render)
         targetUrl = `https://n2store-fallback.onrender.com/api/realtime/start`;
+      } else if (pathname.startsWith('/api/realtime/tpos/')) {
+        // TPOS Realtime Server (Render) - for tpos-chat.js
+        const tposPath = pathname.replace(/^\/api\/realtime\/tpos\//, '');
+        targetUrl = `https://n2store-fallback.onrender.com/api/realtime/tpos/${tposPath}${url.search}`;
       } else if (pathname.startsWith('/api/chat/')) {
         // Chat Server (Render) - Using same server as realtime
         const chatPath = pathname.replace(/^\/api\/chat\//, '');
         targetUrl = `https://n2store-fallback.onrender.com/api/chat/${chatPath}${url.search}`;
-      } else if (pathname.startsWith('/api/sepay/')) {
-        // Sepay Webhook & Balance History (Render)
-        const sepayPath = pathname.replace(/^\/api\/sepay\//, '');
-        targetUrl = `https://n2store-fallback.onrender.com/api/sepay/${sepayPath}${url.search}`;
       } else if (pathname.startsWith('/api/customers/') || pathname === '/api/customers') {
         // Customers API (Render) - PostgreSQL backend
         const customersPath = pathname.replace(/^\/api\/customers\/?/, '');
@@ -886,7 +1011,7 @@ export default {
           });
         }
       } else if (pathname.startsWith('/api/')) {
-        // TPOS API (catch-all)
+        // TPOS API (catch-all) - forward to tomato.tpos.vn/api/...
         const apiPath = pathname.replace(/^\/api\//, '');
         targetUrl = `https://tomato.tpos.vn/${apiPath}${url.search}`;
         isTPOSRequest = true;

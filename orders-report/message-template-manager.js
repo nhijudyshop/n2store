@@ -1072,6 +1072,18 @@ class MessageTemplateManager {
             const is24HourError = (responseData.e_code === 10 && responseData.e_subcode === 2018278) ||
                 (responseData.message && responseData.message.includes('khoảng thời gian cho phép'));
             if (is24HourError) {
+                this.log(`⚠️ 24-hour policy error - attempting Facebook API fallback for order ${order.code}`);
+
+                // Try Facebook API fallback
+                const fbFallbackResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw);
+
+                if (fbFallbackResult.success) {
+                    this.log(`✅ Facebook API fallback succeeded for order ${order.code}`);
+                    return true; // Success via Facebook API
+                }
+
+                // Facebook API also failed, throw original error
+                this.log(`❌ Facebook API fallback failed: ${fbFallbackResult.error}`);
                 const error24h = new Error('24H_POLICY_ERROR');
                 error24h.is24HourError = true;
                 error24h.originalMessage = responseData.message;
@@ -1082,6 +1094,18 @@ class MessageTemplateManager {
             const isUserUnavailable = (responseData.e_code === 551) ||
                 (responseData.message && responseData.message.includes('không có mặt'));
             if (isUserUnavailable) {
+                this.log(`⚠️ User unavailable (551) error - attempting Facebook API fallback for order ${order.code}`);
+
+                // Try Facebook API fallback
+                const fbFallbackResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw);
+
+                if (fbFallbackResult.success) {
+                    this.log(`✅ Facebook API fallback succeeded for order ${order.code}`);
+                    return true; // Success via Facebook API
+                }
+
+                // Facebook API also failed, throw original error
+                this.log(`❌ Facebook API fallback failed: ${fbFallbackResult.error}`);
                 const error551 = new Error('USER_UNAVAILABLE');
                 error551.isUserUnavailable = true;
                 error551.originalMessage = responseData.message;
@@ -1098,6 +1122,95 @@ class MessageTemplateManager {
         } // End of for loop (messageParts)
 
         return true;
+    }
+
+    /**
+     * Send message via Facebook Graph API with POST_PURCHASE_UPDATE tag
+     * Used as fallback when Pancake API fails with 551 error
+     */
+    async _sendViaFacebookAPI(pageId, psid, message, orderRaw) {
+        this.log('[FB-FALLBACK] Attempting Facebook API fallback...');
+
+        try {
+            // Get Facebook Page Token from various sources
+            let facebookPageToken = null;
+
+            // Source 1: Try from cachedChannelsData
+            if (window.cachedChannelsData) {
+                const channel = window.cachedChannelsData.find(ch =>
+                    String(ch.ChannelId) === String(pageId) ||
+                    String(ch.Facebook_AccountId) === String(pageId)
+                );
+                if (channel && channel.Facebook_PageToken) {
+                    facebookPageToken = channel.Facebook_PageToken;
+                    this.log('[FB-FALLBACK] ✅ Got Facebook Page Token from cached channels');
+                }
+            }
+
+            // Source 2: Fetch from CRMTeam if available
+            if (!facebookPageToken && orderRaw.CRMTeamId) {
+                try {
+                    const crmTeam = await this.fetchCRMTeam(orderRaw.CRMTeamId);
+                    if (crmTeam && crmTeam.Facebook_PageToken) {
+                        facebookPageToken = crmTeam.Facebook_PageToken;
+                        this.log('[FB-FALLBACK] ✅ Got Facebook Page Token from CRMTeam');
+                    }
+                } catch (err) {
+                    this.log('[FB-FALLBACK] ⚠️ Could not fetch CRMTeam:', err.message);
+                }
+            }
+
+            if (!facebookPageToken) {
+                return {
+                    success: false,
+                    error: 'Không tìm thấy Facebook Page Token'
+                };
+            }
+
+            // Call Facebook Send API via worker proxy
+            const facebookSendUrl = window.API_CONFIG.buildUrl.facebookSend();
+            this.log('[FB-FALLBACK] Calling:', facebookSendUrl);
+
+            const requestBody = {
+                pageId: pageId,
+                psid: psid,
+                message: message,
+                pageToken: facebookPageToken,
+                useTag: true // Use POST_PURCHASE_UPDATE tag
+            };
+
+            const response = await fetch(facebookSendUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const result = await response.json();
+            this.log('[FB-FALLBACK] Response:', result);
+
+            if (result.success) {
+                this.log('[FB-FALLBACK] ✅ Message sent successfully via Facebook Graph API!');
+                return {
+                    success: true,
+                    messageId: result.message_id
+                };
+            } else {
+                return {
+                    success: false,
+                    error: result.error || 'Facebook API error'
+                };
+            }
+
+        } catch (error) {
+            this.log('[FB-FALLBACK] ❌ Error:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
     }
 
     async fetchCRMTeam(teamId) {
