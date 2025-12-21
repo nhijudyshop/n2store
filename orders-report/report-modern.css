@@ -111,7 +111,7 @@ button {
     transition: margin-left var(--transition-slow);
 }
 
-.sidebar.collapsed ~ .main-content {
+.sidebar.collapsed~.main-content {
     margin-left: 0;
 }
 
@@ -144,7 +144,7 @@ button {
 }
 
 @media (min-width: 1025px) {
-    .sidebar.collapsed ~ .main-content .sidebar-toggle-fixed {
+    .sidebar.collapsed~.main-content .sidebar-toggle-fixed {
         display: flex;
     }
 }
@@ -484,6 +484,7 @@ button {
 }
 
 @media (max-width: 480px) {
+
     .btn-toggle-filter span,
     .btn-toggle-totals span {
         font-size: 0.8125rem;
@@ -994,6 +995,7 @@ tbody td.action-cell {
    ===================================================== */
 
 @media (max-width: 768px) {
+
     thead th,
     tbody td {
         padding: 10px 12px;
@@ -1136,6 +1138,7 @@ tbody td.action-cell {
         opacity: 0;
         transform: translateY(-20px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -1148,11 +1151,9 @@ tbody td.action-cell {
     align-items: center;
     padding: var(--spacing-lg) var(--spacing-xl);
     border-bottom: 1px solid var(--border);
-    background: linear-gradient(
-        135deg,
-        var(--primary) 0%,
-        var(--primary-dark) 100%
-    );
+    background: linear-gradient(135deg,
+            var(--primary) 0%,
+            var(--primary-dark) 100%);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
@@ -1304,4 +1305,163 @@ tbody td.action-cell {
 
 button:focus-visible {
     outline-offset: 0;
+}
+
+/* =====================================================
+   MOBILE PRODUCT STATISTICS
+   ===================================================== */
+
+#mobileProductSummaryCard {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 20px;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    margin-bottom: 20px;
+}
+
+.mobile-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+}
+
+.mobile-summary-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mobile-summary-item:not(:last-child) {
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mobile-summary-value {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.mobile-summary-label {
+    font-size: 11px;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Mobile Product Card */
+.mobile-product-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #f3f4f6;
+    transition: transform 0.2s;
+}
+
+.mobile-product-card:active {
+    transform: scale(0.98);
+}
+
+.mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    gap: 12px;
+}
+
+.mobile-product-code {
+    background: #eff6ff;
+    color: #4f46e5;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.mobile-product-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #111827;
+    line-height: 1.4;
+    flex: 1;
+}
+
+.mobile-see-more-btn {
+    background: none;
+    border: none;
+    color: #6b7280;
+    padding: 4px;
+}
+
+.mobile-card-body {
+    display: flex;
+    gap: 16px;
+    border-top: 1px solid #f3f4f6;
+    padding-top: 12px;
+}
+
+.mobile-stat-row {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.mobile-stat-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.mobile-stat-value.highlight {
+    color: #10b981;
+}
+
+.mobile-stat-label {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+/* Mobile Popup List */
+.mobile-popup-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.mobile-popup-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+}
+
+.mobile-popup-label {
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.mobile-popup-value {
+    font-weight: 600;
+    color: #111827;
+}
+
+/* Ensure Tag Stats is visible on mobile */
+@media (max-width: 768px) {
+    #tagStatsSection {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .stats-table-wrapper {
+        max-height: none !important;
+    }
 }
