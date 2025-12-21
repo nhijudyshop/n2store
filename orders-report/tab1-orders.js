@@ -11107,6 +11107,17 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         window.currentCustomerUUID = result.customerUuid;
                         console.log('[CHAT-MODAL] ✅ Got customer UUID:', window.currentCustomerUUID);
 
+                        // IMPORTANT: Use realFacebookPSID from API response (extracted from INBOX conversation)
+                        // This is the ONLY valid PSID for Facebook Send API
+                        if (result.realFacebookPSID) {
+                            window.currentRealFacebookPSID = result.realFacebookPSID;
+                            console.log('[CHAT-MODAL] ✅ Got real Facebook PSID from API:', window.currentRealFacebookPSID);
+                        } else {
+                            window.currentRealFacebookPSID = null;
+                            console.warn('[CHAT-MODAL] ⚠️ No real Facebook PSID available - customer never messaged via Messenger');
+                            console.warn('[CHAT-MODAL] ⚠️ Facebook Send API will NOT work for this customer!');
+                        }
+
                         // Filter INBOX conversations
                         const inboxConversations = result.conversations.filter(conv => conv.type === 'INBOX');
 
@@ -11121,24 +11132,10 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             window.currentConversationId = inboxConv.id;
                             window.currentInboxConversationId = inboxConv.id;
 
-                            // DEBUG: Log conversation structure to find real PSID field
-                            console.log('[CHAT-MODAL] 🔍 DEBUG Conversation data:', JSON.stringify({
-                                id: inboxConv.id,
-                                from_psid: inboxConv.from_psid,
-                                from: inboxConv.from,
-                                customers: inboxConv.customers,
-                                page_id: inboxConv.page_id
-                            }, null, 2));
-
-                            // IMPORTANT: Save the real Facebook PSID from conversation data
-                            // This is needed for Facebook Graph API (different from Pancake internal ID)
-                            // Try multiple sources: from_psid, from.id, customers[0].fb_id
-                            window.currentRealFacebookPSID = inboxConv.from_psid
-                                || inboxConv.from?.id
-                                || (inboxConv.customers && inboxConv.customers[0]?.fb_id);
-                            console.log('[CHAT-MODAL] ✅ Real Facebook PSID:', window.currentRealFacebookPSID);
-
+                            // NOTE: Real Facebook PSID is already saved from result.realFacebookPSID above
+                            // Only INBOX conversations have valid from_psid for Facebook Send API
                             console.log('[CHAT-MODAL] ✅ Using INBOX conversationId:', window.currentConversationId);
+                            console.log('[CHAT-MODAL] Real Facebook PSID for Send API:', window.currentRealFacebookPSID || 'NOT AVAILABLE');
 
                             // Initialize read state for INBOX
                             window.currentConversationReadState = {
@@ -13389,7 +13386,7 @@ async function sendMessageInternal(messageData) {
 
             // IMPORTANT: Get the real Facebook PSID from conversation data
             // window.currentChatPSID may be Pancake internal ID, not Facebook PSID
-            // Facebook Graph API requires the real PSID (from_psid or customers[0].fb_id)
+            // Facebook Graph API requires the real PSID (from_psid from INBOX conversations ONLY)
             let psid = null;
 
             // Try to use the saved real Facebook PSID first
@@ -13397,25 +13394,39 @@ async function sendMessageInternal(messageData) {
                 psid = window.currentRealFacebookPSID;
                 console.log('[MESSAGE] ✅ Using saved real Facebook PSID:', psid);
             }
-            // Fallback: Try to get from current conversation data (cached)
+            // Fallback: Try to get from current INBOX conversation's from_psid (cached)
             else if (window.currentConversationId && window.pancakeDataManager) {
                 const convId = window.currentConversationId;
-                // Search in inboxMapByPSID values
+                // Search in inboxMapByPSID values - ONLY use from_psid, NOT fb_id
                 for (const [key, conv] of window.pancakeDataManager.inboxMapByPSID) {
-                    if (conv.id === convId) {
-                        psid = conv.from_psid || (conv.customers && conv.customers[0]?.fb_id);
-                        if (psid) {
-                            console.log('[MESSAGE] ✅ Got real PSID from cached conversation:', psid);
-                            break;
-                        }
+                    if (conv.id === convId && conv.from_psid) {
+                        psid = conv.from_psid;
+                        console.log('[MESSAGE] ✅ Got real PSID from cached INBOX conversation:', psid);
+                        break;
                     }
                 }
             }
 
-            // Last fallback to currentChatPSID if no real PSID found
+            // WARNING: If no real PSID found, Facebook Send API will NOT work
+            // DO NOT use currentChatPSID or fb_id as fallback - they are NOT valid PSIDs
             if (!psid) {
-                psid = window.currentChatPSID;
-                console.log('[MESSAGE] ⚠️ Using currentChatPSID as last fallback:', psid);
+                console.error('[MESSAGE] ❌ No valid Facebook PSID available');
+                console.error('[MESSAGE] ❌ Customer never sent a message via Messenger - cannot use Facebook Send API');
+
+                // Show user-friendly error
+                const noInboxMessage = '❌ Không thể gửi tin nhắn qua Facebook!\n\n' +
+                    'Khách hàng này chưa từng nhắn tin qua Messenger cho Page.\n' +
+                    'Facebook Send API chỉ hoạt động với khách đã inbox.\n\n' +
+                    '💡 Hãy thử:\n' +
+                    '• Trả lời qua COMMENT (bình luận)\n' +
+                    '• Yêu cầu khách inbox trước';
+
+                if (window.notificationManager) {
+                    window.notificationManager.show(noInboxMessage, 'error', 10000);
+                } else {
+                    alert(noInboxMessage);
+                }
+                return;
             }
 
             // Auto-send via Facebook Tag (POST_PURCHASE_UPDATE) for 24h error or 551 error
