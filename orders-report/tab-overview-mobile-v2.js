@@ -23,8 +23,8 @@
 
     const CONFIG = {
         // Collapse settings
-        productSectionCollapsed: true,
-        tagSectionCollapsed: false,
+        productSectionCollapsed: false, // Show expanded by default
+        tagSectionCollapsed: false, // Show expanded by default
         employeeCardsCollapsible: true,
 
         // Interaction settings
@@ -609,6 +609,12 @@
         // Set initial mobile state
         state.isMobile = isMobile();
 
+        // Create mobile UI elements if mobile
+        if (state.isMobile) {
+            createMobileHeader();
+            createTabNavigation();
+        }
+
         // Listen for statistics rendered event
         window.addEventListener('statisticsRendered', handleStatisticsRendered);
 
@@ -630,6 +636,216 @@
         }
 
         log('✅ Mobile Utilities V2 initialized');
+    }
+
+    // ========================================
+    // MOBILE HEADER & TAB NAVIGATION
+    // ========================================
+
+    /**
+     * Create mobile header with campaign selector
+     */
+    function createMobileHeader() {
+        if (document.querySelector('.mobile-campaign-header')) {
+            return;
+        }
+
+        const header = document.createElement('div');
+        header.className = 'mobile-campaign-header';
+
+        const desktopSelector = document.getElementById('tableSelector');
+        const selectedOption = desktopSelector?.options[desktopSelector.selectedIndex];
+        const selectedText = selectedOption?.text || 'Chọn chiến dịch';
+
+        header.innerHTML = `
+            <div class="mobile-campaign-dropdown">
+                <button class="mobile-campaign-btn" id="mobileCampaignBtn">
+                    <i class="fas fa-bullhorn"></i>
+                    <span class="mobile-campaign-label">${selectedText}</span>
+                    <i class="fas fa-chevron-down mobile-chevron"></i>
+                </button>
+                <div class="mobile-campaign-menu" id="mobileCampaignMenu">
+                    <!-- Options will be populated here -->
+                </div>
+            </div>
+        `;
+
+        document.body.insertBefore(header, document.body.firstChild);
+
+        // Populate menu options
+        populateCampaignMenu();
+
+        // Add click handlers
+        const btn = document.getElementById('mobileCampaignBtn');
+        const menu = document.getElementById('mobileCampaignMenu');
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.classList.toggle('show');
+            btn.classList.toggle('active');
+            haptic();
+        });
+
+        // Close on outside click
+        document.addEventListener('click', () => {
+            menu.classList.remove('show');
+            btn.classList.remove('active');
+        });
+
+        log('✅ Mobile campaign header created');
+    }
+
+    /**
+     * Populate campaign dropdown menu
+     */
+    function populateCampaignMenu() {
+        const desktopSelector = document.getElementById('tableSelector');
+        const menu = document.getElementById('mobileCampaignMenu');
+
+        if (!desktopSelector || !menu) return;
+
+        menu.innerHTML = '';
+
+        Array.from(desktopSelector.options).forEach(option => {
+            if (option.value === '') return; // Skip default option
+
+            const item = document.createElement('div');
+            item.className = 'mobile-campaign-item';
+            if (option.selected) {
+                item.classList.add('selected');
+            }
+
+            item.innerHTML = `
+                <i class="fas fa-bullhorn"></i>
+                <span>${option.text}</span>
+                ${option.selected ? '<i class="fas fa-check"></i>' : ''}
+            `;
+
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Update desktop selector
+                desktopSelector.value = option.value;
+                // Trigger change event
+                if (typeof handleTableChange === 'function') {
+                    handleTableChange();
+                }
+                // Update label
+                document.querySelector('.mobile-campaign-label').textContent = option.text;
+                // Close menu
+                document.getElementById('mobileCampaignMenu').classList.remove('show');
+                document.getElementById('mobileCampaignBtn').classList.remove('active');
+                // Update selected state
+                document.querySelectorAll('.mobile-campaign-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                haptic();
+            });
+
+            menu.appendChild(item);
+        });
+    }
+
+    /**
+     * Create tab navigation dropdown
+     */
+    function createTabNavigation() {
+        if (document.querySelector('.mobile-tab-navigation')) {
+            return;
+        }
+
+        const tabNav = document.createElement('div');
+        tabNav.className = 'mobile-tab-navigation';
+
+        // Find active tab
+        const activeTabBtn = document.querySelector('.main-tab-btn.active');
+        const activeTabText = activeTabBtn?.textContent?.trim() || 'Tổng quan';
+
+        tabNav.innerHTML = `
+            <div class="mobile-tab-dropdown">
+                <button class="mobile-tab-btn" id="mobileTabBtn">
+                    <span class="mobile-tab-label">${activeTabText}</span>
+                    <i class="fas fa-chevron-down mobile-chevron"></i>
+                </button>
+                <div class="mobile-tab-menu" id="mobileTabMenu">
+                    <!-- Tab options will be populated here -->
+                </div>
+            </div>
+        `;
+
+        // Insert after campaign header
+        const campaignHeader = document.querySelector('.mobile-campaign-header');
+        if (campaignHeader) {
+            campaignHeader.after(tabNav);
+        } else {
+            document.body.insertBefore(tabNav, document.body.firstChild);
+        }
+
+        // Populate tab menu
+        populateTabMenu();
+
+        // Add click handlers
+        const btn = document.getElementById('mobileTabBtn');
+        const menu = document.getElementById('mobileTabMenu');
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.classList.toggle('show');
+            btn.classList.toggle('active');
+            haptic();
+        });
+
+        // Close on outside click
+        document.addEventListener('click', () => {
+            menu.classList.remove('show');
+            btn.classList.remove('active');
+        });
+
+        log('✅ Mobile tab navigation created');
+    }
+
+    /**
+     * Populate tab dropdown menu
+     */
+    function populateTabMenu() {
+        const desktopTabs = document.querySelectorAll('.main-tab-btn');
+        const menu = document.getElementById('mobileTabMenu');
+
+        if (!menu) return;
+
+        menu.innerHTML = '';
+
+        desktopTabs.forEach(tabBtn => {
+            const item = document.createElement('div');
+            item.className = 'mobile-tab-item';
+            if (tabBtn.classList.contains('active')) {
+                item.classList.add('selected');
+            }
+
+            const icon = tabBtn.querySelector('i')?.className || '';
+            const text = tabBtn.textContent.trim();
+
+            item.innerHTML = `
+                <i class="${icon}"></i>
+                <span>${text}</span>
+                ${tabBtn.classList.contains('active') ? '<i class="fas fa-check"></i>' : ''}
+            `;
+
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Click the desktop tab
+                tabBtn.click();
+                // Update label
+                document.querySelector('.mobile-tab-label').textContent = text;
+                // Close menu
+                document.getElementById('mobileTabMenu').classList.remove('show');
+                document.getElementById('mobileTabBtn').classList.remove('active');
+                // Update selected state
+                document.querySelectorAll('.mobile-tab-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                haptic();
+            });
+
+            menu.appendChild(item);
+        });
     }
 
     // ========================================
