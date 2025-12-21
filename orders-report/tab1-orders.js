@@ -193,6 +193,10 @@ let isLoading = false;
 let loadingAborted = false;
 let employeeRanges = []; // Employee STT ranges
 
+// Table Sorting State
+let currentSortColumn = null; // 'phone', 'address', 'debt', 'total', 'quantity'
+let currentSortDirection = null; // 'asc', 'desc', null
+
 // Expose data for other modules
 window.getAllOrders = () => allData;
 
@@ -5119,6 +5123,9 @@ function performTableSearch() {
     // Merge products button (mergeProductsBtn) still works independently
     // filteredData = mergeOrdersByPhone(filteredData);
 
+    // Reset sorting when filters change
+    resetSorting();
+
     displayedData = filteredData;
     renderTable();
     updateStats();
@@ -6318,6 +6325,184 @@ function updateOrderInTable(orderId, updatedOrderData) {
 //     }, 100);
 // }
 
+// =====================================================
+// TABLE SORTING FUNCTIONS
+// =====================================================
+
+/**
+ * Apply sorting to displayedData based on currentSortColumn and currentSortDirection
+ */
+function applySorting() {
+    if (!currentSortColumn || !currentSortDirection) return;
+
+    const sortableColumns = {
+        'phone': { field: 'Telephone', type: 'string' },
+        'address': { field: 'Address', type: 'string' },
+        'debt': { field: null, type: 'debt' }, // Special: get from cache
+        'total': { field: 'TotalAmount', type: 'number' },
+        'quantity': { field: 'TotalQuantity', type: 'number' }
+    };
+
+    const config = sortableColumns[currentSortColumn];
+    if (!config) return;
+
+    displayedData.sort((a, b) => {
+        let aVal, bVal;
+
+        if (config.type === 'debt') {
+            // Get debt from cache
+            aVal = getCachedDebt(a.Telephone) || 0;
+            bVal = getCachedDebt(b.Telephone) || 0;
+        } else if (config.type === 'number') {
+            aVal = Number(a[config.field]) || 0;
+            bVal = Number(b[config.field]) || 0;
+        } else {
+            // String type
+            aVal = (a[config.field] || '').toString().trim();
+            bVal = (b[config.field] || '').toString().trim();
+        }
+
+        // Sorting logic
+        if (config.type === 'string') {
+            // Empty strings first when ascending
+            const aEmpty = !aVal;
+            const bEmpty = !bVal;
+
+            if (currentSortDirection === 'asc') {
+                if (aEmpty && !bEmpty) return -1;
+                if (!aEmpty && bEmpty) return 1;
+                if (aEmpty && bEmpty) return 0;
+                return aVal.localeCompare(bVal, 'vi');
+            } else {
+                if (aEmpty && !bEmpty) return 1;
+                if (!aEmpty && bEmpty) return -1;
+                if (aEmpty && bEmpty) return 0;
+                return bVal.localeCompare(aVal, 'vi');
+            }
+        } else {
+            // Number type (including debt)
+            if (currentSortDirection === 'asc') {
+                return aVal - bVal;
+            } else {
+                return bVal - aVal;
+            }
+        }
+    });
+}
+
+/**
+ * Handle column header click for sorting
+ * @param {string} column - Column name (phone, address, debt, total, quantity)
+ */
+function handleSortClick(column) {
+    const sortableColumns = ['phone', 'address', 'debt', 'total', 'quantity'];
+    if (!sortableColumns.includes(column)) return;
+
+    if (currentSortColumn === column) {
+        // Same column: cycle asc → desc → null
+        if (currentSortDirection === 'asc') {
+            currentSortDirection = 'desc';
+        } else if (currentSortDirection === 'desc') {
+            currentSortDirection = null;
+            currentSortColumn = null;
+        }
+    } else {
+        // Different column: reset and start with asc
+        currentSortColumn = column;
+        currentSortDirection = 'asc';
+    }
+
+    // Update header icons
+    updateSortIcons();
+
+    // Re-apply sorting and render
+    if (currentSortColumn && currentSortDirection) {
+        displayedData = [...filteredData];
+        applySorting();
+    } else {
+        displayedData = [...filteredData];
+    }
+    renderTable();
+}
+
+/**
+ * Update sort icons on table headers (supports multiple tables)
+ */
+function updateSortIcons() {
+    const sortableColumns = ['phone', 'address', 'debt', 'total', 'quantity'];
+
+    sortableColumns.forEach(col => {
+        // Find all headers with this column (main table + employee tables)
+        const headers = document.querySelectorAll(`th[data-column="${col}"]`);
+
+        headers.forEach(th => {
+            // Remove existing icon
+            const existingIcon = th.querySelector('.sort-icon');
+            if (existingIcon) existingIcon.remove();
+
+            // Add new icon
+            const icon = document.createElement('span');
+            icon.className = 'sort-icon';
+            icon.style.marginLeft = '4px';
+            icon.style.fontSize = '10px';
+
+            if (currentSortColumn === col) {
+                if (currentSortDirection === 'asc') {
+                    icon.innerHTML = '▲';
+                    icon.style.color = '#3b82f6';
+                } else if (currentSortDirection === 'desc') {
+                    icon.innerHTML = '▼';
+                    icon.style.color = '#3b82f6';
+                }
+            } else {
+                icon.innerHTML = '⇅';
+                icon.style.color = '#9ca3af';
+            }
+
+            th.appendChild(icon);
+        });
+    });
+}
+
+/**
+ * Reset sorting state
+ */
+function resetSorting() {
+    currentSortColumn = null;
+    currentSortDirection = null;
+    updateSortIcons();
+}
+
+/**
+ * Initialize sortable headers using event delegation
+ */
+function initSortableHeaders() {
+    const sortableColumns = ['phone', 'address', 'debt', 'total', 'quantity'];
+
+    // Use event delegation on document for dynamically created tables
+    document.addEventListener('click', (e) => {
+        const th = e.target.closest('th[data-column]');
+        if (!th) return;
+
+        const column = th.getAttribute('data-column');
+        if (sortableColumns.includes(column)) {
+            handleSortClick(column);
+        }
+    });
+
+    // Initialize icons after table loads
+    setTimeout(updateSortIcons, 500);
+}
+
+// Initialize on DOM ready (only once)
+let sortableHeadersInitialized = false;
+document.addEventListener('DOMContentLoaded', () => {
+    if (!sortableHeadersInitialized) {
+        sortableHeadersInitialized = true;
+        initSortableHeaders();
+    }
+});
+
 function renderTable() {
     if (displayedData.length === 0) {
         const tbody = document.getElementById("tableBody");
@@ -6350,6 +6535,9 @@ function renderTable() {
     if (window.columnVisibility) {
         window.columnVisibility.initialize();
     }
+
+    // Update sort icons after rendering
+    updateSortIcons();
 }
 
 function renderAllOrders() {
