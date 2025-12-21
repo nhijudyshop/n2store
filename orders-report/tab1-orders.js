@@ -13369,9 +13369,10 @@ async function sendMessageInternal(messageData) {
             const pageId = messageData.channelId || window.currentChatChannelId;
             const psid = window.currentChatPSID;
 
-            // Auto-send via Facebook Tag (POST_PURCHASE_UPDATE) for 24h error
-            if (error.is24HourError && originalMessage && pageId && psid) {
-                console.log('[MESSAGE] 🔄 Auto-sending via Facebook Tag for 24h error');
+            // Auto-send via Facebook Tag (POST_PURCHASE_UPDATE) for 24h error or 551 error
+            if ((error.is24HourError || error.isUserUnavailable) && originalMessage && pageId && psid) {
+                const errorType = error.is24HourError ? '24h error' : '551 (user unavailable)';
+                console.log(`[MESSAGE] 🔄 Auto-sending via Facebook Tag for ${errorType}`);
 
                 // Extract image URLs from uploadedImagesData
                 const imageUrls = [];
@@ -13394,10 +13395,10 @@ async function sendMessageInternal(messageData) {
                 // Auto-send without showing modal
                 window.sendViaFacebookTagFromModal(encodeURIComponent(originalMessage), pageId, psid, imageUrls);
             } else {
-                // For 551 error or missing data, just show notification
+                // For missing data, just show notification
                 let message = error.is24HourError
                     ? '⚠️ Không thể gửi Inbox (đã quá 24h). Thử gửi qua Facebook Message Tag hoặc dùng COMMENT!'
-                    : '⚠️ Không thể gửi Inbox (người dùng không có mặt). Vui lòng dùng COMMENT!';
+                    : '⚠️ Không thể gửi Inbox (người dùng không có mặt). Đang thử gửi qua Facebook...';
 
                 if (window.notificationManager) {
                     window.notificationManager.show(message, 'warning', 8000);
