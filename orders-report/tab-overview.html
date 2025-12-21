@@ -1492,6 +1492,15 @@
                     const promises = batch.map(async (order) => {
                         try {
                             const detail = await fetchOrderData(order.orderId);
+                            // Merge Tags from allOrders (Tab1) into fetched data
+                            // API doesn't return Tags, so we need to preserve it
+                            if (order.Tags) {
+                                detail.Tags = order.Tags;
+                            }
+                            // Also preserve SessionIndex (STT)
+                            if (order.stt) {
+                                detail.SessionIndex = order.stt;
+                            }
                             return { success: true, orderId: order.orderId, data: detail };
                         } catch (error) {
                             console.error(`[REPORT] Error fetching order ${order.orderId}:`, error);
