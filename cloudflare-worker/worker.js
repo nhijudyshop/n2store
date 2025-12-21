@@ -943,6 +943,10 @@ export default {
       } else if (pathname === '/api/realtime/start') {
         // Realtime Server (Render)
         targetUrl = `https://n2store-fallback.onrender.com/api/realtime/start`;
+      } else if (pathname.startsWith('/api/realtime/tpos/')) {
+        // TPOS Realtime Server (Render) - for tpos-chat.js
+        const tposPath = pathname.replace(/^\/api\/realtime\/tpos\//, '');
+        targetUrl = `https://n2store-fallback.onrender.com/api/realtime/tpos/${tposPath}${url.search}`;
       } else if (pathname.startsWith('/api/chat/')) {
         // Chat Server (Render) - Using same server as realtime
         const chatPath = pathname.replace(/^\/api\/chat\//, '');
