@@ -1024,11 +1024,17 @@
                 const selector = document.getElementById('tableSelector');
                 selector.innerHTML = '<option value="">-- Chọn bảng --</option>';
 
+                // Store table data for later use (avoid loading twice)
+                const tableDataMap = {};
+
                 Object.keys(tables).forEach(safeTableName => {
                     const tableData = tables[safeTableName];
                     const originalName = tableData.tableName || safeTableName.replace(/_/g, ' ');
                     const orderCount = tableData.orders?.length || 0;
                     const fetchedAt = tableData.fetchedAt ? new Date(tableData.fetchedAt).toLocaleString('vi-VN') : '';
+
+                    // Store for later use
+                    tableDataMap[originalName] = tableData;
 
                     const option = document.createElement('option');
                     option.value = originalName;
@@ -1042,9 +1048,12 @@
                 if (currentTableName) {
                     // Check if currentTableName option exists in dropdown
                     let optionExists = false;
+                    let matchedTableData = null;
+
                     for (let option of selector.options) {
                         if (option.value === currentTableName) {
                             optionExists = true;
+                            matchedTableData = tableDataMap[currentTableName];
                             break;
                         }
                     }
@@ -1063,9 +1072,11 @@
                     // Only auto-load from Firebase if:
                     // 1. The table exists in Firebase
                     // 2. We did NOT just receive fresh data from tab1
-                    if (optionExists && !justReceivedFromTab1) {
-                        console.log(`[REPORT] 📥 Auto-loading data for table: ${currentTableName}`);
-                        await loadTableDataFromFirebase(currentTableName);
+                    if (optionExists && !justReceivedFromTab1 && matchedTableData) {
+                        console.log(`[REPORT] 📥 Using cached data for table: ${currentTableName}, orders: ${matchedTableData.orders?.length || 0}`);
+
+                        // Directly use the already-loaded data instead of fetching again
+                        populateCacheFromFirebaseData(currentTableName, matchedTableData);
                     } else if (justReceivedFromTab1) {
                         console.log(`[REPORT] ⏭️ Skipping auto-load from Firebase - just received fresh data from tab1 (${allOrders.length} orders)`);
                         // Reset the flag
@@ -1079,6 +1090,52 @@
             } finally {
                 isLoadingTables = false;
             }
+        }
+
+        // Populate cache from already-loaded Firebase data
+        function populateCacheFromFirebaseData(tableName, firebaseData) {
+            if (!firebaseData) {
+                console.log(`[REPORT] ⚠️ No Firebase data to populate for: ${tableName}`);
+                return;
+            }
+
+            console.log(`[REPORT] 📦 Populating cache for "${tableName}" with ${firebaseData.orders?.length || 0} orders`);
+
+            // Update cache
+            cachedOrderDetails[tableName] = {
+                tableName: firebaseData.tableName || tableName,
+                orders: firebaseData.orders || [],
+                fetchedAt: firebaseData.fetchedAt,
+                totalOrders: firebaseData.totalOrders,
+                successCount: firebaseData.successCount,
+                errorCount: firebaseData.errorCount
+            };
+
+            // Update allOrders for display
+            allOrders = (firebaseData.orders || []).map((order, index) => ({
+                stt: order.SessionIndex || (index + 1).toString(),
+                orderId: order.Id,
+                orderCode: order.Code,
+                customerName: order.PartnerName || order.Name,
+                phone: order.PartnerPhone || order.Telephone,
+                address: order.PartnerAddress || order.Address,
+                totalAmount: order.TotalAmount || order.AmountTotal || 0,
+                quantity: order.TotalQuantity || 0,
+                note: order.Note,
+                state: order.Status || order.State,
+                dateOrder: order.DateCreated || order.DateOrder,
+                Tags: order.Tags,
+                liveCampaignName: order.LiveCampaignName
+            }));
+
+            // Update Firebase status
+            firebaseTableName = tableName;
+            firebaseDataFetchedAt = firebaseData.fetchedAt;
+
+            // Hide helper - data exists
+            updateTableHelperUI(false);
+
+            console.log(`[REPORT] ✅ Cache populated: ${cachedOrderDetails[tableName]?.orders?.length || 0} orders`);
         }
 
         // Handle table selection change
@@ -1115,55 +1172,9 @@
             const firebaseData = await loadFromFirebase(tableName);
 
             if (firebaseData) {
-                // Update cache
-                cachedOrderDetails[tableName] = {
-                    tableName: firebaseData.tableName || tableName,
-                    orders: firebaseData.orders || [],
-                    fetchedAt: firebaseData.fetchedAt,
-                    totalOrders: firebaseData.totalOrders,
-                    successCount: firebaseData.successCount,
-                    errorCount: firebaseData.errorCount
-                };
-
-                // Update allOrders for display
-                allOrders = (firebaseData.orders || []).map((order, index) => ({
-                    stt: order.SessionIndex || (index + 1).toString(),
-                    orderId: order.Id,
-                    orderCode: order.Code,
-                    customerName: order.PartnerName || order.Name,
-                    phone: order.PartnerPhone || order.Telephone,
-                    address: order.PartnerAddress || order.Address,
-                    totalAmount: order.TotalAmount || order.AmountTotal || 0,
-                    quantity: order.TotalQuantity || 0,
-                    note: order.Note,
-                    state: order.Status || order.State,
-                    dateOrder: order.DateCreated || order.DateOrder,
-                    Tags: order.Tags,
-                    liveCampaignName: order.LiveCampaignName
-                }));
-
-                saveCachedData();
+                // Use the common function to populate cache
+                populateCacheFromFirebaseData(tableName, firebaseData);
                 console.log(`[REPORT] ✅ Loaded ${firebaseData.orders?.length || 0} orders for table: ${tableName}`);
-
-                // Hide helper - data exists
-                updateTableHelperUI(false);
-
-                // Request tab1 to fetch conversations for these orders
-                // This enables messages column to display content when viewing this data in tab1
-                // Anti-spam: Only send request once per table
-                if (firebaseData.orders && firebaseData.orders.length > 0) {
-                    if (!conversationFetchRequestedFor.has(tableName)) {
-                        console.log('[REPORT] 📤 Requesting tab1 to fetch conversations for Firebase orders...');
-                        window.parent.postMessage({
-                            type: 'FETCH_CONVERSATIONS_FOR_ORDERS',
-                            orders: firebaseData.orders
-                        }, '*');
-                        conversationFetchRequestedFor.add(tableName);
-                        console.log('[REPORT] ✅ Marked table as conversation-fetched:', tableName);
-                    } else {
-                        console.log('[REPORT] ⏭️ Skipping conversation fetch - already requested for:', tableName);
-                    }
-                }
             } else {
                 console.log(`[REPORT] ⚠️ No data found for table: ${tableName}`);
                 allOrders = [];
@@ -1592,20 +1603,16 @@
             const cached = cachedOrderDetails[currentTableName];
             const orders = cached.orders || [];
 
-            // If metadata exists but orders haven't been loaded from Firebase yet, trigger load
-            if (orders.length === 0 && (cached.orderCount > 0 || cached.successCount > 0)) {
+            // If no orders loaded yet, show empty state
+            if (orders.length === 0) {
                 area.innerHTML = `
-                    <div class="loading-state">
-                        <i class="fas fa-spinner"></i>
-                        <h3>Đang tải dữ liệu từ Firebase...</h3>
-                        <p>Bảng: ${currentTableName}</p>
+                    <div class="empty-state">
+                        <i class="fas fa-database"></i>
+                        <h3>Chưa có dữ liệu chi tiết</h3>
+                        <p>Nhấn "Lấy chi tiết đơn hàng" để tải dữ liệu đầy đủ từ API</p>
+                        <p style="margin-top: 10px; color: #667eea;"><strong>Bảng hiện tại:</strong> ${currentTableName}</p>
                     </div>
                 `;
-                // Trigger loading from Firebase
-                loadTableDataFromFirebase(currentTableName).then(() => {
-                    renderCachedDetailsTab();
-                    updateCachedCountBadge();
-                });
                 return;
             }
 
@@ -2054,13 +2061,19 @@
             await loadAvailableTables();
 
             // Update UI with loaded data
+            updateStats();
             updateCachedCountBadge();
+            renderOrdersTable();
             renderCachedDetailsTab();
 
-            // Request data from tab1 (for overview)
-            setTimeout(() => {
-                requestDataFromTab1();
-            }, 500);
+            console.log(`[REPORT] 🎉 Initialization complete. allOrders: ${allOrders.length}, cachedOrders: ${cachedOrderDetails[currentTableName]?.orders?.length || 0}`);
+
+            // Request data from tab1 (for overview) - only if no data loaded from Firebase
+            if (allOrders.length === 0) {
+                setTimeout(() => {
+                    requestDataFromTab1();
+                }, 500);
+            }
         });
 
         // =====================================================
