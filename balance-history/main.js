@@ -1581,6 +1581,92 @@ const customerListCache = {};
 const CUSTOMER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
+ * Get TPOS bearer token from localStorage
+ * @returns {string|null} - Bearer token or null if not found
+ */
+function getTposToken() {
+    try {
+        const tokenData = localStorage.getItem('bearer_token_data');
+        if (tokenData) {
+            const parsed = JSON.parse(tokenData);
+            // Check if token is still valid (with 5 minute buffer)
+            if (parsed.access_token && parsed.expires_at) {
+                const bufferTime = 5 * 60 * 1000;
+                if (Date.now() < (parsed.expires_at - bufferTime)) {
+                    return parsed.access_token;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[CUSTOMER-LIST] Error reading token:', error);
+    }
+    return null;
+}
+
+/**
+ * Fallback to TPOS OData API when proxy API returns empty
+ * @param {string} phone - Phone number to search
+ * @returns {Promise<Array>} - Array of customers from TPOS
+ */
+async function fetchCustomersFromTpos(phone) {
+    const token = getTposToken();
+    if (!token) {
+        console.warn('[CUSTOMER-LIST] No valid TPOS token available for fallback');
+        return [];
+    }
+
+    try {
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Name=${encodeURIComponent(phone)}&$top=50&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'&$count=true`;
+
+        console.log('[CUSTOMER-LIST] Fallback to TPOS OData API:', tposUrl);
+
+        const response = await fetch(tposUrl, {
+            headers: {
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'authorization': `Bearer ${token}`,
+                'x-requested-with': 'XMLHttpRequest'
+            }
+        });
+
+        if (!response.ok) {
+            console.warn('[CUSTOMER-LIST] TPOS API returned status:', response.status);
+            return [];
+        }
+
+        const result = await response.json();
+
+        if (!result.value || result.value.length === 0) {
+            console.log('[CUSTOMER-LIST] TPOS API returned no results');
+            return [];
+        }
+
+        console.log('[CUSTOMER-LIST] TPOS API found', result.value.length, 'customers');
+
+        // Transform TPOS response to match expected customer format
+        return result.value.map(tposCustomer => ({
+            id: tposCustomer.Id,
+            tpos_id: tposCustomer.Id,
+            name: tposCustomer.Name || tposCustomer.DisplayName || '',
+            phone: tposCustomer.Phone || '',
+            address: tposCustomer.Street || tposCustomer.FullAddress || '',
+            email: tposCustomer.Email || '',
+            status: tposCustomer.StatusText || tposCustomer.Status || 'Bình thường',
+            debt: tposCustomer.Debit || 0,
+            source: 'TPOS',
+            // Additional TPOS fields
+            facebook_id: tposCustomer.FacebookASIds || null,
+            zalo: tposCustomer.Zalo || null,
+            created_at: tposCustomer.DateCreated || null,
+            updated_at: tposCustomer.LastUpdated || null
+        }));
+
+    } catch (error) {
+        console.error('[CUSTOMER-LIST] TPOS fallback error:', error);
+        return [];
+    }
+}
+
+/**
  * Show customers list by phone number
  * @param {string} phone - Phone number to search
  */
@@ -1636,11 +1722,28 @@ async function showCustomersByPhone(phone) {
         }
 
         // Filter customers with exact phone match
-        const customers = (customersResult.data || []).filter(c => {
+        let customers = (customersResult.data || []).filter(c => {
             const customerPhone = (c.phone || '').replace(/\D/g, '');
             const searchPhone = phone.replace(/\D/g, '');
             return customerPhone === searchPhone || customerPhone.endsWith(searchPhone) || searchPhone.endsWith(customerPhone);
         });
+
+        // Fallback to TPOS OData API if proxy returned empty results
+        if (customers.length === 0) {
+            console.log('[CUSTOMER-LIST] Proxy API returned empty, trying TPOS fallback...');
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Đang tìm kiếm trong TPOS...', 'info');
+            }
+
+            const tposCustomers = await fetchCustomersFromTpos(phone);
+            if (tposCustomers.length > 0) {
+                customers = tposCustomers;
+                console.log('[CUSTOMER-LIST] Using TPOS fallback results:', customers.length, 'customers');
+                if (window.NotificationManager) {
+                    window.NotificationManager.showNotification(`Tìm thấy ${customers.length} khách hàng từ TPOS`, 'success');
+                }
+            }
+        }
 
         renderCustomerList(customers, balanceStats, phone);
 
