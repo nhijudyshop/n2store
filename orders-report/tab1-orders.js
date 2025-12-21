@@ -191,6 +191,7 @@ const itemsPerPage = 50;
 let selectedOrderIds = new Set();
 let isLoading = false;
 let loadingAborted = false;
+let isRendering = false; // Flag to prevent duplicate renders during scroll
 let employeeRanges = []; // Employee STT ranges
 
 // Table Sorting State
@@ -5810,6 +5811,7 @@ async function handleSearch() {
     document.getElementById("tableSearchInput").value = "";
     document.getElementById("searchClearBtn").classList.remove("active");
     allData = [];
+    renderedCount = 0; // Reset rendered count to prevent duplicate rows
     await fetchOrders();
 }
 
@@ -5866,6 +5868,7 @@ async function fetchOrders() {
         let skip = 0;
         let hasMore = true;
         allData = [];
+        renderedCount = 0; // Reset rendered count to prevent duplicate rows on new fetch
         const headers = await window.tokenManager.getAuthHeader();
 
         // ===== PHASE 1: Load first batch and show immediately =====
@@ -6541,6 +6544,9 @@ function renderTable() {
 }
 
 function renderAllOrders() {
+    // Set rendering flag to prevent loadMoreRows() from running during render
+    isRendering = true;
+
     const tableContainer = document.getElementById('tableContainer');
 
     // Show the default table wrapper
@@ -6553,7 +6559,6 @@ function renderAllOrders() {
     const existingSections = tableContainer.querySelectorAll('.employee-section');
     existingSections.forEach(section => section.remove());
 
-    // Render all orders in the default table
     // Render all orders in the default table
     const tbody = document.getElementById("tableBody");
 
@@ -6577,6 +6582,9 @@ function renderAllOrders() {
     if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
         batchFetchDebts(phonesToFetch);
     }
+
+    // Clear rendering flag after render is complete
+    isRendering = false;
 }
 
 // =====================================================
@@ -6603,10 +6611,12 @@ function handleTableScroll(e) {
 }
 
 function loadMoreRows() {
-    // Check if we have more data to render
-    if (renderedCount >= displayedData.length) return;
+    // Prevent appending during active render or if we have no more data
+    if (isRendering || renderedCount >= displayedData.length) return;
 
     const tbody = document.getElementById("tableBody");
+    if (!tbody) return; // Safety check
+
     const spacer = document.getElementById("table-spacer");
 
     // Remove spacer temporarily
@@ -6655,6 +6665,50 @@ function loadMoreRows() {
 }
 
 function renderByEmployee() {
+    // Set rendering flag to prevent any race conditions
+    isRendering = true;
+
+    const tableContainer = document.getElementById('tableContainer');
+
+    // If background loading is in progress, show loading placeholder and wait for completion
+    // This ensures employee sections show complete data
+    if (isLoadingInBackground) {
+        console.log('[EMPLOYEE-VIEW] Waiting for background loading to complete...');
+
+        // Hide the default table
+        const defaultTableWrapper = tableContainer.querySelector('.table-wrapper');
+        if (defaultTableWrapper) {
+            defaultTableWrapper.style.display = 'none';
+        }
+
+        // Remove existing employee sections
+        const existingSections = tableContainer.querySelectorAll('.employee-section');
+        existingSections.forEach(section => section.remove());
+
+        // Show loading placeholder
+        let loadingPlaceholder = tableContainer.querySelector('.employee-loading-placeholder');
+        if (!loadingPlaceholder) {
+            loadingPlaceholder = document.createElement('div');
+            loadingPlaceholder.className = 'employee-loading-placeholder';
+            loadingPlaceholder.style.cssText = 'text-align: center; padding: 60px 20px; color: #6b7280;';
+            loadingPlaceholder.innerHTML = `
+                <i class="fas fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 16px; display: block;"></i>
+                <div style="font-size: 16px; font-weight: 500;">Đang tải dữ liệu đơn hàng...</div>
+                <div style="font-size: 13px; margin-top: 8px;">Vui lòng đợi cho tới khi tải xong toàn bộ dữ liệu</div>
+            `;
+            tableContainer.appendChild(loadingPlaceholder);
+        }
+
+        isRendering = false;
+        return; // performTableSearch() will be called again when loading completes
+    }
+
+    // Remove loading placeholder if exists
+    const loadingPlaceholder = tableContainer.querySelector('.employee-loading-placeholder');
+    if (loadingPlaceholder) {
+        loadingPlaceholder.remove();
+    }
+
     // Group data by employee
     const dataByEmployee = {};
 
@@ -6683,8 +6737,7 @@ function renderByEmployee() {
         orderedEmployees.push('Khác');
     }
 
-    // Hide the default table container
-    const tableContainer = document.getElementById('tableContainer');
+    // Hide the default table container (tableContainer already declared above)
     const defaultTableWrapper = tableContainer.querySelector('.table-wrapper');
     if (defaultTableWrapper) {
         defaultTableWrapper.style.display = 'none';
@@ -6769,6 +6822,9 @@ function renderByEmployee() {
     if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
         batchFetchDebts(phonesToFetch);
     }
+
+    // Clear rendering flag after render is complete
+    isRendering = false;
 }
 
 function createRowHTML(order) {
