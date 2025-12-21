@@ -1093,15 +1093,17 @@
         }
 
         // Populate cache from already-loaded Firebase data
+        // NOTE: This function ONLY updates cachedOrderDetails for "Chi tiết đã tải" tab
+        // It does NOT touch allOrders - allOrders comes from Tab1 only
         function populateCacheFromFirebaseData(tableName, firebaseData) {
             if (!firebaseData) {
                 console.log(`[REPORT] ⚠️ No Firebase data to populate for: ${tableName}`);
                 return;
             }
 
-            console.log(`[REPORT] 📦 Populating cache for "${tableName}" with ${firebaseData.orders?.length || 0} orders`);
+            console.log(`[REPORT] 📦 Populating cache (Chi tiết đã tải) for "${tableName}" with ${firebaseData.orders?.length || 0} orders`);
 
-            // Update cache
+            // Update cache for "Chi tiết đã tải" tab ONLY
             cachedOrderDetails[tableName] = {
                 tableName: firebaseData.tableName || tableName,
                 orders: firebaseData.orders || [],
@@ -1111,34 +1113,23 @@
                 errorCount: firebaseData.errorCount
             };
 
-            // Update allOrders for display
-            allOrders = (firebaseData.orders || []).map((order, index) => ({
-                stt: order.SessionIndex || (index + 1).toString(),
-                orderId: order.Id,
-                orderCode: order.Code,
-                customerName: order.PartnerName || order.Name,
-                phone: order.PartnerPhone || order.Telephone,
-                address: order.PartnerAddress || order.Address,
-                totalAmount: order.TotalAmount || order.AmountTotal || 0,
-                quantity: order.TotalQuantity || 0,
-                note: order.Note,
-                state: order.Status || order.State,
-                dateOrder: order.DateCreated || order.DateOrder,
-                Tags: order.Tags,
-                liveCampaignName: order.LiveCampaignName
-            }));
+            // DO NOT set allOrders here - allOrders comes from Tab1 only!
+            // allOrders is for "Tổng quan" tab
+            // cachedOrderDetails is for "Chi tiết đã tải" tab
 
             // Update Firebase status
             firebaseTableName = tableName;
             firebaseDataFetchedAt = firebaseData.fetchedAt;
 
-            // Hide helper - data exists
+            // Hide helper - data exists in Firebase
             updateTableHelperUI(false);
 
-            console.log(`[REPORT] ✅ Cache populated: ${cachedOrderDetails[tableName]?.orders?.length || 0} orders`);
+            console.log(`[REPORT] ✅ Cache populated (Chi tiết đã tải): ${cachedOrderDetails[tableName]?.orders?.length || 0} orders`);
         }
 
         // Handle table selection change
+        // NOTE: This only affects Chi tiết đã tải tab, NOT Tổng quan tab
+        // Tổng quan always shows data from Tab1 (allOrders)
         async function handleTableChange() {
             const selector = document.getElementById('tableSelector');
             const selectedTable = selector.value;
@@ -1149,41 +1140,46 @@
                 return;
             }
 
-            console.log(`[REPORT] 📋 User manually switching to table: ${selectedTable}`);
+            console.log(`[REPORT] 📋 User manually switching to table: ${selectedTable} (Chi tiết đã tải only)`);
             userManuallySelectedTable = true; // Mark that user manually selected a table
             currentTableName = selectedTable;
 
-            // Load data from Firebase
+            // Load cached data from Firebase for Chi tiết đã tải tab
             await loadTableDataFromFirebase(selectedTable);
 
-            // Update UI
-            updateCachedCountBadge();
-            renderCachedDetailsTab();
-            renderOrdersTable();
+            // Note: renderOrdersTable is NOT called here because:
+            // - Tổng quan shows allOrders from Tab1 (doesn't change when dropdown changes)
+            // - Chi tiết đã tải shows cachedOrderDetails (updated by loadTableDataFromFirebase)
         }
 
-        // Load table data from Firebase
+        // Load table data from Firebase (for "Chi tiết đã tải" tab ONLY)
+        // NOTE: This does NOT affect allOrders - allOrders comes from Tab1
         async function loadTableDataFromFirebase(tableName) {
             if (!tableName) return;
 
-            console.log(`[REPORT] 📥 Loading data for table: ${tableName}`);
+            console.log(`[REPORT] 📥 Loading Firebase data for table: ${tableName} (Chi tiết đã tải)`);
 
             // Try loading from Firebase
             const firebaseData = await loadFromFirebase(tableName);
 
             if (firebaseData) {
-                // Use the common function to populate cache
+                // Use the common function to populate cache (Chi tiết đã tải only)
                 populateCacheFromFirebaseData(tableName, firebaseData);
-                console.log(`[REPORT] ✅ Loaded ${firebaseData.orders?.length || 0} orders for table: ${tableName}`);
+                console.log(`[REPORT] ✅ Loaded ${firebaseData.orders?.length || 0} orders from Firebase for: ${tableName}`);
             } else {
-                console.log(`[REPORT] ⚠️ No data found for table: ${tableName}`);
-                allOrders = [];
+                console.log(`[REPORT] ⚠️ No Firebase data for table: ${tableName} - need to fetch`);
+                // Clear cache for this table (Chi tiết đã tải will show empty message)
+                delete cachedOrderDetails[tableName];
 
-                // Show helper - no data for this table
+                // Update Firebase status - show helper that this campaign needs fetching
                 firebaseTableName = null;
                 firebaseDataFetchedAt = null;
                 updateTableHelperUI(true);
             }
+
+            // Update UI for Chi tiết đã tải tab
+            updateCachedCountBadge();
+            renderCachedDetailsTab();
         }
 
         // Save cached data to localStorage (only metadata, not full orders)
@@ -1588,13 +1584,15 @@
         function renderCachedDetailsTab() {
             const area = document.getElementById('cachedDetailsArea');
 
+            // Check if campaign has cached details in Firebase
             if (!currentTableName || !cachedOrderDetails[currentTableName]) {
+                const campaignName = currentTableName || 'chưa chọn';
                 area.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-database"></i>
-                        <h3>Chưa có dữ liệu chi tiết</h3>
-                        <p>Nhấn "Lấy chi tiết đơn hàng" để tải dữ liệu đầy đủ từ API</p>
-                        ${currentTableName ? `<p style="margin-top: 10px; color: #667eea;"><strong>Bảng hiện tại:</strong> ${currentTableName}</p>` : ''}
+                        <h3>Chưa Lấy chi tiết chiến dịch "${campaignName}"</h3>
+                        <p>Bấm <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu đầy đủ từ API và lưu vào Firebase</p>
+                        ${currentTableName ? `<p style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 8px; color: #856404;"><i class="fas fa-info-circle"></i> Sau khi lấy chi tiết, dữ liệu sẽ được lưu và hiển thị ở đây</p>` : ''}
                     </div>
                 `;
                 return;
@@ -1603,14 +1601,13 @@
             const cached = cachedOrderDetails[currentTableName];
             const orders = cached.orders || [];
 
-            // If no orders loaded yet, show empty state
+            // If cache exists but empty orders (edge case)
             if (orders.length === 0) {
                 area.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-database"></i>
-                        <h3>Chưa có dữ liệu chi tiết</h3>
-                        <p>Nhấn "Lấy chi tiết đơn hàng" để tải dữ liệu đầy đủ từ API</p>
-                        <p style="margin-top: 10px; color: #667eea;"><strong>Bảng hiện tại:</strong> ${currentTableName}</p>
+                        <h3>Chưa Lấy chi tiết chiến dịch "${currentTableName}"</h3>
+                        <p>Bấm <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu đầy đủ từ API</p>
                     </div>
                 `;
                 return;
@@ -2057,23 +2054,21 @@
             currentTableName = await loadDefaultTableNameFromFirebase();
             console.log('[REPORT] 📋 Default table set to:', currentTableName);
 
-            // Load available tables from Firebase (will auto-select currentTableName and load data)
+            // Load available tables from Firebase (for Chi tiết đã tải dropdown)
             await loadAvailableTables();
 
-            // Update UI with loaded data
-            updateStats();
+            // Update UI for Chi tiết đã tải tab (from Firebase cache)
             updateCachedCountBadge();
-            renderOrdersTable();
             renderCachedDetailsTab();
 
-            console.log(`[REPORT] 🎉 Initialization complete. allOrders: ${allOrders.length}, cachedOrders: ${cachedOrderDetails[currentTableName]?.orders?.length || 0}`);
+            console.log(`[REPORT] 🎉 Firebase init complete. cachedOrders for "${currentTableName}": ${cachedOrderDetails[currentTableName]?.orders?.length || 0}`);
 
-            // Request data from tab1 (for overview) - only if no data loaded from Firebase
-            if (allOrders.length === 0) {
-                setTimeout(() => {
-                    requestDataFromTab1();
-                }, 500);
-            }
+            // ALWAYS request data from Tab1 for Tổng quan tab
+            // allOrders MUST come from Tab1, NOT from Firebase
+            setTimeout(() => {
+                console.log('[REPORT] 📡 Requesting Tab1 data for Tổng quan...');
+                requestDataFromTab1();
+            }, 500);
         });
 
         // =====================================================
