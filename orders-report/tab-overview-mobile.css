@@ -486,6 +486,202 @@
     }
 
     /* ========================================
+       PRODUCT STATISTICS - Modern Card Layout
+       ======================================== */
+
+    /* Hide table structure on mobile */
+    #productStatsTable thead,
+    #tagStatsTable thead {
+        display: none !important;
+    }
+
+    #productStatsTable,
+    #tagStatsTable {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    #productStatsTable tbody,
+    #tagStatsTable tbody {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* Transform table rows into modern cards */
+    #productStatsTable tbody tr,
+    #tagStatsTable tbody tr {
+        display: block !important;
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border: 1px solid var(--border-color);
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    #productStatsTable tbody tr:active,
+    #tagStatsTable tbody tr:active {
+        transform: scale(0.98);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    /* Hide default table cells */
+    #productStatsTable tbody tr td,
+    #tagStatsTable tbody tr td {
+        display: block !important;
+        border: none !important;
+        padding: 0 !important;
+        text-align: left !important;
+    }
+
+    /* Product Code - Large and prominent */
+    #productStatsTable tbody tr td:nth-child(1) {
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+        background: var(--primary-gradient);
+        padding: 4px 10px !important;
+        border-radius: var(--radius-full);
+        display: inline-block !important;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Product Name - Clear and readable */
+    #productStatsTable tbody tr td:nth-child(2) {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+        line-height: 1.4;
+        padding-right: 40px !important; /* Space for arrow button */
+    }
+
+    /* Stats container for quantity and orders */
+    #productStatsTable tbody tr td:nth-child(3),
+    #productStatsTable tbody tr td:nth-child(4) {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 6px;
+        background: var(--bg-secondary);
+        padding: 8px 12px !important;
+        border-radius: var(--radius-md);
+        font-size: 13px;
+        font-weight: 600;
+        margin-right: 8px;
+        margin-bottom: 8px;
+    }
+
+    /* Add icons before stats using ::before */
+    #productStatsTable tbody tr td:nth-child(3)::before {
+        content: "📦";
+        font-size: 16px;
+        margin-right: 4px;
+    }
+
+    #productStatsTable tbody tr td:nth-child(4)::before {
+        content: "🛒";
+        font-size: 16px;
+        margin-right: 4px;
+    }
+
+    /* View details button */
+    #productStatsTable tbody tr td:nth-child(5) {
+        position: absolute !important;
+        top: 16px;
+        right: 16px;
+    }
+
+    #productStatsTable tbody tr td:nth-child(5) button {
+        background: var(--primary-gradient) !important;
+        border: none !important;
+        color: white !important;
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: var(--radius-md) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 14px !important;
+        padding: 0 !important;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3) !important;
+        transition: all 0.2s ease !important;
+    }
+
+    #productStatsTable tbody tr td:nth-child(5) button:active {
+        transform: scale(0.9) !important;
+    }
+
+    /* Tag Statistics - Similar styling */
+    #tagStatsTable tbody tr td:nth-child(1) {
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        padding: 4px 10px !important;
+        border-radius: var(--radius-full);
+        display: inline-block !important;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 4px rgba(245, 87, 108, 0.3);
+    }
+
+    #tagStatsTable tbody tr td:nth-child(2) {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+        line-height: 1.4;
+    }
+
+    #tagStatsTable tbody tr td:nth-child(3),
+    #tagStatsTable tbody tr td:nth-child(4) {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 6px;
+        background: var(--bg-secondary);
+        padding: 8px 12px !important;
+        border-radius: var(--radius-md);
+        font-size: 13px;
+        font-weight: 600;
+        margin-right: 8px;
+        margin-bottom: 8px;
+    }
+
+    #tagStatsTable tbody tr td:nth-child(3)::before {
+        content: "📦";
+        font-size: 16px;
+        margin-right: 4px;
+    }
+
+    #tagStatsTable tbody tr td:nth-child(4)::before {
+        content: "🛒";
+        font-size: 16px;
+        margin-right: 4px;
+    }
+
+    /* Stats table wrapper */
+    .stats-table-wrapper {
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
+    /* Summary stats at top of product section */
+    .content-section h2 .section-badge {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 4px 12px;
+        border-radius: var(--radius-full);
+        font-size: 13px;
+        font-weight: 700;
+        margin-left: auto;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    }
+
+    /* ========================================
        COLLAPSIBLE SECTIONS - Modern Card Design
        ======================================== */
 
