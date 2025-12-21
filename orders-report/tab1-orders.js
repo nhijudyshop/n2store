@@ -11121,9 +11121,21 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             window.currentConversationId = inboxConv.id;
                             window.currentInboxConversationId = inboxConv.id;
 
+                            // DEBUG: Log conversation structure to find real PSID field
+                            console.log('[CHAT-MODAL] 🔍 DEBUG Conversation data:', JSON.stringify({
+                                id: inboxConv.id,
+                                from_psid: inboxConv.from_psid,
+                                from: inboxConv.from,
+                                customers: inboxConv.customers,
+                                page_id: inboxConv.page_id
+                            }, null, 2));
+
                             // IMPORTANT: Save the real Facebook PSID from conversation data
                             // This is needed for Facebook Graph API (different from Pancake internal ID)
-                            window.currentRealFacebookPSID = inboxConv.from_psid || (inboxConv.customers && inboxConv.customers[0]?.fb_id);
+                            // Try multiple sources: from_psid, from.id, customers[0].fb_id
+                            window.currentRealFacebookPSID = inboxConv.from_psid
+                                || inboxConv.from?.id
+                                || (inboxConv.customers && inboxConv.customers[0]?.fb_id);
                             console.log('[CHAT-MODAL] ✅ Real Facebook PSID:', window.currentRealFacebookPSID);
 
                             console.log('[CHAT-MODAL] ✅ Using INBOX conversationId:', window.currentConversationId);
