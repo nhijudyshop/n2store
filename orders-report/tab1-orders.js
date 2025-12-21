@@ -9552,6 +9552,7 @@ function sendOrdersDataToOverview() {
 // Make these global so they can be accessed from other modules (e.g., chat-modal-products.js)
 window.currentChatChannelId = null;
 window.currentChatPSID = null;
+window.currentRealFacebookPSID = null;  // Real Facebook PSID (from_psid) for Graph API
 window.currentConversationId = null;  // Lưu conversation ID cho reply
 
 // Module-scoped variables (not needed externally)
@@ -11120,6 +11121,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             window.currentConversationId = inboxConv.id;
                             window.currentInboxConversationId = inboxConv.id;
 
+                            // IMPORTANT: Save the real Facebook PSID from conversation data
+                            // This is needed for Facebook Graph API (different from Pancake internal ID)
+                            window.currentRealFacebookPSID = inboxConv.from_psid || (inboxConv.customers && inboxConv.customers[0]?.fb_id);
+                            console.log('[CHAT-MODAL] ✅ Real Facebook PSID:', window.currentRealFacebookPSID);
+
                             console.log('[CHAT-MODAL] ✅ Using INBOX conversationId:', window.currentConversationId);
 
                             // Initialize read state for INBOX
@@ -11280,6 +11286,7 @@ window.closeChatModal = async function () {
     // Reset pagination state
     window.currentChatChannelId = null;
     window.currentChatPSID = null;
+    window.currentRealFacebookPSID = null;
     currentChatType = null;
     currentChatCursor = null;
     window.allChatMessages = [];
@@ -13367,7 +13374,37 @@ async function sendMessageInternal(messageData) {
             // Get the original message text from the messageData
             const originalMessage = messageData.message || '';
             const pageId = messageData.channelId || window.currentChatChannelId;
-            const psid = window.currentChatPSID;
+
+            // IMPORTANT: Get the real Facebook PSID from conversation data
+            // window.currentChatPSID may be Pancake internal ID, not Facebook PSID
+            // Facebook Graph API requires the real PSID (from_psid or customers[0].fb_id)
+            let psid = null;
+
+            // Try to use the saved real Facebook PSID first
+            if (window.currentRealFacebookPSID) {
+                psid = window.currentRealFacebookPSID;
+                console.log('[MESSAGE] ✅ Using saved real Facebook PSID:', psid);
+            }
+            // Fallback: Try to get from current conversation data (cached)
+            else if (window.currentConversationId && window.pancakeDataManager) {
+                const convId = window.currentConversationId;
+                // Search in inboxMapByPSID values
+                for (const [key, conv] of window.pancakeDataManager.inboxMapByPSID) {
+                    if (conv.id === convId) {
+                        psid = conv.from_psid || (conv.customers && conv.customers[0]?.fb_id);
+                        if (psid) {
+                            console.log('[MESSAGE] ✅ Got real PSID from cached conversation:', psid);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Last fallback to currentChatPSID if no real PSID found
+            if (!psid) {
+                psid = window.currentChatPSID;
+                console.log('[MESSAGE] ⚠️ Using currentChatPSID as last fallback:', psid);
+            }
 
             // Auto-send via Facebook Tag (POST_PURCHASE_UPDATE) for 24h error or 551 error
             if ((error.is24HourError || error.isUserUnavailable) && originalMessage && pageId && psid) {
