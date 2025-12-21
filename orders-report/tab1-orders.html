@@ -3699,9 +3699,10 @@
                         customDateContainer.style.display = 'flex';
                     }
 
-                    // ✅ FIX: Gán selectedCampaign TRƯỚC khi gọi handleSearch()
-                    // selectedCampaign đã được khai báo trong tab1-orders.js
-                    selectedCampaign = { isCustom: true };
+                    // Set selectedCampaign for custom mode
+                    if (typeof selectedCampaign !== 'undefined') {
+                        selectedCampaign = { isCustom: true };
+                    }
 
                     // 🔥 SYNC: Save filter preferences to Firebase
                     if (typeof saveFilterPreferencesToFirebase === 'function') {
@@ -4162,9 +4163,10 @@
                         customDateContainer.style.display = 'flex';
                     }
 
-                    // ✅ FIX: Gán selectedCampaign TRƯỚC khi gọi handleSearch()
-                    // selectedCampaign đã được khai báo trong tab1-orders.js
-                    selectedCampaign = { isCustom: true };
+                    // Set selectedCampaign for custom mode
+                    if (typeof selectedCampaign !== 'undefined') {
+                        selectedCampaign = { isCustom: true };
+                    }
 
                     // 🔥 SYNC: Save filter preferences to Firebase for page refresh
                     if (typeof saveFilterPreferencesToFirebase === 'function') {
@@ -4272,9 +4274,10 @@
                             customDateContainer.style.display = 'flex';
                         }
 
-                        // ✅ FIX: Gán selectedCampaign TRƯỚC khi gọi handleSearch()
-                        // selectedCampaign đã được khai báo trong tab1-orders.js
-                        selectedCampaign = { isCustom: true };
+                        // Set selectedCampaign for custom mode
+                        if (typeof selectedCampaign !== 'undefined') {
+                            selectedCampaign = { isCustom: true };
+                        }
 
                         // 🔥 SYNC: Save filter preferences to Firebase for page refresh
                         if (typeof saveFilterPreferencesToFirebase === 'function') {

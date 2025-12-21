@@ -193,7 +193,6 @@ let isLoading = false;
 let loadingAborted = false;
 let isRendering = false; // Flag to prevent duplicate renders during scroll
 let employeeRanges = []; // Employee STT ranges
-let selectedCampaign = null; // Campaign được chọn từ dropdown (fix race condition với campaignManager)
 
 // Table Sorting State
 let currentSortColumn = null; // 'phone', 'address', 'debt', 'total', 'quantity'
@@ -714,28 +713,29 @@ window.addEventListener("DOMContentLoaded", async function () {
     }
 
     // Initialize Pancake Token Manager & Data Manager
-    // ✅ DEFERRED: Không await để không blocking - chạy background
-    // Chat columns sẽ hiển thị "-" trước, cập nhật sau khi init xong
-    window.pancakeInitPromise = null;
+    // IMPORTANT: Wait for this to complete before loading campaigns
+    // so that chat columns can display properly on first render
+    let pancakeInitialized = false;
     if (window.pancakeTokenManager && window.pancakeDataManager) {
-        console.log('[PANCAKE] Initializing Pancake managers (deferred)...');
+        console.log('[PANCAKE] Initializing Pancake managers...');
 
-        // Initialize token manager first (sync)
+        // Initialize token manager first
         window.pancakeTokenManager.initialize();
 
-        // ✅ DEFER: Chạy background, không await
-        window.pancakeInitPromise = window.pancakeDataManager.initialize().then(result => {
-            if (result) {
-                console.log('[PANCAKE] ✅ PancakeDataManager initialized in background');
+        // Then initialize data manager and WAIT for it
+        try {
+            pancakeInitialized = await window.pancakeDataManager.initialize();
+            if (pancakeInitialized) {
+                console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully');
+                // Set chatDataManager alias for compatibility
                 window.chatDataManager = window.pancakeDataManager;
             } else {
                 console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
+                console.warn('[PANCAKE] Please set JWT token in Pancake Settings');
             }
-            return result;
-        }).catch(error => {
+        } catch (error) {
             console.error('[PANCAKE] ❌ Error initializing PancakeDataManager:', error);
-            return false;
-        });
+        }
     } else {
         console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
@@ -773,56 +773,12 @@ window.addEventListener("DOMContentLoaded", async function () {
         tableWrapper.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    // ✅ FAST LOAD: Check Custom Mode từ Firebase TRƯỚC
-    // Nếu Custom mode → SKIP loadCampaignList(), fetch orders ngay
-    const savedPrefs = await loadFilterPreferencesFromFirebase();
-    const isCustomModeFromPrefs = savedPrefs?.isCustomMode === true;
-
-    const startDateValue = document.getElementById("startDate").value;
-    const endDateValue = document.getElementById("endDate").value;
-
-    if (isCustomModeFromPrefs && savedPrefs.customStartDate) {
-        console.log('[FAST-LOAD] ✅ Custom mode detected, skipping loadCampaignList for instant load');
-        console.log('[FAST-LOAD] Custom start date:', savedPrefs.customStartDate);
-
-        // Gán selectedCampaign ngay
-        selectedCampaign = { isCustom: true };
-
-        // Set custom date
-        const customStartDateInput = document.getElementById('customStartDate');
-        if (customStartDateInput) {
-            customStartDateInput.value = savedPrefs.customStartDate;
-        }
-
-        // Show custom date container
-        const customDateContainer = document.getElementById('customDateFilterContainer');
-        if (customDateContainer) {
-            customDateContainer.style.display = 'flex';
-        }
-
-        // Populate dropdown với chỉ Custom option (tạm thời)
-        const select = document.getElementById('campaignFilter');
-        if (select) {
-            select.innerHTML = '<option value="custom" selected>🔮 Custom (đang tải chiến dịch...)</option>';
-        }
-
-        // Fetch orders NGAY - không cần đợi loadCampaignList
-        console.log('[FAST-LOAD] Fetching orders immediately...');
-        await handleSearch();
-
-        // Background: Load campaigns để populate dropdown đầy đủ (không blocking)
-        console.log('[FAST-LOAD] Loading campaigns in background...');
-        loadCampaignList(0, startDateValue, endDateValue, false).then(() => {
-            console.log('[BACKGROUND] ✅ Campaigns loaded in background');
-        }).catch(err => {
-            console.error('[BACKGROUND] Error loading campaigns:', err);
-        });
-    } else {
-        // Normal flow - cần loadCampaignList trước
-        console.log('[AUTO-LOAD] Normal mode, loading campaigns from TPOS API...');
-        console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
-        await loadCampaignList(0, startDateValue, endDateValue, true);
-    }
+    // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
+    // Tags sẽ được load SAU KHI load xong đơn hàng và hiển thị bảng
+    // NOTE: chatDataManager is now available (pancakeDataManager) for chat column rendering
+    console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
+    console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
+    await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
 
     // Search functionality
     const searchInput = document.getElementById("tableSearchInput");
@@ -5907,7 +5863,7 @@ async function fetchOrders() {
         }
 
         const PAGE_SIZE = 1000; // API fetch size for background loading
-        const INITIAL_PAGE_SIZE = 20; // ✅ Giảm từ 50 → 20 để hiển thị nhanh hơn
+        const INITIAL_PAGE_SIZE = 50; // Smaller size for instant first load
         const UPDATE_EVERY = 200; // Update UI every 200 orders
         let skip = 0;
         let hasMore = true;
@@ -5941,35 +5897,37 @@ async function fetchOrders() {
         // Also update Overview tab with first batch
         sendOrdersDataToOverview();
 
-        // ✅ OPTIMIZED: Load conversations in BACKGROUND - không blocking UI
-        // Cột tin nhắn/bình luận sẽ hiển thị "-" trước, cập nhật sau khi load xong
-        console.log('[PROGRESSIVE] Loading conversations in background...');
+        // Load conversations and comment conversations for first batch
+        console.log('[PROGRESSIVE] Loading conversations for first batch...');
+        if (window.chatDataManager) {
+            // Set loading state for messages column indicator
+            isLoadingConversations = true;
 
-        // Set loading state for messages column indicator
-        isLoadingConversations = true;
+            // Collect unique channel IDs from orders (parse from Facebook_PostId)
+            const channelIds = [...new Set(
+                allData
+                    .map(order => window.chatDataManager.parseChannelId(order.Facebook_PostId))
+                    .filter(id => id) // Remove null/undefined
+            )];
+            console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
 
-        // Collect unique channel IDs from orders (parse from Facebook_PostId)
-        const channelIds = [...new Set(
-            allData
-                .map(order => {
-                    if (window.chatDataManager && window.chatDataManager.parseChannelId) {
-                        return window.chatDataManager.parseChannelId(order.Facebook_PostId);
-                    }
-                    // Fallback: extract from Facebook_PostId format "pageId_postId"
-                    const postId = order.Facebook_PostId;
-                    if (postId && postId.includes('_')) {
-                        return postId.split('_')[0];
-                    }
-                    return null;
-                })
-                .filter(id => id) // Remove null/undefined
-        )];
-        console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
+            // FIX: fetchConversations now uses Type="all" to fetch both messages and comments in 1 request
+            // No need to call both methods anymore - this reduces API calls by 50%!
+            // Force refresh (true) to always fetch fresh data when searching
+            await window.chatDataManager.fetchConversations(true, channelIds);
 
-        // ✅ BACKGROUND: Không await - chạy song song với các task khác
-        fetchConversationsAndUpdateCells(channelIds).catch(err => {
-            console.error('[PROGRESSIVE] Error in background conversations:', err);
-        });
+            // Fetch Pancake conversations for unread info
+            if (window.pancakeDataManager) {
+                console.log('[PANCAKE] Fetching conversations for unread info...');
+                await window.pancakeDataManager.fetchConversations(true);
+                console.log('[PANCAKE] ✅ Conversations fetched');
+            }
+
+            // Clear loading state
+            isLoadingConversations = false;
+
+            performTableSearch(); // Re-apply filters and merge with new chat data
+        }
 
         // Load tags in background
         loadAvailableTags().catch(err => console.error('[TAGS] Error loading tags:', err));
@@ -7192,125 +7150,6 @@ function renderCommentsColumn(order) {
     // Always render with clickable cell (even when showing "-") as long as we have channelId and psid
     // This allows users to open the modal even when there are no comments yet
     return renderChatColumnWithData(order, commentInfo, channelId, psid, 'comments');
-}
-
-// =====================================================
-// ✅ CELL-BY-CELL UPDATE - Update message/comment cells without full re-render
-// =====================================================
-
-/**
- * Update all message and comment cells after conversations are loaded
- * This avoids full table re-render and is much faster
- */
-function updateAllMessageCells() {
-    console.log('[CELL-UPDATE] Updating message cells for', displayedData.length, 'orders...');
-    const startTime = performance.now();
-
-    let updatedCount = 0;
-    displayedData.forEach(order => {
-        const updated = updateMessageCellsForOrder(order);
-        if (updated) updatedCount++;
-    });
-
-    const elapsed = performance.now() - startTime;
-    console.log(`[CELL-UPDATE] ✅ Updated ${updatedCount} cells in ${elapsed.toFixed(0)}ms`);
-}
-
-/**
- * Update message and comment cells for a single order
- * @param {Object} order - Order object
- * @returns {boolean} - True if cells were updated
- */
-function updateMessageCellsForOrder(order) {
-    // Find row by order ID (handle merged orders with combined IDs)
-    const orderId = order.Id;
-    const checkbox = document.querySelector(`input[name="orderCheckbox"][value="${orderId}"]`);
-    if (!checkbox) return false;
-
-    const row = checkbox.closest('tr');
-    if (!row) return false;
-
-    // Update messages cell
-    const msgCell = row.querySelector('[data-column="messages"]');
-    if (msgCell) {
-        const newMsgHtml = renderMessagesColumn(order);
-        // Extract just the inner content (without outer <td> tags)
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = newMsgHtml;
-        const newCell = tempDiv.querySelector('td');
-        if (newCell) {
-            msgCell.innerHTML = newCell.innerHTML;
-            // Copy attributes
-            Array.from(newCell.attributes).forEach(attr => {
-                if (attr.name !== 'data-column') {
-                    msgCell.setAttribute(attr.name, attr.value);
-                }
-            });
-        }
-    }
-
-    // Update comments cell
-    const cmmCell = row.querySelector('[data-column="comments"]');
-    if (cmmCell) {
-        const newCmmHtml = renderCommentsColumn(order);
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = newCmmHtml;
-        const newCell = tempDiv.querySelector('td');
-        if (newCell) {
-            cmmCell.innerHTML = newCell.innerHTML;
-            Array.from(newCell.attributes).forEach(attr => {
-                if (attr.name !== 'data-column') {
-                    cmmCell.setAttribute(attr.name, attr.value);
-                }
-            });
-        }
-    }
-
-    return true;
-}
-
-/**
- * Fetch conversations in background and update cells when done
- * @param {Array} channelIds - Channel IDs to fetch
- */
-async function fetchConversationsAndUpdateCells(channelIds) {
-    console.log('[BACKGROUND-CONV] Starting background conversations fetch...');
-    const startTime = performance.now();
-
-    try {
-        // Wait for pancake init if it's still running
-        if (window.pancakeInitPromise) {
-            console.log('[BACKGROUND-CONV] Waiting for pancake init...');
-            await window.pancakeInitPromise;
-        }
-
-        if (!window.chatDataManager) {
-            console.warn('[BACKGROUND-CONV] chatDataManager not available');
-            isLoadingConversations = false;
-            return;
-        }
-
-        // Fetch conversations
-        await window.chatDataManager.fetchConversations(true, channelIds);
-
-        // Fetch Pancake conversations for unread info
-        if (window.pancakeDataManager) {
-            await window.pancakeDataManager.fetchConversations(true);
-        }
-
-        // Clear loading state
-        isLoadingConversations = false;
-
-        // Update cells instead of full re-render
-        updateAllMessageCells();
-
-        const elapsed = performance.now() - startTime;
-        console.log(`[BACKGROUND-CONV] ✅ Conversations loaded and cells updated in ${elapsed.toFixed(0)}ms`);
-
-    } catch (error) {
-        console.error('[BACKGROUND-CONV] Error:', error);
-        isLoadingConversations = false;
-    }
 }
 
 // #region ═══════════════════════════════════════════════════════════════════════
