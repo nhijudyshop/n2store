@@ -951,7 +951,7 @@ export default {
       } else if (pathname.startsWith('/api/')) {
         // TPOS API (catch-all) - forward to tomato.tpos.vn/api/...
         const apiPath = pathname.replace(/^\/api\//, '');
-        targetUrl = `https://tomato.tpos.vn/api/${apiPath}${url.search}`;
+        targetUrl = `https://tomato.tpos.vn/${apiPath}${url.search}`;
         isTPOSRequest = true;
       } else {
         // Unknown route
