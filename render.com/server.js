@@ -272,6 +272,16 @@ class TposRealtimeClient {
         this.isConnected = false;
         this.heartbeatInterval = null;
         this.reconnectTimer = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10;
+
+        // Server-provided timing (will be updated from transport info)
+        this.pingInterval = 25000;  // Default 25s
+        this.pingTimeout = 20000;   // Default 20s
+
+        // Last activity tracking
+        this.lastPingTime = null;
+        this.lastPongTime = null;
 
         // TPOS specific data
         this.token = null;
@@ -281,13 +291,14 @@ class TposRealtimeClient {
     start(token, room = 'tomato.tpos.vn') {
         this.token = token;
         this.room = room;
+        this.reconnectAttempts = 0;
         this.connect();
     }
 
     connect() {
         if (this.isConnected || !this.token) return;
 
-        console.log('[TPOS-WS] Connecting to TPOS...');
+        console.log('[TPOS-WS] Connecting to TPOS... (attempt', this.reconnectAttempts + 1, ')');
         const headers = {
             'Origin': 'https://nhijudyshop.github.io',
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -302,6 +313,7 @@ class TposRealtimeClient {
 
         this.ws.on('open', () => {
             console.log('[TPOS-WS] WebSocket connected, sending handshake...');
+            this.reconnectAttempts = 0; // Reset on successful connect
             // Socket.IO namespace connect
             this.ws.send('40/chatomni,');
         });
@@ -311,9 +323,16 @@ class TposRealtimeClient {
             this.isConnected = false;
             this.stopHeartbeat();
 
-            // Reconnect after 5 seconds
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = setTimeout(() => this.connect(), 5000);
+            // Exponential backoff reconnect: 2s, 4s, 8s, 16s, 32s (max 60s)
+            if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
+                this.reconnectAttempts++;
+                console.log(`[TPOS-WS] Reconnecting in ${delay/1000}s...`);
+                clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = setTimeout(() => this.connect(), delay);
+            } else {
+                console.error('[TPOS-WS] Max reconnect attempts reached. Stopping.');
+            }
         });
 
         this.ws.on('error', (err) => {
@@ -329,14 +348,35 @@ class TposRealtimeClient {
     handleMessage(data) {
         // Socket.IO protocol messages
         if (data === '2') {
-            // Ping from server, respond with pong
+            // Ping from server, respond with pong immediately
             this.ws.send('3');
+            this.lastPongTime = Date.now();
+            return;
+        }
+
+        if (data === '3') {
+            // Pong response from server (for our ping)
+            this.lastPongTime = Date.now();
             return;
         }
 
         if (data.startsWith('0{')) {
-            // Transport info (sid, upgrades, pingInterval, etc.)
-            console.log('[TPOS-WS] Received transport info');
+            // Transport info (sid, upgrades, pingInterval, pingTimeout, etc.)
+            try {
+                const info = JSON.parse(data.substring(1));
+                console.log('[TPOS-WS] Received transport info:', JSON.stringify(info));
+
+                // Update timing from server
+                if (info.pingInterval) {
+                    this.pingInterval = info.pingInterval;
+                }
+                if (info.pingTimeout) {
+                    this.pingTimeout = info.pingTimeout;
+                }
+                console.log(`[TPOS-WS] Server timing: pingInterval=${this.pingInterval}ms, pingTimeout=${this.pingTimeout}ms`);
+            } catch (e) {
+                console.log('[TPOS-WS] Received transport info (parse failed)');
+            }
             return;
         }
 
@@ -398,12 +438,20 @@ class TposRealtimeClient {
 
     startHeartbeat() {
         this.stopHeartbeat();
-        // Socket.IO uses ping/pong every 25 seconds (from pingInterval)
+
+        // Use interval slightly less than server's pingInterval to ensure we respond in time
+        // Server sends ping every pingInterval, expects pong within pingTimeout
+        // We send our own ping at 80% of pingInterval to stay ahead
+        const heartbeatMs = Math.floor(this.pingInterval * 0.8);
+
+        console.log(`[TPOS-WS] Starting heartbeat every ${heartbeatMs}ms`);
+
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.send('2'); // Ping
+                this.lastPingTime = Date.now();
             }
-        }, 25000);
+        }, heartbeatMs);
     }
 
     stopHeartbeat() {
@@ -421,6 +469,7 @@ class TposRealtimeClient {
             this.ws = null;
         }
         this.isConnected = false;
+        this.reconnectAttempts = 0;
         console.log('[TPOS-WS] Stopped');
     }
 
@@ -428,7 +477,12 @@ class TposRealtimeClient {
         return {
             connected: this.isConnected,
             room: this.room,
-            hasToken: !!this.token
+            hasToken: !!this.token,
+            reconnectAttempts: this.reconnectAttempts,
+            pingInterval: this.pingInterval,
+            pingTimeout: this.pingTimeout,
+            lastPingTime: this.lastPingTime,
+            lastPongTime: this.lastPongTime
         };
     }
 }

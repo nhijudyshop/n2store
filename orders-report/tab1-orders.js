@@ -6383,6 +6383,12 @@ function renderAllOrders() {
         </td>`;
         tbody.appendChild(spacer);
     }
+
+    // Batch fetch debts for all phones in initial data (ONE API call instead of 50!)
+    const phonesToFetch = initialData.map(order => order.Telephone).filter(Boolean);
+    if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
+        batchFetchDebts(phonesToFetch);
+    }
 }
 
 // =====================================================
@@ -6451,6 +6457,12 @@ function loadMoreRows() {
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
         </td>`;
         tbody.appendChild(newSpacer);
+    }
+
+    // Batch fetch debts for newly loaded phones
+    const phonesToFetch = nextBatch.map(order => order.Telephone).filter(Boolean);
+    if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
+        batchFetchDebts(phonesToFetch);
     }
 }
 
@@ -6563,6 +6575,12 @@ function renderByEmployee() {
             updateActionButtons();
         });
     });
+
+    // Batch fetch debts for all phones in displayed data (ONE API call!)
+    const phonesToFetch = displayedData.map(order => order.Telephone).filter(Boolean);
+    if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
+        batchFetchDebts(phonesToFetch);
+    }
 }
 
 function createRowHTML(order) {
@@ -20458,6 +20476,8 @@ function formatDebtCurrency(amount) {
 
 /**
  * Render debt column HTML
+ * NOTE: This now only shows cached value or loading spinner.
+ * Actual fetching is done by batchFetchDebts() after table render.
  * @param {string} phone - Phone number
  * @returns {string} HTML string for debt column
  */
@@ -20472,17 +20492,13 @@ function renderDebtColumn(phone) {
     const cachedDebt = getCachedDebt(normalizedPhone);
 
     if (cachedDebt !== null) {
-        // Has cached value
+        // Has cached value - display immediately
         const color = cachedDebt > 0 ? '#10b981' : '#9ca3af';
         return `<span style="color: ${color}; font-weight: 500; font-size: 12px;">${formatDebtCurrency(cachedDebt)}</span>`;
     }
 
-    // No cache - show loading and fetch async
-    fetchDebtForPhone(normalizedPhone).then(debt => {
-        // Update all cells with this phone number after fetch
-        updateDebtCells(normalizedPhone, debt);
-    });
-
+    // No cache - show loading spinner (batchFetchDebts will update this later)
+    // Do NOT call fetchDebtForPhone here to avoid spam!
     return `<span class="debt-loading" data-phone="${normalizedPhone}" style="color: #9ca3af; font-size: 11px;"><i class="fas fa-spinner fa-spin"></i></span>`;
 }
 
@@ -20502,7 +20518,8 @@ function updateDebtCells(phone, debt) {
 }
 
 /**
- * Batch fetch debts for multiple phones (call after table render)
+ * Batch fetch debts for multiple phones using NEW batch API
+ * Reduces 80 API calls → 1 API call!
  * @param {Array<string>} phones - Array of phone numbers
  */
 async function batchFetchDebts(phones) {
@@ -20511,13 +20528,48 @@ async function batchFetchDebts(phones) {
 
     if (uncachedPhones.length === 0) return;
 
-    console.log(`[DEBT] Batch fetching ${uncachedPhones.length} phones...`);
+    console.log(`[DEBT-BATCH] Fetching ${uncachedPhones.length} phones in ONE request...`);
 
-    // Fetch in parallel (limit to 10 concurrent)
-    const batchSize = 10;
-    for (let i = 0; i < uncachedPhones.length; i += batchSize) {
-        const batch = uncachedPhones.slice(i, i + batchSize);
-        await Promise.all(batch.map(phone => fetchDebtForPhone(phone)));
+    try {
+        // Call batch API - ONE request for ALL phones!
+        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary-batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phones: uncachedPhones })
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            console.log(`[DEBT-BATCH] ✅ Received ${result.count || Object.keys(result.data).length} results`);
+
+            // Update cache and UI for all phones
+            for (const [phone, debtData] of Object.entries(result.data)) {
+                const totalDebt = debtData.total_debt || 0;
+                saveDebtToCache(phone, totalDebt);
+                updateDebtCells(phone, totalDebt);
+            }
+
+            // Handle phones that weren't in the response (set to 0)
+            for (const phone of uncachedPhones) {
+                if (!result.data[phone]) {
+                    saveDebtToCache(phone, 0);
+                    updateDebtCells(phone, 0);
+                }
+            }
+        } else {
+            console.error('[DEBT-BATCH] ❌ API error:', result.error);
+            // Fallback: set all to 0
+            for (const phone of uncachedPhones) {
+                updateDebtCells(phone, 0);
+            }
+        }
+    } catch (error) {
+        console.error('[DEBT-BATCH] ❌ Network error:', error);
+        // Fallback: set all to 0
+        for (const phone of uncachedPhones) {
+            updateDebtCells(phone, 0);
+        }
     }
 }
 
