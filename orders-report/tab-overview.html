@@ -625,15 +625,17 @@
                 <i class="fas fa-file-alt"></i>
                 Báo Cáo Tổng Hợp
             </h1>
-            <div class="header-actions" style="display: flex; gap: 10px; align-items: center;">
-                <div style="display: flex; flex-direction: column; gap: 5px;">
-                    <label style="font-size: 12px; color: #666; font-weight: 500;">Chọn bảng:</label>
+            <div class="header-actions" style="display: flex; gap: 15px; align-items: center;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="font-size: 13px; color: #667eea; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <i class="fas fa-table" style="margin-right: 5px;"></i>Chiến dịch Live:
+                    </label>
                     <select id="tableSelector" onchange="handleTableChange()"
-                        style="padding: 10px 16px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; font-weight: 500; background: white; color: #333; min-width: 200px; cursor: pointer;">
+                        style="padding: 12px 20px; border: 3px solid #667eea; border-radius: 12px; font-size: 16px; font-weight: 700; background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%); color: #4c51bf; min-width: 280px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); transition: all 0.2s;">
                         <option value="">-- Chọn bảng --</option>
                     </select>
                     <!-- Message helper khi bảng chưa có trong Firebase -->
-                    <div id="tableHelperMessage" style="display: none; font-size: 12px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; color: #856404; max-width: 280px;">
+                    <div id="tableHelperMessage" style="display: none; font-size: 12px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; color: #856404; max-width: 320px;">
                         <i class="fas fa-info-circle"></i>
                         <span id="tableHelperText">Bảng này chưa có dữ liệu chi tiết. Nhấn "Lấy chi tiết đơn hàng" để tải.</span>
                     </div>
@@ -696,15 +698,6 @@
                     <div class="stat-icon purple"><i class="fas fa-users"></i></div>
                     <div class="stat-value" id="statTotalCustomers">0</div>
                     <div class="stat-label">Khách hàng</div>
-                </div>
-            </div>
-
-            <!-- Content Area -->
-            <div id="contentArea">
-                <div class="empty-state">
-                    <i class="fas fa-inbox"></i>
-                    <h3>Chưa có dữ liệu</h3>
-                    <p>Nhấn "Làm mới" để lấy dữ liệu từ tab Quản Lý Đơn Hàng</p>
                 </div>
             </div>
         </div>
@@ -1149,10 +1142,6 @@
 
             // Load cached data from Firebase for Chi tiết đã tải tab
             await loadTableDataFromFirebase(selectedTable);
-
-            // Note: renderOrdersTable is NOT called here because:
-            // - Tổng quan shows allOrders from Tab1 (doesn't change when dropdown changes)
-            // - Chi tiết đã tải shows cachedOrderDetails (updated by loadTableDataFromFirebase)
         }
 
         // Load table data from Firebase (for "Chi tiết đã tải" tab ONLY)
@@ -1234,7 +1223,6 @@
                 if (!event.data.tableName) {
                     console.log('[REPORT] ⚠️ No campaign selected in Tab 1');
                     setRefreshLoading(false);
-                    showEmptyState('Vui lòng chọn và tải chiến dịch ở "Quản Lý Đơn Hàng" trước');
                     return;
                 }
 
@@ -1305,7 +1293,6 @@
 
                 // Update UI
                 updateStats();
-                renderOrdersTable();
                 updateCachedCountBadge();
                 renderCachedDetailsTab();
 
@@ -1375,7 +1362,6 @@
 
             dataReceivedFromTab1 = false; // Reset flag before request
             setRefreshLoading(true);
-            showLoading('Đang tải dữ liệu từ tab Quản Lý Đơn Hàng...');
 
             window.parent.postMessage({
                 type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
@@ -1390,7 +1376,7 @@
                         requestDataFromTab1();
                     } else {
                         setRefreshLoading(false);
-                        showEmptyState('Không thể lấy dữ liệu. Vui lòng mở tab "Quản Lý Đơn Hàng" và tải dữ liệu trước.');
+                        console.log('[REPORT] ❌ Failed to get data from Tab1 after retries');
                         requestRetryCount = 0; // Reset for next time
                     }
                 } else {
@@ -1747,62 +1733,6 @@
             return amount.toLocaleString('vi-VN');
         }
 
-        // =====================================================
-        // RENDER ORDERS TABLE
-        // =====================================================
-        function renderOrdersTable() {
-            if (allOrders.length === 0) {
-                showEmptyState('Không có đơn hàng');
-                return;
-            }
-
-            const contentArea = document.getElementById('contentArea');
-
-            let html = `
-                ${currentTableName ? `
-                    <div class="campaign-info">
-                        <div class="campaign-name"><i class="fas fa-table"></i> ${currentTableName}</div>
-                        <div class="campaign-meta">${allOrders.length} đơn hàng</div>
-                    </div>
-                ` : ''}
-                <div class="content-section">
-                    <h2><i class="fas fa-list"></i> Danh sách đơn hàng (${allOrders.length})</h2>
-                    <div style="overflow-x: auto;">
-                        <table class="orders-table">
-                            <thead>
-                                <tr>
-                                    <th>STT</th>
-                                    <th>Mã đơn</th>
-                                    <th>Tag</th>
-                                    <th>Khách hàng</th>
-                                    <th>SĐT</th>
-                                    <th>Số lượng</th>
-                                    <th>Tổng tiền</th>
-                                    <th>Trạng thái</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-
-            allOrders.forEach((order, index) => {
-                const tagsHtml = parseOrderTagsHtml(order.Tags);
-                html += `
-                    <tr onclick="openOrderDetail('${order.orderId}', ${index})">
-                        <td>${order.stt || index + 1}</td>
-                        <td class="order-code">${order.orderCode || ''}</td>
-                        <td><div class="tags-cell">${tagsHtml}</div></td>
-                        <td>${order.customerName || ''}</td>
-                        <td>${order.phone || ''}</td>
-                        <td>${order.quantity || 0}</td>
-                        <td class="amount">${(order.totalAmount || 0).toLocaleString('vi-VN')}đ</td>
-                        <td>${order.state || ''}</td>
-                    </tr>
-                `;
-            });
-
-            html += `</tbody></table></div></div>`;
-            contentArea.innerHTML = html;
-        }
 
         // =====================================================
         // ORDER DETAIL MODAL
@@ -2020,29 +1950,6 @@
                     }
                     return '<span class="' + cls + '">' + match + '</span>';
                 });
-        }
-
-        function showLoading(message) {
-            document.getElementById('contentArea').innerHTML = `
-                <div class="content-section">
-                    <div class="loading-state">
-                        <i class="fas fa-spinner"></i>
-                        <h3>${message || 'Đang tải...'}</h3>
-                    </div>
-                </div>
-            `;
-        }
-
-        function showEmptyState(message) {
-            document.getElementById('contentArea').innerHTML = `
-                <div class="content-section">
-                    <div class="empty-state">
-                        <i class="fas fa-inbox"></i>
-                        <h3>Chưa có dữ liệu</h3>
-                        <p>${message}</p>
-                    </div>
-                </div>
-            `;
         }
 
         // =====================================================
