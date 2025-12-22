@@ -28,11 +28,18 @@ jobs:
           sed -i "s|window.GEMINI_PRO_KEY = savedGeminiProKey \|\| '' \|\| '';|window.GEMINI_PRO_KEY = savedGeminiProKey \|\| '${{ secrets.GEMINI_PRO_KEY }}' \|\| '';|g" invoice-compare/index.html
           
           echo "✅ GEMINI_PRO_KEY injected successfully"
+          
+          # Inject DEEPSEEK_API_KEY
+          sed -i "s|window.DEEPSEEK_API_KEY = savedDeepSeekKey \|\| '' \|\| '';|window.DEEPSEEK_API_KEY = savedDeepSeekKey \|\| '${{ secrets.DEEPSEEK_API_KEY }}' \|\| '';|g" invoice-compare/index.html
+          
+          echo "✅ DEEPSEEK_API_KEY injected successfully"
 
       - name: Verify injection
         run: |
           echo "Checking if PRO key was injected..."
           grep -q "GEMINI_PRO_KEY = savedGeminiProKey" invoice-compare/index.html && echo "✅ GEMINI_PRO_KEY pattern found" || echo "❌ Pattern not found"
+          echo "Checking if DeepSeek key was injected..."
+          grep -q "DEEPSEEK_API_KEY = savedDeepSeekKey" invoice-compare/index.html && echo "✅ DEEPSEEK_API_KEY pattern found" || echo "❌ Pattern not found"
 
       - name: Commit changes (if any)
         run: |
@@ -51,14 +58,15 @@ jobs:
       - name: Display success message
         run: |
           echo "=================================================="
-          echo "✅ GEMINI PRO KEY Injection Complete"
+          echo "✅ API Keys Injection Complete"
           echo "=================================================="
           echo ""
-          echo "PRO key has been injected into:"
+          echo "Keys have been injected into:"
           echo "  - invoice-compare/index.html"
           echo ""
           echo "The application will now use:"
           echo "  1. localStorage (if user set manually)"
-          echo "  2. GitHub Secrets GEMINI_PRO_KEY (injected by this workflow)"
+          echo "  2. GitHub Secrets GEMINI_PRO_KEY (if configured)"
+          echo "  3. GitHub Secrets DEEPSEEK_API_KEY (if configured)"
           echo ""
           echo "=================================================="

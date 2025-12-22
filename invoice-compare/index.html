@@ -28,9 +28,9 @@
     <!-- Load DeepSeek API Key -->
     <script>
         const savedDeepSeekKey = localStorage.getItem('deepseek_api_key') || '';
-        // TODO: GitHub Actions sẽ inject từ secret DEEPSEEK_API_KEY
-        window.DEEPSEEK_API_KEY = savedDeepSeekKey || 'sk-319cef4faabf413aa84beb51c383e9b1' || '';
-        console.log('[API-KEYS] DeepSeek:'.DEEPSEEK_API_KEY ? 'Configured ✓' : '⚠️ NOT CONFIGURED');
+        // GitHub Actions sẽ inject từ secret DEEPSEEK_API_KEY
+        window.DEEPSEEK_API_KEY = savedDeepSeekKey || '' || '';
+        console.log('[API-KEYS] DeepSeek:', window.DEEPSEEK_API_KEY ? 'Configured ✓' : '⚠️ NOT CONFIGURED');
     </script>
 
     <!-- DeepSeek AI Helper -->
