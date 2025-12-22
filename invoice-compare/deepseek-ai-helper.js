@@ -1,6 +1,6 @@
 /* =====================================================
    DEEPSEEK AI HELPER - For Invoice Analysis
-   Using OCR + Text Analysis approach
+   Using DeepSeek-OCR (via alphaXiv) + DeepSeek Chat Analysis
 
    DeepSeek API Documentation:
    https://platform.deepseek.com/api-docs
@@ -10,8 +10,9 @@
    - deepseek-chat: General chat/analysis
    - deepseek-reasoner: Deep reasoning (more expensive)
 
-   This helper uses OCR (Tesseract.js) to extract text from images,
-   then sends the text to DeepSeek for structured analysis.
+   This helper uses DeepSeek-OCR (hosted on alphaXiv) to extract text
+   from images, then sends the text to DeepSeek for structured analysis.
+   Tesseract.js is available as fallback OCR if DeepSeek-OCR fails.
    ===================================================== */
 
 // Load DeepSeek API Key
@@ -20,7 +21,12 @@ const DEEPSEEK_API_KEY = (window.DEEPSEEK_API_KEY || "").trim();
 // API Configuration - Use Cloudflare Worker proxy to bypass CORS
 const WORKER_PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 const DEEPSEEK_API_BASE = `${WORKER_PROXY_URL}/api/deepseek`;
+const DEEPSEEK_OCR_API = `${WORKER_PROXY_URL}/api/deepseek-ocr`;
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-chat';
+
+// OCR Configuration
+const OCR_PRIMARY = 'deepseek-ocr'; // 'deepseek-ocr' or 'tesseract'
+const OCR_FALLBACK_ENABLED = true;
 
 // Rate limiting
 let lastRequestTime = 0;
@@ -29,18 +35,106 @@ const MIN_REQUEST_INTERVAL = 500; // 500ms between requests
 // OCR Status
 let ocrWorker = null;
 let ocrReady = false;
+let deepseekOcrAvailable = true; // Will be set to false if DeepSeek-OCR fails
 
 // =====================================================
-// OCR INITIALIZATION
+// DEEPSEEK-OCR (via alphaXiv)
 // =====================================================
 
-async function initializeOCR() {
+async function extractTextWithDeepSeekOCR(imageSource) {
+    try {
+        console.log('[DEEPSEEK-OCR] 📷 Extracting text using DeepSeek-OCR (alphaXiv)...');
+
+        // Convert base64 to Blob/File for FormData
+        let file;
+
+        if (imageSource instanceof File) {
+            file = imageSource;
+        } else if (imageSource instanceof Blob) {
+            file = new File([imageSource], 'image.jpg', { type: imageSource.type || 'image/jpeg' });
+        } else if (typeof imageSource === 'string') {
+            // Handle base64 string
+            let base64Data = imageSource;
+            let mimeType = 'image/jpeg';
+
+            if (imageSource.startsWith('data:')) {
+                // Extract mime type and base64 data from data URI
+                const matches = imageSource.match(/^data:([^;]+);base64,(.+)$/);
+                if (matches) {
+                    mimeType = matches[1];
+                    base64Data = matches[2];
+                }
+            }
+
+            // Convert base64 to Blob
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: mimeType });
+            file = new File([blob], 'image.jpg', { type: mimeType });
+        } else {
+            throw new Error('Unsupported image source type');
+        }
+
+        console.log('[DEEPSEEK-OCR] File size:', file.size, 'bytes');
+
+        // Create FormData
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Call DeepSeek-OCR via worker proxy
+        const response = await fetch(DEEPSEEK_OCR_API, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`DeepSeek-OCR failed: ${errorData.error || response.statusText}`);
+        }
+
+        const result = await response.json();
+
+        // Extract text from response (handle different response formats)
+        let text = '';
+        if (result.text) {
+            text = result.text;
+        } else if (result.output) {
+            text = result.output;
+        } else if (result.result) {
+            text = typeof result.result === 'string' ? result.result : JSON.stringify(result.result);
+        } else if (typeof result === 'string') {
+            text = result;
+        } else {
+            text = JSON.stringify(result);
+        }
+
+        console.log(`[DEEPSEEK-OCR] ✅ Completed. Extracted ${text.length} characters`);
+        console.log('[DEEPSEEK-OCR] Text Preview:', text.substring(0, 500) + (text.length > 500 ? '...' : ''));
+
+        return text;
+
+    } catch (error) {
+        console.error('[DEEPSEEK-OCR] ❌ Failed:', error.message);
+        deepseekOcrAvailable = false;
+        throw error;
+    }
+}
+
+// =====================================================
+// TESSERACT.JS OCR (Fallback)
+// =====================================================
+
+async function initializeTesseractOCR() {
     if (ocrReady && ocrWorker) {
         return ocrWorker;
     }
 
     try {
-        console.log('[DEEPSEEK] 🔤 Initializing OCR (Tesseract.js)...');
+        console.log('[TESSERACT] 🔤 Initializing Tesseract.js OCR...');
 
         // Check if Tesseract is available
         if (typeof Tesseract === 'undefined') {
@@ -51,30 +145,26 @@ async function initializeOCR() {
         ocrWorker = await Tesseract.createWorker('vie+eng', 1, {
             logger: (m) => {
                 if (m.status === 'recognizing text') {
-                    console.log(`[OCR] Progress: ${Math.round(m.progress * 100)}%`);
+                    console.log(`[TESSERACT] Progress: ${Math.round(m.progress * 100)}%`);
                 }
             }
         });
 
         ocrReady = true;
-        console.log('[DEEPSEEK] ✅ OCR initialized successfully');
+        console.log('[TESSERACT] ✅ Initialized successfully');
         return ocrWorker;
 
     } catch (error) {
-        console.error('[DEEPSEEK] ❌ OCR initialization failed:', error);
+        console.error('[TESSERACT] ❌ Initialization failed:', error);
         throw error;
     }
 }
 
-// =====================================================
-// OCR TEXT EXTRACTION
-// =====================================================
-
-async function extractTextFromImage(imageSource) {
+async function extractTextWithTesseract(imageSource) {
     try {
-        console.log('[DEEPSEEK] 📷 Extracting text from image using OCR...');
+        console.log('[TESSERACT] 📷 Extracting text using Tesseract.js...');
 
-        const worker = await initializeOCR();
+        const worker = await initializeTesseractOCR();
 
         // imageSource can be: base64, URL, File, or Blob
         let imageData = imageSource;
@@ -87,15 +177,39 @@ async function extractTextFromImage(imageSource) {
         const result = await worker.recognize(imageData);
         const text = result.data.text;
 
-        console.log(`[DEEPSEEK] ✅ OCR completed. Extracted ${text.length} characters`);
-        console.log('[DEEPSEEK] OCR Text Preview:', text.substring(0, 500) + '...');
+        console.log(`[TESSERACT] ✅ Completed. Extracted ${text.length} characters`);
+        console.log('[TESSERACT] Text Preview:', text.substring(0, 500) + (text.length > 500 ? '...' : ''));
 
         return text;
 
     } catch (error) {
-        console.error('[DEEPSEEK] ❌ OCR extraction failed:', error);
-        throw new Error('Không thể trích xuất text từ ảnh: ' + error.message);
+        console.error('[TESSERACT] ❌ Failed:', error);
+        throw new Error('Tesseract OCR failed: ' + error.message);
     }
+}
+
+// =====================================================
+// UNIFIED OCR EXTRACTION (DeepSeek-OCR primary, Tesseract fallback)
+// =====================================================
+
+async function extractTextFromImage(imageSource) {
+    // Try DeepSeek-OCR first (if available and configured as primary)
+    if (OCR_PRIMARY === 'deepseek-ocr' && deepseekOcrAvailable) {
+        try {
+            return await extractTextWithDeepSeekOCR(imageSource);
+        } catch (error) {
+            console.warn('[OCR] DeepSeek-OCR failed, trying fallback...');
+
+            if (OCR_FALLBACK_ENABLED) {
+                console.log('[OCR] 🔄 Falling back to Tesseract.js...');
+                return await extractTextWithTesseract(imageSource);
+            }
+            throw error;
+        }
+    }
+
+    // Use Tesseract directly if configured or DeepSeek-OCR unavailable
+    return await extractTextWithTesseract(imageSource);
 }
 
 // =====================================================
@@ -187,9 +301,9 @@ async function analyzeImage(base64Image, prompt, options = {}) {
         mimeType = 'image/jpeg',
     } = options;
 
-    console.log('[DEEPSEEK] 🖼️ Starting image analysis (OCR + AI)...');
+    console.log('[DEEPSEEK] 🖼️ Starting image analysis (DeepSeek-OCR + AI)...');
 
-    // Step 1: Extract text using OCR
+    // Step 1: Extract text using OCR (DeepSeek-OCR or Tesseract fallback)
     const imageData = `data:${mimeType};base64,${base64Image}`;
     const extractedText = await extractTextFromImage(imageData);
 
@@ -230,10 +344,14 @@ async function analyzeMultipleImages(images, prompt, options = {}) {
         console.log(`[DEEPSEEK] Processing image ${i + 1}/${images.length}...`);
 
         const imageData = `data:${img.mimeType || 'image/jpeg'};base64,${img.base64}`;
-        const text = await extractTextFromImage(imageData);
 
-        if (text && text.trim().length > 10) {
-            allTexts.push(`--- ẢNH ${i + 1} ---\n${text}`);
+        try {
+            const text = await extractTextFromImage(imageData);
+            if (text && text.trim().length > 10) {
+                allTexts.push(`--- ẢNH ${i + 1} ---\n${text}`);
+            }
+        } catch (error) {
+            console.warn(`[DEEPSEEK] Failed to extract text from image ${i + 1}:`, error.message);
         }
     }
 
@@ -284,7 +402,7 @@ async function terminateOCR() {
         await ocrWorker.terminate();
         ocrWorker = null;
         ocrReady = false;
-        console.log('[DEEPSEEK] 🧹 OCR worker terminated');
+        console.log('[TESSERACT] 🧹 OCR worker terminated');
     }
 }
 
@@ -301,7 +419,9 @@ window.DeepSeekAI = {
 
     // OCR functions
     extractTextFromImage,
-    initializeOCR,
+    extractTextWithDeepSeekOCR,
+    extractTextWithTesseract,
+    initializeTesseractOCR,
     terminateOCR,
 
     // Utilities
@@ -310,20 +430,25 @@ window.DeepSeekAI = {
     // Status
     isConfigured: () => !!DEEPSEEK_API_KEY,
     isOCRReady: () => ocrReady,
+    isDeepSeekOCRAvailable: () => deepseekOcrAvailable,
 
     getStats: () => ({
         configured: !!DEEPSEEK_API_KEY,
         model: DEEPSEEK_DEFAULT_MODEL,
         apiBase: DEEPSEEK_API_BASE,
+        ocrApi: DEEPSEEK_OCR_API,
         proxyUrl: WORKER_PROXY_URL,
-        ocrReady: ocrReady,
-        approach: 'OCR + Text Analysis (via Worker proxy)',
+        ocrPrimary: OCR_PRIMARY,
+        ocrFallbackEnabled: OCR_FALLBACK_ENABLED,
+        tesseractReady: ocrReady,
+        deepseekOcrAvailable: deepseekOcrAvailable,
+        approach: 'DeepSeek-OCR (alphaXiv) + DeepSeek Chat Analysis',
     }),
 };
 
 // Log status on load
 console.log(`[DEEPSEEK-AI-HELPER] Loaded`);
 console.log(`[DEEPSEEK] API Key: ${DEEPSEEK_API_KEY ? 'Configured ✓' : '⚠️ NOT CONFIGURED'}`);
-console.log(`[DEEPSEEK] Approach: OCR (Tesseract.js) + DeepSeek Text Analysis`);
-console.log(`[DEEPSEEK] Proxy: ${WORKER_PROXY_URL} (CORS bypass)`);
-console.log(`[DEEPSEEK] Note: DeepSeek API does NOT support direct image analysis`);
+console.log(`[DEEPSEEK] OCR: DeepSeek-OCR (alphaXiv) with Tesseract.js fallback`);
+console.log(`[DEEPSEEK] Proxy: ${WORKER_PROXY_URL}`);
+console.log(`[DEEPSEEK] OCR Endpoint: ${DEEPSEEK_OCR_API}`);
