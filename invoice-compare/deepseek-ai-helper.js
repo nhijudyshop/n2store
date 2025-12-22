@@ -17,8 +17,9 @@
 // Load DeepSeek API Key
 const DEEPSEEK_API_KEY = (window.DEEPSEEK_API_KEY || "").trim();
 
-// API Configuration
-const DEEPSEEK_API_BASE = 'https://api.deepseek.com';
+// API Configuration - Use Cloudflare Worker proxy to bypass CORS
+const WORKER_PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+const DEEPSEEK_API_BASE = `${WORKER_PROXY_URL}/api/deepseek`;
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-chat';
 
 // Rate limiting
@@ -120,10 +121,11 @@ async function callDeepSeekAPI(messages, options = {}) {
     }
     lastRequestTime = Date.now();
 
-    const url = `${DEEPSEEK_API_BASE}/chat/completions`;
+    // Use worker proxy directly (it handles routing to DeepSeek)
+    const url = DEEPSEEK_API_BASE;
 
     try {
-        console.log(`[DEEPSEEK] 🤖 Calling API with model: ${model}`);
+        console.log(`[DEEPSEEK] 🤖 Calling API via Worker proxy with model: ${model}`);
 
         const response = await fetch(url, {
             method: 'POST',
@@ -313,8 +315,9 @@ window.DeepSeekAI = {
         configured: !!DEEPSEEK_API_KEY,
         model: DEEPSEEK_DEFAULT_MODEL,
         apiBase: DEEPSEEK_API_BASE,
+        proxyUrl: WORKER_PROXY_URL,
         ocrReady: ocrReady,
-        approach: 'OCR + Text Analysis',
+        approach: 'OCR + Text Analysis (via Worker proxy)',
     }),
 };
 
@@ -322,4 +325,5 @@ window.DeepSeekAI = {
 console.log(`[DEEPSEEK-AI-HELPER] Loaded`);
 console.log(`[DEEPSEEK] API Key: ${DEEPSEEK_API_KEY ? 'Configured ✓' : '⚠️ NOT CONFIGURED'}`);
 console.log(`[DEEPSEEK] Approach: OCR (Tesseract.js) + DeepSeek Text Analysis`);
+console.log(`[DEEPSEEK] Proxy: ${WORKER_PROXY_URL} (CORS bypass)`);
 console.log(`[DEEPSEEK] Note: DeepSeek API does NOT support direct image analysis`);
