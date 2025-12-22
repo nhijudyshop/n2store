@@ -7,10 +7,54 @@
 const TraHangModule = (function() {
     'use strict';
 
+    // API Configuration - Using proxy to bypass CORS
+    const API_CONFIG = {
+        // Proxy URL to bypass CORS restrictions
+        proxyBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata',
+        // Direct URL (for reference, not used due to CORS)
+        directBaseUrl: 'https://tomato.tpos.vn/odata',
+        // OData endpoint
+        endpoint: '/FastSaleOrder/ODataService.GetView',
+        pageSize: 50,
+
+        // Get token from multiple sources (priority order)
+        getToken: () => {
+            // 1. Use global tokenManager if available
+            if (typeof window.tokenManager !== 'undefined' && window.tokenManager.getToken) {
+                const token = window.tokenManager.getToken();
+                if (token) return token;
+            }
+
+            // 2. Check bearer_token_data (primary storage)
+            try {
+                const bearerData = localStorage.getItem('bearer_token_data');
+                if (bearerData) {
+                    const parsed = JSON.parse(bearerData);
+                    if (parsed.access_token) return parsed.access_token;
+                }
+            } catch (e) {}
+
+            // 3. Check auth key
+            try {
+                const authData = localStorage.getItem('auth');
+                if (authData) {
+                    const parsed = JSON.parse(authData);
+                    if (parsed.access_token) return parsed.access_token;
+                    if (parsed.token) return parsed.token;
+                }
+            } catch (e) {}
+
+            // 4. Fallback to tpos_token
+            return localStorage.getItem('tpos_token') || '';
+        }
+    };
+
     // State
     let traHangData = [];
     let filteredData = [];
     let isLoading = false;
+    let totalCount = 0;
+    let hasLoadedOnce = false;
 
     // DOM Elements cache
     const elements = {
@@ -30,7 +74,7 @@ const TraHangModule = (function() {
     function init() {
         cacheElements();
         bindEvents();
-        // Data will be loaded when user provides the method
+        setDefaultDates();
         console.log('TraHangModule initialized');
     }
 
@@ -48,6 +92,28 @@ const TraHangModule = (function() {
         elements.statDraft = document.getElementById('trahangStatDraft');
     }
 
+    // Set default dates (1 month ago to today)
+    function setDefaultDates() {
+        const today = new Date();
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+        if (elements.startDate) {
+            elements.startDate.value = formatDateForInput(oneMonthAgo);
+        }
+        if (elements.endDate) {
+            elements.endDate.value = formatDateForInput(today);
+        }
+    }
+
+    // Format date for input[type="date"]
+    function formatDateForInput(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
     // Bind events
     function bindEvents() {
         // Search input
@@ -60,12 +126,12 @@ const TraHangModule = (function() {
             elements.statusFilter.addEventListener('change', applyFilters);
         }
 
-        // Date filters
+        // Date filters - refetch from API when dates change
         if (elements.startDate) {
-            elements.startDate.addEventListener('change', applyFilters);
+            elements.startDate.addEventListener('change', () => fetchFromAPI());
         }
         if (elements.endDate) {
-            elements.endDate.addEventListener('change', applyFilters);
+            elements.endDate.addEventListener('change', () => fetchFromAPI());
         }
 
         // Select all checkbox
@@ -86,6 +152,158 @@ const TraHangModule = (function() {
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
         };
+    }
+
+    // Build API URL with date filters
+    function buildApiUrl() {
+        const startDate = elements.startDate?.value;
+        const endDate = elements.endDate?.value;
+
+        // Default to 1 month range if not specified
+        const today = new Date();
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+        // Format dates for OData filter (ISO format with timezone)
+        const startISO = startDate
+            ? new Date(startDate + 'T00:00:00').toISOString().replace('.000Z', '+00:00')
+            : oneMonthAgo.toISOString().replace('.000Z', '+00:00');
+
+        const endISO = endDate
+            ? new Date(endDate + 'T23:59:59').toISOString().replace('.000Z', '+00:00')
+            : today.toISOString().replace('.000Z', '+00:00');
+
+        // OData filter for refund orders
+        const filter = `(Type eq 'refund' and DateInvoice ge ${startISO} and DateInvoice le ${endISO} and IsMergeCancel ne true)`;
+
+        const params = new URLSearchParams({
+            '$top': API_CONFIG.pageSize.toString(),
+            '$orderby': 'DateInvoice desc',
+            '$filter': filter,
+            '$count': 'true'
+        });
+
+        // Use proxy URL to bypass CORS
+        return `${API_CONFIG.proxyBaseUrl}${API_CONFIG.endpoint}?${params.toString()}`;
+    }
+
+    // Fetch data from TPOS API
+    async function fetchFromAPI() {
+        const token = API_CONFIG.getToken();
+
+        if (!token) {
+            console.warn('No TPOS token found. Please login to TPOS first.');
+            hideLoading();
+            showEmptyState();
+            // Show notification to user
+            if (typeof showNotification === 'function') {
+                showNotification('Vui lòng đăng nhập TPOS để xem dữ liệu trả hàng', 'warning');
+            }
+            return;
+        }
+
+        showLoading();
+
+        try {
+            const url = buildApiUrl();
+            let response;
+
+            // Use tokenManager.authenticatedFetch if available (handles token refresh)
+            if (typeof window.tokenManager !== 'undefined' && window.tokenManager.authenticatedFetch) {
+                response = await window.tokenManager.authenticatedFetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json, text/javascript, */*; q=0.01',
+                        'cache-control': 'no-cache',
+                        'tposappversion': '5.11.16.1'
+                    }
+                });
+            } else {
+                // Fallback to regular fetch with token
+                response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json, text/javascript, */*; q=0.01',
+                        'accept-language': 'en-US,en;q=0.9',
+                        'authorization': `Bearer ${token}`,
+                        'cache-control': 'no-cache',
+                        'pragma': 'no-cache',
+                        'tposappversion': '5.11.16.1',
+                        'x-requested-with': 'XMLHttpRequest'
+                    }
+                });
+            }
+
+            if (!response.ok) {
+                // Handle token expiry (401)
+                if (response.status === 401) {
+                    console.warn('Token expired or invalid');
+                    if (typeof showNotification === 'function') {
+                        showNotification('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại TPOS.', 'warning');
+                    }
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Get total count from OData response
+            totalCount = data['@odata.count'] || 0;
+
+            // Map API response to our format
+            const mappedData = mapApiResponse(data.value || []);
+
+            loadData(mappedData);
+            hasLoadedOnce = true;
+
+            console.log(`TraHang: Loaded ${mappedData.length} items (total: ${totalCount})`);
+
+        } catch (error) {
+            console.error('Error fetching data from API:', error);
+            hideLoading();
+            showEmptyState();
+
+            // Show error notification if available
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi tải dữ liệu trả hàng: ' + error.message, 'error');
+            }
+        }
+    }
+
+    // Map API response to table format
+    function mapApiResponse(items) {
+        return items.map(item => ({
+            id: item.Id,
+            customerName: item.PartnerDisplayName || item.PartnerName || '',
+            phone: item.Phone || '',
+            invoiceDate: item.DateInvoice,
+            invoiceNumber: item.Number || '',
+            reference: item.ReferenceNumber || item.InvoiceReference || '',
+            totalAmount: item.AmountTotal || 0,
+            remainingDebt: item.Residual || 0,
+            status: mapStatus(item.State, item.ShowState),
+            // Keep original data for reference
+            _original: item
+        }));
+    }
+
+    // Map API status to display status
+    function mapStatus(state, showState) {
+        if (showState) {
+            return showState;
+        }
+
+        switch (state) {
+            case 'open':
+            case 'paid':
+                return 'Đã xác nhận';
+            case 'draft':
+                return 'Nháp';
+            case 'cancel':
+                return 'Đã hủy';
+            default:
+                return state || 'Nháp';
+        }
     }
 
     // Show loading state
@@ -130,7 +348,7 @@ const TraHangModule = (function() {
         return new Intl.NumberFormat('vi-VN').format(amount);
     }
 
-    // Format date
+    // Format date for display
     function formatDate(dateString) {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -148,11 +366,11 @@ const TraHangModule = (function() {
     // Get status class
     function getStatusClass(status) {
         const statusLower = (status || '').toLowerCase();
-        if (statusLower.includes('xác nhận') || statusLower === 'confirmed') {
+        if (statusLower.includes('xác nhận') || statusLower === 'confirmed' || statusLower === 'open' || statusLower === 'paid') {
             return 'confirmed';
         } else if (statusLower.includes('nháp') || statusLower === 'draft') {
             return 'draft';
-        } else if (statusLower.includes('hủy') || statusLower === 'cancelled') {
+        } else if (statusLower.includes('hủy') || statusLower === 'cancelled' || statusLower === 'cancel') {
             return 'cancelled';
         }
         return 'draft';
@@ -161,11 +379,11 @@ const TraHangModule = (function() {
     // Get status display text
     function getStatusText(status) {
         const statusLower = (status || '').toLowerCase();
-        if (statusLower.includes('xác nhận') || statusLower === 'confirmed') {
+        if (statusLower.includes('xác nhận') || statusLower === 'confirmed' || statusLower === 'open' || statusLower === 'paid') {
             return 'Đã xác nhận';
         } else if (statusLower.includes('nháp') || statusLower === 'draft') {
             return 'Nháp';
-        } else if (statusLower.includes('hủy') || statusLower === 'cancelled') {
+        } else if (statusLower.includes('hủy') || statusLower === 'cancelled' || statusLower === 'cancel') {
             return 'Đã hủy';
         }
         return status || 'Nháp';
@@ -269,7 +487,7 @@ const TraHangModule = (function() {
         applyFilters();
     }
 
-    // Apply all filters
+    // Apply local filters (search and status)
     function applyFilters() {
         let result = [...traHangData];
 
@@ -295,28 +513,6 @@ const TraHangModule = (function() {
             });
         }
 
-        // Date range filter
-        const startDate = elements.startDate?.value;
-        const endDate = elements.endDate?.value;
-
-        if (startDate) {
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            result = result.filter(item => {
-                const itemDate = new Date(item.invoiceDate);
-                return itemDate >= start;
-            });
-        }
-
-        if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            result = result.filter(item => {
-                const itemDate = new Date(item.invoiceDate);
-                return itemDate <= end;
-            });
-        }
-
         filteredData = result;
         renderTable(result);
     }
@@ -332,7 +528,7 @@ const TraHangModule = (function() {
         if (elements.statDraft) elements.statDraft.textContent = draft;
     }
 
-    // Load data - this function will be called externally when user provides data source
+    // Load data
     function loadData(data) {
         showLoading();
 
@@ -350,7 +546,7 @@ const TraHangModule = (function() {
         }
     }
 
-    // Set data source function - user can override this
+    // Set custom data source function
     function setDataSource(fetchFunction) {
         if (typeof fetchFunction === 'function') {
             showLoading();
@@ -366,30 +562,30 @@ const TraHangModule = (function() {
         }
     }
 
-    // Edit item - placeholder for user to implement
+    // Edit item - opens TPOS edit page
     function editItem(id) {
-        console.log('Edit item:', id);
         const item = traHangData.find(d => (d.id || '').toString() === id.toString());
         if (item) {
-            // User can implement their own edit logic
-            console.log('Item data:', item);
-            alert('Chức năng sửa sẽ được triển khai sau. ID: ' + id);
+            // Open TPOS refund order edit page
+            const editUrl = `https://tomato.tpos.vn/Sale/RefundOrders/${id}`;
+            window.open(editUrl, '_blank');
         }
     }
 
-    // Delete item - placeholder for user to implement
+    // Delete item - placeholder (TPOS doesn't support direct delete via API)
     function deleteItem(id) {
-        console.log('Delete item:', id);
-        if (confirm('Bạn có chắc muốn xóa mục này?')) {
-            // User can implement their own delete logic
-            console.log('Deleting item with ID:', id);
-            alert('Chức năng xóa sẽ được triển khai sau. ID: ' + id);
+        const item = traHangData.find(d => (d.id || '').toString() === id.toString());
+        if (item) {
+            alert('Để xóa đơn trả hàng, vui lòng thao tác trực tiếp trên TPOS.\nMã đơn: ' + item.invoiceNumber);
+            // Open TPOS page for the order
+            const editUrl = `https://tomato.tpos.vn/Sale/RefundOrders/${id}`;
+            window.open(editUrl, '_blank');
         }
     }
 
-    // Refresh data
+    // Refresh data from API
     function refresh() {
-        applyFilters();
+        fetchFromAPI();
     }
 
     // Get selected items
@@ -399,17 +595,25 @@ const TraHangModule = (function() {
         return traHangData.filter(item => selectedIds.includes((item.id || '').toString()));
     }
 
+    // Check if data has been loaded
+    function hasLoaded() {
+        return hasLoadedOnce;
+    }
+
     // Public API
     return {
         init,
         loadData,
         setDataSource,
+        fetchFromAPI,
         editItem,
         deleteItem,
         refresh,
         getSelectedItems,
         getData: () => traHangData,
-        getFilteredData: () => filteredData
+        getFilteredData: () => filteredData,
+        getTotalCount: () => totalCount,
+        hasLoaded
     };
 })();
 
@@ -444,6 +648,11 @@ function initMainTabs() {
             // Re-initialize Lucide icons
             if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
+            }
+
+            // Auto-fetch data when switching to Trả Hàng tab
+            if (targetTab === 'traHangTab' && !TraHangModule.hasLoaded()) {
+                TraHangModule.fetchFromAPI();
             }
         });
     });
