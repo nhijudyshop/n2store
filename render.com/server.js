@@ -89,6 +89,8 @@ const imageProxyRoutes = require('./routes/image-proxy');
 const sepayWebhookRoutes = require('./routes/sepay-webhook');
 const customersRoutes = require('./routes/customers');
 const cloudflareBackupRoutes = require('./routes/cloudflare-backup');
+const realtimeRoutes = require('./routes/realtime');
+const { saveRealtimeUpdate } = require('./routes/realtime');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -97,6 +99,7 @@ app.use('/api/pancake', pancakeRoutes);
 app.use('/api/image-proxy', imageProxyRoutes);
 app.use('/api/sepay', sepayWebhookRoutes);
 app.use('/api/customers', customersRoutes);
+app.use('/api/realtime', realtimeRoutes);
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
 app.use('/api', cloudflareBackupRoutes);
@@ -105,18 +108,23 @@ app.use('/api', cloudflareBackupRoutes);
 // =====================================================
 
 class RealtimeClient {
-    constructor() {
+    constructor(db = null) {
         this.ws = null;
         this.url = "wss://pancake.vn/socket/websocket?vsn=2.0.0";
         this.isConnected = false;
         this.refCounter = 1;
         this.heartbeatInterval = null;
         this.reconnectTimer = null;
+        this.db = db; // PostgreSQL connection pool
 
         // User specific data
         this.token = null;
         this.userId = null;
         this.pageIds = [];
+    }
+
+    setDb(db) {
+        this.db = db;
     }
 
     makeRef() {
@@ -250,13 +258,31 @@ class RealtimeClient {
         const [joinRef, ref, topic, event, payload] = msg;
 
         if (event === 'pages:update_conversation') {
-            console.log('[SERVER-WS] New Message/Comment:', payload.conversation.id);
+            const conversation = payload.conversation;
+            console.log('[SERVER-WS] New Message/Comment:', conversation.id);
 
             // Broadcast to connected frontend clients
             broadcastToClients({
                 type: 'pages:update_conversation',
                 payload: payload
             });
+
+            // Save to PostgreSQL for later retrieval
+            if (this.db && conversation) {
+                const updateData = {
+                    conversationId: conversation.id,
+                    type: conversation.type || 'INBOX',
+                    snippet: conversation.snippet || conversation.last_message?.message,
+                    unreadCount: conversation.unread_count || 0,
+                    pageId: conversation.page_id || (conversation.id ? conversation.id.split('_')[0] : null),
+                    psid: conversation.from_psid || conversation.customers?.[0]?.fb_id,
+                    customerName: conversation.from?.name || conversation.customers?.[0]?.name
+                };
+
+                saveRealtimeUpdate(this.db, updateData)
+                    .then(() => console.log('[SERVER-WS] Update saved to DB'))
+                    .catch(err => console.error('[SERVER-WS] Failed to save update:', err.message));
+            }
         }
     }
 }
@@ -490,8 +516,9 @@ class TposRealtimeClient {
 // Initialize Global TPOS Client
 const tposRealtimeClient = new TposRealtimeClient();
 
-// Initialize Global Client
+// Initialize Global Client with DB connection
 const realtimeClient = new RealtimeClient();
+realtimeClient.setDb(chatDbPool); // Pass PostgreSQL pool for saving updates
 
 // API to start the Pancake client from the browser
 app.post('/api/realtime/start', (req, res) => {
@@ -558,6 +585,10 @@ app.get('/', (req, res) => {
             ],
             realtime: [
                 'POST /api/realtime/start - Start Pancake WebSocket client',
+                'GET /api/realtime/new-messages?since={timestamp} - Get new messages since timestamp',
+                'GET /api/realtime/summary?since={timestamp} - Get summary count only',
+                'POST /api/realtime/mark-seen - Mark updates as seen',
+                'DELETE /api/realtime/cleanup?days={n} - Cleanup old records',
                 'POST /api/realtime/tpos/start - Start TPOS WebSocket client',
                 'POST /api/realtime/tpos/stop - Stop TPOS WebSocket client',
                 'GET /api/realtime/tpos/status - Get TPOS client status'
