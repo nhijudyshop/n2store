@@ -409,7 +409,8 @@ async function loadData() {
                 filteredData = filterByCustomerInfo(result.data, searchQuery);
             }
 
-            renderTable(filteredData);
+            // Skip gap detection when searching (don't show missing transaction rows)
+            renderTable(filteredData, !!searchQuery);
 
             // Update pagination info
             if (searchQuery) {
@@ -463,7 +464,7 @@ async function loadStatistics() {
 }
 
 // Render Table
-function renderTable(data) {
+function renderTable(data, skipGapDetection = false) {
     if (!data || data.length === 0) {
         tableBody.innerHTML = `
             <tr>
@@ -485,7 +486,8 @@ function renderTable(data) {
 
         // Check for gap with the NEXT row (since data is sorted DESC by date)
         // If current is 2567 and next is 2565, there's a gap of 2566
-        if (i < data.length - 1) {
+        // Skip gap detection when searching/filtering
+        if (!skipGapDetection && i < data.length - 1) {
             const nextRow = data[i + 1];
             const nextRef = parseInt(nextRow.reference_code);
 
