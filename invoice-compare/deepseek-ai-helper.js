@@ -93,7 +93,10 @@ async function extractTextWithDeepSeekOCR(imageSource) {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(`DeepSeek-OCR failed: ${errorData.error || response.statusText}`);
+            const errorMsg = typeof errorData.error === 'string'
+                ? errorData.error
+                : (errorData.message || JSON.stringify(errorData) || response.statusText);
+            throw new Error(`DeepSeek-OCR failed (${response.status}): ${errorMsg}`);
         }
 
         const result = await response.json();
