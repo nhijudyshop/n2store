@@ -547,11 +547,22 @@ function renderTransactionRow(row) {
             ${uniqueCode ? `
                 <div style="display: flex; align-items: center; gap: 5px;">
                     <span>${customerDisplay.name}</span>
-                    <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
-                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
-                    </button>
+                    ${hasPermission(2) ? `
+                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
+                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    ` : ''}
                 </div>
-            ` : '<span style="color: #999;">N/A</span>'}
+            ` : `
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="color: #999;">N/A</span>
+                    ${hasPermission(2) ? `
+                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('tx_${row.id}')" title="Thêm thông tin khách hàng" style="padding: 4px 6px;">
+                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `}
         </td>
         <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
             ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
