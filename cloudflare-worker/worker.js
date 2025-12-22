@@ -729,8 +729,14 @@ export default {
           forwardFormData.append('file', file);
 
           // Forward to alphaXiv DeepSeek-OCR API
+          // API Key from alphaXiv
+          const ALPHAXIV_API_KEY = 'axv1_1b8fe387f7ff_5b7f2dfb815f2445e70632be883a4a0a08eebe0b9179410e39d1';
+
           const ocrResponse = await fetch('https://api.alphaxiv.org/models/v1/deepseek/deepseek-ocr/inference', {
             method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${ALPHAXIV_API_KEY}`,
+            },
             body: forwardFormData,
           });
 
