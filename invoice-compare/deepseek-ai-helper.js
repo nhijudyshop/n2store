@@ -410,6 +410,21 @@ async function terminateOCR() {
 // EXPORT
 // =====================================================
 
+// Alias for backward compatibility
+async function initializeOCR() {
+    // DeepSeek-OCR doesn't need initialization (cloud API)
+    // Only initialize Tesseract if fallback is enabled
+    if (OCR_FALLBACK_ENABLED) {
+        try {
+            await initializeTesseractOCR();
+        } catch (e) {
+            console.warn('[OCR] Tesseract initialization failed (fallback may not work):', e.message);
+        }
+    }
+    console.log('[OCR] Ready - Primary: DeepSeek-OCR, Fallback: Tesseract.js');
+    return true;
+}
+
 window.DeepSeekAI = {
     // Core functions
     generateText,
@@ -421,6 +436,7 @@ window.DeepSeekAI = {
     extractTextFromImage,
     extractTextWithDeepSeekOCR,
     extractTextWithTesseract,
+    initializeOCR,  // Backward compatible alias
     initializeTesseractOCR,
     terminateOCR,
 
