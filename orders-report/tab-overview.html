@@ -792,6 +792,152 @@
             flex-wrap: wrap;
         }
 
+        /* Actual Closed Orders Section */
+        .actual-closed-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .actual-closed-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .actual-closed-card.total {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .actual-closed-card .card-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .actual-closed-card .card-label {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .actual-closed-breakdown {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .actual-closed-breakdown h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .breakdown-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .breakdown-item {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .breakdown-item .tag-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+        }
+
+        .breakdown-item .count {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .duplicate-orders-section,
+        .remaining-orders-section {
+            margin-top: 15px;
+        }
+
+        .duplicate-orders-section h4,
+        .remaining-orders-section h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .duplicate-orders-section h4 i {
+            color: #f59e0b;
+        }
+
+        .remaining-orders-section h4 i {
+            color: #ef4444;
+        }
+
+        .orders-mini-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .orders-mini-table thead {
+            background: #f0f0f0;
+        }
+
+        .orders-mini-table th {
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .orders-mini-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .orders-mini-table tbody tr:hover {
+            background: #f8f9ff;
+        }
+
+        .orders-mini-table .order-code {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .orders-mini-table .tags-cell {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+        }
+
+        .mini-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: white;
+        }
+
         /* Employee Stats Cards */
         .employee-card {
             background: #f8f9fa;
@@ -879,6 +1025,87 @@
         .employee-stat-item .tag-percent {
             font-size: 11px;
             color: #667eea;
+        }
+
+        /* Employee Closed Stats */
+        .emp-closed-stats {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #11998e;
+        }
+
+        .emp-closed-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 8px;
+        }
+
+        .emp-closed-total {
+            font-size: 14px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .emp-closed-total i {
+            color: #11998e;
+        }
+
+        .emp-closed-total strong {
+            font-size: 18px;
+            color: #11998e;
+        }
+
+        .emp-closed-breakdown {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .emp-closed-item {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: white;
+            font-weight: 500;
+        }
+
+        .emp-duplicate-note,
+        .emp-remaining-note {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .emp-duplicate-note i,
+        .emp-remaining-note i {
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .dup-order-code,
+        .rem-order-code {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-family: monospace;
+        }
+
+        .dup-order-code {
+            background: #fef3c7;
+            color: #d97706;
         }
 
         /* Add Tag Modal */
@@ -1170,6 +1397,16 @@
                             <tbody id="tagStatsBody">
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- Actual Closed Orders Statistics -->
+                <div class="content-section" id="actualClosedSection">
+                    <h2>
+                        <i class="fas fa-calculator"></i> Thống Kê Đơn Chốt Thực Tế
+                    </h2>
+                    <div id="actualClosedContainer">
+                        <!-- Actual closed orders stats will be rendered here -->
                     </div>
                 </div>
 
@@ -1945,6 +2182,269 @@
             return employeeStats.filter(e => e.totalOrders > 0);
         }
 
+        // Tag patterns that count as "closed" orders
+        const CLOSED_TAG_PATTERNS = [
+            { pattern: 'ok', type: 'startsWith', displayName: 'OK', color: '#22c55e' },
+            { pattern: 'qua lấy', type: 'startsWith', displayName: 'Qua Lấy', color: '#3b82f6' },
+            { pattern: 'xử lý', type: 'startsWith', displayName: 'Xử Lý', color: '#f97316' },
+            { pattern: 'chờ live', type: 'startsWith', displayName: 'Chờ Live', color: '#ec4899' },
+            { pattern: 'chờ hàng', type: 'startsWith', displayName: 'Chờ Hàng', color: '#6366f1' },
+            { pattern: 'xả đơn', type: 'startsWith', displayName: 'Xả Đơn', color: '#14b8a6' }
+        ];
+
+        /**
+         * Calculate actual closed orders statistics
+         */
+        function calculateActualClosedStats(orders) {
+            const result = {
+                orderedOrders: [],
+                taggedOrders: new Map(), // orderId -> { order, matchedTags[] }
+                duplicateOrders: [], // Orders with 2+ closed tags
+                remainingOrders: [], // Orders not in any category
+                breakdown: {
+                    ordered: { count: 0, orders: [] }
+                }
+            };
+
+            // Initialize breakdown for each tag pattern
+            CLOSED_TAG_PATTERNS.forEach(p => {
+                result.breakdown[p.pattern] = { count: 0, orders: [], displayName: p.displayName, color: p.color };
+            });
+
+            orders.forEach(order => {
+                const statusText = order.StatusText || order.Status || '';
+                const orderTags = parseOrderTags(order.Tags);
+                const matchedClosedTags = [];
+
+                // Check if order has "Đơn hàng" status
+                const isOrdered = statusText === 'Đơn hàng';
+                if (isOrdered) {
+                    result.orderedOrders.push(order);
+                    result.breakdown.ordered.count++;
+                    result.breakdown.ordered.orders.push(order);
+                }
+
+                // Check each closed tag pattern
+                orderTags.forEach(orderTag => {
+                    const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
+
+                    CLOSED_TAG_PATTERNS.forEach(pattern => {
+                        let matches = false;
+                        if (pattern.type === 'startsWith') {
+                            matches = tagName.startsWith(pattern.pattern);
+                        } else if (pattern.type === 'exact') {
+                            matches = tagName === pattern.pattern;
+                        }
+
+                        if (matches) {
+                            matchedClosedTags.push({
+                                pattern: pattern.pattern,
+                                displayName: pattern.displayName,
+                                color: pattern.color,
+                                originalTag: orderTag.Name || orderTag.name
+                            });
+                        }
+                    });
+                });
+
+                if (matchedClosedTags.length > 0) {
+                    result.taggedOrders.set(order.Id || order.Code, { order, matchedTags: matchedClosedTags });
+
+                    // Count for each pattern (avoid double counting same order for same pattern)
+                    const countedPatterns = new Set();
+                    matchedClosedTags.forEach(mt => {
+                        if (!countedPatterns.has(mt.pattern)) {
+                            countedPatterns.add(mt.pattern);
+                            result.breakdown[mt.pattern].count++;
+                            result.breakdown[mt.pattern].orders.push(order);
+                        }
+                    });
+
+                    // Check for duplicates (2+ different tag patterns)
+                    const uniquePatterns = [...new Set(matchedClosedTags.map(t => t.pattern))];
+                    if (uniquePatterns.length >= 2) {
+                        result.duplicateOrders.push({ order, matchedTags: matchedClosedTags });
+                    }
+                }
+
+                // Check if order is not in any category
+                if (!isOrdered && matchedClosedTags.length === 0) {
+                    result.remainingOrders.push(order);
+                }
+            });
+
+            // Calculate total unique closed orders
+            const uniqueClosedOrderIds = new Set();
+
+            // Add ordered orders
+            result.orderedOrders.forEach(o => uniqueClosedOrderIds.add(o.Id || o.Code));
+
+            // Add tagged orders
+            result.taggedOrders.forEach((value, orderId) => uniqueClosedOrderIds.add(orderId));
+
+            result.totalClosedOrders = uniqueClosedOrderIds.size;
+            result.totalOrders = orders.length;
+
+            return result;
+        }
+
+        /**
+         * Render actual closed orders statistics
+         */
+        function renderActualClosedStats(stats) {
+            const container = document.getElementById('actualClosedContainer');
+
+            const orderedCount = stats.breakdown.ordered.count;
+            const taggedUniqueCount = stats.taggedOrders.size;
+
+            // Build breakdown HTML
+            let breakdownHtml = '';
+            breakdownHtml += `<div class="breakdown-item" onclick="viewActualClosedOrders('ordered')" style="cursor: pointer;">
+                <span class="tag-dot" style="background-color: #22c55e;"></span>
+                <span>Đơn Hàng (Ordered)</span>
+                <span class="count">${orderedCount}</span>
+            </div>`;
+
+            CLOSED_TAG_PATTERNS.forEach(pattern => {
+                const data = stats.breakdown[pattern.pattern];
+                if (data.count > 0) {
+                    breakdownHtml += `<div class="breakdown-item" onclick="viewActualClosedOrders('${pattern.pattern}')" style="cursor: pointer;">
+                        <span class="tag-dot" style="background-color: ${pattern.color};"></span>
+                        <span>${pattern.displayName}</span>
+                        <span class="count">${data.count}</span>
+                    </div>`;
+                }
+            });
+
+            // Build duplicate orders table
+            let duplicateHtml = '';
+            if (stats.duplicateOrders.length > 0) {
+                duplicateHtml = `
+                    <div class="duplicate-orders-section">
+                        <h4><i class="fas fa-exclamation-triangle"></i> Đơn có từ 2 tag trùng (${stats.duplicateOrders.length} đơn - chỉ tính 1 lần)</h4>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            <table class="orders-mini-table">
+                                <thead>
+                                    <tr>
+                                        <th>STT</th>
+                                        <th>Mã đơn</th>
+                                        <th>Tags trùng</th>
+                                        <th>Khách hàng</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${stats.duplicateOrders.map(d => `
+                                        <tr>
+                                            <td>${d.order.SessionIndex || '-'}</td>
+                                            <td class="order-code">${d.order.Code || ''}</td>
+                                            <td class="tags-cell">
+                                                ${d.matchedTags.map(t => `<span class="mini-tag" style="background-color: ${t.color};">${t.originalTag}</span>`).join('')}
+                                            </td>
+                                            <td>${d.order.Name || d.order.PartnerName || ''}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Build remaining orders table
+            let remainingHtml = '';
+            if (stats.remainingOrders.length > 0) {
+                remainingHtml = `
+                    <div class="remaining-orders-section">
+                        <h4><i class="fas fa-question-circle"></i> Đơn chưa phân loại (${stats.remainingOrders.length} đơn - cần cộng thêm bằng tay)</h4>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            <table class="orders-mini-table">
+                                <thead>
+                                    <tr>
+                                        <th>STT</th>
+                                        <th>Mã đơn</th>
+                                        <th>Trạng thái</th>
+                                        <th>Tags</th>
+                                        <th>Khách hàng</th>
+                                        <th>Tổng tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${stats.remainingOrders.map(order => `
+                                        <tr>
+                                            <td>${order.SessionIndex || '-'}</td>
+                                            <td class="order-code">${order.Code || ''}</td>
+                                            <td>${order.StatusText || order.Status || '-'}</td>
+                                            <td class="tags-cell">${parseOrderTagsHtml(order.Tags)}</td>
+                                            <td>${order.Name || order.PartnerName || ''}</td>
+                                            <td style="color: #11998e; font-weight: 600;">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div class="actual-closed-summary">
+                    <div class="actual-closed-card total">
+                        <div class="card-value">${stats.totalClosedOrders}</div>
+                        <div class="card-label">TỔNG ĐƠN CHỐT THỰC TẾ</div>
+                    </div>
+                    <div class="actual-closed-card">
+                        <div class="card-value">${orderedCount}</div>
+                        <div class="card-label">Đơn Hàng (Ordered)</div>
+                    </div>
+                    <div class="actual-closed-card">
+                        <div class="card-value">${taggedUniqueCount}</div>
+                        <div class="card-label">Đơn có Tag Chốt</div>
+                    </div>
+                    <div class="actual-closed-card" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
+                        <div class="card-value">${stats.duplicateOrders.length}</div>
+                        <div class="card-label">Đơn Tag Trùng</div>
+                    </div>
+                </div>
+
+                <div class="actual-closed-breakdown">
+                    <h4><i class="fas fa-chart-pie" style="color: #667eea;"></i> Chi tiết theo loại (click để xem danh sách)</h4>
+                    <div class="breakdown-list">
+                        ${breakdownHtml}
+                    </div>
+                </div>
+
+                ${duplicateHtml}
+                ${remainingHtml}
+            `;
+
+            // Store stats for view functions
+            window._actualClosedStats = stats;
+        }
+
+        /**
+         * View orders by actual closed category
+         */
+        function viewActualClosedOrders(category) {
+            const stats = window._actualClosedStats;
+            if (!stats) return;
+
+            let orders = [];
+            let title = '';
+
+            if (category === 'ordered') {
+                orders = stats.breakdown.ordered.orders;
+                title = 'Đơn Hàng (Ordered)';
+            } else {
+                const data = stats.breakdown[category];
+                if (data) {
+                    orders = data.orders;
+                    title = data.displayName;
+                }
+            }
+
+            showOrdersDetailModal(`Đơn Chốt: ${title}`, orders);
+        }
+
         /**
          * Render all statistics
          */
@@ -1967,12 +2467,16 @@
             // Calculate all stats
             const tagStats = calculateTagStats(orders);
             const employeeStats = calculateEmployeeTagStats(orders);
+            const actualClosedStats = calculateActualClosedStats(orders);
 
             // Render tag stats
             renderTagStatsTable(tagStats, orders.length);
 
-            // Render employee stats
-            renderEmployeeStats(employeeStats);
+            // Render actual closed stats
+            renderActualClosedStats(actualClosedStats);
+
+            // Render employee stats (with actual closed stats)
+            renderEmployeeStats(employeeStats, orders);
 
             // Dispatch event for mobile UI (after DOM updates)
             setTimeout(() => {
@@ -2030,7 +2534,7 @@
         /**
          * Render employee statistics
          */
-        function renderEmployeeStats(stats) {
+        function renderEmployeeStats(stats, allOrders) {
             const container = document.getElementById('employeeStatsContainer');
 
             if (stats.length === 0) {
@@ -2044,7 +2548,14 @@
                 return;
             }
 
-            container.innerHTML = stats.map(emp => `
+            container.innerHTML = stats.map(emp => {
+                // Calculate actual closed stats for this employee
+                const empClosedStats = calculateActualClosedStats(emp.allOrders);
+
+                // Build employee closed stats summary
+                const empClosedHtml = buildEmployeeClosedStatsHtml(emp, empClosedStats);
+
+                return `
                 <div class="employee-card">
                     <div class="employee-card-header">
                         <h3>
@@ -2058,6 +2569,10 @@
                             </button>
                         </span>
                     </div>
+
+                    <!-- Employee Actual Closed Stats -->
+                    ${empClosedHtml}
+
                     <div class="employee-stats-grid">
                         ${emp.tagBreakdown.map(tag => `
                             <div class="employee-stat-item" onclick="viewEmployeeTagOrders('${emp.name}', ${emp.start}, ${emp.end}, '${tag.displayName}')">
@@ -2070,8 +2585,70 @@
                             </div>
                         `).join('')}
                     </div>
+                </div>`;
+            }).join('');
+        }
+
+        /**
+         * Build HTML for employee's actual closed stats
+         */
+        function buildEmployeeClosedStatsHtml(emp, stats) {
+            const orderedCount = stats.breakdown.ordered.count;
+
+            // Build breakdown items
+            let breakdownItems = `<span class="emp-closed-item" style="background: #22c55e;">Ordered: ${orderedCount}</span>`;
+
+            CLOSED_TAG_PATTERNS.forEach(pattern => {
+                const data = stats.breakdown[pattern.pattern];
+                if (data.count > 0) {
+                    breakdownItems += `<span class="emp-closed-item" style="background: ${pattern.color};">${pattern.displayName}: ${data.count}</span>`;
+                }
+            });
+
+            // Build duplicate orders mini-list
+            let duplicateHtml = '';
+            if (stats.duplicateOrders.length > 0) {
+                const dupList = stats.duplicateOrders.map(d =>
+                    `<span class="dup-order-code">${d.order.Code}</span>`
+                ).join(' ');
+                duplicateHtml = `
+                    <div class="emp-duplicate-note">
+                        <i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i>
+                        Tag trùng (${stats.duplicateOrders.length}): ${dupList}
+                    </div>
+                `;
+            }
+
+            // Build remaining orders mini-list
+            let remainingHtml = '';
+            if (stats.remainingOrders.length > 0) {
+                const remList = stats.remainingOrders.slice(0, 10).map(o =>
+                    `<span class="rem-order-code">${o.Code}</span>`
+                ).join(' ');
+                const moreText = stats.remainingOrders.length > 10 ? ` +${stats.remainingOrders.length - 10} đơn nữa` : '';
+                remainingHtml = `
+                    <div class="emp-remaining-note">
+                        <i class="fas fa-question-circle" style="color: #ef4444;"></i>
+                        Chưa phân loại (${stats.remainingOrders.length}): ${remList}${moreText}
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="emp-closed-stats">
+                    <div class="emp-closed-header">
+                        <span class="emp-closed-total">
+                            <i class="fas fa-calculator"></i>
+                            Đơn chốt thực tế: <strong>${stats.totalClosedOrders}</strong>
+                        </span>
+                        <div class="emp-closed-breakdown">
+                            ${breakdownItems}
+                        </div>
+                    </div>
+                    ${duplicateHtml}
+                    ${remainingHtml}
                 </div>
-            `).join('');
+            `;
         }
 
         // =====================================================
