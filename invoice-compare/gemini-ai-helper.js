@@ -1,25 +1,29 @@
 /* =====================================================
-   GEMINI AI HELPER - Auto Key Rotation
-   Based on AI/GEMINI-AI-GUIDE.md
+   GEMINI AI HELPER - PRO Key Only Version
+   Sử dụng duy nhất 1 PRO key với model gemini-2.0-flash
    ===================================================== */
 
-// Load API Keys from GitHub Secrets or environment
-const GEMINI_KEYS = (window.GEMINI_KEYS || "").split(",").filter(k => k.trim());
-const HF_KEYS = (window.HF_KEYS || "").split(",").filter(k => k.trim());
+// Load PRO Key from GitHub Secrets or environment
+const GEMINI_PRO_KEY = (window.GEMINI_PRO_KEY || "").trim();
+
+// Fallback: check window.GEMINI_KEYS if PRO key not set
+const GEMINI_KEYS = GEMINI_PRO_KEY
+    ? [GEMINI_PRO_KEY]
+    : (window.GEMINI_KEYS || "").split(",").filter(k => k.trim());
+
+// Default model - sử dụng gemini-2.0-flash thay vì gemini-flash-latest
+const DEFAULT_MODEL = 'gemini-2.0-flash';
 
 // Key rotation state
-let currentGeminiIndex = 0;
-let currentHFIndex = 0;
-const failedGeminiKeys = new Map(); // key -> timestamp
-const failedHFKeys = new Map();
-
-const FAILURE_TIMEOUT = 60000; // 60 seconds - increased to avoid rapid retries
+let currentKeyIndex = 0;
+const failedKeys = new Map(); // key -> timestamp
+const FAILURE_TIMEOUT = 60000; // 60 seconds
 
 // Request rate limiting
 let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 2000; // 2 seconds between requests
+const MIN_REQUEST_INTERVAL = 1000; // 1 second between requests
 let requestCount = 0;
-const MAX_REQUESTS_PER_MINUTE = 10; // Limit requests per minute
+const MAX_REQUESTS_PER_MINUTE = 15; // Higher limit for PRO key
 let requestResetTime = Date.now();
 
 // =====================================================
@@ -38,8 +42,8 @@ async function checkRateLimit() {
     // Check if we've exceeded rate limit
     if (requestCount >= MAX_REQUESTS_PER_MINUTE) {
         const waitTime = 60000 - (now - requestResetTime);
-        console.warn(`[RATE-LIMIT] Max requests per minute reached. Wait ${Math.ceil(waitTime/1000)}s`);
-        throw new Error(`Đã đạt giới hạn ${MAX_REQUESTS_PER_MINUTE} request/phút. Vui lòng chờ ${Math.ceil(waitTime/1000)} giây.`);
+        console.warn(`[RATE-LIMIT] Max requests per minute reached. Wait ${Math.ceil(waitTime / 1000)}s`);
+        throw new Error(`Đã đạt giới hạn ${MAX_REQUESTS_PER_MINUTE} request/phút. Vui lòng chờ ${Math.ceil(waitTime / 1000)} giây.`);
     }
 
     // Enforce minimum interval between requests
@@ -58,40 +62,35 @@ async function checkRateLimit() {
 // KEY MANAGEMENT
 // =====================================================
 
-function markGeminiKeyFailed(apiKey) {
-    failedGeminiKeys.set(apiKey, Date.now());
-    console.warn(`[GEMINI] Key marked as failed, will retry after 30s`);
+function markKeyFailed(apiKey) {
+    failedKeys.set(apiKey, Date.now());
+    console.warn(`[GEMINI] Key marked as failed, will retry after ${FAILURE_TIMEOUT / 1000}s`);
 }
 
-function markHFKeyFailed(apiKey) {
-    failedHFKeys.set(apiKey, Date.now());
-    console.warn(`[HF] Key marked as failed, will retry after 30s`);
-}
-
-function cleanupFailedKeys(failedMap) {
+function cleanupFailedKeys() {
     const now = Date.now();
-    for (const [key, timestamp] of failedMap.entries()) {
+    for (const [key, timestamp] of failedKeys.entries()) {
         if (now - timestamp > FAILURE_TIMEOUT) {
-            failedMap.delete(key);
+            failedKeys.delete(key);
         }
     }
 }
 
-function getNextGeminiKey() {
+function getNextKey() {
     if (GEMINI_KEYS.length === 0) {
-        throw new Error('No Gemini API keys configured');
+        throw new Error('No Gemini API keys configured. Set GEMINI_PRO_KEY or GEMINI_KEYS.');
     }
 
-    cleanupFailedKeys(failedGeminiKeys);
+    cleanupFailedKeys();
 
     const maxAttempts = GEMINI_KEYS.length * 2;
     let attempts = 0;
 
     while (attempts < maxAttempts) {
-        const key = GEMINI_KEYS[currentGeminiIndex];
-        currentGeminiIndex = (currentGeminiIndex + 1) % GEMINI_KEYS.length;
+        const key = GEMINI_KEYS[currentKeyIndex];
+        currentKeyIndex = (currentKeyIndex + 1) % GEMINI_KEYS.length;
 
-        if (!failedGeminiKeys.has(key)) {
+        if (!failedKeys.has(key)) {
             return key;
         }
         attempts++;
@@ -99,33 +98,8 @@ function getNextGeminiKey() {
 
     // All keys failed recently, clear and retry
     console.warn('[GEMINI] All keys failed, clearing and retrying...');
-    failedGeminiKeys.clear();
+    failedKeys.clear();
     return GEMINI_KEYS[0];
-}
-
-function getNextHFKey() {
-    if (HF_KEYS.length === 0) {
-        throw new Error('No HuggingFace API keys configured');
-    }
-
-    cleanupFailedKeys(failedHFKeys);
-
-    const maxAttempts = HF_KEYS.length * 2;
-    let attempts = 0;
-
-    while (attempts < maxAttempts) {
-        const key = HF_KEYS[currentHFIndex];
-        currentHFIndex = (currentHFIndex + 1) % HF_KEYS.length;
-
-        if (!failedHFKeys.has(key)) {
-            return key;
-        }
-        attempts++;
-    }
-
-    console.warn('[HF] All keys failed, clearing and retrying...');
-    failedHFKeys.clear();
-    return HF_KEYS[0];
 }
 
 // =====================================================
@@ -134,40 +108,47 @@ function getNextHFKey() {
 
 async function callGeminiAPI(prompt, options = {}) {
     const {
-        model = 'gemini-flash-latest',
-        // Try all keys (free keys first, Pro key last as fallback)
-        maxRetries = Math.max(GEMINI_KEYS.length, 1),
-        temperature = 0.7,
+        model = DEFAULT_MODEL,
+        maxRetries = Math.max(GEMINI_KEYS.length, 3),
+        temperature = 1.0,
+        thinkingLevel = 'high',
     } = options;
 
     // Check rate limit before making request
     await checkRateLimit();
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-        const apiKey = getNextGeminiKey();
+        const apiKey = getNextKey();
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
         try {
             console.log(`[GEMINI] Attempt ${attempt + 1}/${maxRetries} using model: ${model}`);
 
+            const requestBody = {
+                contents: [{
+                    parts: [{ text: prompt }]
+                }],
+                generationConfig: {
+                    temperature: temperature,
+                    maxOutputTokens: 8192,
+                }
+            };
+
+            // Add thinking config for Gemini 3 models
+            if (model.includes('gemini-3')) {
+                requestBody.generationConfig.thinkingConfig = { thinkingLevel: thinkingLevel };
+            }
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }],
-                    generationConfig: {
-                        temperature: temperature,
-                        maxOutputTokens: 8192,
-                    }
-                })
+                body: JSON.stringify(requestBody)
             });
 
             // Handle rate limit and quota errors
             if (response.status === 429 || response.status === 403 || response.status === 503) {
                 console.warn(`[GEMINI] Error ${response.status}, rotating key...`);
-                markGeminiKeyFailed(apiKey);
+                markKeyFailed(apiKey);
                 continue;
             }
 
@@ -205,48 +186,55 @@ async function callGeminiAPI(prompt, options = {}) {
 
 async function analyzeImageWithGemini(base64Image, prompt, options = {}) {
     const {
-        model = 'gemini-flash-latest',
-        // Try all keys (free keys first, Pro key last as fallback)
-        maxRetries = Math.max(GEMINI_KEYS.length, 1),
+        model = DEFAULT_MODEL,
+        maxRetries = Math.max(GEMINI_KEYS.length, 3),
         mimeType = 'image/jpeg',
+        thinkingLevel = 'low',
     } = options;
 
     // Check rate limit before making request
     await checkRateLimit();
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-        const apiKey = getNextGeminiKey();
+        const apiKey = getNextKey();
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
         try {
-            console.log(`[GEMINI-VISION] Attempt ${attempt + 1}/${maxRetries}`);
+            console.log(`[GEMINI-VISION] Attempt ${attempt + 1}/${maxRetries} using model: ${model}`);
+
+            const requestBody = {
+                contents: [{
+                    parts: [
+                        {
+                            inline_data: {
+                                mime_type: mimeType,
+                                data: base64Image
+                            }
+                        },
+                        { text: prompt }
+                    ]
+                }],
+                generationConfig: {
+                    temperature: 0.4,
+                    maxOutputTokens: 8192,
+                }
+            };
+
+            // Add thinking config for Gemini 3 models
+            if (model.includes('gemini-3')) {
+                requestBody.generationConfig.thinkingConfig = { thinkingLevel: thinkingLevel };
+            }
 
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            {
-                                inline_data: {
-                                    mime_type: mimeType,
-                                    data: base64Image
-                                }
-                            },
-                            { text: prompt }
-                        ]
-                    }],
-                    generationConfig: {
-                        temperature: 0.4, // Lower temperature for more accurate extraction
-                        maxOutputTokens: 8192,
-                    }
-                })
+                body: JSON.stringify(requestBody)
             });
 
             // Handle rate limit and quota errors
             if (response.status === 429 || response.status === 403 || response.status === 503) {
                 console.warn(`[GEMINI-VISION] Error ${response.status}, rotating key...`);
-                markGeminiKeyFailed(apiKey);
+                markKeyFailed(apiKey);
                 continue;
             }
 
@@ -276,8 +264,7 @@ async function analyzeImageWithGemini(base64Image, prompt, options = {}) {
         }
     }
 
-    // If we get here, all retries failed
-    throw new Error(`Gemini Vision failed after ${maxRetries} attempts. All API keys are exhausted or rate limited.`);
+    throw new Error(`Gemini Vision failed after ${maxRetries} attempts. API key exhausted or rate limited.`);
 }
 
 // =====================================================
@@ -288,7 +275,6 @@ function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
-            // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
             const base64 = reader.result.split(',')[1];
             resolve(base64);
         };
@@ -306,11 +292,16 @@ window.GeminiAI = {
     analyzeImageWithGemini,
     fileToBase64,
     getStats: () => ({
-        geminiKeys: GEMINI_KEYS.length,
-        hfKeys: HF_KEYS.length,
-        failedGemini: failedGeminiKeys.size,
-        failedHF: failedHFKeys.size,
-    })
+        totalKeys: GEMINI_KEYS.length,
+        proKeyConfigured: !!GEMINI_PRO_KEY,
+        failedKeys: failedKeys.size,
+        currentModel: DEFAULT_MODEL,
+    }),
+    resetKeys: () => {
+        failedKeys.clear();
+        currentKeyIndex = 0;
+        console.log('[GEMINI] Keys reset');
+    }
 };
 
-console.log('[GEMINI-AI-HELPER] Loaded with', GEMINI_KEYS.length, 'Gemini keys and', HF_KEYS.length, 'HF keys');
+console.log(`[GEMINI-AI-HELPER] Loaded with ${GEMINI_KEYS.length} key(s), using model: ${DEFAULT_MODEL}`);

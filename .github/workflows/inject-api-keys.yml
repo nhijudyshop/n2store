@@ -24,18 +24,15 @@ jobs:
 
       - name: Inject API Keys into HTML
         run: |
-          # Inject GEMINI_KEYS
-          sed -i "s|window.GEMINI_KEYS = savedGeminiKeys \|\| window.GEMINI_KEYS \|\| '';|window.GEMINI_KEYS = savedGeminiKeys \|\| '${{ secrets.GEMINI_KEYS }}' \|\| '';|g" invoice-compare/index.html
-
-          # Inject HF_KEYS
-          sed -i "s|window.HF_KEYS = savedHFKeys \|\| window.HF_KEYS \|\| '';|window.HF_KEYS = savedHFKeys \|\| '${{ secrets.HF_KEYS }}' \|\| '';|g" invoice-compare/index.html
-
-          echo "✅ API Keys injected successfully"
+          # Inject GEMINI_PRO_KEY (primary key)
+          sed -i "s|window.GEMINI_PRO_KEY = savedGeminiProKey \|\| '' \|\| '';|window.GEMINI_PRO_KEY = savedGeminiProKey \|\| '${{ secrets.GEMINI_PRO_KEY }}' \|\| '';|g" invoice-compare/index.html
+          
+          echo "✅ GEMINI_PRO_KEY injected successfully"
 
       - name: Verify injection
         run: |
-          echo "Checking if keys were injected..."
-          grep -q "GEMINI_KEYS = savedGeminiKeys" invoice-compare/index.html && echo "✅ GEMINI_KEYS pattern found" || echo "❌ Pattern not found"
+          echo "Checking if PRO key was injected..."
+          grep -q "GEMINI_PRO_KEY = savedGeminiProKey" invoice-compare/index.html && echo "✅ GEMINI_PRO_KEY pattern found" || echo "❌ Pattern not found"
 
       - name: Commit changes (if any)
         run: |
@@ -54,14 +51,14 @@ jobs:
       - name: Display success message
         run: |
           echo "=================================================="
-          echo "✅ API Keys Injection Complete"
+          echo "✅ GEMINI PRO KEY Injection Complete"
           echo "=================================================="
           echo ""
-          echo "Keys have been injected into:"
+          echo "PRO key has been injected into:"
           echo "  - invoice-compare/index.html"
           echo ""
-          echo "The application will now automatically use keys from:"
+          echo "The application will now use:"
           echo "  1. localStorage (if user set manually)"
-          echo "  2. GitHub Secrets (injected by this workflow)"
+          echo "  2. GitHub Secrets GEMINI_PRO_KEY (injected by this workflow)"
           echo ""
           echo "=================================================="
