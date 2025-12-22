@@ -2815,6 +2815,56 @@
         </div>
     </div>
 
+    <!-- Campaign No Dates Modal - When campaign has no start date -->
+    <div class="tag-modal" id="campaignNoDatesModal" style="display: none; z-index: 10150;">
+        <div class="tag-modal-content" style="max-width: 500px;">
+            <div class="tag-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                <h3 style="color: white;"><i class="fas fa-calendar-times"></i> Chiến Dịch Chưa Có Ngày</h3>
+                <button class="tag-modal-close" onclick="closeCampaignNoDatesModal()" style="color: white;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tag-modal-body" style="padding: 24px;">
+                <input type="hidden" id="noDatesModalCampaignId" />
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">📅</div>
+                    <p style="color: #6b7280; line-height: 1.6;">
+                        Chiến dịch <strong id="noDatesModalCampaignName">-</strong> chưa có ngày bắt đầu.<br>
+                        Vui lòng chọn khoảng thời gian để tiếp tục.
+                    </p>
+                </div>
+
+                <!-- Date Range -->
+                <div style="padding: 16px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-radius: 8px; border: 2px solid #8b5cf6;">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 180px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #7c3aed; display: block; margin-bottom: 4px;">
+                                <i class="fas fa-play"></i> Từ ngày:
+                            </label>
+                            <input type="datetime-local" id="noDatesModalStartDate"
+                                style="width: 100%; padding: 10px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 14px;" />
+                        </div>
+                        <div style="flex: 1; min-width: 180px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #7c3aed; display: block; margin-bottom: 4px;">
+                                <i class="fas fa-stop"></i> Đến ngày:
+                            </label>
+                            <input type="datetime-local" id="noDatesModalEndDate"
+                                style="width: 100%; padding: 10px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 14px;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tag-modal-footer">
+                <button class="tag-btn-cancel" onclick="closeCampaignNoDatesModal()">
+                    Hủy
+                </button>
+                <button class="tag-btn-save" onclick="saveCampaignDatesAndContinue()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <i class="fas fa-check"></i> Lưu và Tiếp Tục
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Manage Campaigns Modal -->
     <div class="tag-modal" id="manageCampaignsModal" style="display: none; z-index: 10100;">
         <div class="tag-modal-content" style="max-width: 600px;">
@@ -3447,22 +3497,48 @@
                 const db = firebase.database();
                 const campaignId = 'campaign_' + Date.now();
 
-                await db.ref('user_campaigns/' + campaignId).set({
+                const campaignData = {
                     name: name,
                     customStartDate: customStartDate,
                     customEndDate: customEndDate || '',
+                    timeFrame: 'custom',
                     createdAt: new Date().toISOString()
-                });
+                };
+
+                await db.ref('user_campaigns/' + campaignId).set(campaignData);
+
+                // Add to local cache
+                window.campaignManager.allCampaigns[campaignId] = campaignData;
 
                 console.log('[USER-CAMPAIGNS] Saved campaign:', name);
+
+                // Check if this is the first campaign or user has no active campaign
+                const isFirstCampaign = Object.keys(window.campaignManager.allCampaigns).length === 1;
+                const hasNoActiveCampaign = !window.campaignManager.activeCampaignId;
+
+                // Close modal first
+                closeCreateCampaignModal();
+
+                if (isFirstCampaign || hasNoActiveCampaign) {
+                    // Auto-set as active
+                    await saveActiveCampaign(campaignId);
+
+                    // Close any onboarding modals
+                    closeNoCampaignsModal();
+                    closeSelectCampaignModal();
+
+                    // Use continueAfterCampaignSelect() from JS to load data
+                    if (typeof continueAfterCampaignSelect === 'function') {
+                        await continueAfterCampaignSelect(campaignId);
+                    }
+                }
+
+                // Reload campaigns dropdown
+                loadUserCampaigns();
 
                 if (typeof showNotification === 'function') {
                     showNotification('Đã lưu chiến dịch: ' + name, 'success');
                 }
-
-                // Close modal and reload campaigns
-                closeCreateCampaignModal();
-                loadUserCampaigns();
 
             } catch (error) {
                 console.error('[USER-CAMPAIGNS] Error saving campaign:', error);
@@ -3494,88 +3570,9 @@
         // INITIALIZATION
         // ============================================
 
-        // Initialize campaign system on page load
-        let campaignSystemInitializing = false; // Guard flag to prevent duplicate initialization
-        async function initCampaignSystem() {
-            // Prevent duplicate initialization
-            if (campaignSystemInitializing || window.campaignManager.initialized) {
-                console.log('[CAMPAIGN] Already initializing or initialized, skipping...');
-                return;
-            }
-            campaignSystemInitializing = true;
-
-            console.log('[CAMPAIGN] Initializing campaign system...');
-
-            try {
-                // Wait for Firebase to be ready
-                if (typeof firebase === 'undefined' || !firebase.database) {
-                    console.log('[CAMPAIGN] Waiting for Firebase...');
-                    campaignSystemInitializing = false; // Reset flag so it can retry
-                    setTimeout(initCampaignSystem, 500);
-                    return;
-                }
-
-                // Get current user ID (use a default if not available)
-                window.campaignManager.currentUserId = getCurrentUserId();
-                console.log('[CAMPAIGN] User ID:', window.campaignManager.currentUserId);
-
-                // Load all campaigns
-                await loadAllCampaigns();
-
-                // Check if any campaigns exist
-                const campaignCount = Object.keys(window.campaignManager.allCampaigns).length;
-                console.log('[CAMPAIGN] Found', campaignCount, 'campaigns');
-
-                if (campaignCount === 0) {
-                    // No campaigns - show create first campaign modal
-                    showNoCampaignsModal();
-                    return;
-                }
-
-                // Load user's active campaign
-                await loadActiveCampaign();
-
-                if (!window.campaignManager.activeCampaignId) {
-                    // User has no active campaign - show select modal
-                    showSelectCampaignModal();
-                    return;
-                }
-
-                // Check if active campaign still exists
-                if (!window.campaignManager.allCampaigns[window.campaignManager.activeCampaignId]) {
-                    // Campaign was deleted - show notification
-                    showCampaignDeletedModal();
-                    return;
-                }
-
-                // Apply active campaign
-                await applyActiveCampaign();
-
-                window.campaignManager.initialized = true;
-                console.log('[CAMPAIGN] System initialized successfully');
-
-            } catch (error) {
-                console.error('[CAMPAIGN] Initialization error:', error);
-            }
-        }
-
-        // Get current user ID
-        function getCurrentUserId() {
-            // Try to get from Firebase auth
-            if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
-                return firebase.auth().currentUser.uid;
-            }
-            // Fallback to localStorage or generate one
-            let userId = localStorage.getItem('campaign_user_id');
-            if (!userId) {
-                userId = 'user_' + Date.now();
-                localStorage.setItem('campaign_user_id', userId);
-            }
-            return userId;
-        }
-
         // ============================================
-        // FIREBASE OPERATIONS
+        // FIREBASE OPERATIONS (HTML)
+        // Note: initCampaignSystem() removed - using initializeApp() from JS
         // ============================================
 
         // Load all campaigns from Firebase
@@ -3591,24 +3588,7 @@
             }
         }
 
-        // Load user's active campaign ID
-        async function loadActiveCampaign() {
-            try {
-                const db = firebase.database();
-                const userId = window.campaignManager.currentUserId;
-                const snapshot = await db.ref(`user_preferences/${userId}/activeCampaignId`).once('value');
-                window.campaignManager.activeCampaignId = snapshot.val();
-
-                if (window.campaignManager.activeCampaignId) {
-                    window.campaignManager.activeCampaign = window.campaignManager.allCampaigns[window.campaignManager.activeCampaignId];
-                }
-
-                return window.campaignManager.activeCampaignId;
-            } catch (error) {
-                console.error('[CAMPAIGN] Error loading active campaign:', error);
-                return null;
-            }
-        }
+        // Note: loadActiveCampaign() removed - using loadActiveCampaignId() from JS
 
         // Save active campaign ID for user
         async function saveActiveCampaign(campaignId) {
@@ -3630,82 +3610,9 @@
 
         // ============================================
         // UI UPDATE FUNCTIONS
+        // Note: applyActiveCampaign() removed - using continueAfterCampaignSelect() from JS
+        // Note: updateActiveCampaignLabel() removed - using from JS
         // ============================================
-
-        // Apply active campaign to UI and load data
-        async function applyActiveCampaign() {
-            const campaign = window.campaignManager.activeCampaign;
-            if (!campaign) return;
-
-            console.log('[CAMPAIGN] Applying campaign:', campaign.name);
-
-            // Update stats card label
-            updateActiveCampaignLabel(campaign.name);
-
-            // Update Campaign Settings modal displays
-            updateCampaignSettingsUI(campaign);
-
-            // Apply time frame to the original campaignFilter (for data loading)
-            const campaignFilter = document.getElementById('campaignFilter');
-            if (campaignFilter && campaign.timeFrame) {
-                campaignFilter.value = campaign.timeFrame;
-
-                // Handle custom campaigns specially - need to sync filter prefs and reload
-                if (campaign.timeFrame === 'custom' && campaign.customStartDate) {
-                    const customStartDate = document.getElementById('customStartDate');
-                    if (customStartDate) {
-                        customStartDate.value = campaign.customStartDate;
-                    }
-
-                    // Show custom date container
-                    const customDateContainer = document.getElementById('customDateFilterContainer');
-                    if (customDateContainer) {
-                        customDateContainer.style.display = 'flex';
-                    }
-
-                    // Set selectedCampaign for custom mode
-                    if (typeof selectedCampaign !== 'undefined') {
-                        selectedCampaign = { isCustom: true };
-                    }
-
-                    // 🔥 SYNC: Save filter preferences to Firebase
-                    if (typeof saveFilterPreferencesToFirebase === 'function') {
-                        saveFilterPreferencesToFirebase({
-                            selectedCampaignValue: 'custom',
-                            isCustomMode: true,
-                            customStartDate: campaign.customStartDate
-                        });
-                    }
-
-                    // For custom campaigns, directly trigger search since date is already set
-                    console.log('[CAMPAIGN] Custom campaign on page load, triggering search for:', campaign.name);
-                    if (typeof handleSearch === 'function') {
-                        await handleSearch();
-                    }
-
-                    // Setup TAG listeners
-                    if (typeof setupTagRealtimeListeners === 'function') {
-                        setupTagRealtimeListeners();
-                    }
-
-                    // Connect realtime server
-                    if (window.realtimeManager) {
-                        window.realtimeManager.connectServerMode();
-                    }
-                } else {
-                    // For non-custom campaigns, dispatch change event to handleCampaignChange
-                    campaignFilter.dispatchEvent(new Event('change'));
-                }
-            }
-        }
-
-        // Update the active campaign label in stats bar
-        function updateActiveCampaignLabel(name) {
-            const label = document.getElementById('activeCampaignLabel');
-            if (label) {
-                label.innerHTML = `<i class="fas fa-bullhorn"></i> ${name}`;
-            }
-        }
 
         // Update Campaign Settings modal UI
         function updateCampaignSettingsUI(campaign) {
@@ -3832,18 +3739,30 @@
                 return;
             }
 
-            await saveActiveCampaign(dropdown.value);
-            await applyActiveCampaign();
+            const campaignId = dropdown.value;
 
-            closeSelectCampaignModal();
-
-            if (typeof showNotification === 'function') {
-                showNotification('Đã chọn chiến dịch: ' + window.campaignManager.activeCampaign.name, 'success');
+            // Check if campaign has dates
+            const campaign = window.campaignManager.allCampaigns[campaignId];
+            if (!campaign.customStartDate) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Chiến dịch chưa có ngày bắt đầu!', 'error');
+                }
+                // Show edit modal to set dates
+                closeSelectCampaignModal();
+                showCampaignNoDatesModal(campaignId);
+                return;
             }
 
-            // Trigger data reload
-            if (typeof handleLoadCampaigns === 'function') {
-                handleLoadCampaigns();
+            await saveActiveCampaign(campaignId);
+            closeSelectCampaignModal();
+
+            // Use continueAfterCampaignSelect() from JS
+            if (typeof continueAfterCampaignSelect === 'function') {
+                await continueAfterCampaignSelect(campaignId);
+            }
+
+            if (typeof showNotification === 'function') {
+                showNotification('Đã chọn chiến dịch: ' + campaign.name, 'success');
             }
         }
 
@@ -3854,6 +3773,76 @@
 
         function closeCampaignDeletedModal() {
             document.getElementById('campaignDeletedModal').style.display = 'none';
+        }
+
+        // Show "Campaign No Dates" modal - when campaign has no start date
+        function showCampaignNoDatesModal(campaignId) {
+            const campaign = window.campaignManager.allCampaigns[campaignId];
+            if (!campaign) return;
+
+            // Store campaignId for later use
+            document.getElementById('noDatesModalCampaignId').value = campaignId;
+            document.getElementById('noDatesModalCampaignName').textContent = campaign.name;
+
+            // Reset date inputs
+            document.getElementById('noDatesModalStartDate').value = '';
+            document.getElementById('noDatesModalEndDate').value = '';
+
+            document.getElementById('campaignNoDatesModal').style.display = 'flex';
+        }
+
+        function closeCampaignNoDatesModal() {
+            document.getElementById('campaignNoDatesModal').style.display = 'none';
+        }
+
+        // Save dates and continue
+        async function saveCampaignDatesAndContinue() {
+            const campaignId = document.getElementById('noDatesModalCampaignId').value;
+            const startDate = document.getElementById('noDatesModalStartDate').value;
+            const endDate = document.getElementById('noDatesModalEndDate').value;
+
+            if (!startDate) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Vui lòng chọn ngày bắt đầu!', 'error');
+                }
+                return;
+            }
+
+            try {
+                const db = firebase.database();
+
+                // Update campaign in Firebase
+                await db.ref(`user_campaigns/${campaignId}`).update({
+                    customStartDate: startDate,
+                    customEndDate: endDate || '',
+                    timeFrame: 'custom',
+                    updatedAt: new Date().toISOString()
+                });
+
+                // Update local cache
+                window.campaignManager.allCampaigns[campaignId].customStartDate = startDate;
+                window.campaignManager.allCampaigns[campaignId].customEndDate = endDate || '';
+                window.campaignManager.allCampaigns[campaignId].timeFrame = 'custom';
+
+                // Set as active and continue
+                await saveActiveCampaign(campaignId);
+                closeCampaignNoDatesModal();
+
+                // Use continueAfterCampaignSelect() from JS
+                if (typeof continueAfterCampaignSelect === 'function') {
+                    await continueAfterCampaignSelect(campaignId);
+                }
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Đã cập nhật và chọn chiến dịch!', 'success');
+                }
+
+            } catch (error) {
+                console.error('[CAMPAIGN] Error updating campaign dates:', error);
+                if (typeof showNotification === 'function') {
+                    showNotification('Lỗi cập nhật chiến dịch: ' + error.message, 'error');
+                }
+            }
         }
 
         // ============================================
@@ -4322,94 +4311,8 @@
             }
         };
 
-        // Override saveNewCampaign to auto-set as active for first campaign
-        const _originalSaveNewCampaign = typeof saveNewCampaign === 'function' ? saveNewCampaign : null;
-        saveNewCampaign = async function() {
-            const name = document.getElementById('newCampaignName').value.trim();
-            const timeFrame = document.getElementById('newCampaignTimeFrame').value;
-            const customStartDate = document.getElementById('newCampaignCustomStartDate').value;
-
-            if (!name) {
-                if (typeof showNotification === 'function') {
-                    showNotification('Vui lòng nhập tên chiến dịch!', 'error');
-                }
-                document.getElementById('newCampaignName').focus();
-                return;
-            }
-
-            if (!timeFrame) {
-                if (typeof showNotification === 'function') {
-                    showNotification('Vui lòng chọn khung thời gian!', 'error');
-                }
-                return;
-            }
-
-            try {
-                const db = firebase.database();
-                const campaignId = 'campaign_' + Date.now();
-                const timeFrameLabel = getTimeFrameDisplayText(timeFrame);
-
-                const campaignData = {
-                    name: name,
-                    timeFrame: timeFrame,
-                    timeFrameLabel: timeFrameLabel,
-                    customStartDate: timeFrame === 'custom' ? customStartDate : '',
-                    createdBy: window.campaignManager.currentUserId,
-                    createdAt: new Date().toISOString()
-                };
-
-                await db.ref(`user_campaigns/${campaignId}`).set(campaignData);
-
-                // Add to local cache
-                window.campaignManager.allCampaigns[campaignId] = campaignData;
-
-                // Check if this is the first campaign or user has no active campaign
-                const isFirstCampaign = Object.keys(window.campaignManager.allCampaigns).length === 1;
-                const hasNoActiveCampaign = !window.campaignManager.activeCampaignId;
-
-                if (isFirstCampaign || hasNoActiveCampaign) {
-                    // Auto-set as active
-                    await saveActiveCampaign(campaignId);
-                    await applyActiveCampaign();
-
-                    // Close any onboarding modals
-                    closeNoCampaignsModal();
-                    closeSelectCampaignModal();
-
-                    // Trigger data reload
-                    if (typeof handleLoadCampaigns === 'function') {
-                        handleLoadCampaigns();
-                    }
-                }
-
-                closeCreateCampaignModal();
-                loadUserCampaigns();
-
-                if (typeof showNotification === 'function') {
-                    showNotification('Đã tạo chiến dịch: ' + name, 'success');
-                }
-            } catch (error) {
-                console.error('[CAMPAIGN] Error saving campaign:', error);
-                if (typeof showNotification === 'function') {
-                    showNotification('Lỗi tạo chiến dịch: ' + error.message, 'error');
-                }
-            }
-        };
-
-        // ============================================
-        // INITIALIZATION TRIGGER
-        // ============================================
-
-        // Initialize when DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            // Delay initialization to allow Firebase to load
-            setTimeout(initCampaignSystem, 1000);
-        });
-
-        // Also try to initialize if Firebase is already ready
-        if (typeof firebase !== 'undefined' && firebase.database) {
-            setTimeout(initCampaignSystem, 500);
-        }
+        // Note: saveNewCampaign override removed - using original from Create Campaign Modal
+        // Note: initCampaignSystem trigger removed - using initializeApp() from JS
     </script>
 
     <!-- Pancake Settings Modal -->
