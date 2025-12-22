@@ -490,26 +490,22 @@
        ======================================== */
 
     /* Hide table structure on mobile */
-    #productStatsTable thead,
-    #tagStatsTable thead {
+    #productStatsTable thead {
         display: none !important;
     }
 
-    #productStatsTable,
-    #tagStatsTable {
+    #productStatsTable {
         display: block !important;
         width: 100% !important;
     }
 
-    #productStatsTable tbody,
-    #tagStatsTable tbody {
+    #productStatsTable tbody {
         display: block !important;
         width: 100% !important;
     }
 
     /* Transform table rows into modern cards */
-    #productStatsTable tbody tr,
-    #tagStatsTable tbody tr {
+    #productStatsTable tbody tr {
         display: block !important;
         background: white;
         border-radius: var(--radius-lg);
@@ -521,15 +517,13 @@
         position: relative;
     }
 
-    #productStatsTable tbody tr:active,
-    #tagStatsTable tbody tr:active {
+    #productStatsTable tbody tr:active {
         transform: scale(0.98);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     }
 
     /* Hide default table cells */
-    #productStatsTable tbody tr td,
-    #tagStatsTable tbody tr td {
+    #productStatsTable tbody tr td {
         display: block !important;
         border: none !important;
         padding: 0 !important;
@@ -615,52 +609,117 @@
         transform: scale(0.9) !important;
     }
 
-    /* Tag Statistics - Similar styling */
-    #tagStatsTable tbody tr td:nth-child(1) {
-        font-size: 11px;
-        font-weight: 700;
-        color: white;
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        padding: 4px 10px !important;
-        border-radius: var(--radius-full);
-        display: inline-block !important;
-        margin-bottom: 8px;
-        letter-spacing: 0.5px;
-        box-shadow: 0 2px 4px rgba(245, 87, 108, 0.3);
+    /* Product Summary Toggle Section - App-like */
+    .product-summary-toggle {
+        background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        margin-bottom: 16px;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 2px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
     }
 
-    #tagStatsTable tbody tr td:nth-child(2) {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 12px;
-        line-height: 1.4;
+    .product-summary-toggle:active {
+        transform: scale(0.98);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
     }
 
-    #tagStatsTable tbody tr td:nth-child(3),
-    #tagStatsTable tbody tr td:nth-child(4) {
-        display: inline-flex !important;
+    .summary-header {
+        display: flex;
         align-items: center;
-        gap: 6px;
-        background: var(--bg-secondary);
-        padding: 8px 12px !important;
-        border-radius: var(--radius-md);
+        gap: 10px;
+        margin-bottom: 12px;
+        color: #667eea;
+        font-weight: 700;
         font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .summary-header i:first-child {
+        font-size: 18px;
+    }
+
+    .summary-header span {
+        flex: 1;
+    }
+
+    .summary-header .toggle-icon {
+        font-size: 16px;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .product-summary-toggle.expanded .toggle-icon {
+        transform: rotate(180deg);
+    }
+
+    .summary-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    .summary-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: white;
+        padding: 12px 8px;
+        border-radius: var(--radius-md);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+        transition: all 0.2s ease;
+    }
+
+    .summary-item:active {
+        transform: scale(0.95);
+    }
+
+    .summary-item i {
+        font-size: 20px;
+        margin-bottom: 6px;
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .summary-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 2px;
+        line-height: 1;
+    }
+
+    .summary-label {
+        font-size: 10px;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
         font-weight: 600;
-        margin-right: 8px;
-        margin-bottom: 8px;
     }
 
-    #tagStatsTable tbody tr td:nth-child(3)::before {
-        content: "📦";
-        font-size: 16px;
-        margin-right: 4px;
+    /* Collapsible cards container */
+    #productStatsTable.collapsed {
+        max-height: 0 !important;
+        overflow: hidden !important;
+        margin-top: 0 !important;
+        opacity: 0;
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.3s ease,
+                    margin-top 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    #tagStatsTable tbody tr td:nth-child(4)::before {
-        content: "🛒";
-        font-size: 16px;
-        margin-right: 4px;
+    #productStatsTable {
+        max-height: 10000px;
+        overflow: visible;
+        opacity: 1;
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.3s ease;
     }
 
     /* Stats table wrapper */
@@ -669,16 +728,9 @@
         overflow: visible !important;
     }
 
-    /* Summary stats at top of product section */
-    .content-section h2 .section-badge {
-        background: var(--primary-gradient);
-        color: white;
-        padding: 4px 12px;
-        border-radius: var(--radius-full);
-        font-size: 13px;
-        font-weight: 700;
-        margin-left: auto;
-        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    /* Hide badge from product section header */
+    #productStatsSection h2 .section-badge {
+        display: none !important;
     }
 
     /* ========================================
