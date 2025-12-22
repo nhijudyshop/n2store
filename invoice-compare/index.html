@@ -25,25 +25,16 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-    <!-- Load API Keys -->
+    <!-- Load DeepSeek API Key -->
     <script>
-        // === DEEPSEEK API (Primary) ===
         const savedDeepSeekKey = localStorage.getItem('deepseek_api_key') || '';
         // TODO: GitHub Actions sẽ inject từ secret DEEPSEEK_API_KEY
         window.DEEPSEEK_API_KEY = savedDeepSeekKey || 'sk-319cef4faabf413aa84beb51c383e9b1' || '';
-
-        // === GEMINI API (Fallback) ===
-        const savedGeminiProKey = localStorage.getItem('gemini_pro_key') || '';
-        window.GEMINI_PRO_KEY = savedGeminiProKey || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs' || '';
-        window.GEMINI_KEYS = '';
-
-        console.log('[API-KEYS] DeepSeek:', window.DEEPSEEK_API_KEY ? 'Configured ✓ (Primary)' : '⚠️ NOT CONFIGURED');
-        console.log('[API-KEYS] Gemini:', window.GEMINI_PRO_KEY ? 'Configured ✓ (Fallback)' : 'Not configured');
+        console.log('[API-KEYS] DeepSeek:'.DEEPSEEK_API_KEY ? 'Configured ✓' : '⚠️ NOT CONFIGURED');
     </script>
 
-    <!-- AI Helpers -->
+    <!-- DeepSeek AI Helper -->
     <script src="deepseek-ai-helper.js"></script>
-    <script src="gemini-ai-helper.js"></script>
 </head>
 
 <body>
@@ -346,14 +337,14 @@
     <!-- Pancake Settings Script -->
     <script>
         // Open Pancake Settings Modal
-        async function openPancakeSettingsModal() {
+        async function openPancattingsModal() {
             document.getElementById('pancakeSettingsModal').style.display = 'flex';
             lucide.createIcons();
 
             // Load accounts list
             if (window.pancakeTokenManager) {
                 await window.pancakeTokenManager.initialize();
-                await refreshAccountsList();
+                await refrest();
             }
         }
 

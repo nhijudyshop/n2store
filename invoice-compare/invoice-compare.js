@@ -687,39 +687,20 @@ async function analyzeImagesWithAI() {
             throw new Error('Chưa có ảnh nào được tải lên');
         }
 
+        if (!window.DeepSeekAI || !window.DeepSeekAI.isConfigured()) {
+            throw new Error('DeepSeek API chưa được cấu hình. Vui lòng kiểm tra API key.');
+        }
+
         console.log('[AI-ANALYSIS] Starting analysis with', uploadedImages.length, 'images');
 
         const image = uploadedImages[0];
-        let result = null;
 
-        // Try DeepSeek first (Primary API)
-        if (window.DeepSeekAI && window.DeepSeekAI.isConfigured()) {
-            try {
-                console.log('[AI-ANALYSIS] Using DeepSeek API (Primary)...');
-                result = await window.DeepSeekAI.analyzeImage(
-                    image.base64,
-                    AI_ANALYSIS_PROMPT,
-                    { mimeType: image.mimeType }
-                );
-            } catch (deepseekError) {
-                console.warn('[AI-ANALYSIS] DeepSeek failed:', deepseekError.message);
-                console.log('[AI-ANALYSIS] Falling back to Gemini...');
-            }
-        }
-
-        // Fallback to Gemini if DeepSeek failed or not configured
-        if (!result && window.GeminiAI) {
-            console.log('[AI-ANALYSIS] Using Gemini API (Fallback)...');
-            result = await window.GeminiAI.analyzeImageWithGemini(
-                image.base64,
-                AI_ANALYSIS_PROMPT,
-                { mimeType: image.mimeType }
-            );
-        }
-
-        if (!result) {
-            throw new Error('Không có AI API nào khả dụng. Vui lòng kiểm tra cấu hình API key.');
-        }
+        console.log('[AI-ANALYSIS] Using DeepSeek API...');
+        const result = await window.DeepSeekAI.analyzeImage(
+            image.base64,
+            AI_ANALYSIS_PROMPT,
+            { mimeType: image.mimeType }
+        );
 
         console.log('[AI-ANALYSIS] Raw result:', result);
 
