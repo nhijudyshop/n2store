@@ -333,6 +333,7 @@ function filterByCustomerInfo(data, searchQuery) {
     if (!window.CustomerInfoManager) return data;
 
     const lowerQuery = searchQuery.toLowerCase().trim();
+    const isSearchingNoInfo = lowerQuery === 'chưa có thông tin';
 
     return data.filter(row => {
         // Extract unique code from content
@@ -340,10 +341,16 @@ function filterByCustomerInfo(data, searchQuery) {
         const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
         const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
 
+        // Skip rows without unique code (these show N/A, not customer info)
+        // This also excludes gap rows which don't have unique codes
+        if (!uniqueCode) return false;
+
         // Get customer info
-        let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
-        if (uniqueCode && window.CustomerInfoManager) {
-            customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+        const customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+
+        // Special case: searching for "Chưa có thông tin" - only match phone column
+        if (isSearchingNoInfo) {
+            return customerDisplay.phone === 'Chưa có thông tin';
         }
 
         // Check if search matches customer name (case-insensitive)
