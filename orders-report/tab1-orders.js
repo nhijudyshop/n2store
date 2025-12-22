@@ -279,55 +279,25 @@ function getFilterPrefsPath() {
 }
 
 /**
- * Save filter preferences to Firebase (per-user)
- * @param {Object} prefs - { selectedCampaignValue, isCustomMode, customStartDate }
+ * [DEPRECATED] Save filter preferences to Firebase (per-user)
+ * Dates are now stored in campaign objects directly.
+ * This function is kept as a no-op stub for backward compatibility.
  */
 async function saveFilterPreferencesToFirebase(prefs) {
-    if (!database) {
-        console.warn('[FILTER-PREFS] Firebase not available, skipping save');
-        return;
-    }
-
-    try {
-        const path = getFilterPrefsPath();
-        const updateData = {
-            ...prefs,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP
-        };
-
-        await database.ref(path).set(updateData);
-        console.log('[FILTER-PREFS] ✅ Saved to Firebase:', path, updateData);
-    } catch (error) {
-        console.error('[FILTER-PREFS] ❌ Error saving:', error);
-    }
+    // No-op: Dates are now stored in campaign objects
+    console.log('[FILTER-PREFS] ⚠️ DEPRECATED - Dates stored in campaign now');
+    return;
 }
 
 /**
- * Load filter preferences from Firebase (per-user)
- * @returns {Object|null} - { selectedCampaignValue, isCustomMode, customStartDate } or null
+ * [DEPRECATED] Load filter preferences from Firebase (per-user)
+ * Dates are now loaded from campaign objects directly.
+ * This function is kept as a no-op stub for backward compatibility.
  */
 async function loadFilterPreferencesFromFirebase() {
-    if (!database) {
-        console.warn('[FILTER-PREFS] Firebase not available, skipping load');
-        return null;
-    }
-
-    try {
-        const path = getFilterPrefsPath();
-        const snapshot = await database.ref(path).once('value');
-        const prefs = snapshot.val();
-
-        if (prefs) {
-            console.log('[FILTER-PREFS] ✅ Loaded from Firebase:', path, prefs);
-            return prefs;
-        } else {
-            console.log('[FILTER-PREFS] No saved preferences found at:', path);
-            return null;
-        }
-    } catch (error) {
-        console.error('[FILTER-PREFS] ❌ Error loading:', error);
-        return null;
-    }
+    // No-op: Dates are now loaded from campaign objects
+    console.log('[FILTER-PREFS] ⚠️ DEPRECATED - Dates loaded from campaign now');
+    return null;
 }
 
 // =====================================================
@@ -779,13 +749,11 @@ window.addEventListener("DOMContentLoaded", async function () {
         tableWrapper.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    // 🎯 ĐƠN GIẢN HÓA: Chỉ dùng Custom Mode
-    // 1. Load saved preferences từ Firebase (customStartDate, customEndDate)
-    // 2. Load employee ranges
-    // 3. Tải orders trực tiếp
-    console.log('[AUTO-LOAD] Khởi tạo Custom Mode...');
+    // 🎯 ĐƠN GIẢN HÓA: Dùng Campaign System mới (merged)
+    // Flow: Load campaigns → Check active → Fetch orders (1 lần duy nhất)
+    console.log('[AUTO-LOAD] Khởi tạo App...');
     console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
-    await initializeCustomMode();
+    await initializeApp();
 
     // Search functionality
     const searchInput = document.getElementById("tableSearchInput");
@@ -859,108 +827,228 @@ window.addEventListener("DOMContentLoaded", async function () {
 });
 
 // =====================================================
-// INITIALIZE CUSTOM MODE (SIMPLIFIED FLOW)
+// INITIALIZE APP (MERGED & OPTIMIZED FLOW)
 // =====================================================
 /**
- * Hàm khởi tạo đơn giản hóa - Chỉ dùng Custom Mode
- * Flow: Load saved preferences → Set dates → Load employee ranges → Fetch orders
+ * Hàm khởi tạo tối ưu - Load campaign trước, sau đó fetch orders 1 lần duy nhất
+ * Flow:
+ *   1. Wait for Firebase
+ *   2. Load data parallel (campaigns, activeCampaignId, employeeRanges)
+ *   3. Check active campaign FIRST (fast path)
+ *   4. If no dates → show modal
+ *   5. Fetch orders 1 lần duy nhất
  */
-let customModeInitialized = false; // Guard flag
-async function initializeCustomMode() {
+let appInitialized = false; // Guard flag
+async function initializeApp() {
     // Prevent duplicate initialization
-    if (customModeInitialized) {
-        console.log('[CUSTOM-MODE] Already initialized, skipping...');
+    if (appInitialized) {
+        console.log('[APP] Already initialized, skipping...');
         return;
     }
-    customModeInitialized = true;
+    appInitialized = true;
 
     try {
-        console.log('[CUSTOM-MODE] Initializing...');
+        console.log('[APP] 🚀 Initializing...');
 
-        // 1. Load saved preferences từ Firebase
-        const savedPrefs = await loadFilterPreferencesFromFirebase();
-        console.log('[CUSTOM-MODE] Loaded preferences:', savedPrefs);
+        // 1. Wait for Firebase to be ready
+        if (typeof firebase === 'undefined' || !firebase.database) {
+            console.log('[APP] Waiting for Firebase...');
+            appInitialized = false; // Reset flag so it can retry
+            setTimeout(initializeApp, 500);
+            return;
+        }
 
-        // 2. Set dates (from saved or default)
+        // Set current user ID
+        window.campaignManager = window.campaignManager || {
+            allCampaigns: {},
+            activeCampaignId: null,
+            activeCampaign: null,
+            currentUserId: null,
+            initialized: false
+        };
+        window.campaignManager.currentUserId = getCurrentUserId();
+        console.log('[APP] User ID:', window.campaignManager.currentUserId);
+
+        // 2. Load data in PARALLEL for speed
+        console.log('[APP] Loading data in parallel...');
+        const [campaigns, activeCampaignId, _] = await Promise.all([
+            loadAllCampaigns(),
+            loadActiveCampaignId(),
+            loadEmployeeRangesForCampaign(null) // Load employee ranges in parallel
+        ]);
+        console.log('[APP] Data loaded - Campaigns:', Object.keys(campaigns).length, 'Active:', activeCampaignId);
+
+        // 3. ⭐ CHECK ACTIVE CAMPAIGN FIRST (Fast path)
+        if (activeCampaignId && campaigns[activeCampaignId]) {
+            const campaign = campaigns[activeCampaignId];
+            console.log('[APP] Found active campaign:', campaign.name);
+
+            // Check if campaign has dates
+            if (campaign.customStartDate) {
+                // ✅ Happy path - Load ngay!
+                console.log('[APP] ✅ Fast path - Campaign has dates, loading orders...');
+                await continueAfterCampaignSelect(activeCampaignId);
+                return;
+            } else {
+                // ❌ Campaign doesn't have dates
+                console.log('[APP] ⚠️ Campaign has no dates, showing modal...');
+                showCampaignNoDatesModal(activeCampaignId);
+                return;
+            }
+        }
+
+        // 4. No active campaign → Check further
+        if (Object.keys(campaigns).length === 0) {
+            // No campaigns exist
+            console.log('[APP] No campaigns found, showing create modal...');
+            showNoCampaignsModal();
+            return;
+        }
+
+        // Campaigns exist but none selected
+        console.log('[APP] No active campaign selected, showing select modal...');
+        showSelectCampaignModal();
+
+    } catch (error) {
+        console.error('[APP] ❌ Initialization error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi khởi tạo: ' + error.message);
+        }
+    }
+}
+
+/**
+ * Get current user ID (helper)
+ */
+function getCurrentUserId() {
+    // Try to get from Firebase auth
+    if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+        return firebase.auth().currentUser.uid;
+    }
+    // Fallback to localStorage or generate one
+    let userId = localStorage.getItem('campaign_user_id');
+    if (!userId) {
+        userId = 'user_' + Date.now();
+        localStorage.setItem('campaign_user_id', userId);
+    }
+    return userId;
+}
+
+/**
+ * Load active campaign ID from Firebase
+ */
+async function loadActiveCampaignId() {
+    try {
+        const db = firebase.database();
+        const userId = window.campaignManager.currentUserId;
+        const snapshot = await db.ref(`user_preferences/${userId}/activeCampaignId`).once('value');
+        const activeCampaignId = snapshot.val();
+
+        window.campaignManager.activeCampaignId = activeCampaignId;
+        if (activeCampaignId && window.campaignManager.allCampaigns[activeCampaignId]) {
+            window.campaignManager.activeCampaign = window.campaignManager.allCampaigns[activeCampaignId];
+        }
+
+        return activeCampaignId;
+    } catch (error) {
+        console.error('[APP] Error loading active campaign:', error);
+        return null;
+    }
+}
+
+/**
+ * Continue after user selects/creates a campaign
+ * This function handles:
+ * - Setting dates from campaign
+ * - Updating UI
+ * - Fetching orders (1 time only)
+ * - Connecting realtime
+ */
+async function continueAfterCampaignSelect(campaignId) {
+    try {
+        console.log('[APP] continueAfterCampaignSelect:', campaignId);
+
+        const campaign = window.campaignManager.allCampaigns[campaignId];
+        if (!campaign) {
+            console.error('[APP] Campaign not found:', campaignId);
+            return;
+        }
+
+        // Set global state
+        window.campaignManager.activeCampaignId = campaignId;
+        window.campaignManager.activeCampaign = campaign;
+        window.campaignManager.initialized = true;
+
+        // Get dates from campaign
+        const startDate = campaign.customStartDate;
+        const endDate = campaign.customEndDate || '';
+
+        // Set dates to all input fields
         const customStartDateInput = document.getElementById('customStartDate');
         const customEndDateInput = document.getElementById('customEndDate');
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
+        const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+        const modalCustomEndDate = document.getElementById('modalCustomEndDate');
 
-        if (savedPrefs && savedPrefs.customStartDate) {
-            // Restore from Firebase
-            customStartDateInput.value = savedPrefs.customStartDate;
+        if (customStartDateInput) customStartDateInput.value = startDate;
+        if (customEndDateInput) customEndDateInput.value = endDate;
+        if (startDateInput) startDateInput.value = startDate;
+        if (endDateInput) endDateInput.value = endDate;
+        if (modalCustomStartDate) modalCustomStartDate.value = startDate;
+        if (modalCustomEndDate) modalCustomEndDate.value = endDate;
 
-            // Restore customEndDate or calculate +3 days
-            if (savedPrefs.customEndDate) {
-                customEndDateInput.value = savedPrefs.customEndDate;
-            } else {
-                // Auto-calculate +3 days at 00:00
-                const startDate = new Date(savedPrefs.customStartDate);
-                const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000);
-                endDate.setHours(0, 0, 0, 0);
-                customEndDateInput.value = formatDateTimeLocal(endDate);
-            }
+        console.log('[APP] Dates set:', startDate, '->', endDate);
 
-            console.log('[CUSTOM-MODE] Restored dates from Firebase:', customStartDateInput.value, '->', customEndDateInput.value);
-        } else {
-            // Default: today 00:00 -> today+3 days 00:00
-            const now = new Date();
-            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-            const endOfTodayPlus3 = new Date(startOfToday.getTime() + 3 * 24 * 60 * 60 * 1000);
-            endOfTodayPlus3.setHours(0, 0, 0, 0); // Set to 00:00 AM
-
-            customStartDateInput.value = formatDateTimeLocal(startOfToday);
-            customEndDateInput.value = formatDateTimeLocal(endOfTodayPlus3);
-
-            console.log('[CUSTOM-MODE] Using default dates:', customStartDateInput.value, '->', customEndDateInput.value);
-        }
-
-        // Sync to startDate/endDate for API compatibility
-        startDateInput.value = customStartDateInput.value;
-        endDateInput.value = customEndDateInput.value;
-
-        // 3. Set selectedCampaign to custom mode
+        // Set selectedCampaign to custom mode
         selectedCampaign = { isCustom: true };
 
-        // 4. Update UI label
-        const activeCampaignLabel = document.getElementById('activeCampaignLabel');
-        if (activeCampaignLabel) {
-            const startDisplay = new Date(customStartDateInput.value).toLocaleDateString('vi-VN');
-            const endDisplay = new Date(customEndDateInput.value).toLocaleDateString('vi-VN');
-            activeCampaignLabel.innerHTML = `<i class="fas fa-calendar-check"></i> ${startDisplay} - ${endDisplay}`;
+        // Update UI label
+        updateActiveCampaignLabel(campaign.name);
+
+        // Update modal dropdown
+        const modalSelect = document.getElementById('modalUserCampaignSelect');
+        if (modalSelect) {
+            modalSelect.value = campaignId;
         }
 
-        // 5. Load employee ranges (general, no campaign)
-        console.log('[CUSTOM-MODE] Loading employee ranges...');
-        await loadEmployeeRangesForCampaign(null);
-
-        // 6. Show notification
+        // Show notification
         if (window.notificationManager) {
-            const startDisplay = new Date(customStartDateInput.value).toLocaleDateString('vi-VN');
-            const endDisplay = new Date(customEndDateInput.value).toLocaleDateString('vi-VN');
+            const startDisplay = new Date(startDate).toLocaleDateString('vi-VN');
+            const endDisplay = endDate ? new Date(endDate).toLocaleDateString('vi-VN') : 'N/A';
             window.notificationManager.info(
                 `Đang tải đơn hàng: ${startDisplay} - ${endDisplay}`,
                 2000
             );
         }
 
-        // 7. Fetch orders with custom date range
+        // ⭐ FETCH ORDERS (1 lần duy nhất)
+        console.log('[APP] ⭐ Fetching orders...');
         await handleSearch();
 
-        // 8. Connect realtime
+        // Connect realtime
         if (window.realtimeManager) {
-            console.log('[CUSTOM-MODE] Connecting to Realtime Server...');
+            console.log('[APP] Connecting to Realtime Server...');
             window.realtimeManager.connectServerMode();
         }
 
-        console.log('[CUSTOM-MODE] ✅ Initialization complete');
+        console.log('[APP] ✅ Initialization complete for campaign:', campaign.name);
 
     } catch (error) {
-        console.error('[CUSTOM-MODE] ❌ Initialization error:', error);
+        console.error('[APP] ❌ Error in continueAfterCampaignSelect:', error);
         if (window.notificationManager) {
-            window.notificationManager.error('Lỗi khởi tạo: ' + error.message);
+            window.notificationManager.error('Lỗi tải chiến dịch: ' + error.message);
         }
+    }
+}
+
+/**
+ * Update active campaign label in UI
+ */
+function updateActiveCampaignLabel(name) {
+    const label = document.getElementById('activeCampaignLabel');
+    if (label) {
+        label.innerHTML = `<i class="fas fa-bullhorn"></i> ${name}`;
     }
 }
 
