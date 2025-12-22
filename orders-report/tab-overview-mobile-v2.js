@@ -145,7 +145,6 @@
 
         try {
             // Apply transformations in sequence
-            createProductSummary();
             makeProductSectionCollapsible();
             makeTagSectionCollapsible();
             transformEmployeeCards();
@@ -382,104 +381,6 @@
     // ========================================
     // EMPLOYEE CARDS
     // ========================================
-
-    /**
-     * Create product summary toggle
-     */
-    function createProductSummary() {
-        const productSection = document.getElementById('productStatsSection');
-        const productTable = document.getElementById('productStatsTable');
-        const tableWrapper = productSection?.querySelector('.stats-table-wrapper');
-
-        if (!productTable || !tableWrapper) {
-            log('⚠️ Product table not found');
-            return;
-        }
-
-        // Check if summary already exists
-        if (document.querySelector('.product-summary-toggle')) {
-            return;
-        }
-
-        // Calculate totals
-        const rows = productTable.querySelectorAll('tbody tr');
-        let totalProducts = rows.length;
-        let totalQuantity = 0;
-        let totalOrders = 0;
-
-        rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            if (cells.length >= 4) {
-                // Quantity is in 3rd cell, Orders in 4th cell
-                const qty = parseInt(cells[2]?.textContent?.replace(/\D/g, '') || '0');
-                const orders = parseInt(cells[3]?.textContent?.replace(/\D/g, '') || '0');
-                totalQuantity += qty;
-                totalOrders += orders;
-            }
-        });
-
-        // Create summary toggle element
-        const summaryToggle = document.createElement('div');
-        summaryToggle.className = 'product-summary-toggle';
-        summaryToggle.innerHTML = `
-            <div class="summary-header">
-                <i class="fas fa-chart-line"></i>
-                <span>TỔNG QUAN</span>
-                <i class="fas fa-chevron-down toggle-icon"></i>
-            </div>
-            <div class="summary-stats">
-                <div class="summary-item">
-                    <i class="fas fa-barcode"></i>
-                    <div class="summary-value">${totalProducts}</div>
-                    <div class="summary-label">Mã SP</div>
-                </div>
-                <div class="summary-item">
-                    <i class="fas fa-box"></i>
-                    <div class="summary-value">${totalQuantity.toLocaleString()}</div>
-                    <div class="summary-label">Số Lượng</div>
-                </div>
-                <div class="summary-item">
-                    <i class="fas fa-shopping-cart"></i>
-                    <div class="summary-value">${totalOrders.toLocaleString()}</div>
-                    <div class="summary-label">Đơn Hàng</div>
-                </div>
-            </div>
-        `;
-
-        // Insert before table wrapper
-        tableWrapper.parentNode.insertBefore(summaryToggle, tableWrapper);
-
-        // Set default collapsed state
-        productTable.classList.add('collapsed');
-
-        // Add click handler
-        summaryToggle.addEventListener('click', () => {
-            toggleProductSummary(summaryToggle, productTable);
-        });
-
-        log('✅ Product summary created');
-    }
-
-    /**
-     * Toggle product summary expand/collapse
-     */
-    function toggleProductSummary(toggle, table) {
-        const isCollapsed = table.classList.contains('collapsed');
-
-        if (isCollapsed) {
-            // Expand
-            table.classList.remove('collapsed');
-            toggle.classList.add('expanded');
-            haptic();
-            log('📊 Product details expanded');
-        } else {
-            // Collapse
-            table.classList.add('collapsed');
-            toggle.classList.remove('expanded');
-            haptic();
-            log('📊 Product details collapsed');
-        }
-    }
 
     /**
      * Transform employee cards for mobile
