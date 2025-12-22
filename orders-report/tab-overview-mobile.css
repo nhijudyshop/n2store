@@ -283,143 +283,159 @@
     }
 
     /* ========================================
-       PRODUCT STATISTICS SECTION
+       PRODUCT STATISTICS - APP-LIKE REDESIGN
        ======================================== */
 
+    /* Section Container */
     #productStatsSection {
         background: white !important;
-        margin: 0 !important;
+        margin: 0 0 8px 0 !important;
         padding: 16px !important;
-        border-bottom: 8px solid var(--mobile-bg);
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
     }
 
     #productStatsSection h2 {
         font-size: 18px !important;
+        font-weight: 700 !important;
         margin: 0 0 16px 0 !important;
-        padding-bottom: 12px !important;
-        border-bottom: 2px solid var(--mobile-border) !important;
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        padding: 0 0 12px 0 !important;
+        border-bottom: 2px solid #e2e8f0 !important;
+        color: var(--mobile-text) !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+    }
+
+    #productStatsSection h2 i {
+        font-size: 20px !important;
+        background: var(--mobile-gradient) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
     }
 
     #productStatsSection h2 .section-badge {
         display: none !important;
     }
 
-    /* ========================================
-       PRODUCT SUMMARY TOGGLE
-       ======================================== */
-
+    /* Summary Toggle */
     .product-summary-toggle {
-        background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
-        border-radius: var(--mobile-radius);
-        padding: 16px;
-        margin-bottom: 16px;
-        border: 2px solid #e0e7ff;
-        box-shadow: var(--mobile-shadow);
-        cursor: pointer;
+        background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%) !important;
+        border: 2px solid #e0e7ff !important;
+        border-radius: 16px !important;
+        padding: 16px !important;
+        margin-bottom: 16px !important;
+        cursor: pointer !important;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1) !important;
+        transition: all 0.2s ease !important;
     }
 
     .product-summary-toggle:active {
-        transform: scale(0.98);
+        transform: scale(0.98) !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
     }
 
     .summary-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 12px;
-        color: var(--mobile-primary);
-        font-weight: 700;
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        margin-bottom: 12px !important;
+        color: #667eea !important;
+        font-weight: 700 !important;
+        font-size: 13px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
     }
 
     .summary-header i:first-child {
-        font-size: 18px;
+        font-size: 18px !important;
     }
 
     .summary-header span {
-        flex: 1;
+        flex: 1 !important;
     }
 
     .summary-header .toggle-icon {
-        font-size: 16px;
-        transition: transform 0.3s ease;
+        font-size: 16px !important;
+        transition: transform 0.3s ease !important;
     }
 
     .product-summary-toggle.expanded .toggle-icon {
-        transform: rotate(180deg);
+        transform: rotate(180deg) !important;
     }
 
     .summary-stats {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 10px !important;
     }
 
     .summary-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        background: white;
-        padding: 12px 8px;
-        border-radius: var(--mobile-radius-sm);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        background: white !important;
+        padding: 12px 8px !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06) !important;
+        transition: transform 0.2s ease !important;
     }
 
     .summary-item:active {
-        transform: scale(0.95);
+        transform: scale(0.95) !important;
     }
 
     .summary-item i {
-        font-size: 20px;
-        margin-bottom: 6px;
-        background: var(--mobile-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        font-size: 20px !important;
+        margin-bottom: 6px !important;
+        background: var(--mobile-gradient) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
     }
 
     .summary-value {
-        font-size: 18px;
-        font-weight: 700;
-        color: var(--mobile-text);
-        margin-bottom: 2px;
-        line-height: 1;
+        font-size: 18px !important;
+        font-weight: 700 !important;
+        color: var(--mobile-text) !important;
+        margin-bottom: 2px !important;
+        line-height: 1 !important;
     }
 
     .summary-label {
-        font-size: 10px;
-        color: var(--mobile-text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        font-weight: 600;
+        font-size: 10px !important;
+        color: var(--mobile-text-secondary) !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.3px !important;
+        font-weight: 600 !important;
     }
 
-    /* ========================================
-       PRODUCT TABLE -> CARDS
-       ======================================== */
-
+    /* Table Wrapper */
     .stats-table-wrapper {
         padding: 0 !important;
+        margin: 0 !important;
         overflow: visible !important;
+        border: none !important;
+        background: transparent !important;
     }
 
+    /* Table */
     #productStatsTable {
         display: block !important;
         width: 100% !important;
-        max-height: 10000px;
-        overflow: visible;
-        transition: max-height 0.4s ease, opacity 0.3s ease;
-        opacity: 1;
+        max-height: 10000px !important;
+        overflow: visible !important;
+        opacity: 1 !important;
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease !important;
+        border: none !important;
+        background: transparent !important;
     }
 
     #productStatsTable.collapsed {
         max-height: 0 !important;
         overflow: hidden !important;
-        opacity: 0;
+        opacity: 0 !important;
+        margin-top: 0 !important;
     }
 
     #productStatsTable thead {
@@ -429,100 +445,131 @@
     #productStatsTable tbody {
         display: block !important;
         width: 100% !important;
+        border: none !important;
+        background: transparent !important;
     }
 
+    /* Product Cards */
     #productStatsTable tbody tr {
         display: block !important;
-        background: white;
-        border-radius: var(--mobile-radius);
-        padding: 16px;
-        margin-bottom: 12px;
-        box-shadow: var(--mobile-shadow);
-        border: 1px solid var(--mobile-border);
-        position: relative;
+        background: white !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 16px !important;
+        padding: 16px !important;
+        margin-bottom: 12px !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+        position: relative !important;
+        transition: all 0.2s ease !important;
     }
 
     #productStatsTable tbody tr:active {
-        transform: scale(0.98);
-        box-shadow: var(--mobile-shadow-lg);
+        transform: scale(0.98) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
     }
 
     #productStatsTable tbody tr td {
         display: block !important;
         border: none !important;
         padding: 0 !important;
+        margin: 0 !important;
         text-align: left !important;
+        background: transparent !important;
     }
 
-    /* Product Code Badge */
+    /* Product Code - Gradient Badge */
     #productStatsTable tbody tr td:nth-child(1) {
-        font-size: 11px;
-        font-weight: 700;
-        color: white;
-        background: var(--mobile-gradient);
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        color: white !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         padding: 4px 10px !important;
-        border-radius: 20px;
+        border-radius: 20px !important;
         display: inline-block !important;
-        margin-bottom: 8px;
-        letter-spacing: 0.5px;
-        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+        margin-bottom: 8px !important;
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3) !important;
+        text-transform: uppercase !important;
     }
 
     /* Product Name */
     #productStatsTable tbody tr td:nth-child(2) {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--mobile-text);
-        margin-bottom: 12px;
-        line-height: 1.4;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        color: #1e293b !important;
+        margin-bottom: 12px !important;
+        line-height: 1.4 !important;
         padding-right: 40px !important;
+        display: block !important;
     }
 
-    /* Quantity */
-    #productStatsTable tbody tr td:nth-child(3),
-    #productStatsTable tbody tr td:nth-child(4) {
+    /* Quantity Badge */
+    #productStatsTable tbody tr td:nth-child(3) {
         display: inline-flex !important;
-        align-items: center;
-        gap: 6px;
-        background: var(--mobile-bg);
+        align-items: center !important;
+        gap: 6px !important;
+        background: #f8fafc !important;
         padding: 8px 12px !important;
-        border-radius: var(--mobile-radius-sm);
-        font-size: 13px;
-        font-weight: 600;
-        margin-right: 8px;
-        margin-bottom: 8px;
+        border-radius: 12px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: #1e293b !important;
+        margin-right: 8px !important;
+        margin-bottom: 8px !important;
+        border: 1px solid #e2e8f0 !important;
     }
 
     #productStatsTable tbody tr td:nth-child(3)::before {
-        content: "📦";
-        font-size: 16px;
+        content: "📦" !important;
+        font-size: 16px !important;
+        margin-right: 0 !important;
+    }
+
+    /* Orders Badge */
+    #productStatsTable tbody tr td:nth-child(4) {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        background: #f8fafc !important;
+        padding: 8px 12px !important;
+        border-radius: 12px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: #1e293b !important;
+        margin-right: 8px !important;
+        margin-bottom: 8px !important;
+        border: 1px solid #e2e8f0 !important;
     }
 
     #productStatsTable tbody tr td:nth-child(4)::before {
-        content: "🛒";
-        font-size: 16px;
+        content: "🛒" !important;
+        font-size: 16px !important;
+        margin-right: 0 !important;
     }
 
     /* View Details Button */
     #productStatsTable tbody tr td:nth-child(5) {
         position: absolute !important;
-        top: 16px;
-        right: 16px;
+        top: 16px !important;
+        right: 16px !important;
+        display: block !important;
     }
 
     #productStatsTable tbody tr td:nth-child(5) button {
-        background: var(--mobile-gradient) !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         border: none !important;
         color: white !important;
         width: 32px !important;
         height: 32px !important;
-        border-radius: var(--mobile-radius-sm) !important;
+        border-radius: 12px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         font-size: 14px !important;
         padding: 0 !important;
+        margin: 0 !important;
         box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3) !important;
+        cursor: pointer !important;
+        transition: transform 0.2s ease !important;
     }
 
     #productStatsTable tbody tr td:nth-child(5) button:active {
