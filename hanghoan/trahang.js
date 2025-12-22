@@ -387,7 +387,13 @@ const TraHangModule = (function() {
     function renderTable(data) {
         if (!elements.tableBody) return;
 
-        if (!data || data.length === 0) {
+        // Filter out draft status items - only show confirmed items
+        const filteredData = (data || []).filter(item => {
+            const statusClass = getStatusClass(item.status);
+            return statusClass !== 'draft';
+        });
+
+        if (!filteredData || filteredData.length === 0) {
             elements.tableBody.innerHTML = '';
             showEmptyState();
             return;
@@ -395,7 +401,7 @@ const TraHangModule = (function() {
 
         hideEmptyState();
 
-        const html = data.map((item, index) => `
+        const html = filteredData.map((item, index) => `
             <tr data-id="${item.id || index}">
                 <td class="col-checkbox">
                     <input type="checkbox" class="row-checkbox" data-id="${item.id || index}">
@@ -415,15 +421,8 @@ const TraHangModule = (function() {
                 <td class="col-status">
                     <span class="trahang-status ${getStatusClass(item.status)}">${getStatusText(item.status)}</span>
                 </td>
-                <td class="col-actions">
-                    <button class="action-btn btn-edit" onclick="TraHangModule.editItem('${item.id || index}')" title="Sửa">
-                        <i data-lucide="edit-2"></i>
-                    </button>
-                </td>
-                <td class="col-actions">
-                    <button class="action-btn btn-delete" onclick="TraHangModule.deleteItem('${item.id || index}')" title="Xóa">
-                        <i data-lucide="trash-2"></i>
-                    </button>
+                <td class="col-returned">
+                    <input type="checkbox" class="returned-checkbox" data-id="${item.id || index}" title="Đánh dấu đã trả hàng">
                 </td>
             </tr>
         `).join('');

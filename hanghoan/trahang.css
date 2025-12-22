@@ -210,6 +210,19 @@
     text-align: center;
 }
 
+/* Returned checkbox column */
+.trahang-table .col-returned {
+    width: 100px;
+    text-align: center;
+}
+
+.trahang-table .returned-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #22c55e;
+}
+
 .trahang-status {
     display: inline-block;
     padding: var(--spacing-xs) var(--spacing-md);
