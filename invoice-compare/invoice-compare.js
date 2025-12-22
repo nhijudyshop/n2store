@@ -700,7 +700,7 @@ async function analyzeImagesWithAI() {
             image.base64,
             AI_ANALYSIS_PROMPT,
             {
-                model: 'gemini-flash-latest',
+                // Use default model from gemini-ai-helper.js (gemini-2.0-flash)
                 mimeType: image.mimeType,
             }
         );
