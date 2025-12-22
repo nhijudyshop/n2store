@@ -7,11 +7,46 @@
 const TraHangModule = (function() {
     'use strict';
 
-    // API Configuration
+    // API Configuration - Using proxy to bypass CORS
     const API_CONFIG = {
-        baseUrl: 'https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.GetView',
-        getToken: () => localStorage.getItem('tpos_token') || '',
-        pageSize: 50
+        // Proxy URL to bypass CORS restrictions
+        proxyBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata',
+        // Direct URL (for reference, not used due to CORS)
+        directBaseUrl: 'https://tomato.tpos.vn/odata',
+        // OData endpoint
+        endpoint: '/FastSaleOrder/ODataService.GetView',
+        pageSize: 50,
+
+        // Get token from multiple sources (priority order)
+        getToken: () => {
+            // 1. Use global tokenManager if available
+            if (typeof window.tokenManager !== 'undefined' && window.tokenManager.getToken) {
+                const token = window.tokenManager.getToken();
+                if (token) return token;
+            }
+
+            // 2. Check bearer_token_data (primary storage)
+            try {
+                const bearerData = localStorage.getItem('bearer_token_data');
+                if (bearerData) {
+                    const parsed = JSON.parse(bearerData);
+                    if (parsed.access_token) return parsed.access_token;
+                }
+            } catch (e) {}
+
+            // 3. Check auth key
+            try {
+                const authData = localStorage.getItem('auth');
+                if (authData) {
+                    const parsed = JSON.parse(authData);
+                    if (parsed.access_token) return parsed.access_token;
+                    if (parsed.token) return parsed.token;
+                }
+            } catch (e) {}
+
+            // 4. Fallback to tpos_token
+            return localStorage.getItem('tpos_token') || '';
+        }
     };
 
     // State
@@ -129,6 +164,7 @@ const TraHangModule = (function() {
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
+        // Format dates for OData filter (ISO format with timezone)
         const startISO = startDate
             ? new Date(startDate + 'T00:00:00').toISOString().replace('.000Z', '+00:00')
             : oneMonthAgo.toISOString().replace('.000Z', '+00:00');
@@ -137,6 +173,7 @@ const TraHangModule = (function() {
             ? new Date(endDate + 'T23:59:59').toISOString().replace('.000Z', '+00:00')
             : today.toISOString().replace('.000Z', '+00:00');
 
+        // OData filter for refund orders
         const filter = `(Type eq 'refund' and DateInvoice ge ${startISO} and DateInvoice le ${endISO} and IsMergeCancel ne true)`;
 
         const params = new URLSearchParams({
@@ -146,7 +183,8 @@ const TraHangModule = (function() {
             '$count': 'true'
         });
 
-        return `${API_CONFIG.baseUrl}?${params.toString()}`;
+        // Use proxy URL to bypass CORS
+        return `${API_CONFIG.proxyBaseUrl}${API_CONFIG.endpoint}?${params.toString()}`;
     }
 
     // Fetch data from TPOS API
@@ -155,7 +193,12 @@ const TraHangModule = (function() {
 
         if (!token) {
             console.warn('No TPOS token found. Please login to TPOS first.');
+            hideLoading();
             showEmptyState();
+            // Show notification to user
+            if (typeof showNotification === 'function') {
+                showNotification('Vui lòng đăng nhập TPOS để xem dữ liệu trả hàng', 'warning');
+            }
             return;
         }
 
@@ -163,21 +206,42 @@ const TraHangModule = (function() {
 
         try {
             const url = buildApiUrl();
+            let response;
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'accept': 'application/json, text/javascript, */*; q=0.01',
-                    'accept-language': 'en-US,en;q=0.9',
-                    'authorization': `Bearer ${token}`,
-                    'cache-control': 'no-cache',
-                    'pragma': 'no-cache',
-                    'tposappversion': '5.11.16.1',
-                    'x-requested-with': 'XMLHttpRequest'
-                }
-            });
+            // Use tokenManager.authenticatedFetch if available (handles token refresh)
+            if (typeof window.tokenManager !== 'undefined' && window.tokenManager.authenticatedFetch) {
+                response = await window.tokenManager.authenticatedFetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json, text/javascript, */*; q=0.01',
+                        'cache-control': 'no-cache',
+                        'tposappversion': '5.11.16.1'
+                    }
+                });
+            } else {
+                // Fallback to regular fetch with token
+                response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json, text/javascript, */*; q=0.01',
+                        'accept-language': 'en-US,en;q=0.9',
+                        'authorization': `Bearer ${token}`,
+                        'cache-control': 'no-cache',
+                        'pragma': 'no-cache',
+                        'tposappversion': '5.11.16.1',
+                        'x-requested-with': 'XMLHttpRequest'
+                    }
+                });
+            }
 
             if (!response.ok) {
+                // Handle token expiry (401)
+                if (response.status === 401) {
+                    console.warn('Token expired or invalid');
+                    if (typeof showNotification === 'function') {
+                        showNotification('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại TPOS.', 'warning');
+                    }
+                }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
@@ -192,6 +256,8 @@ const TraHangModule = (function() {
             loadData(mappedData);
             hasLoadedOnce = true;
 
+            console.log(`TraHang: Loaded ${mappedData.length} items (total: ${totalCount})`);
+
         } catch (error) {
             console.error('Error fetching data from API:', error);
             hideLoading();
@@ -199,7 +265,7 @@ const TraHangModule = (function() {
 
             // Show error notification if available
             if (typeof showNotification === 'function') {
-                showNotification('Lỗi khi tải dữ liệu trả hàng', 'error');
+                showNotification('Lỗi khi tải dữ liệu trả hàng: ' + error.message, 'error');
             }
         }
     }
