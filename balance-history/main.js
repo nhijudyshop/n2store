@@ -321,15 +321,65 @@ function resetFilters() {
     // startDate and endDate are already set by setDefaultCurrentMonth()
 }
 
+/**
+ * Filter data by customer name/phone (client-side filtering)
+ * This searches in CustomerInfoManager data which is stored locally
+ * @param {Array} data - Transaction data from API
+ * @param {string} searchQuery - Search term
+ * @returns {Array} Filtered data
+ */
+function filterByCustomerInfo(data, searchQuery) {
+    if (!searchQuery || !data || data.length === 0) return data;
+    if (!window.CustomerInfoManager) return data;
+
+    const lowerQuery = searchQuery.toLowerCase().trim();
+
+    return data.filter(row => {
+        // Extract unique code from content
+        const content = row.content || '';
+        const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
+        const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
+
+        // Get customer info
+        let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
+        if (uniqueCode && window.CustomerInfoManager) {
+            customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+        }
+
+        // Check if search matches customer name (case-insensitive)
+        const nameMatch = customerDisplay.name &&
+            customerDisplay.name.toLowerCase().includes(lowerQuery);
+
+        // Check if search matches customer phone
+        const phoneMatch = customerDisplay.phone &&
+            customerDisplay.phone.includes(searchQuery.trim());
+
+        // Also check backend fields (content, reference_code, gateway)
+        const contentMatch = content.toLowerCase().includes(lowerQuery);
+        const refMatch = row.reference_code &&
+            row.reference_code.toLowerCase().includes(lowerQuery);
+        const gatewayMatch = row.gateway &&
+            row.gateway.toLowerCase().includes(lowerQuery);
+
+        return nameMatch || phoneMatch || contentMatch || refMatch || gatewayMatch;
+    });
+}
+
 // Load Data
 async function loadData() {
     showLoading();
 
     try {
+        // Create query params but exclude 'search' for API call
+        // We'll do client-side search to include customer name/phone
+        const apiFilters = { ...filters };
+        const searchQuery = filters.search;
+        delete apiFilters.search; // Remove search from API request
+
         const queryParams = new URLSearchParams({
             page: currentPage,
-            limit: 50,
-            ...filters
+            limit: searchQuery ? 500 : 50, // Get more rows if searching (for client-side filter)
+            ...apiFilters
         });
 
         // Remove empty params
@@ -346,8 +396,26 @@ async function loadData() {
         const result = await response.json();
 
         if (result.success) {
-            renderTable(result.data);
-            updatePagination(result.pagination);
+            // Apply client-side filtering for customer name/phone
+            let filteredData = result.data;
+            if (searchQuery) {
+                filteredData = filterByCustomerInfo(result.data, searchQuery);
+            }
+
+            renderTable(filteredData);
+
+            // Update pagination info
+            if (searchQuery) {
+                // For client-side search, show custom pagination info
+                updatePagination({
+                    ...result.pagination,
+                    total: filteredData.length,
+                    totalPages: 1,
+                    page: 1
+                });
+            } else {
+                updatePagination(result.pagination);
+            }
         } else {
             showError('Không thể tải dữ liệu: ' + result.error);
         }
