@@ -10,6 +10,7 @@
     <!-- External CSS -->
     <link rel="stylesheet" href="modern.css" />
     <link rel="stylesheet" href="hanghoan.css" />
+    <link rel="stylesheet" href="trahang.css" />
 
     <!-- Navigation Manager -->
     <!-- N2Store Optimization: Core Utilities Loader -->
@@ -132,6 +133,21 @@
                 </div>
             </div>
         </section>
+
+        <!-- Main Tabs Navigation -->
+        <div class="main-tabs">
+            <button class="main-tab-btn active" data-tab="hangHoanTab">
+                <i data-lucide="package-x"></i>
+                <span>Hàng Hoàn</span>
+            </button>
+            <button class="main-tab-btn" data-tab="traHangTab">
+                <i data-lucide="rotate-ccw"></i>
+                <span>Trả Hàng</span>
+            </button>
+        </div>
+
+        <!-- Hàng Hoàn Tab Content -->
+        <div class="tab-content active" id="hangHoanTab">
 
         <!-- Add Form Section -->
         <section class="upload-section card" id="dataForm">
@@ -305,6 +321,153 @@
                 </div>
             </div>
         </section>
+
+        </div>
+        <!-- End Hàng Hoàn Tab Content -->
+
+        <!-- Trả Hàng Tab Content -->
+        <div class="tab-content" id="traHangTab">
+            <section class="trahang-section">
+                <!-- Stats -->
+                <div class="trahang-stats">
+                    <div class="trahang-stat-card">
+                        <div class="stat-icon blue">
+                            <i data-lucide="file-text"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="trahangStatTotal">0</div>
+                            <div class="stat-label">Tổng đơn</div>
+                        </div>
+                    </div>
+                    <div class="trahang-stat-card">
+                        <div class="stat-icon green">
+                            <i data-lucide="check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="trahangStatConfirmed">0</div>
+                            <div class="stat-label">Đã xác nhận</div>
+                        </div>
+                    </div>
+                    <div class="trahang-stat-card">
+                        <div class="stat-icon orange">
+                            <i data-lucide="file-edit"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="trahangStatDraft">0</div>
+                            <div class="stat-label">Nháp</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="trahang-filters">
+                    <div class="trahang-filter-group">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="trahangSearchInput" placeholder="Tìm kiếm khách hàng, SĐT, mã HĐ...">
+                    </div>
+                    <div class="trahang-filter-group">
+                        <i data-lucide="filter"></i>
+                        <select id="trahangStatusFilter">
+                            <option value="all">Tất cả trạng thái</option>
+                            <option value="confirmed">Đã xác nhận</option>
+                            <option value="draft">Nháp</option>
+                        </select>
+                    </div>
+                    <div class="trahang-filter-group">
+                        <i data-lucide="calendar"></i>
+                        <input type="date" id="trahangStartDate">
+                        <span>đến</span>
+                        <input type="date" id="trahangEndDate">
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i data-lucide="table"></i>
+                            <h2>Danh Sách Trả Hàng</h2>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="trahang-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-checkbox">
+                                            <input type="checkbox" id="trahangSelectAll">
+                                        </th>
+                                        <th>
+                                            <div class="th-content">
+                                                Khách hàng
+                                                <i data-lucide="filter" class="filter-icon"></i>
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div class="th-content">
+                                                Ngày hóa đơn
+                                                <i data-lucide="filter" class="filter-icon"></i>
+                                                <i data-lucide="arrow-down" class="sort-icon"></i>
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div class="th-content">
+                                                Số HĐ
+                                                <i data-lucide="filter" class="filter-icon"></i>
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div class="th-content">
+                                                Tham chiếu
+                                                <i data-lucide="filter" class="filter-icon"></i>
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div class="th-content">
+                                                Tổng tiền
+                                                <i data-lucide="filter" class="filter-icon"></i>
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div class="th-content">
+                                                Còn nợ
+                                                <i data-lucide="filter" class="filter-icon"></i>
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div class="th-content">
+                                                Trạng thái
+                                                <i data-lucide="filter" class="filter-icon"></i>
+                                            </div>
+                                        </th>
+                                        <th></th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="trahangTableBody">
+                                    <!-- Data rows will be rendered here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div class="trahang-loading" id="trahangLoadingState">
+                            <i data-lucide="loader-2"></i>
+                            <p>Đang tải dữ liệu...</p>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div class="trahang-empty" id="trahangEmptyState">
+                            <i data-lucide="inbox"></i>
+                            <h3>Chưa có dữ liệu</h3>
+                            <p>Dữ liệu trả hàng sẽ hiển thị ở đây</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <!-- End Trả Hàng Tab Content -->
+
     </main>
 
     <!-- Edit Modal -->
@@ -401,6 +564,7 @@
     <script src="auth.js"></script>
     <script src="notification-system.js"></script>
     <script src="hanghoan.js"></script>
+    <script src="trahang.js"></script>
 </body>
 
 </html>
