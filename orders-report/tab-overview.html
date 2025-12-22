@@ -1088,29 +1088,6 @@
 
             <!-- Statistics Sections (from cached data) -->
             <div id="statisticsContainer" style="display: none;">
-                <!-- Product Statistics -->
-                <div class="content-section" id="productStatsSection">
-                    <h2>
-                        <i class="fas fa-box"></i> Thống Kê Sản Phẩm
-                        <span class="section-badge" id="productStatsBadge">0</span>
-                    </h2>
-                    <div class="stats-table-wrapper">
-                        <table class="stats-table" id="productStatsTable">
-                            <thead>
-                                <tr>
-                                    <th>Mã SP</th>
-                                    <th>Tên sản phẩm</th>
-                                    <th>Số lượng</th>
-                                    <th>Số đơn</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="productStatsBody">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
                 <!-- Tag Statistics - Summary -->
                 <div class="content-section" id="tagStatsSection">
                     <h2>
@@ -1676,44 +1653,6 @@
         }
 
         /**
-         * Calculate product statistics from cached orders
-         */
-        function calculateProductStats(orders) {
-            const productMap = new Map(); // key: ProductCode, value: { name, quantity, orderCount, orderIds }
-
-            orders.forEach(order => {
-                const details = order.Details || [];
-                const orderId = order.Id || order.Code;
-
-                details.forEach(item => {
-                    const code = item.ProductCode || item.DefaultCode || item.Barcode || 'N/A';
-                    const name = item.ProductName || item.ProductNameGet || item.name || 'Không rõ';
-                    const qty = item.Quantity || item.ProductUOMQty || 0;
-
-                    if (productMap.has(code)) {
-                        const existing = productMap.get(code);
-                        existing.quantity += qty;
-                        if (!existing.orderIds.includes(orderId)) {
-                            existing.orderIds.push(orderId);
-                        }
-                    } else {
-                        productMap.set(code, {
-                            code,
-                            name,
-                            quantity: qty,
-                            orderIds: [orderId]
-                        });
-                    }
-                });
-            });
-
-            // Convert to array and sort by quantity desc
-            return Array.from(productMap.values())
-                .map(p => ({ ...p, orderCount: p.orderIds.length }))
-                .sort((a, b) => b.quantity - a.quantity);
-        }
-
-        /**
          * Calculate tag statistics from cached orders
          */
         function calculateTagStats(orders) {
@@ -1839,12 +1778,8 @@
             emptyState.style.display = 'none';
 
             // Calculate all stats
-            const productStats = calculateProductStats(orders);
             const tagStats = calculateTagStats(orders);
             const employeeStats = calculateEmployeeTagStats(orders);
-
-            // Render product stats
-            renderProductStatsTable(productStats);
 
             // Render tag stats
             renderTagStatsTable(tagStats, orders.length);
@@ -1859,7 +1794,6 @@
                         timestamp: Date.now(),
                         hasData: orders.length > 0,
                         counts: {
-                            products: productStats.length,
                             tags: tagStats.length,
                             employees: employeeStats.length
                         }
@@ -1867,35 +1801,6 @@
                 }));
                 console.log('[REPORT] 📱 statisticsRendered event dispatched');
             }, 150);
-        }
-
-        /**
-         * Render product statistics table
-         */
-        function renderProductStatsTable(stats) {
-            const tbody = document.getElementById('productStatsBody');
-            const badge = document.getElementById('productStatsBadge');
-
-            badge.textContent = stats.length;
-
-            if (stats.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">Không có dữ liệu sản phẩm</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = stats.map(p => `
-                <tr>
-                    <td><strong>${p.code}</strong></td>
-                    <td>${p.name}</td>
-                    <td><strong>${p.quantity.toLocaleString('vi-VN')}</strong></td>
-                    <td>${p.orderCount.toLocaleString('vi-VN')}</td>
-                    <td>
-                        <button class="btn-view-detail" onclick="viewProductOrders('${p.code}')" title="Xem chi tiết">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
         }
 
         /**
@@ -2072,24 +1977,6 @@
         function closeOrdersDetailModal() {
             const modal = document.getElementById('ordersDetailModal');
             modal.classList.remove('show');
-        }
-
-        /**
-         * View orders by product code
-         */
-        function viewProductOrders(productCode) {
-            const cached = cachedOrderDetails[currentTableName];
-            const orders = cached?.orders || [];
-
-            const filteredOrders = orders.filter(order => {
-                const details = order.Details || [];
-                return details.some(item => {
-                    const code = item.ProductCode || item.DefaultCode || item.Barcode || '';
-                    return code === productCode;
-                });
-            });
-
-            showOrdersDetailModal(`Đơn hàng có sản phẩm: ${productCode}`, filteredOrders);
         }
 
         /**
