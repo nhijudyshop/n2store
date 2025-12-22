@@ -689,29 +689,32 @@ window.addEventListener("DOMContentLoaded", async function () {
     }
 
     // Initialize Pancake Token Manager & Data Manager
-    // IMPORTANT: Wait for this to complete before loading campaigns
-    // so that chat columns can display properly on first render
-    let pancakeInitialized = false;
+    // ⚡ OPTIMIZED: Start Pancake init in PARALLEL with orders loading
+    // Chat columns will show "-" initially, then re-render when Pancake is ready
+    let pancakeInitPromise = null;
     if (window.pancakeTokenManager && window.pancakeDataManager) {
-        console.log('[PANCAKE] Initializing Pancake managers...');
+        console.log('[PANCAKE] Initializing Pancake managers (background)...');
 
-        // Initialize token manager first
+        // Initialize token manager first (sync)
         window.pancakeTokenManager.initialize();
 
-        // Then initialize data manager and WAIT for it
-        try {
-            pancakeInitialized = await window.pancakeDataManager.initialize();
-            if (pancakeInitialized) {
-                console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully');
-                // Set chatDataManager alias for compatibility
-                window.chatDataManager = window.pancakeDataManager;
-            } else {
-                console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
-                console.warn('[PANCAKE] Please set JWT token in Pancake Settings');
-            }
-        } catch (error) {
-            console.error('[PANCAKE] ❌ Error initializing PancakeDataManager:', error);
-        }
+        // Start data manager init but DON'T WAIT - run in parallel with orders loading
+        pancakeInitPromise = window.pancakeDataManager.initialize()
+            .then(success => {
+                if (success) {
+                    console.log('[PANCAKE] ✅ PancakeDataManager initialized (background)');
+                    // Set chatDataManager alias for compatibility
+                    window.chatDataManager = window.pancakeDataManager;
+                } else {
+                    console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
+                    console.warn('[PANCAKE] Please set JWT token in Pancake Settings');
+                }
+                return success;
+            })
+            .catch(error => {
+                console.error('[PANCAKE] ❌ Error initializing PancakeDataManager:', error);
+                return false;
+            });
     } else {
         console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
@@ -754,6 +757,17 @@ window.addEventListener("DOMContentLoaded", async function () {
     console.log('[AUTO-LOAD] Khởi tạo App...');
     console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
     await initializeApp();
+
+    // ⚡ PHASE 1 OPTIMIZATION: After orders loaded, wait for Pancake and re-render chat columns
+    if (pancakeInitPromise) {
+        pancakeInitPromise.then(success => {
+            if (success && allData.length > 0 && window.chatDataManager) {
+                console.log('[PANCAKE] Re-rendering table with chat data after background init...');
+                // Re-render table to show chat columns now that chatDataManager is ready
+                performTableSearch();
+            }
+        });
+    }
 
     // Search functionality
     const searchInput = document.getElementById("tableSearchInput");
@@ -6125,11 +6139,16 @@ async function fetchOrders() {
         // Also update Overview tab with first batch
         sendOrdersDataToOverview();
 
-        // Load conversations and comment conversations for first batch
-        console.log('[PROGRESSIVE] Loading conversations for first batch...');
+        // ⚡ PHASE 2 OPTIMIZATION: Load conversations in BACKGROUND (non-blocking)
+        // This allows users to interact with the table immediately
+        // Chat columns will show loading spinners, then update when data arrives
+        console.log('[PROGRESSIVE] Loading conversations in background...');
         if (window.chatDataManager) {
-            // Set loading state for messages column indicator
+            // Set loading state for messages column indicator (shows spinner)
             isLoadingConversations = true;
+
+            // Re-render to show loading spinners in chat columns
+            performTableSearch();
 
             // Collect unique channel IDs from orders (parse from Facebook_PostId)
             const channelIds = [...new Set(
@@ -6139,22 +6158,35 @@ async function fetchOrders() {
             )];
             console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
 
-            // FIX: fetchConversations now uses Type="all" to fetch both messages and comments in 1 request
-            // No need to call both methods anymore - this reduces API calls by 50%!
-            // Force refresh (true) to always fetch fresh data when searching
-            await window.chatDataManager.fetchConversations(true, channelIds);
+            // ⚡ Run conversations loading in BACKGROUND (no await!)
+            (async () => {
+                try {
+                    // FIX: fetchConversations now uses Type="all" to fetch both messages and comments in 1 request
+                    // No need to call both methods anymore - this reduces API calls by 50%!
+                    // Force refresh (true) to always fetch fresh data when searching
+                    await window.chatDataManager.fetchConversations(true, channelIds);
 
-            // Fetch Pancake conversations for unread info
-            if (window.pancakeDataManager) {
-                console.log('[PANCAKE] Fetching conversations for unread info...');
-                await window.pancakeDataManager.fetchConversations(true);
-                console.log('[PANCAKE] ✅ Conversations fetched');
-            }
+                    // Fetch Pancake conversations for unread info
+                    if (window.pancakeDataManager) {
+                        console.log('[PANCAKE] Fetching conversations for unread info...');
+                        await window.pancakeDataManager.fetchConversations(true);
+                        console.log('[PANCAKE] ✅ Conversations fetched');
+                    }
 
-            // Clear loading state
-            isLoadingConversations = false;
+                    // Clear loading state
+                    isLoadingConversations = false;
+                    console.log('[PROGRESSIVE] ✅ Conversations loaded (background)');
 
-            performTableSearch(); // Re-apply filters and merge with new chat data
+                    // Re-render with actual chat data
+                    performTableSearch();
+                } catch (err) {
+                    console.error('[PROGRESSIVE] ❌ Conversations loading error:', err);
+                    isLoadingConversations = false;
+                }
+            })();
+        } else {
+            // chatDataManager not ready yet - will be handled by Phase 1 re-render
+            console.log('[PROGRESSIVE] chatDataManager not ready, skipping conversations for now');
         }
 
         // Load tags in background
