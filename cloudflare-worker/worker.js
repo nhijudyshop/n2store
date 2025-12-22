@@ -622,6 +622,77 @@ export default {
         }
       }
 
+      // ========== DEEPSEEK AI API PROXY ==========
+      // Bypass CORS for DeepSeek API calls from browser
+      // POST /api/deepseek
+      // Body: { model, messages, max_tokens, temperature }
+      // Header: Authorization: Bearer <api_key>
+      if (pathname === '/api/deepseek' && request.method === 'POST') {
+        console.log('[DEEPSEEK] Received request to proxy DeepSeek API');
+
+        try {
+          // Get API key from header or body
+          let apiKey = request.headers.get('Authorization');
+          const body = await request.json();
+
+          // Allow API key in body as fallback
+          if (!apiKey && body.api_key) {
+            apiKey = `Bearer ${body.api_key}`;
+            delete body.api_key;
+          }
+
+          if (!apiKey) {
+            return new Response(JSON.stringify({
+              error: 'Missing Authorization header',
+              usage: 'POST /api/deepseek with Authorization: Bearer <api_key>'
+            }), {
+              status: 401,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+
+          console.log('[DEEPSEEK] Model:', body.model || 'deepseek-chat');
+
+          // Forward to DeepSeek API
+          const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': apiKey,
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify(body),
+          });
+
+          const result = await deepseekResponse.json();
+          console.log('[DEEPSEEK] Response status:', deepseekResponse.status);
+
+          return new Response(JSON.stringify(result), {
+            status: deepseekResponse.status,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+
+        } catch (error) {
+          console.error('[DEEPSEEK] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'DeepSeek proxy failed',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== FACEBOOK GRAPH API - SEND MESSAGE WITH TAG ==========
       // For sending messages outside 24h window using POST_PURCHASE_UPDATE tag
       // POST /api/facebook-send
@@ -635,7 +706,7 @@ export default {
           const body = await request.json();
           // Support recipient object (for Private Reply with comment_id)
           let { pageId, psid, message, pageToken, useTag, imageUrls, recipient } = body;
-          
+
           // Fallback: Get token from header if not in body
           if (!pageToken) {
             pageToken = request.headers.get('X-Page-Access-Token');
