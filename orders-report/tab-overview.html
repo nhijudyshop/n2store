@@ -872,8 +872,35 @@
             margin-top: 15px;
         }
 
-        .duplicate-orders-section h4,
-        .remaining-orders-section h4 {
+        .remaining-orders-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border: 2px solid #ef4444;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #dc2626;
+            font-weight: 500;
+        }
+
+        .remaining-orders-btn:hover {
+            background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .remaining-orders-btn .remaining-count {
+            background: #ef4444;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+        }
+
+        .duplicate-orders-section h4 {
             margin: 0 0 10px 0;
             color: #333;
             font-size: 14px;
@@ -884,10 +911,6 @@
 
         .duplicate-orders-section h4 i {
             color: #f59e0b;
-        }
-
-        .remaining-orders-section h4 i {
-            color: #ef4444;
         }
 
         .orders-mini-table {
@@ -1106,6 +1129,36 @@
         .dup-order-code {
             background: #fef3c7;
             color: #d97706;
+        }
+
+        .emp-remaining-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #dc2626;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        .emp-remaining-btn:hover {
+            background: #fecaca;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+        }
+
+        .emp-remaining-count {
+            background: #ef4444;
+            color: white;
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
         }
 
         /* Add Tag Modal */
@@ -2189,7 +2242,9 @@
             { pattern: 'xử lý', type: 'startsWith', displayName: 'Xử Lý', color: '#f97316' },
             { pattern: 'chờ live', type: 'startsWith', displayName: 'Chờ Live', color: '#ec4899' },
             { pattern: 'chờ hàng', type: 'startsWith', displayName: 'Chờ Hàng', color: '#6366f1' },
-            { pattern: 'xả đơn', type: 'startsWith', displayName: 'Xả Đơn', color: '#14b8a6' }
+            { pattern: 'xả đơn', type: 'startsWith', displayName: 'Xả Đơn', color: '#14b8a6' },
+            { pattern: 'giỏ trống', type: 'startsWith', displayName: 'Giỏ Trống', color: '#f59e0b' },
+            { pattern: 'đã gộp không chốt', type: 'startsWith', displayName: 'Đã Gộp Không Chốt', color: '#8b5cf6' }
         ];
 
         /**
@@ -2350,37 +2405,16 @@
                 `;
             }
 
-            // Build remaining orders table
+            // Build remaining orders button (opens modal)
             let remainingHtml = '';
             if (stats.remainingOrders.length > 0) {
                 remainingHtml = `
                     <div class="remaining-orders-section">
-                        <h4><i class="fas fa-question-circle"></i> Đơn chưa phân loại (${stats.remainingOrders.length} đơn - cần cộng thêm bằng tay)</h4>
-                        <div style="max-height: 400px; overflow-y: auto;">
-                            <table class="orders-mini-table">
-                                <thead>
-                                    <tr>
-                                        <th>STT</th>
-                                        <th>Mã đơn</th>
-                                        <th>Trạng thái</th>
-                                        <th>Tags</th>
-                                        <th>Khách hàng</th>
-                                        <th>Tổng tiền</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${stats.remainingOrders.map(order => `
-                                        <tr>
-                                            <td>${order.SessionIndex || '-'}</td>
-                                            <td class="order-code">${order.Code || ''}</td>
-                                            <td>${order.StatusText || order.Status || '-'}</td>
-                                            <td class="tags-cell">${parseOrderTagsHtml(order.Tags)}</td>
-                                            <td>${order.Name || order.PartnerName || ''}</td>
-                                            <td style="color: #11998e; font-weight: 600;">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
+                        <div class="remaining-orders-btn" onclick="viewRemainingOrders()">
+                            <i class="fas fa-question-circle"></i>
+                            <span>Đơn chưa phân loại</span>
+                            <span class="remaining-count">${stats.remainingOrders.length} đơn</span>
+                            <i class="fas fa-eye" style="margin-left: auto;"></i>
                         </div>
                     </div>
                 `;
@@ -2443,6 +2477,37 @@
             }
 
             showOrdersDetailModal(`Đơn Chốt: ${title}`, orders);
+        }
+
+        /**
+         * View remaining (unclassified) orders
+         */
+        function viewRemainingOrders() {
+            const stats = window._actualClosedStats;
+            if (!stats || !stats.remainingOrders.length) return;
+
+            showOrdersDetailModal(`Đơn Chưa Phân Loại (${stats.remainingOrders.length} đơn)`, stats.remainingOrders);
+        }
+
+        /**
+         * View employee remaining orders
+         */
+        function viewEmployeeRemainingOrders(empName, start, end) {
+            const cached = cachedOrderDetails[currentTableName];
+            const orders = cached?.orders || [];
+
+            // Filter orders by employee
+            const empOrders = orders.filter(order => {
+                const stt = parseInt(order.SessionIndex || 0);
+                return stt >= start && stt <= end;
+            });
+
+            // Calculate remaining orders for this employee
+            const empStats = calculateActualClosedStats(empOrders);
+
+            if (empStats.remainingOrders.length === 0) return;
+
+            showOrdersDetailModal(`${empName} - Đơn Chưa Phân Loại (${empStats.remainingOrders.length} đơn)`, empStats.remainingOrders);
         }
 
         /**
@@ -2619,17 +2684,15 @@
                 `;
             }
 
-            // Build remaining orders mini-list
+            // Build remaining orders button (clickable to open modal)
             let remainingHtml = '';
             if (stats.remainingOrders.length > 0) {
-                const remList = stats.remainingOrders.slice(0, 10).map(o =>
-                    `<span class="rem-order-code">${o.Code}</span>`
-                ).join(' ');
-                const moreText = stats.remainingOrders.length > 10 ? ` +${stats.remainingOrders.length - 10} đơn nữa` : '';
                 remainingHtml = `
-                    <div class="emp-remaining-note">
-                        <i class="fas fa-question-circle" style="color: #ef4444;"></i>
-                        Chưa phân loại (${stats.remainingOrders.length}): ${remList}${moreText}
+                    <div class="emp-remaining-btn" onclick="viewEmployeeRemainingOrders('${emp.name}', ${emp.start}, ${emp.end})">
+                        <i class="fas fa-question-circle"></i>
+                        <span>Chưa phân loại</span>
+                        <span class="emp-remaining-count">${stats.remainingOrders.length}</span>
+                        <i class="fas fa-eye"></i>
                     </div>
                 `;
             }
