@@ -1736,7 +1736,6 @@
          */
         function calculateTagStats(orders) {
             const totalOrders = orders.length;
-            const tagStats = [];
 
             // Initialize special stats for Ordered status
             const orderedStat = {
@@ -1762,18 +1761,8 @@
                 isSpecial: true
             };
 
-            // Initialize stats for each tracked tag
-            trackedTags.forEach(trackedTag => {
-                tagStats.push({
-                    pattern: trackedTag.pattern,
-                    type: trackedTag.type,
-                    displayName: trackedTag.displayName,
-                    color: trackedTag.color,
-                    count: 0,
-                    totalAmount: 0,
-                    orders: []
-                });
-            });
+            // Collect ALL unique tags from all orders
+            const allTagsMap = new Map(); // tagName -> { color, count, totalAmount, orders }
 
             // Count orders for each tag and special stats
             orders.forEach(order => {
@@ -1795,20 +1784,34 @@
                     noTagsStat.orders.push(order);
                 }
 
+                // Collect all tags
                 orderTags.forEach(orderTag => {
-                    const tagName = orderTag.Name || orderTag.name || '';
+                    const tagName = (orderTag.Name || orderTag.name || '').trim();
+                    const tagColor = orderTag.Color || orderTag.color || '#6b7280';
 
-                    tagStats.forEach(stat => {
-                        if (matchTagPattern(tagName, stat)) {
-                            stat.count++;
-                            stat.totalAmount += orderAmount;
-                            stat.orders.push(order);
-                        }
-                    });
+                    if (!tagName) return;
+
+                    if (!allTagsMap.has(tagName)) {
+                        allTagsMap.set(tagName, {
+                            pattern: tagName.toLowerCase(),
+                            type: 'exact',
+                            displayName: tagName,
+                            color: tagColor,
+                            count: 0,
+                            totalAmount: 0,
+                            orders: []
+                        });
+                    }
+
+                    const tagStat = allTagsMap.get(tagName);
+                    tagStat.count++;
+                    tagStat.totalAmount += orderAmount;
+                    tagStat.orders.push(order);
                 });
             });
 
-            // Calculate percentages for regular tag stats
+            // Convert map to array and calculate percentages
+            const tagStats = Array.from(allTagsMap.values());
             tagStats.forEach(stat => {
                 stat.percentage = totalOrders > 0 ? ((stat.count / totalOrders) * 100).toFixed(1) : 0;
             });
@@ -1824,9 +1827,9 @@
             if (orderedStat.count > 0) allStats.push(orderedStat);
             if (noTagsStat.count > 0) allStats.push(noTagsStat);
 
-            // Add regular tag stats sorted by count
-            const filteredTagStats = tagStats.filter(s => s.count > 0).sort((a, b) => b.count - a.count);
-            allStats.push(...filteredTagStats);
+            // Add all tag stats sorted by count
+            const sortedTagStats = tagStats.sort((a, b) => b.count - a.count);
+            allStats.push(...sortedTagStats);
 
             return allStats;
         }
@@ -1893,33 +1896,40 @@
                     });
                 }
 
-                // Calculate tag stats for this employee
-                trackedTags.forEach(trackedTag => {
-                    let count = 0;
-                    let matchedOrders = [];
+                // Collect ALL unique tags for this employee
+                const empTagsMap = new Map();
+                empOrders.forEach(order => {
+                    const orderTags = parseOrderTags(order.Tags);
+                    orderTags.forEach(orderTag => {
+                        const tagName = (orderTag.Name || orderTag.name || '').trim();
+                        const tagColor = orderTag.Color || orderTag.color || '#6b7280';
 
-                    empOrders.forEach(order => {
-                        const orderTags = parseOrderTags(order.Tags);
+                        if (!tagName) return;
 
-                        for (const orderTag of orderTags) {
-                            const tagName = orderTag.Name || orderTag.name || '';
-                            if (matchTagPattern(tagName, trackedTag)) {
-                                count++;
-                                matchedOrders.push(order);
-                                break; // Count each order only once per tag pattern
-                            }
+                        if (!empTagsMap.has(tagName)) {
+                            empTagsMap.set(tagName, {
+                                displayName: tagName,
+                                color: tagColor,
+                                count: 0,
+                                orders: []
+                            });
                         }
-                    });
 
-                    if (count > 0) {
-                        tagBreakdown.push({
-                            displayName: trackedTag.displayName,
-                            color: trackedTag.color,
-                            count,
-                            percentage: ((count / empOrders.length) * 100).toFixed(1),
-                            orders: matchedOrders
-                        });
-                    }
+                        const tagStat = empTagsMap.get(tagName);
+                        tagStat.count++;
+                        tagStat.orders.push(order);
+                    });
+                });
+
+                // Add all tags to breakdown with percentages
+                empTagsMap.forEach(tagStat => {
+                    tagBreakdown.push({
+                        displayName: tagStat.displayName,
+                        color: tagStat.color,
+                        count: tagStat.count,
+                        percentage: ((tagStat.count / empOrders.length) * 100).toFixed(1),
+                        orders: tagStat.orders
+                    });
                 });
 
                 employeeStats.push({
@@ -2190,15 +2200,28 @@
                     displayName = 'Không Có Tag';
                 }
             } else {
-                // Regular tag matching
+                // Regular tag matching - match by exact tag name (case insensitive)
                 filteredOrders = orders.filter(order => {
                     const orderTags = parseOrderTags(order.Tags);
                     return orderTags.some(tag => {
-                        const tagName = tag.Name || tag.name || '';
-                        return matchTagPattern(tagName, { pattern, type });
+                        const tagName = (tag.Name || tag.name || '').toLowerCase();
+                        return tagName === pattern.toLowerCase();
                     });
                 });
-                displayName = trackedTags.find(t => t.pattern === pattern)?.displayName || pattern;
+
+                // Find the original display name from any matching order
+                for (const order of orders) {
+                    const orderTags = parseOrderTags(order.Tags);
+                    const matchedTag = orderTags.find(tag => {
+                        const tagName = (tag.Name || tag.name || '').toLowerCase();
+                        return tagName === pattern.toLowerCase();
+                    });
+                    if (matchedTag) {
+                        displayName = matchedTag.Name || matchedTag.name || pattern;
+                        break;
+                    }
+                }
+                if (!displayName) displayName = pattern;
             }
 
             showOrdersDetailModal(`Đơn hàng: ${displayName}`, filteredOrders);
@@ -2246,15 +2269,12 @@
                     return orderTags.length === 0;
                 });
             } else {
-                // Regular tag matching
-                const trackedTag = trackedTags.find(t => t.displayName === tagDisplayName);
-                if (!trackedTag) return;
-
+                // Regular tag matching - match by exact tag name (case insensitive)
                 filteredOrders = empOrders.filter(order => {
                     const orderTags = parseOrderTags(order.Tags);
                     return orderTags.some(tag => {
-                        const tagName = tag.Name || tag.name || '';
-                        return matchTagPattern(tagName, trackedTag);
+                        const tagName = (tag.Name || tag.name || '').toLowerCase();
+                        return tagName === tagDisplayName.toLowerCase();
                     });
                 });
             }
