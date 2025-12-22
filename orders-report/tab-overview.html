@@ -736,6 +736,25 @@
             color: #4c51bf;
         }
 
+        /* Special Stat Rows */
+        .stats-table .special-stat-row {
+            background: linear-gradient(to right, rgba(34, 197, 94, 0.05), transparent);
+            border-left: 3px solid #22c55e;
+        }
+
+        .stats-table .special-stat-row:nth-child(2) {
+            background: linear-gradient(to right, rgba(107, 114, 128, 0.05), transparent);
+            border-left-color: #6b7280;
+        }
+
+        .stats-table .special-stat-row:hover {
+            background: linear-gradient(to right, rgba(34, 197, 94, 0.1), rgba(248, 249, 255, 0.5));
+        }
+
+        .stats-table .special-stat-row:nth-child(2):hover {
+            background: linear-gradient(to right, rgba(107, 114, 128, 0.1), rgba(248, 249, 255, 0.5));
+        }
+
         /* Section Badge */
         .section-badge {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -1719,6 +1738,30 @@
             const totalOrders = orders.length;
             const tagStats = [];
 
+            // Initialize special stats for Ordered status
+            const orderedStat = {
+                pattern: '__status_ordered__',
+                type: 'special',
+                displayName: 'Đơn Hàng (Ordered)',
+                color: '#22c55e',
+                count: 0,
+                totalAmount: 0,
+                orders: [],
+                isSpecial: true
+            };
+
+            // Initialize special stats for orders without tags
+            const noTagsStat = {
+                pattern: '__no_tags__',
+                type: 'special',
+                displayName: 'Không Có Tag',
+                color: '#6b7280',
+                count: 0,
+                totalAmount: 0,
+                orders: [],
+                isSpecial: true
+            };
+
             // Initialize stats for each tracked tag
             trackedTags.forEach(trackedTag => {
                 tagStats.push({
@@ -1732,10 +1775,25 @@
                 });
             });
 
-            // Count orders for each tag
+            // Count orders for each tag and special stats
             orders.forEach(order => {
                 const orderTags = parseOrderTags(order.Tags);
                 const orderAmount = order.TotalAmount || 0;
+                const statusText = order.StatusText || order.Status || '';
+
+                // Count Ordered status (Đơn hàng)
+                if (statusText === 'Đơn hàng') {
+                    orderedStat.count++;
+                    orderedStat.totalAmount += orderAmount;
+                    orderedStat.orders.push(order);
+                }
+
+                // Count orders without tags
+                if (orderTags.length === 0) {
+                    noTagsStat.count++;
+                    noTagsStat.totalAmount += orderAmount;
+                    noTagsStat.orders.push(order);
+                }
 
                 orderTags.forEach(orderTag => {
                     const tagName = orderTag.Name || orderTag.name || '';
@@ -1750,12 +1808,27 @@
                 });
             });
 
-            // Calculate percentages
+            // Calculate percentages for regular tag stats
             tagStats.forEach(stat => {
                 stat.percentage = totalOrders > 0 ? ((stat.count / totalOrders) * 100).toFixed(1) : 0;
             });
 
-            return tagStats.filter(s => s.count > 0).sort((a, b) => b.count - a.count);
+            // Calculate percentages for special stats
+            orderedStat.percentage = totalOrders > 0 ? ((orderedStat.count / totalOrders) * 100).toFixed(1) : 0;
+            noTagsStat.percentage = totalOrders > 0 ? ((noTagsStat.count / totalOrders) * 100).toFixed(1) : 0;
+
+            // Combine special stats with regular tag stats
+            const allStats = [];
+
+            // Add special stats first (Ordered status and No Tags)
+            if (orderedStat.count > 0) allStats.push(orderedStat);
+            if (noTagsStat.count > 0) allStats.push(noTagsStat);
+
+            // Add regular tag stats sorted by count
+            const filteredTagStats = tagStats.filter(s => s.count > 0).sort((a, b) => b.count - a.count);
+            allStats.push(...filteredTagStats);
+
+            return allStats;
         }
 
         /**
@@ -1775,6 +1848,50 @@
                 if (empOrders.length === 0) return;
 
                 const tagBreakdown = [];
+
+                // Calculate special stats for Ordered status
+                let orderedCount = 0;
+                let orderedOrders = [];
+                empOrders.forEach(order => {
+                    const statusText = order.StatusText || order.Status || '';
+                    if (statusText === 'Đơn hàng') {
+                        orderedCount++;
+                        orderedOrders.push(order);
+                    }
+                });
+                if (orderedCount > 0) {
+                    tagBreakdown.push({
+                        displayName: 'Đơn Hàng (Ordered)',
+                        color: '#22c55e',
+                        count: orderedCount,
+                        percentage: ((orderedCount / empOrders.length) * 100).toFixed(1),
+                        orders: orderedOrders,
+                        isSpecial: true,
+                        specialType: '__status_ordered__'
+                    });
+                }
+
+                // Calculate special stats for orders without tags
+                let noTagsCount = 0;
+                let noTagsOrders = [];
+                empOrders.forEach(order => {
+                    const orderTags = parseOrderTags(order.Tags);
+                    if (orderTags.length === 0) {
+                        noTagsCount++;
+                        noTagsOrders.push(order);
+                    }
+                });
+                if (noTagsCount > 0) {
+                    tagBreakdown.push({
+                        displayName: 'Không Có Tag',
+                        color: '#6b7280',
+                        count: noTagsCount,
+                        percentage: ((noTagsCount / empOrders.length) * 100).toFixed(1),
+                        orders: noTagsOrders,
+                        isSpecial: true,
+                        specialType: '__no_tags__'
+                    });
+                }
 
                 // Calculate tag stats for this employee
                 trackedTags.forEach(trackedTag => {
@@ -1874,11 +1991,17 @@
                 return;
             }
 
-            tbody.innerHTML = stats.map(s => `
-                <tr>
+            tbody.innerHTML = stats.map(s => {
+                // Handle special stats differently
+                const isSpecial = s.isSpecial || false;
+                const specialIcon = s.pattern === '__status_ordered__' ? 'fa-check-circle' :
+                                   s.pattern === '__no_tags__' ? 'fa-tag' : '';
+
+                return `
+                <tr class="${isSpecial ? 'special-stat-row' : ''}">
                     <td>
                         <div class="tag-cell">
-                            <span class="tag-color" style="background-color: ${s.color}"></span>
+                            ${isSpecial ? `<i class="fas ${specialIcon}" style="color: ${s.color}; margin-right: 8px;"></i>` : `<span class="tag-color" style="background-color: ${s.color}"></span>`}
                             <span>${s.displayName}</span>
                         </div>
                     </td>
@@ -1890,8 +2013,8 @@
                             <i class="fas fa-eye"></i>
                         </button>
                     </td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('');
         }
 
         /**
@@ -2046,16 +2169,39 @@
             const cached = cachedOrderDetails[currentTableName];
             const orders = cached?.orders || [];
 
-            const filteredOrders = orders.filter(order => {
-                const orderTags = parseOrderTags(order.Tags);
-                return orderTags.some(tag => {
-                    const tagName = tag.Name || tag.name || '';
-                    return matchTagPattern(tagName, { pattern, type });
-                });
-            });
+            let filteredOrders = [];
+            let displayName = '';
 
-            const displayName = trackedTags.find(t => t.pattern === pattern)?.displayName || pattern;
-            showOrdersDetailModal(`Đơn hàng có tag: ${displayName}`, filteredOrders);
+            // Handle special stats
+            if (type === 'special') {
+                if (pattern === '__status_ordered__') {
+                    // Filter orders with "Đơn hàng" status
+                    filteredOrders = orders.filter(order => {
+                        const statusText = order.StatusText || order.Status || '';
+                        return statusText === 'Đơn hàng';
+                    });
+                    displayName = 'Đơn Hàng (Ordered)';
+                } else if (pattern === '__no_tags__') {
+                    // Filter orders without tags
+                    filteredOrders = orders.filter(order => {
+                        const orderTags = parseOrderTags(order.Tags);
+                        return orderTags.length === 0;
+                    });
+                    displayName = 'Không Có Tag';
+                }
+            } else {
+                // Regular tag matching
+                filteredOrders = orders.filter(order => {
+                    const orderTags = parseOrderTags(order.Tags);
+                    return orderTags.some(tag => {
+                        const tagName = tag.Name || tag.name || '';
+                        return matchTagPattern(tagName, { pattern, type });
+                    });
+                });
+                displayName = trackedTags.find(t => t.pattern === pattern)?.displayName || pattern;
+            }
+
+            showOrdersDetailModal(`Đơn hàng: ${displayName}`, filteredOrders);
         }
 
         /**
@@ -2076,23 +2222,42 @@
         /**
          * View orders for employee by tag
          */
-        function viewEmployeeTagOrders(empName, start, end, tagDisplayName) {
+        function viewEmployeeTagOrders(empName, start, end, tagDisplayName, specialType = null) {
             const cached = cachedOrderDetails[currentTableName];
             const orders = cached?.orders || [];
 
-            const trackedTag = trackedTags.find(t => t.displayName === tagDisplayName);
-            if (!trackedTag) return;
+            let filteredOrders = [];
 
-            const filteredOrders = orders.filter(order => {
+            // Filter orders by employee first
+            const empOrders = orders.filter(order => {
                 const stt = parseInt(order.SessionIndex || 0);
-                if (stt < start || stt > end) return false;
-
-                const orderTags = parseOrderTags(order.Tags);
-                return orderTags.some(tag => {
-                    const tagName = tag.Name || tag.name || '';
-                    return matchTagPattern(tagName, trackedTag);
-                });
+                return stt >= start && stt <= end;
             });
+
+            // Handle special stats
+            if (specialType === '__status_ordered__' || tagDisplayName === 'Đơn Hàng (Ordered)') {
+                filteredOrders = empOrders.filter(order => {
+                    const statusText = order.StatusText || order.Status || '';
+                    return statusText === 'Đơn hàng';
+                });
+            } else if (specialType === '__no_tags__' || tagDisplayName === 'Không Có Tag') {
+                filteredOrders = empOrders.filter(order => {
+                    const orderTags = parseOrderTags(order.Tags);
+                    return orderTags.length === 0;
+                });
+            } else {
+                // Regular tag matching
+                const trackedTag = trackedTags.find(t => t.displayName === tagDisplayName);
+                if (!trackedTag) return;
+
+                filteredOrders = empOrders.filter(order => {
+                    const orderTags = parseOrderTags(order.Tags);
+                    return orderTags.some(tag => {
+                        const tagName = tag.Name || tag.name || '';
+                        return matchTagPattern(tagName, trackedTag);
+                    });
+                });
+            }
 
             showOrdersDetailModal(`${empName} - ${tagDisplayName}`, filteredOrders);
         }
