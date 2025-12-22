@@ -96,8 +96,13 @@
         }
 
         @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         /* Main Tabs */
@@ -136,14 +141,14 @@
         }
 
         .main-tab-btn .badge {
-            background: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.3);
             padding: 2px 8px;
             border-radius: 10px;
             font-size: 12px;
         }
 
         .main-tab-btn.active .badge {
-            background: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.3);
         }
 
         .main-tab-content {
@@ -182,10 +187,21 @@
             color: white;
         }
 
-        .stat-card .stat-icon.blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .stat-card .stat-icon.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
-        .stat-card .stat-icon.orange { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-        .stat-card .stat-icon.purple { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .stat-card .stat-icon.blue {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .stat-card .stat-icon.green {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .stat-card .stat-icon.orange {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-card .stat-icon.purple {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
 
         .stat-card .stat-value {
             font-size: 32px;
@@ -327,13 +343,15 @@
         }
 
         /* Loading & Empty States */
-        .loading-state, .empty-state {
+        .loading-state,
+        .empty-state {
             text-align: center;
             padding: 60px 20px;
             color: #666;
         }
 
-        .loading-state i, .empty-state i {
+        .loading-state i,
+        .empty-state i {
             font-size: 64px;
             margin-bottom: 20px;
         }
@@ -347,7 +365,8 @@
             color: #ddd;
         }
 
-        .empty-state h3, .loading-state h3 {
+        .empty-state h3,
+        .loading-state h3 {
             color: #999;
             font-size: 20px;
             margin-bottom: 10px;
@@ -501,11 +520,25 @@
             word-break: break-all;
         }
 
-        .json-key { color: #9cdcfe; }
-        .json-string { color: #ce9178; }
-        .json-number { color: #b5cea8; }
-        .json-boolean { color: #569cd6; }
-        .json-null { color: #569cd6; }
+        .json-key {
+            color: #9cdcfe;
+        }
+
+        .json-string {
+            color: #ce9178;
+        }
+
+        .json-number {
+            color: #b5cea8;
+        }
+
+        .json-boolean {
+            color: #569cd6;
+        }
+
+        .json-null {
+            color: #569cd6;
+        }
 
         /* Tabs */
         .tabs {
@@ -592,10 +625,13 @@
         }
 
         @keyframes highlightPulse {
-            0%, 100% {
+
+            0%,
+            100% {
                 transform: scale(1);
                 box-shadow: 0 0 10px rgba(56, 239, 125, 0.4);
             }
+
             50% {
                 transform: scale(1.05);
                 box-shadow: 0 0 25px rgba(56, 239, 125, 0.8);
@@ -612,6 +648,7 @@
                 opacity: 0;
                 transform: translateY(-5px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -790,14 +827,14 @@
             display: flex;
             flex-direction: column;
             gap: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .employee-stat-item:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
 
         .employee-stat-item .tag-name {
@@ -833,7 +870,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             z-index: 2000;
             justify-content: center;
             align-items: center;
@@ -850,7 +887,7 @@
             max-width: 500px;
             max-height: 80vh;
             overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
 
         .add-tag-modal-header {
@@ -940,7 +977,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             z-index: 2000;
             justify-content: center;
             align-items: center;
@@ -957,7 +994,7 @@
             max-width: 1200px;
             max-height: 90vh;
             overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
 
         .orders-detail-modal-header {
@@ -1012,7 +1049,8 @@
             </h1>
             <div class="header-actions" style="display: flex; gap: 15px; align-items: center;">
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <label style="font-size: 13px; color: #667eea; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <label
+                        style="font-size: 13px; color: #667eea; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
                         <i class="fas fa-table" style="margin-right: 5px;"></i>Chiến dịch Live:
                     </label>
                     <select id="tableSelector" onchange="handleTableChange()"
@@ -1020,16 +1058,19 @@
                         <option value="">-- Chọn bảng --</option>
                     </select>
                     <!-- Message helper khi bảng chưa có trong Firebase -->
-                    <div id="tableHelperMessage" style="display: none; font-size: 12px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; color: #856404; max-width: 320px;">
+                    <div id="tableHelperMessage"
+                        style="display: none; font-size: 12px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; color: #856404; max-width: 320px;">
                         <i class="fas fa-info-circle"></i>
-                        <span id="tableHelperText">Bảng này chưa có dữ liệu chi tiết. Nhấn "Lấy chi tiết đơn hàng" để tải.</span>
+                        <span id="tableHelperText">Bảng này chưa có dữ liệu chi tiết. Nhấn "Lấy chi tiết đơn hàng" để
+                            tải.</span>
                     </div>
                 </div>
                 <button class="btn-action" onclick="refreshAllData()"
                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-top: 20px;">
                     <i class="fas fa-sync-alt"></i> Làm mới danh sách
                 </button>
-                <button class="btn-action green" onclick="startBatchFetch()" id="btnBatchFetch" style="margin-top: 20px;">
+                <button class="btn-action green" onclick="startBatchFetch()" id="btnBatchFetch"
+                    style="margin-top: 20px;">
                     <i class="fas fa-download"></i> Lấy chi tiết đơn hàng
                 </button>
             </div>
@@ -1165,7 +1206,8 @@
                 <button class="modal-close" onclick="closeAddTagModal()">&times;</button>
             </div>
             <div class="add-tag-modal-body">
-                <input type="text" class="tag-search-input" id="tagSearchInput" placeholder="Tìm kiếm tag..." oninput="filterTagList()">
+                <input type="text" class="tag-search-input" id="tagSearchInput" placeholder="Tìm kiếm tag..."
+                    oninput="filterTagList()">
                 <div class="tag-list" id="tagListContainer">
                     <!-- Tags will be loaded here -->
                 </div>
@@ -1182,6 +1224,24 @@
             </div>
             <div class="orders-detail-modal-body" id="ordersDetailBody">
                 <!-- Orders will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Product Detail Popup -->
+    <div class="modal-overlay" id="mobileProductDetailModal" style="z-index: 2001;">
+        <div class="modal-content" style="width: 95%; max-width: 400px; border-radius: 12px;">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px;">
+                <h3 id="mobilePopupTitle"
+                    style="color: white; font-size: 16px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 85%;">
+                    Chi tiết sản phẩm
+                </h3>
+                <button class="modal-close" onclick="closeMobileProductPopup()"
+                    style="color: white; opacity: 0.8;">&times;</button>
+            </div>
+            <div class="modal-body" id="mobilePopupBody" style="padding: 20px;">
+                <!-- Content injected via JS -->
             </div>
         </div>
     </div>
@@ -1417,7 +1477,7 @@
         // Broadcast table status to parent (main.html)
         function broadcastTableStatus() {
             const isMatching = currentTableName && firebaseTableName &&
-                               currentTableName === firebaseTableName;
+                currentTableName === firebaseTableName;
 
             window.parent.postMessage({
                 type: 'TABLE_STATUS_UPDATE',
@@ -2109,7 +2169,7 @@
         }
 
         // Close modals on background click
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             if (e.target.classList.contains('add-tag-modal')) {
                 closeAddTagModal();
             }
@@ -2341,7 +2401,7 @@
         // =====================================================
         // MESSAGE LISTENER - Receive data from tab1
         // =====================================================
-        window.addEventListener('message', function(event) {
+        window.addEventListener('message', function (event) {
             // Handle orders data response
             if (event.data.type === 'ORDERS_DATA_RESPONSE_OVERVIEW') {
                 console.log('[REPORT] Received orders data:', event.data.orders?.length || 0);
@@ -3028,7 +3088,7 @@
             document.getElementById('orderDetailModal').classList.remove('show');
         }
 
-        document.getElementById('orderDetailModal').addEventListener('click', function(e) {
+        document.getElementById('orderDetailModal').addEventListener('click', function (e) {
             if (e.target === this) closeOrderDetailModal();
         });
 
@@ -3099,7 +3159,7 @@
         // =====================================================
         // INITIALIZATION
         // =====================================================
-        document.addEventListener('DOMContentLoaded', async function() {
+        document.addEventListener('DOMContentLoaded', async function () {
             console.log('[REPORT] Page loaded, initializing...');
 
             // Reset fetching state on page load (in case it was stuck from previous session)

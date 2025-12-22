@@ -370,6 +370,7 @@
                 <!-- Custom Date Filter Container (referenced in JS) -->
                 <div id="customDateFilterContainer">
                     <input type="datetime-local" id="customStartDate" />
+                    <input type="datetime-local" id="customEndDate" />
                 </div>
                 <input type="datetime-local" id="startDate" />
                 <input type="datetime-local" id="endDate" />
@@ -2814,6 +2815,56 @@
         </div>
     </div>
 
+    <!-- Campaign No Dates Modal - When campaign has no start date -->
+    <div class="tag-modal" id="campaignNoDatesModal" style="display: none; z-index: 10150;">
+        <div class="tag-modal-content" style="max-width: 500px;">
+            <div class="tag-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                <h3 style="color: white;"><i class="fas fa-calendar-times"></i> Chiến Dịch Chưa Có Ngày</h3>
+                <button class="tag-modal-close" onclick="closeCampaignNoDatesModal()" style="color: white;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tag-modal-body" style="padding: 24px;">
+                <input type="hidden" id="noDatesModalCampaignId" />
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">📅</div>
+                    <p style="color: #6b7280; line-height: 1.6;">
+                        Chiến dịch <strong id="noDatesModalCampaignName">-</strong> chưa có ngày bắt đầu.<br>
+                        Vui lòng chọn khoảng thời gian để tiếp tục.
+                    </p>
+                </div>
+
+                <!-- Date Range -->
+                <div style="padding: 16px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-radius: 8px; border: 2px solid #8b5cf6;">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 180px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #7c3aed; display: block; margin-bottom: 4px;">
+                                <i class="fas fa-play"></i> Từ ngày:
+                            </label>
+                            <input type="datetime-local" id="noDatesModalStartDate"
+                                style="width: 100%; padding: 10px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 14px;" />
+                        </div>
+                        <div style="flex: 1; min-width: 180px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #7c3aed; display: block; margin-bottom: 4px;">
+                                <i class="fas fa-stop"></i> Đến ngày:
+                            </label>
+                            <input type="datetime-local" id="noDatesModalEndDate"
+                                style="width: 100%; padding: 10px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 14px;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tag-modal-footer">
+                <button class="tag-btn-cancel" onclick="closeCampaignNoDatesModal()">
+                    Hủy
+                </button>
+                <button class="tag-btn-save" onclick="saveCampaignDatesAndContinue()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <i class="fas fa-check"></i> Lưu và Tiếp Tục
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Manage Campaigns Modal -->
     <div class="tag-modal" id="manageCampaignsModal" style="display: none; z-index: 10100;">
         <div class="tag-modal-content" style="max-width: 600px;">
@@ -2858,24 +2909,35 @@
                         style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
                 </div>
 
-                <!-- Time Frame Selection -->
-                <div style="margin-bottom: 20px;">
-                    <label style="font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 8px;">
-                        <i class="fas fa-clock" style="color: #8b5cf6;"></i> Chọn khung thời gian chiến dịch:
-                    </label>
-                    <select id="editCampaignTimeFrame" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
-                        <option value="">-- Chọn khung thời gian --</option>
-                    </select>
+                <!-- Custom Date Range (always visible - Custom mode only) -->
+                <div id="editCampaignCustomDateContainer" style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-radius: 8px; border: 2px solid #8b5cf6;">
+                    <h4 style="margin: 0 0 12px 0; font-size: 13px; color: #7c3aed; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-calendar-check" style="color: #8b5cf6;"></i> Khoảng Thời Gian Chiến Dịch
+                    </h4>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #7c3aed;">
+                                <i class="fas fa-play"></i> Từ ngày:
+                            </label>
+                            <input type="datetime-local" id="editCampaignCustomStartDate"
+                                onchange="autoFillEditCampaignEndDate()"
+                                style="width: 100%; padding: 8px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                        <div style="flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #7c3aed;">
+                                <i class="fas fa-stop"></i> Đến ngày:
+                            </label>
+                            <input type="datetime-local" id="editCampaignCustomEndDate"
+                                style="width: 100%; padding: 8px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px; padding: 6px 10px; background: white; border-radius: 4px; font-size: 11px; color: #6b7280;">
+                        <i class="fas fa-info-circle" style="color: #8b5cf6;"></i>
+                        "Đến ngày" tự động = "Từ ngày" + 3 ngày
+                    </div>
                 </div>
-
-                <!-- Custom Date Filter -->
-                <div id="editCampaignCustomDateContainer" style="display: none; margin-bottom: 20px; padding: 12px; background: #ede9fe; border-radius: 6px; border: 2px solid #8b5cf6;">
-                    <label style="font-size: 12px; font-weight: 600; color: #8b5cf6; display: block; margin-bottom: 8px;">
-                        <i class="fas fa-magic"></i> Từ ngày custom:
-                    </label>
-                    <input type="datetime-local" id="editCampaignCustomStartDate"
-                        style="width: 100%; padding: 8px 12px; border: 2px solid #8b5cf6; border-radius: 6px;" />
-                </div>
+                <!-- Hidden time frame for backward compatibility -->
+                <input type="hidden" id="editCampaignTimeFrame" value="custom" />
             </div>
             <div class="tag-modal-footer">
                 <button class="tag-btn-cancel" onclick="closeEditCampaignModal()">
@@ -2898,102 +2960,68 @@
                 </button>
             </div>
             <div class="tag-modal-body" style="padding: 20px;">
-                <!-- Load Settings Section -->
+                <!-- User Campaigns Section -->
                 <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
                     <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-download" style="color: #8b5cf6;"></i> Tải Dữ Liệu
+                        <i class="fas fa-bullseye" style="color: #8b5cf6;"></i> Chiến Dịch Đã Lưu
                     </h4>
-                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label style="font-size: 12px; color: #6b7280;">Khoảng tải:</label>
-                            <select id="modalSkipRangeFilter" style="min-width: 150px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
-                                <option value="0" selected>3000 đầu tiên</option>
-                                <option value="3000">3000 tiếp theo</option>
-                                <option value="6000">3000 thứ 3</option>
-                                <option value="9000">3000 thứ 4</option>
-                                <option value="12000">3000 thứ 5</option>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <select id="modalUserCampaignSelect" style="flex: 1; padding: 10px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-weight: 500;">
+                                <option value="">-- Chọn chiến dịch đã lưu --</option>
                             </select>
+                            <button class="btn-primary" onclick="openManageCampaignsModal()"
+                                style="background: #6b7280; padding: 10px 12px; white-space: nowrap;"
+                                title="Quản lý chiến dịch">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                            <button class="btn-primary" onclick="openCreateCampaignModal()"
+                                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 10px 12px; white-space: nowrap;"
+                                title="Thêm chiến dịch mới">
+                                <i class="fas fa-plus"></i> THÊM
+                            </button>
                         </div>
-                        <button class="btn-primary" id="modalLoadCampaignsBtn" onclick="handleLoadCampaignsFromModal()" style="background: #8b5cf6; margin-top: 18px;">
-                            <i class="fas fa-sync-alt"></i>
-                            Tải Chiến Dịch
-                        </button>
                     </div>
                 </div>
 
-                <!-- Campaign Selection Section -->
-                <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-bullseye" style="color: #8b5cf6;"></i> Chiến Dịch Live
+                <!-- Custom Date Range Section -->
+                <div style="margin-bottom: 24px; padding: 16px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-radius: 8px; border: 2px solid #8b5cf6;">
+                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #7c3aed; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-calendar-check" style="color: #8b5cf6;"></i> Khoảng Thời Gian Lọc Đơn
                     </h4>
-                    <div style="display: flex; flex-direction: column; gap: 16px;">
-                        <!-- User's Custom Campaigns -->
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label style="font-size: 12px; color: #6b7280;">Chiến Dịch Live:</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <select id="modalUserCampaignSelect" style="flex: 1; padding: 8px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-weight: 500;">
-                                    <option value="">-- Chọn chiến dịch --</option>
-                                </select>
-                                <button class="btn-primary" onclick="openManageCampaignsModal()"
-                                    style="background: #6b7280; padding: 8px 12px; white-space: nowrap;"
-                                    title="Quản lý chiến dịch">
-                                    <i class="fas fa-cog"></i>
-                                </button>
-                                <button class="btn-primary" onclick="openCreateCampaignModal()"
-                                    style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 8px 12px; white-space: nowrap;"
-                                    title="Thêm chiến dịch mới">
-                                    <i class="fas fa-plus"></i> THÊM
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Time Frame Display (Read-only) -->
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label style="font-size: 12px; color: #6b7280;">Khung thời gian chiến dịch:</label>
-                            <div id="campaignTimeFrameLabel"
-                                style="width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 6px; background: #f3f4f6; color: #6b7280; font-size: 13px;">
-                                <i class="fas fa-clock"></i> Chưa chọn chiến dịch
-                            </div>
-                        </div>
-                        <!-- Custom Date Display (Read-only, shown when custom) -->
-                        <div id="campaignCustomDateDisplay" style="display: none; padding: 12px; background: #ede9fe; border-radius: 6px; border: 2px solid #8b5cf6;">
-                            <label style="font-size: 12px; font-weight: 600; color: #8b5cf6; display: block; margin-bottom: 8px;">
-                                <i class="fas fa-magic"></i> Từ ngày custom (lọc theo ngày tạo đơn):
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #7c3aed;">
+                                <i class="fas fa-play"></i> Từ ngày:
                             </label>
-                            <div id="campaignCustomDateLabel"
-                                style="padding: 8px 12px; background: white; border-radius: 6px; color: #7c3aed; font-weight: 500;">
-                                --
-                            </div>
+                            <input type="datetime-local" id="modalCustomStartDate"
+                                style="width: 100%; padding: 10px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-weight: 500;" />
                         </div>
+                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #7c3aed;">
+                                <i class="fas fa-stop"></i> Đến ngày:
+                            </label>
+                            <input type="datetime-local" id="modalCustomEndDate"
+                                style="width: 100%; padding: 10px 12px; border: 2px solid #8b5cf6; border-radius: 6px; font-weight: 500;" />
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; padding: 8px 12px; background: white; border-radius: 6px; font-size: 12px; color: #6b7280;">
+                        <i class="fas fa-info-circle" style="color: #8b5cf6;"></i>
+                        Khi điền "Từ ngày", "Đến ngày" sẽ tự động được điền = Từ ngày + 3 ngày
                     </div>
                 </div>
 
                 <!-- Hidden elements for backward compatibility -->
                 <div style="display: none;">
                     <select id="modalCampaignFilter">
-                        <option value="">Đang tải...</option>
+                        <option value="custom" selected>Custom</option>
                     </select>
-                    <input type="datetime-local" id="modalCustomStartDate" />
+                    <input type="datetime-local" id="modalStartDate" />
+                    <input type="datetime-local" id="modalEndDate" />
                     <div id="modalCustomDateFilterContainer"></div>
-                </div>
-
-                <!-- Date Range Section -->
-                <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-calendar-alt" style="color: #3b82f6;"></i> Khoảng Thời Gian
-                    </h4>
-                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
-                            <label style="font-size: 12px; color: #6b7280;">Từ ngày:</label>
-                            <input type="datetime-local" id="modalStartDate"
-                                style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;" />
-                        </div>
-                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
-                            <label style="font-size: 12px; color: #6b7280;">Đến ngày:</label>
-                            <input type="datetime-local" id="modalEndDate"
-                                style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;" />
-                        </div>
-                    </div>
+                    <div id="campaignTimeFrameLabel"></div>
+                    <div id="campaignCustomDateDisplay"></div>
+                    <div id="campaignCustomDateLabel"></div>
                 </div>
 
                 <!-- Realtime Section -->
@@ -3075,42 +3103,17 @@
 
         // Sync original hidden elements to modal inputs
         function syncOriginalToModal() {
-            // Sync skip range filter
-            const originalSkipRange = document.getElementById('skipRangeFilter');
-            const modalSkipRange = document.getElementById('modalSkipRangeFilter');
-            if (originalSkipRange && modalSkipRange) {
-                modalSkipRange.value = originalSkipRange.value;
-            }
-
-            // Sync campaign filter
-            const originalCampaign = document.getElementById('campaignFilter');
-            const modalCampaign = document.getElementById('modalCampaignFilter');
-            if (originalCampaign && modalCampaign) {
-                // Copy options
-                modalCampaign.innerHTML = originalCampaign.innerHTML;
-                modalCampaign.value = originalCampaign.value;
-
-                // Show/hide custom date container based on selection
-                updateModalCustomDateVisibility();
-            }
-
-            // Sync dates
+            // Sync custom date range (From - To)
             const originalCustomStartDate = document.getElementById('customStartDate');
             const modalCustomStartDate = document.getElementById('modalCustomStartDate');
             if (originalCustomStartDate && modalCustomStartDate) {
                 modalCustomStartDate.value = originalCustomStartDate.value;
             }
 
-            const originalStartDate = document.getElementById('startDate');
-            const modalStartDate = document.getElementById('modalStartDate');
-            if (originalStartDate && modalStartDate) {
-                modalStartDate.value = originalStartDate.value;
-            }
-
-            const originalEndDate = document.getElementById('endDate');
-            const modalEndDate = document.getElementById('modalEndDate');
-            if (originalEndDate && modalEndDate) {
-                modalEndDate.value = originalEndDate.value;
+            const originalCustomEndDate = document.getElementById('customEndDate');
+            const modalCustomEndDate = document.getElementById('modalCustomEndDate');
+            if (originalCustomEndDate && modalCustomEndDate) {
+                modalCustomEndDate.value = originalCustomEndDate.value;
             }
 
             // Sync realtime checkbox
@@ -3135,68 +3138,60 @@
             }
         }
 
-        // Update custom date container visibility based on campaign selection
-        function updateModalCustomDateVisibility() {
-            const modalCampaign = document.getElementById('modalCampaignFilter');
-            const modalCustomDateContainer = document.getElementById('modalCustomDateFilterContainer');
-            if (modalCampaign && modalCustomDateContainer) {
-                const selectedValue = modalCampaign.value;
-                if (selectedValue === 'custom') {
-                    modalCustomDateContainer.style.display = 'block';
-                } else {
-                    modalCustomDateContainer.style.display = 'none';
-                }
+        // Auto-fill end date when start date changes (+3 days at 00:00)
+        function autoFillCustomEndDate() {
+            const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+            const modalCustomEndDate = document.getElementById('modalCustomEndDate');
+
+            if (modalCustomStartDate && modalCustomEndDate && modalCustomStartDate.value) {
+                const startDate = new Date(modalCustomStartDate.value);
+                const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days
+
+                // Set end date to 00:00 AM
+                endDate.setHours(0, 0, 0, 0);
+
+                // Format as datetime-local
+                const year = endDate.getFullYear();
+                const month = String(endDate.getMonth() + 1).padStart(2, '0');
+                const day = String(endDate.getDate()).padStart(2, '0');
+                const hours = String(endDate.getHours()).padStart(2, '0');
+                const minutes = String(endDate.getMinutes()).padStart(2, '0');
+
+                modalCustomEndDate.value = `${year}-${month}-${day}T${hours}:${minutes}`;
             }
         }
 
-        // Handle campaign change in modal
+        // Setup event listener for auto-fill
         document.addEventListener('DOMContentLoaded', function() {
-            const modalCampaignFilter = document.getElementById('modalCampaignFilter');
-            if (modalCampaignFilter) {
-                modalCampaignFilter.addEventListener('change', function() {
-                    updateModalCustomDateVisibility();
-                });
+            const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+            if (modalCustomStartDate) {
+                modalCustomStartDate.addEventListener('change', autoFillCustomEndDate);
             }
         });
 
         // Apply settings from modal to original elements
         function applyCampaignSettings() {
-            // Sync skip range filter
-            const originalSkipRange = document.getElementById('skipRangeFilter');
-            const modalSkipRange = document.getElementById('modalSkipRangeFilter');
-            if (originalSkipRange && modalSkipRange) {
-                originalSkipRange.value = modalSkipRange.value;
-            }
-
-            // Sync campaign filter
-            const originalCampaign = document.getElementById('campaignFilter');
-            const modalCampaign = document.getElementById('modalCampaignFilter');
-            if (originalCampaign && modalCampaign) {
-                originalCampaign.value = modalCampaign.value;
-                // Trigger change event
-                originalCampaign.dispatchEvent(new Event('change'));
-            }
-
-            // Sync dates
+            // Sync custom date range to original hidden elements
             const originalCustomStartDate = document.getElementById('customStartDate');
             const modalCustomStartDate = document.getElementById('modalCustomStartDate');
             if (originalCustomStartDate && modalCustomStartDate) {
                 originalCustomStartDate.value = modalCustomStartDate.value;
-                originalCustomStartDate.dispatchEvent(new Event('change'));
             }
 
+            const originalCustomEndDate = document.getElementById('customEndDate');
+            const modalCustomEndDate = document.getElementById('modalCustomEndDate');
+            if (originalCustomEndDate && modalCustomEndDate) {
+                originalCustomEndDate.value = modalCustomEndDate.value;
+            }
+
+            // Also sync to startDate/endDate for API compatibility
             const originalStartDate = document.getElementById('startDate');
-            const modalStartDate = document.getElementById('modalStartDate');
-            if (originalStartDate && modalStartDate) {
-                originalStartDate.value = modalStartDate.value;
-                originalStartDate.dispatchEvent(new Event('change'));
-            }
-
             const originalEndDate = document.getElementById('endDate');
-            const modalEndDate = document.getElementById('modalEndDate');
-            if (originalEndDate && modalEndDate) {
-                originalEndDate.value = modalEndDate.value;
-                originalEndDate.dispatchEvent(new Event('change'));
+            if (originalStartDate && modalCustomStartDate) {
+                originalStartDate.value = modalCustomStartDate.value;
+            }
+            if (originalEndDate && modalCustomEndDate) {
+                originalEndDate.value = modalCustomEndDate.value;
             }
 
             // Sync realtime checkbox
@@ -3221,35 +3216,35 @@
 
             closeCampaignSettingsModal();
 
+            // Set custom mode and trigger search
+            if (typeof selectedCampaign !== 'undefined') {
+                selectedCampaign = { isCustom: true };
+            }
+
+            // Save to Firebase and trigger search
+            if (typeof saveFilterPreferencesToFirebase === 'function') {
+                saveFilterPreferencesToFirebase({
+                    selectedCampaignValue: 'custom',
+                    isCustomMode: true,
+                    customStartDate: modalCustomStartDate ? modalCustomStartDate.value : null,
+                    customEndDate: modalCustomEndDate ? modalCustomEndDate.value : null
+                });
+            }
+
+            // Trigger search with new date range
+            if (typeof handleSearch === 'function') {
+                handleSearch();
+            }
+
             // Show success notification
             if (typeof showNotification === 'function') {
-                showNotification('Đã áp dụng cài đặt chiến dịch!', 'success');
+                showNotification('Đã áp dụng và đang tải đơn hàng...', 'success');
             }
         }
 
-        // Load campaigns from modal
+        // Load campaigns from modal (simplified - just triggers search)
         function handleLoadCampaignsFromModal() {
-            // Sync skip range first
-            const originalSkipRange = document.getElementById('skipRangeFilter');
-            const modalSkipRange = document.getElementById('modalSkipRangeFilter');
-            if (originalSkipRange && modalSkipRange) {
-                originalSkipRange.value = modalSkipRange.value;
-            }
-
-            // Call original load campaigns function
-            if (typeof handleLoadCampaigns === 'function') {
-                handleLoadCampaigns();
-            }
-
-            // Update modal campaign filter after a delay
-            setTimeout(function() {
-                const originalCampaign = document.getElementById('campaignFilter');
-                const modalCampaign = document.getElementById('modalCampaignFilter');
-                if (originalCampaign && modalCampaign) {
-                    modalCampaign.innerHTML = originalCampaign.innerHTML;
-                    modalCampaign.value = originalCampaign.value;
-                }
-            }, 2000);
+            applyCampaignSettings();
         }
 
         // Toggle chat API source from modal
@@ -3295,8 +3290,8 @@
                     const option = document.createElement('option');
                     option.value = id;
                     option.textContent = campaign.name;
-                    option.dataset.timeFrame = campaign.timeFrame || '';
                     option.dataset.customStartDate = campaign.customStartDate || '';
+                    option.dataset.customEndDate = campaign.customEndDate || '';
                     select.appendChild(option);
                 });
 
@@ -3306,30 +3301,34 @@
             }
         }
 
-        // Apply selected user campaign
+        // Apply selected user campaign - load customStartDate and customEndDate
         function applyUserCampaign() {
             const select = document.getElementById('modalUserCampaignSelect');
             if (!select || !select.value) return;
 
             const selectedOption = select.options[select.selectedIndex];
-            const timeFrame = selectedOption.dataset.timeFrame;
             const customStartDate = selectedOption.dataset.customStartDate;
+            const customEndDate = selectedOption.dataset.customEndDate;
 
-            // Apply time frame to campaign filter
-            const modalCampaignFilter = document.getElementById('modalCampaignFilter');
-            if (modalCampaignFilter && timeFrame) {
-                modalCampaignFilter.value = timeFrame;
-                updateModalCustomDateVisibility();
-            }
-
-            // Apply custom start date if available
+            // Apply custom start date
             const modalCustomStartDate = document.getElementById('modalCustomStartDate');
             if (modalCustomStartDate && customStartDate) {
                 modalCustomStartDate.value = customStartDate;
             }
 
+            // Apply custom end date (or auto-calculate +2 days)
+            const modalCustomEndDate = document.getElementById('modalCustomEndDate');
+            if (modalCustomEndDate) {
+                if (customEndDate) {
+                    modalCustomEndDate.value = customEndDate;
+                } else if (customStartDate) {
+                    // Auto-calculate +2 days if end date not saved
+                    autoFillCustomEndDate();
+                }
+            }
+
             if (typeof showNotification === 'function') {
-                showNotification('Đã áp dụng chiến dịch: ' + selectedOption.textContent, 'success');
+                showNotification('Đã chọn chiến dịch: ' + selectedOption.textContent, 'success');
             }
         }
 
@@ -3350,7 +3349,7 @@
     </script>
 
     <!-- Create Campaign Modal -->
-    <div class="tag-modal" id="createCampaignModal" style="display: none;">
+    <div class="tag-modal" id="createCampaignModal" style="display: none; z-index: 10150;">
         <div class="tag-modal-content" style="max-width: 500px;">
             <div class="tag-modal-header">
                 <h3><i class="fas fa-plus-circle"></i> Thêm Chiến Dịch Mới</h3>
@@ -3368,29 +3367,32 @@
                         style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
                 </div>
 
-                <!-- Time Frame Selection -->
-                <div style="margin-bottom: 20px;">
-                    <label style="font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 8px;">
-                        <i class="fas fa-clock" style="color: #8b5cf6;"></i> Chọn khung thời gian chiến dịch:
+                <!-- Custom Date Range -->
+                <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-radius: 8px; border: 2px solid #8b5cf6;">
+                    <label style="font-size: 13px; font-weight: 600; color: #7c3aed; display: block; margin-bottom: 12px;">
+                        <i class="fas fa-calendar-check" style="color: #8b5cf6;"></i> Khoảng thời gian lọc đơn:
                     </label>
-                    <select id="newCampaignTimeFrame" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
-                        <option value="">-- Chọn khung thời gian --</option>
-                    </select>
-                </div>
-
-                <!-- Custom Date Filter (shown when 'custom' is selected) -->
-                <div id="newCampaignCustomDateContainer" style="display: none; margin-bottom: 20px; padding: 12px; background: #ede9fe; border-radius: 6px; border: 2px solid #8b5cf6;">
-                    <label style="font-size: 12px; font-weight: 600; color: #8b5cf6; display: block; margin-bottom: 8px;">
-                        <i class="fas fa-magic"></i> Từ ngày custom (lọc theo ngày tạo đơn):
-                    </label>
-                    <input type="datetime-local" id="newCampaignCustomStartDate"
-                        style="width: 100%; padding: 8px 12px; border: 2px solid #8b5cf6; border-radius: 6px;" />
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 180px;">
+                            <label style="font-size: 11px; color: #7c3aed; display: block; margin-bottom: 4px;">Từ ngày:</label>
+                            <input type="datetime-local" id="newCampaignCustomStartDate"
+                                style="width: 100%; padding: 8px 10px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                        <div style="flex: 1; min-width: 180px;">
+                            <label style="font-size: 11px; color: #7c3aed; display: block; margin-bottom: 4px;">Đến ngày:</label>
+                            <input type="datetime-local" id="newCampaignCustomEndDate"
+                                style="width: 100%; padding: 8px 10px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 11px; color: #6b7280;">
+                        <i class="fas fa-info-circle" style="color: #8b5cf6;"></i> Đến ngày tự động = Từ ngày + 3 ngày
+                    </div>
                 </div>
 
                 <!-- Info Box -->
                 <div style="padding: 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px;">
                     <div style="font-size: 12px; color: #166534;">
-                        <i class="fas fa-info-circle"></i> Chiến dịch sẽ lưu lại cách lọc dữ liệu từ 3000 đơn tải về từ TPOS.
+                        <i class="fas fa-info-circle"></i> Chiến dịch sẽ lưu lại khoảng thời gian lọc đơn.
                         Bạn có thể chọn lại chiến dịch này sau để áp dụng nhanh.
                     </div>
                 </div>
@@ -3416,21 +3418,16 @@
             // Reset form
             document.getElementById('newCampaignName').value = '';
             document.getElementById('newCampaignCustomStartDate').value = '';
-            document.getElementById('newCampaignCustomDateContainer').style.display = 'none';
+            document.getElementById('newCampaignCustomEndDate').value = '';
 
-            // Copy options from modalCampaignFilter to newCampaignTimeFrame
-            const sourceSelect = document.getElementById('modalCampaignFilter');
-            const targetSelect = document.getElementById('newCampaignTimeFrame');
-            if (sourceSelect && targetSelect) {
-                targetSelect.innerHTML = '<option value="">-- Chọn khung thời gian --</option>';
-                Array.from(sourceSelect.options).forEach(opt => {
-                    if (opt.value) {
-                        const newOpt = document.createElement('option');
-                        newOpt.value = opt.value;
-                        newOpt.textContent = opt.textContent;
-                        targetSelect.appendChild(newOpt);
-                    }
-                });
+            // Copy current dates from main modal if available
+            const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+            const modalCustomEndDate = document.getElementById('modalCustomEndDate');
+            if (modalCustomStartDate && modalCustomStartDate.value) {
+                document.getElementById('newCampaignCustomStartDate').value = modalCustomStartDate.value;
+            }
+            if (modalCustomEndDate && modalCustomEndDate.value) {
+                document.getElementById('newCampaignCustomEndDate').value = modalCustomEndDate.value;
             }
 
             // Focus on name input
@@ -3442,16 +3439,24 @@
             document.getElementById('createCampaignModal').style.display = 'none';
         }
 
-        // Handle time frame change in create modal
+        // Auto-fill end date when start date changes in create modal
         document.addEventListener('DOMContentLoaded', function() {
-            const timeFrameSelect = document.getElementById('newCampaignTimeFrame');
-            if (timeFrameSelect) {
-                timeFrameSelect.addEventListener('change', function() {
-                    const customDateContainer = document.getElementById('newCampaignCustomDateContainer');
-                    if (this.value === 'custom') {
-                        customDateContainer.style.display = 'block';
-                    } else {
-                        customDateContainer.style.display = 'none';
+            const newCampaignStartDate = document.getElementById('newCampaignCustomStartDate');
+            if (newCampaignStartDate) {
+                newCampaignStartDate.addEventListener('change', function() {
+                    const endDateInput = document.getElementById('newCampaignCustomEndDate');
+                    if (this.value && endDateInput) {
+                        const startDate = new Date(this.value);
+                        const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days
+                        endDate.setHours(0, 0, 0, 0); // 00:00 AM
+
+                        const year = endDate.getFullYear();
+                        const month = String(endDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(endDate.getDate()).padStart(2, '0');
+                        const hours = String(endDate.getHours()).padStart(2, '0');
+                        const minutes = String(endDate.getMinutes()).padStart(2, '0');
+
+                        endDateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
                     }
                 });
             }
@@ -3460,8 +3465,8 @@
         // Save new campaign to Firebase
         async function saveNewCampaign() {
             const name = document.getElementById('newCampaignName').value.trim();
-            const timeFrame = document.getElementById('newCampaignTimeFrame').value;
             const customStartDate = document.getElementById('newCampaignCustomStartDate').value;
+            const customEndDate = document.getElementById('newCampaignCustomEndDate').value;
 
             // Validation
             if (!name) {
@@ -3474,11 +3479,11 @@
                 return;
             }
 
-            if (!timeFrame) {
+            if (!customStartDate) {
                 if (typeof showNotification === 'function') {
-                    showNotification('Vui lòng chọn khung thời gian chiến dịch!', 'error');
+                    showNotification('Vui lòng chọn Từ ngày!', 'error');
                 } else {
-                    alert('Vui lòng chọn khung thời gian chiến dịch!');
+                    alert('Vui lòng chọn Từ ngày!');
                 }
                 return;
             }
@@ -3492,22 +3497,48 @@
                 const db = firebase.database();
                 const campaignId = 'campaign_' + Date.now();
 
-                await db.ref('user_campaigns/' + campaignId).set({
+                const campaignData = {
                     name: name,
-                    timeFrame: timeFrame,
-                    customStartDate: timeFrame === 'custom' ? customStartDate : '',
+                    customStartDate: customStartDate,
+                    customEndDate: customEndDate || '',
+                    timeFrame: 'custom',
                     createdAt: new Date().toISOString()
-                });
+                };
+
+                await db.ref('user_campaigns/' + campaignId).set(campaignData);
+
+                // Add to local cache
+                window.campaignManager.allCampaigns[campaignId] = campaignData;
 
                 console.log('[USER-CAMPAIGNS] Saved campaign:', name);
+
+                // Check if this is the first campaign or user has no active campaign
+                const isFirstCampaign = Object.keys(window.campaignManager.allCampaigns).length === 1;
+                const hasNoActiveCampaign = !window.campaignManager.activeCampaignId;
+
+                // Close modal first
+                closeCreateCampaignModal();
+
+                if (isFirstCampaign || hasNoActiveCampaign) {
+                    // Auto-set as active
+                    await saveActiveCampaign(campaignId);
+
+                    // Close any onboarding modals
+                    closeNoCampaignsModal();
+                    closeSelectCampaignModal();
+
+                    // Use continueAfterCampaignSelect() from JS to load data
+                    if (typeof continueAfterCampaignSelect === 'function') {
+                        await continueAfterCampaignSelect(campaignId);
+                    }
+                }
+
+                // Reload campaigns dropdown
+                loadUserCampaigns();
 
                 if (typeof showNotification === 'function') {
                     showNotification('Đã lưu chiến dịch: ' + name, 'success');
                 }
-
-                // Close modal and reload campaigns
-                closeCreateCampaignModal();
-                loadUserCampaigns();
 
             } catch (error) {
                 console.error('[USER-CAMPAIGNS] Error saving campaign:', error);
@@ -3539,79 +3570,9 @@
         // INITIALIZATION
         // ============================================
 
-        // Initialize campaign system on page load
-        async function initCampaignSystem() {
-            console.log('[CAMPAIGN] Initializing campaign system...');
-
-            try {
-                // Wait for Firebase to be ready
-                if (typeof firebase === 'undefined' || !firebase.database) {
-                    console.log('[CAMPAIGN] Waiting for Firebase...');
-                    setTimeout(initCampaignSystem, 500);
-                    return;
-                }
-
-                // Get current user ID (use a default if not available)
-                window.campaignManager.currentUserId = getCurrentUserId();
-                console.log('[CAMPAIGN] User ID:', window.campaignManager.currentUserId);
-
-                // Load all campaigns
-                await loadAllCampaigns();
-
-                // Check if any campaigns exist
-                const campaignCount = Object.keys(window.campaignManager.allCampaigns).length;
-                console.log('[CAMPAIGN] Found', campaignCount, 'campaigns');
-
-                if (campaignCount === 0) {
-                    // No campaigns - show create first campaign modal
-                    showNoCampaignsModal();
-                    return;
-                }
-
-                // Load user's active campaign
-                await loadActiveCampaign();
-
-                if (!window.campaignManager.activeCampaignId) {
-                    // User has no active campaign - show select modal
-                    showSelectCampaignModal();
-                    return;
-                }
-
-                // Check if active campaign still exists
-                if (!window.campaignManager.allCampaigns[window.campaignManager.activeCampaignId]) {
-                    // Campaign was deleted - show notification
-                    showCampaignDeletedModal();
-                    return;
-                }
-
-                // Apply active campaign
-                await applyActiveCampaign();
-
-                window.campaignManager.initialized = true;
-                console.log('[CAMPAIGN] System initialized successfully');
-
-            } catch (error) {
-                console.error('[CAMPAIGN] Initialization error:', error);
-            }
-        }
-
-        // Get current user ID
-        function getCurrentUserId() {
-            // Try to get from Firebase auth
-            if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
-                return firebase.auth().currentUser.uid;
-            }
-            // Fallback to localStorage or generate one
-            let userId = localStorage.getItem('campaign_user_id');
-            if (!userId) {
-                userId = 'user_' + Date.now();
-                localStorage.setItem('campaign_user_id', userId);
-            }
-            return userId;
-        }
-
         // ============================================
-        // FIREBASE OPERATIONS
+        // FIREBASE OPERATIONS (HTML)
+        // Note: initCampaignSystem() removed - using initializeApp() from JS
         // ============================================
 
         // Load all campaigns from Firebase
@@ -3627,24 +3588,7 @@
             }
         }
 
-        // Load user's active campaign ID
-        async function loadActiveCampaign() {
-            try {
-                const db = firebase.database();
-                const userId = window.campaignManager.currentUserId;
-                const snapshot = await db.ref(`user_preferences/${userId}/activeCampaignId`).once('value');
-                window.campaignManager.activeCampaignId = snapshot.val();
-
-                if (window.campaignManager.activeCampaignId) {
-                    window.campaignManager.activeCampaign = window.campaignManager.allCampaigns[window.campaignManager.activeCampaignId];
-                }
-
-                return window.campaignManager.activeCampaignId;
-            } catch (error) {
-                console.error('[CAMPAIGN] Error loading active campaign:', error);
-                return null;
-            }
-        }
+        // Note: loadActiveCampaign() removed - using loadActiveCampaignId() from JS
 
         // Save active campaign ID for user
         async function saveActiveCampaign(campaignId) {
@@ -3666,82 +3610,9 @@
 
         // ============================================
         // UI UPDATE FUNCTIONS
+        // Note: applyActiveCampaign() removed - using continueAfterCampaignSelect() from JS
+        // Note: updateActiveCampaignLabel() removed - using from JS
         // ============================================
-
-        // Apply active campaign to UI and load data
-        async function applyActiveCampaign() {
-            const campaign = window.campaignManager.activeCampaign;
-            if (!campaign) return;
-
-            console.log('[CAMPAIGN] Applying campaign:', campaign.name);
-
-            // Update stats card label
-            updateActiveCampaignLabel(campaign.name);
-
-            // Update Campaign Settings modal displays
-            updateCampaignSettingsUI(campaign);
-
-            // Apply time frame to the original campaignFilter (for data loading)
-            const campaignFilter = document.getElementById('campaignFilter');
-            if (campaignFilter && campaign.timeFrame) {
-                campaignFilter.value = campaign.timeFrame;
-
-                // Handle custom campaigns specially - need to sync filter prefs and reload
-                if (campaign.timeFrame === 'custom' && campaign.customStartDate) {
-                    const customStartDate = document.getElementById('customStartDate');
-                    if (customStartDate) {
-                        customStartDate.value = campaign.customStartDate;
-                    }
-
-                    // Show custom date container
-                    const customDateContainer = document.getElementById('customDateFilterContainer');
-                    if (customDateContainer) {
-                        customDateContainer.style.display = 'flex';
-                    }
-
-                    // Set selectedCampaign for custom mode
-                    if (typeof selectedCampaign !== 'undefined') {
-                        selectedCampaign = { isCustom: true };
-                    }
-
-                    // 🔥 SYNC: Save filter preferences to Firebase
-                    if (typeof saveFilterPreferencesToFirebase === 'function') {
-                        saveFilterPreferencesToFirebase({
-                            selectedCampaignValue: 'custom',
-                            isCustomMode: true,
-                            customStartDate: campaign.customStartDate
-                        });
-                    }
-
-                    // For custom campaigns, directly trigger search since date is already set
-                    console.log('[CAMPAIGN] Custom campaign on page load, triggering search for:', campaign.name);
-                    if (typeof handleSearch === 'function') {
-                        await handleSearch();
-                    }
-
-                    // Setup TAG listeners
-                    if (typeof setupTagRealtimeListeners === 'function') {
-                        setupTagRealtimeListeners();
-                    }
-
-                    // Connect realtime server
-                    if (window.realtimeManager) {
-                        window.realtimeManager.connectServerMode();
-                    }
-                } else {
-                    // For non-custom campaigns, dispatch change event to handleCampaignChange
-                    campaignFilter.dispatchEvent(new Event('change'));
-                }
-            }
-        }
-
-        // Update the active campaign label in stats bar
-        function updateActiveCampaignLabel(name) {
-            const label = document.getElementById('activeCampaignLabel');
-            if (label) {
-                label.innerHTML = `<i class="fas fa-bullhorn"></i> ${name}`;
-            }
-        }
 
         // Update Campaign Settings modal UI
         function updateCampaignSettingsUI(campaign) {
@@ -3769,6 +3640,41 @@
             const modalSelect = document.getElementById('modalUserCampaignSelect');
             if (modalSelect && window.campaignManager.activeCampaignId) {
                 modalSelect.value = window.campaignManager.activeCampaignId;
+            }
+
+            // ✅ SYNC DATE FIELDS - Critical for fetchOrders() to use correct dates
+            if (campaign && campaign.customStartDate) {
+                // Sync to modal visible fields
+                const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+                const modalCustomEndDate = document.getElementById('modalCustomEndDate');
+                if (modalCustomStartDate) {
+                    modalCustomStartDate.value = campaign.customStartDate;
+                }
+                if (modalCustomEndDate) {
+                    modalCustomEndDate.value = campaign.customEndDate || '';
+                }
+
+                // Sync to hidden fields (used by fetchOrders)
+                const customStartDate = document.getElementById('customStartDate');
+                const customEndDate = document.getElementById('customEndDate');
+                if (customStartDate) {
+                    customStartDate.value = campaign.customStartDate;
+                }
+                if (customEndDate) {
+                    customEndDate.value = campaign.customEndDate || '';
+                }
+
+                // Also sync to startDate/endDate for backward compatibility
+                const startDate = document.getElementById('startDate');
+                const endDate = document.getElementById('endDate');
+                if (startDate) {
+                    startDate.value = campaign.customStartDate;
+                }
+                if (endDate) {
+                    endDate.value = campaign.customEndDate || '';
+                }
+
+                console.log('[CAMPAIGN-SYNC] Synced dates:', campaign.customStartDate, '->', campaign.customEndDate);
             }
         }
 
@@ -3833,18 +3739,30 @@
                 return;
             }
 
-            await saveActiveCampaign(dropdown.value);
-            await applyActiveCampaign();
+            const campaignId = dropdown.value;
 
-            closeSelectCampaignModal();
-
-            if (typeof showNotification === 'function') {
-                showNotification('Đã chọn chiến dịch: ' + window.campaignManager.activeCampaign.name, 'success');
+            // Check if campaign has dates
+            const campaign = window.campaignManager.allCampaigns[campaignId];
+            if (!campaign.customStartDate) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Chiến dịch chưa có ngày bắt đầu!', 'error');
+                }
+                // Show edit modal to set dates
+                closeSelectCampaignModal();
+                showCampaignNoDatesModal(campaignId);
+                return;
             }
 
-            // Trigger data reload
-            if (typeof handleLoadCampaigns === 'function') {
-                handleLoadCampaigns();
+            await saveActiveCampaign(campaignId);
+            closeSelectCampaignModal();
+
+            // Use continueAfterCampaignSelect() from JS
+            if (typeof continueAfterCampaignSelect === 'function') {
+                await continueAfterCampaignSelect(campaignId);
+            }
+
+            if (typeof showNotification === 'function') {
+                showNotification('Đã chọn chiến dịch: ' + campaign.name, 'success');
             }
         }
 
@@ -3855,6 +3773,76 @@
 
         function closeCampaignDeletedModal() {
             document.getElementById('campaignDeletedModal').style.display = 'none';
+        }
+
+        // Show "Campaign No Dates" modal - when campaign has no start date
+        function showCampaignNoDatesModal(campaignId) {
+            const campaign = window.campaignManager.allCampaigns[campaignId];
+            if (!campaign) return;
+
+            // Store campaignId for later use
+            document.getElementById('noDatesModalCampaignId').value = campaignId;
+            document.getElementById('noDatesModalCampaignName').textContent = campaign.name;
+
+            // Reset date inputs
+            document.getElementById('noDatesModalStartDate').value = '';
+            document.getElementById('noDatesModalEndDate').value = '';
+
+            document.getElementById('campaignNoDatesModal').style.display = 'flex';
+        }
+
+        function closeCampaignNoDatesModal() {
+            document.getElementById('campaignNoDatesModal').style.display = 'none';
+        }
+
+        // Save dates and continue
+        async function saveCampaignDatesAndContinue() {
+            const campaignId = document.getElementById('noDatesModalCampaignId').value;
+            const startDate = document.getElementById('noDatesModalStartDate').value;
+            const endDate = document.getElementById('noDatesModalEndDate').value;
+
+            if (!startDate) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Vui lòng chọn ngày bắt đầu!', 'error');
+                }
+                return;
+            }
+
+            try {
+                const db = firebase.database();
+
+                // Update campaign in Firebase
+                await db.ref(`user_campaigns/${campaignId}`).update({
+                    customStartDate: startDate,
+                    customEndDate: endDate || '',
+                    timeFrame: 'custom',
+                    updatedAt: new Date().toISOString()
+                });
+
+                // Update local cache
+                window.campaignManager.allCampaigns[campaignId].customStartDate = startDate;
+                window.campaignManager.allCampaigns[campaignId].customEndDate = endDate || '';
+                window.campaignManager.allCampaigns[campaignId].timeFrame = 'custom';
+
+                // Set as active and continue
+                await saveActiveCampaign(campaignId);
+                closeCampaignNoDatesModal();
+
+                // Use continueAfterCampaignSelect() from JS
+                if (typeof continueAfterCampaignSelect === 'function') {
+                    await continueAfterCampaignSelect(campaignId);
+                }
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Đã cập nhật và chọn chiến dịch!', 'success');
+                }
+
+            } catch (error) {
+                console.error('[CAMPAIGN] Error updating campaign dates:', error);
+                if (typeof showNotification === 'function') {
+                    showNotification('Lỗi cập nhật chiến dịch: ' + error.message, 'error');
+                }
+            }
         }
 
         // ============================================
@@ -3934,59 +3922,53 @@
             document.getElementById('editCampaignId').value = campaignId;
             document.getElementById('editCampaignName').value = campaign.name;
 
-            // Populate time frame dropdown
-            const timeFrameSelect = document.getElementById('editCampaignTimeFrame');
-            const sourceSelect = document.getElementById('campaignFilter');
-            if (timeFrameSelect && sourceSelect) {
-                timeFrameSelect.innerHTML = '<option value="">-- Chọn khung thời gian --</option>';
-                Array.from(sourceSelect.options).forEach(opt => {
-                    if (opt.value) {
-                        const newOpt = document.createElement('option');
-                        newOpt.value = opt.value;
-                        newOpt.textContent = opt.textContent;
-                        if (opt.value === campaign.timeFrame) {
-                            newOpt.selected = true;
-                        }
-                        timeFrameSelect.appendChild(newOpt);
-                    }
-                });
+            // Load custom date range (Custom mode only now)
+            const startDateInput = document.getElementById('editCampaignCustomStartDate');
+            const endDateInput = document.getElementById('editCampaignCustomEndDate');
+
+            if (startDateInput && campaign.customStartDate) {
+                startDateInput.value = campaign.customStartDate;
+            } else if (startDateInput) {
+                // Default to now if no saved date
+                const now = new Date();
+                startDateInput.value = now.toISOString().slice(0, 16);
             }
 
-            // Show/hide custom date
-            const customDateContainer = document.getElementById('editCampaignCustomDateContainer');
-            const customDateInput = document.getElementById('editCampaignCustomStartDate');
-            if (campaign.timeFrame === 'custom') {
-                customDateContainer.style.display = 'block';
-                if (customDateInput && campaign.customStartDate) {
-                    customDateInput.value = campaign.customStartDate;
-                }
-            } else {
-                customDateContainer.style.display = 'none';
+            if (endDateInput && campaign.customEndDate) {
+                endDateInput.value = campaign.customEndDate;
+            } else if (endDateInput && startDateInput.value) {
+                // Auto-fill end date = start date + 3 days at 00:00
+                const startDate = new Date(startDateInput.value);
+                const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+                endDate.setHours(0, 0, 0, 0);
+                endDateInput.value = endDate.toISOString().slice(0, 16);
             }
 
             document.getElementById('editCampaignModal').style.display = 'flex';
+        }
+
+        // Auto-fill end date when start date changes in Edit Campaign Modal (+3 days at 00:00)
+        function autoFillEditCampaignEndDate() {
+            const startDateInput = document.getElementById('editCampaignCustomStartDate');
+            const endDateInput = document.getElementById('editCampaignCustomEndDate');
+
+            if (startDateInput && endDateInput && startDateInput.value) {
+                const startDate = new Date(startDateInput.value);
+                const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+                endDate.setHours(0, 0, 0, 0);
+                endDateInput.value = endDate.toISOString().slice(0, 16);
+            }
         }
 
         function closeEditCampaignModal() {
             document.getElementById('editCampaignModal').style.display = 'none';
         }
 
-        // Handle time frame change in edit modal
-        document.addEventListener('DOMContentLoaded', function() {
-            const editTimeFrame = document.getElementById('editCampaignTimeFrame');
-            if (editTimeFrame) {
-                editTimeFrame.addEventListener('change', function() {
-                    const container = document.getElementById('editCampaignCustomDateContainer');
-                    container.style.display = this.value === 'custom' ? 'block' : 'none';
-                });
-            }
-        });
-
         async function saveEditCampaign() {
             const campaignId = document.getElementById('editCampaignId').value;
             const name = document.getElementById('editCampaignName').value.trim();
-            const timeFrame = document.getElementById('editCampaignTimeFrame').value;
             const customStartDate = document.getElementById('editCampaignCustomStartDate').value;
+            const customEndDate = document.getElementById('editCampaignCustomEndDate').value;
 
             if (!name) {
                 if (typeof showNotification === 'function') {
@@ -3995,22 +3977,23 @@
                 return;
             }
 
-            if (!timeFrame) {
+            if (!customStartDate) {
                 if (typeof showNotification === 'function') {
-                    showNotification('Vui lòng chọn khung thời gian!', 'error');
+                    showNotification('Vui lòng chọn ngày bắt đầu!', 'error');
                 }
                 return;
             }
 
             try {
                 const db = firebase.database();
-                const timeFrameLabel = getTimeFrameDisplayText(timeFrame);
+                const timeFrameLabel = 'Custom (lọc theo ngày tạo đơn)';
 
                 await db.ref(`user_campaigns/${campaignId}`).update({
                     name: name,
-                    timeFrame: timeFrame,
+                    timeFrame: 'custom',
                     timeFrameLabel: timeFrameLabel,
-                    customStartDate: timeFrame === 'custom' ? customStartDate : '',
+                    customStartDate: customStartDate,
+                    customEndDate: customEndDate || '',
                     updatedAt: new Date().toISOString()
                 });
 
@@ -4018,8 +4001,9 @@
                 window.campaignManager.allCampaigns[campaignId] = {
                     ...window.campaignManager.allCampaigns[campaignId],
                     name: name,
-                    timeFrame: timeFrame,
-                    customStartDate: timeFrame === 'custom' ? customStartDate : ''
+                    timeFrame: 'custom',
+                    customStartDate: customStartDate,
+                    customEndDate: customEndDate || ''
                 };
 
                 // If this is the active campaign, update UI
@@ -4327,94 +4311,8 @@
             }
         };
 
-        // Override saveNewCampaign to auto-set as active for first campaign
-        const _originalSaveNewCampaign = typeof saveNewCampaign === 'function' ? saveNewCampaign : null;
-        saveNewCampaign = async function() {
-            const name = document.getElementById('newCampaignName').value.trim();
-            const timeFrame = document.getElementById('newCampaignTimeFrame').value;
-            const customStartDate = document.getElementById('newCampaignCustomStartDate').value;
-
-            if (!name) {
-                if (typeof showNotification === 'function') {
-                    showNotification('Vui lòng nhập tên chiến dịch!', 'error');
-                }
-                document.getElementById('newCampaignName').focus();
-                return;
-            }
-
-            if (!timeFrame) {
-                if (typeof showNotification === 'function') {
-                    showNotification('Vui lòng chọn khung thời gian!', 'error');
-                }
-                return;
-            }
-
-            try {
-                const db = firebase.database();
-                const campaignId = 'campaign_' + Date.now();
-                const timeFrameLabel = getTimeFrameDisplayText(timeFrame);
-
-                const campaignData = {
-                    name: name,
-                    timeFrame: timeFrame,
-                    timeFrameLabel: timeFrameLabel,
-                    customStartDate: timeFrame === 'custom' ? customStartDate : '',
-                    createdBy: window.campaignManager.currentUserId,
-                    createdAt: new Date().toISOString()
-                };
-
-                await db.ref(`user_campaigns/${campaignId}`).set(campaignData);
-
-                // Add to local cache
-                window.campaignManager.allCampaigns[campaignId] = campaignData;
-
-                // Check if this is the first campaign or user has no active campaign
-                const isFirstCampaign = Object.keys(window.campaignManager.allCampaigns).length === 1;
-                const hasNoActiveCampaign = !window.campaignManager.activeCampaignId;
-
-                if (isFirstCampaign || hasNoActiveCampaign) {
-                    // Auto-set as active
-                    await saveActiveCampaign(campaignId);
-                    await applyActiveCampaign();
-
-                    // Close any onboarding modals
-                    closeNoCampaignsModal();
-                    closeSelectCampaignModal();
-
-                    // Trigger data reload
-                    if (typeof handleLoadCampaigns === 'function') {
-                        handleLoadCampaigns();
-                    }
-                }
-
-                closeCreateCampaignModal();
-                loadUserCampaigns();
-
-                if (typeof showNotification === 'function') {
-                    showNotification('Đã tạo chiến dịch: ' + name, 'success');
-                }
-            } catch (error) {
-                console.error('[CAMPAIGN] Error saving campaign:', error);
-                if (typeof showNotification === 'function') {
-                    showNotification('Lỗi tạo chiến dịch: ' + error.message, 'error');
-                }
-            }
-        };
-
-        // ============================================
-        // INITIALIZATION TRIGGER
-        // ============================================
-
-        // Initialize when DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            // Delay initialization to allow Firebase to load
-            setTimeout(initCampaignSystem, 1000);
-        });
-
-        // Also try to initialize if Firebase is already ready
-        if (typeof firebase !== 'undefined' && firebase.database) {
-            setTimeout(initCampaignSystem, 500);
-        }
+        // Note: saveNewCampaign override removed - using original from Create Campaign Modal
+        // Note: initCampaignSystem trigger removed - using initializeApp() from JS
     </script>
 
     <!-- Pancake Settings Modal -->
