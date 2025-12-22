@@ -21175,20 +21175,44 @@ function updateDebtCells(phone, debt) {
  * @param {Array<string>} phones - Array of phone numbers
  */
 async function batchFetchDebts(phones) {
+    // Validate input
+    if (!phones || !Array.isArray(phones)) {
+        console.warn('[DEBT-BATCH] Invalid input - phones must be an array');
+        return;
+    }
+
     const uniquePhones = [...new Set(phones.map(p => normalizePhoneForQR(p)).filter(p => p))];
     const uncachedPhones = uniquePhones.filter(p => getCachedDebt(p) === null);
 
-    if (uncachedPhones.length === 0) return;
+    // Double-check before API call to prevent 400 errors
+    if (!Array.isArray(uncachedPhones) || uncachedPhones.length === 0) {
+        console.log('[DEBT-BATCH] No uncached phones to fetch, skipping API call');
+        return;
+    }
 
     console.log(`[DEBT-BATCH] Fetching ${uncachedPhones.length} phones in ONE request...`);
 
     try {
         // Call batch API - ONE request for ALL phones!
+        const requestBody = JSON.stringify({ phones: uncachedPhones });
+        console.log('[DEBT-BATCH] Request body:', requestBody);
+
         const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary-batch`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phones: uncachedPhones })
+            body: requestBody
         });
+
+        // Check response status first
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[DEBT-BATCH] ❌ HTTP ${response.status}: ${errorText}`);
+            // Fallback: set all to 0
+            for (const phone of uncachedPhones) {
+                updateDebtCells(phone, 0);
+            }
+            return;
+        }
 
         const result = await response.json();
 
