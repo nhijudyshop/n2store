@@ -1,60 +1,46 @@
-/* ========================================
-   MOBILE-FIRST RESPONSIVE CSS
-   Tab Báo Cáo Tổng Hợp - N2Store
-   Optimized for Mobile Web App Experience
-   ======================================== */
+/* ================================================================================
+   MOBILE-FIRST CSS FOR TAB-OVERVIEW - COMPLETELY REDESIGNED
+   Modern App-Like Interface for Mobile Devices
+   ================================================================================ */
 
-/* CSS Variables for easy theming */
+/* CSS Variables */
 :root {
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --danger-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --text-muted: #94a3b8;
-
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8fafc;
-    --bg-card: #ffffff;
-
-    --border-color: #e2e8f0;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-full: 9999px;
-
-    --spacing-xs: 4px;
-    --spacing-sm: 8px;
-    --spacing-md: 12px;
-    --spacing-lg: 16px;
-    --spacing-xl: 24px;
-
-    --touch-target: 44px;
+    --mobile-primary: #667eea;
+    --mobile-primary-light: #818cf8;
+    --mobile-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --mobile-bg: #f8fafc;
+    --mobile-card-bg: #ffffff;
+    --mobile-text: #1e293b;
+    --mobile-text-secondary: #64748b;
+    --mobile-border: #e2e8f0;
+    --mobile-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --mobile-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+    --mobile-radius: 16px;
+    --mobile-radius-sm: 12px;
 }
 
-/* ========================================
-   MOBILE-SPECIFIC STYLES (max-width: 768px)
-   ======================================== */
+/* ================================================================================
+   MOBILE MEDIA QUERY - All styles within max-width: 768px
+   ================================================================================ */
 
 @media (max-width: 768px) {
 
-    /* Body - Remove heavy gradient background */
+    /* ========================================
+       RESET & BASE
+       ======================================== */
+
+    * {
+        -webkit-tap-highlight-color: transparent;
+    }
+
     body {
-        background: var(--bg-secondary) !important;
+        background: var(--mobile-bg) !important;
         padding: 0 !important;
         margin: 0 !important;
-        min-height: 100vh;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
+        padding-top: 110px !important;
+        padding-bottom: 20px !important;
         overflow-x: hidden !important;
-        width: 100%;
-        position: relative;
+        -webkit-font-smoothing: antialiased;
     }
 
     .container {
@@ -62,68 +48,27 @@
         max-width: 100% !important;
         padding: 0 !important;
         margin: 0 !important;
-        overflow-x: hidden !important;
-    }
-
-    /* Ensure all child elements respect container width */
-    .container > * {
-        max-width: 100%;
-    }
-
-    /* Main tab content should also be full width */
-    .main-tab-content {
-        width: 100% !important;
-        overflow-x: hidden !important;
     }
 
     /* ========================================
-       HIDE DESKTOP ELEMENTS & PARENT NAV
+       HIDE PARENT NAVIGATION
        ======================================== */
 
-    /* Hide desktop header */
-    .header {
-        display: none !important;
-    }
-
-    /* Hide desktop tabs */
-    .main-tabs {
-        display: none !important;
-    }
-
-    /* COMPLETELY HIDE parent's mobile navigation elements */
-    .mobile-top-bar {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        overflow: hidden !important;
-    }
-
+    .mobile-top-bar,
     .mobile-bottom-nav {
         display: none !important;
         visibility: hidden !important;
-        opacity: 0 !important;
         height: 0 !important;
         overflow: hidden !important;
     }
 
-    /* Adjust body padding - NO bottom padding since bottom-nav is hidden */
-    body {
-        padding-top: 110px !important; /* Space for campaign header + tab nav */
-        padding-bottom: 0 !important; /* No bottom nav */
-    }
+    /* ========================================
+       HIDE DESKTOP ELEMENTS
+       ======================================== */
 
-    /* Progress bar - compact and fixed */
-    .progress-container {
-        position: fixed !important;
-        top: 110px !important; /* Below headers */
-        left: 0 !important;
-        right: 0 !important;
-        z-index: 9999 !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-        padding: 8px 16px !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+    .header,
+    .main-tabs {
+        display: none !important;
     }
 
     /* ========================================
@@ -136,12 +81,8 @@
         left: 0;
         right: 0;
         z-index: 1000;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    }
-
-    .mobile-campaign-dropdown {
-        position: relative;
+        background: var(--mobile-gradient);
+        box-shadow: var(--mobile-shadow);
     }
 
     .mobile-campaign-btn {
@@ -156,31 +97,25 @@
         gap: 10px;
         font-size: 15px;
         font-weight: 600;
-        cursor: pointer;
         padding: 0 16px;
-        transition: all 0.2s ease;
     }
 
     .mobile-campaign-btn:active {
         background: rgba(255, 255, 255, 0.1);
     }
 
-    .mobile-campaign-btn.active .mobile-chevron {
-        transform: rotate(180deg);
-    }
-
     .mobile-campaign-label {
         flex: 1;
         text-align: center;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
 
     .mobile-chevron {
-        transition: transform 0.3s ease;
         font-size: 14px;
-        opacity: 0.8;
+        transition: transform 0.3s ease;
+    }
+
+    .mobile-campaign-btn.active .mobile-chevron {
+        transform: rotate(180deg);
     }
 
     .mobile-campaign-menu {
@@ -191,8 +126,8 @@
         background: white;
         max-height: 0;
         overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--mobile-shadow-lg);
+        transition: max-height 0.3s ease;
         z-index: 999;
     }
 
@@ -206,35 +141,29 @@
         align-items: center;
         gap: 12px;
         padding: 14px 16px;
-        border-bottom: 1px solid var(--border-color);
-        cursor: pointer;
-        transition: background 0.2s ease;
+        border-bottom: 1px solid var(--mobile-border);
     }
 
     .mobile-campaign-item:active {
-        background: var(--bg-secondary);
+        background: var(--mobile-bg);
     }
 
     .mobile-campaign-item.selected {
         background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
-        border-left: 4px solid #667eea;
     }
 
     .mobile-campaign-item i:first-child {
-        color: #667eea;
-        font-size: 16px;
+        color: var(--mobile-primary);
     }
 
     .mobile-campaign-item span {
         flex: 1;
         font-size: 14px;
         font-weight: 500;
-        color: var(--text-primary);
     }
 
     .mobile-campaign-item i.fa-check {
         color: #10b981;
-        font-size: 14px;
     }
 
     /* ========================================
@@ -248,12 +177,8 @@
         right: 0;
         z-index: 999;
         background: white;
-        border-bottom: 1px solid var(--border-color);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-    }
-
-    .mobile-tab-dropdown {
-        position: relative;
+        border-bottom: 1px solid var(--mobile-border);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 
     .mobile-tab-btn {
@@ -261,24 +186,18 @@
         height: 50px;
         background: white;
         border: none;
-        color: var(--text-primary);
+        color: var(--mobile-text);
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 10px;
         font-size: 16px;
         font-weight: 700;
-        cursor: pointer;
         padding: 0 16px;
-        transition: all 0.2s ease;
     }
 
     .mobile-tab-btn:active {
-        background: var(--bg-secondary);
-    }
-
-    .mobile-tab-btn.active {
-        background: var(--bg-secondary);
+        background: var(--mobile-bg);
     }
 
     .mobile-tab-label {
@@ -294,8 +213,8 @@
         background: white;
         max-height: 0;
         overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--mobile-shadow-lg);
+        transition: max-height 0.3s ease;
         z-index: 998;
     }
 
@@ -309,99 +228,19 @@
         align-items: center;
         gap: 12px;
         padding: 14px 16px;
-        border-bottom: 1px solid var(--border-color);
-        cursor: pointer;
-        transition: background 0.2s ease;
+        border-bottom: 1px solid var(--mobile-border);
     }
 
     .mobile-tab-item:active {
-        background: var(--bg-secondary);
+        background: var(--mobile-bg);
     }
 
     .mobile-tab-item.selected {
         background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
-        border-left: 4px solid #667eea;
-    }
-
-    .mobile-tab-item i:first-child {
-        color: #667eea;
-        font-size: 16px;
-    }
-
-    .mobile-tab-item span {
-        flex: 1;
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--text-primary);
-    }
-
-    .mobile-tab-item i.fa-check {
-        color: #10b981;
-        font-size: 14px;
-    }
-
-    .progress-container h3 {
-        font-size: 13px !important;
-        margin: 0 0 8px 0 !important;
-    }
-
-    .progress-bar-wrapper {
-        height: 6px !important;
-    }
-
-    .progress-text {
-        font-size: 11px !important;
-        margin-top: 4px !important;
     }
 
     /* ========================================
-       MAIN TABS - Horizontal Scrollable
-       ======================================== */
-
-    .main-tabs {
-        position: sticky;
-        top: 76px; /* Header height */
-        z-index: 90;
-        background: var(--bg-primary) !important;
-        border-radius: 0 !important;
-        padding: var(--spacing-sm) var(--spacing-md) !important;
-        margin-bottom: 0 !important;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
-        display: flex;
-        gap: var(--spacing-sm);
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none; /* Firefox */
-    }
-
-    .main-tabs::-webkit-scrollbar {
-        display: none; /* Chrome, Safari */
-    }
-
-    .main-tab-btn {
-        flex-shrink: 0;
-        padding: var(--spacing-md) var(--spacing-lg) !important;
-        border-radius: var(--radius-full) !important;
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        white-space: nowrap;
-        min-height: 40px;
-        transition: all 0.2s ease;
-    }
-
-    .main-tab-btn:active {
-        transform: scale(0.95);
-    }
-
-    .main-tab-btn .badge {
-        font-size: 11px !important;
-        padding: 2px 6px !important;
-        border-radius: var(--radius-sm);
-    }
-
-    /* ========================================
-       STATS GRID - 4 Cards in 1 Row (Compact)
+       STATS GRID - 4 CARDS IN 1 ROW
        ======================================== */
 
     .stats-grid {
@@ -409,44 +248,34 @@
         grid-template-columns: repeat(4, 1fr) !important;
         gap: 8px !important;
         padding: 12px 8px !important;
-        margin-bottom: 0 !important;
-        background: var(--bg-secondary) !important;
+        margin: 0 !important;
+        background: var(--mobile-bg) !important;
     }
 
     .stat-card {
-        background: var(--bg-card) !important;
-        border-radius: var(--radius-sm) !important;
+        background: white !important;
+        border-radius: var(--mobile-radius-sm) !important;
         padding: 8px 4px !important;
-        box-shadow: var(--shadow-sm) !important;
-        text-align: center;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .stat-card:active {
-        transform: scale(0.97);
-        box-shadow: var(--shadow-md) !important;
+        box-shadow: var(--mobile-shadow) !important;
+        text-align: center !important;
     }
 
     .stat-card .stat-icon {
         width: 32px !important;
         height: 32px !important;
-        border-radius: var(--radius-sm) !important;
-        font-size: 16px !important;
         margin: 0 auto 6px !important;
-        box-shadow: var(--shadow-sm);
+        font-size: 16px !important;
+        border-radius: 8px !important;
     }
 
     .stat-card .stat-value {
         font-size: 16px !important;
         font-weight: 700 !important;
-        color: var(--text-primary) !important;
         margin-bottom: 4px !important;
-        line-height: 1.2;
     }
 
     .stat-card .stat-label {
         font-size: 9px !important;
-        color: var(--text-secondary) !important;
         text-transform: uppercase;
         letter-spacing: 0.3px;
         font-weight: 600;
@@ -454,178 +283,46 @@
     }
 
     /* ========================================
-       CONTENT SECTIONS - Mobile Cards
+       PRODUCT STATISTICS SECTION
        ======================================== */
 
-    .content-section {
-        background: var(--bg-card) !important;
-        border-radius: 0 !important;
-        padding: var(--spacing-lg) !important;
-        margin-bottom: var(--spacing-sm) !important;
-        box-shadow: none !important;
-        border-bottom: 8px solid var(--bg-secondary);
+    #productStatsSection {
+        background: white !important;
+        margin: 0 !important;
+        padding: 16px !important;
+        border-bottom: 8px solid var(--mobile-bg);
     }
 
-    .content-section h2 {
-        font-size: 16px !important;
-        margin: 0 0 var(--spacing-lg) 0 !important;
-        padding-bottom: var(--spacing-md) !important;
-        border-bottom: 2px solid var(--border-color) !important;
-        color: var(--text-primary) !important;
+    #productStatsSection h2 {
+        font-size: 18px !important;
+        margin: 0 0 16px 0 !important;
+        padding-bottom: 12px !important;
+        border-bottom: 2px solid var(--mobile-border) !important;
         display: flex;
         align-items: center;
-        gap: var(--spacing-sm);
+        gap: 10px;
     }
 
-    .content-section h2 i {
-        font-size: 18px !important;
-        background: var(--primary-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    /* ========================================
-       PRODUCT STATISTICS - Modern Card Layout
-       ======================================== */
-
-    /* Hide table structure on mobile */
-    #productStatsTable thead {
+    #productStatsSection h2 .section-badge {
         display: none !important;
     }
 
-    #productStatsTable {
-        display: block !important;
-        width: 100% !important;
-    }
+    /* ========================================
+       PRODUCT SUMMARY TOGGLE
+       ======================================== */
 
-    #productStatsTable tbody {
-        display: block !important;
-        width: 100% !important;
-    }
-
-    /* Transform table rows into modern cards */
-    #productStatsTable tbody tr {
-        display: block !important;
-        background: white;
-        border-radius: var(--radius-lg);
-        padding: 16px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        border: 1px solid var(--border-color);
-        transition: all 0.2s ease;
-        position: relative;
-    }
-
-    #productStatsTable tbody tr:active {
-        transform: scale(0.98);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-    }
-
-    /* Hide default table cells */
-    #productStatsTable tbody tr td {
-        display: block !important;
-        border: none !important;
-        padding: 0 !important;
-        text-align: left !important;
-    }
-
-    /* Product Code - Large and prominent */
-    #productStatsTable tbody tr td:nth-child(1) {
-        font-size: 11px;
-        font-weight: 700;
-        color: white;
-        background: var(--primary-gradient);
-        padding: 4px 10px !important;
-        border-radius: var(--radius-full);
-        display: inline-block !important;
-        margin-bottom: 8px;
-        letter-spacing: 0.5px;
-        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
-    }
-
-    /* Product Name - Clear and readable */
-    #productStatsTable tbody tr td:nth-child(2) {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 12px;
-        line-height: 1.4;
-        padding-right: 40px !important; /* Space for arrow button */
-    }
-
-    /* Stats container for quantity and orders */
-    #productStatsTable tbody tr td:nth-child(3),
-    #productStatsTable tbody tr td:nth-child(4) {
-        display: inline-flex !important;
-        align-items: center;
-        gap: 6px;
-        background: var(--bg-secondary);
-        padding: 8px 12px !important;
-        border-radius: var(--radius-md);
-        font-size: 13px;
-        font-weight: 600;
-        margin-right: 8px;
-        margin-bottom: 8px;
-    }
-
-    /* Add icons before stats using ::before */
-    #productStatsTable tbody tr td:nth-child(3)::before {
-        content: "📦";
-        font-size: 16px;
-        margin-right: 4px;
-    }
-
-    #productStatsTable tbody tr td:nth-child(4)::before {
-        content: "🛒";
-        font-size: 16px;
-        margin-right: 4px;
-    }
-
-    /* View details button */
-    #productStatsTable tbody tr td:nth-child(5) {
-        position: absolute !important;
-        top: 16px;
-        right: 16px;
-    }
-
-    #productStatsTable tbody tr td:nth-child(5) button {
-        background: var(--primary-gradient) !important;
-        border: none !important;
-        color: white !important;
-        width: 32px !important;
-        height: 32px !important;
-        border-radius: var(--radius-md) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        font-size: 14px !important;
-        padding: 0 !important;
-        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3) !important;
-        transition: all 0.2s ease !important;
-    }
-
-    #productStatsTable tbody tr td:nth-child(5) button:active {
-        transform: scale(0.9) !important;
-    }
-
-    /* Product Summary Toggle Section - App-like */
     .product-summary-toggle {
         background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
-        border-radius: var(--radius-lg);
+        border-radius: var(--mobile-radius);
         padding: 16px;
         margin-bottom: 16px;
+        border: 2px solid #e0e7ff;
+        box-shadow: var(--mobile-shadow);
         cursor: pointer;
-        user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border: 2px solid #e2e8f0;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
     }
 
     .product-summary-toggle:active {
         transform: scale(0.98);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
     }
 
     .summary-header {
@@ -633,7 +330,7 @@
         align-items: center;
         gap: 10px;
         margin-bottom: 12px;
-        color: #667eea;
+        color: var(--mobile-primary);
         font-weight: 700;
         font-size: 13px;
         text-transform: uppercase;
@@ -650,7 +347,7 @@
 
     .summary-header .toggle-icon {
         font-size: 16px;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: transform 0.3s ease;
     }
 
     .product-summary-toggle.expanded .toggle-icon {
@@ -669,9 +366,8 @@
         align-items: center;
         background: white;
         padding: 12px 8px;
-        border-radius: var(--radius-md);
+        border-radius: var(--mobile-radius-sm);
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
-        transition: all 0.2s ease;
     }
 
     .summary-item:active {
@@ -681,98 +377,193 @@
     .summary-item i {
         font-size: 20px;
         margin-bottom: 6px;
-        background: var(--primary-gradient);
+        background: var(--mobile-gradient);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        background-clip: text;
     }
 
     .summary-value {
         font-size: 18px;
         font-weight: 700;
-        color: var(--text-primary);
+        color: var(--mobile-text);
         margin-bottom: 2px;
         line-height: 1;
     }
 
     .summary-label {
         font-size: 10px;
-        color: var(--text-secondary);
+        color: var(--mobile-text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.3px;
         font-weight: 600;
     }
 
-    /* Collapsible cards container */
-    #productStatsTable.collapsed {
-        max-height: 0 !important;
-        overflow: hidden !important;
-        margin-top: 0 !important;
-        opacity: 0;
-        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                    opacity 0.3s ease,
-                    margin-top 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
+    /* ========================================
+       PRODUCT TABLE -> CARDS
+       ======================================== */
 
-    #productStatsTable {
-        max-height: 10000px;
-        overflow: visible;
-        opacity: 1;
-        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                    opacity 0.3s ease;
-    }
-
-    /* Stats table wrapper */
     .stats-table-wrapper {
         padding: 0 !important;
         overflow: visible !important;
     }
 
-    /* Hide badge from product section header */
-    #productStatsSection h2 .section-badge {
+    #productStatsTable {
+        display: block !important;
+        width: 100% !important;
+        max-height: 10000px;
+        overflow: visible;
+        transition: max-height 0.4s ease, opacity 0.3s ease;
+        opacity: 1;
+    }
+
+    #productStatsTable.collapsed {
+        max-height: 0 !important;
+        overflow: hidden !important;
+        opacity: 0;
+    }
+
+    #productStatsTable thead {
         display: none !important;
     }
 
+    #productStatsTable tbody {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    #productStatsTable tbody tr {
+        display: block !important;
+        background: white;
+        border-radius: var(--mobile-radius);
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: var(--mobile-shadow);
+        border: 1px solid var(--mobile-border);
+        position: relative;
+    }
+
+    #productStatsTable tbody tr:active {
+        transform: scale(0.98);
+        box-shadow: var(--mobile-shadow-lg);
+    }
+
+    #productStatsTable tbody tr td {
+        display: block !important;
+        border: none !important;
+        padding: 0 !important;
+        text-align: left !important;
+    }
+
+    /* Product Code Badge */
+    #productStatsTable tbody tr td:nth-child(1) {
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+        background: var(--mobile-gradient);
+        padding: 4px 10px !important;
+        border-radius: 20px;
+        display: inline-block !important;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Product Name */
+    #productStatsTable tbody tr td:nth-child(2) {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--mobile-text);
+        margin-bottom: 12px;
+        line-height: 1.4;
+        padding-right: 40px !important;
+    }
+
+    /* Quantity */
+    #productStatsTable tbody tr td:nth-child(3),
+    #productStatsTable tbody tr td:nth-child(4) {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 6px;
+        background: var(--mobile-bg);
+        padding: 8px 12px !important;
+        border-radius: var(--mobile-radius-sm);
+        font-size: 13px;
+        font-weight: 600;
+        margin-right: 8px;
+        margin-bottom: 8px;
+    }
+
+    #productStatsTable tbody tr td:nth-child(3)::before {
+        content: "📦";
+        font-size: 16px;
+    }
+
+    #productStatsTable tbody tr td:nth-child(4)::before {
+        content: "🛒";
+        font-size: 16px;
+    }
+
+    /* View Details Button */
+    #productStatsTable tbody tr td:nth-child(5) {
+        position: absolute !important;
+        top: 16px;
+        right: 16px;
+    }
+
+    #productStatsTable tbody tr td:nth-child(5) button {
+        background: var(--mobile-gradient) !important;
+        border: none !important;
+        color: white !important;
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: var(--mobile-radius-sm) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 14px !important;
+        padding: 0 !important;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3) !important;
+    }
+
+    #productStatsTable tbody tr td:nth-child(5) button:active {
+        transform: scale(0.9) !important;
+    }
+
     /* ========================================
-       COLLAPSIBLE SECTIONS - Modern Card Design
+       COLLAPSIBLE SECTIONS
        ======================================== */
 
     .mobile-collapsible-section {
-        background: var(--bg-card);
-        border-radius: var(--radius-lg);
-        margin-bottom: var(--spacing-lg);
+        background: white;
+        border-radius: var(--mobile-radius);
+        margin-bottom: 16px;
         overflow: hidden;
-        box-shadow: var(--shadow-md);
-        border: 1px solid var(--border-color);
-        transition: box-shadow 0.2s ease;
+        box-shadow: var(--mobile-shadow);
+        border: 1px solid var(--mobile-border);
     }
 
     .mobile-collapsible-section:active {
-        box-shadow: var(--shadow-lg);
+        box-shadow: var(--mobile-shadow-lg);
     }
 
     .mobile-collapsible-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: var(--spacing-lg);
+        padding: 16px;
         background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-bottom: 1px solid var(--mobile-border);
         cursor: pointer;
-        user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        transition: background 0.2s ease;
-        min-height: var(--touch-target);
-        border-bottom: 1px solid var(--border-color);
     }
 
     .mobile-collapsible-header:active {
-        background: var(--bg-secondary);
+        background: var(--mobile-bg);
     }
 
     .mobile-header-content {
         display: flex;
         align-items: center;
-        gap: var(--spacing-md);
+        gap: 12px;
         flex: 1;
     }
 
@@ -782,27 +573,18 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: var(--radius-md);
+        border-radius: var(--mobile-radius-sm);
         font-size: 20px;
         color: white;
-        flex-shrink: 0;
-        box-shadow: var(--shadow-sm);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .mobile-icon.gradient-primary {
-        background: var(--primary-gradient);
+        background: var(--mobile-gradient);
     }
 
     .mobile-icon.gradient-success {
-        background: var(--success-gradient);
-    }
-
-    .mobile-icon.gradient-danger {
-        background: var(--danger-gradient);
-    }
-
-    .mobile-icon.gradient-info {
-        background: var(--info-gradient);
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
     }
 
     .mobile-icon.gradient-orange {
@@ -812,19 +594,18 @@
     .mobile-title {
         font-size: 16px;
         font-weight: 700;
-        color: var(--text-primary);
+        color: var(--mobile-text);
         flex: 1;
     }
 
     .mobile-badge {
-        background: var(--primary-gradient);
+        background: var(--mobile-gradient);
         color: white;
         padding: 4px 12px;
-        border-radius: var(--radius-full);
+        border-radius: 20px;
         font-size: 12px;
         font-weight: 700;
-        margin-left: var(--spacing-sm);
-        box-shadow: var(--shadow-sm);
+        margin-left: 8px;
     }
 
     .mobile-toggle-icon {
@@ -833,20 +614,19 @@
         justify-content: center;
         width: 36px;
         height: 36px;
-        border-radius: var(--radius-md);
-        background: var(--bg-secondary);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
-        flex-shrink: 0;
+        border-radius: var(--mobile-radius-sm);
+        background: var(--mobile-bg);
+        transition: all 0.3s ease;
     }
 
     .mobile-toggle-icon i {
         font-size: 16px;
-        color: var(--text-secondary);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        color: var(--mobile-text-secondary);
+        transition: transform 0.3s ease;
     }
 
     .mobile-collapsible-section.expanded .mobile-toggle-icon {
-        background: var(--primary-gradient);
+        background: var(--mobile-gradient);
     }
 
     .mobile-collapsible-section.expanded .mobile-toggle-icon i {
@@ -854,796 +634,15 @@
         color: white;
     }
 
-    .mobile-collapsible-section.collapsed .mobile-toggle-icon {
-        background: var(--bg-secondary);
-    }
-
-    /* Collapsible content wrapper */
-    .mobile-collapsible-section > .content-section {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        margin-bottom: 0 !important;
-        border-bottom: none !important;
-    }
-
-    .mobile-collapsible-section.collapsed > .content-section {
-        max-height: 0;
-        overflow: hidden;
-        padding: 0 !important;
-    }
-
-    .mobile-collapsible-section.expanded > .content-section {
-        max-height: none;
-        overflow: visible;
-    }
-
     /* ========================================
-       EMPLOYEE CARDS - Mobile Optimized
+       CONTENT SECTIONS
        ======================================== */
 
-    .employee-section {
-        margin-bottom: var(--spacing-lg) !important;
-        border: none !important;
-        border-radius: var(--radius-md) !important;
-        overflow: hidden;
-        box-shadow: var(--shadow-md) !important;
+    .content-section {
+        background: white !important;
+        padding: 16px !important;
+        margin-bottom: 8px !important;
+        border-bottom: 8px solid var(--mobile-bg) !important;
     }
 
-    .employee-header {
-        padding: var(--spacing-lg) !important;
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: var(--spacing-md) !important;
-        cursor: pointer;
-        user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        min-height: var(--touch-target);
-    }
-
-    .employee-header:active {
-        opacity: 0.9;
-    }
-
-    .employee-name {
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-
-    .employee-name i {
-        font-size: 18px !important;
-    }
-
-    .employee-summary {
-        display: grid !important;
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--spacing-md);
-        width: 100%;
-        font-size: 13px !important;
-        font-weight: 500 !important;
-    }
-
-    .employee-summary-item {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-xs);
-    }
-
-    .employee-summary-item i {
-        font-size: 14px;
-        margin-bottom: 2px;
-    }
-
-    .employee-summary-label {
-        font-size: 11px;
-        opacity: 0.8;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .employee-summary-value {
-        font-size: 16px;
-        font-weight: 700;
-    }
-
-    /* ========================================
-       TABLES → CARD LIST on Mobile
-       ======================================== */
-
-    /* Hide traditional tables on mobile */
-    .stats-table-wrapper table,
-    .orders-table,
-    .table-container table {
-        display: none !important;
-    }
-
-    /* Card-based list for table data */
-    .mobile-card-list {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-md);
-    }
-
-    .mobile-card-item {
-        background: var(--bg-card);
-        border-radius: var(--radius-md);
-        padding: var(--spacing-lg);
-        box-shadow: var(--shadow-sm);
-        border: 1px solid var(--border-color);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .mobile-card-item:active {
-        transform: scale(0.98);
-        box-shadow: var(--shadow-md);
-    }
-
-    .mobile-card-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: var(--spacing-sm) 0;
-    }
-
-    .mobile-card-row:not(:last-child) {
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .mobile-card-label {
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .mobile-card-value {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-primary);
-        text-align: right;
-    }
-
-    .mobile-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: var(--spacing-md);
-        padding-bottom: var(--spacing-md);
-        border-bottom: 2px solid var(--border-color);
-    }
-
-    .mobile-card-title {
-        font-size: 15px;
-        font-weight: 700;
-        color: var(--text-primary);
-    }
-
-    .mobile-card-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 10px;
-        border-radius: var(--radius-full);
-        font-size: 11px;
-        font-weight: 600;
-        background: var(--primary-gradient);
-        color: white;
-    }
-
-    /* ========================================
-       PRODUCT STATISTICS - Collapsed by Default
-       ======================================== */
-
-    #productStatsSection {
-        order: 999; /* Move to bottom */
-    }
-
-    #productStatsSection.collapsed .stats-table-wrapper,
-    #productStatsSection.collapsed .mobile-card-list {
-        display: none;
-    }
-
-    /* ========================================
-       TAG BADGES
-       ======================================== */
-
-    .order-tag, .tag-badge {
-        display: inline-block !important;
-        padding: 4px 10px !important;
-        border-radius: var(--radius-full) !important;
-        font-size: 11px !important;
-        font-weight: 600 !important;
-        margin: 2px !important;
-        white-space: nowrap;
-    }
-
-    .tags-cell {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        gap: var(--spacing-xs) !important;
-        max-width: 100% !important;
-    }
-
-    /* ========================================
-       MODAL - Full Screen on Mobile
-       ======================================== */
-
-    .modal-content {
-        width: 100% !important;
-        max-width: 100% !important;
-        height: 100vh !important;
-        max-height: 100vh !important;
-        border-radius: 0 !important;
-        margin: 0 !important;
-    }
-
-    .modal-header {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        background: var(--bg-primary);
-        padding: var(--spacing-lg) !important;
-        border-bottom: 1px solid var(--border-color) !important;
-    }
-
-    .modal-header h3 {
-        font-size: 18px !important;
-    }
-
-    .modal-close {
-        min-width: var(--touch-target);
-        min-height: var(--touch-target);
-        display: flex !important;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .modal-body {
-        padding: var(--spacing-lg) !important;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .detail-grid {
-        grid-template-columns: 1fr !important;
-        gap: var(--spacing-md) !important;
-    }
-
-    /* ========================================
-       PROGRESS BAR
-       ======================================== */
-
-    .progress-container {
-        position: sticky;
-        top: 120px; /* Below header + tabs */
-        z-index: 80;
-        background: var(--bg-primary) !important;
-        border-radius: 0 !important;
-        padding: var(--spacing-md) var(--spacing-lg) !important;
-        margin-bottom: 0 !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-    }
-
-    .progress-bar-wrapper {
-        height: 8px !important;
-        border-radius: var(--radius-full) !important;
-        margin-bottom: var(--spacing-sm) !important;
-    }
-
-    .progress-bar-fill {
-        border-radius: var(--radius-full) !important;
-    }
-
-    .progress-text {
-        font-size: 12px !important;
-        color: var(--text-secondary) !important;
-    }
-
-    /* ========================================
-       CAMPAIGN INFO
-       ======================================== */
-
-    .campaign-info {
-        border-radius: var(--radius-md) !important;
-        padding: var(--spacing-lg) !important;
-        margin-bottom: var(--spacing-lg) !important;
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: var(--spacing-sm) !important;
-    }
-
-    .campaign-info .campaign-name {
-        font-size: 16px !important;
-    }
-
-    .campaign-info .campaign-meta {
-        font-size: 12px !important;
-    }
-
-    /* ========================================
-       LOADING & EMPTY STATES
-       ======================================== */
-
-    .loading-state, .empty-state, .error-state {
-        padding: 60px var(--spacing-lg) !important;
-    }
-
-    .loading-state i, .empty-state i, .error-state i {
-        font-size: 48px !important;
-        margin-bottom: var(--spacing-lg) !important;
-    }
-
-    .loading-state h3, .empty-state h3, .error-state h3 {
-        font-size: 16px !important;
-        margin-bottom: var(--spacing-sm) !important;
-    }
-
-    .loading-state p, .empty-state p, .error-state p {
-        font-size: 13px !important;
-    }
-
-    /* ========================================
-       CACHED INFO BANNER
-       ======================================== */
-
-    .cached-info {
-        border-radius: var(--radius-md) !important;
-        padding: var(--spacing-md) !important;
-        margin-bottom: var(--spacing-lg) !important;
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: var(--spacing-md) !important;
-    }
-
-    .cached-info .info-text {
-        font-size: 13px;
-        width: 100%;
-    }
-
-    .btn-clear-cache {
-        width: 100%;
-        min-height: var(--touch-target);
-        border-radius: var(--radius-md) !important;
-        font-size: 14px !important;
-    }
-
-    /* ========================================
-       UTILITY CLASSES
-       ======================================== */
-
-    .mobile-only {
-        display: block !important;
-    }
-
-    .desktop-only {
-        display: none !important;
-    }
-
-    .mobile-text-center {
-        text-align: center !important;
-    }
-
-    .mobile-mb-0 {
-        margin-bottom: 0 !important;
-    }
-
-    .mobile-mt-lg {
-        margin-top: var(--spacing-lg) !important;
-    }
-
-    /* ========================================
-       SCROLLBAR STYLING
-       ======================================== */
-
-    /* Thin scrollbars for mobile */
-    ::-webkit-scrollbar {
-        width: 4px;
-        height: 4px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: var(--border-color);
-        border-radius: var(--radius-full);
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: var(--text-muted);
-    }
-
-    /* ========================================
-       ANIMATIONS - Performant
-       ======================================== */
-
-    @keyframes slideInUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-        }
-        to {
-            opacity: 1;
-        }
-    }
-
-    @keyframes pulse {
-        0%, 100% {
-            opacity: 1;
-        }
-        50% {
-            opacity: 0.6;
-        }
-    }
-
-    /* Reduce motion for accessibility */
-    @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
-        }
-    }
-
-    /* ========================================
-       PERFORMANCE OPTIMIZATIONS
-       ======================================== */
-
-    /* Use transform instead of margin/padding for animations */
-    .btn-action,
-    .stat-card,
-    .mobile-card-item,
-    .collapsible-header {
-        will-change: transform;
-    }
-
-    /* Reduce heavy gradients on low-end devices */
-    @media (max-width: 480px) {
-        .stat-card .stat-icon.blue,
-        .stat-card .stat-icon.green,
-        .stat-card .stat-icon.orange,
-        .stat-card .stat-icon.purple {
-            background: var(--primary-gradient) !important;
-        }
-    }
-
-    /* ========================================
-       PULL TO REFRESH HINT (Future Enhancement)
-       ======================================== */
-
-    .pull-to-refresh-hint {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background: var(--bg-primary);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transform: translateY(-100%);
-        transition: transform 0.3s ease;
-        z-index: 200;
-        box-shadow: var(--shadow-md);
-    }
-
-    .pull-to-refresh-hint.visible {
-        transform: translateY(0);
-    }
-
-    .pull-to-refresh-hint i {
-        font-size: 24px;
-        color: var(--text-secondary);
-        animation: pulse 1.5s ease-in-out infinite;
-    }
-
-    /* ========================================
-       MOBILE V2 - NEW COMPONENTS
-       ======================================== */
-
-    /* Mobile Collapsible Wrapper */
-    .mobile-collapsible-section {
-        margin-bottom: var(--spacing-lg);
-        border-radius: var(--radius-md);
-        overflow: hidden;
-        box-shadow: var(--shadow-sm);
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-    }
-
-    .mobile-collapsible-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: var(--spacing-lg);
-        background: var(--bg-primary);
-        cursor: pointer;
-        user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        transition: background 0.2s ease;
-        min-height: 60px;
-    }
-
-    .mobile-collapsible-header:active,
-    .mobile-collapsible-header.touch-active {
-        background: var(--bg-secondary);
-    }
-
-    .mobile-header-content {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-md);
-        flex: 1;
-    }
-
-    .mobile-icon {
-        font-size: 20px;
-        width: 44px;
-        height: 44px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 10px;
-        background: var(--primary-gradient);
-        color: white;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
-        flex-shrink: 0;
-    }
-
-    .mobile-icon.gradient-orange {
-        background: var(--danger-gradient);
-        box-shadow: 0 2px 8px rgba(245, 87, 108, 0.25);
-    }
-
-    .mobile-icon.gradient-primary {
-        background: var(--primary-gradient);
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
-    }
-
-    .mobile-title {
-        font-size: 15px;
-        font-weight: 600;
-        color: var(--text-primary);
-        flex: 1;
-    }
-
-    .mobile-badge {
-        background: var(--primary-gradient);
-        color: white;
-        padding: 4px 10px;
-        border-radius: var(--radius-full);
-        font-size: 12px;
-        font-weight: 600;
-        min-width: 24px;
-        text-align: center;
-    }
-
-    .mobile-toggle-icon {
-        width: 36px;
-        height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: var(--radius-sm);
-        background: var(--bg-secondary);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        flex-shrink: 0;
-    }
-
-    .mobile-collapsible-section.expanded .mobile-toggle-icon {
-        transform: rotate(180deg);
-    }
-
-    .mobile-toggle-icon i {
-        font-size: 14px;
-        color: var(--text-secondary);
-    }
-
-    /* Mobile collapsible sections - smooth collapse/expand */
-    .mobile-collapsible-section .content-section {
-        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        overflow: hidden;
-    }
-
-    .mobile-collapsible-section.collapsed .content-section {
-        max-height: 0 !important;
-        overflow: hidden !important;
-    }
-
-    /* Employee Cards Mobile */
-    .employee-card.mobile-collapsed .employee-stats-grid {
-        max-height: 0;
-        overflow: hidden;
-    }
-
-    .employee-card.mobile-expanded .employee-stats-grid {
-        max-height: none;
-    }
-
-    .employee-card-header.mobile-clickable {
-        cursor: pointer;
-        user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        transition: background 0.2s ease;
-    }
-
-    .employee-card-header.mobile-clickable:active,
-    .employee-card-header.mobile-clickable.touch-active {
-        background: rgba(255, 255, 255, 0.1);
-    }
-
-    .mobile-employee-toggle {
-        margin-left: var(--spacing-sm);
-        font-size: 14px;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        color: white;
-        opacity: 0.9;
-    }
-
-    .employee-card.mobile-expanded .mobile-employee-toggle {
-        transform: rotate(180deg);
-    }
-
-    /* Pull to Refresh Hint */
-    .mobile-pull-hint {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background: var(--bg-primary);
-        box-shadow: var(--shadow-md);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        z-index: 1000;
-        transform: translateY(-100%);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .mobile-pull-hint:not(.hidden) {
-        transform: translateY(0);
-    }
-
-    .mobile-pull-icon {
-        font-size: 20px;
-        color: var(--text-secondary);
-        animation: bounce 1s ease-in-out infinite;
-    }
-
-    .mobile-pull-text {
-        font-size: 12px;
-        color: var(--text-secondary);
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    @keyframes bounce {
-        0%, 100% {
-            transform: translateY(0);
-        }
-        50% {
-            transform: translateY(5px);
-        }
-    }
-
-    /* Touch Active States */
-    .touch-active {
-        transform: scale(0.98);
-        transition: transform 0.1s ease;
-    }
-
-    .btn-action.touch-active {
-        transform: scale(0.97);
-    }
-
-    /* Mobile Mode Body Class */
-    body.mobile-mode {
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
-
-    /* Improve tap targets on very small screens */
-    @media (max-width: 380px) {
-        .mobile-icon {
-            width: 40px;
-            height: 40px;
-            font-size: 18px;
-        }
-
-        .mobile-title {
-            font-size: 14px;
-        }
-
-        .mobile-badge {
-            font-size: 11px;
-            padding: 3px 8px;
-        }
-    }
-
-} /* End @media (max-width: 768px) */
-
-/* ========================================
-   EXTRA SMALL SCREENS (max-width: 380px)
-   ======================================== */
-
-@media (max-width: 380px) {
-
-    :root {
-        --spacing-lg: 12px;
-        --spacing-xl: 16px;
-    }
-
-    .stats-grid {
-        padding: var(--spacing-md) !important;
-    }
-
-    .stat-card {
-        padding: var(--spacing-md) !important;
-    }
-
-    .stat-card .stat-value {
-        font-size: 24px !important;
-    }
-
-    .stat-card .stat-label {
-        font-size: 11px !important;
-    }
-
-    .employee-summary {
-        grid-template-columns: 1fr !important;
-    }
-
-}
-
-/* ========================================
-   LANDSCAPE MODE OPTIMIZATIONS
-   ======================================== */
-
-@media (max-width: 768px) and (orientation: landscape) {
-
-    .header {
-        padding: var(--spacing-sm) var(--spacing-lg) !important;
-    }
-
-    .header h1 {
-        font-size: 18px !important;
-    }
-
-    .stats-grid {
-        grid-template-columns: repeat(4, 1fr) !important;
-    }
-
-    .stat-card {
-        padding: var(--spacing-md) !important;
-    }
-
-    .stat-card .stat-icon {
-        width: 40px !important;
-        height: 40px !important;
-        font-size: 20px !important;
-    }
-
-    .stat-card .stat-value {
-        font-size: 24px !important;
-    }
-
-}
+} /* End mobile media query */
