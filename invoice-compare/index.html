@@ -25,22 +25,24 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-    <!-- Load Gemini API Keys -->
+    <!-- Load API Keys -->
     <script>
-        // Load PRO key from localStorage or GitHub Secrets
+        // === DEEPSEEK API (Primary) ===
+        const savedDeepSeekKey = localStorage.getItem('deepseek_api_key') || '';
+        // TODO: GitHub Actions sẽ inject từ secret DEEPSEEK_API_KEY
+        window.DEEPSEEK_API_KEY = savedDeepSeekKey || 'sk-319cef4faabf413aa84beb51c383e9b1' || '';
+
+        // === GEMINI API (Fallback) ===
         const savedGeminiProKey = localStorage.getItem('gemini_pro_key') || '';
-
-        // Chỉ sử dụng 1 PRO key
-        // TODO: GitHub Actions sẽ inject từ secret GEMINI_PRO_KEY
-        window.GEMINI_PRO_KEY = savedGeminiProKey || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs' || '';
-
-        // Fallback: nếu không có PRO key, dùng FREE keys (optional)
+        window.GEMINI_PRO_KEY = savedGeminiProKey || '' || '';
         window.GEMINI_KEYS = '';
 
-        console.log('[API-KEYS] Gemini PRO key:', window.GEMINI_PRO_KEY ? 'Configured ✓' : '⚠️ NOT CONFIGURED - Please set in console: localStorage.setItem("gemini_pro_key", "YOUR_KEY")');
+        console.log('[API-KEYS] DeepSeek:', window.DEEPSEEK_API_KEY ? 'Configured ✓ (Primary)' : '⚠️ NOT CONFIGURED');
+        console.log('[API-KEYS] Gemini:', window.GEMINI_PRO_KEY ? 'Configured ✓ (Fallback)' : 'Not configured');
     </script>
 
-    <!-- Gemini AI Helper -->
+    <!-- AI Helpers -->
+    <script src="deepseek-ai-helper.js"></script>
     <script src="gemini-ai-helper.js"></script>
 </head>
 

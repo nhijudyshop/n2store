@@ -683,27 +683,43 @@ async function analyzeImagesWithAI() {
     try {
         showLoading(true);
 
-        if (!window.GeminiAI) {
-            throw new Error('Gemini AI chưa được tải. Vui lòng load lại trang.');
-        }
-
         if (uploadedImages.length === 0) {
             throw new Error('Chưa có ảnh nào được tải lên');
         }
 
         console.log('[AI-ANALYSIS] Starting analysis with', uploadedImages.length, 'images');
 
-        // Analyze first image (you can loop through all if needed)
         const image = uploadedImages[0];
+        let result = null;
 
-        const result = await window.GeminiAI.analyzeImageWithGemini(
-            image.base64,
-            AI_ANALYSIS_PROMPT,
-            {
-                // Use default model from gemini-ai-helper.js (gemini-2.0-flash)
-                mimeType: image.mimeType,
+        // Try DeepSeek first (Primary API)
+        if (window.DeepSeekAI && window.DeepSeekAI.isConfigured()) {
+            try {
+                console.log('[AI-ANALYSIS] Using DeepSeek API (Primary)...');
+                result = await window.DeepSeekAI.analyzeImage(
+                    image.base64,
+                    AI_ANALYSIS_PROMPT,
+                    { mimeType: image.mimeType }
+                );
+            } catch (deepseekError) {
+                console.warn('[AI-ANALYSIS] DeepSeek failed:', deepseekError.message);
+                console.log('[AI-ANALYSIS] Falling back to Gemini...');
             }
-        );
+        }
+
+        // Fallback to Gemini if DeepSeek failed or not configured
+        if (!result && window.GeminiAI) {
+            console.log('[AI-ANALYSIS] Using Gemini API (Fallback)...');
+            result = await window.GeminiAI.analyzeImageWithGemini(
+                image.base64,
+                AI_ANALYSIS_PROMPT,
+                { mimeType: image.mimeType }
+            );
+        }
+
+        if (!result) {
+            throw new Error('Không có AI API nào khả dụng. Vui lòng kiểm tra cấu hình API key.');
+        }
 
         console.log('[AI-ANALYSIS] Raw result:', result);
 
