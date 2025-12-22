@@ -29,7 +29,7 @@
     <script>
         const savedDeepSeekKey = localStorage.getItem('deepseek_api_key') || '';
         // GitHub Actions sẽ inject từ secret DEEPSEEK_API_KEY
-        window.DEEPSEEK_API_KEY = savedDeepSeekKey || '' || '';
+        window.DEEPSEEK_API_KEY = savedDeepSeekKey || 'sk-319cef4faabf413aa84beb51c383e9b1' || '';
         console.log('[API-KEYS] DeepSeek:', window.DEEPSEEK_API_KEY ? 'Configured ✓' : '⚠️ NOT CONFIGURED');
     </script>
 
