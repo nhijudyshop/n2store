@@ -1129,37 +1129,6 @@
 
             <!-- Statistics Sections (from cached data) -->
             <div id="statisticsContainer" style="display: none;">
-                <!-- Product Statistics -->
-                <div class="content-section" id="productStatsSection">
-                    <h2>
-                        <i class="fas fa-box"></i> Thống Kê Sản Phẩm
-                        <span class="section-badge" id="productStatsBadge">0</span>
-                    </h2>
-                    <div class="stats-table-wrapper d-none d-md-block">
-                        <table class="stats-table" id="productStatsTable">
-                            <thead>
-                                <tr>
-                                    <th>Mã SP</th>
-                                    <th>Tên sản phẩm</th>
-                                    <th>Số lượng</th>
-                                    <th>Số đơn</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="productStatsBody">
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Mobile Product Stats (Visible on Mobile Only) -->
-                    <div id="mobileProductStatsContainer" class="d-md-none">
-                        <!-- Summary Card will be injected here -->
-                        <div id="mobileProductSummaryCard"></div>
-                        <!-- List of Product Cards -->
-                        <div id="mobileProductList" class="mt-3"></div>
-                    </div>
-                </div>
-
                 <!-- Tag Statistics - Summary -->
                 <div class="content-section" id="tagStatsSection">
                     <h2>
@@ -1744,44 +1713,6 @@
         }
 
         /**
-         * Calculate product statistics from cached orders
-         */
-        function calculateProductStats(orders) {
-            const productMap = new Map(); // key: ProductCode, value: { name, quantity, orderCount, orderIds }
-
-            orders.forEach(order => {
-                const details = order.Details || [];
-                const orderId = order.Id || order.Code;
-
-                details.forEach(item => {
-                    const code = item.ProductCode || item.DefaultCode || item.Barcode || 'N/A';
-                    const name = item.ProductName || item.ProductNameGet || item.name || 'Không rõ';
-                    const qty = item.Quantity || item.ProductUOMQty || 0;
-
-                    if (productMap.has(code)) {
-                        const existing = productMap.get(code);
-                        existing.quantity += qty;
-                        if (!existing.orderIds.includes(orderId)) {
-                            existing.orderIds.push(orderId);
-                        }
-                    } else {
-                        productMap.set(code, {
-                            code,
-                            name,
-                            quantity: qty,
-                            orderIds: [orderId]
-                        });
-                    }
-                });
-            });
-
-            // Convert to array and sort by quantity desc
-            return Array.from(productMap.values())
-                .map(p => ({ ...p, orderCount: p.orderIds.length }))
-                .sort((a, b) => b.quantity - a.quantity);
-        }
-
-        /**
          * Calculate tag statistics from cached orders
          */
         function calculateTagStats(orders) {
@@ -1907,12 +1838,8 @@
             emptyState.style.display = 'none';
 
             // Calculate all stats
-            const productStats = calculateProductStats(orders);
             const tagStats = calculateTagStats(orders);
             const employeeStats = calculateEmployeeTagStats(orders);
-
-            // Render product stats
-            renderProductStatsTable(productStats);
 
             // Render tag stats
             renderTagStatsTable(tagStats, orders.length);
@@ -1927,7 +1854,6 @@
                         timestamp: Date.now(),
                         hasData: orders.length > 0,
                         counts: {
-                            products: productStats.length,
                             tags: tagStats.length,
                             employees: employeeStats.length
                         }
@@ -1935,188 +1861,6 @@
                 }));
                 console.log('[REPORT] 📱 statisticsRendered event dispatched');
             }, 150);
-        }
-
-        /**
-         * Render product statistics table
-         */
-        function renderProductStatsTable(stats) {
-            const tbody = document.getElementById('productStatsBody');
-            const badge = document.getElementById('productStatsBadge');
-
-            badge.textContent = stats.length;
-
-            // Render Mobile View
-            renderMobileProductStats(stats);
-
-            if (stats.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">Không có dữ liệu sản phẩm</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = stats.map(p => `
-                <tr>
-                    <td><strong>${p.code}</strong></td>
-                    <td>${p.name}</td>
-                    <td><strong>${p.quantity.toLocaleString('vi-VN')}</strong></td>
-                    <td>${p.orderCount.toLocaleString('vi-VN')}</td>
-                    <td>
-                        <button class="btn-view-detail" onclick="viewProductOrders('${p.code}')" title="Xem chi tiết">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        /**
-         * Render Mobile Product Statistics (Summary + Card List)
-         */
-        function renderMobileProductStats(stats) {
-            const summaryContainer = document.getElementById('mobileProductSummaryCard');
-            const listContainer = document.getElementById('mobileProductList');
-
-            if (!summaryContainer || !listContainer) return;
-
-            // Calculate Totals
-            const totalCodes = stats.length;
-            const totalQuantity = stats.reduce((sum, p) => sum + p.quantity, 0);
-            const totalOrders = stats.reduce((sum, p) => sum + p.orderCount, 0);
-
-            // Render Summary Card
-            summaryContainer.innerHTML = `
-                <div class="mobile-summary-row">
-                    <div class="mobile-summary-item">
-                        <span class="mobile-summary-value">${totalCodes.toLocaleString('vi-VN')}</span>
-                        <span class="mobile-summary-label">Mã SP</span>
-                    </div>
-                    <div class="mobile-summary-item">
-                        <span class="mobile-summary-value">${totalQuantity.toLocaleString('vi-VN')}</span>
-                        <span class="mobile-summary-label">Số Lượng</span>
-                    </div>
-                    <div class="mobile-summary-item">
-                        <span class="mobile-summary-value">${totalOrders.toLocaleString('vi-VN')}</span>
-                        <span class="mobile-summary-label">Đơn Hàng</span>
-                    </div>
-                </div>
-            `;
-
-            // Render Product List
-            if (stats.length === 0) {
-                listContainer.innerHTML = '<div class="empty-state"><p>Chưa có dữ liệu</p></div>';
-                return;
-            }
-
-            listContainer.innerHTML = stats.map(p => `
-                <div class="mobile-product-card" onclick="openMobileProductPopup('${p.code}')">
-                    <div class="mobile-card-header">
-                        <span class="mobile-product-code">${p.code}</span>
-                        <span class="mobile-product-name">${p.name}</span>
-                        <button class="mobile-see-more-btn">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
-                    <div class="mobile-card-body">
-                        <div class="mobile-stat-row">
-                            <span class="mobile-stat-value highlight">${p.quantity.toLocaleString('vi-VN')}</span>
-                            <span class="mobile-stat-label">Số lượng</span>
-                        </div>
-                        <div class="mobile-stat-row">
-                            <span class="mobile-stat-value">${p.orderCount.toLocaleString('vi-VN')}</span>
-                            <span class="mobile-stat-label">Đơn hàng</span>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        /**
-         * Open Mobile Product Detail Popup
-         */
-        function openMobileProductPopup(productCode) {
-            const cached = cachedOrderDetails[currentTableName];
-            const orders = cached?.orders || [];
-
-            // Find product details from stats or re-calculate
-            // We need the orders for this product to show details? 
-            // The user just asked for "detailed information" and "See More". 
-            // In the desktop table, we show orders.
-            // Let's filter orders for this product.
-
-            const filteredOrders = orders.filter(order => {
-                const details = order.Details || [];
-                return details.some(item => {
-                    const code = item.ProductCode || item.DefaultCode || item.Barcode || '';
-                    return code === productCode;
-                });
-            });
-
-            // Find product name and total qty from the first matching order or search
-            let productName = 'Unknown';
-            let totalQty = 0;
-
-            filteredOrders.forEach(order => {
-                const details = order.Details || [];
-                details.forEach(item => {
-                    const code = item.ProductCode || item.DefaultCode || item.Barcode || '';
-                    if (code === productCode) {
-                        if (productName === 'Unknown') productName = item.ProductName || item.productName || 'Unknown';
-                        totalQty += (parseInt(item.Quantity) || 0);
-                    }
-                });
-            });
-
-            const modal = document.getElementById('mobileProductDetailModal');
-            const title = document.getElementById('mobilePopupTitle');
-            const body = document.getElementById('mobilePopupBody');
-
-            title.textContent = `${productCode} - ${productName}`;
-
-            body.innerHTML = `
-                <div class="mobile-popup-list">
-                    <div class="mobile-popup-item">
-                        <span class="mobile-popup-label">Tổng số lượng</span>
-                        <span class="mobile-popup-value" style="color: #10b981;">${totalQty.toLocaleString('vi-VN')}</span>
-                    </div>
-                    <div class="mobile-popup-item">
-                        <span class="mobile-popup-label">Tổng số đơn</span>
-                        <span class="mobile-popup-value">${filteredOrders.length.toLocaleString('vi-VN')}</span>
-                    </div>
-                    <div class="mobile-popup-item">
-                        <span class="mobile-popup-label">Doanh thu ước tính</span>
-                         <!-- Improve calculation if unit price is consistent, otherwise skip or approximate -->
-                         <!-- For now just show order info -->
-                         <span class="mobile-popup-value">-</span> 
-                    </div>
-                </div>
-                
-                <h4 style="margin: 20px 0 10px 0; font-size: 14px; color: #667eea; border-bottom: 2px solid #eee; padding-bottom: 5px;">
-                    Danh sách đơn hàng (${filteredOrders.length})
-                </h4>
-                
-                <div style="max-height: 300px; overflow-y: auto;">
-                    ${filteredOrders.length === 0 ? '<p style="color:#999;font-size:13px;">Không có đơn hàng</p>' :
-                    filteredOrders.map(order => `
-                            <div style="padding: 10px; border-bottom: 1px solid #eee; font-size: 13px;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                                    <strong style="color:#4f46e5;">${order.Code}</strong>
-                                    <span style="color:#6b7280;">${order.Telephone || ''}</span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between;">
-                                    <span>${order.Name || 'Khách lẻ'}</span>
-                                    <span style="font-weight:600;">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</span>
-                                </div>
-                            </div>
-                        `).join('')
-                }
-                </div>
-            `;
-
-            modal.classList.add('show');
-        }
-
-        function closeMobileProductPopup() {
-            document.getElementById('mobileProductDetailModal').classList.remove('show');
         }
 
         /**
@@ -2293,24 +2037,6 @@
         function closeOrdersDetailModal() {
             const modal = document.getElementById('ordersDetailModal');
             modal.classList.remove('show');
-        }
-
-        /**
-         * View orders by product code
-         */
-        function viewProductOrders(productCode) {
-            const cached = cachedOrderDetails[currentTableName];
-            const orders = cached?.orders || [];
-
-            const filteredOrders = orders.filter(order => {
-                const details = order.Details || [];
-                return details.some(item => {
-                    const code = item.ProductCode || item.DefaultCode || item.Barcode || '';
-                    return code === productCode;
-                });
-            });
-
-            showOrdersDetailModal(`Đơn hàng có sản phẩm: ${productCode}`, filteredOrders);
         }
 
         /**
