@@ -33,17 +33,21 @@ const DEFAULT_COLUMN_VISIBILITY = {
 
 /**
  * Load column visibility settings from localStorage
+ * Merges with DEFAULT to ensure new columns are visible by default
  */
 function loadColumnVisibility() {
     try {
         const saved = localStorage.getItem(COLUMN_VISIBILITY_KEY);
         if (saved) {
-            return JSON.parse(saved);
+            const parsed = JSON.parse(saved);
+            // Merge với DEFAULT để đảm bảo các cột mới (như debt, qr) được hiển thị mặc định
+            // Nếu user đã explicitly set debt: false, giá trị đó sẽ được giữ lại
+            return { ...DEFAULT_COLUMN_VISIBILITY, ...parsed };
         }
     } catch (error) {
         console.error('[COLUMN] Error loading column visibility:', error);
     }
-    return DEFAULT_COLUMN_VISIBILITY;
+    return { ...DEFAULT_COLUMN_VISIBILITY };
 }
 
 /**
