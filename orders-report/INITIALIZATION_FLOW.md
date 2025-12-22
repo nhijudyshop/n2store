@@ -777,3 +777,314 @@ Saved at path: `user_preferences/{userId}/filter_preferences`
 
 > [!WARNING]
 > `tab1-orders.js` **PHẢI load cuối cùng** vì nó phụ thuộc vào tất cả các managers khác đã được khởi tạo.
+
+---
+
+## 12. performTableSearch() - Filter & Sort Data (Line 4922)
+
+Hàm này được gọi mỗi khi cần filter/sort lại data và render table.
+
+```javascript
+function performTableSearch() {
+    // 1. Apply search filter
+    let tempData = searchQuery
+        ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
+        : [...allData];
+
+    // 2. Apply Employee STT Range Filter (nếu không phải admin)
+    let isAdmin = window.authManager?.hasPermission(0);
+    if (!isAdmin && employeeRanges.length > 0) {
+        const auth = window.authManager?.getAuthState();
+        const currentDisplayName = auth?.displayName;
+        
+        // Find user's range by ID → Display Name → User Type → Short Name
+        const userRange = employeeRanges.find(r => 
+            r.id === auth?.id || 
+            r.name === currentDisplayName
+        );
+        
+        if (userRange) {
+            tempData = tempData.filter(order => {
+                const stt = parseInt(order.SessionIndex);
+                return stt >= userRange.start && stt <= userRange.end;
+            });
+        }
+    }
+
+    // 3. Apply conversation filter (unread/read)
+    const conversationFilter = document.getElementById('conversationFilter')?.value;
+    if (window.pancakeDataManager && conversationFilter !== 'all') {
+        tempData = tempData.filter(order => {
+            const msgUnread = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
+            const cmmUnread = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
+            
+            if (conversationFilter === 'unread') {
+                return msgUnread.hasUnread || cmmUnread.hasUnread;
+            }
+            return !msgUnread.hasUnread && !cmmUnread.hasUnread;
+        });
+    }
+
+    // 4. Apply Status Filter (Draft/Confirmed)
+    const statusFilter = document.getElementById('statusFilter')?.value;
+    if (statusFilter !== 'all') {
+        tempData = tempData.filter(order => 
+            statusFilter === 'Draft' ? order.Status === 'Draft' : order.Status !== 'Draft'
+        );
+    }
+
+    // 5. Apply TAG Filter
+    const tagFilter = document.getElementById('tagFilter')?.value;
+    if (tagFilter !== 'all') {
+        tempData = tempData.filter(order => {
+            const orderTags = JSON.parse(order.Tags || '[]');
+            return orderTags.some(tag => String(tag.Id) === String(tagFilter));
+        });
+    }
+
+    filteredData = tempData;
+
+    // 6. Sort by search priority (STT → Phone → Name)
+    if (searchQuery) {
+        filteredData.sort((a, b) => {
+            // Priority: Exact STT → STT starts → STT contains → Phone → Name
+            // ... sorting logic ...
+        });
+    }
+
+    // 7. Reset sorting và render
+    resetSorting();
+    displayedData = filteredData;
+    renderTable();
+    updateStats();
+    updatePageInfo();
+    updateSearchResultCount();
+}
+```
+
+---
+
+## 13. renderTable() - Render Table (Line 6513)
+
+```javascript
+function renderTable() {
+    if (displayedData.length === 0) {
+        document.getElementById("tableBody").innerHTML = 
+            '<tr><td colspan="18">Không có dữ liệu</td></tr>';
+        return;
+    }
+
+    // Check if admin
+    const isAdmin = window.authManager?.hasPermission(0);
+
+    // Render by employee hoặc all orders
+    if (!isAdmin && employeeRanges.length > 0) {
+        renderByEmployee();  // Grouped view
+    } else {
+        renderAllOrders();   // Normal view
+    }
+
+    // Apply column visibility sau khi render
+    window.columnVisibility?.initialize();
+    updateSortIcons();
+}
+
+function renderAllOrders() {
+    isRendering = true;
+
+    const tbody = document.getElementById("tableBody");
+    
+    // INFINITE SCROLL: Chỉ render 50 đơn đầu tiên
+    renderedCount = INITIAL_RENDER_COUNT;  // 50
+    const initialData = displayedData.slice(0, renderedCount);
+    tbody.innerHTML = initialData.map(createRowHTML).join("");
+
+    // Add spacer nếu còn data
+    if (displayedData.length > renderedCount) {
+        tbody.innerHTML += `<tr id="table-spacer">
+            <td colspan="18"><i class="fas fa-spinner fa-spin"></i> Đang tải thêm...</td>
+        </tr>`;
+    }
+
+    // Batch fetch debts (1 API call thay vì 50!)
+    const phones = initialData.map(o => o.Telephone).filter(Boolean);
+    if (phones.length > 0) batchFetchDebts(phones);
+
+    isRendering = false;
+}
+```
+
+---
+
+## 14. Infinite Scroll Logic (Line 6597)
+
+```javascript
+const INITIAL_RENDER_COUNT = 50;  // Render 50 đơn đầu tiên
+const LOAD_MORE_COUNT = 50;       // Load thêm 50 đơn khi scroll
+let renderedCount = 0;
+
+// Setup scroll listener
+document.addEventListener('DOMContentLoaded', () => {
+    const tableWrapper = document.getElementById("tableWrapper");
+    if (tableWrapper) {
+        tableWrapper.addEventListener('scroll', handleTableScroll);
+    }
+});
+
+function handleTableScroll(e) {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    
+    // Load thêm khi scroll gần bottom (200px)
+    if (scrollTop + clientHeight >= scrollHeight - 200) {
+        loadMoreRows();
+    }
+}
+
+function loadMoreRows() {
+    // Prevent duplicate loading
+    if (isRendering || renderedCount >= displayedData.length) return;
+
+    const tbody = document.getElementById("tableBody");
+    const spacer = document.getElementById("table-spacer");
+    
+    // Remove spacer tạm
+    if (spacer) spacer.remove();
+
+    // Load next batch
+    const nextBatch = displayedData.slice(renderedCount, renderedCount + LOAD_MORE_COUNT);
+    renderedCount += nextBatch.length;
+
+    // Append rows using DocumentFragment (performance!)
+    const fragment = document.createDocumentFragment();
+    nextBatch.forEach(order => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = `<table><tbody>${createRowHTML(order)}</tbody></table>`;
+        fragment.appendChild(tempDiv.querySelector('tr'));
+    });
+    tbody.appendChild(fragment);
+
+    // Apply column visibility cho rows mới
+    window.columnVisibility?.apply(window.columnVisibility.load());
+
+    // Add spacer lại nếu còn data
+    if (renderedCount < displayedData.length) {
+        tbody.innerHTML += `<tr id="table-spacer">...</tr>`;
+    }
+
+    // Fetch debts cho batch mới
+    const phones = nextBatch.map(o => o.Telephone).filter(Boolean);
+    if (phones.length > 0) batchFetchDebts(phones);
+}
+```
+
+---
+
+## 15. Realtime TAG Listeners (Line 399)
+
+```javascript
+let tagListenersSetup = false;
+
+function setupTagRealtimeListeners() {
+    // Prevent duplicate setup
+    if (tagListenersSetup) return;
+
+    if (database) {
+        const refPath = `tag_updates`;
+        const auth = window.authManager?.getAuthState();
+        const currentUserName = auth?.displayName || 'Unknown';
+
+        // Listen for child_changed (updates từ user khác)
+        database.ref(refPath).on('child_changed', (snapshot) => {
+            const updateData = snapshot.val();
+            
+            // Chỉ process nếu update từ user khác
+            if (updateData.updatedBy !== currentUserName) {
+                handleRealtimeTagUpdate(updateData, 'firebase');
+            }
+        });
+
+        // Listen for child_added (chỉ process nếu timestamp < 5 giây)
+        database.ref(refPath).on('child_added', (snapshot) => {
+            const updateData = snapshot.val();
+            
+            if (updateData.timestamp && (Date.now() - updateData.timestamp < 5000)) {
+                if (updateData.updatedBy !== currentUserName) {
+                    handleRealtimeTagUpdate(updateData, 'firebase');
+                }
+            }
+        });
+
+        tagListenersSetup = true;
+    }
+
+    // WebSocket listener (for future)
+    window.addEventListener('realtimeOrderTagsUpdate', (event) => {
+        handleRealtimeTagUpdate(event.detail, 'websocket');
+    });
+}
+
+function handleRealtimeTagUpdate(updateData, source) {
+    const { orderId, tags, updatedBy } = updateData;
+    
+    // Normalize tags (null → [])
+    const normalizedTags = tags || [];
+
+    // Check if order is in displayed data
+    const orderInDisplayed = displayedData.find(o => o.Id === orderId);
+    if (!orderInDisplayed) {
+        // Still update allData silently
+        const index = allData.findIndex(o => o.Id === orderId);
+        if (index !== -1) allData[index].Tags = JSON.stringify(normalizedTags);
+        return;
+    }
+
+    // Conflict: User đang edit order này?
+    if (currentEditingOrderId === orderId) {
+        closeTagModal();  // Close modal
+    }
+
+    // Update only TAG cell (không re-render toàn bộ table)
+    updateTagCellOnly(orderId, orderCode, normalizedTags);
+}
+```
+
+---
+
+## 16. Performance Optimization Summary
+
+### 16.1 Progressive Loading (2 Phases)
+
+| Phase | Size | Purpose |
+|-------|------|---------|
+| PHASE 1 | 50 orders | Hiển thị UI ngay lập tức |
+| PHASE 2 | 1000/batch | Background loading, update mỗi 200 orders |
+
+### 16.2 Infinite Scroll
+
+| Setting | Value | Impact |
+|---------|-------|--------|
+| `INITIAL_RENDER_COUNT` | 50 | DOM nhẹ, render nhanh |
+| `LOAD_MORE_COUNT` | 50 | Load thêm khi scroll |
+| Trigger distance | 200px | Load trước khi tới bottom |
+
+### 16.3 Batch Operations
+
+| Operation | Before | After |
+|-----------|--------|-------|
+| Fetch debts | 50 API calls | 1 batch call |
+| Render rows | innerHTML loop | DocumentFragment |
+| Tag updates | Re-render table | Update cell only |
+
+### 16.4 Caching
+
+| Cache | Storage | Expiry |
+|-------|---------|--------|
+| Orders | Clear on load | - |
+| Campaigns | localStorage | 24h |
+| Filter preferences | Firebase | - |
+
+> [!TIP]
+> **Bottlenecks chính:**
+> 1. `fetchOrders()` - Network latency
+> 2. `chatDataManager.fetchConversations()` - Pancake API
+> 3. `createRowHTML()` - DOM generation cho mỗi row
