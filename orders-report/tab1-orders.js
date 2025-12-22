@@ -23438,10 +23438,17 @@ function buildFastSaleOrderPayload() {
     // Logic: Remaining = COD - Prepaid (if Prepaid < COD), otherwise 0
     const cashOnDelivery = prepaidAmount < codValue ? (codValue - prepaidAmount) : 0;
 
-    // Get carrier
-    const carrierSelect = document.getElementById('saleCarrier');
+    // Get carrier from dropdown (saleDeliveryPartner)
+    const carrierSelect = document.getElementById('saleDeliveryPartner');
     const carrierId = carrierSelect?.value ? parseInt(carrierSelect.value) : 7;
-    const carrierName = carrierSelect?.selectedOptions[0]?.text || 'SHIP TỈNH';
+    const selectedOption = carrierSelect?.selectedOptions[0];
+    // Get carrier name from data-name attribute (clean name without fee), fallback to option text
+    const carrierName = selectedOption?.dataset?.name || selectedOption?.text?.replace(/\s*\([^)]*\)$/, '') || 'SHIP TỈNH';
+    const carrierFee = parseFloat(selectedOption?.dataset?.fee) || shippingFee;
+
+    // Get full carrier data from cache if available
+    const cachedCarriers = getCachedDeliveryCarriers();
+    const fullCarrierData = cachedCarriers?.find(c => c.Id === carrierId) || null;
 
     // Build order lines from current products (with full Product data)
     const orderLines = buildOrderLines();
@@ -23668,7 +23675,7 @@ function buildFastSaleOrderPayload() {
         Journal: window.lastDefaultSaleData?.Journal || { Id: 3, Code: 'INV', Name: 'Nhật ký bán hàng', Type: 'sale' },
         PaymentJournal: window.lastDefaultSaleData?.PaymentJournal || { Id: 1, Code: 'CSH1', Name: 'Tiền mặt', Type: 'cash' },
         Partner: partner || null,
-        Carrier: window.lastDefaultSaleData?.Carrier || { Id: carrierId, Name: carrierName, DeliveryType: 'fixed', Config_DefaultFee: shippingFee },
+        Carrier: fullCarrierData || { Id: carrierId, Name: carrierName, DeliveryType: 'fixed', Config_DefaultFee: carrierFee, Active: true },
         Tax: null,
         SaleOrder: null,
         DestConvertCurrencyUnit: null,
