@@ -213,23 +213,17 @@ const TraHangModule = (function() {
                 response = await window.tokenManager.authenticatedFetch(url, {
                     method: 'GET',
                     headers: {
-                        'accept': 'application/json, text/javascript, */*; q=0.01',
-                        'cache-control': 'no-cache',
-                        'tposappversion': '5.11.16.1'
+                        'Accept': 'application/json'
                     }
                 });
             } else {
                 // Fallback to regular fetch with token
+                // Only use headers allowed by CORS proxy
                 response = await fetch(url, {
                     method: 'GET',
                     headers: {
-                        'accept': 'application/json, text/javascript, */*; q=0.01',
-                        'accept-language': 'en-US,en;q=0.9',
-                        'authorization': `Bearer ${token}`,
-                        'cache-control': 'no-cache',
-                        'pragma': 'no-cache',
-                        'tposappversion': '5.11.16.1',
-                        'x-requested-with': 'XMLHttpRequest'
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     }
                 });
             }
