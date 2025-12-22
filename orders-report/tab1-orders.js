@@ -3635,32 +3635,32 @@ function showBulkTagResultModal(successResults, failedResults) {
                 </div>
                 <div class="bulk-tag-result-section-body">
                     ${successResults.map(r => {
-                        // Build normal STT display
-                        const normalSttDisplay = r.sttList.length > 0
-                            ? `STT ${r.sttList.join(', ')}`
-                            : '';
+            // Build normal STT display
+            const normalSttDisplay = r.sttList.length > 0
+                ? `STT ${r.sttList.join(', ')}`
+                : '';
 
-                        // Build redirected STT display
-                        const redirectedDisplay = r.redirectedList?.length > 0
-                            ? r.redirectedList.map(rd => `${rd.original} → ${rd.redirectTo}`).join(', ')
-                            : '';
+            // Build redirected STT display
+            const redirectedDisplay = r.redirectedList?.length > 0
+                ? r.redirectedList.map(rd => `${rd.original} → ${rd.redirectTo}`).join(', ')
+                : '';
 
-                        // Combine displays
-                        let sttDisplay = '';
-                        if (normalSttDisplay && redirectedDisplay) {
-                            sttDisplay = `${normalSttDisplay}, ${redirectedDisplay}`;
-                        } else if (normalSttDisplay) {
-                            sttDisplay = normalSttDisplay;
-                        } else if (redirectedDisplay) {
-                            sttDisplay = `STT ${redirectedDisplay}`;
-                        }
+            // Combine displays
+            let sttDisplay = '';
+            if (normalSttDisplay && redirectedDisplay) {
+                sttDisplay = `${normalSttDisplay}, ${redirectedDisplay}`;
+            } else if (normalSttDisplay) {
+                sttDisplay = normalSttDisplay;
+            } else if (redirectedDisplay) {
+                sttDisplay = `STT ${redirectedDisplay}`;
+            }
 
-                        // Add redirect note if there are redirected items
-                        const redirectNote = r.redirectedList?.length > 0
-                            ? `<div class="redirect-note" style="font-size: 11px; color: #6b7280; margin-top: 2px;">↳ Chuyển sang đơn cùng SĐT</div>`
-                            : '';
+            // Add redirect note if there are redirected items
+            const redirectNote = r.redirectedList?.length > 0
+                ? `<div class="redirect-note" style="font-size: 11px; color: #6b7280; margin-top: 2px;">↳ Chuyển sang đơn cùng SĐT</div>`
+                : '';
 
-                        return `
+            return `
                             <div class="bulk-tag-result-item">
                                 <span class="tag-color-dot" style="background-color: ${r.tagColor}"></span>
                                 <span class="tag-name">${r.tagName}:</span>
@@ -3668,7 +3668,7 @@ function showBulkTagResultModal(successResults, failedResults) {
                                 ${redirectNote}
                             </div>
                         `;
-                    }).join('')}
+        }).join('')}
                 </div>
             </div>
         `;
@@ -3885,7 +3885,7 @@ function closeBulkTagHistoryModal() {
 }
 
 // Close dropdown when clicking outside
-document.addEventListener('click', function(event) {
+document.addEventListener('click', function (event) {
     const searchWrapper = document.querySelector('.bulk-tag-search-wrapper');
     const dropdown = document.getElementById('bulkTagModalSearchDropdown');
 
@@ -13622,6 +13622,85 @@ async function sendMessageInternal(messageData) {
                     console.warn('[MESSAGE] ⚠️ Pancake Unlock failed:', unlockResult.error);
                 }
             }
+
+            // ========== Fallback 2: Private Reply (for error 551 only) ==========
+            // If still not successful and this is a 551 error, try Private Reply via Facebook Graph API
+            if (!apiSuccess && err.isUserUnavailable) {
+                console.log('[MESSAGE] 🔄 User unavailable (#551), checking for Private Reply context...');
+
+                const facebookPostId = order.Facebook_PostId || window.purchaseFacebookPostId;
+                const facebookCommentId = order.Facebook_CommentId || window.purchaseCommentId;
+                const facebookASUserId = order.Facebook_ASUserId || window.purchaseFacebookASUserId || psid;
+
+                // Get REAL Facebook Page Token (not Pancake JWT!)
+                const realFacebookPageToken = window.currentCRMTeam?.Facebook_PageToken;
+
+                if (facebookPostId && facebookCommentId && facebookASUserId && realFacebookPageToken) {
+                    console.log('[MESSAGE] ✅ Found comment context, attempting Private Reply fallback...');
+                    showChatSendingIndicator('Khách chưa nhắn tin, đang thử Private Reply...');
+
+                    try {
+                        // Extract Comment ID (first one if multiple)
+                        const commentIds = facebookCommentId.toString().split(',').map(id => id.trim());
+                        const targetCommentId = commentIds[0];
+
+                        // Build Private Reply payload for Facebook Graph API
+                        const privateReplyUrl = window.API_CONFIG.buildUrl.facebookSend();
+
+                        const privatePayload = {
+                            pageId: channelId, // Required by worker proxy
+                            recipient: {
+                                comment_id: targetCommentId
+                            },
+                            message: {
+                                text: message
+                            },
+                            pageToken: realFacebookPageToken // REAL Facebook Page Token (EAAEppgm... format)
+                        };
+
+                        console.log('[MESSAGE] Sending Private Reply (Graph API) payload:', JSON.stringify(privatePayload));
+
+                        const prResponse = await API_CONFIG.smartFetch(privateReplyUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(privatePayload)
+                        }, 1, true);
+
+                        if (prResponse.ok) {
+                            const prData = await prResponse.json();
+                            if (prData.success !== false) {
+                                console.log('[MESSAGE] ✅ Private Reply fallback succeeded!');
+                                apiSuccess = true;
+                                apiError = null;
+
+                                if (window.notificationManager) {
+                                    window.notificationManager.show('✅ Đã gửi tin nhắn (Private Reply) thành công!', 'success');
+                                }
+
+                                // Auto-mark as read
+                                autoMarkAsRead(0);
+                            } else {
+                                console.warn('[MESSAGE] ❌ Private Reply API error:', prData);
+                            }
+                        } else {
+                            const errorData = await prResponse.json().catch(() => ({}));
+                            console.warn('[MESSAGE] ❌ Private Reply HTTP error:', prResponse.status, errorData);
+                        }
+                    } catch (prError) {
+                        console.error('[MESSAGE] ❌ Private Reply fallback failed:', prError);
+                    }
+                } else {
+                    console.warn('[MESSAGE] ⚠️ Cannot try Private Reply: Missing context', {
+                        hasPostId: !!facebookPostId,
+                        hasCommentId: !!facebookCommentId,
+                        hasASUserId: !!facebookASUserId,
+                        hasPageToken: !!realFacebookPageToken
+                    });
+                }
+            }
         }
 
         // If API failed, throw error
@@ -14272,9 +14351,9 @@ function renderChatMessages(messages, scrollToBottom = false) {
             // Render images in grid if multiple
             if (images.length > 0) {
                 const gridClass = images.length === 1 ? 'chat-image-grid-single' :
-                                 images.length === 2 ? 'chat-image-grid-two' :
-                                 images.length === 3 ? 'chat-image-grid-three' :
-                                 'chat-image-grid-multi';
+                    images.length === 2 ? 'chat-image-grid-two' :
+                        images.length === 3 ? 'chat-image-grid-three' :
+                            'chat-image-grid-multi';
 
                 content += `<div class="chat-image-grid ${gridClass}">`;
                 images.forEach((imageUrl, idx) => {
@@ -15041,7 +15120,7 @@ async function handleRealtimeConversationEvent(event) {
     // Match by conversation ID or by page_id + customer PSID
     const isMatchingConv = (conversation.id === currentConvId) ||
         (conversation.page_id === currentChannelId &&
-         (conversation.from?.id === currentPSID || conversation.from_psid === currentPSID));
+            (conversation.from?.id === currentPSID || conversation.from_psid === currentPSID));
 
     if (!isMatchingConv) {
         // Log quietly - this is expected for updates to other conversations
@@ -17516,7 +17595,7 @@ async function addChatProductFromSearch(productId) {
  * Fetches full product details from TPOS, updates order on backend, and removes from Firebase held_products
  * @param {number|string} productId - Product ID (will be normalized to number)
  */
-window.confirmHeldProduct = async function(productId) {
+window.confirmHeldProduct = async function (productId) {
     try {
         // Normalize productId to number for consistent comparison
         const normalizedProductId = parseInt(productId);
@@ -17680,7 +17759,7 @@ window.confirmHeldProduct = async function(productId) {
  * Delete held product - Remove from held list with confirmation
  * @param {number|string} productId - Product ID (will be normalized to number)
  */
-window.deleteHeldProduct = async function(productId) {
+window.deleteHeldProduct = async function (productId) {
     try {
         // Normalize productId to number for consistent comparison
         const normalizedProductId = parseInt(productId);
@@ -17705,7 +17784,7 @@ window.deleteHeldProduct = async function(productId) {
             ? await window.CustomPopup.confirm(
                 `Bạn có chắc muốn xóa sản phẩm "${heldProduct.ProductName || heldProduct.Name}" khỏi danh sách giữ?`,
                 'Xác nhận xóa'
-              )
+            )
             : confirm(`Bạn có chắc muốn xóa sản phẩm "${heldProduct.ProductName || heldProduct.Name}" khỏi danh sách giữ?`);
 
         if (!confirmed) return;
@@ -21837,7 +21916,7 @@ async function openSaleButtonModal() {
         }
 
         // Add event listener for prepaid amount changes (for admin)
-        prepaidAmountField.oninput = function() {
+        prepaidAmountField.oninput = function () {
             updateSaleRemainingBalance();
         };
     }
@@ -21845,7 +21924,7 @@ async function openSaleButtonModal() {
     // Add event listener for COD input changes
     const codInput = document.getElementById('saleCOD');
     if (codInput) {
-        codInput.oninput = function() {
+        codInput.oninput = function () {
             updateSaleRemainingBalance();
         };
     }
@@ -21853,7 +21932,7 @@ async function openSaleButtonModal() {
     // Add event listener for shipping fee changes to update COD realtime
     const shippingFeeInput = document.getElementById('saleShippingFee');
     if (shippingFeeInput) {
-        shippingFeeInput.oninput = function() {
+        shippingFeeInput.oninput = function () {
             // Recalculate COD when shipping fee changes
             const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
             const shippingFee = parseFloat(this.value) || 0;
@@ -21868,7 +21947,7 @@ async function openSaleButtonModal() {
     // Add event listener for discount changes to update totals realtime
     const discountInput = document.getElementById('saleDiscount');
     if (discountInput) {
-        discountInput.oninput = function() {
+        discountInput.oninput = function () {
             // Recalculate totals when discount changes
             const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
             const totalQuantity = parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
@@ -22177,12 +22256,12 @@ function populatePartnerData(partner) {
     const customerName = partner.DisplayName || partner.Name || '';
     const customerStatus = partner.StatusText || 'Bình thường';
     const loyaltyPoints = partner.LoyaltyPoints || 0;
-    
+
     // Hidden elements (for JS compatibility)
     document.getElementById('saleCustomerName').textContent = customerName;
     document.getElementById('saleCustomerStatus').textContent = customerStatus;
     document.getElementById('saleLoyaltyPoints').textContent = loyaltyPoints;
-    
+
     // Header elements (visible)
     document.getElementById('saleCustomerNameHeader').textContent = customerName;
     document.getElementById('saleCustomerStatusHeader').textContent = customerStatus;
@@ -22450,8 +22529,8 @@ async function removeSaleItemFromAPI(index) {
 
     // Get product info for confirmation
     const productName = currentSaleOrderData.orderLines[index].Product?.NameGet ||
-                       currentSaleOrderData.orderLines[index].ProductName ||
-                       'sản phẩm này';
+        currentSaleOrderData.orderLines[index].ProductName ||
+        'sản phẩm này';
 
     // Confirm before removing
     const confirmed = await window.notificationManager.confirm(
@@ -22712,9 +22791,9 @@ function displaySaleProductResults(results) {
             <tr ${rowClass} onclick="addProductToSaleFromSearch(${product.Id})" style="cursor: pointer;">
                 <td style="width: 40px; text-align: center;">
                     ${product.ImageUrl ?
-                        `<img src="${product.ImageUrl}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">` :
-                        `<div style="width: 30px; height: 30px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af; font-size: 12px;"></i></div>`
-                    }
+                `<img src="${product.ImageUrl}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">` :
+                `<div style="width: 30px; height: 30px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af; font-size: 12px;"></i></div>`
+            }
                 </td>
                 <td>
                     <div style="font-weight: 500;">${product.Name}</div>
@@ -23823,7 +23902,7 @@ function switchChatPanelTab(tabName) {
     }
 
     // Special handling for different tabs
-    switch(tabName) {
+    switch (tabName) {
         case 'orders':
             // Re-render products if needed
             if (typeof renderChatProductsPanel === 'function') {
@@ -23863,7 +23942,7 @@ window.updateChatProductQuantity = updateChatProductQuantity;
 // Chat Product Manager - For Orders tab in right panel
 window.chatProductManager = {
     addProductFromSearch: addChatProductFromSearch,
-    renderInvoiceHistory: function() {
+    renderInvoiceHistory: function () {
         // TODO: Implement invoice history rendering
         const container = document.getElementById('chatInvoiceHistoryContainer');
         if (container) {

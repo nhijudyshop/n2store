@@ -68,7 +68,7 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-Auth-Data, X-User-Id, tposappversion, x-tpos-lang',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-Auth-Data, X-User-Id, tposappversion, x-tpos-lang, X-Page-Access-Token',
           'Access-Control-Max-Age': '86400',
         },
       });
@@ -625,23 +625,30 @@ export default {
       // ========== FACEBOOK GRAPH API - SEND MESSAGE WITH TAG ==========
       // For sending messages outside 24h window using POST_PURCHASE_UPDATE tag
       // POST /api/facebook-send
-      // Body: { pageId, psid, message, pageToken, useTag: true }
+      // Body: { pageId, psid, message, pageToken, useTag: true, recipient: {...} }
+      // Supports both PSID direct send and CommentID Private Reply
       if (pathname === '/api/facebook-send' && request.method === 'POST') {
         console.log('[FACEBOOK-SEND] ========================================');
         console.log('[FACEBOOK-SEND] Received request to send message via Facebook Graph API');
 
         try {
           const body = await request.json();
-          const { pageId, psid, message, pageToken, useTag, imageUrls } = body;
+          // Support recipient object (for Private Reply with comment_id)
+          let { pageId, psid, message, pageToken, useTag, imageUrls, recipient } = body;
+          
+          // Fallback: Get token from header if not in body
+          if (!pageToken) {
+            pageToken = request.headers.get('X-Page-Access-Token');
+          }
 
-          // Validate required fields
-          if (!pageId || !psid || !pageToken) {
-            console.error('[FACEBOOK-SEND] Missing required fields:', { pageId: !!pageId, psid: !!psid, pageToken: !!pageToken });
+          // Validate required fields (psid OR recipient required)
+          if (!pageId || (!psid && !recipient) || !pageToken) {
+            console.error('[FACEBOOK-SEND] Missing required fields:', { pageId: !!pageId, psid: !!psid, recipient: !!recipient, pageToken: !!pageToken });
             return new Response(JSON.stringify({
               success: false,
               error: 'Missing required fields',
-              required: ['pageId', 'psid', 'pageToken'],
-              usage: 'POST /api/facebook-send with JSON body { pageId, psid, message, pageToken, useTag: true, imageUrls: [] }'
+              required: ['pageId', 'psid OR recipient', 'pageToken'],
+              usage: 'POST /api/facebook-send with JSON body { pageId, psid, message, pageToken }'
             }), {
               status: 400,
               headers: {
@@ -664,7 +671,7 @@ export default {
             console.log('[FACEBOOK-SEND] Sending', imageUrls.length, 'images...');
             for (const imageUrl of imageUrls) {
               const imageFbBody = {
-                recipient: { id: psid },
+                recipient: recipient || { id: psid },
                 message: {
                   attachment: {
                     type: 'image',
@@ -676,11 +683,11 @@ export default {
                 }
               };
 
-              // Add message tag for 24h bypass
+              // Add message tag for 24h bypass (not for Private Reply)
               if (useTag) {
                 imageFbBody.messaging_type = 'MESSAGE_TAG';
                 imageFbBody.tag = 'POST_PURCHASE_UPDATE';
-              } else {
+              } else if (!recipient?.comment_id) {
                 imageFbBody.messaging_type = 'RESPONSE';
               }
 
@@ -720,20 +727,24 @@ export default {
           }
 
           // Send text message (if provided)
-          if (message && message.trim()) {
+          // Handle both string message and object message (for passthrough)
+          const hasTextMessage = message && (typeof message === 'string' ? message.trim() : message.text);
+          if (hasTextMessage) {
             const textFbBody = {
-              recipient: { id: psid },
-              message: { text: message },
+              recipient: recipient || { id: psid },
+              message: typeof message === 'object' ? message : { text: message },
             };
 
-            // Add message tag for 24h bypass
+            // Add message tag for 24h bypass (not for Private Reply)
             if (useTag) {
               textFbBody.messaging_type = 'MESSAGE_TAG';
               textFbBody.tag = 'POST_PURCHASE_UPDATE';
               console.log('[FACEBOOK-SEND] Using MESSAGE_TAG with POST_PURCHASE_UPDATE');
-            } else {
+            } else if (!recipient?.comment_id) {
               textFbBody.messaging_type = 'RESPONSE';
               console.log('[FACEBOOK-SEND] Using standard RESPONSE messaging_type');
+            } else {
+              console.log('[FACEBOOK-SEND] Using Private Reply (comment_id)');
             }
 
             console.log('[FACEBOOK-SEND] Sending text message');
