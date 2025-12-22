@@ -448,6 +448,16 @@ function displayComparisonResult(internalErrors, comparisonErrors) {
                                 <span class="detail-value">${formatCurrency(error.external.amount)}</span>
                             </div>
                         ` : ''}
+                        ${error.ai ? `
+                            <div class="error-detail">
+                                <span class="detail-label">Hóa đơn (OCR) SL</span>
+                                <span class="detail-value">${error.ai.qty}</span>
+                            </div>
+                            <div class="error-detail">
+                                <span class="detail-label">Hóa đơn (OCR) Tiền</span>
+                                <span class="detail-value">${formatCurrency(error.ai.amount)}</span>
+                            </div>
+                        ` : ''}
                         ${error.difference !== undefined ? `
                             <div class="error-detail">
                                 <span class="detail-label">Chênh lệch</span>
@@ -485,8 +495,13 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
-function showLoading(show) {
+function showLoading(show, message = 'Đang tải dữ liệu...') {
     elements.loadingOverlay.style.display = show ? 'flex' : 'none';
+    // Update loading message if exists
+    const loadingText = elements.loadingOverlay.querySelector('p');
+    if (loadingText) {
+        loadingText.textContent = message;
+    }
 }
 
 function showNotification(message, type = 'info') {
@@ -681,7 +696,7 @@ Chỉ trả về JSON, không thêm giải thích hay text khác.`;
 
 async function analyzeImagesWithAI() {
     try {
-        showLoading(true);
+        showLoading(true, '🔤 Đang khởi tạo OCR...');
 
         if (uploadedImages.length === 0) {
             throw new Error('Chưa có ảnh nào được tải lên');
@@ -692,10 +707,22 @@ async function analyzeImagesWithAI() {
         }
 
         console.log('[AI-ANALYSIS] Starting analysis with', uploadedImages.length, 'images');
+        console.log('[AI-ANALYSIS] Approach: OCR + DeepSeek Text Analysis');
+
+        // Step 1: Initialize OCR
+        showLoading(true, '🔤 Đang tải OCR engine...');
+        await window.DeepSeekAI.initializeOCR();
+
+        // Step 2: OCR extract text
+        showLoading(true, '📷 Đang trích xuất text từ ảnh (OCR)...');
 
         const image = uploadedImages[0];
 
-        console.log('[AI-ANALYSIS] Using DeepSeek API...');
+        console.log('[AI-ANALYSIS] Using DeepSeek API with OCR...');
+
+        // Step 3: Send to DeepSeek
+        showLoading(true, '🤖 Đang phân tích với DeepSeek AI...');
+
         const result = await window.DeepSeekAI.analyzeImage(
             image.base64,
             AI_ANALYSIS_PROMPT,
