@@ -900,6 +900,34 @@
             font-size: 13px;
         }
 
+        .duplicate-orders-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #b45309;
+            font-weight: 500;
+        }
+
+        .duplicate-orders-btn:hover {
+            background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .duplicate-orders-btn .duplicate-count {
+            background: #f59e0b;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+        }
+
         .duplicate-orders-section h4 {
             margin: 0 0 10px 0;
             color: #333;
@@ -1154,6 +1182,37 @@
 
         .emp-remaining-count {
             background: #ef4444;
+            color: white;
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .emp-duplicate-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #b45309;
+            font-size: 12px;
+            margin-top: 8px;
+            margin-right: 8px;
+        }
+
+        .emp-duplicate-btn:hover {
+            background: #fde68a;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+        }
+
+        .emp-duplicate-count {
+            background: #f59e0b;
             color: white;
             padding: 1px 6px;
             border-radius: 8px;
@@ -2244,7 +2303,7 @@
             { pattern: 'chờ hàng', type: 'startsWith', displayName: 'Chờ Hàng', color: '#6366f1' },
             { pattern: 'xả đơn', type: 'startsWith', displayName: 'Xả Đơn', color: '#14b8a6' },
             { pattern: 'giỏ trống', type: 'startsWith', displayName: 'Giỏ Trống', color: '#f59e0b' },
-            { pattern: 'đã gộp không chốt', type: 'startsWith', displayName: 'Đã Gộp Không Chốt', color: '#8b5cf6' }
+            { pattern: 'đã gộp ko chốt', type: 'startsWith', displayName: 'ĐÃ GỘP KO CHỐT', color: '#8b5cf6' }
         ];
 
         /**
@@ -2314,12 +2373,23 @@
                             result.breakdown[mt.pattern].orders.push(order);
                         }
                     });
+                }
 
-                    // Check for duplicates (2+ different tag patterns)
-                    const uniquePatterns = [...new Set(matchedClosedTags.map(t => t.pattern))];
-                    if (uniquePatterns.length >= 2) {
-                        result.duplicateOrders.push({ order, matchedTags: matchedClosedTags });
-                    }
+                // Build all matched tags including Ordered status for duplicate checking
+                const allMatchedTags = [...matchedClosedTags];
+                if (isOrdered) {
+                    allMatchedTags.unshift({
+                        pattern: '__ordered__',
+                        displayName: 'Ordered',
+                        color: '#22c55e',
+                        originalTag: 'Đơn hàng (Ordered)'
+                    });
+                }
+
+                // Check for duplicates (2+ different patterns including Ordered)
+                const uniquePatterns = [...new Set(allMatchedTags.map(t => t.pattern))];
+                if (uniquePatterns.length >= 2) {
+                    result.duplicateOrders.push({ order, matchedTags: allMatchedTags });
                 }
 
                 // Check if order is not in any category
@@ -2371,35 +2441,16 @@
                 }
             });
 
-            // Build duplicate orders table
+            // Build duplicate orders button (opens modal)
             let duplicateHtml = '';
             if (stats.duplicateOrders.length > 0) {
                 duplicateHtml = `
                     <div class="duplicate-orders-section">
-                        <h4><i class="fas fa-exclamation-triangle"></i> Đơn có từ 2 tag trùng (${stats.duplicateOrders.length} đơn - chỉ tính 1 lần)</h4>
-                        <div style="max-height: 300px; overflow-y: auto;">
-                            <table class="orders-mini-table">
-                                <thead>
-                                    <tr>
-                                        <th>STT</th>
-                                        <th>Mã đơn</th>
-                                        <th>Tags trùng</th>
-                                        <th>Khách hàng</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${stats.duplicateOrders.map(d => `
-                                        <tr>
-                                            <td>${d.order.SessionIndex || '-'}</td>
-                                            <td class="order-code">${d.order.Code || ''}</td>
-                                            <td class="tags-cell">
-                                                ${d.matchedTags.map(t => `<span class="mini-tag" style="background-color: ${t.color};">${t.originalTag}</span>`).join('')}
-                                            </td>
-                                            <td>${d.order.Name || d.order.PartnerName || ''}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
+                        <div class="duplicate-orders-btn" onclick="viewDuplicateOrders()">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Đơn có tag trùng</span>
+                            <span class="duplicate-count">${stats.duplicateOrders.length} đơn</span>
+                            <i class="fas fa-eye" style="margin-left: auto;"></i>
                         </div>
                     </div>
                 `;
@@ -2508,6 +2559,80 @@
             if (empStats.remainingOrders.length === 0) return;
 
             showOrdersDetailModal(`${empName} - Đơn Chưa Phân Loại (${empStats.remainingOrders.length} đơn)`, empStats.remainingOrders);
+        }
+
+        /**
+         * View duplicate orders (orders with 2+ tags)
+         */
+        function viewDuplicateOrders() {
+            const stats = window._actualClosedStats;
+            if (!stats || !stats.duplicateOrders.length) return;
+
+            // Show modal with duplicate orders and their tags
+            showDuplicateOrdersModal('Đơn Có Tag Trùng', stats.duplicateOrders);
+        }
+
+        /**
+         * View employee duplicate orders
+         */
+        function viewEmployeeDuplicateOrders(empName, start, end) {
+            const cached = cachedOrderDetails[currentTableName];
+            const orders = cached?.orders || [];
+
+            // Filter orders by employee
+            const empOrders = orders.filter(order => {
+                const stt = parseInt(order.SessionIndex || 0);
+                return stt >= start && stt <= end;
+            });
+
+            // Calculate stats for this employee
+            const empStats = calculateActualClosedStats(empOrders);
+
+            if (empStats.duplicateOrders.length === 0) return;
+
+            showDuplicateOrdersModal(`${empName} - Đơn Có Tag Trùng`, empStats.duplicateOrders);
+        }
+
+        /**
+         * Show duplicate orders modal with tags
+         */
+        function showDuplicateOrdersModal(title, duplicateOrders) {
+            const modal = document.getElementById('ordersDetailModal');
+            const titleEl = document.getElementById('ordersDetailTitle');
+            const body = document.getElementById('ordersDetailBody');
+
+            titleEl.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i> ${title} <span style="font-size: 14px; opacity: 0.8;">(${duplicateOrders.length} đơn - chỉ tính 1 lần)</span>`;
+
+            body.innerHTML = `
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Mã đơn</th>
+                            <th>Tags trùng</th>
+                            <th>Khách hàng</th>
+                            <th>SĐT</th>
+                            <th>SP</th>
+                            <th>Tổng tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${duplicateOrders.map(d => `
+                            <tr>
+                                <td>${d.order.SessionIndex || '-'}</td>
+                                <td class="order-code">${d.order.Code || ''}</td>
+                                <td><div class="tags-cell">${d.matchedTags.map(t => `<span class="order-tag" style="background-color: ${t.color};">${t.originalTag}</span>`).join('')}</div></td>
+                                <td>${d.order.Name || d.order.PartnerName || ''}</td>
+                                <td>${d.order.Telephone || ''}</td>
+                                <td>${(d.order.Details || []).length}</td>
+                                <td class="amount">${(d.order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            modal.classList.add('show');
         }
 
         /**
@@ -2670,16 +2795,15 @@
                 }
             });
 
-            // Build duplicate orders mini-list
+            // Build duplicate orders button (clickable to open modal)
             let duplicateHtml = '';
             if (stats.duplicateOrders.length > 0) {
-                const dupList = stats.duplicateOrders.map(d =>
-                    `<span class="dup-order-code">${d.order.Code}</span>`
-                ).join(' ');
                 duplicateHtml = `
-                    <div class="emp-duplicate-note">
-                        <i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i>
-                        Tag trùng (${stats.duplicateOrders.length}): ${dupList}
+                    <div class="emp-duplicate-btn" onclick="viewEmployeeDuplicateOrders('${emp.name}', ${emp.start}, ${emp.end})">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Tag trùng</span>
+                        <span class="emp-duplicate-count">${stats.duplicateOrders.length}</span>
+                        <i class="fas fa-eye"></i>
                     </div>
                 `;
             }
