@@ -15,7 +15,7 @@ const DEEPSEEK_API_KEY = (window.DEEPSEEK_API_KEY || "").trim();
 
 // API Configuration
 const DEEPSEEK_API_BASE = 'https://api.deepseek.com/v1';
-const DEFAULT_MODEL = 'deepseek-chat';
+const DEEPSEEK_DEFAULT_MODEL = 'deepseek-chat';
 
 // Rate limiting
 let lastRequestTime = 0;
@@ -27,7 +27,7 @@ const MIN_REQUEST_INTERVAL = 500; // 500ms between requests
 
 async function callDeepSeekAPI(messages, options = {}) {
     const {
-        model = DEFAULT_MODEL,
+        model = DEEPSEEK_DEFAULT_MODEL,
         maxTokens = 4096,
         temperature = 0.7,
     } = options;
@@ -159,7 +159,7 @@ window.DeepSeekAI = {
     isConfigured: () => !!DEEPSEEK_API_KEY,
     getStats: () => ({
         configured: !!DEEPSEEK_API_KEY,
-        model: DEFAULT_MODEL,
+        model: DEEPSEEK_DEFAULT_MODEL,
         apiBase: DEEPSEEK_API_BASE,
     }),
 };
