@@ -585,7 +585,7 @@ async function handleImageUpload(files) {
                 continue;
             }
 
-            const base64 = await window.GeminiAI.fileToBase64(file);
+            const base64 = await window.DeepSeekAI.fileToBase64(file);
             const imageUrl = URL.createObjectURL(file);
 
             uploadedImages.push({
