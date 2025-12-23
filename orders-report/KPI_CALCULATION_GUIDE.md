@@ -214,17 +214,56 @@ N1769 - 1 - 390000
 
 ---
 
-## API Functions (Cần implement)
+## API Functions (✅ Đã implement)
 
-| Function | Mô tả |
-|----------|-------|
-| `checkKPIBaseExists(orderId)` | Kiểm tra đã có BASE chưa |
-| `saveKPIBase(orderId, userId, stt, products)` | Lưu BASE vào Firebase |
-| `getKPIBase(orderId)` | Lấy BASE đã lưu |
-| `parseNoteProducts(note)` | Parse sản phẩm từ Note (N1769 - 1 - 390000) |
-| `calculateKPIDifference(base, noteProducts)` | Tính số SP khác biệt |
-| `calculateKPIAmount(differences)` | Tính tiền KPI (× 5,000đ) |
-| `saveKPIStatistics(userId, date, statistics)` | Lưu thống kê KPI |
+### Core Functions - `kpi-manager.js`
+
+| Function | Mô tả | Status |
+|----------|-------|--------|
+| `checkKPIBaseExists(orderId)` | Kiểm tra đã có BASE chưa | ✅ |
+| `saveKPIBase(orderId, userId, stt, products)` | Lưu BASE vào Firebase | ✅ |
+| `getKPIBase(orderId)` | Lấy BASE đã lưu | ✅ |
+| `parseNoteProducts(note)` | Parse sản phẩm từ Note (N1769 - 1 - 390000) | ✅ |
+| `calculateKPIDifference(base, noteProducts)` | Tính số SP khác biệt | ✅ |
+| `calculateKPIAmount(differences)` | Tính tiền KPI (× 5,000đ) | ✅ |
+| `saveKPIStatistics(userId, date, statistics)` | Lưu thống kê KPI | ✅ |
+
+### Helper Functions - `kpi-manager.js`
+
+| Function | Mô tả | Status |
+|----------|-------|--------|
+| `promptAndSaveKPIBase(orderId, stt, mainProducts)` | Popup hỏi user + lưu BASE | ✅ |
+| `calculateAndSaveKPI(orderId, noteText)` | Tính và lưu KPI hoàn chỉnh | ✅ |
+| `getCurrentDateString()` | Trả về YYYY-MM-DD | ✅ |
+
+### UI Functions - `kpi-statistics-ui.js`
+
+| Function | Mô tả | Status |
+|----------|-------|--------|
+| `loadKPIStatistics(dateFilter)` | Load statistics từ Firebase | ✅ |
+| `loadKPIBase(orderId)` | Load BASE cho đơn hàng | ✅ |
+| `aggregateByUser(statsData, dateFilter)` | Tổng hợp theo user | ✅ |
+| `renderKPIStatisticsTable(containerId, dateFilter)` | Render bảng thống kê | ✅ |
+| `showUserKPIDetail(userId)` | Modal chi tiết KPI user | ✅ |
+| `showOrderKPIComparison(orderId)` | Modal so sánh BASE | ✅ |
+| `renderKPITimelineChart(canvasId, userId)` | Render chart timeline | ✅ |
+
+---
+
+## Files Đã Tạo
+
+| File | Dòng | Mô tả |
+|------|------|-------|
+| `kpi-manager.js` | ~400 | Core logic tính KPI |
+| `kpi-statistics-ui.js` | ~500 | UI hiển thị thống kê |
+
+---
+
+## Tích Hợp
+
+- `addChatProductFromSearch()` trong `tab1-orders.js`: Thêm SP vào `held_products` thay vì trực tiếp vào đơn
+- `confirmHeldProduct()` trong `tab1-orders.js`: Gọi `kpiManager.promptAndSaveKPIBase()` khi xác nhận SP lần đầu
+- `tab2-statistics.html`: Include `kpi-manager.js` và `kpi-statistics-ui.js`
 
 ---
 
