@@ -734,6 +734,16 @@ async function handleImageUpload(files) {
 function displayUploadedImages() {
     elements.invoiceImages.innerHTML = '';
 
+    // Update drop zone state
+    const dropZone = document.getElementById('dropZone');
+    if (dropZone) {
+        if (uploadedImages.length > 0) {
+            dropZone.classList.add('has-images');
+        } else {
+            dropZone.classList.remove('has-images');
+        }
+    }
+
     uploadedImages.forEach((img, index) => {
         const div = document.createElement('div');
         div.className = 'invoice-image';
@@ -1083,6 +1093,47 @@ elements.imageUpload.addEventListener('change', (e) => {
         handleImageUpload(files);
     }
 });
+
+// Drop Zone - Drag & Drop support
+const dropZone = document.getElementById('dropZone');
+if (dropZone) {
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+
+    // Highlight drop zone when dragging over
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.add('drag-over');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.remove('drag-over');
+        });
+    });
+
+    // Handle dropped files
+    dropZone.addEventListener('drop', (e) => {
+        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+        if (files.length > 0) {
+            console.log('[DROP] Received', files.length, 'image(s)');
+            handleImageUpload(files);
+        }
+    });
+
+    // Click on drop zone to open file picker
+    dropZone.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'LABEL' && !e.target.closest('label')) {
+            elements.imageUpload.click();
+        }
+    });
+}
 
 // Paste Image (Ctrl+V)
 document.addEventListener('paste', async (e) => {
