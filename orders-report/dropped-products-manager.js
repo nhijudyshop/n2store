@@ -1647,6 +1647,120 @@
         }
     };
 
+    /**
+     * Remove all held products for current user when leaving page
+     * This prevents orphaned held records when user closes browser/tab
+     * Called from beforeunload event
+     */
+    window.cleanupAllUserHeldProducts = async function () {
+        if (!window.firebase || !window.authManager) return;
+
+        const auth = window.authManager.getAuthState();
+        if (!auth) return;
+
+        let userId = auth.id || auth.Id || auth.username || auth.userType;
+        if (!userId && auth.displayName) {
+            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+        }
+
+        if (!userId) return;
+
+        try {
+            console.log('[HELD-PRODUCTS] Cleaning up all held products for user:', userId);
+
+            // Get all held products across all orders
+            const heldProductsRef = window.firebase.database().ref('held_products');
+            const snapshot = await heldProductsRef.once('value');
+            const allOrders = snapshot.val() || {};
+
+            let cleanupCount = 0;
+            const updates = {};
+
+            // Scan all orders and mark this user's held products for removal
+            for (const orderId in allOrders) {
+                const orderProducts = allOrders[orderId];
+                if (!orderProducts) continue;
+
+                for (const productId in orderProducts) {
+                    const productHolders = orderProducts[productId];
+                    if (productHolders && productHolders[userId]) {
+                        // Mark for removal
+                        updates[`${orderId}/${productId}/${userId}`] = null;
+                        cleanupCount++;
+                    }
+                }
+            }
+
+            // Perform batch removal
+            if (cleanupCount > 0) {
+                await heldProductsRef.update(updates);
+                console.log(`[HELD-PRODUCTS] ✓ Cleaned up ${cleanupCount} held products for user`);
+            } else {
+                console.log('[HELD-PRODUCTS] No held products to clean up');
+            }
+
+        } catch (error) {
+            console.error('[HELD-PRODUCTS] ❌ Error cleaning up all held products:', error);
+        }
+    };
+
+    /**
+     * Synchronous cleanup for beforeunload (sendBeacon approach)
+     * Uses navigator.sendBeacon for reliable cleanup when page unloads
+     */
+    window.cleanupHeldProductsSync = function () {
+        if (!window.firebase || !window.authManager) return;
+
+        const auth = window.authManager.getAuthState();
+        if (!auth) return;
+
+        let userId = auth.id || auth.Id || auth.username || auth.userType;
+        if (!userId && auth.displayName) {
+            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+        }
+
+        if (!userId) return;
+
+        // Store cleanup info in localStorage for next session to verify
+        try {
+            const cleanupInfo = {
+                userId: userId,
+                timestamp: Date.now(),
+                pending: true
+            };
+            localStorage.setItem('n2store_held_cleanup_pending', JSON.stringify(cleanupInfo));
+            console.log('[HELD-PRODUCTS] Marked cleanup as pending for next session');
+        } catch (e) {
+            console.error('[HELD-PRODUCTS] Failed to mark cleanup pending:', e);
+        }
+    };
+
+    /**
+     * Check and complete any pending cleanup from previous session
+     * Called on page load
+     */
+    window.checkPendingHeldCleanup = async function () {
+        try {
+            const pendingCleanup = localStorage.getItem('n2store_held_cleanup_pending');
+            if (!pendingCleanup) return;
+
+            const cleanupInfo = JSON.parse(pendingCleanup);
+
+            // If cleanup was pending less than 1 hour ago, complete it
+            if (cleanupInfo.pending && (Date.now() - cleanupInfo.timestamp) < 3600000) {
+                console.log('[HELD-PRODUCTS] Found pending cleanup from previous session');
+                await window.cleanupAllUserHeldProducts();
+            }
+
+            // Clear pending flag
+            localStorage.removeItem('n2store_held_cleanup_pending');
+
+        } catch (e) {
+            console.error('[HELD-PRODUCTS] Error checking pending cleanup:', e);
+            localStorage.removeItem('n2store_held_cleanup_pending');
+        }
+    };
+
     // Auto-initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {

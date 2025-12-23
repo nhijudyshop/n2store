@@ -555,6 +555,157 @@
         return div.innerHTML;
     }
 
+    // =====================================================
+    // REALTIME LISTENERS
+    // =====================================================
+
+    let kpiBaseListenerRef = null;
+    let kpiStatsListenerRef = null;
+
+    /**
+     * Setup realtime listener for KPI BASE changes
+     * Listens for new BASE saves and updates
+     */
+    function setupKPIBaseRealtimeListener() {
+        if (!window.firebase || !window.firebase.database) {
+            console.warn('[KPI-UI] Firebase not available for realtime');
+            return;
+        }
+
+        // Don't setup duplicate listeners
+        if (kpiBaseListenerRef) {
+            console.log('[KPI-UI] KPI BASE listener already active');
+            return;
+        }
+
+        console.log('[KPI-UI] Setting up KPI BASE realtime listener...');
+
+        kpiBaseListenerRef = window.firebase.database().ref(KPI_BASE_COLLECTION);
+
+        // Listen for new BASE entries
+        kpiBaseListenerRef.on('child_added', (snapshot) => {
+            const orderId = snapshot.key;
+            const data = snapshot.val();
+            kpiBaseData[orderId] = data;
+            console.log('[KPI-UI] KPI BASE added for order:', orderId);
+
+            // Trigger UI refresh if stats table is visible
+            refreshKPITableIfVisible();
+        });
+
+        // Listen for BASE updates
+        kpiBaseListenerRef.on('child_changed', (snapshot) => {
+            const orderId = snapshot.key;
+            const data = snapshot.val();
+            kpiBaseData[orderId] = data;
+            console.log('[KPI-UI] KPI BASE updated for order:', orderId);
+
+            // Trigger UI refresh if stats table is visible
+            refreshKPITableIfVisible();
+        });
+
+        // Listen for BASE removals
+        kpiBaseListenerRef.on('child_removed', (snapshot) => {
+            const orderId = snapshot.key;
+            delete kpiBaseData[orderId];
+            console.log('[KPI-UI] KPI BASE removed for order:', orderId);
+
+            // Trigger UI refresh if stats table is visible
+            refreshKPITableIfVisible();
+        });
+
+        console.log('[KPI-UI] ✓ KPI BASE realtime listener active');
+    }
+
+    /**
+     * Setup realtime listener for KPI Statistics changes
+     */
+    function setupKPIStatisticsRealtimeListener() {
+        if (!window.firebase || !window.firebase.database) {
+            console.warn('[KPI-UI] Firebase not available for realtime');
+            return;
+        }
+
+        // Don't setup duplicate listeners
+        if (kpiStatsListenerRef) {
+            console.log('[KPI-UI] KPI Statistics listener already active');
+            return;
+        }
+
+        console.log('[KPI-UI] Setting up KPI Statistics realtime listener...');
+
+        kpiStatsListenerRef = window.firebase.database().ref(KPI_STATISTICS_COLLECTION);
+
+        // Listen for user stats changes
+        kpiStatsListenerRef.on('child_added', (snapshot) => {
+            const userId = snapshot.key;
+            const data = snapshot.val();
+            kpiStatsData[userId] = data;
+            console.log('[KPI-UI] KPI stats added for user:', userId);
+
+            // Trigger UI refresh if stats table is visible
+            refreshKPITableIfVisible();
+        });
+
+        kpiStatsListenerRef.on('child_changed', (snapshot) => {
+            const userId = snapshot.key;
+            const data = snapshot.val();
+            kpiStatsData[userId] = data;
+            console.log('[KPI-UI] KPI stats updated for user:', userId);
+
+            // Trigger UI refresh if stats table is visible
+            refreshKPITableIfVisible();
+        });
+
+        kpiStatsListenerRef.on('child_removed', (snapshot) => {
+            const userId = snapshot.key;
+            delete kpiStatsData[userId];
+            console.log('[KPI-UI] KPI stats removed for user:', userId);
+
+            // Trigger UI refresh if stats table is visible
+            refreshKPITableIfVisible();
+        });
+
+        console.log('[KPI-UI] ✓ KPI Statistics realtime listener active');
+    }
+
+    /**
+     * Refresh KPI table if it's currently visible
+     */
+    function refreshKPITableIfVisible() {
+        const kpiContainer = document.getElementById('kpiStatisticsContainer');
+        if (kpiContainer && kpiContainer.offsetParent !== null) {
+            // Get current filter values
+            const dateFilter = document.getElementById('kpiDateFilter')?.value || null;
+            renderKPIStatisticsTable(dateFilter);
+        }
+    }
+
+    /**
+     * Cleanup realtime listeners
+     */
+    function cleanupKPIRealtimeListeners() {
+        if (kpiBaseListenerRef) {
+            console.log('[KPI-UI] Cleaning up KPI BASE listener');
+            kpiBaseListenerRef.off();
+            kpiBaseListenerRef = null;
+        }
+
+        if (kpiStatsListenerRef) {
+            console.log('[KPI-UI] Cleaning up KPI Statistics listener');
+            kpiStatsListenerRef.off();
+            kpiStatsListenerRef = null;
+        }
+    }
+
+    /**
+     * Initialize all KPI realtime listeners
+     */
+    function initKPIRealtimeListeners() {
+        setupKPIBaseRealtimeListener();
+        setupKPIStatisticsRealtimeListener();
+    }
+
     // Export to window
     window.kpiStatisticsUI = {
         loadKPIStatistics,
@@ -565,10 +716,23 @@
         showOrderKPIComparison,
         renderKPITimelineChart,
 
+        // Realtime listeners
+        initRealtimeListeners: initKPIRealtimeListeners,
+        cleanupRealtimeListeners: cleanupKPIRealtimeListeners,
+
         // Expose state for debugging
         getStatsData: () => kpiStatsData,
         getBaseData: () => kpiBaseData
     };
+
+    // Auto-initialize realtime listeners when module loads
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initKPIRealtimeListeners, 1000);
+        });
+    } else {
+        setTimeout(initKPIRealtimeListeners, 1000);
+    }
 
     console.log('[KPI-UI] ✓ KPI Statistics UI initialized');
 
