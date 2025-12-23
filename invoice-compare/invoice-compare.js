@@ -28,6 +28,7 @@ const elements = {
     btnRefresh: document.getElementById('btnRefresh'),
     imageUpload: document.getElementById('imageUpload'),
     btnAnalyzeWithAI: document.getElementById('btnAnalyzeWithAI'),
+    aiAnalyzeSection: document.getElementById('aiAnalyzeSection'),
     loadingOverlay: document.getElementById('loadingOverlay'),
     imagesSection: document.getElementById('imagesSection'),
     dataSection: document.getElementById('dataSection'),
@@ -682,7 +683,7 @@ function clearAll() {
     elements.dataSection.style.display = 'none';
     elements.resultSection.style.display = 'none';
     elements.invoiceImages.innerHTML = '';
-    elements.btnAnalyzeWithAI.style.display = 'none';
+    if (elements.aiAnalyzeSection) elements.aiAnalyzeSection.style.display = 'none';
     currentInvoiceData = null;
     currentInvoiceId = null;
     uploadedImages = [];
@@ -719,7 +720,7 @@ async function handleImageUpload(files) {
 
         // Show AI analysis button
         if (uploadedImages.length > 0) {
-            elements.btnAnalyzeWithAI.style.display = 'block';
+            if (elements.aiAnalyzeSection) elements.aiAnalyzeSection.style.display = 'flex';
         }
 
     } catch (error) {
@@ -757,7 +758,7 @@ function displayUploadedImages() {
             uploadedImages.splice(index, 1);
             displayUploadedImages();
             if (uploadedImages.length === 0) {
-                elements.btnAnalyzeWithAI.style.display = 'none';
+                if (elements.aiAnalyzeSection) elements.aiAnalyzeSection.style.display = 'none';
             }
         });
     });

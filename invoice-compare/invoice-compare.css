@@ -3,7 +3,7 @@
    ===================================================== */
 
 .invoice-compare-container {
-    padding: 20px;
+    padding: 12px;
     max-width: 1400px;
     margin: 0 auto;
 }
@@ -13,7 +13,7 @@
     background: white;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     overflow: hidden;
 }
 
@@ -22,6 +22,10 @@
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-header-compact {
+    padding: 12px 16px;
 }
 
 .card-header h2 {
@@ -33,13 +37,245 @@
     gap: 10px;
 }
 
+.card-header-compact h2 {
+    font-size: 16px;
+}
+
 .card-header h2 i {
     width: 24px;
     height: 24px;
 }
 
+.card-header-compact h2 i {
+    width: 20px;
+    height: 20px;
+}
+
 .card-body {
     padding: 24px;
+}
+
+.card-body-compact {
+    padding: 16px;
+}
+
+/* =====================================================
+   2-COLUMN INPUT LAYOUT
+   ===================================================== */
+.input-card-combined {
+    margin-bottom: 16px;
+}
+
+.input-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 900px) {
+    .input-grid-2col {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}
+
+.input-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.column-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #667eea;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.column-label i {
+    width: 16px;
+    height: 16px;
+}
+
+.input-group-compact {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.form-input-compact {
+    flex: 1;
+    padding: 10px 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.form-input-compact:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.button-group-compact {
+    display: flex;
+    gap: 4px;
+}
+
+.btn-sm {
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+.btn-sm i {
+    width: 16px;
+    height: 16px;
+}
+
+.btn-sm span {
+    display: inline;
+}
+
+@media (max-width: 500px) {
+    .btn-sm span {
+        display: none;
+    }
+    .btn-sm {
+        padding: 8px;
+    }
+}
+
+/* Upload Area Compact */
+.upload-area-compact {
+    display: flex;
+    align-items: center;
+}
+
+.upload-label-compact {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.upload-label-compact:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.upload-label-compact i {
+    width: 16px;
+    height: 16px;
+}
+
+/* Image Gallery Compact */
+.image-gallery-compact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.image-gallery-compact .invoice-image {
+    width: 60px;
+    height: 60px;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+}
+
+.image-gallery-compact .invoice-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-gallery-compact .btn-remove-image {
+    width: 20px;
+    height: 20px;
+    top: 2px;
+    right: 2px;
+}
+
+.image-gallery-compact .btn-remove-image i {
+    width: 12px;
+    height: 12px;
+}
+
+/* =====================================================
+   AI ANALYZE BUTTON - PROMINENT
+   ===================================================== */
+.ai-analyze-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed #e5e7eb;
+    display: flex;
+    justify-content: center;
+}
+
+.btn-analyze-ai {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 32px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    animation: pulseGlow 2s ease-in-out infinite;
+}
+
+.btn-analyze-ai:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+}
+
+.btn-analyze-ai:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.btn-analyze-ai i {
+    width: 20px;
+    height: 20px;
+}
+
+.btn-analyze-ai i:first-child {
+    animation: sparkle 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+    50% {
+        box-shadow: 0 4px 25px rgba(16, 185, 129, 0.6);
+    }
+}
+
+@keyframes sparkle {
+    0%, 100% {
+        transform: rotate(0deg) scale(1);
+    }
+    50% {
+        transform: rotate(15deg) scale(1.1);
+    }
 }
 
 /* Input Section */
