@@ -399,20 +399,310 @@
     color: #111827;
 }
 
-/* Loading Overlay */
+/* =====================================================
+   ENHANCED LOADING OVERLAY
+   ===================================================== */
 .loading-overlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
 }
 
+.loading-container {
+    background: white;
+    border-radius: 20px;
+    padding: 32px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Progress Steps */
+.loading-steps {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    position: relative;
+}
+
+.loading-steps::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 40px;
+    right: 40px;
+    height: 3px;
+    background: #e5e7eb;
+    border-radius: 2px;
+}
+
+.loading-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+    flex: 1;
+}
+
+.step-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+    font-size: 18px;
+}
+
+.step-label {
+    font-size: 12px;
+    color: #9ca3af;
+    font-weight: 500;
+    text-align: center;
+}
+
+.loading-step.active .step-icon {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+    animation: pulse 1.5s ease infinite;
+}
+
+.loading-step.active .step-label {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.loading-step.completed .step-icon {
+    background: #10b981;
+    color: white;
+}
+
+.loading-step.completed .step-label {
+    color: #10b981;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Current Status */
+.loading-status {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.loading-status h3 {
+    font-size: 20px;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.loading-status p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+}
+
+.loading-spinner-icon {
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Progress Bar */
+.loading-progress {
+    margin-bottom: 24px;
+}
+
+.progress-bar {
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+    background-size: 200% 100%;
+    animation: progressShimmer 2s linear infinite;
+    transition: width 0.3s ease;
+}
+
+@keyframes progressShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* OCR Preview */
+.ocr-preview {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.ocr-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.ocr-preview-header h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ocr-preview-header .ocr-engine {
+    font-size: 11px;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.ocr-preview-content {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #374151;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.ocr-preview-content:empty::before {
+    content: 'Đang trích xuất text...';
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.ocr-preview-content.streaming {
+    position: relative;
+}
+
+.ocr-preview-content.streaming::after {
+    content: '▋';
+    animation: blink 1s infinite;
+    color: #667eea;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* AI Response Preview */
+.ai-preview {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 1px solid #bae6fd;
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.ai-preview-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.ai-preview-header h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0369a1;
+    margin: 0;
+}
+
+.ai-preview-content {
+    background: white;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 150px;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #1e3a5f;
+}
+
+/* Stats */
+.loading-stats {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.loading-stat {
+    text-align: center;
+}
+
+.loading-stat .stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.loading-stat .stat-label {
+    font-size: 11px;
+    color: #9ca3af;
+    text-transform: uppercase;
+}
+
+/* Legacy spinner support */
 .loading-spinner {
     text-align: center;
     color: white;
@@ -428,15 +718,6 @@
 .loading-spinner p {
     font-size: 16px;
     font-weight: 600;
-}
-
-@keyframes spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
 }
 
 /* =====================================================
