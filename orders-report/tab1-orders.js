@@ -629,6 +629,11 @@ window.addEventListener("DOMContentLoaded", async function () {
         window.cacheManager.clear("campaigns");
     }
 
+    // Check and complete any pending held products cleanup from previous session
+    if (typeof window.checkPendingHeldCleanup === 'function') {
+        window.checkPendingHeldCleanup();
+    }
+
     // ⚠️ QUAN TRỌNG: Set default dates TRƯỚC KHI load campaigns
     // Vì auto-load cần dates để fetch orders
     const now = new Date();
@@ -17697,19 +17702,40 @@ async function addChatProductFromSearch(productId) {
     }
 }
 
+// Lock state to prevent duplicate confirmHeldProduct calls
+const confirmHeldProductLocks = new Set();
+
 /**
  * Confirm held product - Move from held list to main product list
  * Fetches full product details from TPOS, updates order on backend, and removes from Firebase held_products
  * @param {number|string} productId - Product ID (will be normalized to number)
  */
 window.confirmHeldProduct = async function (productId) {
-    try {
-        // Normalize productId to number for consistent comparison
-        const normalizedProductId = parseInt(productId);
-        if (isNaN(normalizedProductId)) {
-            throw new Error("Invalid product ID");
+    // Normalize productId to number for consistent comparison
+    const normalizedProductId = parseInt(productId);
+    if (isNaN(normalizedProductId)) {
+        console.error('[HELD-CONFIRM] Invalid product ID:', productId);
+        if (window.notificationManager) {
+            window.notificationManager.error("ID sản phẩm không hợp lệ");
         }
+        return;
+    }
 
+    // Lock key includes orderId to allow same product in different orders
+    const orderId = window.currentChatOrderData?.Id;
+    const lockKey = `${orderId}_${normalizedProductId}`;
+
+    // Check if already processing this product
+    if (confirmHeldProductLocks.has(lockKey)) {
+        console.warn('[HELD-CONFIRM] Already processing product:', normalizedProductId, '- skipping duplicate call');
+        return;
+    }
+
+    // Acquire lock
+    confirmHeldProductLocks.add(lockKey);
+    console.log('[HELD-CONFIRM] Lock acquired for:', lockKey);
+
+    try {
         // Find the held product using normalized ID
         const heldProduct = window.currentChatOrderData?.Details?.find(
             p => p.ProductId === normalizedProductId && p.IsHeld === true
@@ -17874,6 +17900,12 @@ window.confirmHeldProduct = async function (productId) {
         } else {
             alert("❌ Lỗi khi xác nhận: " + error.message);
         }
+    } finally {
+        // Always release the lock
+        const orderId = window.currentChatOrderData?.Id;
+        const lockKey = `${orderId}_${normalizedProductId}`;
+        confirmHeldProductLocks.delete(lockKey);
+        console.log('[HELD-CONFIRM] Lock released for:', lockKey);
     }
 };
 
@@ -22814,9 +22846,19 @@ document.addEventListener('keydown', function (e) {
     }
 });
 
-// Disconnect when page unloads
+// Disconnect when page unloads and cleanup held products
 window.addEventListener('beforeunload', () => {
     disconnectDebtRealtime();
+
+    // Cleanup held products for current user
+    if (typeof window.cleanupHeldProductsSync === 'function') {
+        window.cleanupHeldProductsSync();
+    }
+
+    // Cleanup held products listener
+    if (typeof window.cleanupHeldProductsListener === 'function') {
+        window.cleanupHeldProductsListener();
+    }
 });
 
 // Export realtime functions
