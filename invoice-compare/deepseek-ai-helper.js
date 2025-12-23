@@ -1,13 +1,14 @@
 /* =====================================================
    DEEPSEEK AI HELPER - For Invoice Analysis
-   Using Google Cloud Vision OCR + DeepSeek Text Analysis
+   Multi-OCR Engine Support with Intelligent Fallback
+
+   OCR Priority:
+   1. Google Cloud Vision (highest accuracy, 95%+)
+   2. DeepSeek-OCR via alphaXiv (good accuracy)
+   3. Tesseract.js (fallback, lower accuracy)
 
    Flow:
-   1. Image → Google Cloud Vision API (OCR) → Raw text
-   2. Raw text → DeepSeek API → Structured JSON
-
-   This approach provides high accuracy OCR (95%+) with
-   DeepSeek's powerful text analysis capabilities.
+   Image → [OCR Engine] → Raw text → [DeepSeek API] → Structured JSON
    ===================================================== */
 
 // Load API Keys
@@ -15,102 +16,152 @@ const DEEPSEEK_API_KEY = (window.DEEPSEEK_API_KEY || "").trim();
 const GOOGLE_CLOUD_VISION_API_KEY = (window.GOOGLE_CLOUD_VISION_API_KEY || "").trim();
 
 // API Configuration
-const DEEPSEEK_API_BASE = 'https://api.deepseek.com';
+const WORKER_PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+const DEEPSEEK_API_BASE = `${WORKER_PROXY_URL}/api/deepseek`;
+const DEEPSEEK_OCR_API = `${WORKER_PROXY_URL}/api/deepseek-ocr`;
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-chat';
 const GOOGLE_VISION_API_URL = 'https://vision.googleapis.com/v1/images:annotate';
 
 // Rate limiting
 let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 500; // 500ms between requests
+const MIN_REQUEST_INTERVAL = 500;
+
+// OCR Status
+let ocrWorker = null;
+let ocrReady = false;
+let deepseekOcrAvailable = true;
+let googleVisionAvailable = true;
 
 // =====================================================
-// GOOGLE CLOUD VISION OCR
+// 1. GOOGLE CLOUD VISION OCR (Primary - Highest Accuracy)
 // =====================================================
 
 async function extractTextWithGoogleVision(base64Image) {
     if (!GOOGLE_CLOUD_VISION_API_KEY) {
-        throw new Error('Google Cloud Vision API key chưa được cấu hình.');
+        throw new Error('Google Cloud Vision API key not configured');
     }
 
-    console.log('[VISION] 📷 Calling Google Cloud Vision API for OCR...');
+    console.log('[GOOGLE-VISION] 📷 Calling Google Cloud Vision API...');
 
     const url = `${GOOGLE_VISION_API_URL}?key=${GOOGLE_CLOUD_VISION_API_KEY}`;
 
     const requestBody = {
-        requests: [
-            {
-                image: {
-                    content: base64Image
-                },
-                features: [
-                    {
-                        type: 'DOCUMENT_TEXT_DETECTION',
-                        maxResults: 1
-                    }
-                ],
-                imageContext: {
-                    languageHints: ['vi', 'en']
-                }
-            }
-        ]
+        requests: [{
+            image: { content: base64Image },
+            features: [{ type: 'DOCUMENT_TEXT_DETECTION', maxResults: 1 }],
+            imageContext: { languageHints: ['vi', 'en'] }
+        }]
     };
 
     try {
         const response = await fetch(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const errorMsg = errorData.error?.message || response.statusText;
-            throw new Error(`Google Vision API Error: ${errorMsg}`);
+            throw new Error(errorData.error?.message || response.statusText);
         }
 
         const result = await response.json();
+        const fullText = result.responses?.[0]?.fullTextAnnotation?.text
+            || result.responses?.[0]?.textAnnotations?.[0]?.description
+            || '';
 
-        // Extract text from response
-        const textAnnotations = result.responses?.[0]?.textAnnotations;
-        const fullTextAnnotation = result.responses?.[0]?.fullTextAnnotation;
-
-        if (!textAnnotations && !fullTextAnnotation) {
-            throw new Error('Không thể trích xuất text từ ảnh. Vui lòng thử ảnh rõ hơn.');
+        if (!fullText) {
+            throw new Error('No text found in image');
         }
 
-        // Use fullTextAnnotation for better structured text
-        const extractedText = fullTextAnnotation?.text || textAnnotations?.[0]?.description || '';
-
-        console.log(`[VISION] ✅ OCR completed. Extracted ${extractedText.length} characters`);
-        console.log('[VISION] Text Preview:', extractedText.substring(0, 500) + '...');
-
-        return extractedText;
+        console.log(`[GOOGLE-VISION] ✅ Extracted ${fullText.length} characters`);
+        return fullText;
 
     } catch (error) {
-        console.error('[VISION] ❌ Google Vision API Error:', error);
+        console.error('[GOOGLE-VISION] ❌ Failed:', error.message);
+        googleVisionAvailable = false;
         throw error;
     }
 }
 
 // =====================================================
-// TESSERACT.JS FALLBACK (if Google Vision fails)
+// 2. DEEPSEEK-OCR via alphaXiv (Secondary)
 // =====================================================
 
-let ocrWorker = null;
-let ocrReady = false;
+async function extractTextWithDeepSeekOCR(imageSource) {
+    try {
+        console.log('[DEEPSEEK-OCR] 📷 Calling DeepSeek-OCR (alphaXiv)...');
+
+        // Convert to File for FormData
+        let file;
+        if (imageSource instanceof File) {
+            file = imageSource;
+        } else if (imageSource instanceof Blob) {
+            file = new File([imageSource], 'image.jpg', { type: imageSource.type || 'image/jpeg' });
+        } else if (typeof imageSource === 'string') {
+            let base64Data = imageSource;
+            let mimeType = 'image/jpeg';
+
+            if (imageSource.startsWith('data:')) {
+                const matches = imageSource.match(/^data:([^;]+);base64,(.+)$/);
+                if (matches) {
+                    mimeType = matches[1];
+                    base64Data = matches[2];
+                }
+            }
+
+            const byteCharacters = atob(base64Data);
+            const byteArray = new Uint8Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteArray[i] = byteCharacters.charCodeAt(i);
+            }
+            const blob = new Blob([byteArray], { type: mimeType });
+            file = new File([blob], 'image.jpg', { type: mimeType });
+        } else {
+            throw new Error('Unsupported image source type');
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(DEEPSEEK_OCR_API, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const errorMsg = typeof errorData.error === 'string'
+                ? errorData.error
+                : (errorData.message || JSON.stringify(errorData) || response.statusText);
+            throw new Error(`DeepSeek-OCR failed: ${errorMsg}`);
+        }
+
+        const result = await response.json();
+        const text = result.text || result.output || result.result || '';
+
+        console.log(`[DEEPSEEK-OCR] ✅ Extracted ${text.length} characters`);
+        return text;
+
+    } catch (error) {
+        console.error('[DEEPSEEK-OCR] ❌ Failed:', error.message);
+        deepseekOcrAvailable = false;
+        throw error;
+    }
+}
+
+// =====================================================
+// 3. TESSERACT.JS OCR (Fallback)
+// =====================================================
 
 async function initializeTesseractOCR() {
-    if (ocrReady && ocrWorker) {
-        return ocrWorker;
-    }
+    if (ocrReady && ocrWorker) return ocrWorker;
 
     try {
-        console.log('[TESSERACT] 🔤 Initializing Tesseract.js as fallback...');
+        console.log('[TESSERACT] 🔤 Initializing Tesseract.js...');
 
         if (typeof Tesseract === 'undefined') {
-            throw new Error('Tesseract.js not loaded.');
+            throw new Error('Tesseract.js not loaded');
         }
 
         ocrWorker = await Tesseract.createWorker('vie+eng', 1, {
@@ -122,18 +173,18 @@ async function initializeTesseractOCR() {
         });
 
         ocrReady = true;
-        console.log('[TESSERACT] ✅ Tesseract initialized');
+        console.log('[TESSERACT] ✅ Initialized');
         return ocrWorker;
 
     } catch (error) {
-        console.error('[TESSERACT] ❌ Initialization failed:', error);
+        console.error('[TESSERACT] ❌ Init failed:', error);
         throw error;
     }
 }
 
 async function extractTextWithTesseract(imageSource) {
     try {
-        console.log('[TESSERACT] 📷 Extracting text with Tesseract.js...');
+        console.log('[TESSERACT] 📷 Extracting text...');
 
         const worker = await initializeTesseractOCR();
 
@@ -145,33 +196,60 @@ async function extractTextWithTesseract(imageSource) {
         const result = await worker.recognize(imageData);
         const text = result.data.text;
 
-        console.log(`[TESSERACT] ✅ OCR completed. Extracted ${text.length} characters`);
-
+        console.log(`[TESSERACT] ✅ Extracted ${text.length} characters`);
         return text;
 
     } catch (error) {
-        console.error('[TESSERACT] ❌ OCR failed:', error);
+        console.error('[TESSERACT] ❌ Failed:', error);
         throw error;
     }
 }
 
 // =====================================================
-// SMART OCR - Try Google Vision first, fallback to Tesseract
+// SMART OCR - Auto-select best available engine
 // =====================================================
 
-async function extractTextFromImage(base64Image, mimeType = 'image/jpeg') {
-    // Try Google Cloud Vision first (more accurate)
-    if (GOOGLE_CLOUD_VISION_API_KEY) {
+async function extractTextFromImage(imageSource, mimeType = 'image/jpeg') {
+    // Prepare base64 for Google Vision
+    let base64Data = imageSource;
+    if (typeof imageSource === 'string' && imageSource.startsWith('data:')) {
+        base64Data = imageSource.split(',')[1];
+    }
+
+    // 1. Try Google Cloud Vision first (most accurate)
+    if (GOOGLE_CLOUD_VISION_API_KEY && googleVisionAvailable) {
         try {
-            return await extractTextWithGoogleVision(base64Image);
+            console.log('[OCR] 🔍 Trying Google Cloud Vision (Primary)...');
+            return await extractTextWithGoogleVision(base64Data);
         } catch (error) {
-            console.warn('[OCR] Google Vision failed, trying Tesseract fallback...', error.message);
+            console.warn('[OCR] Google Vision failed:', error.message);
         }
     }
 
-    // Fallback to Tesseract.js
-    const imageData = `data:${mimeType};base64,${base64Image}`;
-    return await extractTextWithTesseract(imageData);
+    // 2. Try DeepSeek-OCR (alphaXiv) as secondary
+    if (deepseekOcrAvailable) {
+        try {
+            console.log('[OCR] 🔍 Trying DeepSeek-OCR (Secondary)...');
+            return await extractTextWithDeepSeekOCR(imageSource);
+        } catch (error) {
+            console.warn('[OCR] DeepSeek-OCR failed:', error.message);
+        }
+    }
+
+    // 3. Fallback to Tesseract.js
+    console.log('[OCR] 🔍 Falling back to Tesseract.js...');
+    return await extractTextWithTesseract(imageSource);
+}
+
+// Get current OCR engine name
+function getCurrentOCREngine() {
+    if (GOOGLE_CLOUD_VISION_API_KEY && googleVisionAvailable) {
+        return 'Google Cloud Vision';
+    }
+    if (deepseekOcrAvailable) {
+        return 'DeepSeek-OCR';
+    }
+    return 'Tesseract.js';
 }
 
 // =====================================================
@@ -186,48 +264,39 @@ async function callDeepSeekAPI(messages, options = {}) {
     } = options;
 
     if (!DEEPSEEK_API_KEY) {
-        throw new Error('DeepSeek API key chưa được cấu hình.');
+        throw new Error('DeepSeek API key not configured');
     }
 
     // Rate limiting
     const now = Date.now();
-    const timeSinceLastRequest = now - lastRequestTime;
-    if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-        await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+    if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
+        await new Promise(r => setTimeout(r, MIN_REQUEST_INTERVAL - (now - lastRequestTime)));
     }
     lastRequestTime = Date.now();
 
-    const url = `${DEEPSEEK_API_BASE}/chat/completions`;
-
     try {
-        console.log(`[DEEPSEEK] 🤖 Calling API with model: ${model}`);
+        console.log(`[DEEPSEEK] 🤖 Calling API (model: ${model})...`);
 
-        const response = await fetch(url, {
+        const response = await fetch(DEEPSEEK_API_BASE, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
             },
             body: JSON.stringify({
-                model: model,
-                messages: messages,
-                max_tokens: maxTokens,
-                temperature: temperature,
+                model, messages, max_tokens: maxTokens, temperature,
             }),
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const errorMsg = errorData.error?.message || response.statusText;
-            throw new Error(`DeepSeek API Error: ${errorMsg}`);
+            throw new Error(errorData.error?.message || response.statusText);
         }
 
         const result = await response.json();
         const text = result.choices?.[0]?.message?.content;
 
-        if (!text) {
-            throw new Error('No content in response');
-        }
+        if (!text) throw new Error('No content in response');
 
         if (result.usage) {
             console.log(`[DEEPSEEK] ✅ Success - Tokens: ${result.usage.total_tokens}`);
@@ -246,32 +315,29 @@ async function callDeepSeekAPI(messages, options = {}) {
 // =====================================================
 
 async function generateText(prompt, options = {}) {
-    const messages = [
-        { role: 'user', content: prompt }
-    ];
-    return callDeepSeekAPI(messages, options);
+    return callDeepSeekAPI([{ role: 'user', content: prompt }], options);
 }
 
 // =====================================================
-// IMAGE ANALYSIS (Google Vision OCR + DeepSeek)
+// IMAGE ANALYSIS (OCR + DeepSeek)
 // =====================================================
 
 async function analyzeImage(base64Image, prompt, options = {}) {
     const { mimeType = 'image/jpeg' } = options;
 
     console.log('[ANALYZE] 🖼️ Starting image analysis...');
-    console.log('[ANALYZE] Step 1: OCR with Google Cloud Vision');
 
-    // Step 1: Extract text using OCR
-    const extractedText = await extractTextFromImage(base64Image, mimeType);
+    // Step 1: OCR
+    const imageData = `data:${mimeType};base64,${base64Image}`;
+    const extractedText = await extractTextFromImage(imageData, mimeType);
 
     if (!extractedText || extractedText.trim().length < 10) {
-        throw new Error('OCR không thể trích xuất đủ text từ ảnh. Vui lòng thử ảnh rõ hơn.');
+        throw new Error('OCR không thể trích xuất đủ text từ ảnh.');
     }
 
-    console.log('[ANALYZE] Step 2: Analyze with DeepSeek');
+    // Step 2: DeepSeek Analysis
+    console.log('[ANALYZE] 📝 Analyzing with DeepSeek...');
 
-    // Step 2: Send extracted text to DeepSeek for analysis
     const analysisPrompt = `Dưới đây là text được trích xuất từ hình ảnh hóa đơn bằng OCR:
 
 --- BẮT ĐẦU TEXT TỪ ẢNH ---
@@ -280,11 +346,7 @@ ${extractedText}
 
 ${prompt}`;
 
-    const result = await callDeepSeekAPI([
-        { role: 'user', content: analysisPrompt }
-    ], options);
-
-    return result;
+    return await callDeepSeekAPI([{ role: 'user', content: analysisPrompt }], options);
 }
 
 // =====================================================
@@ -292,18 +354,20 @@ ${prompt}`;
 // =====================================================
 
 async function analyzeMultipleImages(images, prompt, options = {}) {
-    console.log(`[ANALYZE] 🖼️ Analyzing ${images.length} image(s)...`);
+    console.log(`[ANALYZE] 🖼️ Processing ${images.length} image(s)...`);
 
     const allTexts = [];
 
     for (let i = 0; i < images.length; i++) {
-        const img = images[i];
-        console.log(`[ANALYZE] Processing image ${i + 1}/${images.length}...`);
-
-        const text = await extractTextFromImage(img.base64, img.mimeType || 'image/jpeg');
-
-        if (text && text.trim().length > 10) {
-            allTexts.push(`--- ẢNH ${i + 1} ---\n${text}`);
+        console.log(`[ANALYZE] Image ${i + 1}/${images.length}...`);
+        try {
+            const imageData = `data:${images[i].mimeType || 'image/jpeg'};base64,${images[i].base64}`;
+            const text = await extractTextFromImage(imageData);
+            if (text && text.trim().length > 10) {
+                allTexts.push(`--- ẢNH ${i + 1} ---\n${text}`);
+            }
+        } catch (error) {
+            console.warn(`[ANALYZE] Image ${i + 1} failed:`, error.message);
         }
     }
 
@@ -311,40 +375,27 @@ async function analyzeMultipleImages(images, prompt, options = {}) {
         throw new Error('Không thể trích xuất text từ bất kỳ ảnh nào.');
     }
 
-    const combinedText = allTexts.join('\n\n');
+    const analysisPrompt = `Dưới đây là text từ ${images.length} hình ảnh hóa đơn:
 
-    const analysisPrompt = `Dưới đây là text được trích xuất từ ${images.length} hình ảnh hóa đơn:
-
-${combinedText}
+${allTexts.join('\n\n')}
 
 ${prompt}`;
 
-    const result = await callDeepSeekAPI([
-        { role: 'user', content: analysisPrompt }
-    ], options);
-
-    return result;
+    return await callDeepSeekAPI([{ role: 'user', content: analysisPrompt }], options);
 }
 
 // =====================================================
-// HELPER: Convert File to Base64
+// UTILITIES
 // =====================================================
 
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => {
-            const base64 = reader.result.split(',')[1];
-            resolve(base64);
-        };
+        reader.onload = () => resolve(reader.result.split(',')[1]);
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
 }
-
-// =====================================================
-// CLEANUP
-// =====================================================
 
 async function terminateOCR() {
     if (ocrWorker) {
@@ -355,20 +406,15 @@ async function terminateOCR() {
     }
 }
 
-// =====================================================
-// INITIALIZATION (for compatibility)
-// =====================================================
-
 async function initializeOCR() {
-    // Google Vision doesn't need initialization
-    // This is kept for API compatibility
+    console.log('[OCR] Initializing...');
     if (GOOGLE_CLOUD_VISION_API_KEY) {
         console.log('[OCR] ✅ Google Cloud Vision ready');
-        return true;
     }
-
-    // Fall back to Tesseract initialization
-    return await initializeTesseractOCR();
+    if (deepseekOcrAvailable) {
+        console.log('[OCR] ✅ DeepSeek-OCR ready');
+    }
+    return true;
 }
 
 // =====================================================
@@ -376,39 +422,47 @@ async function initializeOCR() {
 // =====================================================
 
 window.DeepSeekAI = {
-    // Core functions
+    // Core
     generateText,
     analyzeImage,
     analyzeMultipleImages,
     callDeepSeekAPI,
 
-    // OCR functions
+    // OCR
     extractTextFromImage,
     extractTextWithGoogleVision,
+    extractTextWithDeepSeekOCR,
     extractTextWithTesseract,
     initializeOCR,
+    initializeTesseractOCR,
     terminateOCR,
+    getCurrentOCREngine,
 
-    // Utilities
+    // Utils
     fileToBase64,
 
     // Status
     isConfigured: () => !!DEEPSEEK_API_KEY,
     isGoogleVisionConfigured: () => !!GOOGLE_CLOUD_VISION_API_KEY,
-    isOCRReady: () => !!GOOGLE_CLOUD_VISION_API_KEY || ocrReady,
+    isDeepSeekOCRAvailable: () => deepseekOcrAvailable,
+    isOCRReady: () => !!GOOGLE_CLOUD_VISION_API_KEY || deepseekOcrAvailable || ocrReady,
 
     getStats: () => ({
         deepseekConfigured: !!DEEPSEEK_API_KEY,
         googleVisionConfigured: !!GOOGLE_CLOUD_VISION_API_KEY,
+        deepseekOcrAvailable,
         tesseractReady: ocrReady,
+        currentOCREngine: getCurrentOCREngine(),
         model: DEEPSEEK_DEFAULT_MODEL,
-        ocrEngine: GOOGLE_CLOUD_VISION_API_KEY ? 'Google Cloud Vision' : 'Tesseract.js',
+        proxyUrl: WORKER_PROXY_URL,
     }),
 };
 
-// Log status on load
+// Log status
 console.log(`[AI-HELPER] ====================================`);
-console.log(`[AI-HELPER] DeepSeek API: ${DEEPSEEK_API_KEY ? '✅ Configured' : '❌ NOT CONFIGURED'}`);
-console.log(`[AI-HELPER] Google Cloud Vision: ${GOOGLE_CLOUD_VISION_API_KEY ? '✅ Configured' : '⚠️ Will use Tesseract fallback'}`);
-console.log(`[AI-HELPER] OCR Engine: ${GOOGLE_CLOUD_VISION_API_KEY ? 'Google Cloud Vision (High Accuracy)' : 'Tesseract.js (Fallback)'}`);
+console.log(`[AI-HELPER] DeepSeek API: ${DEEPSEEK_API_KEY ? '✅' : '❌'}`);
+console.log(`[AI-HELPER] Google Cloud Vision: ${GOOGLE_CLOUD_VISION_API_KEY ? '✅ (Primary)' : '❌'}`);
+console.log(`[AI-HELPER] DeepSeek-OCR: ✅ (Secondary)`);
+console.log(`[AI-HELPER] Tesseract.js: ✅ (Fallback)`);
+console.log(`[AI-HELPER] Current OCR: ${getCurrentOCREngine()}`);
 console.log(`[AI-HELPER] ====================================`);

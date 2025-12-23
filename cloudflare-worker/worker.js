@@ -693,6 +693,93 @@ export default {
         }
       }
 
+      // ========== ALPHAXIV DEEPSEEK-OCR API PROXY ==========
+      // Proxy to alphaXiv's DeepSeek-OCR for high-quality OCR
+      // POST /api/deepseek-ocr
+      // Body: FormData with 'file' field (image or PDF)
+      // Returns: OCR result from DeepSeek-OCR model
+      if (pathname === '/api/deepseek-ocr' && request.method === 'POST') {
+        console.log('[DEEPSEEK-OCR] ========================================');
+        console.log('[DEEPSEEK-OCR] Received request for DeepSeek-OCR via alphaXiv');
+
+        try {
+          // Get the form data from the request
+          const formData = await request.formData();
+          const file = formData.get('file');
+
+          if (!file) {
+            return new Response(JSON.stringify({
+              error: 'Missing file',
+              usage: 'POST /api/deepseek-ocr with FormData containing "file" field'
+            }), {
+              status: 400,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+
+          console.log('[DEEPSEEK-OCR] File name:', file.name || 'unnamed');
+          console.log('[DEEPSEEK-OCR] File size:', file.size, 'bytes');
+          console.log('[DEEPSEEK-OCR] File type:', file.type);
+
+          // Create new FormData to forward to alphaXiv
+          const forwardFormData = new FormData();
+          forwardFormData.append('file', file);
+
+          // Forward to alphaXiv DeepSeek-OCR API (Modal endpoint)
+          const requestId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+          const ocrResponse = await fetch(`https://alphaxiv--deepseek-ocr-modal-serve.modal.run/run/image?_r=${requestId}`, {
+            method: 'POST',
+            headers: {
+              'cache-control': 'no-cache, no-store',
+              'pragma': 'no-cache',
+              'x-request-id': requestId,
+              'Referer': 'https://alphaxiv.github.io/',
+            },
+            body: forwardFormData,
+          });
+
+          console.log('[DEEPSEEK-OCR] alphaXiv response status:', ocrResponse.status);
+
+          // Get the response
+          const result = await ocrResponse.text();
+          let parsedResult;
+
+          try {
+            parsedResult = JSON.parse(result);
+          } catch {
+            // If not JSON, wrap the text result
+            parsedResult = { text: result, raw: true };
+          }
+
+          console.log('[DEEPSEEK-OCR] ========================================');
+
+          return new Response(JSON.stringify(parsedResult), {
+            status: ocrResponse.status,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+
+        } catch (error) {
+          console.error('[DEEPSEEK-OCR] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'DeepSeek-OCR proxy failed',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== FACEBOOK GRAPH API - SEND MESSAGE WITH TAG ==========
       // For sending messages outside 24h window using POST_PURCHASE_UPDATE tag
       // POST /api/facebook-send
