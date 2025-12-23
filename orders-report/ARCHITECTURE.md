@@ -464,6 +464,35 @@ orders-report/
 
 ---
 
+#### `kpi-statistics-ui.js` (~500 dòng)
+
+**Mục đích:** UI hiển thị thống kê KPI trong tab2-statistics.html
+
+**Core Functions:**
+
+| Function | Signature | Mô tả |
+|----------|-----------|-------|
+| `loadKPIStatistics()` | `(dateFilter?) → Promise<object>` | Load statistics từ Firebase |
+| `loadKPIBase()` | `(orderId) → Promise<object\|null>` | Load BASE cho đơn hàng |
+| `aggregateByUser()` | `(statsData, dateFilter?) → Array` | Tổng hợp theo user |
+| `renderKPIStatisticsTable()` | `(containerId, dateFilter?) → void` | Render bảng thống kê |
+| `showUserKPIDetail()` | `(userId) → void` | Modal chi tiết KPI user |
+| `showOrderKPIComparison()` | `(orderId) → void` | Modal so sánh BASE |
+| `renderKPITimelineChart()` | `(canvasId, userId?) → void` | Render chart timeline |
+
+**UI Components:**
+- Bảng thống kê KPI theo user
+- Summary cards (đơn hàng, SP khác biệt, tổng KPI)
+- Modal chi tiết KPI theo user
+- Modal so sánh BASE vs Note
+- Timeline chart (Chart.js)
+
+**Tích hợp:**
+- Sử dụng trong `tab2-statistics.html`
+- Đọc từ `kpi_base` và `kpi_statistics` collections
+
+---
+
 ### 📁 Other Utilities
 
 | File | Dòng | Mô tả |
@@ -478,6 +507,7 @@ orders-report/
 | `test-tag-listener.js` | 75 | Test Firebase tag listeners |
 | `user-employee-loader.js` | 80 | Load employee list |
 | `kpi-manager.js` | 400 | Tính KPI dựa trên sự khác biệt SP |
+| `kpi-statistics-ui.js` | 500 | UI hiển thị thống kê KPI |
 
 ---
 
