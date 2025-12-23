@@ -77,6 +77,15 @@
                 }
             }
 
+            // Get campaign info from campaignManager
+            let campaignId = null;
+            let campaignName = null;
+            if (window.campaignManager && window.campaignManager.activeCampaign) {
+                campaignId = window.campaignManager.activeCampaignId;
+                campaignName = window.campaignManager.activeCampaign.name ||
+                    window.campaignManager.activeCampaign.displayName;
+            }
+
             // Normalize products to BASE format
             const baseProducts = (products || []).map(p => ({
                 code: p.ProductCode || p.Code || p.DefaultCode || '',
@@ -90,6 +99,8 @@
                 stt: stt || 0,
                 userId: userId,
                 userName: userName,
+                campaignId: campaignId,
+                campaignName: campaignName,
                 timestamp: window.firebase.database.ServerValue.TIMESTAMP,
                 products: baseProducts
             };
@@ -102,6 +113,8 @@
                 orderId,
                 stt,
                 userName,
+                campaignId,
+                campaignName,
                 productsCount: baseProducts.length
             });
 
@@ -142,6 +155,71 @@
             return data;
         } catch (error) {
             console.error('[KPI] Error getting BASE:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 3b. Get order Details from report_order_details Firebase
+     * This contains the actual products in the order (synced from tab-overview)
+     * @param {string} orderId - Order ID
+     * @param {string} campaignName - Campaign/table name
+     * @returns {Promise<Array|null>} - Array of order products or null
+     */
+    async function getOrderDetailsFromFirebase(orderId, campaignName) {
+        if (!orderId || !campaignName) {
+            console.warn('[KPI] getOrderDetailsFromFirebase: Missing orderId or campaignName');
+            return null;
+        }
+
+        try {
+            if (!window.firebase || !window.firebase.database) {
+                console.warn('[KPI] Firebase not available');
+                return null;
+            }
+
+            // Sanitize campaign name for Firebase path (same as tab-overview.html)
+            const safeTableName = campaignName.replace(/[.$#\[\]\/]/g, '_');
+
+            const snapshot = await window.firebase.database()
+                .ref(`report_order_details/${safeTableName}`)
+                .once('value');
+
+            if (!snapshot.exists()) {
+                console.log(`[KPI] No report data found for campaign: ${campaignName}`);
+                return null;
+            }
+
+            const data = snapshot.val();
+            const orders = data.orders || [];
+
+            // Find the specific order by Id
+            const order = orders.find(o => o.Id === orderId || o.id === orderId);
+
+            if (!order) {
+                console.log(`[KPI] Order ${orderId} not found in campaign ${campaignName}`);
+                return null;
+            }
+
+            // Normalize Details to standard format
+            const details = (order.Details || []).map(d => ({
+                code: d.ProductCode || d.Code || d.DefaultCode || '',
+                quantity: d.Quantity || 1,
+                price: d.Price || 0,
+                productId: d.ProductId || null,
+                productName: d.ProductName || d.Name || ''
+            })).filter(d => d.code);
+
+            console.log(`[KPI] Got order details from Firebase:`, {
+                orderId,
+                campaignName,
+                productsCount: details.length
+            });
+
+            return details;
+
+        } catch (error) {
+            console.error('[KPI] Error getting order details from Firebase:', error);
             return null;
         }
     }
@@ -448,12 +526,12 @@
 
     /**
      * Helper: Calculate and save KPI for an order
-     * Call this when order is completed/updated
+     * Compare BASE with current order Details from report_order_details
      * @param {string} orderId - Order ID
-     * @param {string} noteText - Order note containing products
+     * @param {string} campaignName - Optional campaign name (will use BASE's campaignName if not provided)
      * @returns {Promise<object|null>} - KPI result or null
      */
-    async function calculateAndSaveKPI(orderId, noteText) {
+    async function calculateAndSaveKPI(orderId, campaignName = null) {
         try {
             // Get BASE
             const base = await getKPIBase(orderId);
@@ -462,11 +540,22 @@
                 return null;
             }
 
-            // Parse note products
-            const noteProducts = parseNoteProducts(noteText);
+            // Use campaign name from BASE if not provided
+            const targetCampaign = campaignName || base.campaignName;
+            if (!targetCampaign) {
+                console.warn('[KPI] No campaign name available for KPI calculation');
+                return null;
+            }
 
-            // Calculate differences
-            const diffResult = calculateKPIDifference(base.products, noteProducts);
+            // Get current order Details from Firebase (report_order_details)
+            const currentProducts = await getOrderDetailsFromFirebase(orderId, targetCampaign);
+            if (!currentProducts) {
+                console.log('[KPI] Could not get current order products, skipping KPI calculation');
+                return null;
+            }
+
+            // Calculate differences between BASE and current products
+            const diffResult = calculateKPIDifference(base.products, currentProducts);
 
             // Calculate KPI amount
             const kpiAmount = calculateKPIAmount(diffResult.totalDifferences);
@@ -475,18 +564,29 @@
             const userId = base.userId;
             const date = getCurrentDateString();
 
-            // Save statistics
+            // Save statistics with campaign info
             await saveKPIStatistics(userId, date, {
                 orderId: orderId,
                 stt: base.stt,
+                campaignId: base.campaignId,
+                campaignName: targetCampaign,
                 differences: diffResult.totalDifferences,
                 kpi: kpiAmount,
                 details: diffResult.details
             });
 
+            console.log('[KPI] ✓ KPI calculated and saved:', {
+                orderId,
+                stt: base.stt,
+                campaignName: targetCampaign,
+                differences: diffResult.totalDifferences,
+                kpi: kpiAmount
+            });
+
             return {
                 orderId,
                 stt: base.stt,
+                campaignName: targetCampaign,
                 differences: diffResult.totalDifferences,
                 kpi: kpiAmount,
                 details: diffResult.details
@@ -498,12 +598,115 @@
         }
     }
 
+    /**
+     * Calculate KPI for all orders in a campaign that have BASE
+     * @param {string} campaignName - Campaign name to calculate
+     * @returns {Promise<{success: number, failed: number, results: Array}>}
+     */
+    async function calculateKPIForCampaign(campaignName) {
+        if (!campaignName) {
+            console.error('[KPI] No campaign name provided');
+            return { success: 0, failed: 0, results: [] };
+        }
+
+        try {
+            console.log('[KPI] Calculating KPI for campaign:', campaignName);
+
+            // Get all BASE records
+            const baseSnapshot = await window.firebase.database()
+                .ref(KPI_BASE_COLLECTION)
+                .once('value');
+
+            const allBases = baseSnapshot.val() || {};
+            const results = [];
+            let success = 0;
+            let failed = 0;
+
+            // Filter bases for this campaign and calculate KPI
+            for (const orderId in allBases) {
+                const base = allBases[orderId];
+
+                // Skip if not matching campaign
+                if (base.campaignName !== campaignName) continue;
+
+                try {
+                    const result = await calculateAndSaveKPI(orderId, campaignName);
+                    if (result) {
+                        results.push(result);
+                        success++;
+                    } else {
+                        failed++;
+                    }
+                } catch (e) {
+                    console.error(`[KPI] Error calculating for order ${orderId}:`, e);
+                    failed++;
+                }
+            }
+
+            console.log('[KPI] Campaign KPI calculation complete:', { success, failed });
+            return { success, failed, results };
+
+        } catch (error) {
+            console.error('[KPI] Error in calculateKPIForCampaign:', error);
+            return { success: 0, failed: 0, results: [] };
+        }
+    }
+
+    /**
+     * Get all KPI statistics filtered by campaign
+     * @param {string} campaignName - Campaign name to filter
+     * @returns {Promise<object>} - Statistics grouped by user
+     */
+    async function getKPIStatisticsByCampaign(campaignName) {
+        try {
+            const snapshot = await window.firebase.database()
+                .ref(KPI_STATISTICS_COLLECTION)
+                .once('value');
+
+            const allStats = snapshot.val() || {};
+            const filteredStats = {};
+
+            // Filter by campaign
+            for (const userId in allStats) {
+                const userDates = allStats[userId];
+                const filteredDates = {};
+
+                for (const date in userDates) {
+                    const dateStats = userDates[date];
+                    const filteredOrders = (dateStats.orders || []).filter(
+                        o => o.campaignName === campaignName
+                    );
+
+                    if (filteredOrders.length > 0) {
+                        filteredDates[date] = {
+                            ...dateStats,
+                            orders: filteredOrders,
+                            totalDifferences: filteredOrders.reduce((sum, o) => sum + (o.differences || 0), 0),
+                            totalKPI: filteredOrders.reduce((sum, o) => sum + (o.kpi || 0), 0)
+                        };
+                    }
+                }
+
+                if (Object.keys(filteredDates).length > 0) {
+                    filteredStats[userId] = filteredDates;
+                }
+            }
+
+            return filteredStats;
+
+        } catch (error) {
+            console.error('[KPI] Error getting statistics by campaign:', error);
+            return {};
+        }
+    }
+
     // Export functions to window
     window.kpiManager = {
-        // Core 7 functions
+        // Core functions
         checkKPIBaseExists,
         saveKPIBase,
         getKPIBase,
+        getOrderDetailsFromFirebase,
         parseNoteProducts,
         calculateKPIDifference,
         calculateKPIAmount,
@@ -513,6 +716,10 @@
         getCurrentDateString,
         promptAndSaveKPIBase,
         calculateAndSaveKPI,
+
+        // Campaign functions
+        calculateKPIForCampaign,
+        getKPIStatisticsByCampaign,
 
         // Constants
         KPI_AMOUNT_PER_DIFFERENCE
