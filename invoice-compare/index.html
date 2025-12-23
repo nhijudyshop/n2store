@@ -154,11 +154,15 @@
                                     <i data-lucide="image"></i>
                                     <span>Hình Ảnh</span>
                                 </div>
-                                <div class="upload-area-compact">
-                                    <label for="imageUpload" class="upload-label-compact">
-                                        <i data-lucide="upload"></i>
-                                        <span>Tải ảnh hoặc Ctrl+V</span>
-                                    </label>
+                                <div class="drop-zone" id="dropZone">
+                                    <div class="drop-zone-content">
+                                        <i data-lucide="image-plus" class="drop-zone-icon"></i>
+                                        <span class="drop-zone-text">Kéo thả hoặc <strong>Ctrl+V</strong> paste ảnh</span>
+                                        <label for="imageUpload" class="drop-zone-btn">
+                                            <i data-lucide="folder-open"></i>
+                                            Chọn file
+                                        </label>
+                                    </div>
                                     <input type="file" id="imageUpload" accept="image/*" multiple style="display: none;" />
                                 </div>
                                 <div id="invoiceImages" class="image-gallery-compact">
