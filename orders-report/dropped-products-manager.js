@@ -1571,6 +1571,24 @@
 
             // Update window.currentChatOrderData.Details with held products
             if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+                // IMPORTANT: Save existing held products info BEFORE removing them
+                // This preserves product details for items added from inline search (not from dropped products)
+                const existingHeldProducts = {};
+                window.currentChatOrderData.Details.filter(p => p.IsHeld).forEach(p => {
+                    existingHeldProducts[p.ProductId] = {
+                        ProductId: p.ProductId,
+                        ProductName: p.ProductName,
+                        ProductNameGet: p.ProductNameGet,
+                        ProductCode: p.ProductCode,
+                        ImageUrl: p.ImageUrl,
+                        Price: p.Price,
+                        UOMId: p.UOMId,
+                        UOMName: p.UOMName,
+                        IsFromSearch: p.IsFromSearch,
+                        StockQty: p.StockQty
+                    };
+                });
+
                 // Remove old held products
                 window.currentChatOrderData.Details = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
 
@@ -1581,6 +1599,7 @@
                     // Sum quantities from all holders
                     let totalQuantity = 0;
                     let holders = [];
+                    let isFromSearch = false;
 
                     for (const userId in productHolders) {
                         const holderData = productHolders[userId];
@@ -1588,24 +1607,34 @@
                         if (holderData && holderData.isDraft === true) {
                             totalQuantity += parseInt(holderData.quantity) || 0;
                             holders.push(holderData.displayName);
+                            if (holderData.isFromSearch) {
+                                isFromSearch = true;
+                            }
                         }
                     }
 
                     if (totalQuantity > 0) {
-                        // Find product in dropped products for details
+                        // Try to find product info from multiple sources:
+                        // 1. Existing held product data (from inline search)
+                        // 2. Dropped products list
+                        const existingHeld = existingHeldProducts[parseInt(productId)];
                         const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
 
-                        if (droppedProduct) {
+                        // Use existing held product data first (preserves inline search products),
+                        // then fallback to dropped products
+                        const productSource = existingHeld || droppedProduct;
+
+                        if (productSource) {
                             window.currentChatOrderData.Details.push({
                                 ProductId: parseInt(productId),
-                                ProductName: droppedProduct.ProductName,
-                                ProductCode: droppedProduct.ProductCode,
-                                ProductNameGet: droppedProduct.ProductNameGet,
-                                ImageUrl: droppedProduct.ImageUrl,
-                                Price: droppedProduct.Price,
+                                ProductName: productSource.ProductName,
+                                ProductCode: productSource.ProductCode,
+                                ProductNameGet: productSource.ProductNameGet || productSource.ProductName,
+                                ImageUrl: productSource.ImageUrl,
+                                Price: productSource.Price,
                                 Quantity: totalQuantity,
-                                UOMId: 1,
-                                UOMName: droppedProduct.UOMName || 'Cái',
+                                UOMId: productSource.UOMId || 1,
+                                UOMName: productSource.UOMName || 'Cái',
                                 Factor: 1,
                                 Priority: 0,
                                 OrderId: window.currentChatOrderData.Id,
@@ -1613,6 +1642,32 @@
                                 ProductWeight: 0,
                                 Note: null,
                                 IsHeld: true,
+                                IsFromSearch: isFromSearch || productSource.IsFromSearch,
+                                StockQty: productSource.StockQty || 0,
+                                HeldBy: holders.join(', ')
+                            });
+                        } else {
+                            // Product not found in any source - this shouldn't happen normally
+                            // but we can still show it with minimal info
+                            console.warn('[HELD-PRODUCTS] Product not found in any source:', productId);
+                            window.currentChatOrderData.Details.push({
+                                ProductId: parseInt(productId),
+                                ProductName: `Sản phẩm #${productId}`,
+                                ProductCode: '',
+                                ProductNameGet: `Sản phẩm #${productId}`,
+                                ImageUrl: '',
+                                Price: 0,
+                                Quantity: totalQuantity,
+                                UOMId: 1,
+                                UOMName: 'Cái',
+                                Factor: 1,
+                                Priority: 0,
+                                OrderId: window.currentChatOrderData.Id,
+                                LiveCampaign_DetailId: null,
+                                ProductWeight: 0,
+                                Note: null,
+                                IsHeld: true,
+                                IsFromSearch: isFromSearch,
                                 HeldBy: holders.join(', ')
                             });
                         }
