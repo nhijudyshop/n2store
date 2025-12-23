@@ -55,6 +55,7 @@ const TraHangModule = (function() {
     let isLoading = false;
     let totalCount = 0;
     let hasLoadedOnce = false;
+    let currentDetailId = null; // Store current order ID for detail modal
 
     // DOM Elements cache
     const elements = {
@@ -452,6 +453,21 @@ const TraHangModule = (function() {
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', updateSelectAllState);
         });
+
+        // Bind row click events to open detail modal
+        const rows = document.querySelectorAll('#trahangTableBody tr');
+        rows.forEach(row => {
+            row.addEventListener('click', (e) => {
+                // Don't open modal if clicking on checkbox
+                if (e.target.type === 'checkbox' || e.target.closest('.col-checkbox') || e.target.closest('.col-returned')) {
+                    return;
+                }
+                const orderId = row.dataset.id;
+                if (orderId) {
+                    openDetailModal(orderId);
+                }
+            });
+        });
     }
 
     // Handle select all
@@ -593,6 +609,286 @@ const TraHangModule = (function() {
         return hasLoadedOnce;
     }
 
+    // =====================================================
+    // DETAIL MODAL FUNCTIONS
+    // =====================================================
+
+    // Open detail modal and fetch order details
+    async function openDetailModal(orderId) {
+        currentDetailId = orderId;
+
+        const modal = document.getElementById('returnDetailModal');
+        const loadingEl = document.getElementById('returnDetailLoading');
+        const contentEl = document.getElementById('returnDetailContent');
+
+        if (!modal) return;
+
+        // Show modal with loading state
+        modal.classList.add('show');
+        loadingEl.classList.add('show');
+        contentEl.classList.remove('show');
+
+        // Reinitialize Lucide icons for loading spinner
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+
+        try {
+            const orderData = await fetchOrderDetail(orderId);
+            if (orderData) {
+                populateModal(orderData);
+                loadingEl.classList.remove('show');
+                contentEl.classList.add('show');
+
+                // Initialize modal tabs
+                initModalTabs();
+
+                // Reinitialize Lucide icons
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching order details:', error);
+            loadingEl.classList.remove('show');
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi tải chi tiết đơn hàng: ' + error.message, 'error');
+            }
+            closeDetailModal();
+        }
+    }
+
+    // Close detail modal
+    function closeDetailModal() {
+        const modal = document.getElementById('returnDetailModal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+        currentDetailId = null;
+    }
+
+    // Fetch order detail from API
+    async function fetchOrderDetail(orderId) {
+        const token = API_CONFIG.getToken();
+
+        if (!token) {
+            throw new Error('Chưa đăng nhập TPOS');
+        }
+
+        // Build detail URL using proxy
+        const expandParams = 'Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,HistoryDeliveryDetails,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,OutstandingInfo($expand=Content),Team,OfferAmountDetails,DestConvertCurrencyUnit,PackageImages';
+        const url = `${API_CONFIG.proxyBaseUrl}/FastSaleOrder(${orderId})?$expand=${encodeURIComponent(expandParams)}`;
+
+        let response;
+
+        // Use tokenManager.authenticatedFetch if available
+        if (typeof window.tokenManager !== 'undefined' && window.tokenManager.authenticatedFetch) {
+            response = await window.tokenManager.authenticatedFetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+        } else {
+            response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+        }
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new Error('Phiên đăng nhập hết hạn');
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    // Populate modal with order data
+    function populateModal(data) {
+        // Customer info
+        const customerNameEl = document.getElementById('returnCustomerName');
+        const customerStatusEl = document.getElementById('returnCustomerStatus');
+        if (customerNameEl) customerNameEl.textContent = data.PartnerDisplayName || data.Partner?.Name || '-';
+        if (customerStatusEl) {
+            const partnerStatus = data.Partner?.StatusText || '';
+            customerStatusEl.textContent = partnerStatus;
+            customerStatusEl.style.display = partnerStatus ? 'inline-block' : 'none';
+            // Add status class based on status
+            customerStatusEl.classList.remove('status-good');
+            if (partnerStatus.toLowerCase().includes('tốt') || partnerStatus.toLowerCase().includes('good')) {
+                customerStatusEl.classList.add('status-good');
+            }
+        }
+
+        // Payment method
+        const paymentMethodEl = document.getElementById('returnPaymentMethod');
+        if (paymentMethodEl) {
+            paymentMethodEl.textContent = data.PaymentJournal?.Name || '-';
+        }
+
+        // Deliver
+        const deliverEl = document.getElementById('returnDeliver');
+        if (deliverEl) {
+            deliverEl.textContent = data.Deliver || '-';
+        }
+
+        // Old debt (Nợ cũ)
+        const oldDebtEl = document.getElementById('returnOldDebt');
+        if (oldDebtEl) {
+            const oldDebt = data.PreviousBalance || 0;
+            oldDebtEl.textContent = formatCurrency(oldDebt);
+        }
+
+        // Order lines
+        const linesBody = document.getElementById('returnLinesBody');
+        if (linesBody && data.OrderLines) {
+            const linesHtml = data.OrderLines.map((line, index) => `
+                <tr>
+                    <td class="text-center">${index + 1}</td>
+                    <td>${escapeHtml(line.Name || line.ProductNameGet || '-')}</td>
+                    <td class="text-right">${line.ProductUOMQty || 0}</td>
+                    <td class="text-right">${formatCurrency(line.PriceUnit || 0)}</td>
+                    <td class="text-right">${formatCurrency(line.PriceTotal || 0)}</td>
+                </tr>
+            `).join('');
+            linesBody.innerHTML = linesHtml;
+        }
+
+        // Summary
+        const totalQtyEl = document.getElementById('returnTotalQty');
+        const totalAmountEl = document.getElementById('returnTotalAmount');
+        const paidAmountEl = document.getElementById('returnPaidAmount');
+        const remainingEl = document.getElementById('returnRemaining');
+
+        if (totalQtyEl) totalQtyEl.textContent = data.TotalQuantity || 0;
+        if (totalAmountEl) totalAmountEl.textContent = formatCurrency(data.AmountTotal || 0);
+        if (paidAmountEl) paidAmountEl.textContent = formatCurrency(data.PaymentAmount || 0);
+        if (remainingEl) remainingEl.textContent = formatCurrency(data.Residual || 0);
+
+        // Receiver tab
+        const receiverNameEl = document.getElementById('returnReceiverName');
+        const receiverPhoneEl = document.getElementById('returnReceiverPhone');
+        const receiverAddressEl = document.getElementById('returnReceiverAddress');
+        const receiverNoteEl = document.getElementById('returnReceiverNote');
+
+        if (receiverNameEl) receiverNameEl.textContent = data.ReceiverName || '-';
+        if (receiverPhoneEl) receiverPhoneEl.textContent = data.ReceiverPhone || '-';
+        if (receiverAddressEl) receiverAddressEl.textContent = data.ReceiverAddress || '-';
+        if (receiverNoteEl) receiverNoteEl.textContent = data.ReceiverNote || '-';
+
+        // Other info tab
+        const invoiceNumberEl = document.getElementById('returnInvoiceNumber');
+        const invoiceDateEl = document.getElementById('returnInvoiceDate');
+        const warehouseEl = document.getElementById('returnWarehouse');
+        const userEl = document.getElementById('returnUser');
+        const commentEl = document.getElementById('returnComment');
+
+        if (invoiceNumberEl) invoiceNumberEl.textContent = data.Number || '-';
+        if (invoiceDateEl) invoiceDateEl.textContent = formatDateFull(data.DateInvoice);
+        if (warehouseEl) warehouseEl.textContent = data.Warehouse?.Name || '-';
+        if (userEl) userEl.textContent = data.User?.Name || data.UserName || '-';
+        if (commentEl) commentEl.textContent = data.Comment || '-';
+
+        // Package images
+        const imagesGrid = document.getElementById('returnImagesGrid');
+        if (imagesGrid) {
+            if (data.PackageImages && data.PackageImages.length > 0) {
+                const imagesHtml = data.PackageImages.map(img => `
+                    <img src="${escapeHtml(img.Url || img)}" alt="Package Image" onclick="window.open('${escapeHtml(img.Url || img)}', '_blank')">
+                `).join('');
+                imagesGrid.innerHTML = imagesHtml;
+            } else {
+                imagesGrid.innerHTML = `
+                    <div class="return-no-images">
+                        <i data-lucide="image-off"></i>
+                        <p>Chưa có hình ảnh đóng gói</p>
+                    </div>
+                `;
+            }
+        }
+
+        // History
+        const historyList = document.getElementById('returnHistoryList');
+        if (historyList) {
+            if (data.HistoryDeliveryDetails && data.HistoryDeliveryDetails.length > 0) {
+                const historyHtml = data.HistoryDeliveryDetails.map(item => `
+                    <div class="return-history-item">
+                        <span class="history-date">${formatDateFull(item.Date || item.CreatedDate)}</span>
+                        <span class="history-content">${escapeHtml(item.Description || item.Status || '-')}</span>
+                    </div>
+                `).join('');
+                historyList.innerHTML = historyHtml;
+            } else {
+                historyList.innerHTML = `
+                    <div class="return-no-history">
+                        <i data-lucide="clock"></i>
+                        <p>Chưa có lịch sử giao hàng</p>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // Format full date
+    function formatDateFull(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
+    }
+
+    // Initialize modal tabs
+    function initModalTabs() {
+        const tabBtns = document.querySelectorAll('.return-tab-btn');
+        const tabContents = document.querySelectorAll('.return-tab-content');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetTab = this.dataset.tab;
+
+                // Remove active from all
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+
+                // Add active to clicked
+                this.classList.add('active');
+
+                // Map tab name to content ID
+                const contentId = 'returnTab' + targetTab.charAt(0).toUpperCase() + targetTab.slice(1);
+                const content = document.getElementById(contentId);
+                if (content) {
+                    content.classList.add('active');
+                }
+
+                // Reinitialize icons
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            });
+        });
+    }
+
+    // Open order in TPOS
+    function openInTpos() {
+        if (currentDetailId) {
+            const url = `https://tomato.tpos.vn/Sale/RefundOrders/${currentDetailId}`;
+            window.open(url, '_blank');
+        }
+    }
+
     // Public API
     return {
         init,
@@ -606,7 +902,11 @@ const TraHangModule = (function() {
         getData: () => traHangData,
         getFilteredData: () => filteredData,
         getTotalCount: () => totalCount,
-        hasLoaded
+        hasLoaded,
+        // Modal functions
+        openDetailModal,
+        closeDetailModal,
+        openInTpos
     };
 })();
 
@@ -616,6 +916,27 @@ document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('trahangTableBody')) {
         TraHangModule.init();
     }
+
+    // Modal overlay click handler - close on click outside
+    const returnDetailModal = document.getElementById('returnDetailModal');
+    if (returnDetailModal) {
+        returnDetailModal.addEventListener('click', function(e) {
+            // Close if clicked on overlay (not on modal content)
+            if (e.target === returnDetailModal) {
+                TraHangModule.closeDetailModal();
+            }
+        });
+    }
+
+    // Escape key handler
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('returnDetailModal');
+            if (modal && modal.classList.contains('show')) {
+                TraHangModule.closeDetailModal();
+            }
+        }
+    });
 });
 
 // Tab switching functionality
