@@ -29,7 +29,7 @@ const elements = {
     imageUpload: document.getElementById('imageUpload'),
     btnAnalyzeWithAI: document.getElementById('btnAnalyzeWithAI'),
     aiAnalyzeSection: document.getElementById('aiAnalyzeSection'),
-    loadingOverlay: document.getElementById('loadingOverlay'),
+    loadingInline: document.getElementById('loadingInline'),
     imagesSection: document.getElementById('imagesSection'),
     dataSection: document.getElementById('dataSection'),
     resultSection: document.getElementById('resultSection'),
@@ -504,30 +504,40 @@ let loadingStartTime = null;
 let loadingTimerInterval = null;
 
 function showLoading(show, message = 'Đang tải dữ liệu...') {
-    elements.loadingOverlay.style.display = show ? 'flex' : 'none';
+    if (elements.loadingInline) {
+        elements.loadingInline.style.display = show ? 'block' : 'none';
+    }
+
+    // Hide AI button when loading
+    if (elements.aiAnalyzeSection && show) {
+        elements.aiAnalyzeSection.style.display = 'none';
+    }
 
     if (show) {
         // Reset UI
-        document.getElementById('loadingTitle').textContent = message;
-        document.getElementById('loadingSubtitle').textContent = 'Vui lòng chờ trong giây lát';
-        document.getElementById('progressFill').style.width = '0%';
-        document.getElementById('ocrPreview').style.display = 'none';
-        document.getElementById('aiPreview').style.display = 'none';
-        document.getElementById('loadingStats').style.display = 'none';
-        document.getElementById('ocrPreviewContent').textContent = '';
-        document.getElementById('aiPreviewContent').textContent = '';
+        const loadingTitle = document.getElementById('loadingTitle');
+        const loadingSubtitle = document.getElementById('loadingSubtitle');
+        const progressFill = document.getElementById('progressFill');
+        const ocrPreview = document.getElementById('ocrPreview');
+        const loadingStats = document.getElementById('loadingStats');
+        const ocrPreviewContent = document.getElementById('ocrPreviewContent');
+
+        if (loadingTitle) loadingTitle.textContent = message;
+        if (loadingSubtitle) loadingSubtitle.textContent = '0%';
+        if (progressFill) progressFill.style.width = '0%';
+        if (ocrPreview) ocrPreview.style.display = 'none';
+        if (loadingStats) loadingStats.style.display = 'flex';
+        if (ocrPreviewContent) ocrPreviewContent.textContent = '';
 
         // Reset steps
         ['step1', 'step2', 'step3'].forEach(id => {
-            document.getElementById(id).className = 'loading-step';
+            const el = document.getElementById(id);
+            if (el) el.className = 'loading-step-inline';
         });
 
         // Start timer
         loadingStartTime = Date.now();
         loadingTimerInterval = setInterval(updateLoadingTimer, 100);
-
-        // Re-init lucide icons
-        if (typeof lucide !== 'undefined') lucide.createIcons();
     } else {
         // Stop timer
         if (loadingTimerInterval) {
@@ -552,21 +562,25 @@ function setLoadingStep(step, status = 'active') {
     if (status === 'active') {
         ['step1', 'step2', 'step3'].forEach((id, index) => {
             const el = document.getElementById(id);
+            if (!el) return;
             if (index + 1 < step) {
-                el.className = 'loading-step completed';
+                el.className = 'loading-step-inline completed';
             } else if (index + 1 === step) {
-                el.className = 'loading-step active';
+                el.className = 'loading-step-inline active';
             } else {
-                el.className = 'loading-step';
+                el.className = 'loading-step-inline';
             }
         });
     } else if (status === 'completed') {
-        stepEl.className = 'loading-step completed';
+        stepEl.className = 'loading-step-inline completed';
     }
 }
 
 function setLoadingProgress(percent) {
-    document.getElementById('progressFill').style.width = `${percent}%`;
+    const progressFill = document.getElementById('progressFill');
+    const loadingSubtitle = document.getElementById('loadingSubtitle');
+    if (progressFill) progressFill.style.width = `${percent}%`;
+    if (loadingSubtitle) loadingSubtitle.textContent = `${Math.round(percent)}%`;
 }
 
 function setLoadingStatus(title, subtitle = '') {

@@ -179,6 +179,56 @@
                                 <i data-lucide="arrow-right"></i>
                             </button>
                         </div>
+
+                        <!-- Inline Loading Section -->
+                        <div id="loadingInline" class="loading-inline" style="display: none;">
+                            <!-- Progress Steps -->
+                            <div class="loading-steps-inline">
+                                <div class="loading-step-inline" id="step1">
+                                    <div class="step-icon-inline">📷</div>
+                                    <div class="step-label-inline">OCR</div>
+                                </div>
+                                <div class="step-connector"></div>
+                                <div class="loading-step-inline" id="step2">
+                                    <div class="step-icon-inline">🤖</div>
+                                    <div class="step-label-inline">Phân tích</div>
+                                </div>
+                                <div class="step-connector"></div>
+                                <div class="loading-step-inline" id="step3">
+                                    <div class="step-icon-inline">✅</div>
+                                    <div class="step-label-inline">Hoàn tất</div>
+                                </div>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="loading-status-inline">
+                                <span class="loading-spinner-inline"></span>
+                                <span id="loadingTitle">Đang xử lý...</span>
+                            </div>
+
+                            <!-- Progress Bar -->
+                            <div class="loading-progress-inline">
+                                <div class="progress-bar-inline">
+                                    <div class="progress-fill-inline" id="progressFill"></div>
+                                </div>
+                                <span class="progress-text" id="loadingSubtitle">0%</span>
+                            </div>
+
+                            <!-- OCR Preview -->
+                            <div class="ocr-preview-inline" id="ocrPreview" style="display: none;">
+                                <div class="ocr-preview-header-inline">
+                                    <span>📝 OCR</span>
+                                    <span class="ocr-engine-inline" id="ocrEngineLabel">Google Vision</span>
+                                </div>
+                                <div class="ocr-preview-content-inline" id="ocrPreviewContent"></div>
+                            </div>
+
+                            <!-- Stats -->
+                            <div class="loading-stats-inline" id="loadingStats">
+                                <span><strong id="statChars">0</strong> ký tự</span>
+                                <span><strong id="statTime">0s</strong></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -234,72 +284,6 @@
             </div>
         </div>
     </main>
-
-    <!-- Enhanced Loading Overlay -->
-    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
-        <div class="loading-container">
-            <!-- Progress Steps -->
-            <div class="loading-steps">
-                <div class="loading-step" id="step1">
-                    <div class="step-icon">📷</div>
-                    <div class="step-label">OCR</div>
-                </div>
-                <div class="loading-step" id="step2">
-                    <div class="step-icon">🤖</div>
-                    <div class="step-label">Phân tích</div>
-                </div>
-                <div class="loading-step" id="step3">
-                    <div class="step-icon">✅</div>
-                    <div class="step-label">Hoàn tất</div>
-                </div>
-            </div>
-
-            <!-- Status -->
-            <div class="loading-status">
-                <h3>
-                    <i data-lucide="loader" class="loading-spinner-icon"></i>
-                    <span id="loadingTitle">Đang xử lý...</span>
-                </h3>
-                <p id="loadingSubtitle">Vui lòng chờ trong giây lát</p>
-            </div>
-
-            <!-- Progress Bar -->
-            <div class="loading-progress">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <!-- OCR Preview -->
-            <div class="ocr-preview" id="ocrPreview" style="display: none;">
-                <div class="ocr-preview-header">
-                    <h4>📝 Text trích xuất (OCR)</h4>
-                    <span class="ocr-engine" id="ocrEngineLabel">Google Vision</span>
-                </div>
-                <div class="ocr-preview-content" id="ocrPreviewContent"></div>
-            </div>
-
-            <!-- AI Response Preview -->
-            <div class="ai-preview" id="aiPreview" style="display: none;">
-                <div class="ai-preview-header">
-                    <h4>🤖 DeepSeek đang phân tích...</h4>
-                </div>
-                <div class="ai-preview-content" id="aiPreviewContent"></div>
-            </div>
-
-            <!-- Stats -->
-            <div class="loading-stats" id="loadingStats" style="display: none;">
-                <div class="loading-stat">
-                    <div class="stat-value" id="statChars">0</div>
-                    <div class="stat-label">Ký tự OCR</div>
-                </div>
-                <div class="loading-stat">
-                    <div class="stat-value" id="statTime">0s</div>
-                    <div class="stat-label">Thời gian</div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Pancake Settings Modal -->
     <div class="pancake-modal" id="pancakeSettingsModal">
