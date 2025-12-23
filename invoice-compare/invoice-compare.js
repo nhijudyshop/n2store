@@ -495,13 +495,116 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
+// =====================================================
+// ENHANCED LOADING UI
+// =====================================================
+
+let loadingStartTime = null;
+let loadingTimerInterval = null;
+
 function showLoading(show, message = 'Đang tải dữ liệu...') {
     elements.loadingOverlay.style.display = show ? 'flex' : 'none';
-    // Update loading message if exists
-    const loadingText = elements.loadingOverlay.querySelector('p');
-    if (loadingText) {
-        loadingText.textContent = message;
+
+    if (show) {
+        // Reset UI
+        document.getElementById('loadingTitle').textContent = message;
+        document.getElementById('loadingSubtitle').textContent = 'Vui lòng chờ trong giây lát';
+        document.getElementById('progressFill').style.width = '0%';
+        document.getElementById('ocrPreview').style.display = 'none';
+        document.getElementById('aiPreview').style.display = 'none';
+        document.getElementById('loadingStats').style.display = 'none';
+        document.getElementById('ocrPreviewContent').textContent = '';
+        document.getElementById('aiPreviewContent').textContent = '';
+
+        // Reset steps
+        ['step1', 'step2', 'step3'].forEach(id => {
+            document.getElementById(id).className = 'loading-step';
+        });
+
+        // Start timer
+        loadingStartTime = Date.now();
+        loadingTimerInterval = setInterval(updateLoadingTimer, 100);
+
+        // Re-init lucide icons
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    } else {
+        // Stop timer
+        if (loadingTimerInterval) {
+            clearInterval(loadingTimerInterval);
+            loadingTimerInterval = null;
+        }
     }
+}
+
+function updateLoadingTimer() {
+    if (loadingStartTime) {
+        const elapsed = ((Date.now() - loadingStartTime) / 1000).toFixed(1);
+        document.getElementById('statTime').textContent = elapsed + 's';
+    }
+}
+
+function setLoadingStep(step, status = 'active') {
+    const stepEl = document.getElementById(`step${step}`);
+    if (!stepEl) return;
+
+    // Reset all steps first for 'active' status
+    if (status === 'active') {
+        ['step1', 'step2', 'step3'].forEach((id, index) => {
+            const el = document.getElementById(id);
+            if (index + 1 < step) {
+                el.className = 'loading-step completed';
+            } else if (index + 1 === step) {
+                el.className = 'loading-step active';
+            } else {
+                el.className = 'loading-step';
+            }
+        });
+    } else if (status === 'completed') {
+        stepEl.className = 'loading-step completed';
+    }
+}
+
+function setLoadingProgress(percent) {
+    document.getElementById('progressFill').style.width = `${percent}%`;
+}
+
+function setLoadingStatus(title, subtitle = '') {
+    document.getElementById('loadingTitle').textContent = title;
+    if (subtitle) {
+        document.getElementById('loadingSubtitle').textContent = subtitle;
+    }
+}
+
+function showOCRPreview(text, engine = 'Google Vision') {
+    const preview = document.getElementById('ocrPreview');
+    const content = document.getElementById('ocrPreviewContent');
+    const label = document.getElementById('ocrEngineLabel');
+
+    preview.style.display = 'block';
+    label.textContent = engine;
+
+    // Truncate for preview
+    const previewText = text.length > 1000 ? text.substring(0, 1000) + '...' : text;
+    content.textContent = previewText;
+    content.classList.add('streaming');
+
+    // Update stats
+    document.getElementById('loadingStats').style.display = 'flex';
+    document.getElementById('statChars').textContent = text.length.toLocaleString();
+
+    // Remove streaming cursor after a moment
+    setTimeout(() => content.classList.remove('streaming'), 500);
+}
+
+function showAIPreview(text) {
+    const preview = document.getElementById('aiPreview');
+    const content = document.getElementById('aiPreviewContent');
+
+    preview.style.display = 'block';
+
+    // Truncate for preview
+    const previewText = text.length > 500 ? text.substring(0, 500) + '...' : text;
+    content.textContent = previewText;
 }
 
 function showNotification(message, type = 'info') {
@@ -704,26 +807,76 @@ async function analyzeImagesWithAI() {
             throw new Error('DeepSeek API chưa được cấu hình. Vui lòng kiểm tra API key.');
         }
 
-        const ocrEngine = window.DeepSeekAI.isGoogleVisionConfigured()
-            ? 'Google Cloud Vision'
-            : 'Tesseract.js';
+        const ocrEngine = window.DeepSeekAI.getCurrentOCREngine
+            ? window.DeepSeekAI.getCurrentOCREngine()
+            : (window.DeepSeekAI.isGoogleVisionConfigured() ? 'Google Cloud Vision' : 'DeepSeek-OCR');
 
         console.log('[AI-ANALYSIS] Starting analysis with', uploadedImages.length, 'images');
         console.log('[AI-ANALYSIS] OCR Engine:', ocrEngine);
 
-        // Step 1: OCR extract text
-        showLoading(true, `📷 Đang OCR với ${ocrEngine}...`);
+        // Initialize loading UI
+        showLoading(true, 'Bắt đầu phân tích...');
+        setLoadingStep(1, 'active');
+        setLoadingProgress(10);
+        setLoadingStatus('Đang trích xuất text từ ảnh', `Sử dụng ${ocrEngine}`);
 
         const image = uploadedImages[0];
 
-        // Step 2: Analyze with DeepSeek
-        showLoading(true, '🤖 Đang phân tích với DeepSeek AI...');
+        // Step 1: OCR - Extract text
+        setLoadingProgress(20);
 
-        const result = await window.DeepSeekAI.analyzeImage(
-            image.base64,
-            AI_ANALYSIS_PROMPT,
-            { mimeType: image.mimeType }
-        );
+        // Custom OCR with preview
+        const imageData = `data:${image.mimeType};base64,${image.base64}`;
+        let extractedText;
+
+        try {
+            extractedText = await window.DeepSeekAI.extractTextFromImage(imageData, image.mimeType);
+            setLoadingProgress(50);
+            setLoadingStep(1, 'completed');
+
+            // Show OCR result preview
+            showOCRPreview(extractedText, ocrEngine);
+
+        } catch (ocrError) {
+            throw new Error('OCR thất bại: ' + ocrError.message);
+        }
+
+        if (!extractedText || extractedText.trim().length < 10) {
+            throw new Error('OCR không thể trích xuất đủ text từ ảnh.');
+        }
+
+        // Step 2: AI Analysis
+        setLoadingStep(2, 'active');
+        setLoadingProgress(60);
+        setLoadingStatus('Đang phân tích với AI', 'DeepSeek đang xử lý dữ liệu...');
+
+        // Create analysis prompt
+        const analysisPrompt = `Dưới đây là text được trích xuất từ hình ảnh hóa đơn bằng OCR:
+
+--- BẮT ĐẦU TEXT TỪ ẢNH ---
+${extractedText}
+--- KẾT THÚC TEXT TỪ ẢNH ---
+
+${AI_ANALYSIS_PROMPT}`;
+
+        setLoadingProgress(70);
+
+        const result = await window.DeepSeekAI.callDeepSeekAPI([
+            { role: 'user', content: analysisPrompt }
+        ]);
+
+        setLoadingProgress(90);
+
+        // Show AI result preview
+        showAIPreview(result);
+
+        // Step 3: Complete
+        setLoadingStep(3, 'active');
+        setLoadingProgress(100);
+        setLoadingStatus('Hoàn tất!', 'Đang hiển thị kết quả...');
+
+        // Small delay to show completion
+        await new Promise(r => setTimeout(r, 500));
 
         console.log('[AI-ANALYSIS] Raw result:', result);
 
