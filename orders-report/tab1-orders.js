@@ -17330,14 +17330,28 @@ function displayChatSearchResults(results) {
         return;
     }
 
-    // Check existing products
+    // Check existing products (both main products and held products)
     const productsInOrder = new Map();
+    const heldProductIds = new Set();
+
+    // Check main products
     currentChatOrderDetails.forEach(d => {
-        productsInOrder.set(d.ProductId, d.Quantity || 0);
+        productsInOrder.set(d.ProductId, (productsInOrder.get(d.ProductId) || 0) + (d.Quantity || 0));
     });
+
+    // Check held products from window.currentChatOrderData.Details
+    if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+        window.currentChatOrderData.Details.forEach(d => {
+            if (d.IsHeld) {
+                heldProductIds.add(d.ProductId);
+                productsInOrder.set(d.ProductId, (productsInOrder.get(d.ProductId) || 0) + (d.Quantity || 0));
+            }
+        });
+    }
 
     resultsDiv.innerHTML = results.map(p => {
         const isInOrder = productsInOrder.has(p.Id);
+        const isHeld = heldProductIds.has(p.Id);
         const currentQty = productsInOrder.get(p.Id) || 0;
 
         return `
@@ -17358,7 +17372,7 @@ function displayChatSearchResults(results) {
                 position: absolute;
                 top: 4px;
                 right: 4px;
-                background: #10b981;
+                background: ${isHeld ? '#f59e0b' : '#10b981'};
                 color: white;
                 font-size: 10px;
                 padding: 2px 6px;
@@ -17366,7 +17380,7 @@ function displayChatSearchResults(results) {
                 font-weight: 600;
                 z-index: 10;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            "><i class="fas fa-shopping-cart"></i> SL: ${currentQty}</div>
+            "><i class="fas ${isHeld ? 'fa-hand-paper' : 'fa-shopping-cart'}"></i> ${isHeld ? 'Giữ' : 'SL'}: ${currentQty}</div>
             ` : ''}
 
             <!-- Image -->
@@ -17509,6 +17523,16 @@ async function addChatProductFromSearch(productId) {
         const normalizedProductId = parseInt(productId);
         if (isNaN(normalizedProductId)) {
             throw new Error("Invalid product ID");
+        }
+
+        // Check if order data is available
+        if (!window.currentChatOrderData) {
+            throw new Error("Vui lòng mở một đơn hàng trước khi thêm sản phẩm");
+        }
+
+        // Ensure Details array exists
+        if (!window.currentChatOrderData.Details) {
+            window.currentChatOrderData.Details = [];
         }
 
         // 1. Fetch full details from TPOS (Required)
