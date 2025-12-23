@@ -696,8 +696,6 @@ Chỉ trả về JSON, không thêm giải thích hay text khác.`;
 
 async function analyzeImagesWithAI() {
     try {
-        showLoading(true, '🔤 Đang khởi tạo OCR...');
-
         if (uploadedImages.length === 0) {
             throw new Error('Chưa có ảnh nào được tải lên');
         }
@@ -706,21 +704,19 @@ async function analyzeImagesWithAI() {
             throw new Error('DeepSeek API chưa được cấu hình. Vui lòng kiểm tra API key.');
         }
 
+        const ocrEngine = window.DeepSeekAI.isGoogleVisionConfigured()
+            ? 'Google Cloud Vision'
+            : 'Tesseract.js';
+
         console.log('[AI-ANALYSIS] Starting analysis with', uploadedImages.length, 'images');
-        console.log('[AI-ANALYSIS] Approach: OCR + DeepSeek Text Analysis');
+        console.log('[AI-ANALYSIS] OCR Engine:', ocrEngine);
 
-        // Step 1: Initialize OCR
-        showLoading(true, '🔤 Đang tải OCR engine...');
-        await window.DeepSeekAI.initializeOCR();
-
-        // Step 2: OCR extract text
-        showLoading(true, '📷 Đang trích xuất text từ ảnh (OCR)...');
+        // Step 1: OCR extract text
+        showLoading(true, `📷 Đang OCR với ${ocrEngine}...`);
 
         const image = uploadedImages[0];
 
-        console.log('[AI-ANALYSIS] Using DeepSeek API with OCR...');
-
-        // Step 3: Send to DeepSeek
+        // Step 2: Analyze with DeepSeek
         showLoading(true, '🤖 Đang phân tích với DeepSeek AI...');
 
         const result = await window.DeepSeekAI.analyzeImage(
