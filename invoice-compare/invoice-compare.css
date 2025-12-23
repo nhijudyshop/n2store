@@ -311,6 +311,187 @@
     justify-content: center;
 }
 
+/* =====================================================
+   INLINE LOADING - Progress UI
+   ===================================================== */
+.loading-inline {
+    margin-top: 16px;
+    padding: 16px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+.loading-steps-inline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.loading-step-inline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.step-icon-inline {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.step-label-inline {
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+.step-connector {
+    width: 40px;
+    height: 2px;
+    background: #e5e7eb;
+    margin-bottom: 20px;
+}
+
+.loading-step-inline.active .step-icon-inline {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    animation: pulseStep 1s ease infinite;
+}
+
+.loading-step-inline.active .step-label-inline {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.loading-step-inline.completed .step-icon-inline {
+    background: #10b981;
+}
+
+.loading-step-inline.completed .step-label-inline {
+    color: #10b981;
+}
+
+.loading-step-inline.completed + .step-connector {
+    background: #10b981;
+}
+
+@keyframes pulseStep {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.loading-status-inline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 12px;
+}
+
+.loading-spinner-inline {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.loading-progress-inline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.progress-bar-inline {
+    flex: 1;
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill-inline {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.progress-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #667eea;
+    min-width: 36px;
+}
+
+.ocr-preview-inline {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.ocr-preview-header-inline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.ocr-engine-inline {
+    font-size: 10px;
+    padding: 2px 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+}
+
+.ocr-preview-content-inline {
+    padding: 10px 12px;
+    max-height: 120px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #374151;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.loading-stats-inline {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.loading-stats-inline strong {
+    color: #667eea;
+}
+
 .btn-analyze-ai {
     display: inline-flex;
     align-items: center;
