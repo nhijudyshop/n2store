@@ -17505,8 +17505,14 @@ async function addChatProductFromSearch(productId) {
     }
 
     try {
+        // Normalize productId to number
+        const normalizedProductId = parseInt(productId);
+        if (isNaN(normalizedProductId)) {
+            throw new Error("Invalid product ID");
+        }
+
         // 1. Fetch full details from TPOS (Required)
-        const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
+        const fullProduct = await window.productSearchManager.getFullProductDetails(normalizedProductId);
         if (!fullProduct) throw new Error("Không tìm thấy thông tin sản phẩm");
 
         // Logic to inherit image from Product Template if missing (Variant logic)
@@ -17514,7 +17520,6 @@ async function addChatProductFromSearch(productId) {
             if (fullProduct.ProductTmplId) {
                 try {
                     console.log(`[CHAT-ADD] Fetching product template ${fullProduct.ProductTmplId} for image fallback`);
-                    // Construct Template URL
                     const templateApiUrl = window.productSearchManager.PRODUCT_API_BASE.replace('/Product', '/ProductTemplate');
                     const url = `${templateApiUrl}(${fullProduct.ProductTmplId})?$expand=Images`;
 
@@ -17534,22 +17539,26 @@ async function addChatProductFromSearch(productId) {
             }
         }
 
-        // 2. Check if already exists
-        const existingIndex = currentChatOrderDetails.findIndex(p => p.ProductId === productId);
+        // Validate sale price (only use PriceVariant or ListPrice, never StandardPrice)
+        const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
+        if (salePrice == null || salePrice < 0) {
+            console.error(`[CHAT-ADD] ❌ Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+            throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+        }
 
-        if (existingIndex >= 0) {
-            // Increase quantity
-            currentChatOrderDetails[existingIndex].Quantity = (currentChatOrderDetails[existingIndex].Quantity || 0) + 1;
+        // 2. Check if already exists in HELD list (merge quantity)
+        const existingHeldIndex = window.currentChatOrderData?.Details?.findIndex(
+            p => p.ProductId === normalizedProductId && p.IsHeld === true
+        ) ?? -1;
+
+        if (existingHeldIndex >= 0) {
+            // Product already in held list - increment quantity
+            window.currentChatOrderData.Details[existingHeldIndex].Quantity += 1;
+            console.log('[CHAT-ADD] Merged with existing held product, new qty:',
+                window.currentChatOrderData.Details[existingHeldIndex].Quantity);
         } else {
-            // Validate sale price (only use PriceVariant or ListPrice, never StandardPrice)
-            const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
-            if (salePrice == null || salePrice < 0) {
-                console.error(`[CHAT-ADD] ❌ Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
-                throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
-            }
-
-            // 3. Create new product object using EXACT logic from addProductToOrderFromInline
-            const newProduct = {
+            // 3. Create new HELD product object (similar to moveDroppedToOrder)
+            const heldProduct = {
                 ProductId: fullProduct.Id,
                 Quantity: 1,
                 Price: salePrice,
@@ -17557,7 +17566,7 @@ async function addChatProductFromSearch(productId) {
                 UOMId: fullProduct.UOM?.Id || 1,
                 Factor: 1,
                 Priority: 0,
-                OrderId: currentChatOrderId, // Use current chat order ID
+                OrderId: window.currentChatOrderData?.Id || currentChatOrderId,
                 LiveCampaign_DetailId: null,
                 ProductWeight: 0,
 
@@ -17571,34 +17580,74 @@ async function addChatProductFromSearch(productId) {
                 QuantityRegex: null,
                 IsDisabledLiveCampaignDetail: false,
 
-                // Additional fields for chat UI compatibility if needed
+                // HELD product markers
+                IsHeld: true,
+                IsFromSearch: true,
+                StockQty: fullProduct.QtyAvailable || 0,
+
+                // Additional fields for compatibility
                 Name: fullProduct.Name,
                 Code: fullProduct.DefaultCode || fullProduct.Barcode
             };
 
-            // Add to the correct data source
+            // Add to Details array
             if (window.currentChatOrderData && window.currentChatOrderData.Details) {
-                window.currentChatOrderData.Details.push(newProduct);
-            } else {
-                currentChatOrderDetails.push(newProduct);
+                window.currentChatOrderData.Details.push(heldProduct);
             }
         }
 
-        // Sync arrays if needed
-        if (window.currentChatOrderData && window.currentChatOrderData.Details) {
-            currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+        // 4. Sync to Firebase held_products for multi-user collaboration
+        const orderId = window.currentChatOrderData?.Id;
+        if (window.firebase && window.authManager && orderId) {
+            const auth = window.authManager.getAuthState();
+
+            if (auth) {
+                let userId = auth.id || auth.Id || auth.username || auth.userType;
+                if (!userId && auth.displayName) {
+                    userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+                }
+
+                if (userId) {
+                    // Get current held quantity for this user
+                    const currentHeldProduct = window.currentChatOrderData.Details.find(
+                        p => p.ProductId === normalizedProductId && p.IsHeld
+                    );
+                    const heldQuantity = currentHeldProduct ? currentHeldProduct.Quantity : 1;
+
+                    // Sync to Firebase
+                    const ref = window.firebase.database().ref(`held_products/${orderId}/${normalizedProductId}/${userId}`);
+
+                    await ref.set({
+                        productId: normalizedProductId,
+                        displayName: auth.displayName || auth.userType || 'Unknown',
+                        quantity: heldQuantity,
+                        isDraft: true,
+                        isFromSearch: true,
+                        timestamp: window.firebase.database.ServerValue.TIMESTAMP
+                    });
+
+                    console.log('[CHAT-ADD] ✓ Synced to Firebase held_products:', {
+                        orderId,
+                        productId: normalizedProductId,
+                        userId,
+                        quantity: heldQuantity
+                    });
+                }
+            }
         }
 
+        // 5. Re-render UI (held products will show with Confirm/Delete buttons)
         renderChatProductsTable();
-        saveChatProductsToFirebase('shared', currentChatOrderDetails);
 
-        // Update UI for the added item
-        updateChatProductItemUI(productId);
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.show(`✓ Đã thêm "${fullProduct.Name}" vào danh sách giữ`, 'info');
+        }
 
         // Clear search input and keep focus
         const searchInput = document.getElementById("chatInlineProductSearch");
         if (searchInput) {
-            searchInput.value = ''; // Clear input
+            searchInput.value = '';
             searchInput.focus();
         }
 
@@ -17607,6 +17656,8 @@ async function addChatProductFromSearch(productId) {
         if (resultsDiv) {
             resultsDiv.style.display = "none";
         }
+
+        console.log('[CHAT-ADD] ✓ Added product to held list:', normalizedProductId);
 
     } catch (error) {
         console.error("Error adding product:", error);
@@ -17647,6 +17698,21 @@ window.confirmHeldProduct = async function (productId) {
         // Show loading notification
         if (window.notificationManager) {
             window.notificationManager.show("Đang xác nhận sản phẩm...", "info");
+        }
+
+        // KPI CHECK: Before confirming first product, ask user if they want to track KPI
+        // Get current main products (before adding new one) for potential BASE save
+        const currentMainProducts = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+        const orderId = window.currentChatOrderData.Id;
+        const orderSTT = window.currentChatOrderData.STT || window.currentChatOrderData.Stt || 0;
+
+        if (window.kpiManager) {
+            try {
+                // This will check if BASE exists and prompt user if not
+                await window.kpiManager.promptAndSaveKPIBase(orderId, orderSTT, currentMainProducts);
+            } catch (kpiError) {
+                console.warn('[HELD-CONFIRM] KPI check failed (non-blocking):', kpiError);
+            }
         }
 
         // Fetch full product details from TPOS using normalized ID

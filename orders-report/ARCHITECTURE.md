@@ -412,6 +412,58 @@ orders-report/
 
 ---
 
+#### `kpi-manager.js` (~400 dòng)
+
+**Mục đích:** Quản lý tính KPI dựa trên sự khác biệt sản phẩm giữa BASE và Note.
+
+**Flow:**
+```
+1. User xác nhận SP lần đầu → checkKPIBaseExists()
+2. Nếu chưa có BASE → Popup "Tính KPI từ lúc này?"
+3. Nếu đồng ý → saveKPIBase() lưu snapshot SP chính
+4. So sánh Note với BASE → calculateKPIDifference()
+5. Tính KPI = Số SP khác biệt × 5,000đ
+```
+
+**Core Functions:**
+
+| Function | Signature | Mô tả |
+|----------|-----------|-------|
+| `checkKPIBaseExists()` | `(orderId) → Promise<boolean>` | Kiểm tra đã có BASE chưa |
+| `saveKPIBase()` | `(orderId, userId, stt, products) → Promise<void>` | Lưu BASE vào Firebase |
+| `getKPIBase()` | `(orderId) → Promise<object\|null>` | Lấy BASE đã lưu |
+| `parseNoteProducts()` | `(note) → Array<{code, qty, price}>` | Parse "N1769 - 1 - 390000" |
+| `calculateKPIDifference()` | `(base, noteProducts) → {totalDifferences, details}` | Tính số SP khác biệt |
+| `calculateKPIAmount()` | `(differences) → number` | × 5,000đ |
+| `saveKPIStatistics()` | `(userId, date, stats) → Promise<void>` | Lưu thống kê |
+
+**Helper Functions:**
+
+| Function | Mô tả |
+|----------|-------|
+| `promptAndSaveKPIBase()` | Hiển thị popup hỏi user + lưu BASE |
+| `calculateAndSaveKPI()` | Tính và lưu KPI cho đơn hàng |
+| `getCurrentDateString()` | Trả về YYYY-MM-DD |
+
+**Firebase Paths:**
+- `kpi_base/{orderId}` - Lưu BASE snapshot
+- `kpi_statistics/{userId}/{date}` - Lưu thống kê KPI theo ngày
+
+**KPI Calculation Rules:**
+
+| Trường hợp | Kết quả |
+|------------|---------|
+| SP mới (không có trong BASE) | +1 khác biệt |
+| SP bị xóa (có trong BASE, không Note) | +1 khác biệt |
+| Số lượng khác | +\|delta\| khác biệt |
+| Trùng khớp | 0 |
+
+**Tích hợp:**
+- Được gọi từ `confirmHeldProduct()` trong `tab1-orders.js`
+- Tự động hỏi user khi xác nhận SP lần đầu cho đơn
+
+---
+
 ### 📁 Other Utilities
 
 | File | Dòng | Mô tả |
@@ -425,6 +477,7 @@ orders-report/
 | `debug-realtime.js` | 150 | Debug realtime connections |
 | `test-tag-listener.js` | 75 | Test Firebase tag listeners |
 | `user-employee-loader.js` | 80 | Load employee list |
+| `kpi-manager.js` | 400 | Tính KPI dựa trên sự khác biệt SP |
 
 ---
 
