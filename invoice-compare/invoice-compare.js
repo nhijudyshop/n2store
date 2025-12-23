@@ -612,14 +612,8 @@ function showOCRPreview(text, engine = 'Google Vision') {
 }
 
 function showAIPreview(text) {
-    const preview = document.getElementById('aiPreview');
-    const content = document.getElementById('aiPreviewContent');
-
-    preview.style.display = 'block';
-
-    // Truncate for preview
-    const previewText = text.length > 500 ? text.substring(0, 500) + '...' : text;
-    content.textContent = previewText;
+    // AI preview removed in inline loading - function kept for compatibility
+    console.log('[AI-PREVIEW]', text.substring(0, 100) + '...');
 }
 
 function showNotification(message, type = 'info') {
@@ -1211,33 +1205,36 @@ elements.btnAnalyzeWithAI.addEventListener('click', async () => {
     }
 });
 
-// Fetch Invoice Data
-elements.btnFetchInvoice.addEventListener('click', async () => {
-    try {
-        const url = elements.invoiceUrl.value.trim();
-        if (!url) {
-            showNotification('Vui lòng nhập URL hóa đơn', 'error');
-            return;
+// Fetch Invoice Data (button removed - functionality moved to AI button)
+// Kept for backward compatibility if button exists
+if (elements.btnFetchInvoice) {
+    elements.btnFetchInvoice.addEventListener('click', async () => {
+        try {
+            const url = elements.invoiceUrl.value.trim();
+            if (!url) {
+                showNotification('Vui lòng nhập URL hóa đơn', 'error');
+                return;
+            }
+
+            const invoiceId = extractInvoiceId(url);
+            await fetchInvoiceData(invoiceId);
+
+            // Validate internal consistency
+            const internalErrors = validateInternalConsistency(currentInvoiceData);
+
+            // If AI result exists, compare with AI
+            if (aiAnalysisResult) {
+                const comparisonErrors = compareAIWithJSON(aiAnalysisResult, currentInvoiceData);
+                displayComparisonResult(internalErrors, comparisonErrors);
+            } else {
+                displayComparisonResult(internalErrors, []);
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
         }
-
-        const invoiceId = extractInvoiceId(url);
-        await fetchInvoiceData(invoiceId);
-
-        // Validate internal consistency
-        const internalErrors = validateInternalConsistency(currentInvoiceData);
-
-        // If AI result exists, compare with AI
-        if (aiAnalysisResult) {
-            const comparisonErrors = compareAIWithJSON(aiAnalysisResult, currentInvoiceData);
-            displayComparisonResult(internalErrors, comparisonErrors);
-        } else {
-            displayComparisonResult(internalErrors, []);
-        }
-
-    } catch (error) {
-        console.error('Error:', error);
-    }
-});
+    });
+}
 
 elements.btnClear.addEventListener('click', () => {
     clearAll();
