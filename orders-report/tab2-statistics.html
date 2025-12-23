@@ -342,6 +342,10 @@
                 Thống kê KPI - Watermark Method
             </div>
             <div class="stats-actions">
+                <!-- Campaign Filter -->
+                <select id="campaignFilter" class="form-select" style="width: 250px; font-size: 13px;">
+                    <option value="">-- Chọn bảng/chiến dịch --</option>
+                </select>
                 <button class="btn-action btn-timeline" onclick="showTimeline()">
                     <i class="fas fa-chart-line"></i> Timeline
                 </button>
@@ -351,6 +355,20 @@
                 <button class="btn-action btn-refresh" onclick="loadStats()">
                     <i class="fas fa-sync-alt"></i> Làm mới
                 </button>
+            </div>
+        </div>
+
+        <!-- Campaign Info Bar -->
+        <div id="campaignInfoBar" style="display: none; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <i class="fas fa-calendar-alt" style="color: #0284c7;"></i>
+                    <strong id="selectedCampaignName" style="color: #0369a1;">Chưa chọn chiến dịch</strong>
+                    <span id="campaignOrderCount" style="color: #64748b; margin-left: 12px;"></span>
+                </div>
+                <div id="kpiCalculationStatus" style="font-size: 12px; color: #64748b;">
+                    <!-- Status will be shown here -->
+                </div>
             </div>
         </div>
 
@@ -720,10 +738,385 @@
         let allStatsData = {};
         let allOrderSnapshots = {};
         let timelineChart = null;
+        let currentCampaignName = null;
+        let campaignsList = [];
 
         document.addEventListener('DOMContentLoaded', function () {
-            loadStats();
+            loadCampaigns();
+
+            // Campaign filter change handler
+            document.getElementById('campaignFilter').addEventListener('change', async function (e) {
+                const selectedCampaign = e.target.value;
+                if (selectedCampaign) {
+                    await onCampaignSelected(selectedCampaign);
+                } else {
+                    // Clear selection
+                    currentCampaignName = null;
+                    document.getElementById('campaignInfoBar').style.display = 'none';
+                    clearStatsTable();
+                }
+            });
         });
+
+        // Load available campaigns from report_order_details
+        async function loadCampaigns() {
+            const select = document.getElementById('campaignFilter');
+
+            try {
+                const snapshot = await firebase.database().ref('report_order_details').once('value');
+                const data = snapshot.val() || {};
+
+                campaignsList = [];
+
+                // Extract campaign names and order counts
+                for (const key in data) {
+                    const campaignData = data[key];
+                    if (campaignData && campaignData.tableName) {
+                        campaignsList.push({
+                            key: key,
+                            name: campaignData.tableName,
+                            orderCount: campaignData.orders?.length || 0,
+                            fetchedAt: campaignData.fetchedAt
+                        });
+                    }
+                }
+
+                // Sort by fetchedAt (newest first)
+                campaignsList.sort((a, b) => (b.fetchedAt || 0) - (a.fetchedAt || 0));
+
+                // Populate dropdown
+                select.innerHTML = '<option value="">-- Chọn bảng/chiến dịch --</option>';
+                campaignsList.forEach(campaign => {
+                    const option = document.createElement('option');
+                    option.value = campaign.name;
+                    option.textContent = `${campaign.name} (${campaign.orderCount} đơn)`;
+                    select.appendChild(option);
+                });
+
+                console.log('[KPI-STATS] Loaded', campaignsList.length, 'campaigns');
+
+            } catch (error) {
+                console.error('[KPI-STATS] Error loading campaigns:', error);
+            }
+        }
+
+        // Handle campaign selection
+        async function onCampaignSelected(campaignName) {
+            currentCampaignName = campaignName;
+
+            // Show info bar
+            const infoBar = document.getElementById('campaignInfoBar');
+            const nameEl = document.getElementById('selectedCampaignName');
+            const countEl = document.getElementById('campaignOrderCount');
+            const statusEl = document.getElementById('kpiCalculationStatus');
+
+            infoBar.style.display = 'block';
+            nameEl.textContent = campaignName;
+
+            const campaign = campaignsList.find(c => c.name === campaignName);
+            countEl.textContent = campaign ? `(${campaign.orderCount} đơn hàng)` : '';
+
+            // Show calculating status
+            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tính KPI...';
+
+            // Show loading in table
+            const tbody = document.getElementById('statsTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <i class="fas fa-calculator fa-spin mb-2" style="font-size: 24px;"></i><br>
+                        Đang tính KPI cho chiến dịch "<strong>${campaignName}</strong>"...
+                    </td>
+                </tr>
+            `;
+
+            try {
+                // Calculate KPI for all orders in this campaign
+                const result = await window.kpiManager.calculateKPIForCampaign(campaignName);
+
+                statusEl.innerHTML = `<i class="fas fa-check-circle" style="color: #10b981;"></i>
+                    Đã tính ${result.success} đơn thành công${result.failed > 0 ? `, ${result.failed} lỗi` : ''}`;
+
+                // Load and display statistics
+                await loadStatsForCampaign(campaignName);
+
+            } catch (error) {
+                console.error('[KPI-STATS] Error calculating KPI:', error);
+                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i> Lỗi: ${error.message}`;
+            }
+        }
+
+        // Load statistics for a specific campaign
+        async function loadStatsForCampaign(campaignName) {
+            const tbody = document.getElementById('statsTableBody');
+            const tfoot = document.getElementById('statsTableFooter');
+
+            try {
+                // Get statistics filtered by campaign
+                const stats = await window.kpiManager.getKPIStatisticsByCampaign(campaignName);
+
+                if (!stats || Object.keys(stats).length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
+                                <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
+                                Chưa có dữ liệu KPI cho chiến dịch này
+                                <br><small>Vui lòng đảm bảo đã lưu BASE và có order details trong Firebase</small>
+                            </td>
+                        </tr>
+                    `;
+                    tfoot.style.display = 'none';
+                    updateSummaryCards(0, 0, 0, 0);
+                    return;
+                }
+
+                // Aggregate by user
+                const userStats = {};
+                let totalUsers = 0;
+                let totalOrders = 0;
+                let totalDifferences = 0;
+                let totalKPI = 0;
+
+                for (const userId in stats) {
+                    const userDates = stats[userId];
+                    let userName = 'Unknown';
+                    let userTotalDiff = 0;
+                    let userTotalKPI = 0;
+                    let userOrders = [];
+
+                    for (const date in userDates) {
+                        const dateStats = userDates[date];
+                        userName = dateStats.orders?.[0]?.userName || userName;
+
+                        (dateStats.orders || []).forEach(order => {
+                            userTotalDiff += order.differences || 0;
+                            userTotalKPI += order.kpi || 0;
+                            userOrders.push(order);
+                        });
+                    }
+
+                    if (userOrders.length > 0) {
+                        userStats[userId] = {
+                            id: userId,
+                            name: userName,
+                            totalDifferences: userTotalDiff,
+                            totalKPI: userTotalKPI,
+                            orders: userOrders
+                        };
+
+                        totalUsers++;
+                        totalOrders += userOrders.length;
+                        totalDifferences += userTotalDiff;
+                        totalKPI += userTotalKPI;
+                    }
+                }
+
+                // Render table
+                let html = '';
+                let index = 1;
+
+                // Sort by KPI descending
+                const sortedUsers = Object.values(userStats).sort((a, b) => b.totalKPI - a.totalKPI);
+
+                for (const user of sortedUsers) {
+                    const hasHighKPI = user.totalKPI > 50000;
+
+                    html += `
+                        <tr class="clickable-row ${hasHighKPI ? 'fraud-warning-row' : ''}"
+                            onclick="showUserOrders('${user.id}', '${user.name.replace(/'/g, "\\'")}')">
+                            <td style="text-align: center;">${index++}</td>
+                            <td>
+                                <strong>${user.name}</strong>
+                                ${hasHighKPI ? '<span class="badge-fraud"><i class="fas fa-exclamation-triangle"></i> KPI cao</span>' : ''}
+                            </td>
+                            <td style="text-align: center;">${user.orders.length}</td>
+                            <td style="text-align: center;">${user.totalDifferences}</td>
+                            <td style="text-align: right; color: #dc2626; font-weight: 600;">
+                                ${user.totalKPI.toLocaleString('vi-VN')}đ
+                            </td>
+                            <td style="text-align: right; color: #059669;">-</td>
+                            <td style="text-align: center;">
+                                <span class="badge ${hasHighKPI ? 'badge-fraud' : 'badge-success'}">
+                                    ${hasHighKPI ? 'Cảnh báo' : 'Bình thường'}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }
+
+                tbody.innerHTML = html;
+
+                // Update footer
+                tfoot.style.display = 'table-footer-group';
+                document.getElementById('grandTotalOrders').textContent = totalOrders;
+                document.getElementById('grandTotalQty').textContent = totalDifferences;
+                document.getElementById('grandTotalAmount').textContent = totalKPI.toLocaleString('vi-VN') + 'đ';
+                document.getElementById('grandTotalInvoiceAmount').textContent = '-';
+
+                // Update summary cards
+                updateSummaryCards(totalUsers, totalOrders, totalDifferences, sortedUsers.filter(u => u.totalKPI > 50000).length);
+
+                // Store for later use
+                allStatsData = userStats;
+
+            } catch (error) {
+                console.error('[KPI-STATS] Error loading stats:', error);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #ef4444;">
+                            <i class="fas fa-exclamation-triangle mb-2" style="font-size: 24px;"></i><br>
+                            Lỗi: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Show orders for a user
+        function showUserOrders(userId, userName) {
+            const user = allStatsData[userId];
+            if (!user) return;
+
+            document.getElementById('modalUserName').textContent = userName;
+
+            const tbody = document.getElementById('ordersTableBody');
+            let html = '';
+
+            user.orders.forEach((order, index) => {
+                const hasKPI = order.differences > 0;
+                html += `
+                    <tr class="clickable-row" onclick="showOrderKPIDetails('${order.orderId}', ${order.stt})">
+                        <td>${index + 1}</td>
+                        <td><strong>STT ${order.stt}</strong></td>
+                        <td>${order.differences} SP</td>
+                        <td style="color: #dc2626; font-weight: 600;">${(order.kpi || 0).toLocaleString('vi-VN')}đ</td>
+                        <td>${order.timestamp ? new Date(order.timestamp).toLocaleString('vi-VN') : '-'}</td>
+                        <td>
+                            <span class="badge ${hasKPI ? 'badge-warning' : 'badge-success'}">
+                                ${hasKPI ? 'Có KPI' : 'Không KPI'}
+                            </span>
+                        </td>
+                        <td style="text-align: center;">
+                            <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); showOrderKPIDetails('${order.orderId}', ${order.stt})">
+                                <i class="fas fa-eye"></i> Chi tiết
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+
+            const modal = new bootstrap.Modal(document.getElementById('ordersModal'));
+            modal.show();
+        }
+
+        // Show KPI details for an order
+        async function showOrderKPIDetails(orderId, stt) {
+            document.getElementById('orderDetailsTitle').textContent = `STT ${stt}`;
+
+            // Load BASE and current products
+            const base = await window.kpiManager.getKPIBase(orderId);
+            const currentProducts = currentCampaignName
+                ? await window.kpiManager.getOrderDetailsFromFirebase(orderId, currentCampaignName)
+                : null;
+
+            // Render baseline tab
+            renderBaselineTab(base, currentProducts);
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+            modal.show();
+        }
+
+        // Render baseline comparison
+        function renderBaselineTab(base, currentProducts) {
+            const tbody = document.getElementById('baselineTableBody');
+            const emptyEl = document.getElementById('baselineEmpty');
+
+            if (!base || !base.products || base.products.length === 0) {
+                tbody.innerHTML = '';
+                emptyEl.style.display = 'block';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+
+            // Create maps for comparison
+            const baseMap = new Map();
+            base.products.forEach(p => {
+                baseMap.set(p.code.toUpperCase(), p.quantity);
+            });
+
+            const currentMap = new Map();
+            if (currentProducts) {
+                currentProducts.forEach(p => {
+                    currentMap.set(p.code.toUpperCase(), p.quantity);
+                });
+            }
+
+            let html = '';
+            let index = 1;
+
+            // Show all products from BASE
+            for (const [code, baseQty] of baseMap) {
+                const currentQty = currentMap.get(code) || 0;
+                const diff = currentQty - baseQty;
+                const diffClass = diff > 0 ? 'text-success' : (diff < 0 ? 'text-danger' : '');
+                const diffIcon = diff > 0 ? '↑' : (diff < 0 ? '↓' : '=');
+
+                html += `
+                    <tr>
+                        <td>${index++}</td>
+                        <td><code>${code}</code></td>
+                        <td style="text-align: center;">${baseQty}</td>
+                        <td style="text-align: center;">${currentQty}</td>
+                        <td style="text-align: center; font-weight: 600;" class="${diffClass}">
+                            ${Math.abs(diff)} ${diffIcon}
+                        </td>
+                        <td style="text-align: center;">
+                            ${diff !== 0 ? '<span class="badge badge-warning">Thay đổi</span>' : '<span class="badge badge-success">Giữ nguyên</span>'}
+                        </td>
+                    </tr>
+                `;
+            }
+
+            // Show new products (in current but not in BASE)
+            for (const [code, currentQty] of currentMap) {
+                if (!baseMap.has(code)) {
+                    html += `
+                        <tr class="table-warning">
+                            <td>${index++}</td>
+                            <td><code>${code}</code> <span class="badge bg-warning">Mới</span></td>
+                            <td style="text-align: center;">0</td>
+                            <td style="text-align: center;">${currentQty}</td>
+                            <td style="text-align: center; font-weight: 600; color: #dc2626;">+${currentQty}</td>
+                            <td style="text-align: center;">
+                                <span class="badge badge-fraud">Thêm mới</span>
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        function clearStatsTable() {
+            const tbody = document.getElementById('statsTableBody');
+            const tfoot = document.getElementById('statsTableFooter');
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <i class="fas fa-hand-point-up mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
+                        Vui lòng chọn một chiến dịch để xem thống kê KPI
+                    </td>
+                </tr>
+            `;
+            tfoot.style.display = 'none';
+            updateSummaryCards(0, 0, 0, 0);
+        }
 
         async function loadStats() {
             const tbody = document.getElementById('statsTableBody');
