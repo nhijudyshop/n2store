@@ -846,6 +846,11 @@
             return;
         }
 
+        // Ensure Details array exists
+        if (!window.currentChatOrderData.Details) {
+            window.currentChatOrderData.Details = [];
+        }
+
         // Check if product has quantity > 0
         if (!product.Quantity || product.Quantity <= 0) {
             showError('Không thể chuyển sản phẩm có số lượng = 0. Sản phẩm này đang được giữ.');
