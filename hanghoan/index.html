@@ -562,6 +562,198 @@
         </div>
     </div>
 
+    <!-- Return Order Detail Modal -->
+    <div id="returnDetailModal" class="modal-overlay">
+        <div class="modal-container return-detail-modal">
+            <div class="modal-header">
+                <h2>
+                    <i data-lucide="file-text"></i>
+                    Chi Tiết Đơn Trả Hàng
+                </h2>
+                <button class="btn-icon modal-close" onclick="TraHangModule.closeDetailModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Loading state -->
+                <div class="return-detail-loading" id="returnDetailLoading">
+                    <i data-lucide="loader-2"></i>
+                    <p>Đang tải chi tiết...</p>
+                </div>
+
+                <!-- Content -->
+                <div class="return-detail-content" id="returnDetailContent">
+                    <!-- Tabs -->
+                    <div class="return-detail-tabs">
+                        <button class="return-tab-btn active" data-tab="info">Thông tin</button>
+                        <button class="return-tab-btn" data-tab="receiver">Thông tin người nhận</button>
+                        <button class="return-tab-btn" data-tab="other">Thông tin khác</button>
+                        <button class="return-tab-btn" data-tab="images">Hình ảnh đóng gói</button>
+                        <button class="return-tab-btn" data-tab="history">Lịch sử</button>
+                    </div>
+
+                    <!-- Info Tab Content -->
+                    <div class="return-tab-content active" id="returnTabInfo">
+                        <!-- Order Info -->
+                        <div class="return-info-grid">
+                            <div class="return-info-row">
+                                <div class="return-info-item">
+                                    <label>Khách hàng:</label>
+                                    <span class="return-customer-name" id="returnCustomerName">-</span>
+                                    <span class="return-customer-status" id="returnCustomerStatus">-</span>
+                                </div>
+                                <div class="return-info-item">
+                                    <label>Phương thức thanh toán:</label>
+                                    <span id="returnPaymentMethod">-</span>
+                                </div>
+                                <div class="return-info-item">
+                                    <label>Người giao hàng:</label>
+                                    <span id="returnDeliver">-</span>
+                                </div>
+                            </div>
+                            <div class="return-info-row">
+                                <div class="return-info-item">
+                                    <label>Nợ cũ:</label>
+                                    <span class="return-old-debt" id="returnOldDebt">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Order Lines Table -->
+                        <div class="return-lines-section">
+                            <table class="return-lines-table">
+                                <thead>
+                                    <tr>
+                                        <th>STT</th>
+                                        <th>Sản phẩm</th>
+                                        <th class="text-right">Số lượng</th>
+                                        <th class="text-right">Đơn giá</th>
+                                        <th class="text-right">Tổng</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="returnLinesBody">
+                                    <!-- Lines will be rendered here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="return-summary">
+                            <div class="return-summary-row">
+                                <span class="return-summary-label">Tổng số lượng:</span>
+                                <span class="return-summary-value" id="returnTotalQty">0</span>
+                            </div>
+                            <div class="return-summary-row">
+                                <span class="return-summary-label">Tổng tiền:</span>
+                                <span class="return-summary-value return-total-amount" id="returnTotalAmount">0</span>
+                            </div>
+                            <div class="return-summary-row">
+                                <span class="return-summary-label">Số tiền trả:</span>
+                                <span class="return-summary-value" id="returnPaidAmount">0</span>
+                            </div>
+                            <div class="return-summary-row">
+                                <span class="return-summary-label">Còn nợ:</span>
+                                <span class="return-summary-value return-remaining" id="returnRemaining">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Receiver Tab Content -->
+                    <div class="return-tab-content" id="returnTabReceiver">
+                        <div class="return-info-grid">
+                            <div class="return-info-row">
+                                <div class="return-info-item">
+                                    <label>Tên người nhận:</label>
+                                    <span id="returnReceiverName">-</span>
+                                </div>
+                                <div class="return-info-item">
+                                    <label>Số điện thoại:</label>
+                                    <span id="returnReceiverPhone">-</span>
+                                </div>
+                            </div>
+                            <div class="return-info-row">
+                                <div class="return-info-item full-width">
+                                    <label>Địa chỉ:</label>
+                                    <span id="returnReceiverAddress">-</span>
+                                </div>
+                            </div>
+                            <div class="return-info-row">
+                                <div class="return-info-item full-width">
+                                    <label>Ghi chú:</label>
+                                    <span id="returnReceiverNote">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Other Tab Content -->
+                    <div class="return-tab-content" id="returnTabOther">
+                        <div class="return-info-grid">
+                            <div class="return-info-row">
+                                <div class="return-info-item">
+                                    <label>Mã hóa đơn:</label>
+                                    <span id="returnInvoiceNumber">-</span>
+                                </div>
+                                <div class="return-info-item">
+                                    <label>Ngày hóa đơn:</label>
+                                    <span id="returnInvoiceDate">-</span>
+                                </div>
+                            </div>
+                            <div class="return-info-row">
+                                <div class="return-info-item">
+                                    <label>Kho hàng:</label>
+                                    <span id="returnWarehouse">-</span>
+                                </div>
+                                <div class="return-info-item">
+                                    <label>Nhân viên:</label>
+                                    <span id="returnUser">-</span>
+                                </div>
+                            </div>
+                            <div class="return-info-row">
+                                <div class="return-info-item full-width">
+                                    <label>Ghi chú:</label>
+                                    <span id="returnComment">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Images Tab Content -->
+                    <div class="return-tab-content" id="returnTabImages">
+                        <div class="return-images-grid" id="returnImagesGrid">
+                            <div class="return-no-images">
+                                <i data-lucide="image-off"></i>
+                                <p>Chưa có hình ảnh đóng gói</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- History Tab Content -->
+                    <div class="return-tab-content" id="returnTabHistory">
+                        <div class="return-history-list" id="returnHistoryList">
+                            <div class="return-no-history">
+                                <i data-lucide="clock"></i>
+                                <p>Chưa có lịch sử giao hàng</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="TraHangModule.closeDetailModal()">
+                    <i data-lucide="x"></i>
+                    Đóng
+                </button>
+                <button class="btn btn-primary" id="btnOpenTpos" onclick="TraHangModule.openInTpos()">
+                    <i data-lucide="external-link"></i>
+                    Mở trong TPOS
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="auth.js"></script>
     <script src="notification-system.js"></script>
