@@ -1159,6 +1159,7 @@ document.addEventListener('paste', async (e) => {
 });
 
 // AI Analysis Button - with debounce to prevent spam clicking
+// This button does everything: AI analysis + fetch TPOS + compare
 let isAnalyzing = false;
 elements.btnAnalyzeWithAI.addEventListener('click', async () => {
     if (isAnalyzing) {
@@ -1170,7 +1171,25 @@ elements.btnAnalyzeWithAI.addEventListener('click', async () => {
     elements.btnAnalyzeWithAI.style.opacity = '0.6';
 
     try {
+        // Step 1: Analyze images with AI
         await analyzeImagesWithAI();
+
+        // Step 2: If URL provided, fetch TPOS data and compare
+        const url = elements.invoiceUrl.value.trim();
+        if (url && aiAnalysisResult) {
+            try {
+                const invoiceId = extractInvoiceId(url);
+                await fetchInvoiceData(invoiceId);
+
+                // Validate and compare
+                const internalErrors = validateInternalConsistency(currentInvoiceData);
+                const comparisonErrors = compareAIWithJSON(aiAnalysisResult, currentInvoiceData);
+                displayComparisonResult(internalErrors, comparisonErrors);
+            } catch (fetchError) {
+                console.error('[AI] Error fetching TPOS data:', fetchError);
+                showNotification('Lỗi tải dữ liệu TPOS: ' + fetchError.message, 'error');
+            }
+        }
     } finally {
         isAnalyzing = false;
         elements.btnAnalyzeWithAI.disabled = false;
