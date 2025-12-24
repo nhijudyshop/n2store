@@ -595,9 +595,9 @@
 
     /**
      * Get list of users currently holding a product across ALL orders
-     * Returns array of holder names for display in Dropped tab
+     * Returns array of holder objects with detailed info for display in Dropped tab
      * @param {number|string} productId - Product ID to check
-     * @returns {Promise<string[]>} Array of holder display names
+     * @returns {Promise<Array<{name: string, campaign: string, stt: string|number}>>} Array of holder info objects
      */
     window.getProductHolders = async function (productId) {
         if (!window.firebase) return [];
@@ -607,7 +607,8 @@
             const snapshot = await heldProductsRef.once('value');
             const allOrders = snapshot.val() || {};
 
-            const holders = new Set(); // Use Set to avoid duplicates
+            const holders = []; // Array to store holder info with campaign/STT
+            const seenHolders = new Set(); // Track unique holder+campaign+stt combinations
 
             // Scan all orders for this product
             for (const orderId in allOrders) {
@@ -621,12 +622,26 @@
                 for (const userId in productHolders) {
                     const holderData = productHolders[userId];
                     if (holderData && holderData.isDraft === true && (parseInt(holderData.quantity) || 0) > 0) {
-                        holders.add(holderData.displayName || userId);
+                        const name = holderData.displayName || userId;
+                        const campaign = holderData.campaignName || '';
+                        const stt = holderData.stt || '';
+
+                        // Create unique key to avoid duplicates
+                        const key = `${name}|${campaign}|${stt}`;
+                        if (!seenHolders.has(key)) {
+                            seenHolders.add(key);
+                            holders.push({
+                                name: name,
+                                campaign: campaign,
+                                stt: stt,
+                                quantity: parseInt(holderData.quantity) || 0
+                            });
+                        }
                     }
                 }
             }
 
-            return Array.from(holders);
+            return holders;
 
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] Error getting holders:', error);
@@ -947,7 +962,10 @@
                             displayName: auth.displayName || auth.userType || 'Unknown',
                             quantity: heldQuantity,
                             isDraft: true,  // Persist held products (user must explicitly confirm or delete)
-                            timestamp: window.firebase.database.ServerValue.TIMESTAMP
+                            timestamp: window.firebase.database.ServerValue.TIMESTAMP,
+                            // Add campaign and STT info for display in dropped products
+                            campaignName: window.currentChatOrderData?.LiveCampaignName || '',
+                            stt: window.currentChatOrderData?.SessionIndex || ''
                         });
 
                         console.log('[DROPPED-PRODUCTS] ✓ Synced to Firebase held_products:', {
@@ -1034,7 +1052,7 @@
                 const holders = await window.getProductHolders(p.ProductId);
                 return {
                     ...p,
-                    _computedHeldBy: holders.length > 0 ? holders.join(', ') : null
+                    _holders: holders // Array of {name, campaign, stt, quantity}
                 };
             })
         );
@@ -1123,7 +1141,10 @@
                         ${isOutOfStock ? '<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> Đang được giữ</span>' : ''}
                     </div>
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
-                    ${p._computedHeldBy ? `<div style="font-size: 11px; color: #d97706; margin-top: 2px;"><i class="fas fa-user"></i> Người giữ: <strong>${p._computedHeldBy}</strong></div>` : ''}
+                    ${p._holders && p._holders.length > 0 ? p._holders.map(h => {
+                        const orderInfo = h.campaign || h.stt ? ` <span style="color: #6b7280;">(${h.campaign ? h.campaign : ''}${h.campaign && h.stt ? ' - ' : ''}${h.stt ? 'STT ' + h.stt : ''})</span>` : '';
+                        return `<div style="font-size: 11px; color: #d97706; margin-top: 2px;"><i class="fas fa-user"></i> <strong>${h.name}</strong>${orderInfo}</div>`;
+                    }).join('') : ''}
                     <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">${p.addedDate || ''}</div>
                 </td>
                 <td style="text-align: center; width: 140px;">
