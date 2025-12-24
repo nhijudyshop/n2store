@@ -1067,6 +1067,52 @@
             font-weight: 600;
         }
 
+        /* Employee Live Header (same style as Thống Kê Đơn Live) */
+        .employee-live-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .employee-live-header .employee-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .employee-live-header .employee-title i {
+            color: #667eea;
+        }
+
+        .employee-live-header .emp-name {
+            color: #333;
+        }
+
+        .employee-live-header .employee-stt {
+            font-size: 12px;
+            font-weight: 500;
+            color: #666;
+            background: #e0e0e0;
+            padding: 4px 10px;
+            border-radius: 15px;
+        }
+
+        .employee-live-header .live-stats-badges {
+            margin-left: 0;
+        }
+
+        .employee-stats-table {
+            margin-top: 0;
+        }
+
         .employee-stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -2263,7 +2309,7 @@
         }
 
         /**
-         * Calculate employee-based tag statistics
+         * Calculate employee-based tag statistics using LIVE_STAT_TAGS
          */
         function calculateEmployeeTagStats(orders) {
             if (!employeeRanges.length) return [];
@@ -2278,95 +2324,107 @@
 
                 if (empOrders.length === 0) return;
 
-                const tagBreakdown = [];
+                const totalOrders = empOrders.length;
 
-                // Calculate special stats for Ordered status
-                let orderedCount = 0;
-                let orderedOrders = [];
+                // Initialize stats for each predefined tag (same as main tag stats)
+                const tagStatsMap = new Map();
+                LIVE_STAT_TAGS.forEach(tag => {
+                    tagStatsMap.set(tag.key, {
+                        key: tag.key,
+                        displayName: tag.displayName,
+                        color: tag.color,
+                        count: 0,
+                        totalAmount: 0,
+                        orders: [],
+                        isSpecial: tag.isSpecial || false,
+                        countAsChot: tag.countAsChot
+                    });
+                });
+
+                // Track unique orders per category
+                const ordersPerCategory = new Map();
+                LIVE_STAT_TAGS.forEach(tag => {
+                    ordersPerCategory.set(tag.key, new Set());
+                });
+
+                // Count orders for each category
                 empOrders.forEach(order => {
+                    const orderTags = parseOrderTags(order.Tags);
+                    const orderAmount = order.TotalAmount || 0;
                     const statusText = order.StatusText || order.Status || '';
+                    const orderId = order.Id || order.Code;
+
+                    // Check for Ordered status (ĐÃ RA ĐƠN)
                     if (statusText === 'Đơn hàng') {
-                        orderedCount++;
-                        orderedOrders.push(order);
+                        const stat = tagStatsMap.get('ordered');
+                        if (!ordersPerCategory.get('ordered').has(orderId)) {
+                            ordersPerCategory.get('ordered').add(orderId);
+                            stat.count++;
+                            stat.totalAmount += orderAmount;
+                            stat.orders.push(order);
+                        }
                     }
-                });
-                if (orderedCount > 0) {
-                    tagBreakdown.push({
-                        displayName: 'Đơn Hàng (Ordered)',
-                        color: '#22c55e',
-                        count: orderedCount,
-                        percentage: ((orderedCount / empOrders.length) * 100).toFixed(1),
-                        orders: orderedOrders,
-                        isSpecial: true,
-                        specialType: '__status_ordered__'
-                    });
-                }
 
-                // Calculate special stats for orders without tags
-                let noTagsCount = 0;
-                let noTagsOrders = [];
-                empOrders.forEach(order => {
-                    const orderTags = parseOrderTags(order.Tags);
-                    if (orderTags.length === 0) {
-                        noTagsCount++;
-                        noTagsOrders.push(order);
-                    }
-                });
-                if (noTagsCount > 0) {
-                    tagBreakdown.push({
-                        displayName: 'Không Có Tag',
-                        color: '#6b7280',
-                        count: noTagsCount,
-                        percentage: ((noTagsCount / empOrders.length) * 100).toFixed(1),
-                        orders: noTagsOrders,
-                        isSpecial: true,
-                        specialType: '__no_tags__'
-                    });
-                }
-
-                // Collect ALL unique tags for this employee
-                const empTagsMap = new Map();
-                empOrders.forEach(order => {
-                    const orderTags = parseOrderTags(order.Tags);
+                    // Check each order's tags against predefined patterns
                     orderTags.forEach(orderTag => {
-                        const tagName = (orderTag.Name || orderTag.name || '').trim();
-                        const tagColor = orderTag.Color || orderTag.color || '#6b7280';
-
+                        const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
                         if (!tagName) return;
 
-                        if (!empTagsMap.has(tagName)) {
-                            empTagsMap.set(tagName, {
-                                displayName: tagName,
-                                color: tagColor,
-                                count: 0,
-                                orders: []
-                            });
-                        }
+                        LIVE_STAT_TAGS.forEach(liveTag => {
+                            if (liveTag.isSpecial) return;
 
-                        const tagStat = empTagsMap.get(tagName);
-                        tagStat.count++;
-                        tagStat.orders.push(order);
+                            const patterns = liveTag.patterns || [];
+                            const matches = patterns.some(p => tagName.startsWith(p));
+
+                            if (matches) {
+                                const stat = tagStatsMap.get(liveTag.key);
+                                if (!ordersPerCategory.get(liveTag.key).has(orderId)) {
+                                    ordersPerCategory.get(liveTag.key).add(orderId);
+                                    stat.count++;
+                                    stat.totalAmount += orderAmount;
+                                    stat.orders.push(order);
+                                }
+                            }
+                        });
                     });
                 });
 
-                // Add all tags to breakdown with percentages
-                empTagsMap.forEach(tagStat => {
-                    tagBreakdown.push({
-                        displayName: tagStat.displayName,
-                        color: tagStat.color,
-                        count: tagStat.count,
-                        percentage: ((tagStat.count / empOrders.length) * 100).toFixed(1),
-                        orders: tagStat.orders
-                    });
+                // Calculate percentages and prepare tag breakdown
+                const tagBreakdown = [];
+                tagStatsMap.forEach((stat, key) => {
+                    stat.percentage = totalOrders > 0 ? ((stat.count / totalOrders) * 100).toFixed(1) : 0;
+                    tagBreakdown.push(stat);
+                });
+
+                // Calculate badge values for this employee
+                const gioTrongCount = tagStatsMap.get('gio_trong').count;
+                const gopCount = tagStatsMap.get('gop').count;
+                const x = totalOrders;
+                const Z = gioTrongCount;
+                const K = gopCount;
+                const Y = x - Z - K;
+
+                // H = actual chốt count
+                let H = 0;
+                tagStatsMap.forEach((stat, key) => {
+                    if (stat.countAsChot) {
+                        H += stat.count;
+                    }
                 });
 
                 employeeStats.push({
                     name: emp.name,
                     start: emp.start,
                     end: emp.end,
-                    totalOrders: empOrders.length,
-                    tagBreakdown: tagBreakdown.sort((a, b) => b.count - a.count),
-                    allOrders: empOrders
+                    totalOrders: totalOrders,
+                    tagBreakdown: tagBreakdown,
+                    allOrders: empOrders,
+                    // Badge values
+                    badgeTotal: x,
+                    badgeChot: Y,
+                    badgeGioTrong: Z,
+                    badgeGop: K,
+                    actualChot: H
                 });
             });
 
@@ -2807,7 +2865,7 @@
         }
 
         /**
-         * Render employee statistics
+         * Render employee statistics (same format as Thống Kê Đơn Live)
          */
         function renderEmployeeStats(stats, allOrders) {
             const container = document.getElementById('employeeStatsContainer');
@@ -2824,41 +2882,59 @@
             }
 
             container.innerHTML = stats.map(emp => {
-                // Calculate actual closed stats for this employee
-                const empClosedStats = calculateActualClosedStats(emp.allOrders);
-
-                // Build employee closed stats summary
-                const empClosedHtml = buildEmployeeClosedStatsHtml(emp, empClosedStats);
+                // Determine badge color for ĐƠN CHỐT
+                const chotBadgeClass = emp.badgeChot === emp.actualChot ? 'badge-chot' : 'badge-chot mismatch';
 
                 return `
                 <div class="employee-card">
-                    <div class="employee-card-header">
-                        <h3>
-                            <i class="fas fa-user"></i> ${emp.name}
+                    <div class="employee-live-header">
+                        <div class="employee-title">
+                            <i class="fas fa-user"></i>
+                            <span class="emp-name">${emp.name}</span>
                             <span class="employee-stt">STT ${emp.start} - ${emp.end}</span>
-                        </h3>
-                        <span class="employee-total">
-                            Tổng: <strong>${emp.totalOrders}</strong> đơn
-                            <button class="btn-view-detail" onclick="viewEmployeeOrders('${emp.name}', ${emp.start}, ${emp.end})" title="Xem tất cả đơn" style="margin-left: 10px;">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </span>
+                        </div>
+                        <div class="live-stats-badges">
+                            <span class="live-badge badge-total">${emp.badgeTotal} ĐƠN</span>
+                            <span class="live-badge ${chotBadgeClass}">${emp.badgeChot} ĐƠN CHỐT</span>
+                            <span class="live-badge badge-empty">${emp.badgeGioTrong} GIỎ TRỐNG</span>
+                            <span class="live-badge badge-merged">${emp.badgeGop} GỘP</span>
+                        </div>
                     </div>
-
-                    <!-- Employee Actual Closed Stats -->
-                    ${empClosedHtml}
-
-                    <div class="employee-stats-grid">
-                        ${emp.tagBreakdown.map(tag => `
-                            <div class="employee-stat-item" onclick="viewEmployeeTagOrders('${emp.name}', ${emp.start}, ${emp.end}, '${tag.displayName}')">
-                                <div class="tag-name">
-                                    <span class="tag-dot" style="background-color: ${tag.color}"></span>
-                                    ${tag.displayName}
-                                </div>
-                                <div class="tag-count">${tag.count}</div>
-                                <div class="tag-percent">${tag.percentage}% của ${emp.name}</div>
-                            </div>
-                        `).join('')}
+                    <div class="stats-table-wrapper">
+                        <table class="stats-table employee-stats-table">
+                            <thead>
+                                <tr>
+                                    <th>Tag</th>
+                                    <th>Số đơn</th>
+                                    <th>Tỷ lệ</th>
+                                    <th>Tổng tiền</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${emp.tagBreakdown.map(tag => {
+                                    const isSpecial = tag.isSpecial || false;
+                                    const specialIcon = tag.key === 'ordered' ? 'fa-check-circle' : '';
+                                    return `
+                                    <tr class="${isSpecial ? 'special-stat-row' : ''}">
+                                        <td>
+                                            <div class="tag-cell">
+                                                ${isSpecial ? `<i class="fas ${specialIcon}" style="color: ${tag.color}; margin-right: 8px;"></i>` : `<span class="tag-color" style="background-color: ${tag.color}"></span>`}
+                                                <span>${tag.displayName}</span>
+                                            </div>
+                                        </td>
+                                        <td><strong>${tag.count.toLocaleString('vi-VN')}</strong></td>
+                                        <td class="percentage">${tag.percentage}%</td>
+                                        <td class="amount">${formatCurrency(tag.totalAmount)}</td>
+                                        <td>
+                                            <button class="btn-view-detail" onclick="viewEmployeeTagOrders('${emp.name}', ${emp.start}, ${emp.end}, '${tag.key}')" title="Xem chi tiết">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
                     </div>
                 </div>`;
             }).join('');
@@ -3106,13 +3182,14 @@
         }
 
         /**
-         * View orders for employee by tag
+         * View orders for employee by tag (using LIVE_STAT_TAGS key)
          */
-        function viewEmployeeTagOrders(empName, start, end, tagDisplayName, specialType = null) {
+        function viewEmployeeTagOrders(empName, start, end, tagKey) {
             const cached = cachedOrderDetails[currentTableName];
             const orders = cached?.orders || [];
 
             let filteredOrders = [];
+            let displayName = tagKey;
 
             // Filter orders by employee first
             const empOrders = orders.filter(order => {
@@ -3120,29 +3197,31 @@
                 return stt >= start && stt <= end;
             });
 
-            // Handle special stats
-            if (specialType === '__status_ordered__' || tagDisplayName === 'Đơn Hàng (Ordered)') {
-                filteredOrders = empOrders.filter(order => {
-                    const statusText = order.StatusText || order.Status || '';
-                    return statusText === 'Đơn hàng';
-                });
-            } else if (specialType === '__no_tags__' || tagDisplayName === 'Không Có Tag') {
-                filteredOrders = empOrders.filter(order => {
-                    const orderTags = parseOrderTags(order.Tags);
-                    return orderTags.length === 0;
-                });
-            } else {
-                // Regular tag matching - match by exact tag name (case insensitive)
-                filteredOrders = empOrders.filter(order => {
-                    const orderTags = parseOrderTags(order.Tags);
-                    return orderTags.some(tag => {
-                        const tagName = (tag.Name || tag.name || '').toLowerCase();
-                        return tagName === tagDisplayName.toLowerCase();
+            // Find the matching LIVE_STAT_TAGS definition
+            const liveTag = LIVE_STAT_TAGS.find(t => t.key === tagKey);
+
+            if (liveTag) {
+                displayName = liveTag.displayName;
+
+                if (liveTag.isSpecial && tagKey === 'ordered') {
+                    // Handle ĐÃ RA ĐƠN (Ordered status)
+                    filteredOrders = empOrders.filter(order => {
+                        const statusText = order.StatusText || order.Status || '';
+                        return statusText === 'Đơn hàng';
                     });
-                });
+                } else if (liveTag.patterns) {
+                    // Handle tag patterns
+                    filteredOrders = empOrders.filter(order => {
+                        const orderTags = parseOrderTags(order.Tags);
+                        return orderTags.some(tag => {
+                            const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
+                            return liveTag.patterns.some(p => tagName.startsWith(p));
+                        });
+                    });
+                }
             }
 
-            showOrdersDetailModal(`${empName} - ${tagDisplayName}`, filteredOrders);
+            showOrdersDetailModal(`${empName} - ${displayName}`, filteredOrders);
         }
 
         /**
