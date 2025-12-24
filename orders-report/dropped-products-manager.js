@@ -1729,8 +1729,10 @@
 
                     for (const userId in productHolders) {
                         const holderData = productHolders[userId];
-                        // Only show persisted held products (isDraft: true means saved, not temporary)
-                        if (holderData && holderData.isDraft === true) {
+                        // Show ALL held products (both temporary and saved)
+                        // Temporary holds (isDraft: false) will be cleaned up on page refresh
+                        // Saved holds (isDraft: true) will persist
+                        if (holderData && (parseInt(holderData.quantity) || 0) > 0) {
                             totalQuantity += parseInt(holderData.quantity) || 0;
                             holders.push(holderData.displayName);
                             if (holderData.isFromSearch) {
