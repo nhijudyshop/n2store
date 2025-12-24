@@ -954,18 +954,22 @@
                         );
                         const heldQuantity = currentHeldProduct ? currentHeldProduct.Quantity : 1;
 
-                        // Sync to Firebase
+                        // Sync to Firebase - use transaction to preserve isDraft if already saved
                         const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
 
-                        await ref.set({
-                            productId: productId,  // Store productId for easy comparison
-                            displayName: auth.displayName || auth.userType || 'Unknown',
-                            quantity: heldQuantity,
-                            isDraft: true,  // Persist held products (user must explicitly confirm or delete)
-                            timestamp: window.firebase.database.ServerValue.TIMESTAMP,
-                            // Add campaign and STT info for display in dropped products
-                            campaignName: window.currentChatOrderData?.LiveCampaignName || '',
-                            stt: window.currentChatOrderData?.SessionIndex || ''
+                        await ref.transaction((current) => {
+                            // Preserve isDraft if already saved (true)
+                            const preservedIsDraft = current?.isDraft === true ? true : false;
+
+                            return {
+                                productId: productId,
+                                displayName: auth.displayName || auth.userType || 'Unknown',
+                                quantity: heldQuantity,
+                                isDraft: preservedIsDraft,  // Preserve if saved, else temporary
+                                timestamp: window.firebase.database.ServerValue.TIMESTAMP,
+                                campaignName: window.currentChatOrderData?.LiveCampaignName || '',
+                                stt: window.currentChatOrderData?.SessionIndex || ''
+                            };
                         });
 
                         console.log('[DROPPED-PRODUCTS] ✓ Synced to Firebase held_products:', {
@@ -1417,8 +1421,78 @@
     // =====================================================
 
     /**
+     * Save held products - marks them as persisted (isDraft: true)
+     * After saving, held products will persist even when page is refreshed
+     */
+    window.saveHeldProducts = async function () {
+        if (!window.firebase || !window.authManager) {
+            console.log('[HELD-PRODUCTS] Firebase/AuthManager not available');
+            return false;
+        }
+
+        const auth = window.authManager.getAuthState();
+        if (!auth) {
+            console.log('[HELD-PRODUCTS] No auth state');
+            return false;
+        }
+
+        let userId = auth.id || auth.Id || auth.username || auth.userType;
+        if (!userId && auth.displayName) {
+            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+        }
+
+        if (!userId) {
+            console.warn('[HELD-PRODUCTS] No userId found');
+            return false;
+        }
+
+        const orderId = window.currentChatOrderData?.Id;
+        if (!orderId) {
+            console.log('[HELD-PRODUCTS] No current order');
+            return false;
+        }
+
+        try {
+            console.log('[HELD-PRODUCTS] Saving held products for user:', userId, 'order:', orderId);
+
+            const heldRef = window.firebase.database().ref(`held_products/${orderId}`);
+            const snapshot = await heldRef.once('value');
+            const orderProducts = snapshot.val() || {};
+
+            let savedCount = 0;
+
+            for (const productId in orderProducts) {
+                const productHolders = orderProducts[productId];
+                if (productHolders && productHolders[userId] && !productHolders[userId].isDraft) {
+                    // Update isDraft to true (persisted)
+                    await window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}/isDraft`).set(true);
+                    savedCount++;
+                }
+            }
+
+            console.log(`[HELD-PRODUCTS] ✓ Saved ${savedCount} held products`);
+
+            if (savedCount > 0) {
+                showSuccess(`Đã lưu ${savedCount} sản phẩm đang giữ`);
+            }
+
+            // Re-render to update UI
+            if (typeof window.renderChatProductsTable === 'function') {
+                window.renderChatProductsTable();
+            }
+
+            return true;
+
+        } catch (error) {
+            console.error('[HELD-PRODUCTS] ❌ Error saving:', error);
+            showError('Lỗi khi lưu sản phẩm giữ');
+            return false;
+        }
+    };
+
+    /**
      * Cleanup held products for current user when closing modal or disconnecting
-     * Removes all held products from Firebase held_products collection
+     * Only removes temporary (isDraft: false) held products and returns them to dropped
      */
     window.cleanupHeldProducts = async function () {
         if (!window.firebase || !window.authManager) {
@@ -1450,7 +1524,7 @@
         }
 
         try {
-            console.log('[HELD-PRODUCTS] Cleaning up held products for user:', userId, 'order:', orderId);
+            console.log('[HELD-PRODUCTS] Cleaning up temporary held products for user:', userId, 'order:', orderId);
 
             // Get all held products for this user in this order
             const heldRef = window.firebase.database().ref(`held_products/${orderId}`);
@@ -1462,7 +1536,32 @@
             for (const productId in orderProducts) {
                 const productHolders = orderProducts[productId];
                 if (productHolders && productHolders[userId]) {
-                    // Remove this user's hold
+                    const holderData = productHolders[userId];
+
+                    // Only cleanup temporary holds (isDraft === false)
+                    // Saved holds (isDraft === true) are persisted
+                    if (holderData.isDraft === true) {
+                        console.log('[HELD-PRODUCTS] Skipping saved product:', productId);
+                        continue;
+                    }
+
+                    const heldQuantity = parseInt(holderData.quantity) || 1;
+
+                    // Return quantity back to dropped products
+                    const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
+                    if (droppedProduct && droppedProduct.id && firebaseDb) {
+                        const itemRef = firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${droppedProduct.id}`);
+                        await itemRef.transaction((current) => {
+                            if (current === null) return current;
+                            return {
+                                ...current,
+                                Quantity: (current.Quantity || 0) + heldQuantity
+                            };
+                        });
+                        console.log('[HELD-PRODUCTS] Returned', heldQuantity, 'to dropped product:', productId);
+                    }
+
+                    // Remove this user's hold from Firebase
                     await window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`).remove();
                     cleanupCount++;
 
@@ -1473,7 +1572,7 @@
                 }
             }
 
-            console.log(`[HELD-PRODUCTS] ✓ Cleaned up ${cleanupCount} held products`);
+            console.log(`[HELD-PRODUCTS] ✓ Cleaned up ${cleanupCount} temporary held products`);
 
         } catch (error) {
             console.error('[HELD-PRODUCTS] ❌ Error cleaning up:', error);
@@ -1730,8 +1829,8 @@
     };
 
     /**
-     * Remove all held products for current user when leaving page
-     * This prevents orphaned held records when user closes browser/tab
+     * Remove temporary held products for current user when leaving page
+     * Only removes isDraft: false (temporary) holds, saved holds are preserved
      * Called from beforeunload event
      */
     window.cleanupAllUserHeldProducts = async function () {
@@ -1748,7 +1847,7 @@
         if (!userId) return;
 
         try {
-            console.log('[HELD-PRODUCTS] Cleaning up all held products for user:', userId);
+            console.log('[HELD-PRODUCTS] Cleaning up temporary held products for user:', userId);
 
             // Get all held products across all orders
             const heldProductsRef = window.firebase.database().ref('held_products');
@@ -1756,9 +1855,11 @@
             const allOrders = snapshot.val() || {};
 
             let cleanupCount = 0;
+            let skippedCount = 0;
             const updates = {};
+            const returnsToDropped = []; // Track products to return to dropped
 
-            // Scan all orders and mark this user's held products for removal
+            // Scan all orders and mark this user's TEMPORARY held products for removal
             for (const orderId in allOrders) {
                 const orderProducts = allOrders[orderId];
                 if (!orderProducts) continue;
@@ -1766,19 +1867,48 @@
                 for (const productId in orderProducts) {
                     const productHolders = orderProducts[productId];
                     if (productHolders && productHolders[userId]) {
+                        const holderData = productHolders[userId];
+
+                        // Only cleanup temporary holds (isDraft !== true)
+                        if (holderData.isDraft === true) {
+                            skippedCount++;
+                            continue; // Skip saved holds
+                        }
+
                         // Mark for removal
                         updates[`${orderId}/${productId}/${userId}`] = null;
                         cleanupCount++;
+
+                        // Track quantity to return to dropped
+                        returnsToDropped.push({
+                            productId: productId,
+                            quantity: parseInt(holderData.quantity) || 1
+                        });
                     }
                 }
             }
 
-            // Perform batch removal
+            // Return quantities to dropped products
+            for (const item of returnsToDropped) {
+                const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(item.productId));
+                if (droppedProduct && droppedProduct.id && firebaseDb) {
+                    const itemRef = firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${droppedProduct.id}`);
+                    await itemRef.transaction((current) => {
+                        if (current === null) return current;
+                        return {
+                            ...current,
+                            Quantity: (current.Quantity || 0) + item.quantity
+                        };
+                    });
+                }
+            }
+
+            // Perform batch removal of held products
             if (cleanupCount > 0) {
                 await heldProductsRef.update(updates);
-                console.log(`[HELD-PRODUCTS] ✓ Cleaned up ${cleanupCount} held products for user`);
+                console.log(`[HELD-PRODUCTS] ✓ Cleaned up ${cleanupCount} temporary held products, skipped ${skippedCount} saved`);
             } else {
-                console.log('[HELD-PRODUCTS] No held products to clean up');
+                console.log(`[HELD-PRODUCTS] No temporary held products to clean up (${skippedCount} saved)`);
             }
 
         } catch (error) {

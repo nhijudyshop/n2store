@@ -17103,12 +17103,29 @@ function renderChatProductsTable() {
                     margin-bottom: 8px;
                     display: flex;
                     align-items: center;
-                    gap: 8px;
+                    justify-content: space-between;
                 ">
-                    <i class="fas fa-hand-paper" style="color: #d97706;"></i>
-                    <span style="font-size: 12px; font-weight: 600; color: #92400e;">
-                        Sản phẩm giữ (${heldProducts.length})
-                    </span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-hand-paper" style="color: #d97706;"></i>
+                        <span style="font-size: 12px; font-weight: 600; color: #92400e;">
+                            Sản phẩm giữ (${heldProducts.length})
+                        </span>
+                    </div>
+                    <button onclick="window.saveHeldProducts()" style="
+                        background: #10b981;
+                        color: white;
+                        border: none;
+                        padding: 4px 12px;
+                        border-radius: 4px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    " title="Lưu sản phẩm giữ - sẽ không bị mất khi refresh trang">
+                        <i class="fas fa-save"></i> Lưu giữ
+                    </button>
                 </div>
                 ${heldProducts.map((p, index) => renderProductCard(p, index, true)).join('')}
             </div>
