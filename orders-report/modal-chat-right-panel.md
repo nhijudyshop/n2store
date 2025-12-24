@@ -35,8 +35,8 @@ Có **2 hàm `window.switchChatPanelTab`** được định nghĩa:
 
 | File | Line | Đặc điểm |
 |------|------|----------|
-| [dropped-products-manager.js](file:///Users/mac/Downloads/n2store/orders-report/dropped-products-manager.js#L1315) | 1315 | Gọi `renderDroppedProductsTable()` và `renderHistoryList()` |
-| [tab1-orders.js](file:///Users/mac/Downloads/n2store/orders-report/tab1-orders.js#L24172) | 24172 | Gọi các hàm không tồn tại |
+| [dropped-products-manager.js](./dropped-products-manager.js#L1315) | 1315 | Gọi `renderDroppedProductsTable()` và `renderHistoryList()` |
+| [tab1-orders.js](./tab1-orders.js#L24172) | 24172 | Gọi các hàm không tồn tại |
 
 > [!CAUTION]
 > Vì `tab1-orders.js` load SAU `dropped-products-manager.js`, hàm trong `tab1-orders.js` sẽ **ghi đè** hàm trong `dropped-products-manager.js`. Điều này có thể gây ra lỗi ở một số chức năng.
@@ -63,7 +63,7 @@ Hàm `switchChatPanelTab` trong `tab1-orders.js` gọi các hàm **không đư�
 | `loadDroppedProductsForCustomer` | ❌ KHÔNG | line 24213 |
 | `loadOrderHistoryForCustomer` | ❌ KHÔNG | line 24219 |
 | `loadInvoiceHistoryForCustomer` | ❌ KHÔNG | line 24225 |
-| `renderChatProductsPanel` | ❌ KHÔNG (đã bị comment out) | line 24207 |
+| `renderChatProductsPanel` | ❌ KHÔNG (nằm trong block `/* LEGACY CODE REMOVED` từ line 16921) | line 24207 |
 
 **Hậu quả:**
 - Khi click tab "Dropped" → không làm gì (hàm không tồn tại)
