@@ -2350,16 +2350,17 @@
             // Y = x - Z - K (calculated "đơn chốt")
             const Y = x - Z - K;
 
-            // H = sum of all tags except giỏ trống and gộp (actual "đơn chốt")
+            // H = sum of all countAsChot tags - duplicate count (actual "đơn chốt")
             let H = 0;
             tagStatsMap.forEach((stat, key) => {
                 if (stat.countAsChot) {
                     H += stat.count;
                 }
             });
+            H = H - duplicateOrders.length;
 
             // Update header badges
-            updateLiveStatsBadges(x, Y, Z, K, H);
+            updateLiveStatsBadges(x, Y, Z, K, H, hasUnacceptableDuplicate);
 
             return allStats;
         }
@@ -2367,7 +2368,7 @@
         /**
          * Update the Live Stats badges in the header
          */
-        function updateLiveStatsBadges(totalDon, donChot, gioTrong, gop, actualChot) {
+        function updateLiveStatsBadges(totalDon, donChot, gioTrong, gop, actualChot, hasUnacceptableDuplicate) {
             const badgeTotalDon = document.getElementById('badgeTotalDon');
             const badgeDonChot = document.getElementById('badgeDonChot');
             const badgeGioTrong = document.getElementById('badgeGioTrong');
@@ -2376,8 +2377,9 @@
             if (badgeTotalDon) badgeTotalDon.textContent = `${totalDon} ĐƠN`;
             if (badgeDonChot) {
                 badgeDonChot.textContent = `${donChot} ĐƠN CHỐT`;
-                // If Y = H, show green; if Y != H, show red
-                if (donChot === actualChot) {
+                // GREEN if: Y = H AND no unacceptable duplicates (TAG TRÙNG is green)
+                // RED otherwise
+                if (donChot === actualChot && !hasUnacceptableDuplicate) {
                     badgeDonChot.classList.remove('mismatch');
                 } else {
                     badgeDonChot.classList.add('mismatch');
@@ -2528,13 +2530,14 @@
                 const K = gopCount;
                 const Y = x - Z - K;
 
-                // H = actual chốt count
+                // H = actual chốt count - duplicate count
                 let H = 0;
                 tagStatsMap.forEach((stat, key) => {
                     if (stat.countAsChot) {
                         H += stat.count;
                     }
                 });
+                H = H - duplicateOrders.length;
 
                 employeeStats.push({
                     name: emp.name,
@@ -2548,7 +2551,8 @@
                     badgeChot: Y,
                     badgeGioTrong: Z,
                     badgeGop: K,
-                    actualChot: H
+                    actualChot: H,
+                    hasUnacceptableDuplicate: hasUnacceptableDuplicate
                 });
             });
 
@@ -3017,7 +3021,8 @@
 
             container.innerHTML = stats.map(emp => {
                 // Determine badge color for ĐƠN CHỐT
-                const chotBadgeClass = emp.badgeChot === emp.actualChot ? 'badge-chot' : 'badge-chot mismatch';
+                // GREEN if: Y = H AND no unacceptable duplicates (TAG TRÙNG is green)
+                const chotBadgeClass = (emp.badgeChot === emp.actualChot && !emp.hasUnacceptableDuplicate) ? 'badge-chot' : 'badge-chot mismatch';
 
                 return `
                 <div class="employee-card">
