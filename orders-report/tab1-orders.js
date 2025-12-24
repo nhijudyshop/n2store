@@ -17857,7 +17857,7 @@ window.confirmHeldProduct = async function (productId) {
         // Get current main products (before adding new one) for potential BASE save
         const currentMainProducts = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
         const orderId = window.currentChatOrderData.Id;
-        const orderSTT = window.currentChatOrderData.STT || window.currentChatOrderData.Stt || 0;
+        const orderSTT = window.currentChatOrderData.SessionIndex || window.currentChatOrderData.STT || window.currentChatOrderData.Stt || 0;
 
         if (window.kpiManager) {
             try {
