@@ -221,6 +221,9 @@ let currentUserIdentifier = null; // User identifier for quick tag feature
 let currentPastedImage = null; // Track pasted image for chat reply (deprecated - use array below)
 let uploadedImagesData = []; // Track uploaded images data (array for multiple images)
 
+// KPI BASE Status Cache - stores order IDs that have BASE saved
+let ordersWithKPIBase = new Set();
+
 // Purchase Comment Highlight State
 window.purchaseCommentId = null; // Store the Facebook_CommentId from the order to highlight in comment modal
 window.purchaseFacebookPostId = null; // Store Facebook_PostId
@@ -603,6 +606,100 @@ window.testTagListeners = function () {
     console.log('\n=== TEST COMPLETE ===');
 };
 
+// =====================================================
+// KPI BASE STATUS PRELOAD #FIREBASE
+// =====================================================
+
+/**
+ * Preload KPI BASE status for all orders
+ * This allows synchronous checking in createRowHTML
+ */
+async function preloadKPIBaseStatus() {
+    if (!database) {
+        console.warn('[KPI-BASE] Firebase database not available');
+        return;
+    }
+
+    try {
+        const snapshot = await database.ref('kpi_base').once('value');
+        const allBases = snapshot.val() || {};
+
+        // Clear and rebuild the cache
+        ordersWithKPIBase.clear();
+        for (const orderId in allBases) {
+            ordersWithKPIBase.add(orderId);
+        }
+
+        console.log(`[KPI-BASE] Preloaded ${ordersWithKPIBase.size} orders with BASE`);
+
+        // Re-render table if data is already loaded
+        if (allData && allData.length > 0) {
+            performTableSearch();
+        }
+    } catch (error) {
+        console.error('[KPI-BASE] Error preloading BASE status:', error);
+    }
+}
+
+/**
+ * Setup realtime listener for KPI BASE changes
+ */
+function setupKPIBaseRealtimeListener() {
+    if (!database) return;
+
+    database.ref('kpi_base').on('child_added', (snapshot) => {
+        const orderId = snapshot.key;
+        ordersWithKPIBase.add(orderId);
+        console.log('[KPI-BASE] BASE added for order:', orderId);
+
+        // Update the specific row if visible
+        updateKPIBaseIndicator(orderId, true);
+    });
+
+    database.ref('kpi_base').on('child_removed', (snapshot) => {
+        const orderId = snapshot.key;
+        ordersWithKPIBase.delete(orderId);
+        console.log('[KPI-BASE] BASE removed for order:', orderId);
+
+        // Update the specific row if visible
+        updateKPIBaseIndicator(orderId, false);
+    });
+
+    console.log('[KPI-BASE] Realtime listener setup complete');
+}
+
+/**
+ * Update KPI BASE indicator for a specific order row
+ */
+function updateKPIBaseIndicator(orderId, hasBase) {
+    // Find the row by order ID
+    const checkbox = document.querySelector(`input[type="checkbox"][value="${orderId}"]`);
+    if (!checkbox) return;
+
+    const row = checkbox.closest('tr');
+    if (!row) return;
+
+    const sttCell = row.querySelector('td[data-column="stt"]');
+    if (!sttCell) return;
+
+    // Check if indicator already exists
+    let indicator = sttCell.querySelector('.kpi-base-indicator');
+
+    if (hasBase && !indicator) {
+        // Add indicator
+        const div = sttCell.querySelector('div') || sttCell;
+        const indicatorEl = document.createElement('span');
+        indicatorEl.className = 'kpi-base-indicator';
+        indicatorEl.title = 'Đã lưu BASE tính KPI';
+        indicatorEl.innerHTML = '<i class="fas fa-lock" style="color: #10b981; font-size: 10px;"></i>';
+        indicatorEl.style.marginLeft = '4px';
+        div.appendChild(indicatorEl);
+    } else if (!hasBase && indicator) {
+        // Remove indicator
+        indicator.remove();
+    }
+}
+
 // #region ═══════════════════════════════════════════════════════════════════════
 // ║                        SECTION 3: INITIALIZATION                            ║
 // ║                            search: #INIT                                    ║
@@ -737,6 +834,11 @@ window.addEventListener("DOMContentLoaded", async function () {
     if (database) {
         console.log('[TAG-REALTIME] Setting up Firebase TAG listeners on page load...');
         setupTagRealtimeListeners();
+
+        // 🔥 Setup KPI BASE realtime listeners and preload
+        console.log('[KPI-BASE] Setting up KPI BASE listeners on page load...');
+        setupKPIBaseRealtimeListener();
+        preloadKPIBaseStatus(); // Preload BASE status for all orders
     } else {
         console.warn('[TAG-REALTIME] Firebase not available, listeners not setup');
     }
@@ -7166,6 +7268,7 @@ function createRowHTML(order) {
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     <span>${order.SessionIndex || ""}</span>
                     ${mergedIcon}
+                    ${ordersWithKPIBase.has(order.Id) ? '<span class="kpi-base-indicator" title="Đã lưu BASE tính KPI"><i class="fas fa-lock" style="color: #10b981; font-size: 10px;"></i></span>' : ''}
                 </div>
             </td>
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>

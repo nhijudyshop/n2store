@@ -834,8 +834,10 @@
                 // Calculate KPI for all orders in this campaign
                 const result = await window.kpiManager.calculateKPIForCampaign(campaignName);
 
-                statusEl.innerHTML = `<i class="fas fa-check-circle" style="color: #10b981;"></i>
-                    Đã tính ${result.success} đơn thành công${result.failed > 0 ? `, ${result.failed} lỗi` : ''}`;
+                let statusText = `<i class="fas fa-check-circle" style="color: #10b981;"></i> Đã tính ${result.success} đơn`;
+                if (result.failed > 0) statusText += `, ${result.failed} lỗi`;
+                if (result.skippedNoBase > 0) statusText += ` <span style="color: #94a3b8;">(${result.skippedNoBase} đơn chưa có BASE)</span>`;
+                statusEl.innerHTML = statusText;
 
                 // Load and display statistics
                 await loadStatsForCampaign(campaignName);

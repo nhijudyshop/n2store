@@ -407,6 +407,9 @@
                 currentStats.orders[existingOrderIndex] = {
                     orderId: statistics.orderId,
                     stt: statistics.stt,
+                    campaignId: statistics.campaignId || null,
+                    campaignName: statistics.campaignName || null,
+                    userName: statistics.userName || null,
                     differences: statistics.differences,
                     kpi: statistics.kpi,
                     details: statistics.details || [],
@@ -417,6 +420,9 @@
                 currentStats.orders.push({
                     orderId: statistics.orderId,
                     stt: statistics.stt,
+                    campaignId: statistics.campaignId || null,
+                    campaignName: statistics.campaignName || null,
+                    userName: statistics.userName || null,
                     differences: statistics.differences,
                     kpi: statistics.kpi,
                     details: statistics.details || [],
@@ -560,8 +566,9 @@
             // Calculate KPI amount
             const kpiAmount = calculateKPIAmount(diffResult.totalDifferences);
 
-            // Get user ID and date
+            // Get user ID, userName and date
             const userId = base.userId;
+            const userName = base.userName || 'Unknown';
             const date = getCurrentDateString();
 
             // Save statistics with campaign info
@@ -570,6 +577,7 @@
                 stt: base.stt,
                 campaignId: base.campaignId,
                 campaignName: targetCampaign,
+                userName: userName,
                 differences: diffResult.totalDifferences,
                 kpi: kpiAmount,
                 details: diffResult.details
@@ -600,6 +608,7 @@
 
     /**
      * Calculate KPI for all orders in a campaign that have BASE
+     * This version works with orders from report_order_details and matches by orderId
      * @param {string} campaignName - Campaign name to calculate
      * @returns {Promise<{success: number, failed: number, results: Array}>}
      */
@@ -612,22 +621,55 @@
         try {
             console.log('[KPI] Calculating KPI for campaign:', campaignName);
 
+            // First, get all orders from this campaign (from report_order_details)
+            const safeTableName = campaignName.replace(/[.$#\[\]\/]/g, '_');
+            const campaignSnapshot = await window.firebase.database()
+                .ref(`report_order_details/${safeTableName}`)
+                .once('value');
+
+            const campaignData = campaignSnapshot.val();
+            if (!campaignData || !campaignData.orders) {
+                console.log('[KPI] No orders found in campaign:', campaignName);
+                return { success: 0, failed: 0, results: [] };
+            }
+
+            const campaignOrders = campaignData.orders;
+            console.log(`[KPI] Found ${campaignOrders.length} orders in campaign`);
+
             // Get all BASE records
             const baseSnapshot = await window.firebase.database()
                 .ref(KPI_BASE_COLLECTION)
                 .once('value');
 
             const allBases = baseSnapshot.val() || {};
+
             const results = [];
             let success = 0;
             let failed = 0;
+            let skippedNoBase = 0;
 
-            // Filter bases for this campaign and calculate KPI
-            for (const orderId in allBases) {
+            // For each order in the campaign, check if it has a BASE
+            for (const order of campaignOrders) {
+                const orderId = order.Id || order.id;
+                if (!orderId) continue;
+
                 const base = allBases[orderId];
+                if (!base) {
+                    skippedNoBase++;
+                    continue;
+                }
 
-                // Skip if not matching campaign
-                if (base.campaignName !== campaignName) continue;
+                // If BASE exists but doesn't have campaignName, update it
+                if (!base.campaignName) {
+                    try {
+                        await window.firebase.database()
+                            .ref(`${KPI_BASE_COLLECTION}/${orderId}/campaignName`)
+                            .set(campaignName);
+                        console.log(`[KPI] Updated campaignName for BASE ${orderId}`);
+                    } catch (e) {
+                        console.warn(`[KPI] Failed to update campaignName for ${orderId}:`, e);
+                    }
+                }
 
                 try {
                     const result = await calculateAndSaveKPI(orderId, campaignName);
@@ -643,8 +685,14 @@
                 }
             }
 
-            console.log('[KPI] Campaign KPI calculation complete:', { success, failed });
-            return { success, failed, results };
+            console.log('[KPI] Campaign KPI calculation complete:', {
+                success,
+                failed,
+                skippedNoBase,
+                totalOrders: campaignOrders.length
+            });
+
+            return { success, failed, skippedNoBase, results };
 
         } catch (error) {
             console.error('[KPI] Error in calculateKPIForCampaign:', error);
