@@ -521,18 +521,10 @@ function renderTransactionRow(row) {
     const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
     const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
 
-    // Fallback uniqueCode for transactions without N2 code (uses tx_id format)
-    const fallbackUniqueCode = `tx_${row.id}`;
-
-    // Get customer info if unique code exists, or try fallback
+    // Get customer info if unique code exists
     let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
-    if (window.CustomerInfoManager) {
-        if (uniqueCode) {
-            customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
-        } else {
-            // Try fallback uniqueCode for transactions edited without N2 code
-            customerDisplay = window.CustomerInfoManager.getCustomerDisplay(fallbackUniqueCode);
-        }
+    if (uniqueCode && window.CustomerInfoManager) {
+        customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
     }
 
     return `
@@ -552,11 +544,11 @@ function renderTransactionRow(row) {
         <td>${truncateText(content || 'N/A', 50)}</td>
         <td>${row.reference_code || 'N/A'}</td>
         <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-            ${uniqueCode || customerDisplay.hasInfo ? `
+            ${uniqueCode ? `
                 <div style="display: flex; align-items: center; gap: 5px;">
                     <span>${customerDisplay.name}</span>
                     ${hasPermission(2) ? `
-                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode || fallbackUniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
+                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
                             <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
                         </button>
                     ` : ''}
@@ -565,7 +557,7 @@ function renderTransactionRow(row) {
                 <div style="display: flex; align-items: center; gap: 5px;">
                     <span style="color: #999;">N/A</span>
                     ${hasPermission(2) ? `
-                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${fallbackUniqueCode}')" title="Thêm thông tin khách hàng" style="padding: 4px 6px;">
+                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('tx_${row.id}')" title="Thêm thông tin khách hàng" style="padding: 4px 6px;">
                             <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
                         </button>
                     ` : ''}
@@ -573,7 +565,7 @@ function renderTransactionRow(row) {
             `}
         </td>
         <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-            ${customerDisplay.hasInfo && customerDisplay.phone !== 'Chưa có thông tin' ? `
+            ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
                 <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
                     ${customerDisplay.phone}
                     <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
