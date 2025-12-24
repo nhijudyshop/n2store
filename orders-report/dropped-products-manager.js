@@ -1138,10 +1138,16 @@
                 <td>
                     <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">
                         ${p.ProductNameGet || p.ProductName}
-                        ${isOutOfStock ? '<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> Đang được giữ</span>' : ''}
+                        ${isOutOfStock && p._holders && p._holders.length > 0 ? (() => {
+                            const h = p._holders[0]; // First holder info for badge
+                            const badgeInfo = h.campaign || h.stt
+                                ? ` (${h.campaign ? h.campaign : ''}${h.campaign && h.stt ? ' - ' : ''}${h.stt ? 'STT ' + h.stt : ''})`
+                                : '';
+                            return `<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> ${h.name}${badgeInfo}</span>`;
+                        })() : isOutOfStock ? '<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> Đang được giữ</span>' : ''}
                     </div>
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
-                    ${p._holders && p._holders.length > 0 ? p._holders.map(h => {
+                    ${p._holders && p._holders.length > 1 ? p._holders.slice(1).map(h => {
                         const orderInfo = h.campaign || h.stt ? ` <span style="color: #6b7280;">(${h.campaign ? h.campaign : ''}${h.campaign && h.stt ? ' - ' : ''}${h.stt ? 'STT ' + h.stt : ''})</span>` : '';
                         return `<div style="font-size: 11px; color: #d97706; margin-top: 2px;"><i class="fas fa-user"></i> <strong>${h.name}</strong>${orderInfo}</div>`;
                     }).join('') : ''}
