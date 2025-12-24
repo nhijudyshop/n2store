@@ -109,20 +109,6 @@
                 </svg>
                 AI Tile Design Assistant
             </h1>
-            <div class="flex gap-2">
-                <input
-                    type="password"
-                    id="apiKey"
-                    placeholder="AIzaSyADOnrrEm20dNDcvilNfAXjLwyKi1AALEc"
-                    class="px-3 py-1 rounded text-black text-sm w-64 border border-gray-300"
-                />
-                <button
-                    onclick="saveKey()"
-                    class="bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm font-bold"
-                >
-                    Lưu Key
-                </button>
-            </div>
         </header>
 
         <div class="flex flex-1 overflow-hidden">
@@ -134,7 +120,7 @@
                             nội thất ảo.
                         </p>
                         <p>
-                            Để bắt đầu <strong>Bước 1</strong>, vui lòng tải lên
+                            Để bắt đầu, vui lòng tải lên
                             hình ảnh căn phòng bạn muốn ốp gạch.
                         </p>
                     </div>
@@ -284,12 +270,16 @@
         </div>
 
         <script>
+            // API Key Management - Priority: localStorage > GitHub Secrets > empty
+            const savedGeminiProKey = localStorage.getItem("geminiApiKey");
+            window.GEMINI_PRO_KEY = savedGeminiProKey || '' || '';
+
             // State
             let roomImageBase64 = null;
             let tileImageBase64 = null;
             let conversationHistory = [];
 
-            // System Prompt specifically for your Interior Design role
+            // System Prompt
             const systemInstruction = `
             Act as a professional Interior Design and Virtual Staging Assistant. Your goal is to help visualize tile designs.
             Follow this strict workflow:
@@ -299,15 +289,7 @@
             4. Describe vividly what the room will look like with the new tiles (e.g., "The marble vein will add depth to the small bathroom...").
             Since you cannot generate images directly, instruct the user to look at the "Visualization Panel" on the right to adjust the tile overlay manually based on your advice.
             Output in Vietnamese language.
-        `;
-
-            function saveKey() {
-                const key = "AIzaSyADOnrrEm20dNDcvilNfAXjLwyKi1AALEc";
-                if (key) {
-                    localStorage.setItem("geminiApiKey", key);
-                    alert("Đã lưu API Key!");
-                }
-            }
+            `;
 
             // Image Handling
             function handleRoomUpload(input) {
@@ -322,7 +304,6 @@
                     document.getElementById("placeholder-text").style.display =
                         "none";
 
-                    // Add to chat
                     addMessage(
                         "user",
                         "Đã tải lên ảnh phòng. [Hình ảnh được gửi kèm]",
@@ -340,12 +321,10 @@
                 reader.onload = function (e) {
                     tileImageBase64 = e.target.result.split(",")[1];
 
-                    // Apply to overlay
                     const overlay = document.getElementById("tile-overlay");
                     overlay.style.backgroundImage = `url(${e.target.result})`;
                     overlay.style.display = "block";
 
-                    // Add to chat
                     addMessage(
                         "user",
                         "Đã tải lên mẫu gạch. [Hình ảnh được gửi kèm]",
@@ -380,13 +359,11 @@
 
             async function sendMessage() {
                 const input = document.getElementById("userInput");
-                const text = input.value;
-                const apiKey =
-                    localStorage.getItem("geminiApiKey") ||
-                    document.getElementById("apiKey").value;
+                const text = input.value.trim();
+                const apiKey = window.GEMINI_PRO_KEY;
 
                 if (!apiKey) {
-                    alert("Vui lòng nhập API Key trước!");
+                    addMessage("ai", "⚠️ Không tìm thấy API Key. Vui lòng liên hệ quản trị viên.");
                     return;
                 }
                 if (!text && !roomImageBase64 && !tileImageBase64) return;
@@ -406,13 +383,10 @@
 
                 try {
                     // Construct Payload
-                    const contents = [];
                     const parts = [];
 
                     if (text) parts.push({ text: text });
 
-                    // Only send images if they are new or contextually relevant
-                    // For simplicity in this demo, we send images if they exist in state
                     if (roomImageBase64) {
                         parts.push({
                             inline_data: {
@@ -430,12 +404,11 @@
                         });
                     }
 
-                    // Append system instruction context (Simulated by adding to first prompt part)
                     if (conversationHistory.length === 0) {
                         parts.unshift({ text: systemInstruction });
                     }
 
-                    contents.push({ role: "user", parts: parts });
+                    const contents = [{ role: "user", parts: parts }];
 
                     // Call Gemini API
                     const response = await fetch(
@@ -453,7 +426,7 @@
                     document.getElementById("loading-msg").remove();
 
                     if (data.error) {
-                        addMessage("ai", `Error: ${data.error.message}`);
+                        addMessage("ai", `❌ Lỗi: ${data.error.message}`);
                     } else {
                         const aiText = data.candidates[0].content.parts[0].text;
                         addMessage("ai", aiText);
@@ -470,11 +443,19 @@
                     document.getElementById("loading-msg").remove();
                     addMessage(
                         "ai",
-                        "Có lỗi xảy ra khi kết nối với Gemini. Vui lòng kiểm tra API Key.",
+                        "❌ Có lỗi xảy ra khi kết nối với Gemini AI.",
                     );
                     console.error(error);
                 }
             }
+
+            // Allow Enter key to send message
+            document.getElementById('userInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
         </script>
     </body>
 </html>
