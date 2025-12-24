@@ -1632,16 +1632,6 @@
                     </div>
                 </div>
 
-                <!-- Actual Closed Orders Statistics -->
-                <div class="content-section" id="actualClosedSection">
-                    <h2>
-                        <i class="fas fa-calculator"></i> Thống Kê Đơn Chốt Thực Tế
-                    </h2>
-                    <div id="actualClosedContainer">
-                        <!-- Actual closed orders stats will be rendered here -->
-                    </div>
-                </div>
-
                 <!-- Employee Statistics -->
                 <div class="content-section" id="employeeStatsSection">
                     <h2>
@@ -2685,133 +2675,6 @@
         }
 
         /**
-         * Render actual closed orders statistics
-         */
-        function renderActualClosedStats(stats) {
-            const container = document.getElementById('actualClosedContainer');
-
-            const orderedCount = stats.breakdown.ordered.count;
-            const taggedUniqueCount = stats.taggedOrders.size;
-
-            // Build breakdown HTML
-            let breakdownHtml = '';
-            breakdownHtml += `<div class="breakdown-item" onclick="viewActualClosedOrders('ordered')" style="cursor: pointer;">
-                <span class="tag-dot" style="background-color: #22c55e;"></span>
-                <span>Đơn Hàng (Ordered)</span>
-                <span class="count">${orderedCount}</span>
-            </div>`;
-
-            CLOSED_TAG_PATTERNS.forEach(pattern => {
-                const data = stats.breakdown[pattern.pattern];
-                if (data.count > 0) {
-                    breakdownHtml += `<div class="breakdown-item" onclick="viewActualClosedOrders('${pattern.pattern}')" style="cursor: pointer;">
-                        <span class="tag-dot" style="background-color: ${pattern.color};"></span>
-                        <span>${pattern.displayName}</span>
-                        <span class="count">${data.count}</span>
-                    </div>`;
-                }
-            });
-
-            // Build duplicate orders button (opens modal)
-            let duplicateHtml = '';
-            if (stats.duplicateOrders.length > 0) {
-                duplicateHtml = `
-                    <div class="duplicate-orders-section">
-                        <div class="duplicate-orders-btn" onclick="viewDuplicateOrders()">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <span>Đơn có tag trùng</span>
-                            <span class="duplicate-count">${stats.duplicateOrders.length} đơn</span>
-                            <i class="fas fa-eye" style="margin-left: auto;"></i>
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Build remaining orders button (opens modal)
-            let remainingHtml = '';
-            if (stats.remainingOrders.length > 0) {
-                remainingHtml = `
-                    <div class="remaining-orders-section">
-                        <div class="remaining-orders-btn" onclick="viewRemainingOrders()">
-                            <i class="fas fa-question-circle"></i>
-                            <span>Đơn chưa phân loại</span>
-                            <span class="remaining-count">${stats.remainingOrders.length} đơn</span>
-                            <i class="fas fa-eye" style="margin-left: auto;"></i>
-                        </div>
-                    </div>
-                `;
-            }
-
-            container.innerHTML = `
-                <div class="actual-closed-summary">
-                    <div class="actual-closed-card total">
-                        <div class="card-value">${stats.totalClosedOrders}</div>
-                        <div class="card-label">TỔNG ĐƠN CHỐT THỰC TẾ</div>
-                    </div>
-                    <div class="actual-closed-card">
-                        <div class="card-value">${orderedCount}</div>
-                        <div class="card-label">Đơn Hàng (Ordered)</div>
-                    </div>
-                    <div class="actual-closed-card">
-                        <div class="card-value">${taggedUniqueCount}</div>
-                        <div class="card-label">Đơn có Tag Chốt</div>
-                    </div>
-                    <div class="actual-closed-card" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
-                        <div class="card-value">${stats.duplicateOrders.length}</div>
-                        <div class="card-label">Đơn Tag Trùng</div>
-                    </div>
-                </div>
-
-                <div class="actual-closed-breakdown">
-                    <h4><i class="fas fa-chart-pie" style="color: #667eea;"></i> Chi tiết theo loại (click để xem danh sách)</h4>
-                    <div class="breakdown-list">
-                        ${breakdownHtml}
-                    </div>
-                </div>
-
-                ${duplicateHtml}
-                ${remainingHtml}
-            `;
-
-            // Store stats for view functions
-            window._actualClosedStats = stats;
-        }
-
-        /**
-         * View orders by actual closed category
-         */
-        function viewActualClosedOrders(category) {
-            const stats = window._actualClosedStats;
-            if (!stats) return;
-
-            let orders = [];
-            let title = '';
-
-            if (category === 'ordered') {
-                orders = stats.breakdown.ordered.orders;
-                title = 'Đơn Hàng (Ordered)';
-            } else {
-                const data = stats.breakdown[category];
-                if (data) {
-                    orders = data.orders;
-                    title = data.displayName;
-                }
-            }
-
-            showOrdersDetailModal(`Đơn Chốt: ${title}`, orders);
-        }
-
-        /**
-         * View remaining (unclassified) orders
-         */
-        function viewRemainingOrders() {
-            const stats = window._actualClosedStats;
-            if (!stats || !stats.remainingOrders.length) return;
-
-            showOrdersDetailModal(`Đơn Chưa Phân Loại (${stats.remainingOrders.length} đơn)`, stats.remainingOrders);
-        }
-
-        /**
          * View employee remaining orders
          */
         function viewEmployeeRemainingOrders(empName, start, end) {
@@ -2830,17 +2693,6 @@
             if (empStats.remainingOrders.length === 0) return;
 
             showOrdersDetailModal(`${empName} - Đơn Chưa Phân Loại (${empStats.remainingOrders.length} đơn)`, empStats.remainingOrders);
-        }
-
-        /**
-         * View duplicate orders (orders with 2+ tags)
-         */
-        function viewDuplicateOrders() {
-            const stats = window._actualClosedStats;
-            if (!stats || !stats.duplicateOrders.length) return;
-
-            // Show modal with duplicate orders and their tags
-            showDuplicateOrdersModal('Đơn Có Tag Trùng', stats.duplicateOrders);
         }
 
         /**
@@ -2928,15 +2780,11 @@
             // Calculate all stats
             const tagStats = calculateTagStats(orders);
             const employeeStats = calculateEmployeeTagStats(orders);
-            const actualClosedStats = calculateActualClosedStats(orders);
 
             // Render tag stats
             renderTagStatsTable(tagStats, orders.length);
 
-            // Render actual closed stats
-            renderActualClosedStats(actualClosedStats);
-
-            // Render employee stats (with actual closed stats)
+            // Render employee stats
             renderEmployeeStats(employeeStats, orders);
 
             // Dispatch event for mobile UI (after DOM updates)
