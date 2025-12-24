@@ -3352,7 +3352,7 @@
         // TABLE SELECTION & MANAGEMENT
         // =====================================================
 
-        // Load available tables from Firebase
+        // Load available tables from Firebase (metadata only for dropdown)
         async function loadAvailableTables() {
             if (!database) {
                 console.error('[REPORT] Firebase not available');
@@ -3367,6 +3367,9 @@
 
             isLoadingTables = true;
 
+            // Show loading indicator immediately
+            showCachedDetailsLoading();
+
             try {
                 const ref = database.ref(FIREBASE_PATH);
                 const snapshot = await ref.once('value');
@@ -3375,17 +3378,22 @@
                 const selector = document.getElementById('tableSelector');
                 selector.innerHTML = '<option value="">-- Chọn bảng --</option>';
 
-                // Store table data for later use (avoid loading twice)
-                const tableDataMap = {};
+                // Only extract metadata for dropdown (don't keep full orders in memory)
+                const tableMetadata = {};
 
                 Object.keys(tables).forEach(safeTableName => {
                     const tableData = tables[safeTableName];
                     const originalName = tableData.tableName || safeTableName.replace(/_/g, ' ');
-                    const orderCount = tableData.orders?.length || 0;
+                    const orderCount = tableData.totalOrders || tableData.orders?.length || 0;
                     const fetchedAt = tableData.fetchedAt ? new Date(tableData.fetchedAt).toLocaleString('vi-VN') : '';
 
-                    // Store for later use
-                    tableDataMap[originalName] = tableData;
+                    // Store only metadata (not full orders array)
+                    tableMetadata[originalName] = {
+                        tableName: originalName,
+                        safeTableName: safeTableName,
+                        orderCount: orderCount,
+                        fetchedAt: tableData.fetchedAt
+                    };
 
                     const option = document.createElement('option');
                     option.value = originalName;
@@ -3393,21 +3401,15 @@
                     selector.appendChild(option);
                 });
 
-                console.log(`[REPORT] ✅ Loaded ${Object.keys(tables).length} tables from Firebase`);
+                // Store metadata globally for later reference
+                window._tableMetadata = tableMetadata;
+
+                console.log(`[REPORT] ✅ Loaded ${Object.keys(tables).length} table metadata from Firebase`);
 
                 // Select current table if exists
                 if (currentTableName) {
                     // Check if currentTableName option exists in dropdown
-                    let optionExists = false;
-                    let matchedTableData = null;
-
-                    for (let option of selector.options) {
-                        if (option.value === currentTableName) {
-                            optionExists = true;
-                            matchedTableData = tableDataMap[currentTableName];
-                            break;
-                        }
-                    }
+                    let optionExists = tableMetadata[currentTableName] !== undefined;
 
                     // If current table not in Firebase yet, add it to dropdown
                     if (!optionExists && allOrders.length > 0) {
@@ -3420,24 +3422,21 @@
 
                     selector.value = currentTableName;
 
-                    // ALWAYS populate cache from Firebase for Chi tiết đã tải tab
-                    // This does NOT affect allOrders (which comes from Tab1)
-                    if (optionExists && matchedTableData) {
-                        console.log(`[REPORT] 📥 Loading Firebase cache for Chi tiết đã tải: ${currentTableName}, orders: ${matchedTableData.orders?.length || 0}`);
-                        populateCacheFromFirebaseData(currentTableName, matchedTableData);
-                    } else if (!optionExists) {
+                    // Load full data for current table from Firebase (Chi tiết đã tải tab)
+                    if (optionExists) {
+                        console.log(`[REPORT] 📥 Loading full data for Chi tiết đã tải: ${currentTableName}`);
+                        await loadTableDataFromFirebase(currentTableName);
+                    } else {
                         // Campaign not in Firebase yet - show empty state for Chi tiết đã tải
                         console.log(`[REPORT] ⚠️ Campaign "${currentTableName}" not in Firebase - Chi tiết đã tải will show empty`);
                         delete cachedOrderDetails[currentTableName];
                         updateTableHelperUI(true);
+                        updateCachedCountBadge();
+                        renderCachedDetailsTab();
                     }
 
                     // Reset the flag
                     justReceivedFromTab1 = false;
-
-                    // Update Chi tiết đã tải UI
-                    updateCachedCountBadge();
-                    renderCachedDetailsTab();
                 }
             } catch (error) {
                 console.error('[REPORT] ❌ Error loading tables:', error);
@@ -3508,6 +3507,9 @@
             if (!tableName) return;
 
             console.log(`[REPORT] 📥 Loading Firebase data for table: ${tableName} (Chi tiết đã tải)`);
+
+            // Show loading indicator immediately
+            showCachedDetailsLoading();
 
             // Try loading from Firebase
             const firebaseData = await loadFromFirebase(tableName);
@@ -3953,6 +3955,19 @@
         // =====================================================
         // RENDER CACHED DETAILS TAB
         // =====================================================
+
+        // Show loading state for cached details tab
+        function showCachedDetailsLoading() {
+            const area = document.getElementById('cachedDetailsArea');
+            area.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #667eea;"></i>
+                    <h3>Đang tải dữ liệu...</h3>
+                    <p>Vui lòng chờ trong giây lát</p>
+                </div>
+            `;
+        }
+
         function renderCachedDetailsTab() {
             const area = document.getElementById('cachedDetailsArea');
 
