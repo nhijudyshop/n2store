@@ -1,72 +1,73 @@
-name: Inject API Keys
-
+name: Inject Gemini API Keys
 on:
   push:
     branches:
       - main
       - claude/**
     paths:
-      - 'invoice-compare/**'
+      - 'AI/gemini.html'
   workflow_dispatch:
 
 jobs:
-  inject-keys:
+  inject-gemini-keys:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Inject API Keys into HTML
+      
+      - name: Inject GEMINI_PRO_KEY into gemini.html
         run: |
-          # Inject GEMINI_PRO_KEY (primary key)
-          sed -i "s|window.GEMINI_PRO_KEY = savedGeminiProKey \|\| '' \|\| '';|window.GEMINI_PRO_KEY = savedGeminiProKey \|\| '${{ secrets.GEMINI_PRO_KEY }}' \|\| '';|g" invoice-compare/index.html
+          echo "🔧 Starting API key injection..."
+          
+          # Inject GEMINI_PRO_KEY
+          sed -i "s|window.GEMINI_PRO_KEY = savedGeminiProKey \|\| '' \|\| '';|window.GEMINI_PRO_KEY = savedGeminiProKey \|\| '${{ secrets.GEMINI_PRO_KEY }}' \|\| '';|g" AI/gemini.html
           
           echo "✅ GEMINI_PRO_KEY injected successfully"
-          
-          # Inject DEEPSEEK_API_KEY
-          sed -i "s|window.DEEPSEEK_API_KEY = savedDeepSeekKey \|\| '' \|\| '';|window.DEEPSEEK_API_KEY = savedDeepSeekKey \|\| '${{ secrets.DEEPSEEK_API_KEY }}' \|\| '';|g" invoice-compare/index.html
-          
-          echo "✅ DEEPSEEK_API_KEY injected successfully"
-
+      
       - name: Verify injection
         run: |
-          echo "Checking if PRO key was injected..."
-          grep -q "GEMINI_PRO_KEY = savedGeminiProKey" invoice-compare/index.html && echo "✅ GEMINI_PRO_KEY pattern found" || echo "❌ Pattern not found"
-          echo "Checking if DeepSeek key was injected..."
-          grep -q "DEEPSEEK_API_KEY = savedDeepSeekKey" invoice-compare/index.html && echo "✅ DEEPSEEK_API_KEY pattern found" || echo "❌ Pattern not found"
-
+          echo "🔍 Checking if GEMINI_PRO_KEY was injected..."
+          if grep -q "GEMINI_PRO_KEY = savedGeminiProKey" AI/gemini.html; then
+            echo "✅ GEMINI_PRO_KEY pattern found"
+          else
+            echo "❌ Pattern not found - injection may have failed"
+            exit 1
+          fi
+      
       - name: Commit changes (if any)
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-
-          if git diff --quiet invoice-compare/index.html; then
-            echo "No changes to commit"
+          
+          if git diff --quiet AI/gemini.html; then
+            echo "ℹ️  No changes to commit"
           else
-            git add invoice-compare/index.html
-            git commit -m "🔑 Auto-inject API keys from secrets [skip ci]"
+            git add AI/gemini.html
+            git commit -m "🔑 Auto-inject Gemini API key from secrets [skip ci]"
             git push
             echo "✅ Changes committed and pushed"
           fi
-
+      
       - name: Display success message
         run: |
           echo "=================================================="
-          echo "✅ API Keys Injection Complete"
+          echo "✅ Gemini API Key Injection Complete"
           echo "=================================================="
           echo ""
-          echo "Keys have been injected into:"
-          echo "  - invoice-compare/index.html"
+          echo "Key has been injected into:"
+          echo "  - AI/gemini.html"
           echo ""
           echo "The application will now use:"
           echo "  1. localStorage (if user set manually)"
-          echo "  2. GitHub Secrets GEMINI_PRO_KEY (if configured)"
-          echo "  3. GitHub Secrets DEEPSEEK_API_KEY (if configured)"
+          echo "  2. GitHub Secrets GEMINI_PRO_KEY (fallback)"
+          echo ""
+          echo "⚠️  WARNING: The API key is now visible in the"
+          echo "    HTML source code. Make sure this is intended."
           echo ""
           echo "=================================================="
