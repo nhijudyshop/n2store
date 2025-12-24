@@ -264,8 +264,8 @@
 
         wrapAsCollapsible(section, {
             id: 'tag-stats',
-            title: 'Thống Kê Theo Tag',
-            icon: 'fa-tags',
+            title: 'Thống Kê Đơn Live',
+            icon: 'fa-shopping-cart',
             iconGradient: 'primary',
             collapsed: CONFIG.tagSectionCollapsed,
             preserveHeader: true

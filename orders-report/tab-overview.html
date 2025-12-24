@@ -785,6 +785,43 @@
             box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
         }
 
+        /* Live Stats Badges */
+        .live-stats-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-left: 10px;
+        }
+
+        .live-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            color: white;
+            white-space: nowrap;
+        }
+
+        .badge-total {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .badge-chot {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        }
+
+        .badge-chot.mismatch {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .badge-empty {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .badge-merged {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
         .content-section h2 {
             display: flex;
             align-items: center;
@@ -1490,7 +1527,13 @@
                 <!-- Tag Statistics - Summary -->
                 <div class="content-section" id="tagStatsSection">
                     <h2>
-                        <i class="fas fa-tags"></i> Thống Kê Theo Tag - Tổng Hợp
+                        <i class="fas fa-shopping-cart"></i> Thống Kê Đơn Live
+                        <div class="live-stats-badges" id="liveStatsBadges">
+                            <span class="live-badge badge-total" id="badgeTotalDon">0 ĐƠN</span>
+                            <span class="live-badge badge-chot" id="badgeDonChot">0 ĐƠN CHỐT</span>
+                            <span class="live-badge badge-empty" id="badgeGioTrong">0 GIỎ TRỐNG</span>
+                            <span class="live-badge badge-merged" id="badgeGop">0 GỘP</span>
+                        </div>
                         <button class="btn-add-tag" onclick="openAddTagModal()">
                             <i class="fas fa-plus"></i> Thêm tag
                         </button>
@@ -2080,107 +2123,143 @@
             }
         }
 
+        // Predefined tags for Live Order Statistics
+        const LIVE_STAT_TAGS = [
+            { key: 'ordered', displayName: 'ĐÃ RA ĐƠN', color: '#22c55e', isSpecial: true, countAsChot: true },
+            { key: 'cho_hang_ve', patterns: ['chờ hàng về', 'chờ hàng'], displayName: 'CHỜ HÀNG VỀ', color: '#6366f1', countAsChot: true },
+            { key: 'gio_trong', patterns: ['giỏ trống'], displayName: 'GIỎ TRỐNG', color: '#f59e0b', countAsChot: false },
+            { key: 'xa_don', patterns: ['xả đơn', 'xã đơn'], displayName: 'XẢ ĐƠN', color: '#14b8a6', countAsChot: true },
+            { key: 'ok', patterns: ['ok'], displayName: 'OK', color: '#22c55e', countAsChot: true },
+            { key: 'xu_ly', patterns: ['xử lý'], displayName: 'XỬ LÝ', color: '#f97316', countAsChot: true },
+            { key: 'cho_live', patterns: ['chờ live'], displayName: 'CHỜ LIVE', color: '#ec4899', countAsChot: true },
+            { key: 'gop', patterns: ['gộp', 'đã gộp ko chốt', 'đã gộp không chốt'], displayName: 'GỘP', color: '#8b5cf6', countAsChot: false }
+        ];
+
         /**
-         * Calculate tag statistics from cached orders
+         * Calculate tag statistics from cached orders for Live Order Statistics
          */
         function calculateTagStats(orders) {
             const totalOrders = orders.length;
 
-            // Initialize special stats for Ordered status
-            const orderedStat = {
-                pattern: '__status_ordered__',
-                type: 'special',
-                displayName: 'Đơn Hàng (Ordered)',
-                color: '#22c55e',
-                count: 0,
-                totalAmount: 0,
-                orders: [],
-                isSpecial: true
-            };
+            // Initialize stats for each predefined tag
+            const tagStatsMap = new Map();
+            LIVE_STAT_TAGS.forEach(tag => {
+                tagStatsMap.set(tag.key, {
+                    pattern: tag.key,
+                    type: tag.isSpecial ? 'special' : 'tag',
+                    displayName: tag.displayName,
+                    color: tag.color,
+                    count: 0,
+                    totalAmount: 0,
+                    orders: [],
+                    isSpecial: tag.isSpecial || false,
+                    countAsChot: tag.countAsChot
+                });
+            });
 
-            // Initialize special stats for orders without tags
-            const noTagsStat = {
-                pattern: '__no_tags__',
-                type: 'special',
-                displayName: 'Không Có Tag',
-                color: '#6b7280',
-                count: 0,
-                totalAmount: 0,
-                orders: [],
-                isSpecial: true
-            };
+            // Track unique orders per category to avoid double counting
+            const ordersPerCategory = new Map();
+            LIVE_STAT_TAGS.forEach(tag => {
+                ordersPerCategory.set(tag.key, new Set());
+            });
 
-            // Collect ALL unique tags from all orders
-            const allTagsMap = new Map(); // tagName -> { color, count, totalAmount, orders }
-
-            // Count orders for each tag and special stats
+            // Count orders for each category
             orders.forEach(order => {
                 const orderTags = parseOrderTags(order.Tags);
                 const orderAmount = order.TotalAmount || 0;
                 const statusText = order.StatusText || order.Status || '';
+                const orderId = order.Id || order.Code;
 
-                // Count Ordered status (Đơn hàng)
+                // Check for Ordered status (ĐÃ RA ĐƠN)
                 if (statusText === 'Đơn hàng') {
-                    orderedStat.count++;
-                    orderedStat.totalAmount += orderAmount;
-                    orderedStat.orders.push(order);
+                    const stat = tagStatsMap.get('ordered');
+                    if (!ordersPerCategory.get('ordered').has(orderId)) {
+                        ordersPerCategory.get('ordered').add(orderId);
+                        stat.count++;
+                        stat.totalAmount += orderAmount;
+                        stat.orders.push(order);
+                    }
                 }
 
-                // Count orders without tags
-                if (orderTags.length === 0) {
-                    noTagsStat.count++;
-                    noTagsStat.totalAmount += orderAmount;
-                    noTagsStat.orders.push(order);
-                }
-
-                // Collect all tags
+                // Check each order's tags against predefined patterns
                 orderTags.forEach(orderTag => {
-                    const tagName = (orderTag.Name || orderTag.name || '').trim();
-                    const tagColor = orderTag.Color || orderTag.color || '#6b7280';
-
+                    const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
                     if (!tagName) return;
 
-                    if (!allTagsMap.has(tagName)) {
-                        allTagsMap.set(tagName, {
-                            pattern: tagName.toLowerCase(),
-                            type: 'exact',
-                            displayName: tagName,
-                            color: tagColor,
-                            count: 0,
-                            totalAmount: 0,
-                            orders: []
-                        });
-                    }
+                    LIVE_STAT_TAGS.forEach(liveTag => {
+                        if (liveTag.isSpecial) return; // Skip special tags (handled above)
 
-                    const tagStat = allTagsMap.get(tagName);
-                    tagStat.count++;
-                    tagStat.totalAmount += orderAmount;
-                    tagStat.orders.push(order);
+                        const patterns = liveTag.patterns || [];
+                        const matches = patterns.some(p => tagName.startsWith(p));
+
+                        if (matches) {
+                            const stat = tagStatsMap.get(liveTag.key);
+                            if (!ordersPerCategory.get(liveTag.key).has(orderId)) {
+                                ordersPerCategory.get(liveTag.key).add(orderId);
+                                stat.count++;
+                                stat.totalAmount += orderAmount;
+                                stat.orders.push(order);
+                            }
+                        }
+                    });
                 });
             });
 
-            // Convert map to array and calculate percentages
-            const tagStats = Array.from(allTagsMap.values());
-            tagStats.forEach(stat => {
+            // Calculate percentages and prepare final stats
+            const allStats = [];
+            tagStatsMap.forEach((stat, key) => {
                 stat.percentage = totalOrders > 0 ? ((stat.count / totalOrders) * 100).toFixed(1) : 0;
+                allStats.push(stat);
             });
 
-            // Calculate percentages for special stats
-            orderedStat.percentage = totalOrders > 0 ? ((orderedStat.count / totalOrders) * 100).toFixed(1) : 0;
-            noTagsStat.percentage = totalOrders > 0 ? ((noTagsStat.count / totalOrders) * 100).toFixed(1) : 0;
+            // Calculate header badge values
+            const gioTrongCount = tagStatsMap.get('gio_trong').count;
+            const gopCount = tagStatsMap.get('gop').count;
 
-            // Combine special stats with regular tag stats
-            const allStats = [];
+            // x = total orders
+            const x = totalOrders;
+            // Z = giỏ trống
+            const Z = gioTrongCount;
+            // K = gộp
+            const K = gopCount;
+            // Y = x - Z - K (calculated "đơn chốt")
+            const Y = x - Z - K;
 
-            // Add special stats first (Ordered status and No Tags)
-            if (orderedStat.count > 0) allStats.push(orderedStat);
-            if (noTagsStat.count > 0) allStats.push(noTagsStat);
+            // H = sum of all tags except giỏ trống and gộp (actual "đơn chốt")
+            let H = 0;
+            tagStatsMap.forEach((stat, key) => {
+                if (stat.countAsChot) {
+                    H += stat.count;
+                }
+            });
 
-            // Add all tag stats sorted by count
-            const sortedTagStats = tagStats.sort((a, b) => b.count - a.count);
-            allStats.push(...sortedTagStats);
+            // Update header badges
+            updateLiveStatsBadges(x, Y, Z, K, H);
 
             return allStats;
+        }
+
+        /**
+         * Update the Live Stats badges in the header
+         */
+        function updateLiveStatsBadges(totalDon, donChot, gioTrong, gop, actualChot) {
+            const badgeTotalDon = document.getElementById('badgeTotalDon');
+            const badgeDonChot = document.getElementById('badgeDonChot');
+            const badgeGioTrong = document.getElementById('badgeGioTrong');
+            const badgeGop = document.getElementById('badgeGop');
+
+            if (badgeTotalDon) badgeTotalDon.textContent = `${totalDon} ĐƠN`;
+            if (badgeDonChot) {
+                badgeDonChot.textContent = `${donChot} ĐƠN CHỐT`;
+                // If Y = H, show green; if Y != H, show red
+                if (donChot === actualChot) {
+                    badgeDonChot.classList.remove('mismatch');
+                } else {
+                    badgeDonChot.classList.add('mismatch');
+                }
+            }
+            if (badgeGioTrong) badgeGioTrong.textContent = `${gioTrong} GIỎ TRỐNG`;
+            if (badgeGop) badgeGop.textContent = `${gop} GỘP`;
         }
 
         /**
@@ -2294,17 +2373,24 @@
             return employeeStats.filter(e => e.totalOrders > 0);
         }
 
-        // Tag patterns that count as "closed" orders
-        const CLOSED_TAG_PATTERNS = [
-            { pattern: 'ok', type: 'startsWith', displayName: 'OK', color: '#22c55e' },
-            { pattern: 'qua lấy', type: 'startsWith', displayName: 'Qua Lấy', color: '#3b82f6' },
-            { pattern: 'xử lý', type: 'startsWith', displayName: 'Xử Lý', color: '#f97316' },
-            { pattern: 'chờ live', type: 'startsWith', displayName: 'Chờ Live', color: '#ec4899' },
-            { pattern: 'chờ hàng', type: 'startsWith', displayName: 'Chờ Hàng', color: '#6366f1' },
-            { pattern: 'xả đơn', type: 'startsWith', displayName: 'Xả Đơn', color: '#14b8a6' },
-            { pattern: 'giỏ trống', type: 'startsWith', displayName: 'Giỏ Trống', color: '#f59e0b' },
-            { pattern: 'đã gộp ko chốt', type: 'startsWith', displayName: 'ĐÃ GỘP KO CHỐT', color: '#8b5cf6' }
+        // Tag patterns for live order statistics
+        // Note: "ĐÃ RA ĐƠN" is tracked by Ordered status, not tag
+        const LIVE_TAG_PATTERNS = [
+            { pattern: 'chờ hàng về', type: 'startsWith', displayName: 'CHỜ HÀNG VỀ', color: '#6366f1', countAsChot: true },
+            { pattern: 'chờ hàng', type: 'startsWith', displayName: 'CHỜ HÀNG VỀ', color: '#6366f1', countAsChot: true },
+            { pattern: 'giỏ trống', type: 'startsWith', displayName: 'GIỎ TRỐNG', color: '#f59e0b', countAsChot: false },
+            { pattern: 'xả đơn', type: 'startsWith', displayName: 'XẢ ĐƠN', color: '#14b8a6', countAsChot: true },
+            { pattern: 'xã đơn', type: 'startsWith', displayName: 'XẢ ĐƠN', color: '#14b8a6', countAsChot: true },
+            { pattern: 'ok', type: 'startsWith', displayName: 'OK', color: '#22c55e', countAsChot: true },
+            { pattern: 'xử lý', type: 'startsWith', displayName: 'XỬ LÝ', color: '#f97316', countAsChot: true },
+            { pattern: 'chờ live', type: 'startsWith', displayName: 'CHỜ LIVE', color: '#ec4899', countAsChot: true },
+            { pattern: 'gộp', type: 'startsWith', displayName: 'GỘP', color: '#8b5cf6', countAsChot: false },
+            { pattern: 'đã gộp ko chốt', type: 'startsWith', displayName: 'GỘP', color: '#8b5cf6', countAsChot: false },
+            { pattern: 'đã gộp không chốt', type: 'startsWith', displayName: 'GỘP', color: '#8b5cf6', countAsChot: false }
         ];
+
+        // Keep old name for backward compatibility
+        const CLOSED_TAG_PATTERNS = LIVE_TAG_PATTERNS;
 
         /**
          * Calculate actual closed orders statistics
@@ -2696,9 +2782,9 @@
             }
 
             tbody.innerHTML = stats.map(s => {
-                // Handle special stats differently
+                // Handle special stats differently (ĐÃ RA ĐƠN)
                 const isSpecial = s.isSpecial || false;
-                const specialIcon = s.pattern === '__status_ordered__' ? 'fa-check-circle' :
+                const specialIcon = s.pattern === 'ordered' ? 'fa-check-circle' :
                                    s.pattern === '__no_tags__' ? 'fa-tag' : '';
 
                 return `
@@ -2946,15 +3032,15 @@
             let filteredOrders = [];
             let displayName = '';
 
-            // Handle special stats
+            // Handle special stats (ĐÃ RA ĐƠN)
             if (type === 'special') {
-                if (pattern === '__status_ordered__') {
+                if (pattern === 'ordered') {
                     // Filter orders with "Đơn hàng" status
                     filteredOrders = orders.filter(order => {
                         const statusText = order.StatusText || order.Status || '';
                         return statusText === 'Đơn hàng';
                     });
-                    displayName = 'Đơn Hàng (Ordered)';
+                    displayName = 'ĐÃ RA ĐƠN';
                 } else if (pattern === '__no_tags__') {
                     // Filter orders without tags
                     filteredOrders = orders.filter(order => {
@@ -2962,6 +3048,20 @@
                         return orderTags.length === 0;
                     });
                     displayName = 'Không Có Tag';
+                }
+            } else if (type === 'tag') {
+                // Find the matching LIVE_STAT_TAGS definition
+                const liveTag = LIVE_STAT_TAGS.find(t => t.key === pattern);
+                if (liveTag && liveTag.patterns) {
+                    displayName = liveTag.displayName;
+                    // Filter orders matching any of the patterns
+                    filteredOrders = orders.filter(order => {
+                        const orderTags = parseOrderTags(order.Tags);
+                        return orderTags.some(tag => {
+                            const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
+                            return liveTag.patterns.some(p => tagName.startsWith(p));
+                        });
+                    });
                 }
             } else {
                 // Regular tag matching - match by exact tag name (case insensitive)
