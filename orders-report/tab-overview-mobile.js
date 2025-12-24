@@ -30,8 +30,8 @@
         const tagStatsSection = document.getElementById('tagStatsSection');
         if (tagStatsSection && isMobile()) {
             makeCollapsible(tagStatsSection, {
-                title: 'Thống Kê Theo Tag',
-                icon: 'fa-tags',
+                title: 'Thống Kê Đơn Live',
+                icon: 'fa-shopping-cart',
                 collapsed: false,
                 badge: true
             });
