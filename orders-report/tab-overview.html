@@ -2360,6 +2360,32 @@
             };
             allStats.push(duplicateStat);
 
+            // Find orders not matching any predefined tags (GẮN SAI TAG)
+            const wrongTagOrders = [];
+            orderTagsMap.forEach((data, orderId) => {
+                // Order has no tags from LIVE_STAT_TAGS
+                if (data.tagKeys.size === 0) {
+                    wrongTagOrders.push(data.order);
+                }
+            });
+
+            // Add "GẮN SAI TAG" stat
+            const wrongTagStat = {
+                pattern: 'gan_sai_tag',
+                key: 'gan_sai_tag',
+                type: 'wrong_tag',
+                displayName: 'GẮN SAI TAG',
+                color: wrongTagOrders.length > 0 ? '#ef4444' : '#22c55e',
+                count: wrongTagOrders.length,
+                totalAmount: wrongTagOrders.reduce((sum, o) => sum + (o.TotalAmount || 0), 0),
+                orders: wrongTagOrders,
+                isSpecial: false,
+                isWrongTag: true,
+                hasError: wrongTagOrders.length > 0,
+                percentage: totalOrders > 0 ? ((wrongTagOrders.length / totalOrders) * 100).toFixed(1) : 0
+            };
+            allStats.push(wrongTagStat);
+
             // Calculate header badge values
             const gioTrongCount = tagStatsMap.get('gio_trong').count;
             const gopCount = tagStatsMap.get('gop').count;
@@ -2575,6 +2601,29 @@
                     percentage: totalOrders > 0 ? ((duplicateOrders.length / totalOrders) * 100).toFixed(1) : 0
                 };
                 tagBreakdown.push(duplicateStat);
+
+                // Find orders not matching any predefined tags (GẮN SAI TAG) for this employee
+                const wrongTagOrders = [];
+                orderTagsMap.forEach((data, orderId) => {
+                    if (data.tagKeys.size === 0) {
+                        wrongTagOrders.push(data.order);
+                    }
+                });
+
+                // Add "GẮN SAI TAG" stat for this employee
+                const wrongTagStat = {
+                    key: 'gan_sai_tag',
+                    displayName: 'GẮN SAI TAG',
+                    color: wrongTagOrders.length > 0 ? '#ef4444' : '#22c55e',
+                    count: wrongTagOrders.length,
+                    totalAmount: wrongTagOrders.reduce((sum, o) => sum + (o.TotalAmount || 0), 0),
+                    orders: wrongTagOrders,
+                    isSpecial: false,
+                    isWrongTag: true,
+                    hasError: wrongTagOrders.length > 0,
+                    percentage: totalOrders > 0 ? ((wrongTagOrders.length / totalOrders) * 100).toFixed(1) : 0
+                };
+                tagBreakdown.push(wrongTagStat);
 
                 // Calculate badge values for this employee
                 const gioTrongCount = tagStatsMap.get('gio_trong').count;
@@ -2882,9 +2931,11 @@
                 // Handle special stats differently (ĐÃ RA ĐƠN)
                 const isSpecial = s.isSpecial || false;
                 const isDuplicate = s.isDuplicate || false;
+                const isWrongTag = s.isWrongTag || false;
                 const specialIcon = s.pattern === 'ordered' ? 'fa-check-circle' :
                                    s.pattern === '__no_tags__' ? 'fa-tag' :
-                                   isDuplicate ? 'fa-exclamation-triangle' : '';
+                                   isDuplicate ? 'fa-exclamation-triangle' :
+                                   isWrongTag ? 'fa-times-circle' : '';
 
                 // Determine row class based on type
                 let rowClass = '';
@@ -2892,6 +2943,8 @@
                     rowClass = 'special-stat-row';
                 } else if (isDuplicate) {
                     rowClass = s.hasUnacceptableDuplicate ? 'duplicate-row-red' : 'duplicate-row-green';
+                } else if (isWrongTag) {
+                    rowClass = s.hasError ? 'duplicate-row-red' : 'duplicate-row-green';
                 } else if (s.key === 'gio_trong' && s.hasValidationError) {
                     rowClass = 'duplicate-row-red';
                 }
@@ -2900,7 +2953,7 @@
                 <tr class="${rowClass}">
                     <td>
                         <div class="tag-cell">
-                            ${isSpecial || isDuplicate ? `<i class="fas ${specialIcon}" style="color: ${isDuplicate ? 'white' : s.color}; margin-right: 8px;"></i>` : `<span class="tag-color" style="background-color: ${s.color}"></span>`}
+                            ${isSpecial || isDuplicate || isWrongTag ? `<i class="fas ${specialIcon}" style="color: ${(isDuplicate || isWrongTag) ? 'white' : s.color}; margin-right: 8px;"></i>` : `<span class="tag-color" style="background-color: ${s.color}"></span>`}
                             <span>${s.displayName}</span>
                         </div>
                     </td>
@@ -2966,8 +3019,10 @@
                                 ${emp.tagBreakdown.map(tag => {
                                     const isSpecial = tag.isSpecial || false;
                                     const isDuplicate = tag.isDuplicate || false;
+                                    const isWrongTag = tag.isWrongTag || false;
                                     const specialIcon = tag.key === 'ordered' ? 'fa-check-circle' :
-                                                       isDuplicate ? 'fa-exclamation-triangle' : '';
+                                                       isDuplicate ? 'fa-exclamation-triangle' :
+                                                       isWrongTag ? 'fa-times-circle' : '';
 
                                     // Determine row class
                                     let rowClass = '';
@@ -2975,6 +3030,8 @@
                                         rowClass = 'special-stat-row';
                                     } else if (isDuplicate) {
                                         rowClass = tag.hasUnacceptableDuplicate ? 'duplicate-row-red' : 'duplicate-row-green';
+                                    } else if (isWrongTag) {
+                                        rowClass = tag.hasError ? 'duplicate-row-red' : 'duplicate-row-green';
                                     } else if (tag.key === 'gio_trong' && tag.hasValidationError) {
                                         rowClass = 'duplicate-row-red';
                                     }
@@ -2983,7 +3040,7 @@
                                     <tr class="${rowClass}">
                                         <td>
                                             <div class="tag-cell">
-                                                ${isSpecial || isDuplicate ? `<i class="fas ${specialIcon}" style="color: ${isDuplicate ? 'white' : tag.color}; margin-right: 8px;"></i>` : `<span class="tag-color" style="background-color: ${tag.color}"></span>`}
+                                                ${isSpecial || isDuplicate || isWrongTag ? `<i class="fas ${specialIcon}" style="color: ${(isDuplicate || isWrongTag) ? 'white' : tag.color}; margin-right: 8px;"></i>` : `<span class="tag-color" style="background-color: ${tag.color}"></span>`}
                                                 <span>${tag.displayName}</span>
                                             </div>
                                         </td>
@@ -3211,6 +3268,33 @@
 
                     return matchedKeys.size > 1;
                 });
+            } else if (type === 'wrong_tag') {
+                // Find orders not matching any LIVE_STAT_TAGS
+                displayName = 'GẮN SAI TAG';
+                filteredOrders = orders.filter(order => {
+                    const orderTags = parseOrderTags(order.Tags);
+                    const statusText = order.StatusText || order.Status || '';
+
+                    // Check if order has "Đơn hàng" status (counts as ĐÃ RA ĐƠN)
+                    if (statusText === 'Đơn hàng') return false;
+
+                    // Check if any tag matches LIVE_STAT_TAGS
+                    let hasMatchingTag = false;
+                    orderTags.forEach(orderTag => {
+                        const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
+                        if (!tagName) return;
+
+                        LIVE_STAT_TAGS.forEach(liveTag => {
+                            if (liveTag.isSpecial) return;
+                            const patterns = liveTag.patterns || [];
+                            if (patterns.some(p => tagName.startsWith(p))) {
+                                hasMatchingTag = true;
+                            }
+                        });
+                    });
+
+                    return !hasMatchingTag;
+                });
             } else if (type === 'tag') {
                 // Find the matching LIVE_STAT_TAGS definition
                 const liveTag = LIVE_STAT_TAGS.find(t => t.key === pattern);
@@ -3305,6 +3389,33 @@
                     });
 
                     return matchedKeys.size > 1;
+                });
+            } else if (tagKey === 'gan_sai_tag') {
+                // Handle GẮN SAI TAG (orders not matching any LIVE_STAT_TAGS)
+                displayName = 'GẮN SAI TAG';
+                filteredOrders = empOrders.filter(order => {
+                    const orderTags = parseOrderTags(order.Tags);
+                    const statusText = order.StatusText || order.Status || '';
+
+                    // Check if order has "Đơn hàng" status (counts as ĐÃ RA ĐƠN)
+                    if (statusText === 'Đơn hàng') return false;
+
+                    // Check if any tag matches LIVE_STAT_TAGS
+                    let hasMatchingTag = false;
+                    orderTags.forEach(orderTag => {
+                        const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
+                        if (!tagName) return;
+
+                        LIVE_STAT_TAGS.forEach(liveTag => {
+                            if (liveTag.isSpecial) return;
+                            const patterns = liveTag.patterns || [];
+                            if (patterns.some(p => tagName.startsWith(p))) {
+                                hasMatchingTag = true;
+                            }
+                        });
+                    });
+
+                    return !hasMatchingTag;
                 });
             } else {
                 // Find the matching LIVE_STAT_TAGS definition
