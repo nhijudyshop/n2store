@@ -739,15 +739,15 @@
                     // Get BASE for this order
                     const base = allBases[orderId];
 
-                    // Get current products from order
+                    // Get current products from order (same as getOrderDetailsFromFirebase)
                     const currentProducts = [];
-                    if (order.OrderLines && Array.isArray(order.OrderLines)) {
-                        order.OrderLines.forEach(line => {
-                            const code = line.ProductCode || line.Product?.DefaultCode || '';
+                    if (order.Details && Array.isArray(order.Details)) {
+                        order.Details.forEach(d => {
+                            const code = d.ProductCode || d.Code || d.DefaultCode || '';
                             if (code) {
                                 currentProducts.push({
                                     code: code,
-                                    quantity: line.ProductUOMQty || line.Quantity || 0
+                                    quantity: d.Quantity || 1
                                 });
                             }
                         });
