@@ -652,16 +652,8 @@
             `;
 
             try {
-                // Calculate KPI for all orders in this campaign
-                const result = await window.kpiManager.calculateKPIForCampaign(campaignName);
-
-                let statusText = `<i class="fas fa-check-circle" style="color: #10b981;"></i> Đã tính ${result.success} đơn`;
-                if (result.failed > 0) statusText += `, ${result.failed} lỗi`;
-                if (result.skippedNoBase > 0) statusText += ` <span class="badge-base">${result.skippedNoBase} đơn chưa có BASE</span>`;
-                statusEl.innerHTML = statusText;
-
-                // Load and display statistics
-                await loadStatsForCampaign(campaignName);
+                // Load and display statistics (calculate KPI directly from BASE vs Current)
+                await loadStatsForCampaign(campaignName, statusEl);
 
             } catch (error) {
                 console.error('[KPI-STATS] Error calculating KPI:', error);
@@ -669,68 +661,170 @@
             }
         }
 
+        // ==================== CALCULATE KPI (same logic as Order Details Modal) ====================
+        function calculateOrderKPI(baseProducts, currentProducts) {
+            // Create maps for comparison (same logic as renderKPIComparisonTab)
+            const baseMap = new Map();
+            (baseProducts || []).forEach(p => {
+                const code = (p.code || '').toUpperCase();
+                if (code) baseMap.set(code, p.quantity || 0);
+            });
+
+            const currentMap = new Map();
+            (currentProducts || []).forEach(p => {
+                const code = (p.code || '').toUpperCase();
+                if (code) currentMap.set(code, p.quantity || 0);
+            });
+
+            let totalKpiQty = 0;
+
+            // Calculate KPI for all products
+            const allCodes = new Set([...baseMap.keys(), ...currentMap.keys()]);
+            for (const code of allCodes) {
+                const baseQty = baseMap.get(code) || 0;
+                const currentQty = currentMap.get(code) || 0;
+                const kpiQty = Math.max(0, currentQty - baseQty); // Only count increases
+                totalKpiQty += kpiQty;
+            }
+
+            return {
+                differences: totalKpiQty,
+                kpi: totalKpiQty * 5000
+            };
+        }
+
         // ==================== LOAD STATISTICS ====================
-        async function loadStatsForCampaign(campaignName) {
+        async function loadStatsForCampaign(campaignName, statusEl) {
             const tbody = document.getElementById('statsTableBody');
             const tfoot = document.getElementById('statsTableFooter');
 
             try {
-                const stats = await window.kpiManager.getKPIStatisticsByCampaign(campaignName);
+                // Get orders from report_order_details
+                const safeTableName = campaignName.replace(/[.$#\[\]\/]/g, '_');
+                const ordersSnapshot = await firebase.database()
+                    .ref(`report_order_details/${safeTableName}`)
+                    .once('value');
 
-                if (!stats || Object.keys(stats).length === 0) {
+                const ordersData = ordersSnapshot.val();
+                if (!ordersData || !ordersData.orders || ordersData.orders.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
+                                <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
+                                Chưa có đơn hàng trong chiến dịch này
+                            </td>
+                        </tr>
+                    `;
+                    tfoot.style.display = 'none';
+                    updateSummaryCards(0, 0, 0, 0);
+                    if (statusEl) statusEl.innerHTML = '<i class="fas fa-info-circle" style="color: #64748b;"></i> Không có đơn hàng';
+                    return;
+                }
+
+                const orders = ordersData.orders;
+
+                // Get all BASE data
+                const baseSnapshot = await firebase.database().ref('kpi_base').once('value');
+                const allBases = baseSnapshot.val() || {};
+
+                // Calculate KPI for each order (same logic as Order Details Modal)
+                const userStats = {};
+                let processedCount = 0;
+                let noBaseCount = 0;
+
+                for (const order of orders) {
+                    const orderId = order.Id || order.id;
+                    if (!orderId) continue;
+
+                    // Get BASE for this order
+                    const base = allBases[orderId];
+
+                    // Get current products from order
+                    const currentProducts = [];
+                    if (order.OrderLines && Array.isArray(order.OrderLines)) {
+                        order.OrderLines.forEach(line => {
+                            const code = line.ProductCode || line.Product?.DefaultCode || '';
+                            if (code) {
+                                currentProducts.push({
+                                    code: code,
+                                    quantity: line.ProductUOMQty || line.Quantity || 0
+                                });
+                            }
+                        });
+                    }
+
+                    // Calculate KPI
+                    let kpiResult = { differences: 0, kpi: 0 };
+                    let hasBase = false;
+
+                    if (base && base.products) {
+                        hasBase = true;
+                        kpiResult = calculateOrderKPI(base.products, currentProducts);
+                        processedCount++;
+                    } else {
+                        noBaseCount++;
+                    }
+
+                    // Get user info from BASE or order
+                    const userId = base?.userId || order.UserId || order.User?.Id || 'unknown';
+                    const userName = base?.userName || order.User?.Name || order.UserName || 'Unknown';
+                    const stt = base?.stt || order.SessionIndex || 0;
+
+                    // Aggregate by user
+                    if (!userStats[userId]) {
+                        userStats[userId] = {
+                            id: userId,
+                            name: userName,
+                            totalDifferences: 0,
+                            totalKPI: 0,
+                            orders: []
+                        };
+                    }
+
+                    userStats[userId].totalDifferences += kpiResult.differences;
+                    userStats[userId].totalKPI += kpiResult.kpi;
+                    userStats[userId].orders.push({
+                        orderId: orderId,
+                        stt: stt,
+                        differences: kpiResult.differences,
+                        kpi: kpiResult.kpi,
+                        hasBase: hasBase,
+                        timestamp: base?.timestamp || Date.now()
+                    });
+                }
+
+                // Update status
+                if (statusEl) {
+                    let statusText = `<i class="fas fa-check-circle" style="color: #10b981;"></i> Đã tính ${processedCount} đơn`;
+                    if (noBaseCount > 0) statusText += ` <span class="badge-base">${noBaseCount} đơn chưa có BASE</span>`;
+                    statusEl.innerHTML = statusText;
+                }
+
+                // Calculate totals
+                let totalUsers = Object.keys(userStats).length;
+                let totalOrders = 0;
+                let totalDifferences = 0;
+                let totalKPI = 0;
+
+                for (const user of Object.values(userStats)) {
+                    totalOrders += user.orders.length;
+                    totalDifferences += user.totalDifferences;
+                    totalKPI += user.totalKPI;
+                }
+
+                if (totalOrders === 0) {
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
                                 <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
                                 Chưa có dữ liệu KPI cho chiến dịch này
-                                <br><small>Vui lòng đảm bảo đã lưu BASE và có order details trong Firebase</small>
+                                <br><small>Vui lòng đảm bảo đã lưu BASE cho các đơn hàng</small>
                             </td>
                         </tr>
                     `;
                     tfoot.style.display = 'none';
                     updateSummaryCards(0, 0, 0, 0);
                     return;
-                }
-
-                // Aggregate by user
-                const userStats = {};
-                let totalUsers = 0;
-                let totalOrders = 0;
-                let totalDifferences = 0;
-                let totalKPI = 0;
-
-                for (const userId in stats) {
-                    const userDates = stats[userId];
-                    let userName = 'Unknown';
-                    let userTotalDiff = 0;
-                    let userTotalKPI = 0;
-                    let userOrders = [];
-
-                    for (const date in userDates) {
-                        const dateStats = userDates[date];
-                        userName = dateStats.orders?.[0]?.userName || userName;
-
-                        (dateStats.orders || []).forEach(order => {
-                            userTotalDiff += order.differences || 0;
-                            userTotalKPI += order.kpi || 0;
-                            userOrders.push(order);
-                        });
-                    }
-
-                    if (userOrders.length > 0) {
-                        userStats[userId] = {
-                            id: userId,
-                            name: userName,
-                            totalDifferences: userTotalDiff,
-                            totalKPI: userTotalKPI,
-                            orders: userOrders
-                        };
-
-                        totalUsers++;
-                        totalOrders += userOrders.length;
-                        totalDifferences += userTotalDiff;
-                        totalKPI += userTotalKPI;
-                    }
                 }
 
                 // Render table
