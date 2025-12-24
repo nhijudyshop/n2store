@@ -663,7 +663,7 @@
         .stats-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
+            font-size: 18px;
         }
 
         .stats-table thead {
@@ -675,10 +675,10 @@
         }
 
         .stats-table th {
-            padding: 12px 15px;
+            padding: 14px 15px;
             text-align: left;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 14px;
             text-transform: uppercase;
         }
 
@@ -688,7 +688,7 @@
         }
 
         .stats-table tbody tr {
-            border-bottom: 1px solid #eee;
+            border-bottom: 2px solid #d0d0d0;
             transition: background 0.2s;
         }
 
@@ -697,7 +697,7 @@
         }
 
         .stats-table td {
-            padding: 10px 15px;
+            padding: 12px 15px;
             color: #333;
         }
 
@@ -2174,11 +2174,11 @@
         const LIVE_STAT_TAGS = [
             { key: 'ordered', displayName: 'ĐÃ RA ĐƠN', color: '#22c55e', isSpecial: true, countAsChot: true },
             { key: 'cho_hang_ve', patterns: ['chờ hàng về', 'chờ hàng'], displayName: 'CHỜ HÀNG VỀ', color: '#6366f1', countAsChot: true },
-            { key: 'gio_trong', patterns: ['giỏ trống'], displayName: 'GIỎ TRỐNG', color: '#f59e0b', countAsChot: false },
             { key: 'xa_don', patterns: ['xả đơn', 'xã đơn'], displayName: 'XẢ ĐƠN', color: '#14b8a6', countAsChot: true },
             { key: 'ok', patterns: ['ok'], displayName: 'OK', color: '#22c55e', countAsChot: true },
             { key: 'xu_ly', patterns: ['xử lý'], displayName: 'XỬ LÝ', color: '#f97316', countAsChot: true },
             { key: 'cho_live', patterns: ['chờ live'], displayName: 'CHỜ LIVE', color: '#ec4899', countAsChot: true },
+            { key: 'gio_trong', patterns: ['giỏ trống'], displayName: 'GIỎ TRỐNG', color: '#f59e0b', countAsChot: false },
             { key: 'gop', patterns: ['đã gộp ko chốt', 'đã gộp không chốt'], displayName: 'GỘP', color: '#8b5cf6', countAsChot: false }
         ];
 
