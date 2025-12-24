@@ -394,7 +394,7 @@ async function loadData() {
             if (!value) queryParams.delete(key);
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/sepay/history?${queryParams}`);
+        const response = await fetchWithRetry(`${API_BASE_URL}/api/sepay/history?${queryParams}`);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -429,7 +429,21 @@ async function loadData() {
         }
     } catch (error) {
         console.error('Error loading data:', error);
-        showError('Lỗi khi tải dữ liệu: ' + error.message);
+        // Show error with retry button
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="11" style="text-align: center; padding: 40px; color: #e74c3c;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px;"></i>
+                    <p style="margin-top: 15px;">Lỗi khi tải dữ liệu: ${error.message}</p>
+                    <button onclick="loadData()" class="btn btn-primary" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Thử lại
+                    </button>
+                    <p style="margin-top: 10px; font-size: 12px; color: #7f8c8d;">
+                        Server có thể đang khởi động. Vui lòng đợi 30-60 giây và thử lại.
+                    </p>
+                </td>
+            </tr>
+        `;
     } finally {
         hideLoading();
     }
@@ -447,7 +461,7 @@ async function loadStatistics() {
             if (!value || key === 'search') queryParams.delete(key);
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/sepay/statistics?${queryParams}`);
+        const response = await fetchWithRetry(`${API_BASE_URL}/api/sepay/statistics?${queryParams}`);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -460,6 +474,8 @@ async function loadStatistics() {
         }
     } catch (error) {
         console.error('Error loading statistics:', error);
+        // Show 0 stats on error instead of leaving stale data
+        renderStatistics({ totalIn: 0, totalOut: 0, totalNet: 0, transactionCount: 0 });
     }
 }
 
@@ -758,8 +774,15 @@ function truncateText(text, maxLength) {
     return text.substring(0, maxLength) + '...';
 }
 
-function showLoading() {
+function showLoading(message = 'Đang tải dữ liệu...') {
     loadingIndicator.style.display = 'block';
+    // Update loading message if element exists
+    const loadingText = loadingIndicator.querySelector('span, p, .loading-text');
+    if (loadingText) {
+        loadingText.textContent = message;
+    } else {
+        loadingIndicator.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${message}`;
+    }
     tableBody.style.opacity = '0.5';
 }
 
@@ -777,6 +800,70 @@ function showError(message) {
             </td>
         </tr>
     `;
+}
+
+/**
+ * Fetch with auto-retry and exponential backoff
+ * Automatically retries failed requests (useful when Render.com server is waking up)
+ * @param {string} url - URL to fetch
+ * @param {object} options - Fetch options
+ * @param {number} maxRetries - Maximum number of retries (default: 3)
+ * @returns {Promise<Response>} - Fetch response
+ */
+async function fetchWithRetry(url, options = {}, maxRetries = 3) {
+    const delays = [2000, 4000, 8000]; // Exponential backoff: 2s, 4s, 8s
+    let lastError;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            // If response is ok or it's a client error (4xx), return immediately
+            if (response.ok || (response.status >= 400 && response.status < 500)) {
+                return response;
+            }
+
+            // Server error (5xx) - retry
+            throw new Error(`Server error: ${response.status}`);
+
+        } catch (error) {
+            lastError = error;
+
+            // Don't retry if it's a client abort or last attempt
+            if (error.name === 'AbortError') {
+                lastError = new Error('Request timeout - Server đang khởi động...');
+            }
+
+            if (attempt < maxRetries) {
+                const delay = delays[attempt] || 8000;
+                console.log(`[RETRY] Attempt ${attempt + 1}/${maxRetries} failed. Retrying in ${delay/1000}s...`);
+
+                // Show retry status to user
+                showLoading(`⏳ Server đang khởi động... Thử lại lần ${attempt + 1}/${maxRetries} sau ${delay/1000}s`);
+
+                // Show notification if available
+                if (window.NotificationManager) {
+                    window.NotificationManager.showNotification(
+                        `Server đang khởi động, tự động thử lại sau ${delay/1000}s...`,
+                        'warning',
+                        delay
+                    );
+                }
+
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+
+    throw lastError;
 }
 
 // =====================================================
