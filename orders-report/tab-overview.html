@@ -658,8 +658,6 @@
         /* Statistics Tables */
         .stats-table-wrapper {
             overflow-x: auto;
-            max-height: 400px;
-            overflow-y: auto;
         }
 
         .stats-table {
@@ -682,6 +680,11 @@
             font-weight: 600;
             font-size: 12px;
             text-transform: uppercase;
+        }
+
+        .stats-table th:first-child,
+        .stats-table td:first-child {
+            width: 20%;
         }
 
         .stats-table tbody tr {
@@ -1071,7 +1074,6 @@
         .employee-live-header {
             display: flex;
             flex-wrap: wrap;
-            justify-content: space-between;
             align-items: center;
             gap: 15px;
             margin-bottom: 15px;
@@ -1082,6 +1084,7 @@
         .employee-live-header .employee-title {
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
             gap: 10px;
             font-size: 18px;
             font-weight: 600;
@@ -1106,7 +1109,7 @@
         }
 
         .employee-live-header .live-stats-badges {
-            margin-left: 0;
+            margin-left: 5px;
         }
 
         .employee-stats-table {
@@ -1577,8 +1580,6 @@
                         <div class="live-stats-badges" id="liveStatsBadges">
                             <span class="live-badge badge-total" id="badgeTotalDon">0 ĐƠN</span>
                             <span class="live-badge badge-chot" id="badgeDonChot">0 ĐƠN CHỐT</span>
-                            <span class="live-badge badge-empty" id="badgeGioTrong">0 GIỎ TRỐNG</span>
-                            <span class="live-badge badge-merged" id="badgeGop">0 GỘP</span>
                         </div>
                         <button class="btn-add-tag" onclick="openAddTagModal()">
                             <i class="fas fa-plus"></i> Thêm tag
@@ -2892,12 +2893,10 @@
                             <i class="fas fa-user"></i>
                             <span class="emp-name">${emp.name}</span>
                             <span class="employee-stt">STT ${emp.start} - ${emp.end}</span>
-                        </div>
-                        <div class="live-stats-badges">
-                            <span class="live-badge badge-total">${emp.badgeTotal} ĐƠN</span>
-                            <span class="live-badge ${chotBadgeClass}">${emp.badgeChot} ĐƠN CHỐT</span>
-                            <span class="live-badge badge-empty">${emp.badgeGioTrong} GIỎ TRỐNG</span>
-                            <span class="live-badge badge-merged">${emp.badgeGop} GỘP</span>
+                            <div class="live-stats-badges">
+                                <span class="live-badge badge-total">${emp.badgeTotal} ĐƠN</span>
+                                <span class="live-badge ${chotBadgeClass}">${emp.badgeChot} ĐƠN CHỐT</span>
+                            </div>
                         </div>
                     </div>
                     <div class="stats-table-wrapper">
