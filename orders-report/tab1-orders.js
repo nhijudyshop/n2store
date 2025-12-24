@@ -24166,74 +24166,11 @@ function toggleChatRightPanel() {
     }
 }
 
-/**
- * Switch between tabs in chat right panel
- */
-function switchChatPanelTab(tabName) {
-    // Update tab buttons
-    const tabButtons = document.querySelectorAll('.chat-tab-btn');
-    tabButtons.forEach(btn => {
-        const isActive = btn.getAttribute('data-tab') === tabName;
-
-        if (isActive) {
-            btn.classList.add('active');
-            btn.style.background = 'white';
-            btn.style.color = '#3b82f6';
-            btn.style.borderBottom = '2px solid #3b82f6';
-        } else {
-            btn.classList.remove('active');
-            btn.style.background = '#f8fafc';
-            btn.style.color = '#64748b';
-            btn.style.borderBottom = '2px solid transparent';
-        }
-    });
-
-    // Update tab content visibility
-    const allTabs = document.querySelectorAll('.chat-tab-content');
-    allTabs.forEach(tab => {
-        tab.style.display = 'none';
-    });
-
-    const activeTab = document.getElementById('chatTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1).replace('_', ''));
-    if (activeTab) {
-        activeTab.style.display = 'flex';
-    }
-
-    // Special handling for different tabs
-    switch (tabName) {
-        case 'orders':
-            // Re-render products if needed
-            if (typeof renderChatProductsPanel === 'function') {
-                renderChatProductsPanel();
-            }
-            break;
-        case 'dropped':
-            // Load dropped products if needed
-            if (typeof loadDroppedProductsForCustomer === 'function') {
-                loadDroppedProductsForCustomer();
-            }
-            break;
-        case 'history':
-            // Load order history if needed
-            if (typeof loadOrderHistoryForCustomer === 'function') {
-                loadOrderHistoryForCustomer();
-            }
-            break;
-        case 'invoice_history':
-            // Load invoice history if needed
-            if (typeof loadInvoiceHistoryForCustomer === 'function') {
-                loadInvoiceHistoryForCustomer();
-            }
-            break;
-    }
-}
-
 // Export functions
 window.confirmAndPrintSale = confirmAndPrintSale;
 window.confirmDebtUpdate = confirmDebtUpdate;
 window.openPrintPopup = openPrintPopup;
 window.toggleChatRightPanel = toggleChatRightPanel;
-window.switchChatPanelTab = switchChatPanelTab;
 window.removeChatProduct = removeChatProduct;
 window.updateChatProductQuantity = updateChatProductQuantity;
 
