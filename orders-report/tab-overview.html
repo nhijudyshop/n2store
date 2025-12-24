@@ -2304,6 +2304,39 @@
                 }
             });
 
+            // Validate GIỎ TRỐNG logic
+            // 1. Orders with "giỏ trống" tag but product count > 0 → invalid
+            // 2. Orders with product count = 0 but no "giỏ trống" or "đã gộp ko chốt" tag → invalid
+            let hasGioTrongValidationError = false;
+            const gioTrongInvalidOrders = [];
+
+            orders.forEach(order => {
+                const orderId = order.Id || order.Code;
+                const productCount = order.Details?.length || 0;
+                const orderData = orderTagsMap.get(orderId);
+                const tagKeys = orderData?.tagKeys || new Set();
+
+                const hasGioTrongTag = tagKeys.has('gio_trong');
+                const hasGopTag = tagKeys.has('gop');
+
+                // Case 1: Has giỏ trống tag but has products
+                if (hasGioTrongTag && productCount > 0) {
+                    hasGioTrongValidationError = true;
+                    gioTrongInvalidOrders.push(order);
+                }
+
+                // Case 2: No products but missing giỏ trống or gộp tag
+                if (productCount === 0 && !hasGioTrongTag && !hasGopTag) {
+                    hasGioTrongValidationError = true;
+                    gioTrongInvalidOrders.push(order);
+                }
+            });
+
+            // Add validation error flag to gio_trong stat
+            const gioTrongStat = tagStatsMap.get('gio_trong');
+            gioTrongStat.hasValidationError = hasGioTrongValidationError;
+            gioTrongStat.invalidOrders = gioTrongInvalidOrders;
+
             // Calculate percentages and prepare final stats
             const allStats = [];
             tagStatsMap.forEach((stat, key) => {
@@ -2489,6 +2522,37 @@
                         }
                     }
                 });
+
+                // Validate GIỎ TRỐNG logic for this employee
+                let hasGioTrongValidationError = false;
+                const gioTrongInvalidOrders = [];
+
+                empOrders.forEach(order => {
+                    const orderId = order.Id || order.Code;
+                    const productCount = order.Details?.length || 0;
+                    const orderData = orderTagsMap.get(orderId);
+                    const tagKeys = orderData?.tagKeys || new Set();
+
+                    const hasGioTrongTag = tagKeys.has('gio_trong');
+                    const hasGopTag = tagKeys.has('gop');
+
+                    // Case 1: Has giỏ trống tag but has products
+                    if (hasGioTrongTag && productCount > 0) {
+                        hasGioTrongValidationError = true;
+                        gioTrongInvalidOrders.push(order);
+                    }
+
+                    // Case 2: No products but missing giỏ trống or gộp tag
+                    if (productCount === 0 && !hasGioTrongTag && !hasGopTag) {
+                        hasGioTrongValidationError = true;
+                        gioTrongInvalidOrders.push(order);
+                    }
+                });
+
+                // Add validation error flag to gio_trong stat
+                const gioTrongStat = tagStatsMap.get('gio_trong');
+                gioTrongStat.hasValidationError = hasGioTrongValidationError;
+                gioTrongStat.invalidOrders = gioTrongInvalidOrders;
 
                 // Calculate percentages and prepare tag breakdown
                 const tagBreakdown = [];
@@ -2828,6 +2892,8 @@
                     rowClass = 'special-stat-row';
                 } else if (isDuplicate) {
                     rowClass = s.hasUnacceptableDuplicate ? 'duplicate-row-red' : 'duplicate-row-green';
+                } else if (s.key === 'gio_trong' && s.hasValidationError) {
+                    rowClass = 'duplicate-row-red';
                 }
 
                 return `
@@ -2909,6 +2975,8 @@
                                         rowClass = 'special-stat-row';
                                     } else if (isDuplicate) {
                                         rowClass = tag.hasUnacceptableDuplicate ? 'duplicate-row-red' : 'duplicate-row-green';
+                                    } else if (tag.key === 'gio_trong' && tag.hasValidationError) {
+                                        rowClass = 'duplicate-row-red';
                                     }
 
                                     return `
