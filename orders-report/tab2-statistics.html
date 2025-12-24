@@ -533,6 +533,9 @@
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="fetchOrderFromTPOS()" id="btnFetchTPOS">
+                        <i class="fas fa-cloud-download-alt"></i> Lấy dữ liệu từ TPOS
+                    </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
                 </div>
             </div>
@@ -565,6 +568,7 @@
         let timelineChart = null;
         let currentCampaignName = null;
         let campaignsList = [];
+        let currentOrderId = null; // For TPOS fetch
 
         // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', function () {
@@ -941,6 +945,7 @@
 
         // ==================== SHOW ORDER KPI DETAILS ====================
         async function showOrderKPIDetails(orderId, stt) {
+            currentOrderId = orderId; // Store for TPOS fetch
             document.getElementById('orderDetailsTitle').textContent = `STT ${stt}`;
 
             // Show loading
@@ -1343,6 +1348,75 @@
             } catch (error) {
                 console.error('Error exporting to Excel:', error);
                 alert('Lỗi export: ' + error.message);
+            }
+        }
+
+        // ==================== FETCH ORDER FROM TPOS ====================
+        async function fetchOrderFromTPOS() {
+            if (!currentOrderId) {
+                alert('Không có Order ID');
+                return;
+            }
+
+            const btn = document.getElementById('btnFetchTPOS');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+            btn.disabled = true;
+
+            try {
+                // Get auth headers
+                const headers = await window.tokenManager.getAuthHeader();
+
+                // Fetch order from TPOS API
+                const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentOrderId})?$expand=Details,Partner,User`;
+                const response = await API_CONFIG.smartFetch(apiUrl, {
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const orderData = await response.json();
+                console.log('[TPOS-FETCH] Order data:', orderData);
+
+                // Convert TPOS Details to our format
+                const currentProducts = (orderData.Details || []).map(d => ({
+                    code: d.ProductCode || d.Code || d.DefaultCode || '',
+                    quantity: d.Quantity || 1
+                })).filter(p => p.code);
+
+                console.log('[TPOS-FETCH] Current products:', currentProducts);
+
+                // Get BASE and re-render
+                const base = await window.kpiManager.getKPIBase(currentOrderId);
+
+                // Re-render tabs with fresh data
+                renderKPIComparisonTab(base, currentProducts);
+                renderAllProductsTab(currentProducts);
+                renderBaseProductsTab(base);
+
+                // Show success
+                btn.innerHTML = '<i class="fas fa-check"></i> Đã cập nhật!';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-success');
+
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-primary');
+                    btn.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error('[TPOS-FETCH] Error:', error);
+                alert('Lỗi lấy dữ liệu từ TPOS: ' + error.message);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
             }
         }
     </script>
