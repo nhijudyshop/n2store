@@ -1358,6 +1358,11 @@
                 return;
             }
 
+            if (!currentCampaignName) {
+                alert('Không có chiến dịch được chọn');
+                return;
+            }
+
             const btn = document.getElementById('btnFetchTPOS');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
@@ -1391,6 +1396,41 @@
                 })).filter(p => p.code);
 
                 console.log('[TPOS-FETCH] Current products:', currentProducts);
+
+                // ==================== UPDATE FIREBASE report_order_details ====================
+                // Find and update only this order in Firebase
+                const safeTableName = currentCampaignName.replace(/[.$#\[\]\/]/g, '_');
+                const ordersRef = firebase.database().ref(`report_order_details/${safeTableName}/orders`);
+
+                const ordersSnapshot = await ordersRef.once('value');
+                const orders = ordersSnapshot.val() || [];
+
+                // Find index of this order
+                let orderIndex = -1;
+                for (let i = 0; i < orders.length; i++) {
+                    const order = orders[i];
+                    const orderId = order.Id || order.id;
+                    if (orderId === currentOrderId) {
+                        orderIndex = i;
+                        break;
+                    }
+                }
+
+                if (orderIndex !== -1) {
+                    // Update the specific order's Details in Firebase
+                    const orderRef = firebase.database().ref(`report_order_details/${safeTableName}/orders/${orderIndex}`);
+
+                    // Update Details from TPOS data
+                    await orderRef.update({
+                        Details: orderData.Details || [],
+                        _tposFetchedAt: Date.now(),
+                        _tposFetchedBy: 'tab2-statistics'
+                    });
+
+                    console.log('[TPOS-FETCH] Updated Firebase order at index:', orderIndex);
+                } else {
+                    console.warn('[TPOS-FETCH] Order not found in Firebase campaign:', currentOrderId);
+                }
 
                 // Get BASE and re-render
                 const base = await window.kpiManager.getKPIBase(currentOrderId);
