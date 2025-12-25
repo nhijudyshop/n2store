@@ -5109,30 +5109,14 @@
     // ===================================================================
     // MODAL CONTROLS
     // ===================================================================
-    let removalSearchInitialized = false; // Flag to prevent duplicate binding
-
     window.openRemoveProductModal = function() {
-        const modal = new bootstrap.Modal(document.getElementById('removeProductModal'));
+        const modalEl = document.getElementById('removeProductModal');
+        const modal = new bootstrap.Modal(modalEl);
         modal.show();
 
         // Load removals from storage
         loadRemovals();
         renderRemovalTable();
-
-        // Initialize search input event listener (only once)
-        if (!removalSearchInitialized) {
-            initializeRemovalSearch();
-            removalSearchInitialized = true;
-        }
-
-        // Auto focus on search input after modal is shown
-        setTimeout(() => {
-            const searchInput = document.getElementById('removalProductSearch');
-            if (searchInput) {
-                searchInput.focus();
-                console.log('[REMOVAL] Auto-focused on search input');
-            }
-        }, 300);
     };
 
     window.closeRemoveProductModal = function() {
@@ -5141,40 +5125,83 @@
         if (modal) modal.hide();
     };
 
-    // Initialize search functionality
-    function initializeRemovalSearch() {
-        const removalSearchInput = document.getElementById('removalProductSearch');
-        if (!removalSearchInput) {
-            console.error('[REMOVAL] Search input not found!');
+    // Initialize search when modal is fully shown (Bootstrap event)
+    // This ensures the input element exists in DOM before binding
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalEl = document.getElementById('removeProductModal');
+        if (!modalEl) {
+            console.warn('[REMOVAL] Modal element not found at DOMContentLoaded');
             return;
         }
 
-        console.log('[REMOVAL] Initializing search input...');
+        console.log('[REMOVAL] Setting up modal event listeners...');
 
-        removalSearchInput.addEventListener('input', function(e) {
-            const query = e.target.value.trim();
-            console.log('[REMOVAL] Search query:', query);
+        modalEl.addEventListener('shown.bs.modal', function () {
+            console.log('[REMOVAL] ✅ Modal shown event fired');
 
-            if (query.length >= 2) {
-                searchProductsForRemoval(query);
-            } else {
-                const suggestionsEl = document.getElementById('removalProductSuggestions');
-                if (suggestionsEl) {
-                    suggestionsEl.innerHTML = '';
+            const searchInput = document.getElementById('removalProductSearch');
+            const suggestionsDiv = document.getElementById('removalProductSuggestions');
+
+            if (!searchInput) {
+                console.error('[REMOVAL] ❌ Search input not found!');
+                return;
+            }
+
+            if (!suggestionsDiv) {
+                console.error('[REMOVAL] ❌ Suggestions div not found!');
+                return;
+            }
+
+            console.log('[REMOVAL] ✅ Elements found, setting up input listener');
+
+            // Auto focus
+            searchInput.focus();
+
+            // Clone node to remove all existing event listeners
+            const newSearchInput = searchInput.cloneNode(true);
+            searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+
+            // Add input event listener (clone UI chính)
+            newSearchInput.addEventListener('input', function(e) {
+                const searchText = e.target.value.trim();
+                console.log('[REMOVAL] 🔍 Search input:', searchText, '| Length:', searchText.length);
+
+                if (searchText.length >= 2) {
+                    if (productsData.length === 0) {
+                        console.warn('[REMOVAL] ⚠️ Products data not loaded, loading now...');
+                        document.getElementById('removalProductSuggestions').innerHTML =
+                            '<div class="suggestion-item">⏳ Đang tải dữ liệu sản phẩm...</div>';
+                        loadProductsData().then(() => {
+                            console.log('[REMOVAL] ✅ Products loaded, searching...');
+                            const results = searchProducts(searchText);
+                            displayRemovalProductSuggestions(results);
+                        });
+                    } else {
+                        console.log('[REMOVAL] 🔎 Searching in', productsData.length, 'products...');
+                        const results = searchProducts(searchText);
+                        console.log('[REMOVAL] 📊 Found', results.length, 'results');
+                        displayRemovalProductSuggestions(results);
+                    }
+                } else {
+                    console.log('[REMOVAL] ℹ️ Query too short, clearing suggestions');
+                    document.getElementById('removalProductSuggestions').innerHTML = '';
                 }
-            }
+            });
+
+            console.log('[REMOVAL] ✅ Input listener attached successfully');
         });
 
-        // Clear suggestions when clicking outside
-        document.addEventListener('click', function(e) {
-            const suggestionsEl = document.getElementById('removalProductSuggestions');
-            if (suggestionsEl && !removalSearchInput.contains(e.target) && !suggestionsEl.contains(e.target)) {
-                suggestionsEl.innerHTML = '';
-            }
+        // Clear input when modal is hidden
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            const searchInput = document.getElementById('removalProductSearch');
+            const suggestionsDiv = document.getElementById('removalProductSuggestions');
+            if (searchInput) searchInput.value = '';
+            if (suggestionsDiv) suggestionsDiv.innerHTML = '';
+            console.log('[REMOVAL] 🧹 Modal hidden, cleared input');
         });
 
-        console.log('[REMOVAL] Search initialized successfully');
-    }
+        console.log('[REMOVAL] ✅ Modal event listeners registered');
+    });
 
     // ===================================================================
     // STORAGE FUNCTIONS
@@ -5226,39 +5253,9 @@
     }
 
     // ===================================================================
-    // PRODUCT SEARCH FOR REMOVAL
+    // DISPLAY REMOVAL PRODUCT SUGGESTIONS
     // ===================================================================
-    function searchProductsForRemoval(query) {
-        console.log('[REMOVAL-SEARCH] Query:', query);
-        console.log('[REMOVAL-SEARCH] Products data length:', productsData ? productsData.length : 0);
-
-        if (!productsData || productsData.length === 0) {
-            console.warn('[REMOVAL-SEARCH] Products data not loaded yet');
-            const suggestionsEl = document.getElementById('removalProductSuggestions');
-            if (suggestionsEl) {
-                suggestionsEl.innerHTML = '<div class="suggestion-item">⏳ Đang tải dữ liệu sản phẩm...</div>';
-            }
-            return;
-        }
-
-        const queryNorm = removeVietnameseTones(query.toLowerCase());
-
-        const filtered = productsData.filter(p => {
-            const code = (p.DefaultCode || '').toLowerCase();
-            const barcode = (p.Barcode || '').toLowerCase();
-            const name = removeVietnameseTones((p.Name || '').toLowerCase());
-            const nameGet = removeVietnameseTones((p.NameGet || '').toLowerCase());
-
-            return code.includes(queryNorm) ||
-                   barcode.includes(queryNorm) ||
-                   name.includes(queryNorm) ||
-                   nameGet.includes(queryNorm);
-        }).slice(0, 10);
-
-        console.log('[REMOVAL-SEARCH] Found', filtered.length, 'products');
-        displayRemovalProductSuggestions(filtered);
-    }
-
+    // Reuse searchProducts() from main UI, just need custom display function
     function displayRemovalProductSuggestions(products) {
         const container = document.getElementById('removalProductSuggestions');
         if (!container) {
