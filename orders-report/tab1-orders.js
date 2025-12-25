@@ -11727,8 +11727,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 }
 
 window.closeChatModal = async function () {
-    // Note: Held products are now persisted - user must explicitly confirm or delete them
-    // So we don't cleanup held products on modal close
+    // Cleanup temporary held products (isDraft: false) - return them to dropped
+    // Only persisted held products (isDraft: true, user clicked "Lưu giữ") will remain
+    if (typeof window.cleanupHeldProducts === 'function') {
+        await window.cleanupHeldProducts();
+    }
 
     // Cleanup held products listener
     if (typeof window.cleanupHeldProductsListener === 'function') {

@@ -772,7 +772,7 @@
                             productId: normalizedProductId,
                             displayName: auth.displayName || auth.userType || 'Unknown',
                             quantity: heldQuantity,
-                            isDraft: true,
+                            isDraft: false,  // Temporary until user clicks "Lưu giữ"
                             isFromSearch: true,
                             timestamp: window.firebase.database.ServerValue.TIMESTAMP,
                             campaignName: window.currentChatOrderData?.LiveCampaignName || '',

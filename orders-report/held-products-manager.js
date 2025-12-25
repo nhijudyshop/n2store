@@ -184,6 +184,7 @@
                     // Return quantity back to dropped products
                     const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
                     if (droppedProduct && droppedProduct.id && firebaseDb) {
+                        // Product exists in dropped - increment quantity
                         const itemRef = firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${droppedProduct.id}`);
                         await itemRef.transaction((current) => {
                             if (current === null) return current;
@@ -192,7 +193,24 @@
                                 Quantity: (current.Quantity || 0) + heldQuantity
                             };
                         });
-                        console.log('[HELD-PRODUCTS] Returned', heldQuantity, 'to dropped product:', productId);
+                        console.log('[HELD-PRODUCTS] Returned', heldQuantity, 'to existing dropped product:', productId);
+                    } else if (firebaseDb && holderData.productName) {
+                        // Product from search - add new entry to dropped
+                        const newDroppedItem = {
+                            ProductId: parseInt(productId),
+                            ProductName: holderData.productName,
+                            ProductNameGet: holderData.productNameGet || holderData.productName,
+                            ProductCode: holderData.productCode || '',
+                            ImageUrl: holderData.imageUrl || '',
+                            Price: holderData.price || 0,
+                            Quantity: heldQuantity,
+                            UOMName: holderData.uomName || 'Cái',
+                            reason: 'returned_from_held',
+                            addedAt: window.firebase.database.ServerValue.TIMESTAMP,
+                            addedDate: new Date().toLocaleString('vi-VN')
+                        };
+                        await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).push(newDroppedItem);
+                        console.log('[HELD-PRODUCTS] Added', heldQuantity, 'to new dropped product:', productId);
                     }
 
                     // Remove this user's hold from Firebase
