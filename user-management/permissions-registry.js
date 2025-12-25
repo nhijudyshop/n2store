@@ -803,6 +803,9 @@ if (typeof window !== 'undefined') {
     window.PAGE_CATEGORIES = PAGE_CATEGORIES;
     window.PERMISSION_TEMPLATES = PERMISSION_TEMPLATES;
 
+    // Backward compatibility - DETAILED_PERMISSIONS for legacy code
+    window.DETAILED_PERMISSIONS = getAllDetailedPermissions();
+
     // Helper functions
     window.PermissionsRegistry = {
         getPagesList,
