@@ -33,7 +33,8 @@
                 name: detail.ProductNameGet || detail.ProductName || 'Sản phẩm',
                 quantity: detail.Quantity || 1,
                 price: detail.Price || 0,
-                total: (detail.Quantity || 1) * (detail.Price || 0)
+                total: (detail.Quantity || 1) * (detail.Price || 0),
+                note: detail.Note || ''  // Thêm ghi chú sản phẩm
             }))
         };
     }
@@ -68,10 +69,13 @@
             result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
         }
 
-        // {order.details} - danh sách sản phẩm + tổng tiền
+        // {order.details} - danh sách sản phẩm + tổng tiền + ghi chú
         if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
             const productList = orderData.products
-                .map(p => `- ${p.name} x${p.quantity} = ${formatCurrency(p.total)}`)
+                .map(p => {
+                    const noteText = p.note ? ` (${p.note})` : '';
+                    return `- ${p.name} x${p.quantity} = ${formatCurrency(p.total)}${noteText}`;
+                })
                 .join('\n');
             const totalAmount = formatCurrency(orderData.totalAmount);
             const productListWithTotal = `${productList}\n\nTổng tiền: ${totalAmount}`;
