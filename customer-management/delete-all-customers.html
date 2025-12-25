@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xóa toàn bộ khách hàng</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #dc2626; }
+        .warning {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .stats {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+        }
+        .btn-check { background: #3b82f6; color: white; }
+        .btn-backup { background: #10b981; color: white; }
+        .btn-delete { background: #dc2626; color: white; }
+        .btn-delete:disabled { background: #9ca3af; cursor: not-allowed; }
+        #log {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚠️ Xóa toàn bộ khách hàng</h1>
+
+        <div class="warning">
+            <strong>CẢNH BÁO:</strong> Hành động này sẽ xóa TẤT CẢ dữ liệu khách hàng và KHÔNG THỂ hoàn tác!
+        </div>
+
+        <div class="stats" id="statsContainer">
+            <strong>Thống kê hiện tại:</strong>
+            <div id="statsContent">Chưa kiểm tra...</div>
+        </div>
+
+        <div>
+            <button class="btn-check" onclick="checkStats()">1. Kiểm tra số lượng</button>
+            <button class="btn-backup" onclick="downloadBackup()">2. Tải backup (JSON)</button>
+            <button class="btn-delete" id="deleteBtn" onclick="deleteAll()" disabled>3. XÓA TẤT CẢ</button>
+        </div>
+
+        <div id="log"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const DIRECT_API_URL = 'https://n2store-fallback.onrender.com';
+        let allCustomers = [];
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            logEl.innerHTML += `<span class="${className}">[${time}] ${message}</span>\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        async function checkStats() {
+            log('Đang kiểm tra thống kê...');
+            try {
+                const response = await fetch(`${API_URL}/api/customers/stats`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const stats = result.data;
+                    document.getElementById('statsContent').innerHTML = `
+                        <br>• Tổng số: <strong>${stats.total}</strong> khách hàng
+                        <br>• Bình thường: ${stats.normal}
+                        <br>• Bom hàng: ${stats.danger}
+                        <br>• Cảnh báo: ${stats.warning}
+                        <br>• Nguy hiểm: ${stats.critical}
+                        <br>• VIP: ${stats.vip}
+                        <br>• Tổng nợ: ${new Intl.NumberFormat('vi-VN').format(stats.total_debt)} VND
+                    `;
+                    log(`✅ Có ${stats.total} khách hàng trong database`, 'success');
+
+                    if (stats.total > 0) {
+                        document.getElementById('deleteBtn').disabled = false;
+                    }
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                log(`❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function downloadBackup() {
+            log('Đang tải backup...');
+            try {
+                // Fetch all customers (paginated)
+                allCustomers = [];
+                let page = 1;
+                let hasMore = true;
+
+                while (hasMore) {
+                    log(`Đang tải trang ${page}...`);
+                    const response = await fetch(`${API_URL}/api/customers?page=${page}&limit=500`);
+                    const result = await response.json();
+
+                    if (result.success && result.data.length > 0) {
+                        allCustomers = allCustomers.concat(result.data);
+                        page++;
+                        hasMore = result.data.length === 500;
+                    } else {
+                        hasMore = false;
+                    }
+                }
+
+                log(`✅ Đã tải ${allCustomers.length} khách hàng`, 'success');
+
+                // Create download
+                const backup = {
+                    exported_at: new Date().toISOString(),
+                    total_count: allCustomers.length,
+                    customers: allCustomers
+                };
+
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `customers-backup-${new Date().toISOString().slice(0,10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+
+                log(`✅ Đã tải file backup`, 'success');
+                document.getElementById('deleteBtn').disabled = false;
+
+            } catch (error) {
+                log(`❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteAll() {
+            const confirmed = confirm('BẠN CHẮC CHẮN MUỐN XÓA TẤT CẢ KHÁCH HÀNG?\n\nHành động này KHÔNG THỂ hoàn tác!');
+            if (!confirmed) {
+                log('Đã hủy xóa.', 'info');
+                return;
+            }
+
+            const doubleConfirm = prompt('Nhập "XOA TAT CA" để xác nhận:');
+            if (doubleConfirm !== 'XOA TAT CA') {
+                log('Xác nhận không đúng. Đã hủy.', 'error');
+                return;
+            }
+
+            log('⚠️ Bắt đầu xóa toàn bộ khách hàng...');
+            document.getElementById('deleteBtn').disabled = true;
+
+            try {
+                // Try the new delete-all endpoint first
+                let response = await fetch(`${API_URL}/api/customers/all?confirm=yes-delete-all`, {
+                    method: 'DELETE'
+                });
+
+                // If proxy fails, try direct
+                if (!response.ok) {
+                    log('Proxy không phản hồi, thử kết nối trực tiếp...', 'info');
+                    response = await fetch(`${DIRECT_API_URL}/api/customers/all?confirm=yes-delete-all`, {
+                        method: 'DELETE'
+                    });
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    log(`✅ ĐÃ XÓA ${result.deleted_count} KHÁCH HÀNG!`, 'success');
+                    log('Dữ liệu đã được xóa hoàn toàn.', 'success');
+
+                    // Update stats
+                    document.getElementById('statsContent').innerHTML = '<br>• Tổng số: <strong>0</strong> khách hàng';
+                } else {
+                    throw new Error(result.message);
+                }
+
+            } catch (error) {
+                log(`❌ Lỗi: ${error.message}`, 'error');
+                log('Endpoint delete-all chưa được deploy. Đang xóa từng khách hàng...', 'info');
+
+                // Fallback: Delete one by one
+                await deleteOneByOne();
+            }
+        }
+
+        async function deleteOneByOne() {
+            if (allCustomers.length === 0) {
+                log('Cần tải backup trước để có danh sách ID', 'error');
+                return;
+            }
+
+            let deleted = 0;
+            let failed = 0;
+
+            for (const customer of allCustomers) {
+                try {
+                    const response = await fetch(`${API_URL}/api/customers/${customer.id}?hard_delete=true`, {
+                        method: 'DELETE'
+                    });
+
+                    if (response.ok) {
+                        deleted++;
+                        if (deleted % 100 === 0) {
+                            log(`Đã xóa ${deleted}/${allCustomers.length}...`);
+                        }
+                    } else {
+                        failed++;
+                    }
+                } catch (e) {
+                    failed++;
+                }
+            }
+
+            log(`✅ Hoàn tất: Xóa ${deleted}, Lỗi ${failed}`, deleted > 0 ? 'success' : 'error');
+        }
+
+        // Auto-check on load
+        window.onload = checkStats;
+    </script>
+</body>
+</html>

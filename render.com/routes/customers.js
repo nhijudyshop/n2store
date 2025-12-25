@@ -697,6 +697,55 @@ router.delete('/:id', async (req, res) => {
 });
 
 /**
+ * DELETE /api/customers/all
+ * Delete ALL customers (DANGEROUS - use with caution)
+ * Returns backup data before deletion
+ */
+router.delete('/all', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        const { confirm } = req.query;
+
+        // Require confirmation parameter
+        if (confirm !== 'yes-delete-all') {
+            return res.status(400).json({
+                success: false,
+                message: 'Cần xác nhận xóa. Thêm ?confirm=yes-delete-all vào URL'
+            });
+        }
+
+        console.log('[CUSTOMERS-DELETE-ALL] ⚠️ Starting deletion of ALL customers...');
+
+        // First, get all data for backup
+        const backupResult = await db.query('SELECT * FROM customers ORDER BY id');
+        const backupData = backupResult.rows;
+        const totalCount = backupData.length;
+
+        console.log(`[CUSTOMERS-DELETE-ALL] Backing up ${totalCount} customers...`);
+
+        // Delete all customers
+        await db.query('TRUNCATE TABLE customers RESTART IDENTITY');
+
+        console.log(`[CUSTOMERS-DELETE-ALL] ✅ Deleted ${totalCount} customers`);
+
+        res.json({
+            success: true,
+            message: `Đã xóa ${totalCount} khách hàng`,
+            deleted_count: totalCount,
+            backup: backupData // Return backup data in response
+        });
+
+    } catch (error) {
+        console.error('[CUSTOMERS-DELETE-ALL] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi xóa khách hàng',
+            error: error.message
+        });
+    }
+});
+
+/**
  * POST /api/customers/batch
  * Batch create customers (for import/migration)
  * UPSERT logic: Insert new customers with debt=0, update existing but PRESERVE debt
