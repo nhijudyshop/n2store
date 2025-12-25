@@ -214,6 +214,14 @@ let currentEditingOrderId = null;
 let currentEditOrderData = null;
 let currentChatOrderDetails = [];
 let currentChatOrderId = null;
+
+// Getter/Setter for currentChatOrderDetails - used by external modules
+window.getChatOrderDetails = function () {
+    return currentChatOrderDetails;
+};
+window.setChatOrderDetails = function (details) {
+    currentChatOrderDetails = details;
+};
 let currentChatProductsRef = null;
 let currentOrderTags = [];
 let pendingDeleteTagIndex = -1; // Track which tag is pending deletion on backspace
@@ -18700,6 +18708,11 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
         throw error;
     }
 }
+
+// Export API functions for external modules
+window.saveChatProductsToFirebase = saveChatProductsToFirebase;
+window.getOrderDetails = getOrderDetails;
+window.updateOrderWithFullPayload = updateOrderWithFullPayload;
 
 /**
  * Execute product merge for a single merged order
