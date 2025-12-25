@@ -1398,6 +1398,65 @@
             border-color: #667eea;
         }
 
+        /* Product Search Input */
+        .product-search-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .product-search-input {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 15px;
+            padding-left: 40px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'%3E%3C/path%3E%3C/svg%3E") no-repeat 12px center;
+        }
+
+        .product-search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .product-search-input::placeholder {
+            color: #999;
+        }
+
+        .product-filter-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .product-filter-badge .clear-btn {
+            background: rgba(255,255,255,0.3);
+            border: none;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .product-filter-badge .clear-btn:hover {
+            background: rgba(255,255,255,0.5);
+        }
+
         .tag-list {
             display: flex;
             flex-direction: column;
@@ -1747,6 +1806,7 @@
         let userManuallySelectedTable = false; // Flag to track if user manually selected a table from dropdown
         let justReceivedFromTab1 = false; // Flag to prevent auto-load from Firebase when just received data from tab1
         let dataReceivedFromTab1 = false; // Flag to track if data was received from Tab1 (for retry logic)
+        let currentProductFilter = ''; // Product search filter for detail list
 
         const STORAGE_KEY = 'report_order_details_by_table';
         const FIREBASE_PATH = 'report_order_details';
@@ -4339,7 +4399,17 @@
                 return;
             }
 
+            // Filter orders by product name if filter is set
+            const filteredOrders = filterOrdersByProduct(orders, currentProductFilter);
             const fetchedAt = new Date(cached.fetchedAt);
+
+            // Build filter badge HTML if filter is active
+            const filterBadgeHtml = currentProductFilter ? `
+                <span class="product-filter-badge">
+                    <i class="fas fa-filter"></i> "${currentProductFilter}" (${filteredOrders.length} đơn)
+                    <button class="clear-btn" onclick="clearProductFilter()" title="Xóa bộ lọc">×</button>
+                </span>
+            ` : '';
 
             let html = `
                 <!-- Table Info -->
@@ -4368,7 +4438,19 @@
 
                 <!-- Orders Table -->
                 <div class="content-section">
-                    <h2><i class="fas fa-list"></i> Danh sách chi tiết (${orders.length})</h2>
+                    <h2><i class="fas fa-list"></i> Danh sách chi tiết (${filteredOrders.length}${currentProductFilter ? '/' + orders.length : ''})</h2>
+
+                    <!-- Product Search -->
+                    <div class="product-search-container">
+                        <input type="text"
+                            class="product-search-input"
+                            id="productSearchInput"
+                            placeholder="Tìm kiếm sản phẩm (nhập tên hoặc mã SP)..."
+                            value="${currentProductFilter}"
+                            onkeyup="handleProductSearchKeyup(event)">
+                        ${filterBadgeHtml}
+                    </div>
+
                     <div style="overflow-x: auto;">
                         <table class="orders-table">
                             <thead>
@@ -4387,12 +4469,14 @@
                             <tbody>
             `;
 
-            orders.forEach((order, index) => {
+            filteredOrders.forEach((item) => {
+                const order = item.order;
+                const originalIndex = item.originalIndex;
                 const productCount = order.Details?.length || 0;
                 const tagsHtml = parseOrderTagsHtml(order.Tags);
                 html += `
-                    <tr onclick="openCachedOrderDetail(${index})">
-                        <td>${order.SessionIndex || index + 1}</td>
+                    <tr onclick="openCachedOrderDetail(${originalIndex})">
+                        <td>${order.SessionIndex || originalIndex + 1}</td>
                         <td class="order-code">${order.Code || ''}</td>
                         <td><div class="tags-cell">${tagsHtml}</div></td>
                         <td>${order.Name || order.PartnerName || ''}</td>
@@ -4413,6 +4497,48 @@
             `;
 
             area.innerHTML = html;
+        }
+
+        // Filter orders by product name or code
+        function filterOrdersByProduct(orders, searchTerm) {
+            if (!searchTerm || !searchTerm.trim()) {
+                // Return all orders with original indices
+                return orders.map((order, index) => ({ order, originalIndex: index }));
+            }
+
+            const term = searchTerm.toLowerCase().trim();
+            const result = [];
+
+            orders.forEach((order, index) => {
+                const details = order.Details || [];
+                // Check if any product in the order matches the search term
+                const hasMatchingProduct = details.some(product => {
+                    const productName = (product.ProductName || product.ProductNameGet || product.name || '').toLowerCase();
+                    const productCode = (product.ProductCode || product.code || '').toLowerCase();
+                    return productName.includes(term) || productCode.includes(term);
+                });
+
+                if (hasMatchingProduct) {
+                    result.push({ order, originalIndex: index });
+                }
+            });
+
+            return result;
+        }
+
+        // Handle Enter key on product search input
+        function handleProductSearchKeyup(event) {
+            if (event.key === 'Enter') {
+                const searchInput = document.getElementById('productSearchInput');
+                currentProductFilter = searchInput.value.trim();
+                renderCachedDetailsTab();
+            }
+        }
+
+        // Clear product filter
+        function clearProductFilter() {
+            currentProductFilter = '';
+            renderCachedDetailsTab();
         }
 
         function clearCacheForTable() {
