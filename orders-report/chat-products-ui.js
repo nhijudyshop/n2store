@@ -774,7 +774,9 @@
                             quantity: heldQuantity,
                             isDraft: true,
                             isFromSearch: true,
-                            timestamp: window.firebase.database.ServerValue.TIMESTAMP
+                            timestamp: window.firebase.database.ServerValue.TIMESTAMP,
+                            campaignName: window.currentChatOrderData?.LiveCampaignName || '',
+                            stt: window.currentChatOrderData?.SessionIndex || window.currentChatOrderData?.STT || ''
                         });
 
                         console.log('[CHAT-ADD] ✓ Synced to Firebase held_products:', {
