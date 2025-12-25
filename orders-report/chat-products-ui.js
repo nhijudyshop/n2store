@@ -765,7 +765,7 @@
                         );
                         const heldQuantity = currentHeldProduct ? currentHeldProduct.Quantity : 1;
 
-                        // Sync to Firebase
+                        // Sync to Firebase - include product details for reload
                         const ref = window.firebase.database().ref(`held_products/${orderId}/${normalizedProductId}/${userId}`);
 
                         await ref.set({
@@ -776,7 +776,14 @@
                             isFromSearch: true,
                             timestamp: window.firebase.database.ServerValue.TIMESTAMP,
                             campaignName: window.currentChatOrderData?.LiveCampaignName || '',
-                            stt: window.currentChatOrderData?.SessionIndex || window.currentChatOrderData?.STT || ''
+                            stt: window.currentChatOrderData?.SessionIndex || window.currentChatOrderData?.STT || '',
+                            // Product details for reload
+                            productName: fullProduct.Name || fullProduct.NameTemplate || '',
+                            productNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}` || '',
+                            productCode: fullProduct.DefaultCode || fullProduct.Barcode || '',
+                            imageUrl: fullProduct.ImageUrl || (fullProduct.Thumbnails && fullProduct.Thumbnails[0]) || '',
+                            price: salePrice || 0,
+                            uomName: fullProduct.UOM?.Name || 'Cái'
                         });
 
                         console.log('[CHAT-ADD] ✓ Synced to Firebase held_products:', {
