@@ -6,22 +6,23 @@
 
 ## Tổng Quan
 
-Thư mục `user-management` chứa **16 files** với 3 chức năng chính:
+Thư mục `user-management` chứa **17 files** với 3 chức năng chính:
 
 1. **Quản lý Users** - CRUD operations (Create, Read, Update, Delete)
 2. **Phân quyền Pages** - User được truy cập trang nào
-3. **Phân quyền Chi tiết** - Actions cụ thể trong mỗi trang (chưa kích hoạt)
+3. **Phân quyền Chi tiết** - Actions cụ thể trong mỗi trang
 
 ```
 user-management/
 ├── index.html ................. Giao diện chính
-├── script.js .................. User CRUD cơ bản
 ├── user-management-enhanced.js  User CRUD + permissions
-├── user-permission-page.js .... User CRUD + page grid
 │
-├── Permissions Config
-│   ├── detailed-permissions-config.js ... SubPermissions config
+├── Permissions Registry (NEW!)
+│   └── permissions-registry.js .... Single Source of Truth cho tất cả pages
+│
+├── Permissions UI
 │   ├── page-permissions-ui.js ........... UI cho page permissions
+│   ├── detailed-permissions-config.js ... SubPermissions config (legacy)
 │   └── detailed-permissions-ui.js ....... UI cho detailed permissions
 │
 ├── Authentication
@@ -42,7 +43,73 @@ user-management/
 
 ---
 
-## Hệ Thống Phân Quyền - 2 Tầng
+## Permissions Registry - Single Source of Truth
+
+> **File:** `permissions-registry.js`
+
+File này là nguồn duy nhất định nghĩa tất cả pages và permissions trong hệ thống.
+
+### Cấu trúc chính
+
+```javascript
+// 1. PAGES_REGISTRY - Danh sách tất cả 20 trang
+const PAGES_REGISTRY = {
+    live: {
+        id: "live",
+        name: "Hình Ảnh Live",
+        shortName: "Live",
+        icon: "image",
+        href: "../live/index.html",
+        description: "Xem và quản lý hình ảnh live stream",
+        adminOnly: false,
+        category: "sales",
+        detailedPermissions: {
+            view: { name: "Xem hình ảnh", icon: "eye" },
+            upload: { name: "Upload hình ảnh", icon: "upload" },
+            // ...
+        }
+    },
+    // ... 19 trang khác
+};
+
+// 2. PAGE_CATEGORIES - Phân loại trang
+const PAGE_CATEGORIES = {
+    sales: { id: "sales", name: "Bán Hàng & Livestream", ... },
+    warehouse: { id: "warehouse", name: "Kho & Nhận Hàng", ... },
+    orders: { id: "orders", name: "Đơn Hàng & Thanh Toán", ... },
+    reports: { id: "reports", name: "Báo Cáo & Thống Kê", ... },
+    admin: { id: "admin", name: "Quản Trị Hệ Thống", ... }
+};
+
+// 3. PERMISSION_TEMPLATES - Mẫu phân quyền
+const PERMISSION_TEMPLATES = {
+    admin: { ... },      // Toàn quyền
+    manager: { ... },    // Quản lý
+    "sales-team": { ... }, // Nhóm bán hàng
+    "warehouse-team": { ... }, // Nhóm kho
+    staff: { ... },      // Nhân viên
+    viewer: { ... },     // Chỉ xem
+    custom: { ... }      // Tùy chỉnh
+};
+```
+
+### Helper Functions
+
+```javascript
+// Truy cập qua window.PermissionsRegistry
+PermissionsRegistry.getPagesList()        // Lấy danh sách pages
+PermissionsRegistry.getPagesIds()          // Lấy danh sách IDs
+PermissionsRegistry.getPageById(id)        // Lấy page theo ID
+PermissionsRegistry.getPagesByCategory(cat) // Lấy pages theo category
+PermissionsRegistry.getAdminOnlyPages()    // Lấy admin-only pages
+PermissionsRegistry.getDetailedPermissions(id) // Lấy permissions của page
+PermissionsRegistry.generateTemplatePermissions(template) // Tạo permissions từ template
+PermissionsRegistry.getTotalPermissionsCount() // Đếm tổng permissions
+```
+
+---
+
+## Hệ Thống Phân Quyền - 3 Tầng
 
 ### Tầng 1: Role Level (`checkLogin`)
 
@@ -52,272 +119,130 @@ user-management/
 | `1` | **Manager** | Quản lý, không được xóa user |
 | `2` | **Staff** | Nhân viên, chỉ view/edit |
 | `3` | **Viewer** | Chỉ xem, không thao tác |
-
-**Cách kiểm tra quyền:**
-
-```javascript
-// Trong auth.js
-hasPermission(requiredLevel) {
-    const auth = this.getAuthState();
-    return parseInt(auth.checkLogin) <= requiredLevel;
-}
-
-// Ví dụ: Chỉ Admin (checkLogin=0) được truy cập
-if (hasPermission(0)) { /* Admin only */ }
-
-// Manager trở lên (checkLogin <= 1)
-if (hasPermission(1)) { /* Manager + Admin */ }
-```
+| `777` | **Guest** | Khách, hạn chế tối đa |
 
 ---
 
 ### Tầng 2: Page Permissions
 
-User có array `pagePermissions` chứa danh sách pages được truy cập:
+User có array `pagePermissions` chứa danh sách pages được truy cập.
+
+**Danh sách 20 Pages:**
+
+| Category | ID | Tên | Admin Only |
+|----------|-----|-----|:----------:|
+| **Sales** | `live` | Hình Ảnh Live | |
+| | `livestream` | Báo Cáo Livestream | |
+| | `sanphamlive` | Sản Phẩm Livestream | ✅ |
+| | `ib` | Check Inbox Khách | |
+| **Warehouse** | `nhanhang` | Cân Nặng Hàng | |
+| | `hangrotxa` | Hàng Rớt - Xả | |
+| | `hanghoan` | Hàng Hoàn | |
+| | `product-search` | Tìm Kiếm Sản Phẩm | |
+| | `soluong-live` | Quản Lý Số Lượng | |
+| **Orders** | `ck` | Thông Tin Chuyển Khoản | |
+| | `order-management` | Quản Lý Order | |
+| | `order-log` | Sổ Order | |
+| | `order-live-tracking` | Sổ Order Live | |
+| **Reports** | `baocaosaleonline` | Báo Cáo Sale-Online | |
+| | `tpos-pancake` | Tpos - Pancake | |
+| **Admin** | `user-management` | Quản Lý Tài Khoản | ✅ |
+| | `balance-history` | Lịch Sử Số Dư | ✅ |
+| | `customer-management` | Quản Lý Khách Hàng | ✅ |
+| | `invoice-compare` | So Sánh Đơn Hàng | ✅ |
+| | `lichsuchinhsua` | Lịch Sử Chỉnh Sửa | ✅ |
+
+---
+
+### Tầng 3: Detailed Permissions
+
+Mỗi trang có các quyền chi tiết riêng:
 
 ```javascript
-// Ví dụ user data trong Firebase
+// Ví dụ: sanphamlive có 6 quyền chi tiết
 {
-    username: "nhanvien1",
-    displayName: "Nhân Viên 1",
-    checkLogin: 2,  // Staff
-    pagePermissions: ["live", "livestream", "nhanhang", "ib"]
+    view: "Xem sản phẩm",
+    add: "Thêm sản phẩm",
+    edit: "Sửa sản phẩm",
+    delete: "Xóa sản phẩm",
+    pricing: "Chỉnh sửa giá",
+    stock: "Quản lý tồn kho"
 }
 ```
 
-**Danh sách Pages (14 pages):**
-
-| ID | Tên | Admin Only |
-|----|-----|:----------:|
-| `live` | Hình Ảnh Live | |
-| `livestream` | Báo Cáo Livestream | |
-| `sanphamlive` | Sản Phẩm Livestream | |
-| `nhanhang` | Nhận Hàng | |
-| `hangrotxa` | Hàng Rớt - Xả | |
-| `ib` | Inbox Khách Hàng | |
-| `ck` | Chuyển Khoản | |
-| `hanghoan` | Hàng Hoàn | |
-| `hangdat` | Hàng Đặt | |
-| `bangkiemhang` | Bảng Kiểm Hàng | |
-| `baocaosaleonline` | Báo Cáo Sale-Online | |
-| `product-search` | Tra Cứu Sản Phẩm | |
-| `user-management` | Quản Lý Tài Khoản | ✅ |
-| `lichsuchinhsua` | Lịch Sử Chỉnh Sửa | ✅ |
-
----
-
-### Tầng 3: Detailed Permissions (Chưa Kích Hoạt)
-
-File `detailed-permissions-config.js` định nghĩa subPermissions chi tiết:
-
-```javascript
-const DETAILED_PERMISSIONS = {
-    sanphamlive: {
-        id: "sanphamlive",
-        name: "SẢN PHẨM LIVESTREAM",
-        subPermissions: {
-            view: { name: "Xem sản phẩm", icon: "eye" },
-            add: { name: "Thêm sản phẩm", icon: "plus-circle" },
-            edit: { name: "Sửa sản phẩm", icon: "edit" },
-            delete: { name: "Xóa sản phẩm", icon: "trash-2" },
-            pricing: { name: "Chỉnh sửa giá", icon: "dollar-sign" }
-        }
-    },
-    // ... các pages khác
-};
-```
-
-> ⚠️ **Lưu ý:** Config này đã được định nghĩa nhưng **chưa được sử dụng** trong code hiện tại. Hệ thống chỉ dùng page-level permissions.
-
----
-
-## Chi Tiết Các Files
-
-### Core - User CRUD
-
-#### `script.js` (696 dòng)
-
-| Function | Mô tả |
-|----------|-------|
-| `checkAdminAccess()` | Kiểm tra quyền admin |
-| `connectFirebase()` | Kết nối Firebase |
-| `loadUsers()` | Tải danh sách users |
-| `createUser()` | Tạo user mới |
-| `updateUser()` | Cập nhật user |
-| `deleteUser(username)` | Xóa user |
-| `editUser(username)` | Load user vào form edit |
-| `generateHash()` | Tạo hash password |
-| `verifyPassword()` | Verify password |
-| `exportUsers()` | Export CSV |
-
----
-
-#### `user-management-enhanced.js` (983 dòng)
-
-Mở rộng từ `script.js`, thêm:
-
-| Function | Mô tả |
-|----------|-------|
-| `renderUserList(users)` | Render UI danh sách users |
-| `viewUserPermissions(username)` | Modal xem permissions |
-| `loadPermissionsOverview()` | Tổng quan permissions |
-| `exportPermissions()` | Export permissions report |
-
----
-
-#### `user-permission-page.js` (1,127 dòng)
-
-Mở rộng với page permissions grid:
-
-| Function | Mô tả |
-|----------|-------|
-| `initializePermissionsGrid(containerId)` | Khởi tạo UI grid |
-| `updatePermissionsSummary(summaryId)` | Cập nhật summary |
-| `applyPermissionTemplate(template)` | Áp dụng template |
-| `getSelectedPermissions(prefix)` | Lấy permissions đã chọn |
-| `setUserPermissions(permissions)` | Set permissions vào form |
-| `updateStats()` | Cập nhật thống kê |
-
----
-
-### Authentication
-
-#### `auth.js` (229 dòng)
-
-**Class:** `AuthManager`
-
-| Method | Mô tả |
-|--------|-------|
-| `init()` | Khởi tạo từ storage |
-| `isAuthenticated()` | Kiểm tra đăng nhập |
-| `hasPermission(level)` | Kiểm tra quyền |
-| `getAuthState()` | Lấy auth state |
-| `getUserId()` | Lấy user ID |
-| `clearAuth()` | Xóa auth data |
-| `logout()` | Đăng xuất |
-
-**Session Timeout:**
-- `sessionStorage`: 8 giờ
-- `localStorage` (remember): 30 ngày
-
----
-
-### Permissions UI
-
-#### `page-permissions-ui.js` (548 dòng)
-
-**Class:** `PagePermissionsUI`
-
-| Method | Mô tả |
-|--------|-------|
-| `render()` | Render UI component |
-| `renderPageCards()` | Render các page cards |
-| `setPermissions(pagePermissions)` | Set permissions array |
-| `getPermissions()` | Get selected permissions |
-| `selectAll()` | Chọn tất cả |
-| `selectNone()` | Bỏ chọn tất cả |
-| `selectTemplate(templateName)` | Áp dụng template |
-| `updateSummary()` | Cập nhật summary |
-
----
-
-#### `detailed-permissions-config.js` (222 dòng)
-
-**Exports:**
-- `DETAILED_PERMISSIONS` - Config các pages và subPermissions
-- `PERMISSION_TEMPLATES` - Templates cho các roles
-
-**Templates:**
-
-| Template | Mô tả |
-|----------|-------|
-| `admin` | Toàn quyền |
-| `manager` | Không xóa user, không restore history |
-| `staff` | Chỉ view/edit |
-| `viewer` | Chỉ view |
-| `custom` | Tùy chỉnh |
-
----
-
-### Utilities
-
-#### `tool.js` (535 dòng)
-
-| Function | Mô tả |
-|----------|-------|
-| `loadDefaultConfig()` | Load Firebase config mặc định |
-| `saveFirebaseConfig()` | Lưu config |
-| `generateHash()` | Tạo SHA256 hash |
-| `verifyPassword()` | Verify password với hash |
-
-**Hash Methods:**
-- CryptoJS SHA256 (default)
-- Web Crypto API
-- Node.js crypto
+**Tổng cộng: 101 quyền chi tiết** trên 20 trang.
 
 ---
 
 ## Firebase Structure
 
 ```
-Firebase Realtime Database
+Firebase Firestore
 └── users/
     └── {username}/
         ├── username: "admin"
         ├── displayName: "Administrator"
-        ├── password: "sha256_hash..."
+        ├── identifier: "Admin01"
+        ├── passwordHash: "pbkdf2_hash..."
+        ├── salt: "random_salt..."
         ├── checkLogin: 0
         ├── pagePermissions: ["live", "user-management", ...]
-        ├── createdAt: 1702600000000
-        └── updatedAt: 1702600000000
+        ├── detailedPermissions: {
+        │     live: { view: true, upload: true, ... },
+        │     sanphamlive: { view: true, add: false, ... }
+        │   }
+        ├── createdAt: Timestamp
+        ├── createdBy: "admin"
+        ├── updatedAt: Timestamp
+        └── updatedBy: "admin"
 ```
 
 ---
 
-## Lưu Ý Quan Trọng
+## Permission Templates
 
-### ⚠️ Code Trùng Lặp
-
-3 files có logic CRUD gần như giống nhau:
-- `script.js`
-- `user-management-enhanced.js`
-- `user-permission-page.js`
-
-**Đề xuất:** Merge thành 1 module hoặc refactor.
-
----
-
-### ⚠️ Detailed Permissions Chưa Dùng
-
-`DETAILED_PERMISSIONS` với subPermissions đã định nghĩa nhưng không được enforce trong code.
-
-**Nếu muốn kích hoạt:**
-1. Thêm `detailedPermissions` field vào user data
-2. Check subPermissions khi thực hiện actions
-3. Update UI để hiển thị detailed permissions
-
----
-
-### ⚠️ Password Hash
-
-Hiện dùng **SHA256** đơn giản, nên upgrade lên:
-- bcrypt
-- argon2
-- PBKDF2
+| Template | Mô tả | Pages | Quyền chi tiết |
+|----------|-------|-------|----------------|
+| `admin` | Toàn quyền | 20/20 | 101/101 |
+| `manager` | Quản lý | 20/20 | ~95 (không delete user, restore history) |
+| `sales-team` | Nhóm bán hàng | 8/20 | Sales + Orders pages |
+| `warehouse-team` | Nhóm kho | 11/20 | Warehouse + view Reports |
+| `staff` | Nhân viên | 14/20 | View + Edit (không admin pages) |
+| `viewer` | Chỉ xem | 14/20 | Chỉ View (không admin pages) |
+| `custom` | Tùy chỉnh | Tùy chọn | Tùy chọn |
 
 ---
 
 ## Quick Access
 
-| Chức năng | File | Function |
-|-----------|------|----------|
-| Kiểm tra admin | `script.js` | `checkAdminAccess()` |
-| Tạo user | `user-permission-page.js` | `createUser()` |
-| Update user | `user-permission-page.js` | `updateUser()` |
-| Load users | `user-permission-page.js` | `loadUsers()` |
-| Page permissions | `page-permissions-ui.js` | `PagePermissionsUI` class |
+| Chức năng | File | Function/Class |
+|-----------|------|----------------|
+| Registry | `permissions-registry.js` | `PAGES_REGISTRY`, `PermissionsRegistry` |
+| Page permissions UI | `page-permissions-ui.js` | `PagePermissionsUI` class |
+| Detailed permissions UI | `detailed-permissions-ui.js` | `DetailedPermissionsUI` class |
 | Auth check | `auth.js` | `authManager.hasPermission()` |
+| CRUD users | `user-management-enhanced.js` | `createUser()`, `updateUser()`, etc. |
 
 ---
 
-*Cập nhật: 2025-12-16*
+## Lưu Ý Quan Trọng
+
+### ✅ Đã Hoàn Thành (Phase 1)
+- Tạo `permissions-registry.js` - Single Source of Truth
+- 20 pages với đầy đủ cấu hình
+- 5 categories phân loại
+- 7 templates phân quyền
+- 101 detailed permissions
+- Helper functions đầy đủ
+
+### 🔄 Đang Triển Khai (Phase 2-3)
+- Refactor UI sử dụng Registry
+- Hoàn thiện Tab Quyền Truy Cập với matrix
+
+### 📋 Kế Hoạch (Phase 4+)
+- Enforce detailed permissions trong các trang
+- Auto-sync khi thêm trang mới
+
+---
+
+*Cập nhật: 2025-12-25*
