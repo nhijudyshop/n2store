@@ -4445,7 +4445,7 @@
                         <input type="text"
                             class="product-search-input"
                             id="productSearchInput"
-                            placeholder="Tìm kiếm sản phẩm (nhập tên SP)..."
+                            placeholder="Tìm kiếm sản phẩm (mã SP hoặc tên SP)..."
                             value="${currentProductFilter}"
                             onkeyup="handleProductSearchKeyup(event)">
                         ${filterBadgeHtml}
@@ -4499,7 +4499,7 @@
             area.innerHTML = html;
         }
 
-        // Filter orders by product name (ProductName, ProductNameGet)
+        // Filter orders by product (ProductCode, ProductName)
         function filterOrdersByProduct(orders, searchTerm) {
             if (!searchTerm || !searchTerm.trim()) {
                 // Return all orders with original indices
@@ -4513,9 +4513,9 @@
                 const details = order.Details || [];
                 // Check if any product in the order matches the search term
                 const hasMatchingProduct = details.some(product => {
+                    const productCode = (product.ProductCode || '').toLowerCase();
                     const productName = (product.ProductName || '').toLowerCase();
-                    const productNameGet = (product.ProductNameGet || '').toLowerCase();
-                    return productName.includes(term) || productNameGet.includes(term);
+                    return productCode.includes(term) || productName.includes(term);
                 });
 
                 if (hasMatchingProduct) {
