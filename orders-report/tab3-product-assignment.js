@@ -5128,42 +5128,45 @@
     // ===================================================================
     // PRODUCT SEARCH FOR REMOVAL - CLONE 100% FROM MAIN UI
     // ===================================================================
-    // Product Search Input Handler (GIỐNG Y HỆT line 1571-1587)
-    const removalSearchInput = document.getElementById('removalProductSearch');
-    if (removalSearchInput) {
-        removalSearchInput.addEventListener('input', (e) => {
-            const searchText = e.target.value.trim();
+    // Wrap in DOMContentLoaded to ensure modal HTML exists
+    document.addEventListener('DOMContentLoaded', function() {
+        // Product Search Input Handler (GIỐNG Y HỆT line 1571-1587)
+        const removalSearchInput = document.getElementById('removalProductSearch');
+        if (removalSearchInput) {
+            removalSearchInput.addEventListener('input', (e) => {
+                const searchText = e.target.value.trim();
 
-            if (searchText.length >= 2) {
-                if (productsData.length === 0) {
-                    loadProductsData().then(() => {
+                if (searchText.length >= 2) {
+                    if (productsData.length === 0) {
+                        loadProductsData().then(() => {
+                            const results = searchProducts(searchText);
+                            displayRemovalProductSuggestions(results);
+                        });
+                    } else {
                         const results = searchProducts(searchText);
                         displayRemovalProductSuggestions(results);
-                    });
+                    }
                 } else {
-                    const results = searchProducts(searchText);
-                    displayRemovalProductSuggestions(results);
+                    const suggestionsEl = document.getElementById('removalProductSuggestions');
+                    if (suggestionsEl) {
+                        suggestionsEl.classList.remove('show');
+                    }
                 }
-            } else {
-                const suggestionsEl = document.getElementById('removalProductSuggestions');
-                if (suggestionsEl) {
-                    suggestionsEl.classList.remove('show');
+            });
+        }
+
+        // Close suggestions when clicking outside (GIỐNG Y HỆT line 1590-1594)
+        document.addEventListener('click', (e) => {
+            const removalModal = document.getElementById('removeProductModal');
+            if (removalModal && removalModal.classList.contains('show')) {
+                if (!e.target.closest('#removeProductModal .search-wrapper')) {
+                    const suggestionsEl = document.getElementById('removalProductSuggestions');
+                    if (suggestionsEl) {
+                        suggestionsEl.classList.remove('show');
+                    }
                 }
             }
         });
-    }
-
-    // Close suggestions when clicking outside (GIỐNG Y HỆT line 1590-1594)
-    document.addEventListener('click', (e) => {
-        const removalModal = document.getElementById('removeProductModal');
-        if (removalModal && removalModal.classList.contains('show')) {
-            if (!e.target.closest('#removeProductModal .search-wrapper')) {
-                const suggestionsEl = document.getElementById('removalProductSuggestions');
-                if (suggestionsEl) {
-                    suggestionsEl.classList.remove('show');
-                }
-            }
-        }
     });
 
     // ===================================================================
@@ -5246,61 +5249,141 @@
     }
 
     // ===================================================================
-    // ADD PRODUCT TO REMOVAL
+    // ADD PRODUCT TO REMOVAL - CLONE 100% FROM addProductToAssignment (line 624-760)
     // ===================================================================
-    window.addProductToRemoval = async function(productId) {
+    async function addProductToRemoval(productId) {
         try {
-            // Clear search (giống UI chính line 567)
-            document.getElementById('removalProductSearch').value = '';
-            const suggestionsDiv = document.getElementById('removalProductSuggestions');
-            if (suggestionsDiv) {
-                suggestionsDiv.classList.remove('show');
-            }
-
-            // Check if product already exists
-            const exists = removals.find(r => r.productId === productId);
-            if (exists) {
-                showNotification('⚠️ Sản phẩm đã có trong danh sách', 'warning');
-                return;
-            }
-
-            // Fetch product details
-            const apiUrl = `${API_CONFIG.WORKER_URL}/api/odata/Product(${productId})?$expand=UOM,ProductTemplate`;
-            const headers = await window.tokenManager.getAuthHeader();
-
-            const response = await fetch(apiUrl, {
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                }
-            });
+            // Load product details (GIỐNG Y HỆT line 627-635)
+            const response = await authenticatedFetch(
+                `${API_CONFIG.WORKER_URL}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
+            );
 
             if (!response.ok) {
-                throw new Error('Failed to fetch product');
+                throw new Error('Không thể tải thông tin sản phẩm');
             }
 
-            const product = await response.json();
+            const productData = await response.json();
+            let imageUrl = productData.ImageUrl;
+            let templateData = null;
 
-            // Add to removals
-            removals.push({
-                id: Date.now(),
-                productId: product.Id,
-                productName: product.NameGet || product.Name,
-                productCode: extractProductCode(product.NameGet) || product.DefaultCode,
-                imageUrl: product.ImageUrl,
-                sttList: []
-            });
+            // Load template to get image and variants (GIỐNG Y HỆT line 640-655)
+            if (productData.ProductTmplId) {
+                try {
+                    const templateResponse = await authenticatedFetch(
+                        `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
+                    );
 
-            saveRemovals();
-            renderRemovalTable();
-            showNotification('✅ Đã thêm sản phẩm vào danh sách gỡ');
+                    if (templateResponse.ok) {
+                        templateData = await templateResponse.json();
+                        if (!imageUrl) {
+                            imageUrl = templateData.ImageUrl;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading template:', error);
+                }
+            }
+
+            // Check if auto-add variants is enabled and variants exist (GIỐNG Y HỆT line 658-760)
+            if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
+                // Filter only active variants (Active === true)
+                const activeVariants = templateData.ProductVariants.filter(v => v.Active === true);
+
+                // Sort variants
+                const sortedVariants = sortVariants(activeVariants);
+
+                // Check if there are active variants after filtering
+                if (sortedVariants.length === 0) {
+                    // No active variants, fallback to single product
+                    const existingIndex = removals.findIndex(a => a.productId === productData.Id);
+                    if (existingIndex !== -1) {
+                        showNotification('Sản phẩm đã có trong danh sách', 'error');
+                        return;
+                    }
+
+                    // Add single product to removals
+                    const productCode = extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '';
+                    const removal = {
+                        id: Date.now(),
+                        productId: productData.Id,
+                        productName: productData.NameGet,
+                        productCode: productCode,
+                        imageUrl: imageUrl,
+                        sttList: []
+                    };
+
+                    removals.push(removal);
+                    saveRemovals();
+                    renderRemovalTable();
+                    showNotification('Đã thêm sản phẩm vào danh sách');
+                    return;
+                }
+
+                // Add all variants to removals
+                let addedCount = 0;
+                let skippedCount = 0;
+
+                for (const variant of sortedVariants) {
+                    // Check if variant already in removals
+                    const existingIndex = removals.findIndex(a => a.productId === variant.Id);
+                    if (existingIndex !== -1) {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    const variantImageUrl = variant.ImageUrl || imageUrl;
+                    const productCode = extractProductCode(variant.NameGet) || variant.DefaultCode || variant.Barcode || '';
+
+                    const removal = {
+                        id: Date.now() + addedCount,
+                        productId: variant.Id,
+                        productName: variant.NameGet,
+                        productCode: productCode,
+                        imageUrl: variantImageUrl,
+                        sttList: []
+                    };
+
+                    removals.push(removal);
+                    addedCount++;
+                }
+
+                saveRemovals();
+                renderRemovalTable();
+
+                if (addedCount > 0) {
+                    showNotification(`Đã thêm ${addedCount} biến thể${skippedCount > 0 ? ` (${skippedCount} đã tồn tại)` : ''}`);
+                } else if (skippedCount > 0) {
+                    showNotification('Tất cả biến thể đã có trong danh sách', 'error');
+                }
+            } else {
+                // No auto-add variants or no variants - add single product
+                const existingIndex = removals.findIndex(a => a.productId === productData.Id);
+                if (existingIndex !== -1) {
+                    showNotification('Sản phẩm đã có trong danh sách', 'error');
+                    return;
+                }
+
+                const productCode = extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '';
+                const removal = {
+                    id: Date.now(),
+                    productId: productData.Id,
+                    productName: productData.NameGet,
+                    productCode: productCode,
+                    imageUrl: imageUrl,
+                    sttList: []
+                };
+
+                removals.push(removal);
+                saveRemovals();
+                renderRemovalTable();
+                showNotification('Đã thêm sản phẩm vào danh sách');
+            }
 
         } catch (error) {
-            console.error('[ADD-REMOVAL] Error:', error);
-            showNotification('❌ Lỗi: ' + error.message, 'error');
+            console.error('Error adding product to removal:', error);
+            showNotification('Lỗi: ' + error.message, 'error');
         }
-    };
+    }
 
     // ===================================================================
     // RENDER REMOVAL TABLE
