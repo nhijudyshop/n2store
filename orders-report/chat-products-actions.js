@@ -138,6 +138,10 @@
             if (existingIndex >= 0) {
                 // Add quantity to existing product
                 window.currentChatOrderData.Details[existingIndex].Quantity += heldProduct.Quantity;
+                // Update note if held product has one and existing doesn't
+                if (heldProduct.Note && !window.currentChatOrderData.Details[existingIndex].Note) {
+                    window.currentChatOrderData.Details[existingIndex].Note = heldProduct.Note;
+                }
                 console.log('[HELD-CONFIRM] Merged with existing product, new qty:',
                     window.currentChatOrderData.Details[existingIndex].Quantity);
             } else {
@@ -146,7 +150,7 @@
                     ProductId: fullProduct.Id,
                     Quantity: heldProduct.Quantity,
                     Price: salePrice,
-                    Note: null,
+                    Note: heldProduct.Note || null,  // Preserve note from held product
                     UOMId: fullProduct.UOM?.Id || 1,
                     Factor: 1,
                     Priority: 0,
@@ -369,6 +373,99 @@
         if (typeof window.saveChatProductsToFirebase === 'function') {
             const details = typeof window.getChatOrderDetails === 'function' ? window.getChatOrderDetails() : [];
             window.saveChatProductsToFirebase('shared', details);
+        }
+    };
+
+    // =====================================================
+    // UPDATE CHAT PRODUCT NOTE
+    // =====================================================
+
+    /**
+     * Update product note in chat order
+     * Triggered when user clicks outside the note input (onblur)
+     * Updates both local data and backend via API
+     * @param {number} productId - Product ID to update
+     * @param {string} newNote - New note value
+     */
+    window.updateChatProductNote = async function (productId, newNote) {
+        // Normalize productId
+        const normalizedProductId = parseInt(productId);
+        if (isNaN(normalizedProductId)) {
+            console.error('[UPDATE-NOTE] Invalid productId:', productId);
+            return;
+        }
+
+        // Get the correct data source
+        const productsArray = (window.currentChatOrderData && window.currentChatOrderData.Details)
+            ? window.currentChatOrderData.Details
+            : [];
+
+        // Find product by ProductId (both held and non-held)
+        const product = productsArray.find(p => p.ProductId === normalizedProductId);
+        if (!product) {
+            console.error('[UPDATE-NOTE] Product not found:', normalizedProductId);
+            return;
+        }
+
+        // Check if note actually changed
+        const oldNote = product.Note || '';
+        const trimmedNewNote = (newNote || '').trim();
+
+        if (oldNote === trimmedNewNote) {
+            console.log('[UPDATE-NOTE] Note unchanged, skipping update');
+            return;
+        }
+
+        // Update note in local data
+        product.Note = trimmedNewNote || null;
+        console.log('[UPDATE-NOTE] Updated local note for product:', normalizedProductId, '→', trimmedNewNote);
+
+        // If it's a held product, don't update backend (will be saved when confirmed)
+        if (product.IsHeld === true) {
+            if (window.notificationManager) {
+                window.notificationManager.show("✓ Ghi chú đã cập nhật", "success", 1500);
+            }
+            return;
+        }
+
+        // For main products (non-held), update backend via API
+        try {
+            const orderId = window.currentChatOrderData?.Id;
+            if (!orderId) {
+                throw new Error("Không tìm thấy đơn hàng");
+            }
+
+            // Get only main products for API update
+            const mainProducts = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+            const totalQuantity = mainProducts.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+            const totalAmount = mainProducts.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+
+            console.log('[UPDATE-NOTE] Updating order on backend:', {
+                orderId,
+                productId: normalizedProductId,
+                newNote: trimmedNewNote
+            });
+
+            // Update order on backend
+            await window.updateOrderWithFullPayload(
+                window.currentChatOrderData,
+                mainProducts,
+                totalAmount,
+                totalQuantity
+            );
+
+            console.log('[UPDATE-NOTE] ✓ Order note updated successfully');
+
+            // Show success notification
+            if (window.notificationManager) {
+                window.notificationManager.show("✓ Ghi chú đã lưu", "success", 1500);
+            }
+
+        } catch (error) {
+            console.error('[UPDATE-NOTE] Error updating note:', error);
+            if (window.notificationManager) {
+                window.notificationManager.error("❌ Lỗi khi lưu ghi chú: " + error.message);
+            }
         }
     };
 
