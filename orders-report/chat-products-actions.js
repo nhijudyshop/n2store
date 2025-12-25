@@ -450,6 +450,7 @@
             const droppedProductData = {
                 ProductId: freshProduct.ProductId,
                 ProductName: freshProduct.ProductName || freshProduct.Name,
+                ProductNameGet: freshProduct.ProductNameGet || freshProduct.ProductName || freshProduct.Name,
                 ProductCode: freshProduct.ProductCode || freshProduct.Code,
                 Price: freshProduct.Price || 0,
                 ImageUrl: freshProduct.ImageUrl || '',
