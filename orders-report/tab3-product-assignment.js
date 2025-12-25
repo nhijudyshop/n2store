@@ -5109,6 +5109,8 @@
     // ===================================================================
     // MODAL CONTROLS
     // ===================================================================
+    let removalSearchInitialized = false; // Flag to prevent duplicate binding
+
     window.openRemoveProductModal = function() {
         const modal = new bootstrap.Modal(document.getElementById('removeProductModal'));
         modal.show();
@@ -5116,6 +5118,21 @@
         // Load removals from storage
         loadRemovals();
         renderRemovalTable();
+
+        // Initialize search input event listener (only once)
+        if (!removalSearchInitialized) {
+            initializeRemovalSearch();
+            removalSearchInitialized = true;
+        }
+
+        // Auto focus on search input after modal is shown
+        setTimeout(() => {
+            const searchInput = document.getElementById('removalProductSearch');
+            if (searchInput) {
+                searchInput.focus();
+                console.log('[REMOVAL] Auto-focused on search input');
+            }
+        }, 300);
     };
 
     window.closeRemoveProductModal = function() {
@@ -5123,6 +5140,41 @@
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
     };
+
+    // Initialize search functionality
+    function initializeRemovalSearch() {
+        const removalSearchInput = document.getElementById('removalProductSearch');
+        if (!removalSearchInput) {
+            console.error('[REMOVAL] Search input not found!');
+            return;
+        }
+
+        console.log('[REMOVAL] Initializing search input...');
+
+        removalSearchInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim();
+            console.log('[REMOVAL] Search query:', query);
+
+            if (query.length >= 2) {
+                searchProductsForRemoval(query);
+            } else {
+                const suggestionsEl = document.getElementById('removalProductSuggestions');
+                if (suggestionsEl) {
+                    suggestionsEl.innerHTML = '';
+                }
+            }
+        });
+
+        // Clear suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            const suggestionsEl = document.getElementById('removalProductSuggestions');
+            if (suggestionsEl && !removalSearchInput.contains(e.target) && !suggestionsEl.contains(e.target)) {
+                suggestionsEl.innerHTML = '';
+            }
+        });
+
+        console.log('[REMOVAL] Search initialized successfully');
+    }
 
     // ===================================================================
     // STORAGE FUNCTIONS
@@ -5176,29 +5228,16 @@
     // ===================================================================
     // PRODUCT SEARCH FOR REMOVAL
     // ===================================================================
-    const removalSearchInput = document.getElementById('removalProductSearch');
-    if (removalSearchInput) {
-        removalSearchInput.addEventListener('input', function(e) {
-            const query = e.target.value.trim();
-            if (query.length >= 2) {
-                searchProductsForRemoval(query);
-            } else {
-                document.getElementById('removalProductSuggestions').innerHTML = '';
-            }
-        });
-
-        // Clear suggestions when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!removalSearchInput.contains(e.target)) {
-                document.getElementById('removalProductSuggestions').innerHTML = '';
-            }
-        });
-    }
-
     function searchProductsForRemoval(query) {
+        console.log('[REMOVAL-SEARCH] Query:', query);
+        console.log('[REMOVAL-SEARCH] Products data length:', productsData ? productsData.length : 0);
+
         if (!productsData || productsData.length === 0) {
-            document.getElementById('removalProductSuggestions').innerHTML =
-                '<div class="suggestion-item">Đang tải dữ liệu sản phẩm...</div>';
+            console.warn('[REMOVAL-SEARCH] Products data not loaded yet');
+            const suggestionsEl = document.getElementById('removalProductSuggestions');
+            if (suggestionsEl) {
+                suggestionsEl.innerHTML = '<div class="suggestion-item">⏳ Đang tải dữ liệu sản phẩm...</div>';
+            }
             return;
         }
 
@@ -5216,14 +5255,21 @@
                    nameGet.includes(queryNorm);
         }).slice(0, 10);
 
+        console.log('[REMOVAL-SEARCH] Found', filtered.length, 'products');
         displayRemovalProductSuggestions(filtered);
     }
 
     function displayRemovalProductSuggestions(products) {
         const container = document.getElementById('removalProductSuggestions');
+        if (!container) {
+            console.error('[REMOVAL-SEARCH] Suggestions container not found!');
+            return;
+        }
+
+        console.log('[REMOVAL-SEARCH] Displaying', products.length, 'suggestions');
 
         if (products.length === 0) {
-            container.innerHTML = '<div class="suggestion-item">Không tìm thấy sản phẩm</div>';
+            container.innerHTML = '<div class="suggestion-item">❌ Không tìm thấy sản phẩm</div>';
             return;
         }
 
@@ -5244,6 +5290,7 @@
         });
 
         container.innerHTML = html;
+        console.log('[REMOVAL-SEARCH] Suggestions displayed');
     }
 
     // ===================================================================
