@@ -12857,6 +12857,52 @@ async function processChatMessageQueue() {
 // =====================================================
 
 /**
+ * Split long messages into multiple parts (max 2000 characters each)
+ * This is required because Facebook Messenger API has a 2000 character limit per message.
+ * Splits at newlines first, then spaces, to avoid breaking words.
+ * @param {string} message - The message to split
+ * @param {number} maxLength - Maximum length per part (default: 2000)
+ * @returns {string[]} Array of message parts
+ */
+function splitMessageIntoParts(message, maxLength = 2000) {
+    if (!message || message.length <= maxLength) {
+        return [message];
+    }
+
+    const parts = [];
+    let remaining = message;
+
+    while (remaining.length > 0) {
+        if (remaining.length <= maxLength) {
+            parts.push(remaining);
+            break;
+        }
+
+        // Find the nearest newline before maxLength
+        let cutIndex = remaining.lastIndexOf('\n', maxLength);
+
+        // If no newline found or too far back, find nearest space
+        if (cutIndex === -1 || cutIndex < maxLength * 0.5) {
+            cutIndex = remaining.lastIndexOf(' ', maxLength);
+        }
+
+        // If still no good cut point, hard cut at maxLength
+        if (cutIndex === -1 || cutIndex < maxLength * 0.3) {
+            cutIndex = maxLength;
+        }
+
+        const part = remaining.substring(0, cutIndex).trim();
+        if (part.length > 0) {
+            parts.push(part);
+        }
+        remaining = remaining.substring(cutIndex).trim();
+    }
+
+    console.log(`[MESSAGE] Split message into ${parts.length} parts (${message.length} chars total)`);
+    return parts;
+}
+
+/**
  * Send message (MESSAGE modal only)
  * Public wrapper - adds to queue
  */
@@ -12920,32 +12966,48 @@ window.sendMessage = async function () {
             replyType: messageReplyType
         });
 
-        // Build queue data
-        const queueData = {
-            message,
-            uploadedImagesData: window.uploadedImagesData || [],
-            order: currentOrder,
-            conversationId: window.currentConversationId,
-            channelId: sendPageId,
-            chatType: 'message', // EXPLICITLY set to message
-            repliedMessageId: repliedMessageId,
-            customerId: window.currentCustomerUUID, // Add customer_id for Pancake API
-            messageReplyType: messageReplyType // Add reply type for private_replies support
-        };
+        // Split message into parts if too long (Facebook Messenger limit: 2000 chars)
+        const messageParts = splitMessageIntoParts(message);
+        const uploadedImages = window.uploadedImagesData || [];
 
-        // Add Facebook data if using private_replies
-        if (messageReplyType === 'private_replies') {
-            queueData.postId = window.purchaseFacebookPostId;
-            queueData.commentId = window.purchaseCommentId;
-            queueData.psid = window.currentChatPSID;
-            console.log('[MESSAGE] Private reply data:', {
-                postId: queueData.postId,
-                commentId: queueData.commentId,
-                psid: queueData.psid
-            });
+        // Add each message part to the queue
+        for (let i = 0; i < messageParts.length; i++) {
+            const messagePart = messageParts[i];
+            const isLastPart = i === messageParts.length - 1;
+
+            // Build queue data for this part
+            const queueData = {
+                message: messagePart,
+                // Only include images in the last part
+                uploadedImagesData: isLastPart ? uploadedImages : [],
+                order: currentOrder,
+                conversationId: window.currentConversationId,
+                channelId: sendPageId,
+                chatType: 'message', // EXPLICITLY set to message
+                // Only include repliedMessageId in the first part
+                repliedMessageId: i === 0 ? repliedMessageId : null,
+                customerId: window.currentCustomerUUID, // Add customer_id for Pancake API
+                messageReplyType: messageReplyType // Add reply type for private_replies support
+            };
+
+            // Add Facebook data if using private_replies (only for first part)
+            if (messageReplyType === 'private_replies' && i === 0) {
+                queueData.postId = window.purchaseFacebookPostId;
+                queueData.commentId = window.purchaseCommentId;
+                queueData.psid = window.currentChatPSID;
+                console.log('[MESSAGE] Private reply data:', {
+                    postId: queueData.postId,
+                    commentId: queueData.commentId,
+                    psid: queueData.psid
+                });
+            }
+
+            window.chatMessageQueue.push(queueData);
+
+            if (messageParts.length > 1) {
+                console.log(`[MESSAGE] Queued part ${i + 1}/${messageParts.length} (${messagePart.length} chars)`);
+            }
         }
-
-        window.chatMessageQueue.push(queueData);
 
         // Clear input
         messageInput.value = '';
@@ -13033,17 +13095,34 @@ window.sendComment = async function () {
         // Add to queue - use currentSendPageId for sending (independent from view page)
         const sendPageId = window.currentSendPageId || window.currentChatChannelId;
         console.log('[COMMENT] Adding to queue', { imageCount: window.uploadedImagesData?.length || 0, sendPageId });
-        window.chatMessageQueue.push({
-            message,
-            uploadedImagesData: window.uploadedImagesData || [],
-            order: currentOrder,
-            conversationId: window.currentConversationId,
-            channelId: sendPageId,
-            chatType: 'comment', // EXPLICITLY set to comment
-            parentCommentId: currentParentCommentId,
-            postId: currentPostId || currentOrder.Facebook_PostId,
-            customerId: window.currentCustomerUUID // Add customer_id for Pancake API
-        });
+
+        // Split message into parts if too long (Facebook limit: 2000 chars)
+        const messageParts = splitMessageIntoParts(message);
+        const uploadedImages = window.uploadedImagesData || [];
+
+        // Add each message part to the queue
+        for (let i = 0; i < messageParts.length; i++) {
+            const messagePart = messageParts[i];
+            const isLastPart = i === messageParts.length - 1;
+
+            window.chatMessageQueue.push({
+                message: messagePart,
+                // Only include images in the last part
+                uploadedImagesData: isLastPart ? uploadedImages : [],
+                order: currentOrder,
+                conversationId: window.currentConversationId,
+                channelId: sendPageId,
+                chatType: 'comment', // EXPLICITLY set to comment
+                // Only include parentCommentId in the first part
+                parentCommentId: i === 0 ? currentParentCommentId : null,
+                postId: currentPostId || currentOrder.Facebook_PostId,
+                customerId: window.currentCustomerUUID // Add customer_id for Pancake API
+            });
+
+            if (messageParts.length > 1) {
+                console.log(`[COMMENT] Queued part ${i + 1}/${messageParts.length} (${messagePart.length} chars)`);
+            }
+        }
 
         // Clear input
         messageInput.value = '';
