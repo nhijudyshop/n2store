@@ -185,17 +185,19 @@
     }
 
     /**
-     * Tìm các đơn hàng có cùng số điện thoại trong window.allData
+     * Tìm các đơn hàng có cùng số điện thoại trong allData
      * @param {Object} currentOrder - Đơn hàng hiện tại
      * @returns {Array} - Danh sách đơn hàng có cùng SĐT (đơn hiện tại đầu tiên, còn lại theo thời gian)
      */
     function findRelatedOrdersByPhone(currentOrder) {
         const phone = currentOrder.Telephone;
-        if (!phone || !window.allData) return [{ order: currentOrder, indexInAllData: -1 }];
+        const allOrders = window.getAllOrders ? window.getAllOrders() : [];
+
+        if (!phone || allOrders.length === 0) return [{ order: currentOrder, indexInAllData: -1 }];
 
         // Lọc các đơn có cùng SĐT (không cần check Facebook fields vì sẽ fetch sau)
         const relatedOrders = [];
-        window.allData.forEach((order, index) => {
+        allOrders.forEach((order, index) => {
             if (order.Telephone === phone) {
                 relatedOrders.push({ order, indexInAllData: index });
             }
