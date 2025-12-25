@@ -5125,82 +5125,45 @@
         if (modal) modal.hide();
     };
 
-    // Initialize search when modal is fully shown (Bootstrap event)
-    // This ensures the input element exists in DOM before binding
-    document.addEventListener('DOMContentLoaded', function() {
-        const modalEl = document.getElementById('removeProductModal');
-        if (!modalEl) {
-            console.warn('[REMOVAL] Modal element not found at DOMContentLoaded');
-            return;
-        }
+    // ===================================================================
+    // PRODUCT SEARCH FOR REMOVAL - CLONE 100% FROM MAIN UI
+    // ===================================================================
+    // Product Search Input Handler (GIỐNG Y HỆT line 1571-1587)
+    const removalSearchInput = document.getElementById('removalProductSearch');
+    if (removalSearchInput) {
+        removalSearchInput.addEventListener('input', (e) => {
+            const searchText = e.target.value.trim();
 
-        console.log('[REMOVAL] Setting up modal event listeners...');
-
-        modalEl.addEventListener('shown.bs.modal', function () {
-            console.log('[REMOVAL] ✅ Modal shown event fired');
-
-            const searchInput = document.getElementById('removalProductSearch');
-            const suggestionsDiv = document.getElementById('removalProductSuggestions');
-
-            if (!searchInput) {
-                console.error('[REMOVAL] ❌ Search input not found!');
-                return;
-            }
-
-            if (!suggestionsDiv) {
-                console.error('[REMOVAL] ❌ Suggestions div not found!');
-                return;
-            }
-
-            console.log('[REMOVAL] ✅ Elements found, setting up input listener');
-
-            // Auto focus
-            searchInput.focus();
-
-            // Clone node to remove all existing event listeners
-            const newSearchInput = searchInput.cloneNode(true);
-            searchInput.parentNode.replaceChild(newSearchInput, searchInput);
-
-            // Add input event listener (clone UI chính)
-            newSearchInput.addEventListener('input', function(e) {
-                const searchText = e.target.value.trim();
-                console.log('[REMOVAL] 🔍 Search input:', searchText, '| Length:', searchText.length);
-
-                if (searchText.length >= 2) {
-                    if (productsData.length === 0) {
-                        console.warn('[REMOVAL] ⚠️ Products data not loaded, loading now...');
-                        document.getElementById('removalProductSuggestions').innerHTML =
-                            '<div class="suggestion-item">⏳ Đang tải dữ liệu sản phẩm...</div>';
-                        loadProductsData().then(() => {
-                            console.log('[REMOVAL] ✅ Products loaded, searching...');
-                            const results = searchProducts(searchText);
-                            displayRemovalProductSuggestions(results);
-                        });
-                    } else {
-                        console.log('[REMOVAL] 🔎 Searching in', productsData.length, 'products...');
+            if (searchText.length >= 2) {
+                if (productsData.length === 0) {
+                    loadProductsData().then(() => {
                         const results = searchProducts(searchText);
-                        console.log('[REMOVAL] 📊 Found', results.length, 'results');
                         displayRemovalProductSuggestions(results);
-                    }
+                    });
                 } else {
-                    console.log('[REMOVAL] ℹ️ Query too short, clearing suggestions');
-                    document.getElementById('removalProductSuggestions').innerHTML = '';
+                    const results = searchProducts(searchText);
+                    displayRemovalProductSuggestions(results);
                 }
-            });
-
-            console.log('[REMOVAL] ✅ Input listener attached successfully');
+            } else {
+                const suggestionsEl = document.getElementById('removalProductSuggestions');
+                if (suggestionsEl) {
+                    suggestionsEl.classList.remove('show');
+                }
+            }
         });
+    }
 
-        // Clear input when modal is hidden
-        modalEl.addEventListener('hidden.bs.modal', function () {
-            const searchInput = document.getElementById('removalProductSearch');
-            const suggestionsDiv = document.getElementById('removalProductSuggestions');
-            if (searchInput) searchInput.value = '';
-            if (suggestionsDiv) suggestionsDiv.innerHTML = '';
-            console.log('[REMOVAL] 🧹 Modal hidden, cleared input');
-        });
-
-        console.log('[REMOVAL] ✅ Modal event listeners registered');
+    // Close suggestions when clicking outside (GIỐNG Y HỆT line 1590-1594)
+    document.addEventListener('click', (e) => {
+        const removalModal = document.getElementById('removeProductModal');
+        if (removalModal && removalModal.classList.contains('show')) {
+            if (!e.target.closest('#removeProductModal .search-wrapper')) {
+                const suggestionsEl = document.getElementById('removalProductSuggestions');
+                if (suggestionsEl) {
+                    suggestionsEl.classList.remove('show');
+                }
+            }
+        }
     });
 
     // ===================================================================
@@ -5253,41 +5216,33 @@
     }
 
     // ===================================================================
-    // DISPLAY REMOVAL PRODUCT SUGGESTIONS
+    // DISPLAY REMOVAL PRODUCT SUGGESTIONS - CLONE 100% FROM LINE 545-570
     // ===================================================================
-    // Reuse searchProducts() from main UI, just need custom display function
-    function displayRemovalProductSuggestions(products) {
-        const container = document.getElementById('removalProductSuggestions');
-        if (!container) {
-            console.error('[REMOVAL-SEARCH] Suggestions container not found!');
+    function displayRemovalProductSuggestions(suggestions) {
+        const suggestionsDiv = document.getElementById('removalProductSuggestions');
+
+        if (suggestions.length === 0) {
+            suggestionsDiv.classList.remove('show');
             return;
         }
 
-        console.log('[REMOVAL-SEARCH] Displaying', products.length, 'suggestions');
+        suggestionsDiv.innerHTML = suggestions.map(product => `
+            <div class="suggestion-item" data-id="${product.id}">
+                <span class="product-code">${product.code || 'N/A'}</span>
+                <span class="product-name">${product.name}</span>
+            </div>
+        `).join('');
 
-        if (products.length === 0) {
-            container.innerHTML = '<div class="suggestion-item">❌ Không tìm thấy sản phẩm</div>';
-            return;
-        }
+        suggestionsDiv.classList.add('show');
 
-        let html = '';
-        products.forEach(p => {
-            const code = extractProductCode(p.NameGet) || p.DefaultCode || p.Barcode;
-            html += `
-                <div class="suggestion-item" onclick="addProductToRemoval(${p.Id})">
-                    <div class="d-flex align-items-center gap-2">
-                        ${p.ImageUrl ? `<img src="${p.ImageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
-                        <div>
-                            <div style="font-weight:600;">${p.NameGet || p.Name}</div>
-                            <div style="font-size:12px;color:#6b7280;">${code}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
+        suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const productId = item.dataset.id;
+                await addProductToRemoval(productId);
+                suggestionsDiv.classList.remove('show');
+                document.getElementById('removalProductSearch').value = '';
+            });
         });
-
-        container.innerHTML = html;
-        console.log('[REMOVAL-SEARCH] Suggestions displayed');
     }
 
     // ===================================================================
@@ -5295,9 +5250,12 @@
     // ===================================================================
     window.addProductToRemoval = async function(productId) {
         try {
-            // Clear search
+            // Clear search (giống UI chính line 567)
             document.getElementById('removalProductSearch').value = '';
-            document.getElementById('removalProductSuggestions').innerHTML = '';
+            const suggestionsDiv = document.getElementById('removalProductSuggestions');
+            if (suggestionsDiv) {
+                suggestionsDiv.classList.remove('show');
+            }
 
             // Check if product already exists
             const exists = removals.find(r => r.productId === productId);
