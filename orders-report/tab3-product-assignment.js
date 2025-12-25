@@ -5487,24 +5487,40 @@
                 return;
             }
 
-            // Find order by STT
-            const order = ordersData.find(o => String(o.STT) === String(stt));
+            // Find order by STT (try ordersData first, then fetch directly)
+            let order = ordersData.find(o => String(o.STT) === String(stt));
+            let orderId = null;
+
             if (!order) {
-                showNotification(`⚠️ Không tìm thấy đơn hàng ${stt}`, 'warning');
-                return;
+                // If not in ordersData, try fetching directly by STT
+                console.log(`[ADD-STT-REMOVAL] Order ${stt} not in cache, fetching by STT...`);
+                try {
+                    const sttSearchResponse = await authenticatedFetch(
+                        `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order?$filter=STT eq '${stt}'`
+                    );
+                    if (sttSearchResponse.ok) {
+                        const sttSearchData = await sttSearchResponse.json();
+                        if (sttSearchData.value && sttSearchData.value.length > 0) {
+                            orderId = sttSearchData.value[0].Id;
+                            console.log(`[ADD-STT-REMOVAL] Found order ID ${orderId} for STT ${stt}`);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[ADD-STT-REMOVAL] Error searching by STT:', err);
+                }
+
+                if (!orderId) {
+                    showNotification(`⚠️ Không tìm thấy đơn hàng ${stt}`, 'warning');
+                    return;
+                }
+            } else {
+                orderId = order.Id;
             }
 
             // Fetch full order details with products
-            const apiUrl = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${order.Id})?$expand=Details($expand=Product)`;
-            const headers = await window.tokenManager.getAuthHeader();
-
-            const response = await fetch(apiUrl, {
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                }
-            });
+            const response = await authenticatedFetch(
+                `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product)`
+            );
 
             if (!response.ok) {
                 throw new Error('Failed to fetch order');
@@ -5518,7 +5534,7 @@
             // Add to sttList
             removal.sttList.push({
                 stt: stt,
-                orderId: order.Id,
+                orderId: orderId,
                 orderInfo: {
                     CustomerName: orderData.CustomerName || 'N/A',
                     Mobile: orderData.Mobile || '',
@@ -5917,17 +5933,10 @@
 
             console.log(`[REMOVAL] 📡 Fetching order ${orderId} for STT ${stt}...`);
 
-            // Fetch current order data
-            const apiUrl = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
-            const headers = await window.tokenManager.getAuthHeader();
-
-            const response = await fetch(apiUrl, {
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                }
-            });
+            // Fetch current order data using authenticatedFetch
+            const response = await authenticatedFetch(
+                `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`
+            );
 
             if (!response.ok) {
                 throw new Error(`Failed to fetch order ${orderId}: ${response.status}`);
@@ -6023,13 +6032,12 @@
 
             console.log(`[REMOVAL] 📤 Updating order ${orderId}...`);
 
-            // PUT request
-            const uploadResponse = await fetch(
+            // PUT request using authenticatedFetch
+            const uploadResponse = await authenticatedFetch(
                 `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})`,
                 {
                     method: 'PUT',
                     headers: {
-                        ...headers,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
