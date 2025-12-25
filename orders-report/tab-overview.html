@@ -2255,6 +2255,8 @@
                         stat.totalAmount += orderAmount;
                         stat.orders.push(order);
                     }
+                    // Mark this order as having a valid tag (ĐÃ RA ĐƠN counts)
+                    orderTagsMap.get(orderId).tagKeys.add('ordered');
                 }
 
                 // Check each order's tags against predefined patterns
@@ -2501,6 +2503,8 @@
                             stat.totalAmount += orderAmount;
                             stat.orders.push(order);
                         }
+                        // Mark this order as having a valid tag (ĐÃ RA ĐƠN counts)
+                        orderTagsMap.get(orderId).tagKeys.add('ordered');
                     }
 
                     // Check each order's tags against predefined patterns
@@ -3308,6 +3312,16 @@
                             return liveTag.patterns.some(p => tagName.startsWith(p));
                         });
                     });
+
+                    // Special handling for GIỎ TRỐNG - find validation errors
+                    if (pattern === 'gio_trong') {
+                        const invalidOrders = findGioTrongValidationErrors(orders);
+                        if (invalidOrders.length > 0) {
+                            // Show invalid orders in a special modal
+                            showGioTrongValidationModal(filteredOrders, invalidOrders);
+                            return;
+                        }
+                    }
                 }
             } else {
                 // Regular tag matching - match by exact tag name (case insensitive)
@@ -3444,6 +3458,134 @@
             }
 
             showOrdersDetailModal(`${empName} - ${displayName}`, filteredOrders);
+        }
+
+        /**
+         * Find GIỎ TRỐNG validation errors
+         * Returns orders that violate the rules:
+         * 1. Has "giỏ trống" tag but product count > 0
+         * 2. Has product count = 0 but no "giỏ trống" or "đã gộp ko chốt" tag
+         */
+        function findGioTrongValidationErrors(orders) {
+            const invalidOrders = [];
+            const gioTrongPatterns = ['giỏ trống'];
+            const gopPatterns = ['đã gộp ko chốt', 'đã gộp không chốt'];
+
+            orders.forEach(order => {
+                const orderTags = parseOrderTags(order.Tags);
+                const productCount = order.Details?.length || 0;
+
+                // Check if order has giỏ trống tag
+                const hasGioTrongTag = orderTags.some(tag => {
+                    const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
+                    return gioTrongPatterns.some(p => tagName.startsWith(p));
+                });
+
+                // Check if order has gộp tag
+                const hasGopTag = orderTags.some(tag => {
+                    const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
+                    return gopPatterns.some(p => tagName.startsWith(p));
+                });
+
+                // Case 1: Has giỏ trống tag but has products
+                if (hasGioTrongTag && productCount > 0) {
+                    invalidOrders.push({
+                        order: order,
+                        reason: `Có tag "giỏ trống" nhưng có ${productCount} sản phẩm`
+                    });
+                }
+
+                // Case 2: No products but missing giỏ trống or gộp tag
+                if (productCount === 0 && !hasGioTrongTag && !hasGopTag) {
+                    invalidOrders.push({
+                        order: order,
+                        reason: 'Không có sản phẩm nhưng thiếu tag "giỏ trống" hoặc "đã gộp ko chốt"'
+                    });
+                }
+            });
+
+            return invalidOrders;
+        }
+
+        /**
+         * Show GIỎ TRỐNG validation modal with normal and invalid orders
+         */
+        function showGioTrongValidationModal(normalOrders, invalidOrders) {
+            const modal = document.getElementById('ordersDetailModal');
+            const titleEl = document.getElementById('ordersDetailTitle');
+            const body = document.getElementById('ordersDetailBody');
+
+            const totalCount = normalOrders.length + invalidOrders.length;
+            titleEl.innerHTML = `<i class="fas fa-list"></i> GIỎ TRỐNG <span style="font-size: 14px; opacity: 0.8;">(${normalOrders.length} đơn)</span> <span style="font-size: 14px; color: #ef4444;">(${invalidOrders.length} lỗi)</span>`;
+
+            let html = '';
+
+            // Normal orders section
+            if (normalOrders.length > 0) {
+                html += `
+                    <h4 style="color: #22c55e; margin: 10px 0;"><i class="fas fa-check-circle"></i> Đơn hàng GIỎ TRỐNG (${normalOrders.length})</h4>
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Mã đơn</th>
+                                <th>Tag</th>
+                                <th>Khách hàng</th>
+                                <th>SP</th>
+                                <th>Tổng tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${normalOrders.map(order => `
+                                <tr>
+                                    <td>${order.SessionIndex || ''}</td>
+                                    <td class="order-code">${order.Code || ''}</td>
+                                    <td><div class="tags-cell">${parseOrderTagsHtml(order.Tags)}</div></td>
+                                    <td>${order.Name || order.PartnerName || ''}</td>
+                                    <td>${order.Details?.length || 0}</td>
+                                    <td class="amount">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            // Invalid orders section (highlighted in red)
+            if (invalidOrders.length > 0) {
+                html += `
+                    <h4 style="color: #ef4444; margin: 20px 0 10px 0;"><i class="fas fa-exclamation-triangle"></i> Đơn hàng LỖI (${invalidOrders.length})</h4>
+                    <table class="orders-table">
+                        <thead>
+                            <tr style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
+                                <th>STT</th>
+                                <th>Mã đơn</th>
+                                <th>Tag</th>
+                                <th>Khách hàng</th>
+                                <th>SP</th>
+                                <th>Tổng tiền</th>
+                                <th>Lý do lỗi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${invalidOrders.map(item => `
+                                <tr style="background: rgba(239, 68, 68, 0.1);">
+                                    <td>${item.order.SessionIndex || ''}</td>
+                                    <td class="order-code">${item.order.Code || ''}</td>
+                                    <td><div class="tags-cell">${parseOrderTagsHtml(item.order.Tags)}</div></td>
+                                    <td>${item.order.Name || item.order.PartnerName || ''}</td>
+                                    <td><strong style="color: #ef4444;">${item.order.Details?.length || 0}</strong></td>
+                                    <td class="amount">${(item.order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
+                                    <td style="color: #ef4444; font-size: 12px;">${item.reason}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            body.innerHTML = html || '<div class="empty-state"><p>Không có đơn hàng</p></div>';
+            modal.classList.add('show');
         }
 
         /**
