@@ -21473,6 +21473,7 @@ window.showQRFromChat = showQRFromChat;
 
 /**
  * Load and display debt in chat modal header
+ * NOTE: Always fetches fresh data from API (same source as salePrepaidAmount)
  * @param {string} phone - Phone number
  */
 async function loadChatDebt(phone) {
@@ -21491,19 +21492,24 @@ async function loadChatDebt(phone) {
     debtValueEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     debtValueEl.style.color = 'rgba(255, 255, 255, 0.8)';
 
-    // Check cache first
-    const cachedDebt = getCachedDebt(normalizedPhone);
-
-    if (cachedDebt !== null) {
-        // Has cached value
-        updateChatDebtDisplay(cachedDebt);
-        return;
-    }
-
-    // Fetch from API
+    // Always fetch fresh from API (same source as salePrepaidAmount in fetchDebtForSaleModal)
     try {
-        const debt = await fetchDebtForPhone(normalizedPhone);
-        updateChatDebtDisplay(debt);
+        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(normalizedPhone)}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const totalDebt = result.data.total_debt || 0;
+            console.log('[CHAT-DEBT] Realtime debt for phone:', normalizedPhone, '=', totalDebt);
+
+            // Update cache for consistency with debt column
+            saveDebtToCache(normalizedPhone, totalDebt);
+            updateChatDebtDisplay(totalDebt);
+
+            // Also update debt column in orders table to keep them in sync
+            updateDebtCellsInTable(normalizedPhone, totalDebt);
+        } else {
+            updateChatDebtDisplay(0);
+        }
     } catch (error) {
         console.error('[CHAT-DEBT] Error loading debt:', error);
         debtValueEl.textContent = '-';
@@ -22901,6 +22907,9 @@ async function fetchDebtForSaleModal(phone) {
 
             // Cache it for later use
             saveDebtToCache(normalizedPhone, totalDebt);
+
+            // Also update debt column in orders table to keep them in sync
+            updateDebtCellsInTable(normalizedPhone, totalDebt);
 
             // Update remaining balance after prepaid amount changes
             updateSaleRemainingBalance();

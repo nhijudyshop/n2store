@@ -709,6 +709,22 @@ const { access_token } = JSON.parse(bearerData);
 | Phí giao hàng | `saleShippingFee` | Auto từ carrier `Config_DefaultFee` |
 | Trả trước (Công nợ) | `salePrepaidAmount` | **Realtime API** `/api/sepay/debt-summary` |
 
+### Debt Data Source Consistency
+
+All debt-related UI components use the same **Realtime API** `/api/sepay/debt-summary`:
+
+| Component | ID/Selector | Behavior |
+|-----------|-------------|----------|
+| Sale Modal | `salePrepaidAmount` | Always fetches fresh data |
+| Chat Modal | `chatDebtValue` | Always fetches fresh data |
+| Orders Table | `data-column="debt"` | Uses cache, refreshed by batch API |
+
+When any component fetches fresh debt data, it:
+1. Updates the local cache (`orders_phone_debt_cache`)
+2. Updates the debt column in the orders table via `updateDebtCellsInTable()`
+
+This ensures all views stay synchronized with the latest debt data.
+
 ### Cache Keys (localStorage)
 
 | Key | TTL | Mô tả |
