@@ -1685,6 +1685,14 @@
         const orderId = window.currentChatOrderData?.Id;
         if (!orderId) return;
 
+        // IMPORTANT: Cleanup any existing listener before setting up new one
+        // This prevents duplicate listeners when switching between orders
+        if (window.heldProductsListener) {
+            console.log('[HELD-PRODUCTS] Cleaning up existing listener before setup');
+            window.heldProductsListener.off();
+            window.heldProductsListener = null;
+        }
+
         console.log('[HELD-PRODUCTS] Setting up realtime listener for order:', orderId);
 
         const heldRef = window.firebase.database().ref(`held_products/${orderId}`);
