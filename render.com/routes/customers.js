@@ -699,7 +699,6 @@ router.delete('/:id', async (req, res) => {
 /**
  * DELETE /api/customers/all
  * Delete ALL customers (DANGEROUS - use with caution)
- * Returns backup data before deletion
  */
 router.delete('/all', async (req, res) => {
     try {
@@ -716,23 +715,28 @@ router.delete('/all', async (req, res) => {
 
         console.log('[CUSTOMERS-DELETE-ALL] ⚠️ Starting deletion of ALL customers...');
 
-        // First, get all data for backup
-        const backupResult = await db.query('SELECT * FROM customers ORDER BY id');
-        const backupData = backupResult.rows;
-        const totalCount = backupData.length;
+        // Get count first
+        const countResult = await db.query('SELECT COUNT(*) as total FROM customers');
+        const totalCount = parseInt(countResult.rows[0].total);
 
-        console.log(`[CUSTOMERS-DELETE-ALL] Backing up ${totalCount} customers...`);
+        console.log(`[CUSTOMERS-DELETE-ALL] Deleting ${totalCount} customers...`);
 
-        // Delete all customers
-        await db.query('TRUNCATE TABLE customers RESTART IDENTITY');
+        // Use DELETE instead of TRUNCATE (safer, works with constraints)
+        const deleteResult = await db.query('DELETE FROM customers');
 
-        console.log(`[CUSTOMERS-DELETE-ALL] ✅ Deleted ${totalCount} customers`);
+        // Reset sequence
+        try {
+            await db.query('ALTER SEQUENCE customers_id_seq RESTART WITH 1');
+        } catch (seqError) {
+            console.log('[CUSTOMERS-DELETE-ALL] Could not reset sequence:', seqError.message);
+        }
+
+        console.log(`[CUSTOMERS-DELETE-ALL] ✅ Deleted ${deleteResult.rowCount} customers`);
 
         res.json({
             success: true,
-            message: `Đã xóa ${totalCount} khách hàng`,
-            deleted_count: totalCount,
-            backup: backupData // Return backup data in response
+            message: `Đã xóa ${deleteResult.rowCount} khách hàng`,
+            deleted_count: deleteResult.rowCount
         });
 
     } catch (error) {
