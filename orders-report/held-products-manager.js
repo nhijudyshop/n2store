@@ -365,10 +365,11 @@
                 for (const productId in heldData) {
                     const productHolders = heldData[productId];
 
-                    // Sum quantities from all holders
+                    // Sum quantities from all holders and collect product info from Firebase
                     let totalQuantity = 0;
                     let holders = [];
                     let isFromSearch = false;
+                    let firebaseProductInfo = null; // Store product info from Firebase
 
                     for (const odooUserId in productHolders) {
                         const holderData = productHolders[odooUserId];
@@ -381,6 +382,17 @@
                             if (holderData.isFromSearch) {
                                 isFromSearch = true;
                             }
+                            // Get product info from Firebase (saved with the held product)
+                            if (!firebaseProductInfo && holderData.productName) {
+                                firebaseProductInfo = {
+                                    ProductName: holderData.productName,
+                                    ProductNameGet: holderData.productNameGet || holderData.productName,
+                                    ProductCode: holderData.productCode || '',
+                                    ImageUrl: holderData.imageUrl || '',
+                                    Price: holderData.price || 0,
+                                    UOMName: holderData.uomName || 'Cái'
+                                };
+                            }
                         }
                     }
 
@@ -388,12 +400,13 @@
                         // Try to find product info from multiple sources:
                         // 1. Existing held product data (from inline search)
                         // 2. Dropped products list
+                        // 3. Firebase data (product details saved with held product)
                         const existingHeld = existingHeldProducts[parseInt(productId)];
                         const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
 
                         // Use existing held product data first (preserves inline search products),
-                        // then fallback to dropped products
-                        const productSource = existingHeld || droppedProduct;
+                        // then fallback to dropped products, then Firebase data
+                        const productSource = existingHeld || droppedProduct || firebaseProductInfo;
 
                         if (productSource) {
                             window.currentChatOrderData.Details.push({

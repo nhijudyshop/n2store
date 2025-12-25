@@ -968,7 +968,14 @@
                                 isDraft: preservedIsDraft,  // Preserve if saved, else temporary
                                 timestamp: window.firebase.database.ServerValue.TIMESTAMP,
                                 campaignName: window.currentChatOrderData?.LiveCampaignName || '',
-                                stt: window.currentChatOrderData?.SessionIndex || ''
+                                stt: window.currentChatOrderData?.SessionIndex || '',
+                                // Product details for reload
+                                productName: product.ProductName || '',
+                                productNameGet: product.ProductNameGet || product.ProductName || '',
+                                productCode: product.ProductCode || '',
+                                imageUrl: product.ImageUrl || '',
+                                price: product.Price || 0,
+                                uomName: product.UOMName || 'Cái'
                             };
                         });
 
