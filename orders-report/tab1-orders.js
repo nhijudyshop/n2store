@@ -17245,7 +17245,7 @@ function renderProductCard(p, index, isHeld) {
                     ${!isHeld ? `
                     <!-- Main product: only show minus button and quantity -->
                     <div style="display: flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
-                        <button onclick="decreaseMainProductQuantity(${index})" style="
+                        <button onclick="decreaseMainProductQuantityById(${p.ProductId})" style="
                             width: 28px;
                             height: 28px;
                             border: none;
@@ -17269,7 +17269,7 @@ function renderProductCard(p, index, isHeld) {
                     ` : `
                     <!-- Held product: show full quantity controls -->
                     <div style="display: flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
-                        <button onclick="updateChatProductQuantity(${index}, -1)" style="
+                        <button onclick="updateHeldProductQuantityById(${p.ProductId}, -1)" style="
                             width: 24px;
                             height: 24px;
                             border: none;
@@ -17281,7 +17281,7 @@ function renderProductCard(p, index, isHeld) {
                             justify-content: center;
                         ">−</button>
                         <input type="number" value="${p.Quantity || 0}"
-                            onchange="updateChatProductQuantity(${index}, 0, this.value)"
+                            onchange="updateHeldProductQuantityById(${p.ProductId}, 0, this.value)"
                             style="
                             width: 36px;
                             text-align: center;
@@ -17292,7 +17292,7 @@ function renderProductCard(p, index, isHeld) {
                             font-weight: 600;
                             padding: 2px 0;
                         ">
-                        <button onclick="updateChatProductQuantity(${index}, 1)" style="
+                        <button onclick="updateHeldProductQuantityById(${p.ProductId}, 1)" style="
                             width: 24px;
                             height: 24px;
                             border: none;
@@ -18093,7 +18093,200 @@ window.deleteHeldProduct = async function (productId) {
 // --- Action Logic ---
 
 /**
- * Update product quantity in chat order
+ * Update held product quantity by ProductId
+ * This version uses ProductId instead of array index to avoid bugs when arrays are filtered
+ * @param {number} productId - Product ID to update
+ * @param {number} delta - Amount to add/subtract (-1 or +1)
+ * @param {string|null} specificValue - Specific value to set (from input field)
+ */
+window.updateHeldProductQuantityById = function (productId, delta, specificValue = null) {
+    // Normalize productId
+    const normalizedProductId = parseInt(productId);
+    if (isNaN(normalizedProductId)) {
+        console.error('[UPDATE-QTY] Invalid productId:', productId);
+        return;
+    }
+
+    // Get the correct data source
+    const productsArray = (window.currentChatOrderData && window.currentChatOrderData.Details)
+        ? window.currentChatOrderData.Details
+        : currentChatOrderDetails;
+
+    // Find product by ProductId and IsHeld flag
+    const product = productsArray.find(p => p.ProductId === normalizedProductId && p.IsHeld === true);
+    if (!product) {
+        console.error('[UPDATE-QTY] Held product not found:', normalizedProductId);
+        return;
+    }
+
+    // Update quantity
+    if (specificValue !== null) {
+        const val = parseInt(specificValue);
+        if (val > 0) product.Quantity = val;
+    } else {
+        const newQty = (product.Quantity || 0) + delta;
+        if (newQty > 0) product.Quantity = newQty;
+    }
+
+    // Sync to Firebase
+    if (typeof window.updateHeldProductQuantity === 'function') {
+        window.updateHeldProductQuantity(product.ProductId, product.Quantity);
+    }
+
+    // Sync both arrays if needed
+    if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+        currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+    }
+
+    renderChatProductsTable();
+    saveChatProductsToFirebase('shared', currentChatOrderDetails);
+};
+
+/**
+ * Decrease main product quantity by ProductId
+ * Shows confirmation, updates order via API, moves 1 product to dropped
+ * @param {number} productId - Product ID to decrease
+ */
+window.decreaseMainProductQuantityById = async function (productId) {
+    // Normalize productId
+    const normalizedProductId = parseInt(productId);
+    if (isNaN(normalizedProductId)) {
+        console.error('[DECREASE] Invalid productId:', productId);
+        return;
+    }
+
+    // Get the correct data source
+    const productsArray = (window.currentChatOrderData && window.currentChatOrderData.Details)
+        ? window.currentChatOrderData.Details
+        : currentChatOrderDetails;
+
+    // Find product by ProductId (non-held only)
+    const product = productsArray.find(p => p.ProductId === normalizedProductId && !p.IsHeld);
+    if (!product) {
+        console.error('[DECREASE] Main product not found:', normalizedProductId);
+        return;
+    }
+
+    // Show confirmation
+    const productName = product.ProductName || product.Name || 'Sản phẩm';
+    const confirmMsg = `Xóa 1 "${productName}" khỏi đơn hàng?\n\nSản phẩm sẽ được chuyển sang hàng rớt-xả.`;
+
+    let confirmed = false;
+    if (window.CustomPopup) {
+        confirmed = await window.CustomPopup.confirm(confirmMsg, 'Xác nhận xóa sản phẩm');
+    } else {
+        confirmed = confirm(confirmMsg);
+    }
+
+    if (!confirmed) return;
+
+    try {
+        // Show loading
+        if (window.notificationManager) {
+            window.notificationManager.show("Đang cập nhật đơn hàng...", "info");
+        }
+
+        // Fetch latest order data from API to ensure we have fresh data
+        const orderId = window.currentChatOrderData?.Id;
+        if (!orderId) {
+            throw new Error("Không tìm thấy đơn hàng");
+        }
+
+        console.log('[DECREASE-BY-ID] Fetching latest order data:', orderId);
+        const freshOrderData = await getOrderDetails(orderId);
+
+        // Update window.currentChatOrderData with fresh data
+        window.currentChatOrderData = freshOrderData;
+
+        // Find the product in fresh data by ProductId
+        const freshProductIndex = freshOrderData.Details.findIndex(
+            p => p.ProductId === normalizedProductId && !p.IsHeld
+        );
+
+        if (freshProductIndex === -1) {
+            throw new Error("Không tìm thấy sản phẩm trong đơn hàng");
+        }
+
+        const freshProduct = freshOrderData.Details[freshProductIndex];
+
+        // Create product object to add to dropped
+        const droppedProductData = {
+            ProductId: freshProduct.ProductId,
+            ProductName: freshProduct.ProductName || freshProduct.Name,
+            ProductCode: freshProduct.ProductCode || freshProduct.Code,
+            Price: freshProduct.Price || 0,
+            ImageUrl: freshProduct.ImageUrl || '',
+            UOMId: freshProduct.UOMId || 1,
+            UOMName: freshProduct.UOMName || 'Cái',
+            Quantity: 1 // Moving 1 quantity to dropped
+        };
+
+        console.log('[DECREASE-BY-ID] Moving 1 to dropped:', droppedProductData);
+
+        // Add to dropped products
+        if (typeof window.addToDroppedProducts === 'function') {
+            await window.addToDroppedProducts(droppedProductData, 1, 'removed', null);
+        }
+
+        // Decrease quantity in order
+        if (freshProduct.Quantity <= 1) {
+            // Remove product entirely
+            freshOrderData.Details.splice(freshProductIndex, 1);
+        } else {
+            // Decrease by 1
+            freshProduct.Quantity -= 1;
+        }
+
+        // Get only main products for API update
+        const newDetails = freshOrderData.Details.filter(p => !p.IsHeld);
+        const totalQuantity = newDetails.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+        const totalAmount = newDetails.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+
+        console.log('[DECREASE-BY-ID] Updating order on backend:', {
+            orderId: freshOrderData.Id,
+            newDetailsCount: newDetails.length,
+            totalQuantity,
+            totalAmount
+        });
+
+        // Update order on backend
+        await updateOrderWithFullPayload(
+            freshOrderData,
+            newDetails,
+            totalAmount,
+            totalQuantity
+        );
+
+        console.log('[DECREASE-BY-ID] ✓ Order updated successfully');
+
+        // Sync arrays
+        currentChatOrderDetails = freshOrderData.Details.filter(p => !p.IsHeld);
+
+        // Re-render UI
+        renderChatProductsTable();
+        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+
+        // Re-render Dropped tab if visible
+        if (typeof window.renderDroppedProductsTable === 'function') {
+            await window.renderDroppedProductsTable();
+        }
+
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.show("✅ Đã chuyển 1 sản phẩm sang hàng rớt", "success");
+        }
+
+    } catch (error) {
+        console.error('[DECREASE-BY-ID] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error("❌ Lỗi: " + error.message);
+        }
+    }
+};
+
+/**
+ * Update product quantity in chat order (legacy - by index)
+ * @deprecated Use updateHeldProductQuantityById instead
  * Works with both currentChatOrderDetails and window.currentChatOrderData.Details
  * Syncs held products to Firebase for multi-user collaboration
  */
