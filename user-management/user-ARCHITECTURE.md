@@ -23,7 +23,7 @@ user-management/
 │
 ├── Permissions UI
 │   ├── page-permissions-ui.js ........... UI cho page permissions
-│   ├── detailed-permissions-config.js ... SubPermissions config (legacy)
+│   ├── detailed-permissions-config.js ... (DEPRECATED - không còn load)
 │   ├── detailed-permissions-ui.js ....... UI cho detailed permissions
 │   └── permissions-overview.js .......... Ma trận quyền & thống kê
 │
