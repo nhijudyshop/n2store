@@ -5128,42 +5128,45 @@
     // ===================================================================
     // PRODUCT SEARCH FOR REMOVAL - CLONE 100% FROM MAIN UI
     // ===================================================================
-    // Product Search Input Handler (GIỐNG Y HỆT line 1571-1587)
-    const removalSearchInput = document.getElementById('removalProductSearch');
-    if (removalSearchInput) {
-        removalSearchInput.addEventListener('input', (e) => {
-            const searchText = e.target.value.trim();
+    // Wrap in DOMContentLoaded to ensure modal HTML exists
+    document.addEventListener('DOMContentLoaded', function() {
+        // Product Search Input Handler (GIỐNG Y HỆT line 1571-1587)
+        const removalSearchInput = document.getElementById('removalProductSearch');
+        if (removalSearchInput) {
+            removalSearchInput.addEventListener('input', (e) => {
+                const searchText = e.target.value.trim();
 
-            if (searchText.length >= 2) {
-                if (productsData.length === 0) {
-                    loadProductsData().then(() => {
+                if (searchText.length >= 2) {
+                    if (productsData.length === 0) {
+                        loadProductsData().then(() => {
+                            const results = searchProducts(searchText);
+                            displayRemovalProductSuggestions(results);
+                        });
+                    } else {
                         const results = searchProducts(searchText);
                         displayRemovalProductSuggestions(results);
-                    });
+                    }
                 } else {
-                    const results = searchProducts(searchText);
-                    displayRemovalProductSuggestions(results);
+                    const suggestionsEl = document.getElementById('removalProductSuggestions');
+                    if (suggestionsEl) {
+                        suggestionsEl.classList.remove('show');
+                    }
                 }
-            } else {
-                const suggestionsEl = document.getElementById('removalProductSuggestions');
-                if (suggestionsEl) {
-                    suggestionsEl.classList.remove('show');
+            });
+        }
+
+        // Close suggestions when clicking outside (GIỐNG Y HỆT line 1590-1594)
+        document.addEventListener('click', (e) => {
+            const removalModal = document.getElementById('removeProductModal');
+            if (removalModal && removalModal.classList.contains('show')) {
+                if (!e.target.closest('#removeProductModal .search-wrapper')) {
+                    const suggestionsEl = document.getElementById('removalProductSuggestions');
+                    if (suggestionsEl) {
+                        suggestionsEl.classList.remove('show');
+                    }
                 }
             }
         });
-    }
-
-    // Close suggestions when clicking outside (GIỐNG Y HỆT line 1590-1594)
-    document.addEventListener('click', (e) => {
-        const removalModal = document.getElementById('removeProductModal');
-        if (removalModal && removalModal.classList.contains('show')) {
-            if (!e.target.closest('#removeProductModal .search-wrapper')) {
-                const suggestionsEl = document.getElementById('removalProductSuggestions');
-                if (suggestionsEl) {
-                    suggestionsEl.classList.remove('show');
-                }
-            }
-        }
     });
 
     // ===================================================================
