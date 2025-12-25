@@ -194,13 +194,32 @@
                 <div style="flex: 1; min-width: 0;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
                         <div style="font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.4;">
-                            ${p.ProductName || p.Name || 'Sản phẩm'}${heldBadge}
+                            ${(p.ProductCode || p.Code) ? `[${p.ProductCode || p.Code}] ` : ''}${p.ProductName || p.Name || 'Sản phẩm'}${heldBadge}
                         </div>
                     </div>
 
                     <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
-                        Mã: ${p.ProductCode || p.Code || 'N/A'}
-                        ${isHeld && p.HeldBy ? `<br><span style="color: #f59e0b;">👤 ${p.HeldBy}</span>` : ''}
+                        ${isHeld && p.HeldBy ? `<div style="color: #f59e0b; margin-bottom: 4px;">👤 ${p.HeldBy}</div>` : ''}
+                        <input type="text"
+                            class="chat-note-input"
+                            data-product-id="${p.ProductId}"
+                            value="${(p.Note || '').replace(/"/g, '&quot;')}"
+                            placeholder="Ghi chú"
+                            onblur="window.updateChatProductNote(${p.ProductId}, this.value)"
+                            style="
+                                width: 100%;
+                                padding: 4px 8px;
+                                border: 1px solid #e5e7eb;
+                                border-radius: 4px;
+                                font-size: 11px;
+                                font-family: inherit;
+                                color: #374151;
+                                background: #f9fafb;
+                                transition: all 0.2s;
+                            "
+                            onfocus="this.style.borderColor='#3b82f6'; this.style.background='white';"
+                            onmouseout="if(document.activeElement !== this) { this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb'; }"
+                        >
                     </div>
 
                     <!-- Controls -->
