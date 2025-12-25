@@ -618,10 +618,10 @@
                 const productHolders = orderProducts[String(productId)];
                 if (!productHolders) continue;
 
-                // Collect all holders with quantity > 0 and isDraft === true (persisted)
+                // Collect all holders with quantity > 0 (both temporary and saved)
                 for (const userId in productHolders) {
                     const holderData = productHolders[userId];
-                    if (holderData && holderData.isDraft === true && (parseInt(holderData.quantity) || 0) > 0) {
+                    if (holderData && (parseInt(holderData.quantity) || 0) > 0) {
                         const name = holderData.displayName || userId;
                         const campaign = holderData.campaignName || '';
                         const stt = holderData.stt || '';
@@ -673,10 +673,10 @@
                 const productHolders = orderProducts[String(productId)];
                 if (!productHolders) continue;
 
-                // Check if any holder has quantity > 0 and isDraft === true (persisted)
+                // Check if any holder has quantity > 0 (both temporary and saved)
                 for (const userId in productHolders) {
                     const holderData = productHolders[userId];
-                    if (holderData && holderData.isDraft === true && (parseInt(holderData.quantity) || 0) > 0) {
+                    if (holderData && (parseInt(holderData.quantity) || 0) > 0) {
                         console.log('[DROPPED-PRODUCTS] Product still held by:', holderData.displayName, 'in order:', orderId);
                         return true;
                     }
