@@ -6,24 +6,26 @@
 
 ## Tổng Quan
 
-Thư mục `user-management` chứa **17 files** với 3 chức năng chính:
+Thư mục `user-management` chứa **18 files** với 4 chức năng chính:
 
 1. **Quản lý Users** - CRUD operations (Create, Read, Update, Delete)
 2. **Phân quyền Pages** - User được truy cập trang nào
 3. **Phân quyền Chi tiết** - Actions cụ thể trong mỗi trang
+4. **Quản lý Tổng quan** - Ma trận quyền và thống kê
 
 ```
 user-management/
 ├── index.html ................. Giao diện chính
 ├── user-management-enhanced.js  User CRUD + permissions
 │
-├── Permissions Registry (NEW!)
+├── Permissions Registry
 │   └── permissions-registry.js .... Single Source of Truth cho tất cả pages
 │
 ├── Permissions UI
 │   ├── page-permissions-ui.js ........... UI cho page permissions
 │   ├── detailed-permissions-config.js ... SubPermissions config (legacy)
-│   └── detailed-permissions-ui.js ....... UI cho detailed permissions
+│   ├── detailed-permissions-ui.js ....... UI cho detailed permissions
+│   └── permissions-overview.js .......... Ma trận quyền & thống kê
 │
 ├── Authentication
 │   ├── auth.js ................. AuthManager class
@@ -220,6 +222,7 @@ Firebase Firestore
 | Registry | `permissions-registry.js` | `PAGES_REGISTRY`, `PermissionsRegistry` |
 | Page permissions UI | `page-permissions-ui.js` | `PagePermissionsUI` class |
 | Detailed permissions UI | `detailed-permissions-ui.js` | `DetailedPermissionsUI` class |
+| Permissions Overview | `permissions-overview.js` | `PermissionsOverview` class |
 | Auth check | `auth.js` | `authManager.hasPermission()` |
 | CRUD users | `user-management-enhanced.js` | `createUser()`, `updateUser()`, etc. |
 
@@ -227,7 +230,9 @@ Firebase Firestore
 
 ## Lưu Ý Quan Trọng
 
-### ✅ Đã Hoàn Thành (Phase 1)
+### ✅ Đã Hoàn Thành (Phase 1-3)
+
+**Phase 1: Single Source of Truth**
 - Tạo `permissions-registry.js` - Single Source of Truth
 - 20 pages với đầy đủ cấu hình
 - 5 categories phân loại
@@ -235,9 +240,17 @@ Firebase Firestore
 - 101 detailed permissions
 - Helper functions đầy đủ
 
-### 🔄 Đang Triển Khai (Phase 2-3)
-- Refactor UI sử dụng Registry
-- Hoàn thiện Tab Quyền Truy Cập với matrix
+**Phase 2: Refactor UI**
+- `page-permissions-ui.js` sử dụng PAGES_REGISTRY
+- `detailed-permissions-ui.js` sử dụng PermissionsRegistry
+- Backward compatibility với DETAILED_PERMISSIONS global
+
+**Phase 3: Permissions Overview**
+- `permissions-overview.js` - Tab Quyền Truy Cập hoàn chỉnh
+- Ma trận User × Pages với 3 chế độ xem
+- Filters: role, page, search
+- Export CSV
+- Inline toggle permissions
 
 ### 📋 Kế Hoạch (Phase 4+)
 - Enforce detailed permissions trong các trang
