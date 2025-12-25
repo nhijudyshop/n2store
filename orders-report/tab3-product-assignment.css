@@ -1432,3 +1432,217 @@ button:disabled:hover {
         max-width: 100%;
     }
 }
+
+/* ============================================================ */
+/* PRODUCT REMOVAL FEATURE STYLES */
+/* ============================================================ */
+
+/* Remove Product Button */
+.btn-warning {
+    background-color: #ff9800;
+    border-color: #ff9800;
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: #f57c00;
+    border-color: #f57c00;
+    color: white;
+}
+
+/* Removal Modal Header */
+#removeProductModal .modal-header {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+}
+
+#removeProductModal .modal-dialog {
+    max-width: 1200px;
+}
+
+/* Removal Table */
+#removalTable {
+    font-size: 14px;
+}
+
+#removalTable th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+}
+
+#removalTable td {
+    vertical-align: middle;
+}
+
+#removalTable .badge {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* STT chips in removal table */
+#removalTable .badge.bg-secondary {
+    background-color: #6c757d !important;
+    padding: 4px 8px;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#removalTable .btn-close-white {
+    opacity: 0.7;
+}
+
+#removalTable .btn-close-white:hover {
+    opacity: 1;
+}
+
+/* Preview Section */
+#removalPreviewCard {
+    margin-top: 20px;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#removalPreviewCard .card-header {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+}
+
+/* View Mode Buttons */
+#removalPreviewCard .btn-group .btn {
+    font-size: 14px;
+    padding: 8px 16px;
+}
+
+#removalPreviewCard .btn-group .btn.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+/* Preview Cards */
+#removalPreviewArea .card {
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease;
+}
+
+#removalPreviewArea .card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+#removalPreviewArea .table-warning {
+    background-color: #fff3cd;
+}
+
+#removalPreviewArea .table-bordered th,
+#removalPreviewArea .table-bordered td {
+    border: 1px solid #dee2e6;
+}
+
+/* Results Modal */
+#removalResultsModal .card {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#removalResultsModal .card-body h3 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+#removalResultsModal .card-body p {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+#removalResultsModal .border-success {
+    border-left: 4px solid #28a745 !important;
+}
+
+#removalResultsModal .border-danger {
+    border-left: 4px solid #dc3545 !important;
+}
+
+#removalResultsModal .border-warning {
+    border-left: 4px solid #ffc107 !important;
+}
+
+#removalResultsModal .list-group-item {
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #dee2e6;
+}
+
+#removalResultsModal .list-group-item ul {
+    padding-left: 20px;
+    margin-top: 8px;
+}
+
+#removalResultsModal .list-group-item-danger {
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+}
+
+#removalResultsModal .list-group-item-warning {
+    background-color: #fff3cd;
+    border-color: #ffecb5;
+}
+
+/* Progress Modal */
+#removalProgressModal .modal-body {
+    padding: 40px;
+}
+
+#removalProgressModal .spinner-border {
+    border-width: 4px;
+}
+
+/* Execute Button */
+#executeRemovalBtn {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    border: none;
+    font-weight: 600;
+    padding: 10px 24px;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    transition: all 0.3s ease;
+}
+
+#executeRemovalBtn:hover {
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+    box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+    transform: translateY(-2px);
+}
+
+/* Selection Summary */
+#removalSelectionSummary {
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    #removeProductModal .modal-dialog {
+        max-width: 95%;
+        margin: 10px auto;
+    }
+
+    #removalPreviewArea .card {
+        font-size: 13px;
+    }
+
+    #removalResultsModal .card-body h3 {
+        font-size: 2rem;
+    }
+}

@@ -39,6 +39,10 @@
                         title="Xuất danh sách đơn hàng từ TPOS ra file Excel">
                         <i class="fas fa-file-excel"></i> Xuất Excel
                     </button>
+                    <button class="btn btn-sm btn-warning me-2" onclick="openRemoveProductModal()"
+                        title="Gỡ sản phẩm khỏi đơn hàng">
+                        <i class="fas fa-minus-circle"></i> Gỡ Sản Phẩm
+                    </button>
                     <span class="badge bg-info ms-2" id="ordersCountBadge">
                         <i class="fas fa-database"></i> <span id="ordersCount">0</span> đơn hàng
                     </span>
@@ -539,6 +543,138 @@
                     <button type="button" class="btn btn-success" id="exportExcelBtn" onclick="exportOrdersToExcel()">
                         <i class="fas fa-download"></i> Xuất Excel
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remove Product Modal -->
+    <div class="modal fade" id="removeProductModal" tabindex="-1" aria-labelledby="removeProductModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); color: white;">
+                    <h5 class="modal-title" id="removeProductModalLabel">
+                        <i class="fas fa-minus-circle"></i> Gỡ Sản Phẩm Khỏi Đơn Hàng
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="closeRemoveProductModal()"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Product Search Section -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="fas fa-search"></i> Tìm Kiếm Sản Phẩm Cần Gỡ</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="search-wrapper position-relative">
+                                <input type="text" class="form-control form-control-lg" id="removalProductSearch"
+                                    placeholder="🔍 Nhập mã sản phẩm hoặc barcode..." autocomplete="off" />
+                                <div class="suggestions-dropdown" id="removalProductSuggestions"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Removals Table -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0"><i class="fas fa-list"></i> Danh Sách Gỡ (<span id="removalCount">0</span>)</h6>
+                            <button class="btn btn-sm btn-outline-dark" onclick="clearAllRemovals()">
+                                <i class="fas fa-trash"></i> Xóa Tất Cả
+                            </button>
+                        </div>
+                        <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover table-sm" id="removalTable">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width: 40%">Sản Phẩm</th>
+                                        <th style="width: 35%">STT Đơn Hàng</th>
+                                        <th style="width: 15%" class="text-center">SL Hiện Tại</th>
+                                        <th style="width: 10%" class="text-center">Thao Tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="removalTableBody">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-4">
+                                            <i class="fas fa-inbox fa-3x mb-2"></i>
+                                            <p class="mb-0">Chưa có sản phẩm nào</p>
+                                            <small>Vui lòng tìm kiếm và thêm sản phẩm cần gỡ</small>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Preview Section -->
+                    <div class="card" id="removalPreviewCard" style="display: none;">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="fas fa-eye"></i> Preview Gỡ Sản Phẩm</h6>
+                        </div>
+                        <div class="card-body">
+                            <!-- View Mode Toggle -->
+                            <div class="btn-group mb-3" role="group">
+                                <button type="button" class="btn btn-outline-primary" id="removalViewByProduct" onclick="switchRemovalViewMode('product')">
+                                    <i class="fas fa-box"></i> Theo Sản Phẩm
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" id="removalViewByOrder" onclick="switchRemovalViewMode('order')">
+                                    <i class="fas fa-shopping-cart"></i> Theo Đơn Hàng
+                                </button>
+                            </div>
+
+                            <!-- Preview Area -->
+                            <div id="removalPreviewArea" style="max-height: 500px; overflow-y: auto;">
+                                <!-- Will be populated by JS -->
+                            </div>
+
+                            <!-- Selection Summary -->
+                            <div class="alert alert-info mt-3" id="removalSelectionSummary" style="display: none;">
+                                <strong>Đã chọn:</strong> <span id="removalSelectedCount">0</span> STT
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="closeRemoveProductModal()">
+                        <i class="fas fa-times"></i> Đóng
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="previewRemoval()">
+                        <i class="fas fa-eye"></i> Xem Trước
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="executeRemoval()" id="executeRemovalBtn" style="display: none;">
+                        <i class="fas fa-minus-circle"></i> Gỡ Sản Phẩm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Removal Progress Modal -->
+    <div class="modal fade" id="removalProgressModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center py-4">
+                    <div class="spinner-border text-danger mb-3" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Đang xử lý...</span>
+                    </div>
+                    <h5 id="removalProgressText">Đang gỡ sản phẩm...</h5>
+                    <p id="removalProgressDetail" class="text-muted mb-0">0 / 0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Removal Results Modal -->
+    <div class="modal fade" id="removalResultsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-chart-bar"></i> Kết Quả Gỡ Sản Phẩm</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="removalResultsBody">
+                    <!-- Will be populated by JS -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
                 </div>
             </div>
         </div>
