@@ -558,7 +558,7 @@
             document.addEventListener('keydown', escHandler);
 
             const totalComments = ordersWithComments.reduce((sum, item) => sum + item.comments.length, 0);
-            console.log('[LiveComments] Modal opened with', totalComments, 'comments from', relatedOrders.length, 'orders');
+            console.log('[LiveComments] Modal opened with', totalComments, 'comments from', ordersWithComments.length, 'orders');
 
         } catch (error) {
             console.error('[LiveComments] Error:', error);
