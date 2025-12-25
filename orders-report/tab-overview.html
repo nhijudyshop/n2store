@@ -2298,9 +2298,13 @@
             };
 
             orderTagsMap.forEach((data, orderId) => {
-                if (data.tagKeys.size > 1) {
+                // Exclude 'ordered' when checking for duplicates (status is not a tag)
+                const tagKeysWithoutOrdered = new Set(data.tagKeys);
+                tagKeysWithoutOrdered.delete('ordered');
+
+                if (tagKeysWithoutOrdered.size > 1) {
                     duplicateOrders.push(data.order);
-                    if (!isAcceptableDuplicate(data.tagKeys)) {
+                    if (!isAcceptableDuplicate(tagKeysWithoutOrdered)) {
                         hasUnacceptableDuplicate = true;
                     }
                 }
@@ -2545,9 +2549,13 @@
                 };
 
                 orderTagsMap.forEach((data, orderId) => {
-                    if (data.tagKeys.size > 1) {
+                    // Exclude 'ordered' when checking for duplicates (status is not a tag)
+                    const tagKeysWithoutOrdered = new Set(data.tagKeys);
+                    tagKeysWithoutOrdered.delete('ordered');
+
+                    if (tagKeysWithoutOrdered.size > 1) {
                         duplicateOrders.push(data.order);
-                        if (!isAcceptableDuplicate(data.tagKeys)) {
+                        if (!isAcceptableDuplicate(tagKeysWithoutOrdered)) {
                             hasUnacceptableDuplicate = true;
                         }
                     }
@@ -3453,6 +3461,16 @@
                                 return liveTag.patterns.some(p => tagName.startsWith(p));
                             });
                         });
+
+                        // Special handling for GIỎ TRỐNG - find validation errors
+                        if (tagKey === 'gio_trong') {
+                            const invalidOrders = findGioTrongValidationErrors(empOrders);
+                            if (invalidOrders.length > 0) {
+                                // Show with validation errors
+                                showGioTrongValidationModal(filteredOrders, invalidOrders, `${empName} - `);
+                                return;
+                            }
+                        }
                     }
                 }
             }
@@ -3510,13 +3528,13 @@
         /**
          * Show GIỎ TRỐNG validation modal with normal and invalid orders
          */
-        function showGioTrongValidationModal(normalOrders, invalidOrders) {
+        function showGioTrongValidationModal(normalOrders, invalidOrders, prefix = '') {
             const modal = document.getElementById('ordersDetailModal');
             const titleEl = document.getElementById('ordersDetailTitle');
             const body = document.getElementById('ordersDetailBody');
 
             const totalCount = normalOrders.length + invalidOrders.length;
-            titleEl.innerHTML = `<i class="fas fa-list"></i> GIỎ TRỐNG <span style="font-size: 14px; opacity: 0.8;">(${normalOrders.length} đơn)</span> <span style="font-size: 14px; color: #ef4444;">(${invalidOrders.length} lỗi)</span>`;
+            titleEl.innerHTML = `<i class="fas fa-list"></i> ${prefix}GIỎ TRỐNG <span style="font-size: 14px; opacity: 0.8;">(${normalOrders.length} đơn)</span> <span style="font-size: 14px; color: #ef4444;">(${invalidOrders.length} lỗi)</span>`;
 
             let html = '';
 
