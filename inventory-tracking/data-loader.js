@@ -9,17 +9,32 @@
 async function loadShipmentsData() {
     console.log('[DATA] Loading shipments...');
 
+    const loadingState = document.getElementById('loadingState');
+    const emptyState = document.getElementById('emptyState');
+
     try {
         globalState.isLoading = true;
 
         if (!shipmentsRef) {
             console.warn('[DATA] Firestore not initialized');
+            globalState.shipments = [];
+            globalState.filteredShipments = [];
+            // Show empty state when Firestore is not initialized
+            if (loadingState) loadingState.classList.add('hidden');
+            if (emptyState) emptyState.classList.remove('hidden');
             return;
         }
 
-        const snapshot = await shipmentsRef
+        // Add timeout to prevent infinite hanging
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Query timeout')), 15000)
+        );
+
+        const queryPromise = shipmentsRef
             .orderBy('ngayDiHang', 'desc')
             .get();
+
+        const snapshot = await Promise.race([queryPromise, timeoutPromise]);
 
         globalState.shipments = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -33,7 +48,15 @@ async function loadShipmentsData() {
 
     } catch (error) {
         console.error('[DATA] Error loading shipments:', error);
-        throw error;
+        globalState.shipments = [];
+        globalState.filteredShipments = [];
+        // Hide loading and show empty state on error
+        if (loadingState) loadingState.classList.add('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
+        // Show error message
+        if (window.toast) {
+            toast.error('Không thể tải dữ liệu: ' + (error.message || 'Lỗi không xác định'));
+        }
     } finally {
         globalState.isLoading = false;
     }
