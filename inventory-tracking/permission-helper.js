@@ -78,7 +78,8 @@ const ADMIN_PERMISSIONS = {
     export_excel: true,
 };
 
-class PermissionHelper {
+// Note: Named InventoryPermissionHelper to avoid conflict with global PermissionHelper from core-loader
+class InventoryPermissionHelper {
     constructor() {
         this.permissions = { ...DEFAULT_PERMISSIONS };
         this.isLoaded = false;
@@ -221,8 +222,8 @@ class PermissionHelper {
     }
 }
 
-// Initialize permission helper
-const permissionHelper = new PermissionHelper();
+// Initialize permission helper (using InventoryPermissionHelper to avoid global conflict)
+const permissionHelper = new InventoryPermissionHelper();
 window.permissionHelper = permissionHelper;
 
-console.log('[PERMISSION] Permission helper loaded');
+console.log('[PERMISSION] Inventory permission helper loaded');
