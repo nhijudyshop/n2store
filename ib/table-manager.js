@@ -208,7 +208,9 @@ class TableManager {
         );
 
         // Add delete button if authorized
-        if (auth && auth.checkLogin == "0") {
+        // NEW SYSTEM: Check detailedPermissions for 'ib' page 'delete' action
+        const hasDeletePerm = auth && auth.detailedPermissions?.['ib']?.['delete'] === true;
+        if (hasDeletePerm) {
             this.addDeleteButton(actionCell, dataItem.user || "Unknown");
         }
     }

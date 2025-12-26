@@ -7,14 +7,12 @@ let auth = null;
 let currentMethod = "cryptojs";
 let users = [];
 
-// Check admin access
+// Check admin access - NEW SYSTEM: Uses only detailedPermissions (no bypass)
 function checkAdminAccess() {
-    const checkLogin = localStorage.getItem("checkLogin");
     const isLoggedIn = localStorage.getItem("isLoggedIn");
     const authData = localStorage.getItem("loginindex_auth");
 
     console.log("Checking admin access:", {
-        checkLogin,
         isLoggedIn,
         authData: !!authData,
     });
@@ -24,37 +22,30 @@ function checkAdminAccess() {
         return false;
     }
 
-    // Check if user is admin OR has user-management permission
-    const isAdmin = checkLogin === "0" || checkLogin === 0;
+    // NEW SYSTEM: Check detailedPermissions only (no admin bypass)
+    // Admin is just a user with all permissions = true
     let hasPermission = false;
 
-    if (!isAdmin) {
-        // Check for specific user-management permission using detailedPermissions
-        try {
-            const auth = JSON.parse(authData);
+    try {
+        const auth = JSON.parse(authData);
 
-            // NEW: Check detailedPermissions first (new system)
-            if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
-                const userMgmtPerms = auth.detailedPermissions['user-management'];
-                hasPermission = Object.values(userMgmtPerms).some(v => v === true);
-            }
-            // LEGACY: Fall back to pagePermissions for old data
-            else if (auth.pagePermissions && Array.isArray(auth.pagePermissions)) {
-                hasPermission = auth.pagePermissions.includes("user-management");
-            }
-
-            console.log("Permission check:", {
-                isAdmin: false,
-                hasDetailedPermissions: !!auth.detailedPermissions,
-                hasUserManagementPermission: hasPermission
-            });
-        } catch (e) {
-            console.error("Error checking permissions:", e);
+        // Check detailedPermissions for 'user-management' page
+        if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
+            const userMgmtPerms = auth.detailedPermissions['user-management'];
+            hasPermission = Object.values(userMgmtPerms).some(v => v === true);
         }
+
+        console.log("Permission check:", {
+            hasDetailedPermissions: !!auth.detailedPermissions,
+            hasUserManagementPermission: hasPermission,
+            roleTemplate: auth.roleTemplate || 'unknown'
+        });
+    } catch (e) {
+        console.error("Error checking permissions:", e);
     }
 
-    if (!isAdmin && !hasPermission) {
-        showAccessDenied("Bạn không có quyền truy cập trang này. Cần quyền Admin hoặc quyền 'user-management'.");
+    if (!hasPermission) {
+        showAccessDenied("Bạn không có quyền truy cập trang quản lý người dùng.");
         return false;
     }
 
@@ -602,8 +593,9 @@ async function deleteUser(username) {
     const user = users.find((u) => u.id === username);
     if (!user) return;
 
-    const adminCount = users.filter((u) => u.checkLogin === 0).length;
-    if (user.checkLogin === 0 && adminCount === 1) {
+    // NEW SYSTEM: Check roleTemplate instead of checkLogin
+    const adminCount = users.filter((u) => u.roleTemplate === 'admin').length;
+    if (user.roleTemplate === 'admin' && adminCount === 1) {
         showError(
             "Không thể xóa admin cuối cùng!\nHệ thống phải có ít nhất 1 admin.",
         );
@@ -620,7 +612,9 @@ async function deleteUser(username) {
         });
     }
 
-    const confirmMsg = `XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nQuyền hạn: ${getRoleText(user.checkLogin)}\nQuyền chi tiết: ${permCount} quyền\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
+    // NEW SYSTEM: Display roleTemplate instead of checkLogin
+    const roleInfo = getRoleTemplateInfo(user.roleTemplate);
+    const confirmMsg = `XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nNhóm quyền: ${roleInfo.name}\nQuyền chi tiết: ${permCount} quyền\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
 
     if (!confirm(confirmMsg)) {
         return;
@@ -697,7 +691,9 @@ async function loadPermissionsOverview() {
             const user = doc.data();
             totalUsers++;
 
-            const role = getRoleText(user.checkLogin);
+            // NEW SYSTEM: Use roleTemplate for role stats
+            const roleInfo = getRoleTemplateInfo(user.roleTemplate);
+            const role = roleInfo.name;
             roleStats[role] = (roleStats[role] || 0) + 1;
 
             const permissions = user.detailedPermissions || {};

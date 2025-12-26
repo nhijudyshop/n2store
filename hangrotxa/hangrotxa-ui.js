@@ -619,7 +619,9 @@ function initializeTooltipHandlers() {
     if (config.tbody) {
         config.tbody.addEventListener("click", function (e) {
             const auth = authManager ? authManager.getAuthState() : null;
-            if (auth && auth.checkLogin == "0") {
+            // NEW SYSTEM: Check detailedPermissions or roleTemplate
+            const hasAdvancedView = auth && (auth.roleTemplate === 'admin' || auth.detailedPermissions?.['hang-rot-xa']?.['delete'] === true);
+            if (hasAdvancedView) {
                 const tooltip = document.getElementById("tooltip");
                 const row = e.target.closest("tr");
                 if (!row) return;
