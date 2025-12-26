@@ -85,8 +85,8 @@ function applyFiltersAndRender() {
         filtered = filtered.filter(s => s.ngayDiHang <= filters.dateTo);
     }
 
-    // Filter by NCC
-    if (filters.ncc) {
+    // Filter by NCC (skip if "all" is selected)
+    if (filters.ncc && filters.ncc !== 'all') {
         const nccNum = parseInt(filters.ncc);
         filtered = filtered.filter(s =>
             (s.hoaDon || []).some(hd => hd.sttNCC === nccNum)
