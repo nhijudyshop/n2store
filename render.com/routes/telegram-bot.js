@@ -9,7 +9,7 @@ const router = express.Router();
 // API Keys from environment variables (set on Render)
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-3-flash-preview';
 
 // Store conversation history per user (in-memory, resets on server restart)
 const conversationHistory = new Map();
