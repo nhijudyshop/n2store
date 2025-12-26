@@ -3227,6 +3227,55 @@ button[onclick*="showAddProductForm"] {
     opacity: 0.7;
 }
 
+/* Message Highlight Animation (for scrolling to quoted messages) */
+.message-highlight {
+    animation: messageHighlightPulse 2s ease-in-out;
+}
+
+.message-highlight .chat-bubble {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+@keyframes messageHighlightPulse {
+    0% {
+        background-color: rgba(59, 130, 246, 0.3);
+    }
+    50% {
+        background-color: rgba(59, 130, 246, 0.15);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+/* Quoted Message Styles */
+.quoted-message {
+    position: relative;
+}
+
+.quoted-message:hover::after {
+    content: "Nhấn để xem tin nhắn gốc";
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    animation: tooltipFadeIn 0.2s ease forwards;
+}
+
+@keyframes tooltipFadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
 /* Purchase Comment Highlight */
 .purchase-comment-highlight {
     position: relative;
