@@ -269,13 +269,203 @@ function updateCostTotal() {
 }
 
 function updateInvoicePreview(invoiceForm) {
-    // Will be implemented to show parsed products preview
+    if (!invoiceForm) return;
+
+    const textarea = invoiceForm.querySelector('.invoice-products');
+    const previewContent = invoiceForm.querySelector('.preview-content');
+    const totalAmount = invoiceForm.querySelector('.invoice-total-amount');
+    const totalItems = invoiceForm.querySelector('.invoice-total-items');
+
+    if (!textarea || !previewContent) return;
+
+    const text = textarea.value.trim();
+    if (!text) {
+        previewContent.innerHTML = '<span class="preview-empty">Nhap san pham de xem preview</span>';
+        if (totalAmount) totalAmount.textContent = '0';
+        if (totalItems) totalItems.textContent = '0';
+        return;
+    }
+
+    // Parse products
+    const products = parseMultipleProducts(text);
+    const validProducts = products.filter(p => p.isValid);
+    const invalidProducts = products.filter(p => !p.isValid);
+
+    // Calculate totals
+    const totals = calculateProductTotals(validProducts);
+
+    // Render preview table
+    if (validProducts.length > 0) {
+        previewContent.innerHTML = `
+            <table class="preview-table">
+                <thead>
+                    <tr>
+                        <th>Ma SP</th>
+                        <th>Mau</th>
+                        <th>SL</th>
+                        <th>Gia</th>
+                        <th>Thanh tien</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${validProducts.map(p => `
+                        <tr>
+                            <td>${p.maSP}</td>
+                            <td>${p.soMau}</td>
+                            <td>${p.soLuong}</td>
+                            <td>${formatNumber(p.giaDonVi)}</td>
+                            <td>${formatNumber(p.thanhTien)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            ${invalidProducts.length > 0 ? `
+                <div class="preview-errors">
+                    <strong>Loi parse:</strong>
+                    ${invalidProducts.map(p => `<div class="error-line">${p.rawText}: ${p.error}</div>`).join('')}
+                </div>
+            ` : ''}
+        `;
+    } else {
+        previewContent.innerHTML = `
+            <div class="preview-errors">
+                <strong>Khong parse duoc san pham nao</strong>
+                ${invalidProducts.map(p => `<div class="error-line">${p.rawText}: ${p.error}</div>`).join('')}
+            </div>
+        `;
+    }
+
+    // Update totals
+    if (totalAmount) totalAmount.textContent = formatNumber(totals.tongTienHD);
+    if (totalItems) totalItems.textContent = formatNumber(totals.tongMon);
 }
 
 async function saveShipment() {
-    // Collect form data and save
-    toast.info('Chuc nang dang duoc phat trien...');
-    closeModal('modalShipment');
+    try {
+        // Validate date
+        const dateInput = document.getElementById('shipmentDate');
+        const ngayDiHang = dateInput?.value;
+        if (!ngayDiHang) {
+            toast.warning('Vui long chon ngay di hang');
+            return;
+        }
+
+        // Collect packages
+        const packageRows = document.querySelectorAll('.package-row');
+        const kienHang = [];
+        packageRows.forEach((row, index) => {
+            const soKg = parseFloat(row.querySelector('.package-kg')?.value) || 0;
+            if (soKg > 0) {
+                kienHang.push({
+                    stt: index + 1,
+                    soKg: soKg
+                });
+            }
+        });
+
+        // Collect invoices
+        const invoiceForms = document.querySelectorAll('.invoice-form');
+        const hoaDon = [];
+        let invoiceIndex = 0;
+
+        for (const form of invoiceForms) {
+            const sttNCC = parseInt(form.querySelector('.invoice-ncc')?.value);
+            const productText = form.querySelector('.invoice-products')?.value?.trim();
+
+            if (!sttNCC) continue;
+
+            // Parse products
+            const products = productText ? parseMultipleProducts(productText) : [];
+            const validProducts = products.filter(p => p.isValid);
+
+            // Calculate totals
+            const totals = calculateProductTotals(validProducts);
+
+            // Get existing invoice data if editing
+            const existingInvoice = currentShipmentData?.hoaDon?.[invoiceIndex];
+
+            hoaDon.push({
+                id: existingInvoice?.id || generateId('hd'),
+                sttNCC: sttNCC,
+                sanPham: validProducts,
+                tongTienHD: totals.tongTienHD,
+                tongMon: totals.tongMon,
+                soMonThieu: existingInvoice?.soMonThieu || 0,
+                ghiChuThieu: existingInvoice?.ghiChuThieu || '',
+                anhHoaDon: existingInvoice?.anhHoaDon || []
+            });
+
+            invoiceIndex++;
+        }
+
+        // Validate at least one invoice
+        if (hoaDon.length === 0) {
+            toast.warning('Vui long nhap it nhat 1 hoa don NCC');
+            return;
+        }
+
+        // Collect shipping costs (admin only)
+        const costRows = document.querySelectorAll('.cost-row');
+        const chiPhiHangVe = [];
+        costRows.forEach((row, index) => {
+            const loai = row.querySelector('.cost-type')?.value?.trim();
+            const soTien = parseFloat(row.querySelector('.cost-amount')?.value) || 0;
+            if (loai && soTien > 0) {
+                chiPhiHangVe.push({
+                    id: generateId('cp'),
+                    loai: loai,
+                    soTien: soTien
+                });
+            }
+        });
+
+        // Admin note
+        const ghiChuAdmin = document.getElementById('adminNote')?.value?.trim() || '';
+
+        // Calculate totals
+        const tongKien = kienHang.length;
+        const tongKg = kienHang.reduce((sum, k) => sum + k.soKg, 0);
+        const tongTienHoaDon = hoaDon.reduce((sum, hd) => sum + hd.tongTienHD, 0);
+        const tongSoMon = hoaDon.reduce((sum, hd) => sum + hd.tongMon, 0);
+        const tongMonThieu = hoaDon.reduce((sum, hd) => sum + (hd.soMonThieu || 0), 0);
+        const tongChiPhi = chiPhiHangVe.reduce((sum, c) => sum + c.soTien, 0);
+
+        // Prepare data
+        const shipmentData = {
+            ngayDiHang,
+            kienHang,
+            tongKien,
+            tongKg,
+            hoaDon,
+            tongTienHoaDon,
+            tongSoMon,
+            tongMonThieu,
+            chiPhiHangVe,
+            tongChiPhi,
+            ghiChuAdmin
+        };
+
+        // Show loading
+        const loadingToast = toast.loading('Dang luu...');
+
+        if (currentShipmentData) {
+            // Update existing
+            await updateShipment(currentShipmentData.id, shipmentData);
+        } else {
+            // Create new
+            await createShipment(shipmentData);
+        }
+
+        toast.remove(loadingToast);
+        closeModal('modalShipment');
+
+        // Reload data
+        await loadShipmentsData();
+
+    } catch (error) {
+        console.error('[MODAL] Error saving shipment:', error);
+        toast.error('Khong the luu dot hang');
+    }
 }
 
 console.log('[MODAL] Shipment modal initialized');
