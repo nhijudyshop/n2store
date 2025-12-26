@@ -24,7 +24,7 @@ let filteredData = [];
 const notify = new NotificationManager();
 
 // =====================================================
-// AUTH CHECK - NEW SYSTEM: Uses detailedPermissions
+// AUTH CHECK - Admin has FULL BYPASS
 // =====================================================
 const auth = authManager ? authManager.getAuthState() : null;
 
@@ -37,9 +37,10 @@ if (!auth || auth.isLoggedIn !== "true") {
     }, 1500);
 }
 
-// Check permission using detailedPermissions - NO admin bypass
-const hasPageAccess = auth?.detailedPermissions?.['lichsuchinhsua'] &&
-    Object.values(auth.detailedPermissions['lichsuchinhsua']).some(v => v === true);
+// Admin BYPASS - full access. Others check detailedPermissions
+const isAdmin = auth?.roleTemplate === 'admin';
+const hasPageAccess = isAdmin || (auth?.detailedPermissions?.['lichsuchinhsua'] &&
+    Object.values(auth.detailedPermissions['lichsuchinhsua']).some(v => v === true));
 
 if (!hasPageAccess) {
     notify.error("Bạn không có quyền truy cập trang này!");

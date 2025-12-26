@@ -123,7 +123,7 @@ if (typeof window !== 'undefined' && window.AuthManager) {
 
     /**
      * Check if user has permission for current page
-     * NEW SYSTEM: Uses detailedPermissions only (no admin bypass)
+     * Admin (roleTemplate='admin') has FULL BYPASS
      * @param {string} pageName
      * @returns {boolean}
      */
@@ -131,8 +131,12 @@ if (typeof window !== 'undefined' && window.AuthManager) {
         const authData = this.getAuthData();
         if (!authData) return false;
 
-        // NO BYPASS - All users (including admin) check detailedPermissions
-        // Admin is just a user with all permissions = true
+        // Admin BYPASS - full access to everything
+        if (authData.roleTemplate === 'admin') {
+            return true;
+        }
+
+        // Other users check detailedPermissions
         if (authData.detailedPermissions && authData.detailedPermissions[pageName]) {
             const pagePerms = authData.detailedPermissions[pageName];
             return Object.values(pagePerms).some(v => v === true);
@@ -173,12 +177,15 @@ if (typeof window !== 'undefined' && window.AuthManager) {
 
     /**
      * NEW: Check if user has specific detailed permission
+     * Admin (roleTemplate='admin') has FULL BYPASS
      * @param {string} pageId
      * @param {string} action
      * @returns {boolean}
      */
     hasDetailedPermission(pageId, action) {
         const authData = this.getAuthData();
+        // Admin BYPASS - full access to everything
+        if (authData?.roleTemplate === 'admin') return true;
         if (!authData?.detailedPermissions?.[pageId]) return false;
         return authData.detailedPermissions[pageId][action] === true;
     }

@@ -66,14 +66,29 @@ const PermissionHelper = {
     },
 
     /**
+     * Kiểm tra user có phải admin không (roleTemplate='admin')
+     * Admin có FULL BYPASS - không cần check detailedPermissions
+     * @returns {boolean}
+     */
+    isAdmin() {
+        const auth = this.getAuth();
+        return auth?.roleTemplate === 'admin';
+    },
+
+    /**
      * Kiểm tra có quyền truy cập trang không
-     * User có quyền nếu có ít nhất 1 permission = true trong trang đó
+     * Admin có FULL BYPASS. User khác cần ít nhất 1 permission = true trong trang đó
      *
      * @param {string} pageId - ID trang (live, ck, order-management, etc.)
      * @returns {boolean}
      */
     canAccessPage(pageId) {
         const auth = this.getAuth();
+
+        // Admin BYPASS - full access to everything
+        if (auth?.roleTemplate === 'admin') {
+            return true;
+        }
 
         if (!auth?.detailedPermissions?.[pageId]) {
             return false;
@@ -85,6 +100,7 @@ const PermissionHelper = {
 
     /**
      * Kiểm tra quyền cụ thể trong trang
+     * Admin có FULL BYPASS
      *
      * @param {string} pageId - ID trang
      * @param {string} action - Hành động (view, edit, delete, upload, etc.)
@@ -92,6 +108,10 @@ const PermissionHelper = {
      */
     hasPermission(pageId, action) {
         const auth = this.getAuth();
+        // Admin BYPASS - full access to everything
+        if (auth?.roleTemplate === 'admin') {
+            return true;
+        }
         return auth?.detailedPermissions?.[pageId]?.[action] === true;
     },
 

@@ -333,11 +333,10 @@ class UnifiedNavigationManager {
         }
 
         try {
-            // Get user info - NEW SYSTEM: isAdmin is for display only, NOT permission bypass
-            // Admin is just a user with roleTemplate='admin' (all permissions = true)
+            // Get user info - Admin has FULL BYPASS, others check detailedPermissions
             const authData = JSON.parse(localStorage.getItem("loginindex_auth") || "{}");
             this.isAdmin = authData.roleTemplate === 'admin';
-            console.log("[Unified Nav] Is Admin (roleTemplate):", this.isAdmin);
+            console.log("[Unified Nav] Is Admin (roleTemplate):", this.isAdmin, "- Has BYPASS");
 
             // Load permissions
             await this.loadUserPermissions();
@@ -516,13 +515,15 @@ class UnifiedNavigationManager {
 
     /**
      * NEW: Check if user has a specific detailed permission
-     * NO BYPASS - All users (including admin) check detailedPermissions
+     * Admin (roleTemplate='admin') has FULL BYPASS
      * @param {string} pageId
      * @param {string} permissionKey
      * @returns {boolean}
      */
     hasDetailedPermission(pageId, permissionKey) {
-        // NO BYPASS - Admin is just user with all permissions = true
+        // Admin BYPASS - full access to everything
+        if (this.isAdmin) return true;
+
         if (!this.userDetailedPermissions) return false;
 
         const pagePerms = this.userDetailedPermissions[pageId];
@@ -586,8 +587,13 @@ class UnifiedNavigationManager {
             return true;
         }
 
-        // NO BYPASS - All users (including admin) check detailedPermissions
-        // Admin is just a user with all permissions = true
+        // Admin BYPASS - full access to everything
+        if (this.isAdmin) {
+            console.log("[Permission Check] Admin user (roleTemplate), allowing access");
+            return true;
+        }
+
+        // Other users check detailedPermissions
         const hasPermission = this.userPermissions.includes(
             pageInfo.permissionRequired,
         );
@@ -888,8 +894,8 @@ class UnifiedNavigationManager {
         let renderedCount = 0;
 
         MENU_CONFIG.forEach((menuItem) => {
-            // NO BYPASS - Check detailedPermissions derived userPermissions only
-            const hasPermission = this.userPermissions.includes(menuItem.permissionRequired);
+            // Admin BYPASS - show all menu items
+            const hasPermission = this.isAdmin || this.userPermissions.includes(menuItem.permissionRequired);
 
             if (!hasPermission) {
                 console.log(
@@ -1217,8 +1223,9 @@ class UnifiedNavigationManager {
     }
 
     getAccessiblePages() {
-        // NO BYPASS - All users (including admin) check detailedPermissions
+        // Admin BYPASS - access all pages
         const accessible = MENU_CONFIG.filter((item) => {
+            if (this.isAdmin) return true;
             if (item.adminOnly) return false;
             return this.userPermissions.includes(item.permissionRequired);
         });
