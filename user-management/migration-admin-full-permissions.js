@@ -6,9 +6,55 @@
 // - Admin template = all permissions set to true
 // - NO bypass based on roleTemplate
 //
-// USAGE: Include this script in index-admin.html or run from console
-// Call: migrateAdminUsers() to execute migration
+// USAGE:
+// 1. Mở trang User Management
+// 2. Đợi Firebase kết nối (thấy "Kết nối Firebase thành công")
+// 3. Mở Console (F12) và chạy: await migrateAdminUsers()
 // =====================================================
+
+// Firebase config (same as user-management-enhanced.js)
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+    authDomain: "n2shop-69e37.firebaseapp.com",
+    projectId: "n2shop-69e37",
+    storageBucket: "n2shop-69e37-ne0q1",
+    messagingSenderId: "598906493303",
+    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+};
+
+/**
+ * Ensure Firebase is connected
+ */
+async function ensureFirebaseConnected() {
+    // Check if already connected
+    if (window.db) {
+        console.log("[Migration] Firebase already connected");
+        return true;
+    }
+
+    console.log("[Migration] Initializing Firebase...");
+
+    try {
+        // Check if firebase is loaded
+        if (typeof firebase === 'undefined') {
+            console.error("[Migration] Firebase SDK not loaded!");
+            return false;
+        }
+
+        // Initialize if not already
+        if (!firebase.apps.length) {
+            firebase.initializeApp(FIREBASE_CONFIG);
+        }
+
+        // Set global db reference
+        window.db = firebase.firestore();
+        console.log("[Migration] Firebase connected successfully!");
+        return true;
+    } catch (error) {
+        console.error("[Migration] Firebase connection error:", error);
+        return false;
+    }
+}
 
 /**
  * Generate full detailedPermissions object with all permissions = true
@@ -215,9 +261,11 @@ async function migrateAdminUsers() {
     console.log("MIGRATION: Admin Full Permissions");
     console.log("========================================");
 
-    if (!window.db) {
+    // Auto-connect Firebase if needed
+    const connected = await ensureFirebaseConnected();
+    if (!connected) {
         console.error("Firebase not connected!");
-        alert("Firebase not connected! Please connect first.");
+        alert("Firebase not connected! Vui lòng đợi trang load xong hoặc refresh lại.");
         return { success: false, error: "Firebase not connected" };
     }
 
@@ -303,9 +351,11 @@ async function previewMigration() {
     console.log("PREVIEW: Admin Migration (Dry Run)");
     console.log("========================================");
 
-    if (!window.db) {
+    // Auto-connect Firebase if needed
+    const connected = await ensureFirebaseConnected();
+    if (!connected) {
         console.error("Firebase not connected!");
-        return;
+        return null;
     }
 
     try {
@@ -348,7 +398,9 @@ async function previewMigration() {
 async function migrateSingleUser(username) {
     console.log(`Migrating single user: ${username}`);
 
-    if (!window.db) {
+    // Auto-connect Firebase if needed
+    const connected = await ensureFirebaseConnected();
+    if (!connected) {
         console.error("Firebase not connected!");
         return { success: false, error: "Firebase not connected" };
     }
