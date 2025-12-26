@@ -11216,6 +11216,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Show modal
     document.getElementById('chatModal').classList.add('show');
 
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+
     // Load and display debt for this order's phone
     loadChatDebt(order.Telephone);
 
@@ -11742,6 +11745,9 @@ window.closeChatModal = async function () {
     cleanupRealtimeMessages();
 
     document.getElementById('chatModal').classList.remove('show');
+
+    // Restore body scroll when modal is closed
+    document.body.style.overflow = '';
 
     // Clean up scroll listener
     const modalBody = document.getElementById('chatModalBody');
