@@ -257,14 +257,21 @@ async function deleteTransaction(type, id) {
 function viewTransactionDetail(type, dateOrId) {
     console.log('[FINANCE] View detail:', type, dateOrId);
 
-    if (type === TRANSACTION_TYPES.INVOICE) {
+    // Support both constant and string comparison for robustness
+    if (type === TRANSACTION_TYPES.INVOICE || type === 'invoice') {
         if (typeof openInvoiceDetailModal === 'function') {
             openInvoiceDetailModal(dateOrId);
+        } else {
+            console.error('[FINANCE] openInvoiceDetailModal function not found');
         }
-    } else if (type === TRANSACTION_TYPES.SHIPPING_COST) {
+    } else if (type === TRANSACTION_TYPES.SHIPPING_COST || type === 'shipping_cost') {
         if (typeof openShippingDetailModal === 'function') {
             openShippingDetailModal(dateOrId);
+        } else {
+            console.error('[FINANCE] openShippingDetailModal function not found');
         }
+    } else {
+        console.warn('[FINANCE] Unknown transaction type for detail view:', type);
     }
 }
 
