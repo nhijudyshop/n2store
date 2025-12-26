@@ -139,6 +139,10 @@
                             <i data-lucide="edit-3"></i>
                             Đổi Tên Menu
                         </button>
+                        <button class="tab-btn" data-tab="templates">
+                            <i data-lucide="layout-template"></i>
+                            Quản Lý Templates
+                        </button>
                     </div>
                 </div>
             </section>
@@ -233,27 +237,8 @@
                             </div>
                         </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>
-                                    <i data-lucide="shield"></i>
-                                    Quyền hạn
-                                </label>
-                                <select id="editCheckLogin">
-                                    <option value="0">Admin (0)</option>
-                                    <option value="1">User (1)</option>
-                                    <option value="2">Limited (2)</option>
-                                    <option value="3">Basic (3)</option>
-                                    <option value="777">Guest (777)</option>
-                                </select>
-                            </div>
-                            <div class="form-group"></div>
-                        </div>
-
-                        <!-- Page Access Permissions Section -->
-                        <div id="editPagePermissions" class="page-permissions-container"></div>
-
-                        <!-- Detailed Permissions Section -->
+                        <!-- Permissions Section (Simplified - only detailed permissions) -->
+                        <!-- Page access is now derived from detailed permissions -->
                         <div id="editDetailedPermissions" class="detailed-permissions-container"></div>
 
                         <div class="form-actions">
@@ -320,29 +305,8 @@
                             </div>
                         </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>
-                                    <i data-lucide="shield"></i>
-                                    Quyền hạn
-                                </label>
-                                <select id="newCheckLogin">
-                                    <option value="0">Admin (0)</option>
-                                    <option value="1" selected>
-                                        User (1)
-                                    </option>
-                                    <option value="2">Limited (2)</option>
-                                    <option value="3">Basic (3)</option>
-                                    <option value="777">Guest (777)</option>
-                                </select>
-                            </div>
-                            <div class="form-group"></div>
-                        </div>
-
-                        <!-- Page Access Permissions Section -->
-                        <div id="newPagePermissions" class="page-permissions-container"></div>
-
-                        <!-- Detailed Permissions Section -->
+                        <!-- Permissions Section (Simplified - only detailed permissions) -->
+                        <!-- Page access is now derived from detailed permissions -->
                         <div id="newDetailedPermissions" class="detailed-permissions-container"></div>
 
                         <div class="form-actions">
@@ -496,6 +460,39 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Tab: Template Management -->
+            <div id="templates" class="tab-content">
+                <section class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i data-lucide="layout-template"></i>
+                            <h2>Quản Lý Mẫu Phân Quyền (Templates)</h2>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" onclick="templateManager.showCreateModal()">
+                                <i data-lucide="plus"></i>
+                                Tạo Template Mới
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p style="color: var(--text-tertiary); margin-bottom: 20px;">
+                            Tạo và quản lý các mẫu phân quyền để áp dụng nhanh cho users.
+                            Templates tùy chỉnh sẽ được lưu vào Firebase và có thể sử dụng khi tạo/sửa user.
+                        </p>
+                        <div id="templatesList">
+                            <div class="empty-state show">
+                                <i data-lucide="layout-template"></i>
+                                <h3>Đang tải templates...</h3>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Template Editor Modal will be injected here -->
+                <div id="templateEditorModal"></div>
+            </div>
         </main>
     </div>
 
@@ -503,7 +500,10 @@
     <script src="../orders-report/decoding-utility.js"></script>
     <script src="menu-rename-manager.js"></script>
     <script src="notification-system.js"></script>
-    <script src="page-permissions-ui.js"></script>
+
+    <!-- Permissions Registry - Single Source of Truth (phải load trước các UI) -->
+    <script src="permissions-registry.js"></script>
+    <!-- page-permissions-ui.js REMOVED - replaced by simplified system using only detailedPermissions -->
 
     <script>
         // Create compatibility elements before loading other scripts
@@ -547,9 +547,14 @@
 
     <script src="image-system.js"></script>
     <script src="auth.js"></script>
-    <script src="detailed-permissions-config.js"></script>
+    <!-- detailed-permissions-config.js REMOVED - replaced by permissions-registry.js -->
     <script src="detailed-permissions-ui.js"></script>
     <script src="user-management-enhanced.js"></script>
+    <script src="permissions-overview.js"></script>
+    <script src="template-manager.js"></script>
+
+    <!-- Migration Script - Có thể xóa sau khi migration xong -->
+    <script src="permissions-migration.js"></script>
 
     <script>
         // Initialize
@@ -585,6 +590,11 @@
                     // Initialize menu rename UI when tab is clicked
                     if (tabName === 'menu-rename' && window.menuRenameManager) {
                         window.menuRenameManager.renderUI('menuRenameContainer');
+                    }
+
+                    // Initialize templates UI when tab is clicked
+                    if (tabName === 'templates' && window.templateManager) {
+                        window.templateManager.loadTemplates();
                     }
 
                     lucide.createIcons();

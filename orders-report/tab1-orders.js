@@ -11216,6 +11216,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Show modal
     document.getElementById('chatModal').classList.add('show');
 
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+
     // Load and display debt for this order's phone
     loadChatDebt(order.Telephone);
 
@@ -11742,6 +11745,9 @@ window.closeChatModal = async function () {
     cleanupRealtimeMessages();
 
     document.getElementById('chatModal').classList.remove('show');
+
+    // Restore body scroll when modal is closed
+    document.body.style.overflow = '';
 
     // Clean up scroll listener
     const modalBody = document.getElementById('chatModalBody');
@@ -14607,18 +14613,92 @@ function renderChatMessages(messages, scrollToBottom = false) {
 
                 // Replied Message (Quoted message)
                 if (att.type === 'replied_message') {
+                    // Debug: Log replied_message structure to find the correct ID field
+                    console.log('[REPLIED_MESSAGE] Full attachment object:', JSON.stringify(att, null, 2));
+
                     const quotedText = att.message || '';
                     const quotedFrom = att.from?.name || att.from?.admin_name || 'Unknown';
                     const quotedHasAttachment = att.attachments && att.attachments.length > 0;
+                    const quotedMessageId = att.id || att.message_id || att.mid || '';
+
+                    console.log('[REPLIED_MESSAGE] Extracted ID:', quotedMessageId, 'from fields:', {
+                        'att.id': att.id,
+                        'att.message_id': att.message_id,
+                        'att.mid': att.mid
+                    });
+
+                    // Build attachment preview content
+                    let attachmentPreview = '';
+                    if (quotedHasAttachment) {
+                        att.attachments.forEach(qAtt => {
+                            // Image attachment
+                            if ((qAtt.type === 'photo' && qAtt.url) ||
+                                (qAtt.mime_type && qAtt.mime_type.startsWith('image/') && qAtt.file_url)) {
+                                const imgUrl = qAtt.url || qAtt.file_url;
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px;">
+                                        <img src="${imgUrl}" style="max-width: 80px; max-height: 60px; border-radius: 4px; object-fit: cover;" loading="lazy" />
+                                    </div>`;
+                            }
+                            // Audio attachment
+                            else if (qAtt.mime_type === 'audio/mp4' && qAtt.file_url) {
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px; display: flex; align-items: center; color: #6b7280; font-size: 11px;">
+                                        <i class="fas fa-microphone" style="margin-right: 4px;"></i>
+                                        <span>Tin nhắn thoại</span>
+                                    </div>`;
+                            }
+                            // Video attachment
+                            else if ((qAtt.type === 'video_inline' || qAtt.type === 'video_direct_response' || qAtt.type === 'video') && qAtt.url) {
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px; display: flex; align-items: center; color: #6b7280; font-size: 11px;">
+                                        <i class="fas fa-video" style="margin-right: 4px;"></i>
+                                        <span>Video</span>
+                                    </div>`;
+                            }
+                            // Sticker attachment
+                            else if (qAtt.type === 'sticker' && (qAtt.url || qAtt.file_url)) {
+                                const stickerUrl = qAtt.url || qAtt.file_url;
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px;">
+                                        <img src="${stickerUrl}" style="max-width: 50px; max-height: 50px;" loading="lazy" />
+                                    </div>`;
+                            }
+                            // File attachment
+                            else if (qAtt.type === 'file' || (qAtt.mime_type && qAtt.file_url)) {
+                                const fileName = qAtt.name || 'Tệp đính kèm';
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px; display: flex; align-items: center; color: #6b7280; font-size: 11px;">
+                                        <i class="fas fa-file" style="margin-right: 4px;"></i>
+                                        <span>${fileName}</span>
+                                    </div>`;
+                            }
+                            // Generic attachment fallback
+                            else if (!attachmentPreview) {
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px; display: flex; align-items: center; color: #6b7280; font-size: 11px;">
+                                        <i class="fas fa-paperclip" style="margin-right: 4px;"></i>
+                                        <span>Tệp đính kèm</span>
+                                    </div>`;
+                            }
+                        });
+                    }
+
+                    // Display text content (if any)
+                    const textContent = quotedText ? `<div style="font-size: 12px; color: #374151;">${quotedText}</div>` : '';
+                    const displayContent = textContent || attachmentPreview || '<div style="font-size: 12px; color: #9ca3af;">[Không có nội dung]</div>';
+
+                    // Add click handler if we have a message ID
+                    const clickHandler = quotedMessageId ? `onclick="window.scrollToMessage('${quotedMessageId}')"` : '';
+                    const cursorStyle = quotedMessageId ? 'cursor: pointer;' : '';
 
                     content = `
-                        <div class="quoted-message" style="background: #f3f4f6; border-left: 3px solid #3b82f6; padding: 8px 10px; margin-bottom: 8px; border-radius: 4px;">
+                        <div class="quoted-message" ${clickHandler} style="background: #f3f4f6; border-left: 3px solid #3b82f6; padding: 8px 10px; margin-bottom: 8px; border-radius: 4px; ${cursorStyle} transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">
                             <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px;">
                                 <i class="fas fa-reply" style="margin-right: 4px;"></i>${quotedFrom}
                             </div>
-                            <div style="font-size: 12px; color: #374151;">
-                                ${quotedText || (quotedHasAttachment ? '[Attachment]' : '[No content]')}
-                            </div>
+                            ${displayContent}
+                            ${textContent && attachmentPreview ? attachmentPreview : ''}
                         </div>
                     ` + content;
                     return;
@@ -15682,6 +15762,41 @@ window.fetchAndUpdateMessages = fetchAndUpdateMessages;
 // #endregion ════════════════════════════════════════════════════════════════════
 
 // =====================================================
+// SCROLL TO MESSAGE FUNCTION
+// =====================================================
+
+/**
+ * Scroll to a specific message in the chat modal and highlight it
+ * @param {string} messageId - The ID of the message to scroll to
+ */
+window.scrollToMessage = function(messageId) {
+    if (!messageId) return;
+
+    const modalBody = document.getElementById('chatModalBody');
+    if (!modalBody) return;
+
+    // Find message element by data-message-id attribute
+    const messageElement = modalBody.querySelector(`[data-message-id="${messageId}"]`);
+
+    if (messageElement) {
+        // Scroll to message
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Add highlight animation
+        messageElement.classList.add('message-highlight');
+
+        // Remove highlight after animation
+        setTimeout(() => {
+            messageElement.classList.remove('message-highlight');
+        }, 2000);
+    } else {
+        console.log('[SCROLL] Message not found:', messageId);
+        // Message might not be loaded yet - show notification
+        showToast && showToast('Tin nhắn không tìm thấy trong cuộc hội thoại hiện tại', 'warning');
+    }
+};
+
+// =====================================================
 // INFINITE SCROLL FOR MESSAGES & COMMENTS #SCROLL
 // =====================================================
 
@@ -16577,15 +16692,21 @@ async function fetchAndAppendNewMessages(conversation) {
         if (newItems.length > 0) {
             console.log('[REALTIME] Got', newItems.length, 'new items');
 
+            // Check if user is at bottom before updating
+            const modalBody = document.getElementById('chatModalBody');
+            const wasAtBottom = modalBody &&
+                (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
+
             // Add to global array
             if (chatType === 'message') {
                 window.allChatMessages.push(...newItems);
+                // Re-render all messages with full formatting (avatar, name, quoted messages, etc.)
+                renderChatMessages(window.allChatMessages, wasAtBottom);
             } else {
                 window.allChatComments.push(...newItems);
+                // Re-render all comments with full formatting
+                renderChatMessages(window.allChatComments, wasAtBottom);
             }
-
-            // Incremental render (NEW)
-            appendNewMessages(newItems, chatType);
         } else {
             console.log('[REALTIME] No new items found');
         }

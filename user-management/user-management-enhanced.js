@@ -7,14 +7,12 @@ let auth = null;
 let currentMethod = "cryptojs";
 let users = [];
 
-// Check admin access
+// Check admin access - Admin (roleTemplate='admin') has FULL BYPASS
 function checkAdminAccess() {
-    const checkLogin = localStorage.getItem("checkLogin");
     const isLoggedIn = localStorage.getItem("isLoggedIn");
     const authData = localStorage.getItem("loginindex_auth");
 
     console.log("Checking admin access:", {
-        checkLogin,
         isLoggedIn,
         authData: !!authData,
     });
@@ -24,29 +22,34 @@ function checkAdminAccess() {
         return false;
     }
 
-    // Check if user is admin OR has user-management permission
-    const isAdmin = checkLogin === "0" || checkLogin === 0;
     let hasPermission = false;
 
-    if (!isAdmin) {
-        // Check for specific user-management permission
-        try {
-            const auth = JSON.parse(authData);
-            const pagePermissions = auth.pagePermissions || [];
-            hasPermission = pagePermissions.includes("user-management");
+    try {
+        const auth = JSON.parse(authData);
+
+        // Admin BYPASS - full access to everything
+        if (auth.roleTemplate === 'admin') {
+            hasPermission = true;
+            console.log("Permission check: Admin (roleTemplate) - BYPASS");
+        } else {
+            // Other users check detailedPermissions for 'user-management' page
+            if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
+                const userMgmtPerms = auth.detailedPermissions['user-management'];
+                hasPermission = Object.values(userMgmtPerms).some(v => v === true);
+            }
 
             console.log("Permission check:", {
-                isAdmin: false,
-                pagePermissions,
-                hasUserManagementPermission: hasPermission
+                hasDetailedPermissions: !!auth.detailedPermissions,
+                hasUserManagementPermission: hasPermission,
+                roleTemplate: auth.roleTemplate || 'unknown'
             });
-        } catch (e) {
-            console.error("Error checking permissions:", e);
         }
+    } catch (e) {
+        console.error("Error checking permissions:", e);
     }
 
-    if (!isAdmin && !hasPermission) {
-        showAccessDenied("Bạn không có quyền truy cập trang này. Cần quyền Admin hoặc quyền 'user-management'.");
+    if (!hasPermission) {
+        showAccessDenied("Bạn không có quyền truy cập trang quản lý người dùng.");
         return false;
     }
 
@@ -170,19 +173,18 @@ function renderUserList(users) {
 
     let html = "";
     users.forEach((user) => {
-        const roleClass = getRoleClass(user.checkLogin);
-        const roleIcon = getRoleIcon(user.checkLogin);
+        // NEW: Get role info from roleTemplate instead of checkLogin
+        const roleInfo = getRoleTemplateInfo(user.roleTemplate);
 
-        // Count page permissions
-        const pagePermCount = user.pagePermissions ? user.pagePermissions.length : 0;
-
-        // Count detailed permissions
+        // Count detailed permissions and derive page access count
         let permissionCount = 0;
+        let accessiblePagesCount = 0;
         if (user.detailedPermissions) {
-            Object.values(user.detailedPermissions).forEach((pagePerms) => {
-                permissionCount += Object.values(pagePerms).filter(
-                    (v) => v === true,
-                ).length;
+            Object.entries(user.detailedPermissions).forEach(([pageId, pagePerms]) => {
+                const pagePermCount = Object.values(pagePerms).filter(v => v === true).length;
+                permissionCount += pagePermCount;
+                // User has access to this page if at least one permission is true
+                if (pagePermCount > 0) accessiblePagesCount++;
             });
         }
 
@@ -213,11 +215,11 @@ function renderUserList(users) {
                     <div class="user-list-details">
                         <div class="user-list-name">${user.displayName} <span style="color: var(--text-tertiary); font-weight: normal">(${user.id})</span></div>
                         <div class="user-list-meta">
-                            <span class="user-role-badge ${roleClass}">
-                                <i data-lucide="${roleIcon}"></i>
-                                ${getRoleName(user.checkLogin)}
+                            <span class="user-role-badge" style="background: ${roleInfo.color}15; color: ${roleInfo.color}; border: 1px solid ${roleInfo.color}30;">
+                                <i data-lucide="${roleInfo.icon}"></i>
+                                ${roleInfo.name}
                             </span>
-                            <span><i data-lucide="layout-grid" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${pagePermCount} trang</span>
+                            <span><i data-lucide="layout-grid" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${accessiblePagesCount} trang</span>
                             <span><i data-lucide="shield-check" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${permissionCount}/${totalPerms} quyền</span>
                             <span><i data-lucide="calendar" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${createdDate}${updatedDate}</span>
                         </div>
@@ -280,6 +282,53 @@ function getRoleText(checkLogin) {
     return getRoleName(checkLogin);
 }
 
+/**
+ * Lấy thông tin role từ roleTemplate (NEW SYSTEM)
+ * @param {string} roleTemplate - Template name (admin, manager, sales-team, etc.)
+ * @returns {Object} - { name, icon, color }
+ */
+function getRoleTemplateInfo(roleTemplate) {
+    // Check PERMISSION_TEMPLATES from registry
+    if (typeof PERMISSION_TEMPLATES !== 'undefined' && PERMISSION_TEMPLATES[roleTemplate]) {
+        const info = PERMISSION_TEMPLATES[roleTemplate];
+        return {
+            id: roleTemplate,
+            name: info.name?.split(' - ')[0] || roleTemplate,
+            icon: info.icon || 'user',
+            color: info.color || '#6366f1'
+        };
+    }
+
+    // Default templates
+    const defaultTemplates = {
+        'admin': { name: 'Admin', icon: 'crown', color: '#ef4444' },
+        'manager': { name: 'Manager', icon: 'briefcase', color: '#f59e0b' },
+        'sales-team': { name: 'Sales Team', icon: 'shopping-cart', color: '#3b82f6' },
+        'warehouse-team': { name: 'Warehouse Team', icon: 'package', color: '#10b981' },
+        'staff': { name: 'Staff', icon: 'users', color: '#8b5cf6' },
+        'viewer': { name: 'Viewer', icon: 'eye', color: '#6b7280' },
+        'custom': { name: 'Custom', icon: 'sliders', color: '#6366f1' }
+    };
+
+    return {
+        id: roleTemplate || 'custom',
+        ...(defaultTemplates[roleTemplate] || defaultTemplates['custom'])
+    };
+}
+
+/**
+ * Render role badge HTML từ roleTemplate
+ * @param {string} roleTemplate - Template name
+ * @returns {string} - HTML string
+ */
+function renderRoleBadge(roleTemplate) {
+    const info = getRoleTemplateInfo(roleTemplate);
+    return `<span class="role-badge" style="background: ${info.color}20; color: ${info.color}; border: 1px solid ${info.color}40;">
+        <i data-lucide="${info.icon}" style="width: 12px; height: 12px;"></i>
+        ${info.name}
+    </span>`;
+}
+
 // =====================================================
 // USER MANAGEMENT CRUD OPERATIONS - PART 2
 // =====================================================
@@ -292,17 +341,13 @@ function editUser(username) {
     document.getElementById("editUsername").value = user.id;
     document.getElementById("editDisplayName").value = user.displayName;
     document.getElementById("editIdentifier").value = user.identifier || "";
-    document.getElementById("editCheckLogin").value = user.checkLogin;
     document.getElementById("editNewPassword").value = "";
 
-    // Load page permissions
-    if (window.editPagePermUI) {
-        window.editPagePermUI.setPermissions(user.pagePermissions || []);
-    }
-
-    // Load detailed permissions
-    if (editPermissionsUI) {
-        editPermissionsUI.setPermissions(user.detailedPermissions || {});
+    // Load detailed permissions and roleTemplate (NEW SYSTEM)
+    if (window.editDetailedPermUI) {
+        window.editDetailedPermUI.setPermissions(user.detailedPermissions || {});
+        // Set the currentTemplate so it's saved correctly on update
+        window.editDetailedPermUI.currentTemplate = user.roleTemplate || 'custom';
     }
 
     document.querySelector('[data-tab="manage"]').click();
@@ -360,9 +405,6 @@ async function updateUser() {
     const username = document.getElementById("editUsername").value.trim();
     const displayName = document.getElementById("editDisplayName").value.trim();
     const identifier = document.getElementById("editIdentifier").value.trim();
-    const checkLogin = parseInt(
-        document.getElementById("editCheckLogin").value,
-    );
     const newPassword = document.getElementById("editNewPassword").value.trim();
 
     if (!username || !displayName) {
@@ -370,15 +412,13 @@ async function updateUser() {
         return;
     }
 
-    // Get page permissions from UI
-    const pagePermissions = window.editPagePermUI
-        ? window.editPagePermUI.getPermissions()
-        : [];
-
-    // Get detailed permissions from UI
-    const detailedPermissions = editPermissionsUI
-        ? editPermissionsUI.getPermissions()
+    // Get detailed permissions from UI (page access is derived from this)
+    const detailedPermissions = window.editDetailedPermUI
+        ? window.editDetailedPermUI.getPermissions()
         : {};
+
+    // Get roleTemplate from UI (which template is currently applied)
+    const roleTemplate = window.editDetailedPermUI?.currentTemplate || 'custom';
 
     const loadingId = showFloatingAlert(
         "Đang cập nhật tài khoản...",
@@ -389,9 +429,8 @@ async function updateUser() {
         let updateData = {
             displayName: displayName,
             identifier: identifier,
-            checkLogin: checkLogin,
-            pagePermissions: pagePermissions,
             detailedPermissions: detailedPermissions,
+            roleTemplate: roleTemplate,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
                 .username,
@@ -414,16 +453,17 @@ async function updateUser() {
             window.notify.remove(loadingId);
         }
 
-        // Count permissions
+        // Count permissions and derive accessible pages
         let permCount = 0;
-        Object.values(detailedPermissions).forEach((pagePerms) => {
-            permCount += Object.values(pagePerms).filter(
-                (v) => v === true,
-            ).length;
+        let accessiblePages = 0;
+        Object.entries(detailedPermissions).forEach(([pageId, pagePerms]) => {
+            const grantedCount = Object.values(pagePerms).filter(v => v === true).length;
+            permCount += grantedCount;
+            if (grantedCount > 0) accessiblePages++;
         });
 
         showSuccess(
-            `Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nTruy cập trang: ${pagePermissions.length} trang\nQuyền chi tiết: ${permCount} quyền${newPassword ? "\n🔒 Đã thay đổi password" : ""}`,
+            `Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nNhóm quyền: ${roleTemplate}\nTruy cập trang: ${accessiblePages} trang\nQuyền chi tiết: ${permCount} quyền${newPassword ? "\n🔒 Đã thay đổi password" : ""}`,
         );
 
         setTimeout(loadUsers, 1000);
@@ -454,7 +494,6 @@ async function createUser() {
         document.getElementById("newDisplayName").value.trim() ||
         username.charAt(0).toUpperCase() + username.slice(1);
     const identifier = document.getElementById("newIdentifier").value.trim();
-    const checkLogin = parseInt(document.getElementById("newCheckLogin").value);
 
     if (!username || !password) {
         showError("Vui lòng nhập username và password!");
@@ -473,15 +512,13 @@ async function createUser() {
         return;
     }
 
-    // Get page permissions from UI
-    const pagePermissions = window.newPagePermUI
-        ? window.newPagePermUI.getPermissions()
-        : [];
-
-    // Get detailed permissions from UI
-    const detailedPermissions = newPermissionsUI
-        ? newPermissionsUI.getPermissions()
+    // Get detailed permissions from UI (page access is derived from this)
+    const detailedPermissions = window.newDetailedPermUI
+        ? window.newDetailedPermUI.getPermissions()
         : {};
+
+    // Get roleTemplate from UI (which template is currently applied)
+    const roleTemplate = window.newDetailedPermUI?.currentTemplate || 'custom';
 
     const loadingId = showFloatingAlert("Đang tạo tài khoản...", "loading");
 
@@ -507,9 +544,8 @@ async function createUser() {
             .set({
                 displayName: displayName,
                 identifier: identifier,
-                checkLogin: checkLogin,
-                pagePermissions: pagePermissions,
                 detailedPermissions: detailedPermissions,
+                roleTemplate: roleTemplate,
                 passwordHash: hash,
                 salt: salt,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -521,16 +557,17 @@ async function createUser() {
             window.notify.remove(loadingId);
         }
 
-        // Count permissions
+        // Count permissions and derive accessible pages
         let permCount = 0;
-        Object.values(detailedPermissions).forEach((pagePerms) => {
-            permCount += Object.values(pagePerms).filter(
-                (v) => v === true,
-            ).length;
+        let accessiblePages = 0;
+        Object.entries(detailedPermissions).forEach(([pageId, pagePerms]) => {
+            const grantedCount = Object.values(pagePerms).filter(v => v === true).length;
+            permCount += grantedCount;
+            if (grantedCount > 0) accessiblePages++;
         });
 
         showSuccess(
-            `Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nTruy cập trang: ${pagePermissions.length} trang\nQuyền chi tiết: ${permCount} quyền\n🔒 Password đã được hash an toàn`,
+            `Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nNhóm quyền: ${roleTemplate}\nTruy cập trang: ${accessiblePages} trang\nQuyền chi tiết: ${permCount} quyền\n🔒 Password đã được hash an toàn`,
         );
 
         clearCreateForm();
@@ -553,8 +590,9 @@ async function deleteUser(username) {
     const user = users.find((u) => u.id === username);
     if (!user) return;
 
-    const adminCount = users.filter((u) => u.checkLogin === 0).length;
-    if (user.checkLogin === 0 && adminCount === 1) {
+    // NEW SYSTEM: Check roleTemplate instead of checkLogin
+    const adminCount = users.filter((u) => u.roleTemplate === 'admin').length;
+    if (user.roleTemplate === 'admin' && adminCount === 1) {
         showError(
             "Không thể xóa admin cuối cùng!\nHệ thống phải có ít nhất 1 admin.",
         );
@@ -571,7 +609,9 @@ async function deleteUser(username) {
         });
     }
 
-    const confirmMsg = `XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nQuyền hạn: ${getRoleText(user.checkLogin)}\nQuyền chi tiết: ${permCount} quyền\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
+    // NEW SYSTEM: Display roleTemplate instead of checkLogin
+    const roleInfo = getRoleTemplateInfo(user.roleTemplate);
+    const confirmMsg = `XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nNhóm quyền: ${roleInfo.name}\nQuyền chi tiết: ${permCount} quyền\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
 
     if (!confirm(confirmMsg)) {
         return;
@@ -648,7 +688,9 @@ async function loadPermissionsOverview() {
             const user = doc.data();
             totalUsers++;
 
-            const role = getRoleText(user.checkLogin);
+            // NEW SYSTEM: Use roleTemplate for role stats
+            const roleInfo = getRoleTemplateInfo(user.roleTemplate);
+            const role = roleInfo.name;
             roleStats[role] = (roleStats[role] || 0) + 1;
 
             const permissions = user.detailedPermissions || {};
@@ -870,15 +912,11 @@ function clearEditForm() {
     document.getElementById("editUsername").value = "";
     document.getElementById("editDisplayName").value = "";
     document.getElementById("editIdentifier").value = "";
-    document.getElementById("editCheckLogin").value = "1";
     document.getElementById("editNewPassword").value = "";
 
-    if (window.editPagePermUI) {
-        window.editPagePermUI.setPermissions([]);
-    }
-
-    if (editPermissionsUI) {
-        editPermissionsUI.setPermissions({});
+    // Clear detailed permissions UI (simplified system - only detailedPermissions)
+    if (window.editDetailedPermUI) {
+        window.editDetailedPermUI.setPermissions({});
     }
 
     const output = document.getElementById("editOutput");
@@ -892,14 +930,10 @@ function clearCreateForm() {
     document.getElementById("newPassword").value = "";
     document.getElementById("newDisplayName").value = "";
     document.getElementById("newIdentifier").value = "";
-    document.getElementById("newCheckLogin").value = "1";
 
-    if (window.newPagePermUI) {
-        window.newPagePermUI.setPermissions([]);
-    }
-
-    if (newPermissionsUI) {
-        newPermissionsUI.setPermissions({});
+    // Clear detailed permissions UI (simplified system - only detailedPermissions)
+    if (window.newDetailedPermUI) {
+        window.newDetailedPermUI.setPermissions({});
     }
 
     const output = document.getElementById("createOutput");
@@ -959,22 +993,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }, 1000);
 
-    // Initialize Page Permissions UI
-    setTimeout(() => {
-        if (typeof PagePermissionsUI !== "undefined") {
-            window.editPagePermUI = new PagePermissionsUI(
-                "editPagePermissions",
-                "edit"
-            );
-            window.newPagePermUI = new PagePermissionsUI(
-                "newPagePermissions",
-                "new"
-            );
-            console.log("✅ Page Permissions UI initialized");
-        } else {
-            console.error("❌ PagePermissionsUI not loaded!");
-        }
-    }, 500);
+    // Note: PagePermissionsUI removed - now using simplified system with only detailedPermissions
+    // DetailedPermissionsUI is initialized in detailed-permissions-ui.js
+    console.log("✅ User Management initialized with simplified permission system");
 });
 
 console.log(

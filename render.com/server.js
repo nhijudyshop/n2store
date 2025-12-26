@@ -53,6 +53,78 @@ chatDbPool.query('SELECT NOW()')
     .catch(err => console.error('[DATABASE] PostgreSQL connection error:', err.message));
 
 // =====================================================
+// REALTIME CREDENTIALS MANAGEMENT
+// =====================================================
+
+/**
+ * Save realtime credentials to database for auto-reconnect on server restart
+ */
+async function saveRealtimeCredentials(db, clientType, credentials) {
+    try {
+        const query = `
+            INSERT INTO realtime_credentials (client_type, token, user_id, page_ids, cookie, room, is_active, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, TRUE, NOW())
+            ON CONFLICT (client_type) DO UPDATE SET
+                token = EXCLUDED.token,
+                user_id = EXCLUDED.user_id,
+                page_ids = EXCLUDED.page_ids,
+                cookie = EXCLUDED.cookie,
+                room = EXCLUDED.room,
+                is_active = TRUE,
+                updated_at = NOW()
+        `;
+        await db.query(query, [
+            clientType,
+            credentials.token,
+            credentials.userId || null,
+            credentials.pageIds ? JSON.stringify(credentials.pageIds) : null,
+            credentials.cookie || null,
+            credentials.room || null
+        ]);
+        console.log(`[CREDENTIALS] Saved ${clientType} credentials for auto-reconnect`);
+        return true;
+    } catch (error) {
+        // Table might not exist yet, ignore error
+        console.log(`[CREDENTIALS] Could not save ${clientType} credentials:`, error.message);
+        return false;
+    }
+}
+
+/**
+ * Load and auto-connect realtime clients on server startup
+ */
+async function autoConnectRealtimeClients(db) {
+    try {
+        console.log('[AUTO-CONNECT] Checking for saved credentials...');
+
+        const result = await db.query(`
+            SELECT client_type, token, user_id, page_ids, cookie, room
+            FROM realtime_credentials
+            WHERE is_active = TRUE
+        `);
+
+        if (result.rows.length === 0) {
+            console.log('[AUTO-CONNECT] No saved credentials found. Waiting for manual start.');
+            return;
+        }
+
+        for (const row of result.rows) {
+            if (row.client_type === 'pancake' && row.token && row.user_id && row.page_ids) {
+                const pageIds = JSON.parse(row.page_ids);
+                console.log(`[AUTO-CONNECT] Starting Pancake client with ${pageIds.length} pages...`);
+                realtimeClient.start(row.token, row.user_id, pageIds, row.cookie);
+            } else if (row.client_type === 'tpos' && row.token) {
+                console.log(`[AUTO-CONNECT] Starting TPOS client for room: ${row.room || 'tomato.tpos.vn'}...`);
+                tposRealtimeClient.start(row.token, row.room || 'tomato.tpos.vn');
+            }
+        }
+    } catch (error) {
+        // Table might not exist yet
+        console.log('[AUTO-CONNECT] Could not load credentials (table may not exist yet):', error.message);
+    }
+}
+
+// =====================================================
 // ROUTES
 // =====================================================
 
@@ -91,6 +163,7 @@ const customersRoutes = require('./routes/customers');
 const cloudflareBackupRoutes = require('./routes/cloudflare-backup');
 const realtimeRoutes = require('./routes/realtime');
 const { saveRealtimeUpdate } = require('./routes/realtime');
+const geminiRoutes = require('./routes/gemini');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -100,6 +173,7 @@ app.use('/api/image-proxy', imageProxyRoutes);
 app.use('/api/sepay', sepayWebhookRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/realtime', realtimeRoutes);
+app.use('/api/gemini', geminiRoutes);
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
 app.use('/api', cloudflareBackupRoutes);
@@ -521,31 +595,72 @@ const realtimeClient = new RealtimeClient();
 realtimeClient.setDb(chatDbPool); // Pass PostgreSQL pool for saving updates
 
 // API to start the Pancake client from the browser
-app.post('/api/realtime/start', (req, res) => {
+app.post('/api/realtime/start', async (req, res) => {
     const { token, userId, pageIds, cookie } = req.body;
     if (!token || !userId || !pageIds) {
         return res.status(400).json({ error: 'Missing parameters' });
     }
 
     realtimeClient.start(token, userId, pageIds, cookie);
-    res.json({ success: true, message: 'Realtime client started on server' });
+
+    // Save credentials for auto-reconnect on server restart
+    await saveRealtimeCredentials(chatDbPool, 'pancake', { token, userId, pageIds, cookie });
+
+    res.json({ success: true, message: 'Realtime client started on server (credentials saved for auto-reconnect)' });
 });
 
 // API to start the TPOS client from the browser
-app.post('/api/realtime/tpos/start', (req, res) => {
+app.post('/api/realtime/tpos/start', async (req, res) => {
     const { token, room } = req.body;
     if (!token) {
         return res.status(400).json({ error: 'Missing token' });
     }
 
     tposRealtimeClient.start(token, room || 'tomato.tpos.vn');
-    res.json({ success: true, message: 'TPOS Realtime client started on server' });
+
+    // Save credentials for auto-reconnect on server restart
+    await saveRealtimeCredentials(chatDbPool, 'tpos', { token, room: room || 'tomato.tpos.vn' });
+
+    res.json({ success: true, message: 'TPOS Realtime client started on server (credentials saved for auto-reconnect)' });
+});
+
+// API to get Pancake client status
+app.get('/api/realtime/status', (req, res) => {
+    res.json({
+        connected: realtimeClient.isConnected,
+        hasToken: !!realtimeClient.token,
+        userId: realtimeClient.userId,
+        pageCount: realtimeClient.pageIds?.length || 0
+    });
+});
+
+// API to stop Pancake client and disable auto-connect
+app.post('/api/realtime/stop', async (req, res) => {
+    // Disable auto-connect in database
+    try {
+        await chatDbPool.query(`UPDATE realtime_credentials SET is_active = FALSE WHERE client_type = 'pancake'`);
+    } catch (e) { /* ignore */ }
+
+    // Close WebSocket if connected
+    if (realtimeClient.ws) {
+        realtimeClient.ws.close();
+        realtimeClient.ws = null;
+    }
+    realtimeClient.isConnected = false;
+    realtimeClient.token = null;
+
+    res.json({ success: true, message: 'Pancake Realtime client stopped (auto-connect disabled)' });
 });
 
 // API to stop the TPOS client
-app.post('/api/realtime/tpos/stop', (req, res) => {
+app.post('/api/realtime/tpos/stop', async (req, res) => {
+    // Disable auto-connect in database
+    try {
+        await chatDbPool.query(`UPDATE realtime_credentials SET is_active = FALSE WHERE client_type = 'tpos'`);
+    } catch (e) { /* ignore */ }
+
     tposRealtimeClient.stop();
-    res.json({ success: true, message: 'TPOS Realtime client stopped' });
+    res.json({ success: true, message: 'TPOS Realtime client stopped (auto-connect disabled)' });
 });
 
 // API to get TPOS client status
@@ -584,13 +699,15 @@ app.get('/', (req, res) => {
                 'POST /api/sepay/* - SePay webhook & balance'
             ],
             realtime: [
-                'POST /api/realtime/start - Start Pancake WebSocket client',
+                'POST /api/realtime/start - Start Pancake WebSocket (saves credentials for auto-reconnect)',
+                'POST /api/realtime/stop - Stop Pancake WebSocket (disables auto-reconnect)',
+                'GET /api/realtime/status - Get Pancake client status',
                 'GET /api/realtime/new-messages?since={timestamp} - Get new messages since timestamp',
                 'GET /api/realtime/summary?since={timestamp} - Get summary count only',
                 'POST /api/realtime/mark-seen - Mark updates as seen',
                 'DELETE /api/realtime/cleanup?days={n} - Cleanup old records',
-                'POST /api/realtime/tpos/start - Start TPOS WebSocket client',
-                'POST /api/realtime/tpos/stop - Stop TPOS WebSocket client',
+                'POST /api/realtime/tpos/start - Start TPOS WebSocket (saves credentials for auto-reconnect)',
+                'POST /api/realtime/tpos/stop - Stop TPOS WebSocket (disables auto-reconnect)',
                 'GET /api/realtime/tpos/status - Get TPOS client status'
             ],
             health: [
@@ -667,4 +784,9 @@ server.listen(PORT, () => {
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`⏰ Started at: ${new Date().toISOString()}`);
     console.log('='.repeat(50));
+
+    // Auto-connect realtime clients after server starts (with delay to ensure DB is ready)
+    setTimeout(() => {
+        autoConnectRealtimeClients(chatDbPool);
+    }, 3000);
 });

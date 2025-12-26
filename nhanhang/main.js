@@ -564,7 +564,9 @@ function initializeTooltipHandlers() {
             }
 
             const auth = getAuthState();
-            if (auth && auth.checkLogin == "0") {
+            // NEW SYSTEM: Check detailedPermissions for 'nhan-hang' page or roleTemplate
+            const hasAdvancedView = auth && (auth.roleTemplate === 'admin' || auth.detailedPermissions?.['nhan-hang']?.['delete'] === true);
+            if (hasAdvancedView) {
                 const tooltip = document.getElementById("tooltip");
                 const row = e.target.closest("tr");
                 if (!row) return;

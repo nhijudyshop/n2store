@@ -123,6 +123,7 @@ if (typeof window !== 'undefined' && window.AuthManager) {
 
     /**
      * Check if user has permission for current page
+     * Admin (roleTemplate='admin') has FULL BYPASS
      * @param {string} pageName
      * @returns {boolean}
      */
@@ -130,14 +131,18 @@ if (typeof window !== 'undefined' && window.AuthManager) {
         const authData = this.getAuthData();
         if (!authData) return false;
 
-        // Admin (checkLogin = 0) has access to everything
-        if (authData.checkLogin === 0 || authData.checkLogin === '0') {
+        // Admin BYPASS - full access to everything
+        if (authData.roleTemplate === 'admin') {
             return true;
         }
 
-        // Check page permissions
-        const permissions = authData.pagePermissions || [];
-        return permissions.includes(pageName);
+        // Other users check detailedPermissions
+        if (authData.detailedPermissions && authData.detailedPermissions[pageName]) {
+            const pagePerms = authData.detailedPermissions[pageName];
+            return Object.values(pagePerms).some(v => v === true);
+        }
+
+        return false;
     }
 
     /**
@@ -152,13 +157,61 @@ if (typeof window !== 'undefined' && window.AuthManager) {
     }
 
     /**
-     * Check permission level
+     * Check permission level - LEGACY METHOD
+     * Kept for backward compatibility but returns true for admin roleTemplate
      * @param {number} requiredLevel
-     * @returns {boolean} True if user has required level or higher (lower number = higher permission)
+     * @returns {boolean}
      */
     hasPermissionLevel(requiredLevel) {
+        const authData = this.getAuthData();
+        if (!authData) return false;
+
+        // NEW SYSTEM: If roleTemplate is admin, treat as level 0
+        if (authData.roleTemplate === 'admin') {
+            return 0 <= requiredLevel;
+        }
+
         const userLevel = this.getPermissionLevel();
         return userLevel <= requiredLevel;
+    }
+
+    /**
+     * NEW: Check if user has specific detailed permission
+     * Admin (roleTemplate='admin') has FULL BYPASS
+     * @param {string} pageId
+     * @param {string} action
+     * @returns {boolean}
+     */
+    hasDetailedPermission(pageId, action) {
+        const authData = this.getAuthData();
+        // Admin BYPASS - full access to everything
+        if (authData?.roleTemplate === 'admin') return true;
+        if (!authData?.detailedPermissions?.[pageId]) return false;
+        return authData.detailedPermissions[pageId][action] === true;
+    }
+
+    /**
+     * NEW: Check if user is full admin (roleTemplate === 'admin')
+     * @returns {boolean}
+     */
+    isAdmin() {
+        const authData = this.getAuthData();
+        return authData?.roleTemplate === 'admin';
+    }
+
+    /**
+     * LEGACY: hasPermission for backward compatibility
+     * Previously checked checkLogin level, now uses roleTemplate
+     * @param {number} requiredLevel - 0 = admin, 1 = manager, etc.
+     * @returns {boolean}
+     */
+    hasPermission(requiredLevel) {
+        // NEW SYSTEM: If checking for level 0 (admin), check roleTemplate
+        if (requiredLevel === 0) {
+            return this.isAdmin();
+        }
+        // For other levels, use hasPermissionLevel for backward compatibility
+        return this.hasPermissionLevel(requiredLevel);
     }
 
     /**

@@ -33,6 +33,9 @@ window.openCommentModal = async function (orderId, channelId, psid) {
     // Show modal
     document.getElementById('commentModal').classList.add('show');
 
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+
     // Show loading
     const modalBody = document.getElementById('commentModalBody');
     modalBody.innerHTML = `
@@ -115,6 +118,9 @@ window.openCommentModal = async function (orderId, channelId, psid) {
  */
 window.closeCommentModal = function () {
     document.getElementById('commentModal').classList.remove('show');
+
+    // Restore body scroll when modal is closed
+    document.body.style.overflow = '';
 
     // Clean up scroll listener
     const modalBody = document.getElementById('commentModalBody');
