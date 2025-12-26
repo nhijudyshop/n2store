@@ -3,49 +3,155 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gemini AI Assistant</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="../hanghoan/modern.css" />
+
+    <!-- Core Utilities Loader -->
+    <script src="../js/core-loader.js"></script>
+    <script src="../js/navigation-modern.js"></script>
+    <script src="../js/common-utils.js"></script>
+
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Marked for markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <style>
-        body {
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f3f4f6;
+        /* Chat specific styles */
+        .chat-section {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - var(--topbar-height) - 2rem);
+            margin: var(--spacing-lg) var(--spacing-xl);
         }
 
         .chat-container {
-            height: calc(100vh - 200px);
+            flex: 1;
             overflow-y: auto;
+            padding: var(--spacing-lg);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
             scroll-behavior: smooth;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: var(--gray-300);
+            border-radius: 3px;
         }
 
         .message {
             max-width: 80%;
-            margin-bottom: 1rem;
-            padding: 1rem;
-            border-radius: 1rem;
+            margin-bottom: var(--spacing-lg);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            line-height: 1.6;
+        }
+
+        .message p {
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .message p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message pre {
+            background: var(--gray-800);
+            color: #e5e7eb;
+            padding: var(--spacing-md);
+            border-radius: var(--radius);
+            overflow-x: auto;
+            margin: var(--spacing-md) 0;
+        }
+
+        .message code {
+            background: var(--gray-100);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+
+        .message pre code {
+            background: transparent;
+            padding: 0;
         }
 
         .user-msg {
-            background-color: #dbeafe;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
             margin-left: auto;
-            color: #1e3a8a;
+            border-bottom-right-radius: var(--spacing-xs);
+        }
+
+        .user-msg code {
+            background: rgba(255,255,255,0.2);
+            color: white;
         }
 
         .ai-msg {
-            background-color: #ffffff;
+            background: var(--gray-50);
+            color: var(--text-primary);
             margin-right: auto;
-            border: 1px solid #e5e7eb;
-            color: #374151;
+            border: 1px solid var(--border);
+            border-bottom-left-radius: var(--spacing-xs);
         }
 
-        .loading {
-            display: inline-block;
+        .chat-input-section {
+            display: flex;
+            gap: var(--spacing-md);
+            padding: var(--spacing-lg);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+        }
+
+        .chat-input-section textarea {
+            flex: 1;
+            padding: var(--spacing-md);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 0.9375rem;
+            resize: none;
+            min-height: 48px;
+            max-height: 200px;
+            transition: var(--transition-fast);
+        }
+
+        .chat-input-section textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+        }
+
+        .chat-input-section .btn {
+            align-self: flex-end;
+            min-width: 100px;
+        }
+
+        .loading-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .loading-indicator .spinner {
             width: 20px;
             height: 20px;
-            border: 3px solid rgba(0, 0, 0, 0.3);
+            border: 3px solid var(--gray-300);
             border-radius: 50%;
-            border-top-color: #2563eb;
+            border-top-color: var(--primary);
             animation: spin 1s ease-in-out infinite;
         }
 
@@ -54,67 +160,175 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* Welcome message styling */
+        .welcome-msg {
+            text-align: center;
+            padding: var(--spacing-xl);
+            color: var(--text-secondary);
+        }
+
+        .welcome-msg i {
+            width: 64px;
+            height: 64px;
+            color: var(--primary);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .welcome-msg h2 {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .welcome-msg p {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .model-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs) var(--spacing-md);
+            background: var(--gray-100);
+            border-radius: var(--radius);
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+        }
+
+        .model-badge i {
+            width: 16px;
+            height: 16px;
+            color: var(--success);
+        }
+
+        /* Clear chat button */
+        .btn-clear {
+            background: var(--gray-100);
+            color: var(--text-secondary);
+        }
+
+        .btn-clear:hover {
+            background: var(--gray-200);
+            color: var(--danger);
+        }
     </style>
 </head>
 
-<body class="min-h-screen flex flex-col">
-    <header class="bg-blue-900 text-white p-4 shadow-md flex justify-between items-center">
-        <h1 class="text-xl font-bold flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            Gemini AI Assistant
-        </h1>
-    </header>
-
-    <main class="flex-1 max-w-4xl mx-auto w-full p-4">
-        <div id="chat-box" class="chat-container bg-gray-50 rounded-lg p-4">
-            <div class="message ai-msg">
-                <p><strong>Xin chào!</strong> Tôi là trợ lý AI sử dụng <strong>Gemini 1.5 Pro</strong>.</p>
-                <p>Hãy nhập câu hỏi hoặc yêu cầu của bạn.</p>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i data-lucide="zap"></i>
+                <span>N2Shop</span>
             </div>
-        </div>
-
-        <div class="mt-4 flex gap-2">
-            <textarea id="userInput"
-                class="flex-1 border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 resize-none"
-                rows="2" placeholder="Nhập tin nhắn..."></textarea>
-            <button onclick="sendMessage()"
-                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
-                Gửi
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i data-lucide="panel-left-close"></i>
             </button>
         </div>
+
+        <nav class="sidebar-nav" id="sidebarNav">
+            <!-- Menu items auto-generated -->
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i data-lucide="user-circle"></i>
+                </div>
+                <div class="user-details">
+                    <div class="user-name" id="userName">Admin</div>
+                    <div class="user-role">Quản trị viên</div>
+                </div>
+            </div>
+            <button class="btn-permissions" id="btnPermissions">
+                <i data-lucide="shield-check"></i>
+                <span>Xem Quyền Của Tôi</span>
+            </button>
+            <button class="btn-logout" id="btnLogout">
+                <i data-lucide="log-out"></i>
+                <span>Đăng xuất</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <button class="btn-icon" id="menuToggle">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="breadcrumb">
+                    <i data-lucide="bot"></i>
+                    <span>Gemini AI Assistant</span>
+                </div>
+            </div>
+            <div class="top-bar-right">
+                <div class="model-badge">
+                    <i data-lucide="check-circle"></i>
+                    <span id="modelName">gemini-2.0-flash</span>
+                </div>
+                <button class="btn btn-clear" id="btnClearChat" title="Xóa cuộc trò chuyện">
+                    <i data-lucide="trash-2"></i>
+                    <span>Xóa chat</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Chat Section -->
+        <section class="chat-section">
+            <div id="chat-box" class="chat-container">
+                <div class="welcome-msg">
+                    <i data-lucide="sparkles"></i>
+                    <h2>Gemini AI Assistant</h2>
+                    <p>Nhap noi dung bat ky de bat dau tro chuyen voi AI.</p>
+                    <div class="model-badge">
+                        <i data-lucide="cpu"></i>
+                        <span>Powered by Google Gemini</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-section">
+                <textarea id="userInput" rows="1" placeholder="Nhap tin nhan..."></textarea>
+                <button class="btn btn-primary" id="btnSend">
+                    <i data-lucide="send"></i>
+                    <span>Gui</span>
+                </button>
+            </div>
+        </section>
     </main>
+
+    <!-- Auth Script -->
+    <script src="../hanghoan/auth.js"></script>
 
     <script>
         // ============================================================
         // GEMINI AI CONFIGURATION
         // ============================================================
 
-        // API Key Management - Priority: localStorage > Default Key > empty
+        // API Key Management - Priority: localStorage > Default Key
         const savedGeminiProKey = localStorage.getItem("geminiApiKey");
         window.GEMINI_PRO_KEY = savedGeminiProKey || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs' || '';
 
-        // Model Configuration - Available models: gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash
-        const GEMINI_MODEL = 'gemini-1.5-pro';
+        // Model Configuration - Using Gemini 2.0 Flash
+        const GEMINI_MODEL = 'gemini-2.0-flash';
         const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
         console.log('[GEMINI] Using model:', GEMINI_MODEL);
         console.log('[GEMINI] API Key configured:', window.GEMINI_PRO_KEY ? 'Yes' : 'No');
 
+        // Update model name in UI
+        document.getElementById('modelName').textContent = GEMINI_MODEL;
+
         // ============================================================
-        // STATE & CONFIGURATION
+        // STATE
         // ============================================================
 
         let conversationHistory = [];
-
-        // System Prompt - Customize this for your use case
-        const systemInstruction = `
-            Bạn là một trợ lý AI thông minh và hữu ích.
-            Hãy trả lời bằng tiếng Việt một cách rõ ràng và chi tiết.
-        `;
 
         // ============================================================
         // CHAT FUNCTIONS
@@ -122,11 +336,36 @@
 
         function addMessage(role, text) {
             const box = document.getElementById("chat-box");
+
+            // Remove welcome message if exists
+            const welcome = box.querySelector('.welcome-msg');
+            if (welcome) welcome.remove();
+
             const div = document.createElement("div");
             div.className = `message ${role === "user" ? "user-msg" : "ai-msg"}`;
             div.innerHTML = marked.parse(text);
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
+        }
+
+        function showLoading() {
+            const box = document.getElementById("chat-box");
+            const loadingDiv = document.createElement("div");
+            loadingDiv.className = "message ai-msg";
+            loadingDiv.id = "loading-msg";
+            loadingDiv.innerHTML = `
+                <div class="loading-indicator">
+                    <span class="spinner"></span>
+                    <span>Dang xu ly...</span>
+                </div>
+            `;
+            box.appendChild(loadingDiv);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById("loading-msg");
+            if (loading) loading.remove();
         }
 
         async function sendMessage() {
@@ -143,25 +382,14 @@
             // Display user message
             addMessage("user", text);
             input.value = "";
+            input.style.height = 'auto';
 
             // Show loading
-            const box = document.getElementById("chat-box");
-            const loadingDiv = document.createElement("div");
-            loadingDiv.className = "message ai-msg";
-            loadingDiv.innerHTML = '<span class="loading"></span> Dang xu ly...';
-            loadingDiv.id = "loading-msg";
-            box.appendChild(loadingDiv);
-            box.scrollTop = box.scrollHeight;
+            showLoading();
 
             try {
-                // Build request payload
+                // Build request payload - NO system prompt, free input
                 const parts = [{ text: text }];
-
-                // Add system instruction on first message
-                if (conversationHistory.length === 0) {
-                    parts.unshift({ text: systemInstruction });
-                }
-
                 const contents = [{ role: "user", parts: parts }];
 
                 // Call Gemini API
@@ -172,9 +400,7 @@
                 });
 
                 const data = await response.json();
-
-                // Remove loading
-                document.getElementById("loading-msg")?.remove();
+                hideLoading();
 
                 if (data.error) {
                     addMessage("ai", `Loi: ${data.error.message}`);
@@ -187,7 +413,7 @@
                     conversationHistory.push({ role: "model", parts: [{ text: aiText }] });
                 }
             } catch (error) {
-                document.getElementById("loading-msg")?.remove();
+                hideLoading();
                 addMessage("ai", "Co loi xay ra khi ket noi voi Gemini AI.");
                 console.error('[GEMINI ERROR]', error);
             }
@@ -245,12 +471,50 @@
             });
         }
 
-        // Allow Enter key to send message
+        // ============================================================
+        // EVENT LISTENERS
+        // ============================================================
+
+        // Send button click
+        document.getElementById('btnSend').addEventListener('click', sendMessage);
+
+        // Enter key to send (Shift+Enter for new line)
         document.getElementById('userInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
             }
+        });
+
+        // Auto-resize textarea
+        document.getElementById('userInput').addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+        });
+
+        // Clear chat button
+        document.getElementById('btnClearChat').addEventListener('click', function () {
+            if (confirm('Ban co chac muon xoa cuoc tro chuyen?')) {
+                conversationHistory = [];
+                const box = document.getElementById("chat-box");
+                box.innerHTML = `
+                    <div class="welcome-msg">
+                        <i data-lucide="sparkles"></i>
+                        <h2>Gemini AI Assistant</h2>
+                        <p>Nhap noi dung bat ky de bat dau tro chuyen voi AI.</p>
+                        <div class="model-badge">
+                            <i data-lucide="cpu"></i>
+                            <span>Powered by Google Gemini</span>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        });
+
+        // Initialize Lucide icons
+        document.addEventListener('DOMContentLoaded', function () {
+            lucide.createIcons();
         });
     </script>
 </body>
