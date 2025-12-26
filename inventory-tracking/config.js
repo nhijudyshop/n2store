@@ -1,0 +1,109 @@
+// =====================================================
+// CONFIGURATION & CONSTANTS - INVENTORY TRACKING
+// =====================================================
+
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+    authDomain: "n2shop-69e37.firebaseapp.com",
+    projectId: "n2shop-69e37",
+    storageBucket: "n2shop-69e37.appspot.com",
+    messagingSenderId: "598906493303",
+    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+    measurementId: "G-TEJH3S2T1D",
+};
+
+// Application Constants
+const APP_CONFIG = {
+    PAGE_NAME: 'inventory-tracking',
+    PAGE_TITLE: 'Theo Doi Nhap Hang SL',
+    CACHE_EXPIRY: 24 * 60 * 60 * 1000, // 24 hours
+    FILTER_DEBOUNCE_DELAY: 300,
+    AUTH_STORAGE_KEY: 'loginindex_auth',
+    MAX_IMAGE_SIZE: 5 * 1024 * 1024, // 5MB
+    ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+};
+
+// Collection Names
+const COLLECTIONS = {
+    SHIPMENTS: 'inventory_tracking',
+    PREPAYMENTS: 'inventory_prepayments',
+    OTHER_EXPENSES: 'inventory_other_expenses',
+    EDIT_HISTORY: 'edit_history',
+    USERS: 'users',
+};
+
+// Transaction Types
+const TRANSACTION_TYPES = {
+    PREPAYMENT: 'prepayment',
+    INVOICE: 'invoice',
+    SHIPPING_COST: 'shipping_cost',
+    OTHER_EXPENSE: 'other_expense',
+};
+
+// Transaction Labels & Icons
+const TRANSACTION_CONFIG = {
+    [TRANSACTION_TYPES.PREPAYMENT]: {
+        label: 'Thanh toan truoc',
+        icon: 'banknote',
+        colorClass: 'positive',
+        isPositive: true,
+    },
+    [TRANSACTION_TYPES.INVOICE]: {
+        label: 'Tien hoa don',
+        icon: 'receipt',
+        colorClass: 'negative',
+        isPositive: false,
+    },
+    [TRANSACTION_TYPES.SHIPPING_COST]: {
+        label: 'Chi phi hang ve',
+        icon: 'truck',
+        colorClass: 'negative',
+        isPositive: false,
+    },
+    [TRANSACTION_TYPES.OTHER_EXPENSE]: {
+        label: 'Chi phi khac',
+        icon: 'wallet',
+        colorClass: 'negative',
+        isPositive: false,
+    },
+};
+
+// Global State
+let globalState = {
+    shipments: [],
+    prepayments: [],
+    otherExpenses: [],
+    filteredShipments: [],
+    transactions: [],
+    isLoading: false,
+    currentTab: 'tracking',
+    currentEditingId: null,
+    filters: {
+        dateFrom: '',
+        dateTo: '',
+        ncc: 'all',
+        product: '',
+    },
+    userPermissions: null,
+};
+
+// Initialize Firebase
+let app, db, storage;
+try {
+    app = firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    storage = firebase.storage();
+    console.log('[CONFIG] Firebase initialized successfully');
+} catch (error) {
+    console.error('[CONFIG] Firebase initialization error:', error);
+}
+
+// Collection References
+const shipmentsRef = db?.collection(COLLECTIONS.SHIPMENTS);
+const prepaymentsRef = db?.collection(COLLECTIONS.PREPAYMENTS);
+const otherExpensesRef = db?.collection(COLLECTIONS.OTHER_EXPENSES);
+const editHistoryRef = db?.collection(COLLECTIONS.EDIT_HISTORY);
+const usersRef = db?.collection(COLLECTIONS.USERS);
+
+console.log('[CONFIG] Configuration loaded successfully');

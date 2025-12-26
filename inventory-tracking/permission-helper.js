@@ -1,0 +1,232 @@
+// =====================================================
+// PERMISSION HELPER - INVENTORY TRACKING
+// =====================================================
+
+/**
+ * Default permissions for inventory tracking page
+ * These can be overridden by user-specific permissions in Firestore
+ */
+const DEFAULT_PERMISSIONS = {
+    // Tab permissions
+    tab_tracking: true,
+    tab_congNo: false,
+
+    // CRUD permissions - Tab 1
+    create_shipment: false,
+    edit_shipment: false,
+    delete_shipment: false,
+
+    // Field permissions (Tab 1)
+    view_ngayDiHang: true,
+    view_kienHang: true,
+    view_hoaDon: true,
+    view_anhHoaDon: true,
+    view_tongTien: true,
+    view_tongMon: true,
+    view_soMonThieu: true,
+    edit_soMonThieu: false,
+    view_chiPhiHangVe: false,
+    edit_chiPhiHangVe: false,
+    view_ghiChuAdmin: false,
+    edit_ghiChuAdmin: false,
+
+    // Tab 2 - Cong No
+    view_congNo: false,
+    create_prepayment: false,
+    edit_prepayment: false,
+    delete_prepayment: false,
+    create_otherExpense: false,
+    edit_otherExpense: false,
+    delete_otherExpense: false,
+    edit_invoiceTotal: false,
+    edit_shippingCost: false,
+
+    // Export
+    export_excel: true,
+};
+
+/**
+ * Admin permissions - full access
+ */
+const ADMIN_PERMISSIONS = {
+    tab_tracking: true,
+    tab_congNo: true,
+    create_shipment: true,
+    edit_shipment: true,
+    delete_shipment: true,
+    view_ngayDiHang: true,
+    view_kienHang: true,
+    view_hoaDon: true,
+    view_anhHoaDon: true,
+    view_tongTien: true,
+    view_tongMon: true,
+    view_soMonThieu: true,
+    edit_soMonThieu: true,
+    view_chiPhiHangVe: true,
+    edit_chiPhiHangVe: true,
+    view_ghiChuAdmin: true,
+    edit_ghiChuAdmin: true,
+    view_congNo: true,
+    create_prepayment: true,
+    edit_prepayment: true,
+    delete_prepayment: true,
+    create_otherExpense: true,
+    edit_otherExpense: true,
+    delete_otherExpense: true,
+    edit_invoiceTotal: true,
+    edit_shippingCost: true,
+    export_excel: true,
+};
+
+class PermissionHelper {
+    constructor() {
+        this.permissions = { ...DEFAULT_PERMISSIONS };
+        this.isLoaded = false;
+    }
+
+    /**
+     * Load user permissions from Firestore
+     */
+    async loadPermissions() {
+        try {
+            const auth = authManager?.getAuthState();
+            if (!auth) {
+                console.warn('[PERMISSION] No auth state found');
+                return this.permissions;
+            }
+
+            // If admin, grant full permissions
+            if (authManager.isAdmin()) {
+                this.permissions = { ...ADMIN_PERMISSIONS };
+                this.isLoaded = true;
+                console.log('[PERMISSION] Admin permissions loaded');
+                return this.permissions;
+            }
+
+            // Try to load user-specific permissions from Firestore
+            const username = auth.userType?.split('-')[0];
+            if (username && usersRef) {
+                const userDoc = await usersRef.doc(username).get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    if (userData.inventoryTrackingPermissions) {
+                        this.permissions = {
+                            ...DEFAULT_PERMISSIONS,
+                            ...userData.inventoryTrackingPermissions,
+                        };
+                        console.log('[PERMISSION] User permissions loaded from Firestore');
+                    }
+                }
+            }
+
+            this.isLoaded = true;
+            return this.permissions;
+        } catch (error) {
+            console.error('[PERMISSION] Error loading permissions:', error);
+            this.isLoaded = true;
+            return this.permissions;
+        }
+    }
+
+    /**
+     * Check if user has a specific permission
+     */
+    can(permissionKey) {
+        // Admin always has all permissions
+        if (authManager?.isAdmin()) {
+            return true;
+        }
+        return this.permissions[permissionKey] === true;
+    }
+
+    /**
+     * Check multiple permissions (AND logic)
+     */
+    canAll(...permissionKeys) {
+        return permissionKeys.every(key => this.can(key));
+    }
+
+    /**
+     * Check multiple permissions (OR logic)
+     */
+    canAny(...permissionKeys) {
+        return permissionKeys.some(key => this.can(key));
+    }
+
+    /**
+     * Get all current permissions
+     */
+    getAll() {
+        if (authManager?.isAdmin()) {
+            return { ...ADMIN_PERMISSIONS };
+        }
+        return { ...this.permissions };
+    }
+
+    /**
+     * Apply permissions to UI elements
+     * Hide or disable elements based on permissions
+     */
+    applyToUI() {
+        // Tab Finance visibility
+        const tabFinance = document.getElementById('tabFinance');
+        const financeLock = document.getElementById('financeLock');
+        if (tabFinance) {
+            if (!this.can('tab_congNo')) {
+                tabFinance.classList.add('disabled');
+                if (financeLock) financeLock.classList.remove('hidden');
+            } else {
+                tabFinance.classList.remove('disabled');
+                if (financeLock) financeLock.classList.add('hidden');
+            }
+        }
+
+        // Add shipment button
+        const btnAddShipment = document.getElementById('btnAddShipment');
+        if (btnAddShipment) {
+            btnAddShipment.style.display = this.can('create_shipment') ? '' : 'none';
+        }
+
+        // Export button
+        const exportButton = document.getElementById('exportButton');
+        if (exportButton) {
+            exportButton.style.display = this.can('export_excel') ? '' : 'none';
+        }
+
+        // Finance action buttons
+        const btnAddPrepayment = document.getElementById('btnAddPrepayment');
+        const btnAddExpense = document.getElementById('btnAddExpense');
+        if (btnAddPrepayment) {
+            btnAddPrepayment.style.display = this.can('create_prepayment') ? '' : 'none';
+        }
+        if (btnAddExpense) {
+            btnAddExpense.style.display = this.can('create_otherExpense') ? '' : 'none';
+        }
+
+        console.log('[PERMISSION] UI permissions applied');
+    }
+
+    /**
+     * Get visible columns for export
+     */
+    getExportableFields() {
+        const fields = [];
+
+        if (this.can('view_ngayDiHang')) fields.push('ngayDiHang');
+        if (this.can('view_kienHang')) fields.push('kienHang');
+        if (this.can('view_hoaDon')) fields.push('hoaDon');
+        if (this.can('view_tongTien')) fields.push('tongTien');
+        if (this.can('view_tongMon')) fields.push('tongMon');
+        if (this.can('view_soMonThieu')) fields.push('soMonThieu');
+        if (this.can('view_chiPhiHangVe')) fields.push('chiPhiHangVe');
+        if (this.can('view_ghiChuAdmin')) fields.push('ghiChuAdmin');
+
+        return fields;
+    }
+}
+
+// Initialize permission helper
+const permissionHelper = new PermissionHelper();
+window.permissionHelper = permissionHelper;
+
+console.log('[PERMISSION] Permission helper loaded');
