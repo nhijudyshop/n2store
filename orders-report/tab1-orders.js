@@ -18210,7 +18210,7 @@ window.confirmHeldProduct = async function (productId) {
 
         // STEP 7: Re-render Orders tab
         renderChatProductsTable();
-        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 
         // STEP 8: Trigger Dropped tab re-render to update "Người giữ" status
         if (typeof window.renderDroppedProductsTable === 'function') {
@@ -18350,7 +18350,7 @@ window.updateHeldProductQuantityById = function (productId, delta, specificValue
     }
 
     renderChatProductsTable();
-    saveChatProductsToFirebase('shared', currentChatOrderDetails);
+    // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 };
 
 /**
@@ -18475,7 +18475,7 @@ window.decreaseMainProductQuantityById = async function (productId) {
 
         // Re-render UI
         renderChatProductsTable();
-        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 
         // Re-render Dropped tab if visible
         if (typeof window.renderDroppedProductsTable === 'function') {
@@ -18531,7 +18531,7 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
     }
 
     renderChatProductsTable();
-    saveChatProductsToFirebase('shared', currentChatOrderDetails);
+    // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 }
 
 /**
@@ -18636,7 +18636,7 @@ async function decreaseMainProductQuantity(index) {
 
         // Re-render UI
         renderChatProductsTable();
-        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 
         // Re-render dropped tab
         if (typeof window.renderDroppedProductsTable === 'function') {
@@ -18741,7 +18741,7 @@ async function removeChatProduct(index) {
 
         // 5. Re-render UI
         renderChatProductsTable();
-        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 
         // 6. Show success notification
         if (window.notificationManager) {
