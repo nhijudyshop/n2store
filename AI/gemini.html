@@ -21,6 +21,10 @@
     <!-- Marked for markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
     <style>
         /* Chat specific styles */
         .chat-section {
@@ -310,19 +314,70 @@
         // GEMINI AI CONFIGURATION
         // ============================================================
 
-        // API Key Management - Priority: localStorage > Default Key
-        const savedGeminiProKey = localStorage.getItem("geminiApiKey");
-        window.GEMINI_PRO_KEY = savedGeminiProKey || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs' || '';
-
         // Model Configuration - Using Gemini 2.0 Flash
         const GEMINI_MODEL = 'gemini-2.0-flash';
         const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-        console.log('[GEMINI] Using model:', GEMINI_MODEL);
-        console.log('[GEMINI] API Key configured:', window.GEMINI_PRO_KEY ? 'Yes' : 'No');
+        // API Key - will be loaded from Firebase
+        window.GEMINI_PRO_KEY = '';
+
+        // Firebase Config
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+            authDomain: "n2shop-69e37.firebaseapp.com",
+            projectId: "n2shop-69e37",
+            storageBucket: "n2shop-69e37-ne0q1",
+            messagingSenderId: "598906493303",
+            appId: "1:598906493303:web:46d6236a1fdc2eff33e972"
+        };
+
+        // Initialize Firebase and load API key
+        async function initializeGeminiAPI() {
+            try {
+                // Initialize Firebase if not already done
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(FIREBASE_CONFIG);
+                }
+                const db = firebase.firestore();
+
+                // Try to load from Firebase first
+                console.log('[GEMINI] Loading API key from Firebase...');
+                const doc = await db.collection('settings').doc('api_keys').get();
+
+                if (doc.exists && doc.data().gemini_pro_key) {
+                    window.GEMINI_PRO_KEY = doc.data().gemini_pro_key;
+                    console.log('[GEMINI] API Key loaded from Firebase');
+                } else {
+                    // Fallback to localStorage
+                    const localKey = localStorage.getItem("geminiApiKey");
+                    if (localKey) {
+                        window.GEMINI_PRO_KEY = localKey;
+                        console.log('[GEMINI] API Key loaded from localStorage');
+                    } else {
+                        console.warn('[GEMINI] No API Key found in Firebase or localStorage');
+                    }
+                }
+            } catch (error) {
+                console.error('[GEMINI] Error loading API key from Firebase:', error);
+                // Fallback to localStorage
+                const localKey = localStorage.getItem("geminiApiKey");
+                if (localKey) {
+                    window.GEMINI_PRO_KEY = localKey;
+                    console.log('[GEMINI] API Key loaded from localStorage (fallback)');
+                }
+            }
+
+            console.log('[GEMINI] Using model:', GEMINI_MODEL);
+            console.log('[GEMINI] API Key configured:', window.GEMINI_PRO_KEY ? 'Yes' : 'No');
+        }
+
+        // Initialize on page load
+        initializeGeminiAPI();
 
         // Update model name in UI
-        document.getElementById('modelName').textContent = GEMINI_MODEL;
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('modelName').textContent = GEMINI_MODEL;
+        });
 
         // ============================================================
         // STATE
