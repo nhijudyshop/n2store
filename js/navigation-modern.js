@@ -334,9 +334,11 @@ class UnifiedNavigationManager {
 
         try {
             // Get user info - Admin has FULL BYPASS, others check detailedPermissions
-            const authData = JSON.parse(localStorage.getItem("loginindex_auth") || "{}");
+            // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
+            const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
+            const authData = JSON.parse(authDataStr);
             this.isAdmin = authData.roleTemplate === 'admin';
-            console.log("[Unified Nav] Is Admin (roleTemplate):", this.isAdmin, "- Has BYPASS");
+            console.log("[Unified Nav] Is Admin (roleTemplate):", this.isAdmin, "- Has BYPASS", "| Source:", localStorage.getItem("loginindex_auth") ? "localStorage" : "sessionStorage");
 
             // Load permissions
             await this.loadUserPermissions();
@@ -406,12 +408,12 @@ class UnifiedNavigationManager {
     }
 
     async loadUserPermissions() {
-        // NO BYPASS - All users check detailedPermissions (including admin)
-        // Admin is just a user with all permissions = true
+        // Load detailedPermissions from auth data
+        // Admin bypass is handled in checkPageAccess(), not here
 
-        // Try to load from localStorage cache
+        // Try to load from cache (check both localStorage AND sessionStorage)
         try {
-            const authData = localStorage.getItem("loginindex_auth");
+            const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
             if (authData) {
                 const userAuth = JSON.parse(authData);
 
@@ -437,9 +439,8 @@ class UnifiedNavigationManager {
         // Try to load from Firebase if not in cache
         try {
             if (typeof firebase !== "undefined" && firebase.firestore) {
-                const authData = JSON.parse(
-                    localStorage.getItem("loginindex_auth"),
-                );
+                const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+                const authData = authDataStr ? JSON.parse(authDataStr) : null;
 
                 if (!authData || !authData.username) {
                     console.error("[Permission Load] No username in auth data");
