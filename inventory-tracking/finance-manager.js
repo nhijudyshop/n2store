@@ -27,7 +27,7 @@ async function loadFinanceData() {
 
     } catch (error) {
         console.error('[FINANCE] Error loading finance data:', error);
-        toast.error('Khong the tai du lieu tai chinh');
+        toast.error('Không thể tải dữ liệu tài chính');
     }
 }
 
@@ -141,7 +141,7 @@ function renderFinanceTable() {
         tbody.innerHTML = `
             <tr>
                 <td colspan="5" class="text-center py-4">
-                    Chua co giao dich nao
+                    Chưa có giao dịch nào
                 </td>
             </tr>
         `;
@@ -227,18 +227,18 @@ function editTransaction(type, id) {
  * Delete transaction
  */
 async function deleteTransaction(type, id) {
-    if (!confirm('Ban co chac muon xoa?')) return;
+    if (!confirm('Bạn có chắc muốn xóa?')) return;
 
     try {
         switch (type) {
             case TRANSACTION_TYPES.PREPAYMENT:
                 await prepaymentsRef.doc(id).delete();
-                toast.success('Da xoa thanh toan');
+                toast.success('Đã xóa thanh toán');
                 break;
 
             case TRANSACTION_TYPES.OTHER_EXPENSE:
                 await otherExpensesRef.doc(id).delete();
-                toast.success('Da xoa chi phi');
+                toast.success('Đã xóa chi phí');
                 break;
         }
 
@@ -247,7 +247,7 @@ async function deleteTransaction(type, id) {
 
     } catch (error) {
         console.error('[FINANCE] Error deleting:', error);
-        toast.error('Khong the xoa');
+        toast.error('Không thể xóa');
     }
 }
 

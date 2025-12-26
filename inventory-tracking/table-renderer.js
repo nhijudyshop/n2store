@@ -61,16 +61,16 @@ function createShipmentCard(shipment) {
             </div>
             <div class="shipment-actions">
                 ${canEdit ? `
-                    <button class="btn btn-sm btn-outline" onclick="editShipment('${shipment.id}')" title="Sua">
+                    <button class="btn btn-sm btn-outline" onclick="editShipment('${shipment.id}')" title="Sửa">
                         <i data-lucide="edit"></i>
                     </button>
                 ` : ''}
                 ${canDelete ? `
-                    <button class="btn btn-sm btn-outline" onclick="deleteShipment('${shipment.id}')" title="Xoa">
+                    <button class="btn btn-sm btn-outline" onclick="deleteShipment('${shipment.id}')" title="Xóa">
                         <i data-lucide="trash-2"></i>
                     </button>
                 ` : ''}
-                <button class="btn btn-sm btn-outline" onclick="updateShortage('${shipment.id}')" title="Cap nhat thieu">
+                <button class="btn btn-sm btn-outline" onclick="updateShortage('${shipment.id}')" title="Cập nhật thiếu">
                     <i data-lucide="clipboard-check"></i>
                 </button>
             </div>
@@ -97,13 +97,13 @@ function renderPackagesSection(shipment) {
         <div class="shipment-section">
             <div class="section-title">
                 <i data-lucide="box"></i>
-                <span>KIEN HANG: ${packages.length} kien | Tong: ${formatNumber(totalKg)} kg</span>
+                <span>KIỆN HÀNG: ${packages.length} kiện | Tổng: ${formatNumber(totalKg)} kg</span>
             </div>
             <div class="packages-grid">
                 ${packages.map(p => `
                     <span class="package-badge">
                         <i data-lucide="package"></i>
-                        Kien ${p.stt}: ${p.soKg} kg
+                        Kiện ${p.stt}: ${p.soKg} kg
                     </span>
                 `).join('')}
             </div>
@@ -122,9 +122,9 @@ function renderInvoicesSection(shipment) {
             <div class="shipment-section">
                 <div class="section-title">
                     <i data-lucide="receipt"></i>
-                    <span>HOA DON NHA CUNG CAP</span>
+                    <span>HÓA ĐƠN NHÀ CUNG CẤP</span>
                 </div>
-                <p style="color: var(--gray-500);">Chua co hoa don</p>
+                <p style="color: var(--gray-500);">Chưa có hóa đơn</p>
             </div>
         `;
     }
@@ -137,18 +137,18 @@ function renderInvoicesSection(shipment) {
         <div class="shipment-section">
             <div class="section-title">
                 <i data-lucide="receipt"></i>
-                <span>HOA DON NHA CUNG CAP</span>
+                <span>HÓA ĐƠN NHÀ CUNG CẤP</span>
             </div>
             <div class="table-container">
                 <table class="invoice-table">
                     <thead>
                         <tr>
                             <th style="width: 60px;">NCC</th>
-                            <th>Chi tiet san pham</th>
-                            <th class="text-right" style="width: 100px;">Tien HD</th>
-                            <th class="text-center" style="width: 70px;">Tong mon</th>
-                            <th class="text-center" style="width: 70px;">Thieu</th>
-                            <th class="text-center" style="width: 60px;">Anh</th>
+                            <th>Chi tiết sản phẩm</th>
+                            <th class="text-right" style="width: 100px;">Tiền HĐ</th>
+                            <th class="text-center" style="width: 70px;">Tổng món</th>
+                            <th class="text-center" style="width: 70px;">Thiếu</th>
+                            <th class="text-center" style="width: 60px;">Ảnh</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -156,7 +156,7 @@ function renderInvoicesSection(shipment) {
                     </tbody>
                     <tfoot>
                         <tr style="background: var(--gray-50); font-weight: 600;">
-                            <td colspan="2" class="text-right">TONG:</td>
+                            <td colspan="2" class="text-right">TỔNG:</td>
                             <td class="text-right">${formatNumber(totalAmount)}</td>
                             <td class="text-center">${formatNumber(totalItems)}</td>
                             <td class="text-center">${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</td>
@@ -188,7 +188,7 @@ function renderInvoiceRow(invoice, shipmentId) {
             <td>
                 <div class="product-list">
                     ${productListHtml}
-                    ${moreCount > 0 ? `<span class="show-more">(+${moreCount} dong)</span>` : ''}
+                    ${moreCount > 0 ? `<span class="show-more">(+${moreCount} dòng)</span>` : ''}
                 </div>
             </td>
             <td class="text-right">${formatNumber(invoice.tongTienHD)}</td>
@@ -219,7 +219,7 @@ function renderShippingCostSection(shipment) {
         <div class="shipping-cost-section">
             <div class="shipping-cost-header">
                 <i data-lucide="lock"></i>
-                <span>CHI PHI HANG VE</span>
+                <span>CHI PHÍ HÀNG VỀ</span>
             </div>
             <div class="shipping-cost-items">
                 ${costs.map(c => `
@@ -243,7 +243,7 @@ function renderAdminNoteSection(shipment) {
     return `
         <div class="admin-note-section">
             <div class="admin-note-label">
-                <i data-lucide="lock"></i> Ghi chu Admin:
+                <i data-lucide="lock"></i> Ghi Chú Admin:
             </div>
             <div class="admin-note-content">${shipment.ghiChuAdmin}</div>
         </div>
@@ -259,7 +259,7 @@ function viewInvoiceImages(shipmentId, invoiceId) {
 
     const invoice = shipment.hoaDon?.find(hd => hd.id === invoiceId);
     if (!invoice || !invoice.anhHoaDon?.length) {
-        toast.info('Khong co anh hoa don');
+        toast.info('Không có ảnh hóa đơn');
         return;
     }
 
@@ -269,7 +269,7 @@ function viewInvoiceImages(shipmentId, invoiceId) {
     if (body) {
         body.innerHTML = invoice.anhHoaDon.map(url => `
             <div class="image-item">
-                <img src="${url}" alt="Hoa don" onclick="window.open('${url}', '_blank')">
+                <img src="${url}" alt="Hóa đơn" onclick="window.open('${url}', '_blank')">
             </div>
         `).join('');
     }

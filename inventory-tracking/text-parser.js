@@ -5,13 +5,39 @@
 
 /**
  * Parse product text to structured data
- * Format: MA [ma SP] [ten hang] [so mau] MAU [so luong]X[gia]
+ * Format: MA [mã SP] [số màu] MÀU [số lượng]X[giá]
+ *
+ * Supports flexible input:
+ * - MA/ma/Mã/mã (case insensitive, with/without diacritics)
+ * - MÀU/màu/MAU/mau (with/without diacritics)
+ * - X or * as multiplier separator
+ *
  * Examples:
  * - MA 721 2 MAU 10X54
- * - MA AO TAY DAI 999 60X25
+ * - ma 721 2 mau 10*54
+ * - Mã AO TAY DÀI 999 60x25
+ * - MA ABC123 3 màu 20*100
  */
 
-// Regex patterns
+/**
+ * Normalize text to remove Vietnamese diacritics and standardize format
+ * @param {string} text - Raw text
+ * @returns {string} Normalized text
+ */
+function normalizeText(text) {
+    // Replace Vietnamese diacritics for "MÃ" and "MÀU"
+    let normalized = text
+        // Normalize "MÃ/Mã/mã" to "MA"
+        .replace(/[mM][ãÃáÁàÀạẠảẢ]/g, 'MA')
+        // Normalize "MÀU/Màu/màu/MẪU/mẫu" to "MAU"
+        .replace(/[mM][àÀáÁãÃạẠảẢ][uUưƯ]/gi, 'MAU')
+        // Replace * with X for multiplier
+        .replace(/\*/g, 'X');
+
+    return normalized;
+}
+
+// Regex patterns - now more flexible
 const PRODUCT_REGEX = /^MA\s+(.+?)\s+(\d+)\s*MAU\s+(\d+)\s*X\s*(\d+)$/i;
 const PRODUCT_NO_COLOR_REGEX = /^MA\s+(.+?)\s+(\d+)\s*X\s*(\d+)$/i;
 
@@ -21,10 +47,12 @@ const PRODUCT_NO_COLOR_REGEX = /^MA\s+(.+?)\s+(\d+)\s*X\s*(\d+)$/i;
  * @returns {Object} Parsed product object
  */
 function parseProductText(text) {
-    const trimmed = text.trim().toUpperCase();
+    const originalText = text.trim();
+    // Normalize the text first (handle diacritics and * symbol)
+    const normalized = normalizeText(originalText).toUpperCase();
 
     // Try with color
-    let match = trimmed.match(PRODUCT_REGEX);
+    let match = normalized.match(PRODUCT_REGEX);
     if (match) {
         const soLuong = parseInt(match[3]);
         const giaDonVi = parseInt(match[4]);
@@ -35,13 +63,13 @@ function parseProductText(text) {
             soLuong: soLuong,
             giaDonVi: giaDonVi,
             thanhTien: soLuong * giaDonVi,
-            rawText: text.trim(),
+            rawText: originalText,
             isValid: true
         };
     }
 
     // Try without color (default 1 mau)
-    match = trimmed.match(PRODUCT_NO_COLOR_REGEX);
+    match = normalized.match(PRODUCT_NO_COLOR_REGEX);
     if (match) {
         const soLuong = parseInt(match[2]);
         const giaDonVi = parseInt(match[3]);
@@ -52,15 +80,15 @@ function parseProductText(text) {
             soLuong: soLuong,
             giaDonVi: giaDonVi,
             thanhTien: soLuong * giaDonVi,
-            rawText: text.trim(),
+            rawText: originalText,
             isValid: true
         };
     }
 
     return {
-        rawText: text.trim(),
+        rawText: originalText,
         isValid: false,
-        error: 'Khong parse duoc. Format: MA [ma] [so mau] MAU [SL]X[gia]'
+        error: 'Không parse được. Format: MA [mã] [số màu] MÀU [SL]X[giá] hoặc MA [mã] [SL]*[giá]'
     };
 }
 
@@ -80,8 +108,8 @@ function parseMultipleProducts(text) {
  * @returns {boolean} Is valid format
  */
 function isValidProductFormat(text) {
-    const trimmed = text.trim().toUpperCase();
-    return PRODUCT_REGEX.test(trimmed) || PRODUCT_NO_COLOR_REGEX.test(trimmed);
+    const normalized = normalizeText(text.trim()).toUpperCase();
+    return PRODUCT_REGEX.test(normalized) || PRODUCT_NO_COLOR_REGEX.test(normalized);
 }
 
 /**

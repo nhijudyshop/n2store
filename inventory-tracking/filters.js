@@ -126,9 +126,9 @@ function updateFilterCount(filtered, total) {
     const countEl = document.getElementById('filterCount');
     if (countEl) {
         if (filtered === total) {
-            countEl.textContent = `${total} dot hang`;
+            countEl.textContent = `${total} đợt hàng`;
         } else {
-            countEl.textContent = `${filtered}/${total} dot hang`;
+            countEl.textContent = `${filtered}/${total} đợt hàng`;
         }
     }
 }
