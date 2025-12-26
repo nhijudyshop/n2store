@@ -350,8 +350,11 @@ class UnifiedNavigationManager {
         try {
             // Get user info - Admin has FULL BYPASS, others check detailedPermissions
             const authData = JSON.parse(localStorage.getItem("loginindex_auth") || "{}");
-            this.isAdmin = authData.roleTemplate === 'admin';
-            console.log("[Unified Nav] Is Admin (roleTemplate):", this.isAdmin, "- Has BYPASS");
+            // Support both new (roleTemplate) and old (checkLogin) admin check
+            this.isAdmin = authData.roleTemplate === 'admin' ||
+                           authData.checkLogin === 0 ||
+                           authData.checkLogin === "0";
+            console.log("[Unified Nav] Is Admin:", this.isAdmin, "- Has BYPASS");
 
             // Load permissions
             await this.loadUserPermissions();
