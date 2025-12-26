@@ -165,6 +165,7 @@ const realtimeRoutes = require('./routes/realtime');
 const { saveRealtimeUpdate } = require('./routes/realtime');
 const geminiRoutes = require('./routes/gemini');
 const deepseekRoutes = require('./routes/deepseek');
+const telegramBotRoutes = require('./routes/telegram-bot');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -176,6 +177,7 @@ app.use('/api/customers', customersRoutes);
 app.use('/api/realtime', realtimeRoutes);
 app.use('/api/gemini', geminiRoutes);
 app.use('/api/deepseek', deepseekRoutes);
+app.use('/api/telegram', telegramBotRoutes);
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
 app.use('/api', cloudflareBackupRoutes);
@@ -711,6 +713,13 @@ app.get('/', (req, res) => {
                 'POST /api/realtime/tpos/start - Start TPOS WebSocket (saves credentials for auto-reconnect)',
                 'POST /api/realtime/tpos/stop - Stop TPOS WebSocket (disables auto-reconnect)',
                 'GET /api/realtime/tpos/status - Get TPOS client status'
+            ],
+            telegram: [
+                'GET /api/telegram - Telegram bot status',
+                'POST /api/telegram/webhook - Telegram webhook (Gemini AI)',
+                'POST /api/telegram/setWebhook - Set webhook URL',
+                'GET /api/telegram/webhookInfo - Get webhook info',
+                'POST /api/telegram/deleteWebhook - Delete webhook'
             ],
             health: [
                 'GET /health - Server health check',

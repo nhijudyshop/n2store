@@ -16,6 +16,8 @@ router.get('/', (req, res) => {
         service: 'Gemini AI Proxy',
         hasApiKey: !!GEMINI_API_KEY,
         availableModels: [
+            'gemini-3-flash-preview',
+            'gemini-2.5-flash',
             'gemini-2.0-flash',
             'gemini-1.5-flash',
             'gemini-1.5-pro'
