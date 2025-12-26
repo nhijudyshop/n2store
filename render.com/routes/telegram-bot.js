@@ -1,6 +1,7 @@
 // =====================================================
 // TELEGRAM BOT WITH GEMINI AI INTEGRATION
-// Webhook endpoint for Telegram bot powered by Gemini 2.0 Flash
+// Webhook endpoint for Telegram bot powered by Gemini 3 Flash
+// Supports both private chats and group chats
 // =====================================================
 
 const express = require('express');
@@ -11,36 +12,66 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = 'gemini-3-flash-preview';
 
-// Store conversation history per user (in-memory, resets on server restart)
+// Bot username (will be fetched on first request)
+let BOT_USERNAME = null;
+
+// Store conversation history per chat (in-memory, resets on server restart)
 const conversationHistory = new Map();
-const MAX_HISTORY_LENGTH = 20; // Keep last 20 messages per user
+const MAX_HISTORY_LENGTH = 20; // Keep last 20 messages per chat
 
 // =====================================================
 // HELPER FUNCTIONS
 // =====================================================
 
 /**
- * Send message to Telegram user
+ * Get bot info (username)
  */
-async function sendTelegramMessage(chatId, text, parseMode = 'Markdown') {
+async function getBotUsername() {
+    if (BOT_USERNAME) return BOT_USERNAME;
+
+    try {
+        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.ok) {
+            BOT_USERNAME = data.result.username;
+            console.log('[TELEGRAM] Bot username:', BOT_USERNAME);
+        }
+    } catch (error) {
+        console.error('[TELEGRAM] Failed to get bot info:', error.message);
+    }
+    return BOT_USERNAME;
+}
+
+/**
+ * Send message to Telegram chat
+ */
+async function sendTelegramMessage(chatId, text, parseMode = 'Markdown', replyToMessageId = null) {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
     try {
+        const body = {
+            chat_id: chatId,
+            text: text,
+            parse_mode: parseMode
+        };
+
+        // Reply to specific message in groups
+        if (replyToMessageId) {
+            body.reply_to_message_id = replyToMessageId;
+        }
+
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text: text,
-                parse_mode: parseMode
-            })
+            body: JSON.stringify(body)
         });
 
         const data = await response.json();
         if (!data.ok) {
             // Retry without parse mode if Markdown fails
             if (parseMode === 'Markdown') {
-                return sendTelegramMessage(chatId, text, null);
+                return sendTelegramMessage(chatId, text, null, replyToMessageId);
             }
             console.error('[TELEGRAM] Send error:', data.description);
         }
@@ -73,22 +104,28 @@ async function sendTypingAction(chatId) {
 
 /**
  * Call Gemini API with conversation history
+ * @param {string} historyKey - Key for conversation history (chatId for groups, oderId for private)
+ * @param {string} userMessage - User's message
+ * @param {string} userName - User's name for context
  */
-async function callGeminiAI(userId, userMessage) {
+async function callGeminiAI(historyKey, userMessage, userName = null) {
     if (!GEMINI_API_KEY) {
         throw new Error('GEMINI_API_KEY not configured');
     }
 
-    // Get or create conversation history for this user
-    if (!conversationHistory.has(userId)) {
-        conversationHistory.set(userId, []);
+    // Get or create conversation history
+    if (!conversationHistory.has(historyKey)) {
+        conversationHistory.set(historyKey, []);
     }
-    const history = conversationHistory.get(userId);
+    const history = conversationHistory.get(historyKey);
+
+    // Format message with username for group context
+    const messageText = userName ? `[${userName}]: ${userMessage}` : userMessage;
 
     // Add user message to history
     history.push({
         role: 'user',
-        parts: [{ text: userMessage }]
+        parts: [{ text: messageText }]
     });
 
     // Trim history if too long
@@ -135,10 +172,43 @@ async function callGeminiAI(userId, userMessage) {
 }
 
 /**
- * Clear conversation history for a user
+ * Clear conversation history for a chat
  */
-function clearHistory(userId) {
-    conversationHistory.delete(userId);
+function clearHistory(historyKey) {
+    conversationHistory.delete(historyKey);
+}
+
+/**
+ * Check if bot should respond in group
+ */
+function shouldRespondInGroup(message, botUsername) {
+    const text = message.text || '';
+
+    // Always respond to commands
+    if (text.startsWith('/')) {
+        return true;
+    }
+
+    // Respond if bot is mentioned
+    if (botUsername && text.toLowerCase().includes(`@${botUsername.toLowerCase()}`)) {
+        return true;
+    }
+
+    // Respond if message is a reply to bot's message
+    if (message.reply_to_message && message.reply_to_message.from?.is_bot) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Remove bot mention from text
+ */
+function removeBotMention(text, botUsername) {
+    if (!botUsername) return text;
+    const regex = new RegExp(`@${botUsername}\\s*`, 'gi');
+    return text.replace(regex, '').trim();
 }
 
 // =====================================================
@@ -153,7 +223,9 @@ router.get('/', (req, res) => {
         model: GEMINI_MODEL,
         hasBotToken: !!TELEGRAM_BOT_TOKEN,
         hasGeminiKey: !!GEMINI_API_KEY,
-        activeConversations: conversationHistory.size
+        botUsername: BOT_USERNAME,
+        activeConversations: conversationHistory.size,
+        features: ['private_chat', 'group_chat', 'mention_trigger', 'reply_trigger']
     });
 });
 
@@ -170,15 +242,37 @@ router.post('/webhook', async (req, res) => {
         if (update.message) {
             const message = update.message;
             const chatId = message.chat.id;
+            const chatType = message.chat.type; // 'private', 'group', 'supergroup'
             const userId = message.from.id;
             const text = message.text;
             const firstName = message.from.first_name || 'User';
+            const messageId = message.message_id;
 
-            console.log(`[TELEGRAM] Message from ${firstName} (${userId}): ${text?.substring(0, 50)}...`);
+            const isGroup = chatType === 'group' || chatType === 'supergroup';
+            const chatName = isGroup ? message.chat.title : firstName;
 
-            // Handle commands
-            if (text === '/start') {
-                clearHistory(userId);
+            // Get bot username for mention detection
+            await getBotUsername();
+
+            console.log(`[TELEGRAM] ${isGroup ? 'Group' : 'Private'} message from ${firstName} in ${chatName}: ${text?.substring(0, 50)}...`);
+
+            // In groups, only respond if mentioned, replied to, or command
+            if (isGroup && !shouldRespondInGroup(message, BOT_USERNAME)) {
+                return; // Ignore message in group if not triggered
+            }
+
+            // Use chatId for groups (shared history), oderId for private (per user)
+            const historyKey = isGroup ? `group_${chatId}` : `user_${userId}`;
+
+            // Handle commands (remove @botname from commands in groups)
+            const commandText = text?.split('@')[0];
+
+            if (commandText === '/start') {
+                clearHistory(historyKey);
+                const groupNote = isGroup
+                    ? `\n\n*Trong nhom:*\n- Tag @${BOT_USERNAME} de hoi\n- Hoac reply tin nhan cua bot`
+                    : '';
+
                 await sendTelegramMessage(chatId,
                     `Xin chao ${firstName}! 👋\n\n` +
                     `Toi la Gemini AI Assistant.\n` +
@@ -186,38 +280,72 @@ router.post('/webhook', async (req, res) => {
                     `*Cac lenh:*\n` +
                     `/start - Bat dau cuoc tro chuyen moi\n` +
                     `/clear - Xoa lich su tro chuyen\n` +
-                    `/help - Huong dan su dung`
+                    `/help - Huong dan su dung` +
+                    groupNote,
+                    'Markdown',
+                    isGroup ? messageId : null
                 );
                 return;
             }
 
-            if (text === '/clear') {
-                clearHistory(userId);
-                await sendTelegramMessage(chatId, 'Da xoa lich su tro chuyen. Ban co the bat dau cuoc tro chuyen moi!');
+            if (commandText === '/clear') {
+                clearHistory(historyKey);
+                await sendTelegramMessage(chatId,
+                    'Da xoa lich su tro chuyen. Ban co the bat dau cuoc tro chuyen moi!',
+                    'Markdown',
+                    isGroup ? messageId : null
+                );
                 return;
             }
 
-            if (text === '/help') {
+            if (commandText === '/help') {
+                const groupHelp = isGroup
+                    ? `\n\n*Cach dung trong nhom:*\n- Tag @${BOT_USERNAME} + cau hoi\n- Hoac reply tin nhan cua bot`
+                    : '';
+
                 await sendTelegramMessage(chatId,
                     `*Huong dan su dung Gemini AI Bot:*\n\n` +
                     `1. Gui tin nhan bat ky de tro chuyen voi AI\n` +
-                    `2. Bot se nho lich su tro chuyen cua ban\n` +
+                    `2. Bot se nho lich su tro chuyen\n` +
                     `3. Dung /clear de xoa lich su va bat dau lai\n\n` +
                     `*Model:* ${GEMINI_MODEL}\n` +
-                    `*Powered by:* Google Gemini AI`
+                    `*Powered by:* Google Gemini AI` +
+                    groupHelp,
+                    'Markdown',
+                    isGroup ? messageId : null
                 );
                 return;
             }
 
             // Ignore non-text messages
             if (!text) {
-                await sendTelegramMessage(chatId, 'Xin loi, toi chi ho tro tin nhan van ban.');
+                await sendTelegramMessage(chatId,
+                    'Xin loi, toi chi ho tro tin nhan van ban.',
+                    'Markdown',
+                    isGroup ? messageId : null
+                );
                 return;
             }
 
             // Check if API keys are configured
             if (!TELEGRAM_BOT_TOKEN || !GEMINI_API_KEY) {
-                await sendTelegramMessage(chatId, 'Bot chua duoc cau hinh day du. Vui long lien he admin.');
+                await sendTelegramMessage(chatId,
+                    'Bot chua duoc cau hinh day du. Vui long lien he admin.',
+                    'Markdown',
+                    isGroup ? messageId : null
+                );
+                return;
+            }
+
+            // Remove bot mention from text
+            const cleanText = removeBotMention(text, BOT_USERNAME);
+
+            if (!cleanText) {
+                await sendTelegramMessage(chatId,
+                    'Ban muon hoi gi?',
+                    'Markdown',
+                    isGroup ? messageId : null
+                );
                 return;
             }
 
@@ -225,25 +353,35 @@ router.post('/webhook', async (req, res) => {
             await sendTypingAction(chatId);
 
             try {
-                // Call Gemini AI
-                const aiResponse = await callGeminiAI(userId, text);
+                // Call Gemini AI (include username in groups for context)
+                const aiResponse = await callGeminiAI(
+                    historyKey,
+                    cleanText,
+                    isGroup ? firstName : null
+                );
 
                 // Send response (split if too long)
                 if (aiResponse.length > 4000) {
                     // Split into chunks
                     const chunks = aiResponse.match(/[\s\S]{1,4000}/g) || [];
-                    for (const chunk of chunks) {
-                        await sendTelegramMessage(chatId, chunk);
+                    for (let i = 0; i < chunks.length; i++) {
+                        await sendTelegramMessage(
+                            chatId,
+                            chunks[i],
+                            'Markdown',
+                            i === 0 && isGroup ? messageId : null // Only reply to first chunk
+                        );
                     }
                 } else {
-                    await sendTelegramMessage(chatId, aiResponse);
+                    await sendTelegramMessage(chatId, aiResponse, 'Markdown', isGroup ? messageId : null);
                 }
 
             } catch (error) {
                 console.error('[TELEGRAM] Gemini error:', error.message);
                 await sendTelegramMessage(chatId,
                     `Co loi xay ra khi xu ly tin nhan:\n${error.message}\n\nVui long thu lai sau.`,
-                    null
+                    null,
+                    isGroup ? messageId : null
                 );
             }
         }
