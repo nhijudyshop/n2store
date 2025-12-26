@@ -46,14 +46,13 @@ async function getBotUsername() {
 /**
  * Send message to Telegram chat
  */
-async function sendTelegramMessage(chatId, text, parseMode = 'Markdown', replyToMessageId = null) {
+async function sendTelegramMessage(chatId, text, replyToMessageId = null) {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
     try {
         const body = {
             chat_id: chatId,
-            text: text,
-            parse_mode: parseMode
+            text: text
         };
 
         // Reply to specific message in groups
@@ -69,10 +68,6 @@ async function sendTelegramMessage(chatId, text, parseMode = 'Markdown', replyTo
 
         const data = await response.json();
         if (!data.ok) {
-            // Retry without parse mode if Markdown fails
-            if (parseMode === 'Markdown') {
-                return sendTelegramMessage(chatId, text, null, replyToMessageId);
-            }
             console.error('[TELEGRAM] Send error:', data.description);
         }
         return data;
@@ -270,19 +265,18 @@ router.post('/webhook', async (req, res) => {
             if (commandText === '/start') {
                 clearHistory(historyKey);
                 const groupNote = isGroup
-                    ? `\n\n*Trong nhom:*\n- Tag @${BOT_USERNAME} de hoi\n- Hoac reply tin nhan cua bot`
+                    ? `\n\nTrong nhom:\n- Tag @${BOT_USERNAME} de hoi\n- Hoac reply tin nhan cua bot`
                     : '';
 
                 await sendTelegramMessage(chatId,
-                    `Xin chao ${firstName}! 👋\n\n` +
+                    `Xin chao ${firstName}!\n\n` +
                     `Toi la Gemini AI Assistant.\n` +
                     `Ban co the hoi toi bat ky dieu gi!\n\n` +
-                    `*Cac lenh:*\n` +
+                    `Cac lenh:\n` +
                     `/start - Bat dau cuoc tro chuyen moi\n` +
                     `/clear - Xoa lich su tro chuyen\n` +
                     `/help - Huong dan su dung` +
                     groupNote,
-                    'Markdown',
                     isGroup ? messageId : null
                 );
                 return;
@@ -292,7 +286,6 @@ router.post('/webhook', async (req, res) => {
                 clearHistory(historyKey);
                 await sendTelegramMessage(chatId,
                     'Da xoa lich su tro chuyen. Ban co the bat dau cuoc tro chuyen moi!',
-                    'Markdown',
                     isGroup ? messageId : null
                 );
                 return;
@@ -300,18 +293,17 @@ router.post('/webhook', async (req, res) => {
 
             if (commandText === '/help') {
                 const groupHelp = isGroup
-                    ? `\n\n*Cach dung trong nhom:*\n- Tag @${BOT_USERNAME} + cau hoi\n- Hoac reply tin nhan cua bot`
+                    ? `\n\nCach dung trong nhom:\n- Tag @${BOT_USERNAME} + cau hoi\n- Hoac reply tin nhan cua bot`
                     : '';
 
                 await sendTelegramMessage(chatId,
-                    `*Huong dan su dung Gemini AI Bot:*\n\n` +
+                    `Huong dan su dung Gemini AI Bot:\n\n` +
                     `1. Gui tin nhan bat ky de tro chuyen voi AI\n` +
                     `2. Bot se nho lich su tro chuyen\n` +
                     `3. Dung /clear de xoa lich su va bat dau lai\n\n` +
-                    `*Model:* ${GEMINI_MODEL}\n` +
-                    `*Powered by:* Google Gemini AI` +
+                    `Model: ${GEMINI_MODEL}\n` +
+                    `Powered by: Google Gemini AI` +
                     groupHelp,
-                    'Markdown',
                     isGroup ? messageId : null
                 );
                 return;
@@ -321,7 +313,6 @@ router.post('/webhook', async (req, res) => {
             if (!text) {
                 await sendTelegramMessage(chatId,
                     'Xin loi, toi chi ho tro tin nhan van ban.',
-                    'Markdown',
                     isGroup ? messageId : null
                 );
                 return;
@@ -331,7 +322,6 @@ router.post('/webhook', async (req, res) => {
             if (!TELEGRAM_BOT_TOKEN || !GEMINI_API_KEY) {
                 await sendTelegramMessage(chatId,
                     'Bot chua duoc cau hinh day du. Vui long lien he admin.',
-                    'Markdown',
                     isGroup ? messageId : null
                 );
                 return;
@@ -343,7 +333,6 @@ router.post('/webhook', async (req, res) => {
             if (!cleanText) {
                 await sendTelegramMessage(chatId,
                     'Ban muon hoi gi?',
-                    'Markdown',
                     isGroup ? messageId : null
                 );
                 return;
@@ -368,19 +357,17 @@ router.post('/webhook', async (req, res) => {
                         await sendTelegramMessage(
                             chatId,
                             chunks[i],
-                            'Markdown',
                             i === 0 && isGroup ? messageId : null // Only reply to first chunk
                         );
                     }
                 } else {
-                    await sendTelegramMessage(chatId, aiResponse, 'Markdown', isGroup ? messageId : null);
+                    await sendTelegramMessage(chatId, aiResponse, isGroup ? messageId : null);
                 }
 
             } catch (error) {
                 console.error('[TELEGRAM] Gemini error:', error.message);
                 await sendTelegramMessage(chatId,
                     `Co loi xay ra khi xu ly tin nhan:\n${error.message}\n\nVui long thu lai sau.`,
-                    null,
                     isGroup ? messageId : null
                 );
             }
