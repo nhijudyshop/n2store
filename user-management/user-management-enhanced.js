@@ -9,16 +9,23 @@ let users = [];
 
 // Check admin access - Admin (roleTemplate='admin') has FULL BYPASS
 function checkAdminAccess() {
-    const isLoggedIn = localStorage.getItem("isLoggedIn");
-    const authData = localStorage.getItem("loginindex_auth");
+    const isLoggedIn = localStorage.getItem("isLoggedIn") || sessionStorage.getItem("isLoggedIn");
+    // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
+    const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
 
     console.log("Checking admin access:", {
         isLoggedIn,
         authData: !!authData,
+        source: localStorage.getItem("loginindex_auth") ? "localStorage" : "sessionStorage"
     });
 
     if (!isLoggedIn || isLoggedIn !== "true") {
         showAccessDenied("Bạn chưa đăng nhập hệ thống.");
+        return false;
+    }
+
+    if (!authData) {
+        showAccessDenied("Không tìm thấy thông tin đăng nhập.");
         return false;
     }
 
