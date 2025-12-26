@@ -105,10 +105,14 @@ class PermissionHelper {
                 const userDoc = await usersRef.doc(username).get();
                 if (userDoc.exists) {
                     const userData = userDoc.data();
-                    if (userData.inventoryTrackingPermissions) {
+                    // Support both new format (detailedPermissions.inventoryTracking)
+                    // and legacy format (inventoryTrackingPermissions)
+                    const inventoryPerms = userData.detailedPermissions?.inventoryTracking
+                        || userData.inventoryTrackingPermissions;
+                    if (inventoryPerms) {
                         this.permissions = {
                             ...DEFAULT_PERMISSIONS,
-                            ...userData.inventoryTrackingPermissions,
+                            ...inventoryPerms,
                         };
                         console.log('[PERMISSION] User permissions loaded from Firestore');
                     }

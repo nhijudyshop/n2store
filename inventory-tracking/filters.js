@@ -110,7 +110,7 @@ function applyFiltersAndRender() {
 
     // Render based on current tab
     if (globalState.currentTab === 'tracking') {
-        renderShipmentsTable();
+        renderShipments(filtered);
     } else {
         renderFinanceTable();
     }
