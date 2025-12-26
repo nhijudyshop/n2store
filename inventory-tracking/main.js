@@ -484,7 +484,7 @@ function generateId(prefix = '') {
 // INITIALIZE APPLICATION
 // =====================================================
 
-let app;
+// Note: 'app' variable is already declared in config.js
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('[APP] DOM Content Loaded');
