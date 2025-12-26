@@ -16692,15 +16692,21 @@ async function fetchAndAppendNewMessages(conversation) {
         if (newItems.length > 0) {
             console.log('[REALTIME] Got', newItems.length, 'new items');
 
+            // Check if user is at bottom before updating
+            const modalBody = document.getElementById('chatModalBody');
+            const wasAtBottom = modalBody &&
+                (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
+
             // Add to global array
             if (chatType === 'message') {
                 window.allChatMessages.push(...newItems);
+                // Re-render all messages with full formatting (avatar, name, quoted messages, etc.)
+                renderChatMessages(window.allChatMessages, wasAtBottom);
             } else {
                 window.allChatComments.push(...newItems);
+                // Re-render all comments with full formatting
+                renderChatMessages(window.allChatComments, wasAtBottom);
             }
-
-            // Incremental render (NEW)
-            appendNewMessages(newItems, chatType);
         } else {
             console.log('[REALTIME] No new items found');
         }
