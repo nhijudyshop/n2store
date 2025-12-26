@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Interior Design Assistant - Tile Visualizer</title>
+    <title>Gemini AI Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
@@ -14,7 +14,7 @@
         }
 
         .chat-container {
-            height: 500px;
+            height: calc(100vh - 200px);
             overflow-y: auto;
             scroll-behavior: smooth;
         }
@@ -54,251 +54,72 @@
                 transform: rotate(360deg);
             }
         }
-
-        /* Visualization Styles */
-        #visualizer-area {
-            position: relative;
-            overflow: hidden;
-            max-height: 600px;
-            border: 2px dashed #cbd5e1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #e2e8f0;
-        }
-
-        #room-bg {
-            max-width: 100%;
-            max-height: 600px;
-            display: block;
-        }
-
-        #tile-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            opacity: 0.7;
-            mix-blend-mode: multiply;
-            background-repeat: repeat;
-            display: none;
-        }
-
-        .control-panel {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 8px;
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            display: none;
-        }
     </style>
 </head>
 
-<body class="h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
     <header class="bg-blue-900 text-white p-4 shadow-md flex justify-between items-center">
         <h1 class="text-xl font-bold flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            AI Tile Design Assistant
+            Gemini AI Assistant
         </h1>
     </header>
 
-    <div class="flex flex-1 overflow-hidden">
-        <div class="w-1/3 flex flex-col border-r border-gray-300 bg-white">
-            <div id="chat-box" class="chat-container flex-1 p-4 bg-gray-50">
-                <div class="message ai-msg">
-                    <p>
-                        <strong>Xin chào!</strong> Tôi là trợ lý thiết kế
-                        nội thất ảo sử dụng <strong>Gemini 1.5 Pro</strong>.
-                    </p>
-                    <p>
-                        Để bắt đầu, vui lòng tải lên
-                        hình ảnh căn phòng bạn muốn ốp gạch.
-                    </p>
-                </div>
-            </div>
-
-            <div class="p-4 border-t border-gray-200 bg-white">
-                <div class="mb-2 flex gap-2">
-                    <label
-                        class="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded inline-flex items-center w-1/2 justify-center text-sm">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
-                            </path>
-                        </svg>
-                        <span>Ảnh Phòng</span>
-                        <input type="file" id="roomInput" accept="image/*" class="hidden"
-                            onchange="handleRoomUpload(this)" />
-                    </label>
-                    <label
-                        class="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded inline-flex items-center w-1/2 justify-center text-sm">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
-                            </path>
-                        </svg>
-                        <span>Ảnh Gạch</span>
-                        <input type="file" id="tileInput" accept="image/*" class="hidden"
-                            onchange="handleTileUpload(this)" />
-                    </label>
-                </div>
-
-                <div class="flex gap-2">
-                    <textarea id="userInput"
-                        class="flex-1 border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500"
-                        rows="2" placeholder="Nhập kích thước tường hoặc yêu cầu..."></textarea>
-                    <button onclick="sendMessage()"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                        Gửi
-                    </button>
-                </div>
+    <main class="flex-1 max-w-4xl mx-auto w-full p-4">
+        <div id="chat-box" class="chat-container bg-gray-50 rounded-lg p-4">
+            <div class="message ai-msg">
+                <p><strong>Xin chào!</strong> Tôi là trợ lý AI sử dụng <strong>Gemini 1.5 Pro</strong>.</p>
+                <p>Hãy nhập câu hỏi hoặc yêu cầu của bạn.</p>
             </div>
         </div>
 
-        <div class="w-2/3 bg-gray-200 p-4 flex flex-col">
-            <h2 class="text-lg font-bold mb-2 text-gray-700">
-                Góc nhìn Trực quan (Mô phỏng)
-            </h2>
-            <div id="visualizer-area" class="flex-1 rounded-lg shadow-inner bg-white relative">
-                <p id="placeholder-text" class="text-gray-400">
-                    Chưa có ảnh phòng
-                </p>
-                <img id="room-bg" src="" alt="Room Image" style="display: none" />
-                <div id="tile-overlay"></div>
-
-                <div id="vis-controls" class="control-panel">
-                    <div class="flex items-center gap-4 text-sm">
-                        <span class="font-bold">Điều chỉnh Gạch:</span>
-                        <div>
-                            <label>Kích thước:</label>
-                            <input type="range" min="10" max="200" value="50" oninput="updateTileSize(this.value)" />
-                        </div>
-                        <div>
-                            <label>Độ mờ:</label>
-                            <input type="range" min="0" max="100" value="70" oninput="updateOpacity(this.value)" />
-                        </div>
-                        <div>
-                            <label>Chế độ hòa trộn:</label>
-                            <select onchange="updateBlendMode(this.value)" class="border p-1 rounded">
-                                <option value="multiply">
-                                    Multiply (Tối)
-                                </option>
-                                <option value="overlay">
-                                    Overlay (Phủ)
-                                </option>
-                                <option value="screen">
-                                    Screen (Sáng)
-                                </option>
-                                <option value="normal">
-                                    Normal (Bình thường)
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="mt-2 text-xs text-gray-500 italic">
-                * Lưu ý: Đây là công cụ mô phỏng nhanh bằng CSS Overlay.
-                Gemini AI sẽ cung cấp phân tích chuyên sâu bên khung chat.
-            </div>
+        <div class="mt-4 flex gap-2">
+            <textarea id="userInput"
+                class="flex-1 border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 resize-none"
+                rows="2" placeholder="Nhập tin nhắn..."></textarea>
+            <button onclick="sendMessage()"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
+                Gửi
+            </button>
         </div>
-    </div>
+    </main>
 
     <script>
-        // API Key Management - Priority: localStorage > GitHub Secrets > empty
+        // ============================================================
+        // GEMINI AI CONFIGURATION
+        // ============================================================
+
+        // API Key Management - Priority: localStorage > Default Key > empty
         const savedGeminiProKey = localStorage.getItem("geminiApiKey");
         window.GEMINI_PRO_KEY = savedGeminiProKey || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs' || '';
 
-        // Model Configuration - Use Gemini 1.5 Pro for better quality
+        // Model Configuration - Available models: gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash
         const GEMINI_MODEL = 'gemini-1.5-pro';
         const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
         console.log('[GEMINI] Using model:', GEMINI_MODEL);
-        console.log('[GEMINI] API Key configured:', window.GEMINI_PRO_KEY ? '✅' : '❌');
+        console.log('[GEMINI] API Key configured:', window.GEMINI_PRO_KEY ? 'Yes' : 'No');
 
-        // State
-        let roomImageBase64 = null;
-        let tileImageBase64 = null;
+        // ============================================================
+        // STATE & CONFIGURATION
+        // ============================================================
+
         let conversationHistory = [];
 
-        // System Prompt
+        // System Prompt - Customize this for your use case
         const systemInstruction = `
-            Act as a professional Interior Design and Virtual Staging Assistant. Your goal is to help visualize tile designs.
-            Follow this strict workflow:
-            1. Analyze the uploaded Room Image (ask for dimensions if not given).
-            2. Analyze the uploaded Tile Image/Code.
-            3. Provide a professional assessment of how this tile fits the room's style, lighting, and existing furniture.
-            4. Describe vividly what the room will look like with the new tiles (e.g., "The marble vein will add depth to the small bathroom...").
-            Since you cannot generate images directly, instruct the user to look at the "Visualization Panel" on the right to adjust the tile overlay manually based on your advice.
-            Output in Vietnamese language.
-            `;
+            Bạn là một trợ lý AI thông minh và hữu ích.
+            Hãy trả lời bằng tiếng Việt một cách rõ ràng và chi tiết.
+        `;
 
-        // Image Handling
-        function handleRoomUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                roomImageBase64 = e.target.result.split(",")[1];
-                const img = document.getElementById("room-bg");
-                img.src = e.target.result;
-                img.style.display = "block";
-                document.getElementById("placeholder-text").style.display =
-                    "none";
+        // ============================================================
+        // CHAT FUNCTIONS
+        // ============================================================
 
-                addMessage(
-                    "user",
-                    "Đã tải lên ảnh phòng. [Hình ảnh được gửi kèm]",
-                );
-                document.getElementById("vis-controls").style.display =
-                    "block";
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function handleTileUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                tileImageBase64 = e.target.result.split(",")[1];
-
-                const overlay = document.getElementById("tile-overlay");
-                overlay.style.backgroundImage = `url(${e.target.result})`;
-                overlay.style.display = "block";
-
-                addMessage(
-                    "user",
-                    "Đã tải lên mẫu gạch. [Hình ảnh được gửi kèm]",
-                );
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // Visualization Controls
-        function updateTileSize(val) {
-            document.getElementById("tile-overlay").style.backgroundSize =
-                `${val}px`;
-        }
-        function updateOpacity(val) {
-            document.getElementById("tile-overlay").style.opacity =
-                val / 100;
-        }
-        function updateBlendMode(val) {
-            document.getElementById("tile-overlay").style.mixBlendMode =
-                val;
-        }
-
-        // Chat Logic
         function addMessage(role, text) {
             const box = document.getElementById("chat-box");
             const div = document.createElement("div");
@@ -314,47 +135,29 @@
             const apiKey = window.GEMINI_PRO_KEY;
 
             if (!apiKey) {
-                addMessage("ai", "⚠️ Không tìm thấy API Key. Vui lòng liên hệ quản trị viên.");
+                addMessage("ai", "Khong tim thay API Key. Vui long lien he quan tri vien.");
                 return;
             }
-            if (!text && !roomImageBase64 && !tileImageBase64) return;
+            if (!text) return;
 
             // Display user message
-            if (text) addMessage("user", text);
+            addMessage("user", text);
             input.value = "";
 
             // Show loading
             const box = document.getElementById("chat-box");
             const loadingDiv = document.createElement("div");
             loadingDiv.className = "message ai-msg";
-            loadingDiv.innerHTML =
-                '<span class="loading"></span> Đang phân tích...';
+            loadingDiv.innerHTML = '<span class="loading"></span> Dang xu ly...';
             loadingDiv.id = "loading-msg";
             box.appendChild(loadingDiv);
+            box.scrollTop = box.scrollHeight;
 
             try {
-                // Construct Payload
-                const parts = [];
+                // Build request payload
+                const parts = [{ text: text }];
 
-                if (text) parts.push({ text: text });
-
-                if (roomImageBase64) {
-                    parts.push({
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: roomImageBase64,
-                        },
-                    });
-                }
-                if (tileImageBase64) {
-                    parts.push({
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: tileImageBase64,
-                        },
-                    });
-                }
-
+                // Add system instruction on first message
                 if (conversationHistory.length === 0) {
                     parts.unshift({ text: systemInstruction });
                 }
@@ -362,42 +165,84 @@
                 const contents = [{ role: "user", parts: parts }];
 
                 // Call Gemini API
-                const response = await fetch(
-                    `${GEMINI_API_URL}?key=${apiKey}`,
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ contents: contents }),
-                    },
-                );
+                const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents: contents }),
+                });
 
                 const data = await response.json();
 
                 // Remove loading
-                document.getElementById("loading-msg").remove();
+                document.getElementById("loading-msg")?.remove();
 
                 if (data.error) {
-                    addMessage("ai", `❌ Lỗi: ${data.error.message}`);
+                    addMessage("ai", `Loi: ${data.error.message}`);
                 } else {
                     const aiText = data.candidates[0].content.parts[0].text;
                     addMessage("ai", aiText);
-                    conversationHistory.push({
-                        role: "user",
-                        parts: parts,
-                    });
-                    conversationHistory.push({
-                        role: "model",
-                        parts: [{ text: aiText }],
-                    });
+
+                    // Save to conversation history
+                    conversationHistory.push({ role: "user", parts: parts });
+                    conversationHistory.push({ role: "model", parts: [{ text: aiText }] });
                 }
             } catch (error) {
-                document.getElementById("loading-msg").remove();
-                addMessage(
-                    "ai",
-                    "❌ Có lỗi xảy ra khi kết nối với Gemini AI.",
-                );
-                console.error(error);
+                document.getElementById("loading-msg")?.remove();
+                addMessage("ai", "Co loi xay ra khi ket noi voi Gemini AI.");
+                console.error('[GEMINI ERROR]', error);
             }
+        }
+
+        // ============================================================
+        // UTILITY FUNCTIONS FOR GEMINI API
+        // ============================================================
+
+        /**
+         * Call Gemini API directly with custom prompt
+         * @param {string} prompt - The prompt to send
+         * @param {Array} imageParts - Optional array of image data objects
+         * @returns {Promise<string>} - The AI response text
+         */
+        async function callGeminiAPI(prompt, imageParts = []) {
+            const apiKey = window.GEMINI_PRO_KEY;
+            if (!apiKey) throw new Error('API Key not configured');
+
+            const parts = [{ text: prompt }, ...imageParts];
+
+            const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ role: "user", parts: parts }]
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.error) throw new Error(data.error.message);
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        /**
+         * Convert file to base64 for Gemini API
+         * @param {File} file - The file to convert
+         * @returns {Promise<Object>} - Object with inline_data for Gemini API
+         */
+        function fileToGeminiPart(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(",")[1];
+                    resolve({
+                        inline_data: {
+                            mime_type: file.type,
+                            data: base64,
+                        }
+                    });
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
         }
 
         // Allow Enter key to send message
