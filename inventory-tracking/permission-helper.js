@@ -86,6 +86,7 @@ class PermissionHelper {
 
     /**
      * Load user permissions from Firestore
+     * ALL users (including Admin) use detailedPermissions - NO bypass
      */
     async loadPermissions() {
         try {
@@ -95,13 +96,8 @@ class PermissionHelper {
                 return this.permissions;
             }
 
-            // If admin, grant full permissions
-            if (authManager.isAdmin()) {
-                this.permissions = { ...ADMIN_PERMISSIONS };
-                this.isLoaded = true;
-                console.log('[PERMISSION] Admin permissions loaded');
-                return this.permissions;
-            }
+            // ALL users check detailedPermissions - NO admin bypass
+            // Admin gets full permissions because they have all permissions set to true in detailedPermissions
 
             // Try to load user-specific permissions from Firestore
             const username = auth.userType?.split('-')[0];
@@ -130,12 +126,10 @@ class PermissionHelper {
 
     /**
      * Check if user has a specific permission
+     * ALL users (including Admin) check permissions - NO bypass
      */
     can(permissionKey) {
-        // Admin always has all permissions
-        if (authManager?.isAdmin()) {
-            return true;
-        }
+        // ALL users check permissions - NO admin bypass
         return this.permissions[permissionKey] === true;
     }
 
@@ -155,11 +149,9 @@ class PermissionHelper {
 
     /**
      * Get all current permissions
+     * ALL users (including Admin) use loaded permissions - NO bypass
      */
     getAll() {
-        if (authManager?.isAdmin()) {
-            return { ...ADMIN_PERMISSIONS };
-        }
         return { ...this.permissions };
     }
 

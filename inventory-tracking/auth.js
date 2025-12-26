@@ -68,12 +68,28 @@ class AuthManager {
         return auth && auth.isLoggedIn === 'true';
     }
 
-    isAdmin() {
+    /**
+     * Check if user has admin template (for UI display only)
+     * QUAN TRỌNG: Không dùng để bypass permission - chỉ để hiển thị UI
+     */
+    isAdminTemplate() {
         const auth = this.getAuthState();
         if (!auth) return false;
-        return parseInt(auth.checkLogin) === 0;
+        return auth.roleTemplate === 'admin';
     }
 
+    /**
+     * @deprecated Use isAdminTemplate() instead
+     * Kept for backward compatibility
+     */
+    isAdmin() {
+        return this.isAdminTemplate();
+    }
+
+    /**
+     * @deprecated Use detailedPermissions instead
+     * Legacy method for backward compatibility
+     */
     hasPermission(requiredLevel) {
         const auth = this.getAuthState();
         if (!auth) return false;

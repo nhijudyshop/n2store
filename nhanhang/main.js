@@ -564,8 +564,8 @@ function initializeTooltipHandlers() {
             }
 
             const auth = getAuthState();
-            // NEW SYSTEM: Check detailedPermissions for 'nhan-hang' page or roleTemplate
-            const hasAdvancedView = auth && (auth.roleTemplate === 'admin' || auth.detailedPermissions?.['nhan-hang']?.['delete'] === true);
+            // ALL users check detailedPermissions - NO admin bypass
+            const hasAdvancedView = auth?.detailedPermissions?.['nhanhang']?.['delete'] === true;
             if (hasAdvancedView) {
                 const tooltip = document.getElementById("tooltip");
                 const row = e.target.closest("tr");

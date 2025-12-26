@@ -330,7 +330,7 @@ class UnifiedNavigationManager {
     constructor() {
         this.currentPage = null;
         this.userPermissions = [];
-        this.isAdmin = false;
+        this.isAdminTemplate = false; // For UI display only, NOT for bypass
         this.isMobile = window.innerWidth <= 768;
         this.init();
     }
@@ -348,12 +348,14 @@ class UnifiedNavigationManager {
         }
 
         try {
-            // Get user info - Admin has FULL BYPASS, others check detailedPermissions
+            // Get user info - ALL users (including Admin) use detailedPermissions
+            // NO bypass - Admin has full permissions set in detailedPermissions
             // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
             const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
             const authData = JSON.parse(authDataStr);
-            this.isAdmin = authData.roleTemplate === 'admin';
-            console.log("[Unified Nav] Is Admin (roleTemplate):", this.isAdmin, "- Has BYPASS", "| Source:", localStorage.getItem("loginindex_auth") ? "localStorage" : "sessionStorage");
+            // isAdminTemplate is for UI display only (role badge, etc.), NOT for bypass
+            this.isAdminTemplate = authData.roleTemplate === 'admin';
+            console.log("[Unified Nav] Role Template:", authData.roleTemplate, "| Source:", localStorage.getItem("loginindex_auth") ? "localStorage" : "sessionStorage");
 
             // Load permissions
             await this.loadUserPermissions();
@@ -424,7 +426,7 @@ class UnifiedNavigationManager {
 
     async loadUserPermissions() {
         // Load detailedPermissions from auth data
-        // Admin bypass is handled in checkPageAccess(), not here
+        // ALL users (including Admin) use detailedPermissions - NO bypass
 
         // Try to load from cache (check both localStorage AND sessionStorage)
         try {
@@ -537,9 +539,7 @@ class UnifiedNavigationManager {
      * @returns {boolean}
      */
     hasDetailedPermission(pageId, permissionKey) {
-        // Admin BYPASS - full access to everything
-        if (this.isAdmin) return true;
-
+        // ALL users (including Admin) check detailedPermissions - NO bypass
         if (!this.userDetailedPermissions) return false;
 
         const pagePerms = this.userDetailedPermissions[pageId];
@@ -603,13 +603,8 @@ class UnifiedNavigationManager {
             return true;
         }
 
-        // Admin BYPASS - full access to everything
-        if (this.isAdmin) {
-            console.log("[Permission Check] Admin user (roleTemplate), allowing access");
-            return true;
-        }
-
-        // Other users check detailedPermissions
+        // ALL users (including Admin) check detailedPermissions - NO bypass
+        // Admin gets full access by having all permissions set to true in detailedPermissions
         const hasPermission = this.userPermissions.includes(
             pageInfo.permissionRequired,
         );
@@ -618,6 +613,7 @@ class UnifiedNavigationManager {
             currentPage: this.currentPage,
             requiredPermission: pageInfo.permissionRequired,
             userPermissions: this.userPermissions,
+            roleTemplate: this.isAdminTemplate ? 'admin' : 'other',
             hasAccess: hasPermission,
         });
 
@@ -910,10 +906,9 @@ class UnifiedNavigationManager {
         let renderedCount = 0;
 
         MENU_CONFIG.forEach((menuItem) => {
-            // Admin BYPASS - show all menu items
+            // ALL users check detailedPermissions - NO admin bypass
             // Items without permissionRequired are shown to everyone
-            const hasPermission = this.isAdmin ||
-                !menuItem.permissionRequired ||
+            const hasPermission = !menuItem.permissionRequired ||
                 this.userPermissions.includes(menuItem.permissionRequired);
 
             if (!hasPermission) {
@@ -1242,10 +1237,10 @@ class UnifiedNavigationManager {
     }
 
     getAccessiblePages() {
-        // Admin BYPASS - access all pages
+        // ALL users check detailedPermissions - NO admin bypass
         const accessible = MENU_CONFIG.filter((item) => {
-            if (this.isAdmin) return true;
-            if (item.adminOnly) return false;
+            // Items without permissionRequired are accessible to everyone
+            if (!item.permissionRequired) return true;
             return this.userPermissions.includes(item.permissionRequired);
         });
 
@@ -3020,7 +3015,7 @@ class UnifiedNavigationManager {
             pageName: pageName,
             requiredPermission: requiredPermission,
             userPermissions: this.userPermissions,
-            isAdmin: this.isAdmin,
+            roleTemplate: this.isAdminTemplate ? 'admin' : 'other',
             firstAccessiblePage: firstAccessiblePage
                 ? firstAccessiblePage.pageIdentifier
                 : "none",
