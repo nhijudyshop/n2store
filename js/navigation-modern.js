@@ -171,6 +171,14 @@ const MENU_CONFIG = [
         adminOnly: true,
         permissionRequired: "lichsuchinhsua",
     },
+    {
+        href: "../AI/gemini.html",
+        icon: "bot",
+        text: "Gemini AI Assistant",
+        shortText: "AI",
+        pageIdentifier: "gemini-ai",
+        permissionRequired: "gemini-ai",
+    },
 ];
 
 // localStorage key for custom menu names (cache)
