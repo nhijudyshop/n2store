@@ -31,6 +31,12 @@ const PAGE_PERMISSIONS_CONFIG = [
         description: "Quản lý cân nặng và nhận hàng",
     },
     {
+        id: "inventoryTracking",
+        icon: "package-search",
+        name: "Theo Dõi Nhập Hàng SL",
+        description: "Theo dõi nhập hàng số lượng và công nợ",
+    },
+    {
         id: "hangrotxa",
         icon: "clipboard-list",
         name: "Hàng Rớt - Xả",
