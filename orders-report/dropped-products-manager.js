@@ -58,15 +58,14 @@
 
     // Firebase collection path for dropped products
     const DROPPED_PRODUCTS_COLLECTION = 'dropped_products';
-    const HISTORY_COLLECTION = 'dropped_products_history';
+    // REMOVED: dropped_products_history - không còn sử dụng
 
     // Local state - FIREBASE IS THE SINGLE SOURCE OF TRUTH
     let droppedProducts = [];
-    let historyItems = [];
+    // REMOVED: historyItems - không còn sử dụng
     let isInitialized = false;
     let firebaseDb = null;
     let droppedProductsRef = null;
-    let historyRef = null;
     let isFirstLoad = true;
 
     // Loading states for better UX during multi-user operations
@@ -114,14 +113,14 @@
 
             // Setup realtime listeners - UI will update automatically
             loadDroppedProductsFromFirebase();
-            loadHistoryFromFirebase();
+            // REMOVED: loadHistoryFromFirebase() - không còn sử dụng
 
             isInitialized = true;
             console.log('[DROPPED-PRODUCTS] ✓ Initialized with Firebase realtime multi-user sync');
 
             // Render initial loading state
             renderDroppedProductsTable();
-            renderHistoryList();
+            renderHistoryList(); // Hiển thị thông báo history đã bị tắt
             updateDroppedCounts();
 
         } catch (error) {
@@ -237,105 +236,7 @@
         }
     }
 
-    /**
-     * Load history from Firebase with realtime listener
-     * Uses child_added/changed/removed for granular updates
-     */
-    function loadHistoryFromFirebase() {
-        if (!firebaseDb) return;
-
-        try {
-            console.log('[DROPPED-PRODUCTS] Setting up granular realtime listeners for history');
-
-            historyRef = firebaseDb.ref(HISTORY_COLLECTION)
-                .orderByChild('timestamp')
-                .limitToLast(100);
-
-            // Handle new history items
-            historyRef.on('child_added', (snapshot) => {
-                const itemId = snapshot.key;
-                const itemData = snapshot.val();
-
-                // Check if item already exists (prevent duplicates)
-                const existingIndex = historyItems.findIndex(h => h.id === itemId);
-
-                if (existingIndex === -1) {
-                    // Add new item
-                    const newItem = {
-                        id: itemId,
-                        ...itemData
-                    };
-                    historyItems.push(newItem);
-
-                    // Sort by timestamp (newest first)
-                    historyItems.sort((a, b) => b.timestamp - a.timestamp);
-
-                    // Keep only last 100 items
-                    if (historyItems.length > 100) {
-                        historyItems = historyItems.slice(0, 100);
-                    }
-
-                    if (!isFirstLoad) {
-                        console.log('[DROPPED-PRODUCTS] History item added:', itemId);
-                    }
-                } else if (!isFirstLoad) {
-                    console.warn('[DROPPED-PRODUCTS] Duplicate history add detected for:', itemId, '- skipped');
-                }
-
-                // Update UI
-                renderHistoryList();
-            }, (error) => {
-                console.error('[DROPPED-PRODUCTS] History child_added error:', error);
-            });
-
-            // Handle updated history items (rare, but possible)
-            historyRef.on('child_changed', (snapshot) => {
-                const itemId = snapshot.key;
-                const itemData = snapshot.val();
-
-                const existingIndex = historyItems.findIndex(h => h.id === itemId);
-
-                if (existingIndex > -1) {
-                    historyItems[existingIndex] = {
-                        id: itemId,
-                        ...itemData
-                    };
-                    // Re-sort
-                    historyItems.sort((a, b) => b.timestamp - a.timestamp);
-                    console.log('[DROPPED-PRODUCTS] History item updated:', itemId);
-                } else {
-                    console.warn('[DROPPED-PRODUCTS] History update for non-existent item:', itemId);
-                }
-
-                // Update UI
-                renderHistoryList();
-            }, (error) => {
-                console.error('[DROPPED-PRODUCTS] History child_changed error:', error);
-            });
-
-            // Handle removed history items
-            historyRef.on('child_removed', (snapshot) => {
-                const itemId = snapshot.key;
-
-                const existingIndex = historyItems.findIndex(h => h.id === itemId);
-
-                if (existingIndex > -1) {
-                    historyItems.splice(existingIndex, 1);
-                    console.log('[DROPPED-PRODUCTS] History item removed:', itemId);
-                } else {
-                    console.warn('[DROPPED-PRODUCTS] History remove for non-existent item:', itemId);
-                }
-
-                // Update UI
-                renderHistoryList();
-            }, (error) => {
-                console.error('[DROPPED-PRODUCTS] History child_removed error:', error);
-            });
-
-        } catch (error) {
-            console.error('[DROPPED-PRODUCTS] Error setting up history listeners:', error);
-        }
-    }
+    // REMOVED: loadHistoryFromFirebase() - không còn sử dụng dropped_products_history
 
     /**
      * Show error message to user
@@ -369,10 +270,7 @@
             droppedProductsRef = null;
         }
 
-        if (historyRef) {
-            historyRef.off();
-            historyRef = null;
-        }
+        // REMOVED: historyRef cleanup - không còn sử dụng
 
         isInitialized = false;
         console.log('[DROPPED-PRODUCTS] Cleanup complete');
@@ -746,24 +644,13 @@
     };
 
     /**
-     * Add history item
-     * FIREBASE-ONLY: Listener will update UI automatically
+     * Add history item - DISABLED
+     * History feature has been removed to reduce Firebase costs
      */
     async function addHistoryItem(item) {
-        if (!firebaseDb) return;
-
-        try {
-            const historyItem = {
-                ...item,
-                timestamp: window.firebase.database.ServerValue.TIMESTAMP,
-                date: new Date().toLocaleString('vi-VN')
-            };
-
-            await firebaseDb.ref(HISTORY_COLLECTION).push(historyItem);
-            // Listener will handle adding to UI
-        } catch (error) {
-            console.error('[DROPPED-PRODUCTS] ❌ Error saving history:', error);
-        }
+        // DISABLED: dropped_products_history không còn sử dụng
+        // Giữ function để không gây lỗi cho code gọi đến
+        return;
     }
 
     /**
@@ -1255,71 +1142,21 @@
     };
 
     /**
-     * Render history list
+     * Render history list - DISABLED
+     * History feature has been removed to reduce Firebase costs
      */
     function renderHistoryList() {
         const container = document.getElementById('chatHistoryContainer');
         if (!container) return;
 
-        if (historyItems.length === 0) {
-            container.innerHTML = `
-                <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                    <i class="fas fa-history" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
-                    <p style="font-size: 14px; margin: 0;">Chưa có lịch sử</p>
-                    <p style="font-size: 12px; margin-top: 4px;">Các thao tác sẽ được ghi lại ở đây</p>
-                </div>
-            `;
-            return;
-        }
-
-        const historyHTML = historyItems.map(item => {
-            const actionColor = item.action.includes('Xóa') ? '#ef4444' :
-                item.action.includes('Giảm') ? '#f59e0b' :
-                    item.action.includes('Chuyển') ? '#10b981' : '#3b82f6';
-
-            const actionIcon = item.action.includes('Xóa') ? 'fa-trash' :
-                item.action.includes('Giảm') ? 'fa-minus-circle' :
-                    item.action.includes('Chuyển') ? 'fa-undo' : 'fa-info-circle';
-
-            return `
-                <div class="history-item" style="
-                    padding: 12px 16px;
-                    border-bottom: 1px solid #f1f5f9;
-                    display: flex;
-                    align-items: flex-start;
-                    gap: 12px;
-                ">
-                    <div style="
-                        width: 32px;
-                        height: 32px;
-                        border-radius: 50%;
-                        background: ${actionColor}15;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        flex-shrink: 0;
-                    ">
-                        <i class="fas ${actionIcon}" style="color: ${actionColor}; font-size: 12px;"></i>
-                    </div>
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight: 600; color: ${actionColor}; font-size: 13px; margin-bottom: 2px;">
-                            ${item.action}
-                        </div>
-                        <div style="font-size: 13px; color: #1e293b; margin-bottom: 4px;">
-                            ${item.productName || 'N/A'}
-                        </div>
-                        <div style="font-size: 11px; color: #64748b;">
-                            SL: ${item.quantity} • ${(item.price || 0).toLocaleString('vi-VN')}đ
-                        </div>
-                    </div>
-                    <div style="font-size: 11px; color: #94a3b8; text-align: right; flex-shrink: 0;">
-                        ${item.date || ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        container.innerHTML = historyHTML;
+        // History feature đã bị tắt để tiết kiệm chi phí Firebase
+        container.innerHTML = `
+            <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                <i class="fas fa-history" style="font-size: 40px; margin-bottom: 12px; opacity: 0.3;"></i>
+                <p style="font-size: 14px; margin: 0; color: #64748b;">Lịch sử đã tắt</p>
+                <p style="font-size: 12px; margin-top: 4px;">Tính năng này đã được tắt để tiết kiệm chi phí</p>
+            </div>
+        `;
     }
 
     /**
