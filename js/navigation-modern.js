@@ -177,7 +177,6 @@ const MENU_CONFIG = [
         text: "Gemini AI Assistant",
         shortText: "AI",
         pageIdentifier: "gemini-ai",
-        permissionRequired: "gemini-ai",
     },
 ];
 
