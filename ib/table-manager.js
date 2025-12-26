@@ -49,7 +49,9 @@ class TableManager {
 
     // Handle tooltip display
     handleTooltip(e) {
-        if (!authManager.hasPermission(0)) return;
+        // Check delete permission via detailedPermissions
+        const auth = authManager?.getAuthState ? authManager.getAuthState() : null;
+        if (!auth?.detailedPermissions?.['ib']?.['delete']) return;
 
         const tooltip = document.getElementById("tooltip");
         const row = e.target.closest("tr");
@@ -299,7 +301,9 @@ class TableManager {
 
     // Delete row
     deleteRow(row, button) {
-        if (!authManager.hasPermission(0)) {
+        // Check delete permission via detailedPermissions
+        const auth = authManager?.getAuthState ? authManager.getAuthState() : null;
+        if (!auth?.detailedPermissions?.['ib']?.['delete']) {
             uiManager.showError("Bạn không đủ quyền để thực hiện thao tác này");
             return;
         }

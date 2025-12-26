@@ -1461,9 +1461,11 @@ function toggleControlBar() {
 function checkAdminPermission() {
     const btn = document.getElementById('employeeSettingsBtn');
     if (btn) {
-        // Check if user is admin (checkLogin === 0)
-        const isAdmin = window.authManager && window.authManager.hasPermission(0);
-        if (!isAdmin) {
+        // Check if user has admin permissions via detailedPermissions
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        const hasAdminAccess = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
+                              auth?.roleTemplate === 'admin';
+        if (!hasAdminAccess) {
             btn.style.display = 'none';
         } else {
             btn.style.display = 'inline-flex';
@@ -5256,15 +5258,16 @@ function performTableSearch() {
         : [...allData];
 
     // Apply Employee STT Range Filter
-    // Check if user is admin (checkLogin === 0)
-    let isAdmin = window.authManager && window.authManager.hasPermission(0);
-
+    // Check if user has admin access via detailedPermissions
     const auth = window.authManager ? window.authManager.getAuthState() : null;
+    let isAdmin = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
+                  auth?.roleTemplate === 'admin';
+
     const currentUserType = auth && auth.userType ? auth.userType : null;
     const currentDisplayName = auth && auth.displayName ? auth.displayName : null;
     const currentUserId = auth && auth.id ? auth.id : null;
 
-    // Fallback: Check username string for Admin
+    // Fallback: Check username string for Admin (legacy support)
     if (!isAdmin && currentUserType) {
         const lowerName = currentUserType.toLowerCase();
         if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
@@ -6896,11 +6899,12 @@ function renderTable() {
         return;
     }
 
-    // Check if user is admin
-    let isAdmin = window.authManager && window.authManager.hasPermission(0);
-
-    // Fallback: Check username string for Admin
+    // Check if user has admin access via detailedPermissions
     const auth = window.authManager ? window.authManager.getAuthState() : null;
+    let isAdmin = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
+                  auth?.roleTemplate === 'admin';
+
+    // Fallback: Check username string for Admin (legacy support)
     const currentUserType = auth && auth.userType ? auth.userType : null;
     if (!isAdmin && currentUserType) {
         const lowerName = currentUserType.toLowerCase();
@@ -22606,8 +22610,11 @@ async function openSaleButtonModal() {
     const prepaidAmountField = document.getElementById('salePrepaidAmount');
     const confirmDebtBtn = document.getElementById('confirmDebtBtn');
 
-    let isAdmin = window.authManager && window.authManager.hasPermission(0);
-    // Fallback: Check username for admin
+    // Check admin access via detailedPermissions
+    const authState = window.authManager ? window.authManager.getAuthState() : null;
+    let isAdmin = authState?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
+                  authState?.roleTemplate === 'admin';
+    // Fallback: Check username for admin (legacy support)
     if (!isAdmin) {
         const currentUserType = window.authManager?.getCurrentUser?.()?.name || localStorage.getItem('current_user_name') || '';
         const lowerName = currentUserType.toLowerCase();

@@ -1758,11 +1758,29 @@ class MoneyTransferApp {
     }
 
     // ===== UTILITY METHODS =====
+    /**
+     * Check permission using detailedPermissions
+     * Maps legacy levels to specific actions:
+     * - Level 0: 'delete' permission (admin actions)
+     * - Level 1: 'edit' permission (can edit all)
+     * - Level 3: 'view' or 'verify' permission (basic access)
+     */
     hasPermission(requiredLevel) {
         const auth = this.getAuthState();
-        if (!auth) return false;
-        const userLevel = parseInt(auth.checkLogin);
-        return userLevel <= requiredLevel;
+        if (!auth?.detailedPermissions?.['ck']) return false;
+
+        const ckPerms = auth.detailedPermissions['ck'];
+
+        // Map levels to detailedPermissions
+        switch (requiredLevel) {
+            case 0: // Admin level - needs delete permission
+                return ckPerms['delete'] === true;
+            case 1: // Higher permission - needs edit permission
+                return ckPerms['edit'] === true;
+            case 3: // Basic permission - needs view or verify
+            default:
+                return ckPerms['view'] === true || ckPerms['verify'] === true;
+        }
     }
 
     extractRowData(row) {
