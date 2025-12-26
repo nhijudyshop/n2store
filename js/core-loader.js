@@ -24,7 +24,8 @@
         'dom-utils.js',                 // DOM utilities
         'event-manager.js',             // Event management
         'shared-cache-manager.js',      // Cache manager
-        'shared-auth-manager.js'        // Auth manager
+        'shared-auth-manager.js',       // Auth manager
+        'permissions-helper.js'         // Global permission system
     ];
 
     // Track loaded scripts

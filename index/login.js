@@ -379,56 +379,44 @@ document.addEventListener("DOMContentLoaded", function () {
         try {
             loginAttempts = 0;
 
-            // Load user permissions (with cache)
-            let userPermissions = [];
+            // Load detailed permissions and roleTemplate (NEW SYSTEM)
+            let detailedPermissions = {};
+            let roleTemplate = 'custom';
+
             const cachedPermissions = authCache.get(
-                `${username}_permissions`,
+                `${username}_detailed_permissions`,
                 "permissions",
             );
 
             if (cachedPermissions) {
-                console.log("✔ Sử dụng permissions từ cache");
-                userPermissions = cachedPermissions;
+                console.log("✔ Sử dụng detailedPermissions từ cache");
+                detailedPermissions = cachedPermissions.detailedPermissions || {};
+                roleTemplate = cachedPermissions.roleTemplate || 'custom';
             } else {
-                console.log("⚡ Fetching permissions từ Firestore");
+                console.log("⚡ Fetching detailedPermissions từ Firestore");
                 try {
                     const userDocRef = db.collection("users").doc(username);
                     const userDoc = await userDocRef.get();
 
                     if (userDoc.exists) {
                         const userData = userDoc.data();
-                        userPermissions = userData.pagePermissions || [];
+                        detailedPermissions = userData.detailedPermissions || {};
+                        roleTemplate = userData.roleTemplate || 'custom';
+
                         // Cache permissions
                         authCache.set(
-                            `${username}_permissions`,
-                            userPermissions,
+                            `${username}_detailed_permissions`,
+                            { detailedPermissions, roleTemplate },
                             "permissions",
                         );
                         console.log(
-                            "User permissions loaded:",
-                            userPermissions,
+                            "DetailedPermissions loaded:",
+                            Object.keys(detailedPermissions).length, "pages"
                         );
                     }
                 } catch (error) {
-                    console.error("Error loading user permissions:", error);
-                    if (
-                        userInfo.checkLogin === "0" ||
-                        userInfo.checkLogin === 0
-                    ) {
-                        userPermissions = [
-                            "live",
-                            "livestream",
-                            "nhanhang",
-                            "hangrotxa",
-                            "ib",
-                            "ck",
-                            "hanghoan",
-                            "hangdat",
-                            "bangkiemhang",
-                            "user-management",
-                            "history",
-                        ];
-                    }
+                    console.error("Error loading detailedPermissions:", error);
+                    // Không fallback - user phải có detailedPermissions từ Firebase
                 }
             }
 
@@ -463,7 +451,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const authData = {
                 isLoggedIn: "true",
                 userType: `${username}-${userInfo.password}`,
-                checkLogin: userInfo.checkLogin.toString(),
+                checkLogin: userInfo.checkLogin.toString(), // Kept for backward display only
                 timestamp: now,
                 expiresAt: now + duration,
                 lastActivity: now,
@@ -471,8 +459,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 loginTime: new Date().toISOString(),
                 username: username,
                 uid: userInfo.uid,
-                userId: userId, // 🆕 NEW - Persistent chat system user ID
-                pagePermissions: userPermissions,
+                userId: userId,
+                // NEW PERMISSION SYSTEM - Only detailedPermissions
+                detailedPermissions: detailedPermissions,
+                roleTemplate: roleTemplate,
                 isRemembered: rememberMe,
             };
 

@@ -178,8 +178,8 @@ function renderUserList(users) {
 
     let html = "";
     users.forEach((user) => {
-        const roleClass = getRoleClass(user.checkLogin);
-        const roleIcon = getRoleIcon(user.checkLogin);
+        // NEW: Get role info from roleTemplate instead of checkLogin
+        const roleInfo = getRoleTemplateInfo(user.roleTemplate);
 
         // Count detailed permissions and derive page access count
         let permissionCount = 0;
@@ -220,9 +220,9 @@ function renderUserList(users) {
                     <div class="user-list-details">
                         <div class="user-list-name">${user.displayName} <span style="color: var(--text-tertiary); font-weight: normal">(${user.id})</span></div>
                         <div class="user-list-meta">
-                            <span class="user-role-badge ${roleClass}">
-                                <i data-lucide="${roleIcon}"></i>
-                                ${getRoleName(user.checkLogin)}
+                            <span class="user-role-badge" style="background: ${roleInfo.color}15; color: ${roleInfo.color}; border: 1px solid ${roleInfo.color}30;">
+                                <i data-lucide="${roleInfo.icon}"></i>
+                                ${roleInfo.name}
                             </span>
                             <span><i data-lucide="layout-grid" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${accessiblePagesCount} trang</span>
                             <span><i data-lucide="shield-check" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${permissionCount}/${totalPerms} quyền</span>
@@ -287,6 +287,53 @@ function getRoleText(checkLogin) {
     return getRoleName(checkLogin);
 }
 
+/**
+ * Lấy thông tin role từ roleTemplate (NEW SYSTEM)
+ * @param {string} roleTemplate - Template name (admin, manager, sales-team, etc.)
+ * @returns {Object} - { name, icon, color }
+ */
+function getRoleTemplateInfo(roleTemplate) {
+    // Check PERMISSION_TEMPLATES from registry
+    if (typeof PERMISSION_TEMPLATES !== 'undefined' && PERMISSION_TEMPLATES[roleTemplate]) {
+        const info = PERMISSION_TEMPLATES[roleTemplate];
+        return {
+            id: roleTemplate,
+            name: info.name?.split(' - ')[0] || roleTemplate,
+            icon: info.icon || 'user',
+            color: info.color || '#6366f1'
+        };
+    }
+
+    // Default templates
+    const defaultTemplates = {
+        'admin': { name: 'Admin', icon: 'crown', color: '#ef4444' },
+        'manager': { name: 'Manager', icon: 'briefcase', color: '#f59e0b' },
+        'sales-team': { name: 'Sales Team', icon: 'shopping-cart', color: '#3b82f6' },
+        'warehouse-team': { name: 'Warehouse Team', icon: 'package', color: '#10b981' },
+        'staff': { name: 'Staff', icon: 'users', color: '#8b5cf6' },
+        'viewer': { name: 'Viewer', icon: 'eye', color: '#6b7280' },
+        'custom': { name: 'Custom', icon: 'sliders', color: '#6366f1' }
+    };
+
+    return {
+        id: roleTemplate || 'custom',
+        ...(defaultTemplates[roleTemplate] || defaultTemplates['custom'])
+    };
+}
+
+/**
+ * Render role badge HTML từ roleTemplate
+ * @param {string} roleTemplate - Template name
+ * @returns {string} - HTML string
+ */
+function renderRoleBadge(roleTemplate) {
+    const info = getRoleTemplateInfo(roleTemplate);
+    return `<span class="role-badge" style="background: ${info.color}20; color: ${info.color}; border: 1px solid ${info.color}40;">
+        <i data-lucide="${info.icon}" style="width: 12px; height: 12px;"></i>
+        ${info.name}
+    </span>`;
+}
+
 // =====================================================
 // USER MANAGEMENT CRUD OPERATIONS - PART 2
 // =====================================================
@@ -302,9 +349,11 @@ function editUser(username) {
     document.getElementById("editCheckLogin").value = user.checkLogin;
     document.getElementById("editNewPassword").value = "";
 
-    // Load detailed permissions (page access is derived automatically)
+    // Load detailed permissions and roleTemplate (NEW SYSTEM)
     if (window.editDetailedPermUI) {
         window.editDetailedPermUI.setPermissions(user.detailedPermissions || {});
+        // Set the currentTemplate so it's saved correctly on update
+        window.editDetailedPermUI.currentTemplate = user.roleTemplate || 'custom';
     }
 
     document.querySelector('[data-tab="manage"]').click();
@@ -377,6 +426,9 @@ async function updateUser() {
         ? window.editDetailedPermUI.getPermissions()
         : {};
 
+    // Get roleTemplate from UI (which template is currently applied)
+    const roleTemplate = window.editDetailedPermUI?.currentTemplate || 'custom';
+
     const loadingId = showFloatingAlert(
         "Đang cập nhật tài khoản...",
         "loading",
@@ -386,8 +438,9 @@ async function updateUser() {
         let updateData = {
             displayName: displayName,
             identifier: identifier,
-            checkLogin: checkLogin,
+            checkLogin: checkLogin, // Kept for backward compatibility display
             detailedPermissions: detailedPermissions,
+            roleTemplate: roleTemplate, // NEW: Save role template
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
                 .username,
@@ -475,6 +528,9 @@ async function createUser() {
         ? window.newDetailedPermUI.getPermissions()
         : {};
 
+    // Get roleTemplate from UI (which template is currently applied)
+    const roleTemplate = window.newDetailedPermUI?.currentTemplate || 'custom';
+
     const loadingId = showFloatingAlert("Đang tạo tài khoản...", "loading");
 
     try {
@@ -499,8 +555,9 @@ async function createUser() {
             .set({
                 displayName: displayName,
                 identifier: identifier,
-                checkLogin: checkLogin,
+                checkLogin: checkLogin, // Kept for backward compatibility display
                 detailedPermissions: detailedPermissions,
+                roleTemplate: roleTemplate, // NEW: Save role template
                 passwordHash: hash,
                 salt: salt,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),

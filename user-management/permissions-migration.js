@@ -131,15 +131,17 @@ const PermissionsMigration = {
 
             for (const user of users) {
                 try {
-                    // Cập nhật user với full detailedPermissions
+                    // Detect roleTemplate based on existing permissions or assign 'admin' for full perms
+                    const roleTemplate = user.roleTemplate || 'admin'; // Default to admin for migration
+
+                    // Cập nhật user với full detailedPermissions và roleTemplate
                     await db.collection('users').doc(user.id).update({
                         detailedPermissions: fullPerms,
-                        // Giữ lại pagePermissions để tương thích ngược (sẽ xóa sau)
-                        // pagePermissions: Object.keys(fullPerms)
+                        roleTemplate: roleTemplate, // NEW: Add roleTemplate
                     });
 
                     results.success++;
-                    console.log(`✅ ${user.displayName || user.id} - OK`);
+                    console.log(`✅ ${user.displayName || user.id} - OK (roleTemplate: ${roleTemplate})`);
 
                 } catch (error) {
                     results.failed++;
@@ -203,6 +205,97 @@ const PermissionsMigration = {
         } catch (error) {
             console.error('[Migration] Rollback failed:', error);
         }
+    },
+
+    /**
+     * Add roleTemplate to existing users that already have detailedPermissions
+     * Detects template based on permission patterns
+     */
+    async addRoleTemplate() {
+        console.log('='.repeat(60));
+        console.log('[Migration] Adding roleTemplate to existing users...');
+        console.log('='.repeat(60));
+
+        if (typeof db === 'undefined' || !db) {
+            console.error('[Migration] Firebase chưa kết nối!');
+            return { success: false, error: 'Firebase not connected' };
+        }
+
+        try {
+            const snapshot = await db.collection('users').get();
+            const results = { total: 0, updated: 0, skipped: 0, errors: [] };
+
+            for (const doc of snapshot.docs) {
+                results.total++;
+                const user = doc.data();
+
+                // Skip if already has roleTemplate
+                if (user.roleTemplate) {
+                    console.log(`⏭️ ${user.displayName || doc.id} - already has roleTemplate: ${user.roleTemplate}`);
+                    results.skipped++;
+                    continue;
+                }
+
+                // Detect roleTemplate based on permissions
+                const roleTemplate = this.detectRoleTemplate(user.detailedPermissions);
+
+                try {
+                    await db.collection('users').doc(doc.id).update({
+                        roleTemplate: roleTemplate
+                    });
+                    console.log(`✅ ${user.displayName || doc.id} - added roleTemplate: ${roleTemplate}`);
+                    results.updated++;
+                } catch (error) {
+                    console.error(`❌ ${user.displayName || doc.id} - FAILED:`, error.message);
+                    results.errors.push({ user: doc.id, error: error.message });
+                }
+            }
+
+            console.log('');
+            console.log('='.repeat(60));
+            console.log('[Migration] KẾT QUẢ:');
+            console.log(`   - Tổng: ${results.total}`);
+            console.log(`   - Updated: ${results.updated}`);
+            console.log(`   - Skipped: ${results.skipped}`);
+            console.log(`   - Errors: ${results.errors.length}`);
+            console.log('='.repeat(60));
+
+            return results;
+        } catch (error) {
+            console.error('[Migration] Error:', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    /**
+     * Detect roleTemplate based on permission patterns
+     */
+    detectRoleTemplate(detailedPermissions) {
+        if (!detailedPermissions) return 'custom';
+
+        // Count permissions
+        let grantedCount = 0;
+        let totalCount = 0;
+
+        Object.values(detailedPermissions).forEach(pagePerms => {
+            Object.values(pagePerms).forEach(value => {
+                totalCount++;
+                if (value === true) grantedCount++;
+            });
+        });
+
+        // If all permissions are true, it's admin
+        if (grantedCount === totalCount && totalCount > 0) {
+            return 'admin';
+        }
+
+        // If no permissions, it's viewer
+        if (grantedCount === 0) {
+            return 'viewer';
+        }
+
+        // Otherwise custom
+        return 'custom';
     }
 };
 
@@ -210,5 +303,6 @@ const PermissionsMigration = {
 window.PermissionsMigration = PermissionsMigration;
 
 console.log('[Permissions Migration] Loaded. Commands:');
-console.log('  - PermissionsMigration.preview()  : Xem trước migration');
-console.log('  - PermissionsMigration.execute()  : Thực hiện migration');
+console.log('  - PermissionsMigration.preview()       : Xem trước migration');
+console.log('  - PermissionsMigration.execute()       : Thực hiện migration (full perms)');
+console.log('  - PermissionsMigration.addRoleTemplate() : Thêm roleTemplate cho users hiện có');
