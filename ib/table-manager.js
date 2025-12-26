@@ -208,7 +208,10 @@ class TableManager {
         );
 
         // Add delete button if authorized
-        if (auth && auth.checkLogin == "0") {
+        // Admin BYPASS - full access. Others check detailedPermissions
+        const isAdmin = auth?.roleTemplate === 'admin';
+        const hasDeletePerm = isAdmin || (auth && auth.detailedPermissions?.['ib']?.['delete'] === true);
+        if (hasDeletePerm) {
             this.addDeleteButton(actionCell, dataItem.user || "Unknown");
         }
     }

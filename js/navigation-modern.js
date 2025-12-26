@@ -333,10 +333,10 @@ class UnifiedNavigationManager {
         }
 
         try {
-            // Get user info
-            const checkLogin = localStorage.getItem("checkLogin");
-            this.isAdmin = checkLogin === "0" || checkLogin === 0;
-            console.log("[Unified Nav] Is Admin:", this.isAdmin);
+            // Get user info - Admin has FULL BYPASS, others check detailedPermissions
+            const authData = JSON.parse(localStorage.getItem("loginindex_auth") || "{}");
+            this.isAdmin = authData.roleTemplate === 'admin';
+            console.log("[Unified Nav] Is Admin (roleTemplate):", this.isAdmin, "- Has BYPASS");
 
             // Load permissions
             await this.loadUserPermissions();
@@ -406,48 +406,23 @@ class UnifiedNavigationManager {
     }
 
     async loadUserPermissions() {
-        // Admin gets all permissions
-        if (this.isAdmin) {
-            this.userPermissions = MENU_CONFIG.map(
-                (item) => item.permissionRequired,
-            ).filter(Boolean);
-            this.userDetailedPermissions = null; // Admin bypasses detailed permissions
-            console.log(
-                "[Permission Load] Admin - all permissions granted:",
-                this.userPermissions,
-            );
-            return;
-        }
+        // NO BYPASS - All users check detailedPermissions (including admin)
+        // Admin is just a user with all permissions = true
 
-        // Try to load from localStorage cache (prefer detailedPermissions)
+        // Try to load from localStorage cache
         try {
             const authData = localStorage.getItem("loginindex_auth");
             if (authData) {
                 const userAuth = JSON.parse(authData);
 
-                // NEW: Check for detailedPermissions first (new system)
+                // Load detailedPermissions (only system now)
                 if (userAuth.detailedPermissions && Object.keys(userAuth.detailedPermissions).length > 0) {
                     this.userDetailedPermissions = userAuth.detailedPermissions;
-                    // Derive userPermissions from detailedPermissions for backward compatibility
+                    // Derive userPermissions from detailedPermissions for menu display
                     this.userPermissions = this._getAccessiblePagesFromDetailed(userAuth.detailedPermissions);
                     console.log(
-                        "[Permission Load] Loaded cached detailedPermissions:",
+                        "[Permission Load] Loaded detailedPermissions:",
                         Object.keys(this.userDetailedPermissions).length, "pages configured"
-                    );
-                    return;
-                }
-
-                // LEGACY: Fall back to pagePermissions for old data
-                if (
-                    userAuth.pagePermissions &&
-                    Array.isArray(userAuth.pagePermissions) &&
-                    userAuth.pagePermissions.length > 0
-                ) {
-                    this.userPermissions = userAuth.pagePermissions;
-                    this.userDetailedPermissions = null;
-                    console.log(
-                        "[Permission Load] Loaded cached pagePermissions (legacy):",
-                        this.userPermissions,
                     );
                     return;
                 }
@@ -459,7 +434,7 @@ class UnifiedNavigationManager {
             );
         }
 
-        // Try to load from Firebase
+        // Try to load from Firebase if not in cache
         try {
             if (typeof firebase !== "undefined" && firebase.firestore) {
                 const authData = JSON.parse(
@@ -482,13 +457,14 @@ class UnifiedNavigationManager {
                 if (userDoc.exists) {
                     const userData = userDoc.data();
 
-                    // NEW: Check for detailedPermissions first
+                    // Load detailedPermissions
                     if (userData.detailedPermissions && Object.keys(userData.detailedPermissions).length > 0) {
                         this.userDetailedPermissions = userData.detailedPermissions;
                         this.userPermissions = this._getAccessiblePagesFromDetailed(userData.detailedPermissions);
 
                         // Cache to localStorage
                         authData.detailedPermissions = this.userDetailedPermissions;
+                        authData.roleTemplate = userData.roleTemplate || 'custom';
                         localStorage.setItem(
                             "loginindex_auth",
                             JSON.stringify(authData),
@@ -500,23 +476,6 @@ class UnifiedNavigationManager {
                         );
                         return;
                     }
-
-                    // LEGACY: Fall back to pagePermissions
-                    this.userPermissions = userData.pagePermissions || [];
-                    this.userDetailedPermissions = null;
-
-                    // Cache to localStorage
-                    authData.pagePermissions = this.userPermissions;
-                    localStorage.setItem(
-                        "loginindex_auth",
-                        JSON.stringify(authData),
-                    );
-
-                    console.log(
-                        "[Permission Load] Loaded pagePermissions from Firebase (legacy):",
-                        this.userPermissions,
-                    );
-                    return;
                 } else {
                     console.error(
                         "[Permission Load] User document not found in Firebase",
@@ -556,12 +515,15 @@ class UnifiedNavigationManager {
 
     /**
      * NEW: Check if user has a specific detailed permission
+     * Admin (roleTemplate='admin') has FULL BYPASS
      * @param {string} pageId
      * @param {string} permissionKey
      * @returns {boolean}
      */
     hasDetailedPermission(pageId, permissionKey) {
+        // Admin BYPASS - full access to everything
         if (this.isAdmin) return true;
+
         if (!this.userDetailedPermissions) return false;
 
         const pagePerms = this.userDetailedPermissions[pageId];
@@ -625,11 +587,13 @@ class UnifiedNavigationManager {
             return true;
         }
 
+        // Admin BYPASS - full access to everything
         if (this.isAdmin) {
-            console.log("[Permission Check] Admin user, allowing access");
+            console.log("[Permission Check] Admin user (roleTemplate), allowing access");
             return true;
         }
 
+        // Other users check detailedPermissions
         const hasPermission = this.userPermissions.includes(
             pageInfo.permissionRequired,
         );
@@ -930,9 +894,8 @@ class UnifiedNavigationManager {
         let renderedCount = 0;
 
         MENU_CONFIG.forEach((menuItem) => {
-            const hasPermission =
-                this.isAdmin ||
-                this.userPermissions.includes(menuItem.permissionRequired);
+            // Admin BYPASS - show all menu items
+            const hasPermission = this.isAdmin || this.userPermissions.includes(menuItem.permissionRequired);
 
             if (!hasPermission) {
                 console.log(
@@ -1260,6 +1223,7 @@ class UnifiedNavigationManager {
     }
 
     getAccessiblePages() {
+        // Admin BYPASS - access all pages
         const accessible = MENU_CONFIG.filter((item) => {
             if (this.isAdmin) return true;
             if (item.adminOnly) return false;

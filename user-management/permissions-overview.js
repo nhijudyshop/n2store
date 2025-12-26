@@ -137,7 +137,9 @@ class PermissionsOverview {
         let totalDetailedPerms = 0;
 
         this.users.forEach(user => {
-            const role = this.getRoleName(user.checkLogin);
+            // Use roleTemplate for grouping, fallback to checkLogin
+            const roleInfo = this.getRoleTemplateInfo(user.roleTemplate);
+            const role = roleInfo.name;
             roleStats[role] = (roleStats[role] || 0) + 1;
 
             // Derive page access from detailedPermissions (simplified system)
@@ -243,7 +245,7 @@ class PermissionsOverview {
         // User rows
         let bodyHtml = '';
         filteredUsers.forEach(user => {
-            const roleBadge = this.getRoleBadge(user.checkLogin);
+            const roleBadge = this.getRoleBadge(user); // Pass full user object
 
             bodyHtml += `<tr>
                 <td class="sticky-col user-col">
@@ -375,13 +377,18 @@ class PermissionsOverview {
         };
 
         this.users.forEach(user => {
-            const role = this.getRoleName(user.checkLogin);
+            // Use roleTemplate for grouping
+            const roleInfo = this.getRoleTemplateInfo(user.roleTemplate);
+            const role = roleInfo.name;
+
             if (!roleStats[role]) {
                 roleStats[role] = {
                     count: 0,
                     totalPages: 0,
                     totalDetailedPerms: 0,
-                    users: []
+                    users: [],
+                    color: roleInfo.color,
+                    icon: roleInfo.icon
                 };
             }
 
@@ -558,7 +565,9 @@ class PermissionsOverview {
         csv += pages.map(p => p.name).join(',') + '\n';
 
         filteredUsers.forEach(user => {
-            csv += `"${user.id}","${user.displayName}","${this.getRoleName(user.checkLogin)}",`;
+            // Use roleTemplate for export
+            const roleInfo = this.getRoleTemplateInfo(user.roleTemplate);
+            csv += `"${user.id}","${user.displayName}","${roleInfo.name}",`;
             // Derive page access from detailedPermissions
             csv += pages.map(p => {
                 const pagePerms = user.detailedPermissions?.[p.id] || {};
@@ -587,12 +596,37 @@ class PermissionsOverview {
         return 0;
     }
 
+    // Legacy method - kept for backward compatibility
     getRoleName(checkLogin) {
         const names = { 0: 'Admin', 1: 'User', 2: 'Limited', 3: 'Basic', 777: 'Guest' };
         return names[checkLogin] || 'Unknown';
     }
 
-    getRoleBadge(checkLogin) {
+    // NEW: Get role info from roleTemplate
+    getRoleTemplateInfo(roleTemplate) {
+        const templates = {
+            'admin': { name: 'Admin', icon: 'crown', color: '#ef4444' },
+            'manager': { name: 'Manager', icon: 'briefcase', color: '#f59e0b' },
+            'sales-team': { name: 'Sales Team', icon: 'shopping-cart', color: '#3b82f6' },
+            'warehouse-team': { name: 'Warehouse', icon: 'package', color: '#10b981' },
+            'staff': { name: 'Staff', icon: 'users', color: '#8b5cf6' },
+            'viewer': { name: 'Viewer', icon: 'eye', color: '#6b7280' },
+            'custom': { name: 'Custom', icon: 'sliders', color: '#6366f1' }
+        };
+        return templates[roleTemplate] || templates['custom'];
+    }
+
+    // NEW: Get role badge from roleTemplate (user object)
+    getRoleBadge(user) {
+        // Use roleTemplate if available, fallback to checkLogin
+        if (user.roleTemplate) {
+            const info = this.getRoleTemplateInfo(user.roleTemplate);
+            return `<span class="role-badge" style="background: ${info.color}15; color: ${info.color}; border: 1px solid ${info.color}30;">
+                <i data-lucide="${info.icon}"></i>${info.name}
+            </span>`;
+        }
+
+        // Legacy fallback using checkLogin
         const roles = {
             0: { name: 'Admin', class: 'role-admin', icon: 'crown' },
             1: { name: 'User', class: 'role-user', icon: 'user' },
@@ -600,9 +634,7 @@ class PermissionsOverview {
             3: { name: 'Basic', class: 'role-basic', icon: 'circle' },
             777: { name: 'Guest', class: 'role-guest', icon: 'user-x' }
         };
-
-        const role = roles[checkLogin] || { name: 'Unknown', class: 'role-unknown', icon: 'help-circle' };
-
+        const role = roles[user.checkLogin] || { name: 'Unknown', class: 'role-unknown', icon: 'help-circle' };
         return `<span class="role-badge ${role.class}"><i data-lucide="${role.icon}"></i>${role.name}</span>`;
     }
 }
