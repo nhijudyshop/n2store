@@ -902,7 +902,10 @@ class UnifiedNavigationManager {
 
         MENU_CONFIG.forEach((menuItem) => {
             // Admin BYPASS - show all menu items
-            const hasPermission = this.isAdmin || this.userPermissions.includes(menuItem.permissionRequired);
+            // Items without permissionRequired are shown to everyone
+            const hasPermission = this.isAdmin ||
+                !menuItem.permissionRequired ||
+                this.userPermissions.includes(menuItem.permissionRequired);
 
             if (!hasPermission) {
                 console.log(
