@@ -116,7 +116,7 @@ class AuthManager {
     }
 
     logout() {
-        if (confirm('Ban co chac muon dang xuat?')) {
+        if (confirm('Bạn có chắc muốn đăng xuất?')) {
             this.clearAuth();
             localStorage.clear();
             sessionStorage.clear();
@@ -150,8 +150,51 @@ if (!authManager.isAuthenticated()) {
 // LEGACY FUNCTIONS (for backward compatibility)
 // =====================================================
 
+let authState = null;
+
 function getAuthState() {
     return authManager ? authManager.getAuthState() : null;
+}
+
+function setAuthState(isLoggedIn, userType, checkLogin) {
+    authState = {
+        isLoggedIn: isLoggedIn,
+        userType: userType,
+        checkLogin: checkLogin,
+        timestamp: Date.now(),
+    };
+
+    try {
+        localStorage.setItem('loginindex_auth', JSON.stringify(authState));
+        if (authManager) {
+            authManager.currentUser = authState;
+        }
+    } catch (error) {
+        console.error('[AUTH] Error saving auth state:', error);
+    }
+}
+
+function clearAuthState() {
+    authState = null;
+    try {
+        localStorage.removeItem('loginindex_auth');
+        sessionStorage.removeItem('loginindex_auth');
+        clearLegacyAuth();
+    } catch (error) {
+        console.error('[AUTH] Error clearing auth state:', error);
+    }
+}
+
+function clearLegacyAuth() {
+    try {
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userType');
+        localStorage.removeItem('checkLogin');
+        localStorage.removeItem('remember_login_preference');
+        sessionStorage.clear();
+    } catch (error) {
+        console.error('[AUTH] Error clearing legacy auth:', error);
+    }
 }
 
 function isAuthenticated() {
@@ -171,8 +214,14 @@ function getUserName() {
 }
 
 function handleLogout() {
-    if (authManager) {
-        authManager.logout();
+    const confirmLogout = confirm('Bạn có chắc muốn đăng xuất?');
+    if (confirmLogout) {
+        localStorage.clear();
+        sessionStorage.clear();
+        if (typeof invalidateCache === 'function') {
+            invalidateCache();
+        }
+        window.location.href = '../index.html';
     }
 }
 
