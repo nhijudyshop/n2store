@@ -265,17 +265,17 @@ router.post('/webhook', async (req, res) => {
             if (commandText === '/start') {
                 clearHistory(historyKey);
                 const groupNote = isGroup
-                    ? `\n\nTrong nhom:\n- Tag @${BOT_USERNAME} de hoi\n- Hoac reply tin nhan cua bot`
+                    ? `\n\nTrong nhóm:\n- Tag @${BOT_USERNAME} để hỏi\n- Hoặc reply tin nhắn của bot`
                     : '';
 
                 await sendTelegramMessage(chatId,
-                    `Xin chao ${firstName}!\n\n` +
-                    `Toi la Gemini AI Assistant.\n` +
-                    `Ban co the hoi toi bat ky dieu gi!\n\n` +
-                    `Cac lenh:\n` +
-                    `/start - Bat dau cuoc tro chuyen moi\n` +
-                    `/clear - Xoa lich su tro chuyen\n` +
-                    `/help - Huong dan su dung` +
+                    `Xin chào ${firstName}! 👋\n\n` +
+                    `Tôi là Gemini AI Assistant.\n` +
+                    `Bạn có thể hỏi tôi bất kỳ điều gì!\n\n` +
+                    `Các lệnh:\n` +
+                    `/start - Bắt đầu cuộc trò chuyện mới\n` +
+                    `/clear - Xóa lịch sử trò chuyện\n` +
+                    `/help - Hướng dẫn sử dụng` +
                     groupNote,
                     isGroup ? messageId : null
                 );
@@ -285,7 +285,7 @@ router.post('/webhook', async (req, res) => {
             if (commandText === '/clear') {
                 clearHistory(historyKey);
                 await sendTelegramMessage(chatId,
-                    'Da xoa lich su tro chuyen. Ban co the bat dau cuoc tro chuyen moi!',
+                    'Đã xóa lịch sử trò chuyện. Bạn có thể bắt đầu cuộc trò chuyện mới!',
                     isGroup ? messageId : null
                 );
                 return;
@@ -293,14 +293,14 @@ router.post('/webhook', async (req, res) => {
 
             if (commandText === '/help') {
                 const groupHelp = isGroup
-                    ? `\n\nCach dung trong nhom:\n- Tag @${BOT_USERNAME} + cau hoi\n- Hoac reply tin nhan cua bot`
+                    ? `\n\nCách dùng trong nhóm:\n- Tag @${BOT_USERNAME} + câu hỏi\n- Hoặc reply tin nhắn của bot`
                     : '';
 
                 await sendTelegramMessage(chatId,
-                    `Huong dan su dung Gemini AI Bot:\n\n` +
-                    `1. Gui tin nhan bat ky de tro chuyen voi AI\n` +
-                    `2. Bot se nho lich su tro chuyen\n` +
-                    `3. Dung /clear de xoa lich su va bat dau lai\n\n` +
+                    `Hướng dẫn sử dụng Gemini AI Bot:\n\n` +
+                    `1. Gửi tin nhắn bất kỳ để trò chuyện với AI\n` +
+                    `2. Bot sẽ nhớ lịch sử trò chuyện\n` +
+                    `3. Dùng /clear để xóa lịch sử và bắt đầu lại\n\n` +
                     `Model: ${GEMINI_MODEL}\n` +
                     `Powered by: Google Gemini AI` +
                     groupHelp,
@@ -312,7 +312,7 @@ router.post('/webhook', async (req, res) => {
             // Ignore non-text messages
             if (!text) {
                 await sendTelegramMessage(chatId,
-                    'Xin loi, toi chi ho tro tin nhan van ban.',
+                    'Xin lỗi, tôi chỉ hỗ trợ tin nhắn văn bản.',
                     isGroup ? messageId : null
                 );
                 return;
@@ -321,7 +321,7 @@ router.post('/webhook', async (req, res) => {
             // Check if API keys are configured
             if (!TELEGRAM_BOT_TOKEN || !GEMINI_API_KEY) {
                 await sendTelegramMessage(chatId,
-                    'Bot chua duoc cau hinh day du. Vui long lien he admin.',
+                    'Bot chưa được cấu hình đầy đủ. Vui lòng liên hệ admin.',
                     isGroup ? messageId : null
                 );
                 return;
@@ -332,7 +332,7 @@ router.post('/webhook', async (req, res) => {
 
             if (!cleanText) {
                 await sendTelegramMessage(chatId,
-                    'Ban muon hoi gi?',
+                    'Bạn muốn hỏi gì?',
                     isGroup ? messageId : null
                 );
                 return;
@@ -367,7 +367,7 @@ router.post('/webhook', async (req, res) => {
             } catch (error) {
                 console.error('[TELEGRAM] Gemini error:', error.message);
                 await sendTelegramMessage(chatId,
-                    `Co loi xay ra khi xu ly tin nhan:\n${error.message}\n\nVui long thu lai sau.`,
+                    `Có lỗi xảy ra khi xử lý tin nhắn:\n${error.message}\n\nVui lòng thử lại sau.`,
                     isGroup ? messageId : null
                 );
             }
