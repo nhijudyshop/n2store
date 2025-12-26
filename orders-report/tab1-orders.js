@@ -14613,10 +14613,19 @@ function renderChatMessages(messages, scrollToBottom = false) {
 
                 // Replied Message (Quoted message)
                 if (att.type === 'replied_message') {
+                    // Debug: Log replied_message structure to find the correct ID field
+                    console.log('[REPLIED_MESSAGE] Full attachment object:', JSON.stringify(att, null, 2));
+
                     const quotedText = att.message || '';
                     const quotedFrom = att.from?.name || att.from?.admin_name || 'Unknown';
                     const quotedHasAttachment = att.attachments && att.attachments.length > 0;
                     const quotedMessageId = att.id || att.message_id || att.mid || '';
+
+                    console.log('[REPLIED_MESSAGE] Extracted ID:', quotedMessageId, 'from fields:', {
+                        'att.id': att.id,
+                        'att.message_id': att.message_id,
+                        'att.mid': att.mid
+                    });
 
                     // Build attachment preview content
                     let attachmentPreview = '';
@@ -14680,7 +14689,7 @@ function renderChatMessages(messages, scrollToBottom = false) {
                     const displayContent = textContent || attachmentPreview || '<div style="font-size: 12px; color: #9ca3af;">[Không có nội dung]</div>';
 
                     // Add click handler if we have a message ID
-                    const clickHandler = quotedMessageId ? `onclick="window.scrollToMessage('${quotedMessageId}')" style="cursor: pointer;"` : '';
+                    const clickHandler = quotedMessageId ? `onclick="window.scrollToMessage('${quotedMessageId}')"` : '';
                     const cursorStyle = quotedMessageId ? 'cursor: pointer;' : '';
 
                     content = `
