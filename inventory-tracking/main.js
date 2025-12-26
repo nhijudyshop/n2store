@@ -441,17 +441,27 @@ class InventoryTrackingApp {
 // =====================================================
 
 /**
- * Open modal helper
+ * Open modal helper - direct DOM manipulation for reliability
  */
 function openModal(modalId) {
-    app?.openModal(modalId);
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    } else {
+        console.error('[MODAL] Modal not found:', modalId);
+    }
 }
 
 /**
- * Close modal helper
+ * Close modal helper - direct DOM manipulation for reliability
  */
 function closeModal(modalId) {
-    app?.closeModal(modalId);
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
 }
 
 /**
