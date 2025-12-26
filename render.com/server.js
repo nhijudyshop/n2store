@@ -163,6 +163,7 @@ const customersRoutes = require('./routes/customers');
 const cloudflareBackupRoutes = require('./routes/cloudflare-backup');
 const realtimeRoutes = require('./routes/realtime');
 const { saveRealtimeUpdate } = require('./routes/realtime');
+const geminiRoutes = require('./routes/gemini');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -172,6 +173,7 @@ app.use('/api/image-proxy', imageProxyRoutes);
 app.use('/api/sepay', sepayWebhookRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/realtime', realtimeRoutes);
+app.use('/api/gemini', geminiRoutes);
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
 app.use('/api', cloudflareBackupRoutes);

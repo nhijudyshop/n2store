@@ -21,10 +21,6 @@
     <!-- Marked for markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-
     <style>
         /* Chat specific styles */
         .chat-section {
@@ -314,55 +310,14 @@
         // GEMINI AI CONFIGURATION
         // ============================================================
 
-        // Model Configuration - Using Gemini 2.0 Flash
+        // Model Configuration
         const GEMINI_MODEL = 'gemini-2.0-flash';
-        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-        // API Key - will be loaded from Firebase
-        window.GEMINI_PRO_KEY = '';
+        // Render Proxy URL - API key is stored securely on server
+        const GEMINI_PROXY_URL = 'https://n2store-fallback.onrender.com/api/gemini/chat';
 
-        // Initialize Firebase and load API key
-        async function initializeGeminiAPI() {
-            try {
-                // Use global FIREBASE_CONFIG from core-loader.js
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(window.FIREBASE_CONFIG);
-                }
-                const db = firebase.firestore();
-
-                // Try to load from Firebase first
-                console.log('[GEMINI] Loading API key from Firebase...');
-                const doc = await db.collection('settings').doc('api_keys').get();
-
-                if (doc.exists && doc.data().gemini_pro_key) {
-                    window.GEMINI_PRO_KEY = doc.data().gemini_pro_key;
-                    console.log('[GEMINI] API Key loaded from Firebase');
-                } else {
-                    // Fallback to localStorage
-                    const localKey = localStorage.getItem("geminiApiKey");
-                    if (localKey) {
-                        window.GEMINI_PRO_KEY = localKey;
-                        console.log('[GEMINI] API Key loaded from localStorage');
-                    } else {
-                        console.warn('[GEMINI] No API Key found in Firebase or localStorage');
-                    }
-                }
-            } catch (error) {
-                console.error('[GEMINI] Error loading API key from Firebase:', error);
-                // Fallback to localStorage
-                const localKey = localStorage.getItem("geminiApiKey");
-                if (localKey) {
-                    window.GEMINI_PRO_KEY = localKey;
-                    console.log('[GEMINI] API Key loaded from localStorage (fallback)');
-                }
-            }
-
-            console.log('[GEMINI] Using model:', GEMINI_MODEL);
-            console.log('[GEMINI] API Key configured:', window.GEMINI_PRO_KEY ? 'Yes' : 'No');
-        }
-
-        // Initialize on page load
-        initializeGeminiAPI();
+        console.log('[GEMINI] Using model:', GEMINI_MODEL);
+        console.log('[GEMINI] Proxy URL:', GEMINI_PROXY_URL);
 
         // Update model name in UI
         document.addEventListener('DOMContentLoaded', () => {
@@ -416,12 +371,7 @@
         async function sendMessage() {
             const input = document.getElementById("userInput");
             const text = input.value.trim();
-            const apiKey = window.GEMINI_PRO_KEY;
 
-            if (!apiKey) {
-                addMessage("ai", "Khong tim thay API Key. Vui long lien he quan tri vien.");
-                return;
-            }
             if (!text) return;
 
             // Display user message
@@ -437,11 +387,14 @@
                 const parts = [{ text: text }];
                 const contents = [{ role: "user", parts: parts }];
 
-                // Call Gemini API
-                const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+                // Call Gemini via Render Proxy (API key stored on server)
+                const response = await fetch(GEMINI_PROXY_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ contents: contents }),
+                    body: JSON.stringify({
+                        model: GEMINI_MODEL,
+                        contents: contents
+                    }),
                 });
 
                 const data = await response.json();
@@ -469,21 +422,19 @@
         // ============================================================
 
         /**
-         * Call Gemini API directly with custom prompt
+         * Call Gemini API via Render Proxy with custom prompt
          * @param {string} prompt - The prompt to send
          * @param {Array} imageParts - Optional array of image data objects
          * @returns {Promise<string>} - The AI response text
          */
         async function callGeminiAPI(prompt, imageParts = []) {
-            const apiKey = window.GEMINI_PRO_KEY;
-            if (!apiKey) throw new Error('API Key not configured');
-
             const parts = [{ text: prompt }, ...imageParts];
 
-            const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+            const response = await fetch(GEMINI_PROXY_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                    model: GEMINI_MODEL,
                     contents: [{ role: "user", parts: parts }]
                 }),
             });
