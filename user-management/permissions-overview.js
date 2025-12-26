@@ -140,11 +140,13 @@ class PermissionsOverview {
             const role = this.getRoleName(user.checkLogin);
             roleStats[role] = (roleStats[role] || 0) + 1;
 
-            totalPagePerms += (user.pagePermissions || []).length;
-
+            // Derive page access from detailedPermissions (simplified system)
             if (user.detailedPermissions) {
-                Object.values(user.detailedPermissions).forEach(pagePerms => {
-                    totalDetailedPerms += Object.values(pagePerms).filter(v => v === true).length;
+                Object.entries(user.detailedPermissions).forEach(([pageId, pagePerms]) => {
+                    const grantedCount = Object.values(pagePerms).filter(v => v === true).length;
+                    totalDetailedPerms += grantedCount;
+                    // User has access to page if at least one permission is true
+                    if (grantedCount > 0) totalPagePerms++;
                 });
             }
         });
@@ -241,7 +243,6 @@ class PermissionsOverview {
         // User rows
         let bodyHtml = '';
         filteredUsers.forEach(user => {
-            const userPerms = user.pagePermissions || [];
             const roleBadge = this.getRoleBadge(user.checkLogin);
 
             bodyHtml += `<tr>
@@ -256,12 +257,14 @@ class PermissionsOverview {
             categories.forEach(cat => {
                 const catPages = pages.filter(p => p.category === cat.id);
                 catPages.forEach(page => {
-                    const hasAccess = userPerms.includes(page.id);
+                    // Derive page access from detailedPermissions (simplified system)
+                    const pagePerms = user.detailedPermissions?.[page.id] || {};
+                    const hasAccess = Object.values(pagePerms).some(v => v === true);
                     const cellClass = hasAccess ? 'perm-granted' : 'perm-denied';
                     const icon = hasAccess ? 'check' : 'x';
 
                     bodyHtml += `<td class="perm-cell ${cellClass}" data-user="${user.id}" data-page="${page.id}"
-                                    onclick="permissionsOverview.togglePagePermission('${user.id}', '${page.id}')">
+                                    onclick="permissionsOverview.showPagePermissions('${user.id}', '${page.id}')">
                         <i data-lucide="${icon}"></i>
                     </td>`;
                 });
@@ -278,9 +281,9 @@ class PermissionsOverview {
                 </table>
             </div>
             <div class="matrix-legend">
-                <span class="legend-item granted"><i data-lucide="check"></i> Có quyền</span>
+                <span class="legend-item granted"><i data-lucide="check"></i> Có quyền truy cập</span>
                 <span class="legend-item denied"><i data-lucide="x"></i> Không có quyền</span>
-                <span class="legend-tip"><i data-lucide="info"></i> Click vào ô để thay đổi quyền (cần lưu sau khi sửa)</span>
+                <span class="legend-tip"><i data-lucide="info"></i> Click vào ô để xem chi tiết quyền của trang</span>
             </div>
         `;
     }
@@ -383,11 +386,14 @@ class PermissionsOverview {
             }
 
             roleStats[role].count++;
-            roleStats[role].totalPages += (user.pagePermissions || []).length;
 
+            // Derive page access from detailedPermissions (simplified system)
             if (user.detailedPermissions) {
-                Object.values(user.detailedPermissions).forEach(pagePerms => {
-                    roleStats[role].totalDetailedPerms += Object.values(pagePerms).filter(v => v === true).length;
+                Object.entries(user.detailedPermissions).forEach(([pageId, pagePerms]) => {
+                    const grantedCount = Object.values(pagePerms).filter(v => v === true).length;
+                    roleStats[role].totalDetailedPerms += grantedCount;
+                    // User has access to page if at least one permission is true
+                    if (grantedCount > 0) roleStats[role].totalPages++;
                 });
             }
 
@@ -446,10 +452,13 @@ class PermissionsOverview {
             filtered = filtered.filter(u => String(u.checkLogin) === roleFilter);
         }
 
-        // Filter by page access
+        // Filter by page access (derived from detailedPermissions)
         const pageFilter = document.getElementById('pageFilter')?.value || 'all';
         if (pageFilter !== 'all') {
-            filtered = filtered.filter(u => (u.pagePermissions || []).includes(pageFilter));
+            filtered = filtered.filter(u => {
+                const pagePerms = u.detailedPermissions?.[pageFilter] || {};
+                return Object.values(pagePerms).some(v => v === true);
+            });
         }
 
         // Filter by search
@@ -494,42 +503,50 @@ class PermissionsOverview {
         }
     }
 
-    togglePagePermission(userId, pageId) {
-        // Find user
+    /**
+     * Show detailed permissions for a user on a specific page
+     * (Replaces old togglePagePermission - simplified system is read-only in overview)
+     */
+    showPagePermissions(userId, pageId) {
         const user = this.users.find(u => u.id === userId);
         if (!user) return;
 
-        // Toggle permission
-        user.pagePermissions = user.pagePermissions || [];
-        const index = user.pagePermissions.indexOf(pageId);
+        const page = this.getPages().find(p => p.id === pageId);
+        if (!page) return;
 
-        if (index > -1) {
-            user.pagePermissions.splice(index, 1);
-        } else {
-            user.pagePermissions.push(pageId);
-        }
+        const pagePerms = user.detailedPermissions?.[pageId] || {};
+        const pageConfig = typeof DETAILED_PERMISSIONS !== 'undefined' ? DETAILED_PERMISSIONS[pageId] : null;
 
-        // Update UI
-        const cell = document.querySelector(`[data-user="${userId}"][data-page="${pageId}"]`);
-        if (cell) {
-            const hasAccess = user.pagePermissions.includes(pageId);
-            cell.className = `perm-cell ${hasAccess ? 'perm-granted' : 'perm-denied'}`;
-            cell.innerHTML = `<i data-lucide="${hasAccess ? 'check' : 'x'}"></i>`;
+        let report = `QUYỀN CHI TIẾT - ${page.name}\n`;
+        report += `${'='.repeat(40)}\n\n`;
+        report += `Tài khoản: ${user.displayName} (${user.id})\n\n`;
 
-            if (typeof lucide !== "undefined") {
-                lucide.createIcons();
+        if (pageConfig && pageConfig.subPermissions) {
+            let grantedCount = 0;
+            const totalCount = Object.keys(pageConfig.subPermissions).length;
+
+            Object.entries(pageConfig.subPermissions).forEach(([subKey, subPerm]) => {
+                const hasPermission = pagePerms[subKey] === true;
+                const icon = hasPermission ? '✓' : '✗';
+                report += `${icon} ${subPerm.name}\n`;
+                if (hasPermission) grantedCount++;
+            });
+
+            report += `\n${'─'.repeat(40)}\n`;
+            report += `Tổng: ${grantedCount}/${totalCount} quyền\n`;
+
+            if (grantedCount === 0) {
+                report += '\n⚠️ Không có quyền truy cập trang này';
+            } else if (grantedCount === totalCount) {
+                report += '\n✅ Có đầy đủ quyền trên trang này';
             }
+        } else {
+            report += '⚠️ Không tìm thấy cấu hình quyền cho trang này';
         }
 
-        // Mark as unsaved
-        this.markUnsaved(userId);
-    }
+        report += `\n\n💡 Để chỉnh sửa quyền, nhấn nút "Edit" trên user card.`;
 
-    markUnsaved(userId) {
-        // Show notification that changes need to be saved
-        if (typeof window.notify !== 'undefined') {
-            window.notify.info(`Đã thay đổi quyền cho ${userId}. Nhấn Edit để lưu.`);
-        }
+        alert(report);
     }
 
     exportData() {
@@ -542,7 +559,12 @@ class PermissionsOverview {
 
         filteredUsers.forEach(user => {
             csv += `"${user.id}","${user.displayName}","${this.getRoleName(user.checkLogin)}",`;
-            csv += pages.map(p => (user.pagePermissions || []).includes(p.id) ? '✓' : '✗').join(',');
+            // Derive page access from detailedPermissions
+            csv += pages.map(p => {
+                const pagePerms = user.detailedPermissions?.[p.id] || {};
+                const hasAccess = Object.values(pagePerms).some(v => v === true);
+                return hasAccess ? '✓' : '✗';
+            }).join(',');
             csv += '\n';
         });
 
