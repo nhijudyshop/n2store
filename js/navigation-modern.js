@@ -39,6 +39,14 @@ const MENU_CONFIG = [
         permissionRequired: "nhanhang",
     },
     {
+        href: "../inventory-tracking/index.html",
+        icon: "package-search",
+        text: "Theo Dõi Nhập Hàng SL",
+        shortText: "Nhập Hàng",
+        pageIdentifier: "inventory-tracking",
+        permissionRequired: "inventoryTracking",
+    },
+    {
         href: "../hangrotxa/index.html",
         icon: "clipboard-list",
         text: "Hàng Rớt - Xả",

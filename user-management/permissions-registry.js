@@ -115,6 +115,38 @@ const PAGES_REGISTRY = {
         }
     },
 
+    inventoryTracking: {
+        id: "inventoryTracking",
+        name: "Theo Dõi Nhập Hàng SL",
+        shortName: "Nhập Hàng",
+        icon: "package-search",
+        href: "../inventory-tracking/index.html",
+        description: "Theo dõi nhập hàng số lượng và công nợ chuyến lấy hàng",
+        adminOnly: false,
+        category: "warehouse",
+        detailedPermissions: {
+            tab_tracking: { name: "Xem tab Theo dõi", icon: "eye", description: "Truy cập tab theo dõi đơn hàng" },
+            tab_congNo: { name: "Xem tab Công nợ", icon: "wallet", description: "Truy cập tab quản lý tài chính" },
+            create_shipment: { name: "Thêm đợt hàng", icon: "plus-circle", description: "Tạo đợt hàng mới" },
+            edit_shipment: { name: "Sửa đợt hàng", icon: "edit", description: "Chỉnh sửa thông tin đợt hàng" },
+            delete_shipment: { name: "Xóa đợt hàng", icon: "trash-2", description: "Xóa đợt hàng khỏi hệ thống" },
+            view_chiPhiHangVe: { name: "Xem chi phí hàng về", icon: "dollar-sign", description: "Xem chi phí vận chuyển" },
+            edit_chiPhiHangVe: { name: "Sửa chi phí hàng về", icon: "edit-3", description: "Chỉnh sửa chi phí vận chuyển" },
+            view_ghiChuAdmin: { name: "Xem ghi chú Admin", icon: "file-text", description: "Xem ghi chú nội bộ" },
+            edit_ghiChuAdmin: { name: "Sửa ghi chú Admin", icon: "edit-3", description: "Chỉnh sửa ghi chú nội bộ" },
+            edit_soMonThieu: { name: "Cập nhật số thiếu", icon: "clipboard-check", description: "Ghi nhận hàng thiếu" },
+            create_prepayment: { name: "Thêm thanh toán trước", icon: "plus", description: "Tạo khoản thanh toán trước" },
+            edit_prepayment: { name: "Sửa thanh toán trước", icon: "edit", description: "Chỉnh sửa thanh toán trước" },
+            delete_prepayment: { name: "Xóa thanh toán trước", icon: "trash", description: "Xóa khoản thanh toán trước" },
+            create_otherExpense: { name: "Thêm chi phí khác", icon: "plus", description: "Tạo chi phí phát sinh" },
+            edit_otherExpense: { name: "Sửa chi phí khác", icon: "edit", description: "Chỉnh sửa chi phí phát sinh" },
+            delete_otherExpense: { name: "Xóa chi phí khác", icon: "trash", description: "Xóa chi phí phát sinh" },
+            edit_invoice_from_finance: { name: "Sửa HĐ từ Công nợ", icon: "edit-2", description: "Sửa hóa đơn từ tab công nợ" },
+            edit_shipping_from_finance: { name: "Sửa CP từ Công nợ", icon: "edit-2", description: "Sửa chi phí từ tab công nợ" },
+            export_data: { name: "Xuất Excel", icon: "download", description: "Export dữ liệu ra Excel" }
+        }
+    },
+
     hangrotxa: {
         id: "hangrotxa",
         name: "Hàng Rớt - Xả",
