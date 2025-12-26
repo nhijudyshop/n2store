@@ -8,12 +8,12 @@
  */
 async function exportToExcel() {
     if (!permissionHelper?.can('export_data')) {
-        toast.error('Ban khong co quyen xuat file');
+        toast.error('Bạn không có quyền xuất file');
         return;
     }
 
     try {
-        toast.loading('Dang tao file Excel...');
+        toast.loading('Đang tạo file Excel...');
 
         const { filteredShipments } = globalState;
         const canExportFinance = permissionHelper?.can('tab_congNo');
@@ -40,11 +40,11 @@ async function exportToExcel() {
         // Download
         XLSX.writeFile(wb, filename);
 
-        toast.success('Da xuat file Excel');
+        toast.success('Đã xuất file Excel');
 
     } catch (error) {
         console.error('[EXPORT] Error:', error);
-        toast.error('Khong the xuat file');
+        toast.error('Không thể xuất file');
     }
 }
 
@@ -148,10 +148,10 @@ function buildFinanceExportData() {
  */
 function getTransactionTypeLabel(type) {
     const labels = {
-        [TRANSACTION_TYPES.PREPAYMENT]: 'Thanh toan truoc',
-        [TRANSACTION_TYPES.INVOICE]: 'Tien hoa don',
-        [TRANSACTION_TYPES.SHIPPING_COST]: 'Chi phi hang ve',
-        [TRANSACTION_TYPES.OTHER_EXPENSE]: 'Chi phi khac'
+        [TRANSACTION_TYPES.PREPAYMENT]: 'Thanh toán trước',
+        [TRANSACTION_TYPES.INVOICE]: 'Tiền hóa đơn',
+        [TRANSACTION_TYPES.SHIPPING_COST]: 'Chi phí hàng về',
+        [TRANSACTION_TYPES.OTHER_EXPENSE]: 'Chi phí khác'
     };
     return labels[type] || type;
 }
@@ -162,7 +162,7 @@ function getTransactionTypeLabel(type) {
 function exportShipmentDetail(shipmentId) {
     const shipment = globalState.shipments.find(s => s.id === shipmentId);
     if (!shipment) {
-        toast.error('Khong tim thay dot hang');
+        toast.error('Không tìm thấy đợt hàng');
         return;
     }
 
@@ -172,16 +172,16 @@ function exportShipmentDetail(shipmentId) {
         // Build detail data
         const data = buildShipmentDetailData(shipment);
         const ws = XLSX.utils.aoa_to_array(data);
-        XLSX.utils.book_append_sheet(wb, ws, 'Chi Tiet');
+        XLSX.utils.book_append_sheet(wb, ws, 'Chi Tiết');
 
         const filename = `shipment_${shipment.ngayDiHang}_${shipmentId}.xlsx`;
         XLSX.writeFile(wb, filename);
 
-        toast.success('Da xuat chi tiet');
+        toast.success('Đã xuất chi tiết');
 
     } catch (error) {
         console.error('[EXPORT] Error:', error);
-        toast.error('Khong the xuat file');
+        toast.error('Không thể xuất file');
     }
 }
 

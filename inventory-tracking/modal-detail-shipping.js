@@ -13,7 +13,7 @@ function openShippingDetailModal(ngay) {
     const body = document.getElementById('modalShippingDetailBody');
 
     if (title) {
-        title.textContent = `Chi Tiet Chi Phi Hang Ve - ${formatDateDisplay(ngay)}`;
+        title.textContent = `Chi Tiết Chi Phí Hàng Về - ${formatDateDisplay(ngay)}`;
     }
 
     // Get all shipments for this date
@@ -33,7 +33,7 @@ function openShippingDetailModal(ngay) {
  */
 function renderShippingDetailTable(shipments, ngay) {
     if (shipments.length === 0) {
-        return '<p class="text-center">Khong co dot hang nao</p>';
+        return '<p class="text-center">Không có đợt hàng nào</p>';
     }
 
     let totalCost = 0;
@@ -51,7 +51,7 @@ function renderShippingDetailTable(shipments, ngay) {
 
         return `
             <tr>
-                <td>${packages.length} kien</td>
+                <td>${packages.length} kiện</td>
                 <td>
                     ${packages.map(k => `${k.soKy || 0}kg`).join(', ') || '-'}
                 </td>
@@ -73,12 +73,12 @@ function renderShippingDetailTable(shipments, ngay) {
         <table class="invoice-table">
             <thead>
                 <tr>
-                    <th>So kien</th>
-                    <th>Chi tiet ky</th>
-                    <th class="text-right">Tong ky</th>
-                    <th class="text-right">Chi phi</th>
-                    <th>Ghi chu</th>
-                    ${permissionHelper?.can('edit_shipping_from_finance') ? '<th class="text-center">Sua</th>' : ''}
+                    <th>Số kiện</th>
+                    <th>Chi tiết ký</th>
+                    <th class="text-right">Tổng ký</th>
+                    <th class="text-right">Chi phí</th>
+                    <th>Ghi chú</th>
+                    ${permissionHelper?.can('edit_shipping_from_finance') ? '<th class="text-center">Sửa</th>' : ''}
                 </tr>
             </thead>
             <tbody>
@@ -86,7 +86,7 @@ function renderShippingDetailTable(shipments, ngay) {
             </tbody>
             <tfoot>
                 <tr>
-                    <td><strong>${totalPackages} kien</strong></td>
+                    <td><strong>${totalPackages} kiện</strong></td>
                     <td></td>
                     <td class="text-right"><strong>${formatWeight(totalWeight)}</strong></td>
                     <td class="text-right"><strong>${formatCurrency(totalCost)}</strong></td>
@@ -110,7 +110,7 @@ function formatWeight(weight) {
 function editShippingFromDetail(shipmentId) {
     const shipment = globalState.shipments.find(s => s.id === shipmentId);
     if (!shipment) {
-        toast.error('Khong tim thay dot hang');
+        toast.error('Không tìm thấy đợt hàng');
         return;
     }
 

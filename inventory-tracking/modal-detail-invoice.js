@@ -13,7 +13,7 @@ function openInvoiceDetailModal(ngay) {
     const body = document.getElementById('modalInvoiceDetailBody');
 
     if (title) {
-        title.textContent = `Chi Tiet Hoa Don - ${formatDateDisplay(ngay)}`;
+        title.textContent = `Chi Tiết Hóa Đơn - ${formatDateDisplay(ngay)}`;
     }
 
     // Get all shipments for this date
@@ -44,7 +44,7 @@ function renderInvoiceDetailTable(shipments, ngay) {
     });
 
     if (allInvoices.length === 0) {
-        return '<p class="text-center">Khong co hoa don nao</p>';
+        return '<p class="text-center">Không có hóa đơn nào</p>';
     }
 
     const totalAmount = allInvoices.reduce((sum, hd) => sum + (hd.tongTienHD || 0), 0);
@@ -55,12 +55,12 @@ function renderInvoiceDetailTable(shipments, ngay) {
             <thead>
                 <tr>
                     <th>STT NCC</th>
-                    <th>San pham</th>
-                    <th class="text-right">Tien HD</th>
-                    <th class="text-center">Tong mon</th>
-                    <th class="text-center">Thieu</th>
-                    <th>Ghi chu</th>
-                    ${permissionHelper?.can('edit_invoice_from_finance') ? '<th class="text-center">Sua</th>' : ''}
+                    <th>Sản phẩm</th>
+                    <th class="text-right">Tiền HĐ</th>
+                    <th class="text-center">Tổng món</th>
+                    <th class="text-center">Thiếu</th>
+                    <th>Ghi chú</th>
+                    ${permissionHelper?.can('edit_invoice_from_finance') ? '<th class="text-center">Sửa</th>' : ''}
                 </tr>
             </thead>
             <tbody>
@@ -91,7 +91,7 @@ function renderInvoiceDetailTable(shipments, ngay) {
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="2"><strong>Tong cong</strong></td>
+                    <td colspan="2"><strong>Tổng cộng</strong></td>
                     <td class="text-right"><strong>${formatCurrency(totalAmount)}</strong></td>
                     <td class="text-center"><strong>${totalItems}</strong></td>
                     <td colspan="${permissionHelper?.can('edit_invoice_from_finance') ? '3' : '2'}"></td>
@@ -107,13 +107,13 @@ function renderInvoiceDetailTable(shipments, ngay) {
 function editInvoiceFromDetail(shipmentId, invoiceId) {
     const shipment = globalState.shipments.find(s => s.id === shipmentId);
     if (!shipment) {
-        toast.error('Khong tim thay dot hang');
+        toast.error('Không tìm thấy đợt hàng');
         return;
     }
 
     const invoice = (shipment.hoaDon || []).find(hd => hd.id === invoiceId);
     if (!invoice) {
-        toast.error('Khong tim thay hoa don');
+        toast.error('Không tìm thấy hóa đơn');
         return;
     }
 

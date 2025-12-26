@@ -16,7 +16,7 @@ function openShipmentModal(shipment = null) {
     const body = document.getElementById('modalShipmentBody');
 
     if (title) {
-        title.textContent = shipment ? 'Sua Dot Hang' : 'Them Dot Hang Moi';
+        title.textContent = shipment ? 'Sửa Đợt Hàng' : 'Thêm Đợt Hàng Mới';
     }
 
     if (body) {
@@ -49,17 +49,17 @@ function renderShipmentForm(shipment) {
 
     return `
         <div class="form-group">
-            <label>Ngay di hang</label>
+            <label>Ngày Đi Hàng</label>
             <input type="date" id="shipmentDate" class="form-input" value="${date}">
         </div>
 
         <div class="form-section">
-            <h4><i data-lucide="box"></i> Kien Hang</h4>
+            <h4><i data-lucide="box"></i> Kiện Hàng</h4>
             <div id="packagesContainer">
                 ${packages.map((p, i) => `
                     <div class="package-row" data-index="${i}">
-                        <span class="package-label">Kien ${p.stt || i + 1}</span>
-                        <input type="number" class="form-input package-kg" value="${p.soKg || ''}" placeholder="So kg">
+                        <span class="package-label">Kiện ${p.stt || i + 1}</span>
+                        <input type="number" class="form-input package-kg" value="${p.soKg || ''}" placeholder="Số kg">
                         <button type="button" class="btn btn-sm btn-outline btn-remove-package" ${packages.length <= 1 ? 'disabled' : ''}>
                             <i data-lucide="trash-2"></i>
                         </button>
@@ -67,29 +67,29 @@ function renderShipmentForm(shipment) {
                 `).join('')}
             </div>
             <button type="button" class="btn btn-sm btn-outline" id="btnAddPackage">
-                <i data-lucide="plus"></i> Them kien
+                <i data-lucide="plus"></i> Thêm kiện
             </button>
-            <div class="packages-total">Tong: <span id="totalPackages">${packages.length}</span> kien, <span id="totalKg">0</span> kg</div>
+            <div class="packages-total">Tổng: <span id="totalPackages">${packages.length}</span> kiện, <span id="totalKg">0</span> kg</div>
         </div>
 
         <div class="form-section">
-            <h4><i data-lucide="receipt"></i> Hoa Don Nha Cung Cap</h4>
+            <h4><i data-lucide="receipt"></i> Hóa Đơn Nhà Cung Cấp</h4>
             <div id="invoicesContainer">
                 ${invoices.length > 0 ? invoices.map((inv, i) => renderInvoiceForm(inv, i)).join('') : renderInvoiceForm(null, 0)}
             </div>
             <button type="button" class="btn btn-sm btn-outline" id="btnAddInvoice">
-                <i data-lucide="plus"></i> Them hoa don NCC moi
+                <i data-lucide="plus"></i> Thêm hóa đơn NCC mới
             </button>
         </div>
 
         ${canEditCost ? `
             <div class="form-section admin-section">
-                <h4><i data-lucide="lock"></i> Chi Phi Hang Ve (Admin)</h4>
+                <h4><i data-lucide="lock"></i> Chi Phí Hàng Về (Admin)</h4>
                 <div id="costsContainer">
                     ${costs.length > 0 ? costs.map((c, i) => `
                         <div class="cost-row" data-index="${i}">
-                            <input type="text" class="form-input cost-type" value="${c.loai || ''}" placeholder="Loai chi phi">
-                            <input type="number" class="form-input cost-amount" value="${c.soTien || ''}" placeholder="So tien">
+                            <input type="text" class="form-input cost-type" value="${c.loai || ''}" placeholder="Loại chi phí">
+                            <input type="number" class="form-input cost-amount" value="${c.soTien || ''}" placeholder="Số tiền">
                             <button type="button" class="btn btn-sm btn-outline btn-remove-cost">
                                 <i data-lucide="trash-2"></i>
                             </button>
@@ -97,16 +97,16 @@ function renderShipmentForm(shipment) {
                     `).join('') : ''}
                 </div>
                 <button type="button" class="btn btn-sm btn-outline" id="btnAddCost">
-                    <i data-lucide="plus"></i> Them chi phi
+                    <i data-lucide="plus"></i> Thêm chi phí
                 </button>
-                <div class="cost-total">Tong chi phi: <span id="totalCost">0</span></div>
+                <div class="cost-total">Tổng chi phí: <span id="totalCost">0</span></div>
             </div>
         ` : ''}
 
         ${canEditNote ? `
             <div class="form-section admin-section">
-                <h4><i data-lucide="lock"></i> Ghi Chu Admin</h4>
-                <textarea id="adminNote" class="form-textarea" placeholder="Ghi chu...">${shipment?.ghiChuAdmin || ''}</textarea>
+                <h4><i data-lucide="lock"></i> Ghi Chú Admin</h4>
+                <textarea id="adminNote" class="form-textarea" placeholder="Ghi chú...">${shipment?.ghiChuAdmin || ''}</textarea>
             </div>
         ` : ''}
     `;
@@ -124,28 +124,28 @@ function renderInvoiceForm(invoice, index) {
             <div class="invoice-header">
                 <label>NCC #</label>
                 <input type="number" class="form-input invoice-ncc" value="${invoice?.sttNCC || ''}" placeholder="STT NCC" style="width: 80px;">
-                <button type="button" class="btn btn-sm btn-outline btn-remove-invoice" title="Xoa hoa don">
+                <button type="button" class="btn btn-sm btn-outline btn-remove-invoice" title="Xóa hóa đơn">
                     <i data-lucide="trash-2"></i>
                 </button>
             </div>
             <div class="form-group">
-                <label>San pham (Format: MA [ma] [so mau] MAU [SL]X[gia])</label>
-                <textarea class="form-textarea invoice-products" rows="4" placeholder="MA 721 2 MAU 10X54&#10;MA 720 2 MAU 10X57">${productLines}</textarea>
+                <label>Sản phẩm (Format: MA [mã] [số màu] MÀU [SL]X[giá] hoặc [SL]*[giá])</label>
+                <textarea class="form-textarea invoice-products" rows="4" placeholder="MA 721 2 MAU 10X54&#10;ma 720 2 mau 10*57">${productLines}</textarea>
             </div>
             <div class="invoice-preview">
-                <div class="preview-label">Preview:</div>
+                <div class="preview-label">Xem trước:</div>
                 <div class="preview-content"></div>
             </div>
             <div class="invoice-totals">
-                <span>Tong tien: <strong class="invoice-total-amount">0</strong></span>
-                <span>Tong mon: <strong class="invoice-total-items">0</strong></span>
+                <span>Tổng tiền: <strong class="invoice-total-amount">0</strong></span>
+                <span>Tổng món: <strong class="invoice-total-items">0</strong></span>
             </div>
             <div class="form-group">
-                <label>Anh hoa don</label>
+                <label>Ảnh hóa đơn</label>
                 <div class="image-upload-area" data-invoice="${index}">
                     <input type="file" class="image-input" multiple accept="image/*" style="display: none;">
                     <button type="button" class="btn btn-sm btn-outline btn-upload">
-                        <i data-lucide="upload"></i> Chon file
+                        <i data-lucide="upload"></i> Chọn file
                     </button>
                     <div class="image-preview-list"></div>
                 </div>
@@ -211,8 +211,8 @@ function addPackageRow() {
     const count = container.querySelectorAll('.package-row').length;
     const html = `
         <div class="package-row" data-index="${count}">
-            <span class="package-label">Kien ${count + 1}</span>
-            <input type="number" class="form-input package-kg" placeholder="So kg">
+            <span class="package-label">Kiện ${count + 1}</span>
+            <input type="number" class="form-input package-kg" placeholder="Số kg">
             <button type="button" class="btn btn-sm btn-outline btn-remove-package">
                 <i data-lucide="trash-2"></i>
             </button>
@@ -235,8 +235,8 @@ function addCostRow() {
     const count = container.querySelectorAll('.cost-row').length;
     const html = `
         <div class="cost-row" data-index="${count}">
-            <input type="text" class="form-input cost-type" placeholder="Loai chi phi">
-            <input type="number" class="form-input cost-amount" placeholder="So tien">
+            <input type="text" class="form-input cost-type" placeholder="Loại chi phí">
+            <input type="number" class="form-input cost-amount" placeholder="Số tiền">
             <button type="button" class="btn btn-sm btn-outline btn-remove-cost">
                 <i data-lucide="trash-2"></i>
             </button>
@@ -280,7 +280,7 @@ function updateInvoicePreview(invoiceForm) {
 
     const text = textarea.value.trim();
     if (!text) {
-        previewContent.innerHTML = '<span class="preview-empty">Nhap san pham de xem preview</span>';
+        previewContent.innerHTML = '<span class="preview-empty">Nhập sản phẩm để xem trước</span>';
         if (totalAmount) totalAmount.textContent = '0';
         if (totalItems) totalItems.textContent = '0';
         return;
@@ -300,11 +300,11 @@ function updateInvoicePreview(invoiceForm) {
             <table class="preview-table">
                 <thead>
                     <tr>
-                        <th>Ma SP</th>
-                        <th>Mau</th>
+                        <th>Mã SP</th>
+                        <th>Màu</th>
                         <th>SL</th>
-                        <th>Gia</th>
-                        <th>Thanh tien</th>
+                        <th>Giá</th>
+                        <th>Thành tiền</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -321,7 +321,7 @@ function updateInvoicePreview(invoiceForm) {
             </table>
             ${invalidProducts.length > 0 ? `
                 <div class="preview-errors">
-                    <strong>Loi parse:</strong>
+                    <strong>Lỗi parse:</strong>
                     ${invalidProducts.map(p => `<div class="error-line">${p.rawText}: ${p.error}</div>`).join('')}
                 </div>
             ` : ''}
@@ -329,7 +329,7 @@ function updateInvoicePreview(invoiceForm) {
     } else {
         previewContent.innerHTML = `
             <div class="preview-errors">
-                <strong>Khong parse duoc san pham nao</strong>
+                <strong>Không parse được sản phẩm nào</strong>
                 ${invalidProducts.map(p => `<div class="error-line">${p.rawText}: ${p.error}</div>`).join('')}
             </div>
         `;
@@ -346,7 +346,7 @@ async function saveShipment() {
         const dateInput = document.getElementById('shipmentDate');
         const ngayDiHang = dateInput?.value;
         if (!ngayDiHang) {
-            toast.warning('Vui long chon ngay di hang');
+            toast.warning('Vui lòng chọn ngày đi hàng');
             return;
         }
 
@@ -400,7 +400,7 @@ async function saveShipment() {
 
         // Validate at least one invoice
         if (hoaDon.length === 0) {
-            toast.warning('Vui long nhap it nhat 1 hoa don NCC');
+            toast.warning('Vui lòng nhập ít nhất 1 hóa đơn NCC');
             return;
         }
 
@@ -446,7 +446,7 @@ async function saveShipment() {
         };
 
         // Show loading
-        const loadingToast = toast.loading('Dang luu...');
+        const loadingToast = toast.loading('Đang lưu...');
 
         if (currentShipmentData) {
             // Update existing
@@ -464,7 +464,7 @@ async function saveShipment() {
 
     } catch (error) {
         console.error('[MODAL] Error saving shipment:', error);
-        toast.error('Khong the luu dot hang');
+        toast.error('Không thể lưu đợt hàng');
     }
 }
 
