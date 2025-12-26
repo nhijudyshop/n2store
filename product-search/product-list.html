@@ -1343,12 +1343,30 @@
         }
 
         async function loadSettings() {
+            // Try localStorage first for instant load
+            try {
+                const cachedSettings = localStorage.getItem('displaySettings');
+                if (cachedSettings) {
+                    const settings = JSON.parse(cachedSettings);
+                    displaySettings = settings;
+                    itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
+                    console.log('⚡ Settings loaded from localStorage cache');
+                    applySettings();
+                }
+            } catch (e) {
+                console.log('📋 No cached settings, loading from Firebase');
+            }
+
+            // Then sync from Firebase (source of truth)
             try {
                 const snapshot = await database.ref('displaySettings').once('value');
                 const settings = snapshot.val();
                 if (settings) {
                     displaySettings = settings;
                     itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
+                    // Cache to localStorage
+                    localStorage.setItem('displaySettings', JSON.stringify(settings));
+                    console.log('🔥 Settings synced from Firebase');
                 }
             } catch (error) {
                 console.error('❌ Error loading settings from Firebase:', error);
@@ -2231,6 +2249,8 @@
                     isSyncingFromFirebase = true;
                     displaySettings = settings;
                     itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
+                    // Cache to localStorage for faster next load
+                    localStorage.setItem('displaySettings', JSON.stringify(settings));
                     applySettings();
                     updateProductGrid();
                     console.log('🔥 Settings synced from Firebase');
