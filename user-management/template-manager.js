@@ -177,8 +177,65 @@ class TemplateManager {
             ? PermissionsRegistry.getTotalPermissionsCount()
             : 101;
 
+        // Check if this built-in template has been customized (saved to Firebase)
+        const isModified = !isCustom && this.customTemplates[id];
+        const isAdmin = id === 'admin';
+
+        // Determine badge type
+        let badgeHtml = '';
+        if (isCustom) {
+            badgeHtml = `<span class="template-badge custom"><i data-lucide="user"></i> Tùy chỉnh</span>`;
+        } else if (isModified) {
+            badgeHtml = `<span class="template-badge modified"><i data-lucide="edit-2"></i> Đã sửa</span>`;
+        } else if (isAdmin) {
+            badgeHtml = `<span class="template-badge admin"><i data-lucide="crown"></i> Admin</span>`;
+        } else {
+            badgeHtml = `<span class="template-badge builtin"><i data-lucide="settings"></i> Mặc định</span>`;
+        }
+
+        // Action buttons based on template type
+        let actionsHtml = `
+            <button class="btn btn-sm btn-secondary" onclick="templateManager.previewTemplate('${id}', ${isCustom})" title="Xem chi tiết">
+                <i data-lucide="eye"></i>
+                Xem
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="templateManager.duplicateTemplate('${id}', ${isCustom})" title="Sao chép">
+                <i data-lucide="copy"></i>
+                Sao chép
+            </button>
+        `;
+
+        if (isCustom) {
+            // Custom templates: can edit and delete
+            actionsHtml += `
+                <button class="btn btn-sm btn-primary" onclick="templateManager.editTemplate('${id}', true)" title="Chỉnh sửa">
+                    <i data-lucide="edit"></i>
+                    Sửa
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="templateManager.deleteTemplate('${id}')" title="Xóa">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            `;
+        } else if (!isAdmin) {
+            // Built-in templates (except admin): can edit
+            actionsHtml += `
+                <button class="btn btn-sm btn-primary" onclick="templateManager.editTemplate('${id}', false)" title="Tùy chỉnh template này">
+                    <i data-lucide="edit"></i>
+                    Sửa
+                </button>
+            `;
+            // If modified, show reset button
+            if (isModified) {
+                actionsHtml += `
+                    <button class="btn btn-sm btn-warning" onclick="templateManager.resetTemplate('${id}')" title="Khôi phục về mặc định">
+                        <i data-lucide="rotate-ccw"></i>
+                    </button>
+                `;
+            }
+        }
+
         return `
-            <div class="template-card ${isCustom ? 'custom' : 'builtin'}" data-template-id="${id}">
+            <div class="template-card ${isCustom ? 'custom' : 'builtin'} ${isModified ? 'modified' : ''} ${isAdmin ? 'admin-template' : ''}" data-template-id="${id}">
                 <div class="template-card-header" style="--template-color: ${template.color || '#6366f1'}">
                     <div class="template-icon">
                         <i data-lucide="${template.icon || 'sliders'}"></i>
@@ -199,34 +256,10 @@ class TemplateManager {
                             ${this.countAccessiblePages(permissions)} trang
                         </span>
                     </div>
-                    ${isCustom ? `
-                        <span class="template-badge custom">
-                            <i data-lucide="user"></i> Tùy chỉnh
-                        </span>
-                    ` : `
-                        <span class="template-badge builtin">
-                            <i data-lucide="lock"></i> Hệ thống
-                        </span>
-                    `}
+                    ${badgeHtml}
                 </div>
                 <div class="template-card-actions">
-                    <button class="btn btn-sm btn-secondary" onclick="templateManager.previewTemplate('${id}', ${isCustom})" title="Xem chi tiết">
-                        <i data-lucide="eye"></i>
-                        Xem
-                    </button>
-                    <button class="btn btn-sm btn-secondary" onclick="templateManager.duplicateTemplate('${id}', ${isCustom})" title="Sao chép">
-                        <i data-lucide="copy"></i>
-                        Sao chép
-                    </button>
-                    ${isCustom ? `
-                        <button class="btn btn-sm btn-primary" onclick="templateManager.editTemplate('${id}')" title="Chỉnh sửa">
-                            <i data-lucide="edit"></i>
-                            Sửa
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="templateManager.deleteTemplate('${id}')" title="Xóa">
-                            <i data-lucide="trash-2"></i>
-                        </button>
-                    ` : ''}
+                    ${actionsHtml}
                 </div>
             </div>
         `;
@@ -350,20 +383,86 @@ class TemplateManager {
     }
 
     /**
-     * Chỉnh sửa template
+     * Chỉnh sửa template (cả built-in và custom)
      */
-    editTemplate(templateId) {
-        const template = this.customTemplates[templateId];
-        if (!template) {
-            alert('Không tìm thấy template!');
-            return;
+    editTemplate(templateId, isCustom = false) {
+        let template;
+        let permissions;
+
+        if (isCustom) {
+            // Custom template - load from customTemplates
+            template = this.customTemplates[templateId];
+            if (!template) {
+                alert('Không tìm thấy template!');
+                return;
+            }
+            permissions = template.detailedPermissions || {};
+        } else {
+            // Built-in template - check if it has been modified
+            if (this.customTemplates[templateId]) {
+                // Modified built-in - use custom version
+                template = {
+                    ...this.builtInTemplates[templateId],
+                    ...this.customTemplates[templateId]
+                };
+                permissions = this.customTemplates[templateId].detailedPermissions || {};
+            } else {
+                // Original built-in - generate from registry
+                template = this.builtInTemplates[templateId];
+                if (!template) {
+                    alert('Không tìm thấy template!');
+                    return;
+                }
+                permissions = this.getTemplatePermissions(templateId, false);
+            }
         }
 
         this.showEditorModal({
             id: templateId,
-            ...template,
-            detailedPermissions: template.detailedPermissions || this.getTemplatePermissions(templateId, true)
+            name: template.name,
+            description: template.description,
+            icon: template.icon,
+            color: template.color,
+            detailedPermissions: permissions,
+            isBuiltIn: !isCustom && this.builtInTemplates[templateId] !== undefined
         }, 'edit');
+    }
+
+    /**
+     * Khôi phục template về mặc định (xóa custom override)
+     */
+    async resetTemplate(templateId) {
+        const builtIn = this.builtInTemplates[templateId];
+        if (!builtIn) {
+            alert('Không tìm thấy template gốc!');
+            return;
+        }
+
+        if (!confirm(`Bạn có chắc chắn muốn khôi phục template "${builtIn.name}" về mặc định?\n\nTất cả tùy chỉnh sẽ bị xóa!`)) {
+            return;
+        }
+
+        try {
+            // Delete the custom override from Firebase
+            await db.collection('permission_templates').doc(templateId).delete();
+
+            // Remove from local cache
+            delete this.customTemplates[templateId];
+
+            // Update allTemplates to use original built-in
+            this.allTemplates[templateId] = this.builtInTemplates[templateId];
+
+            if (window.notify) {
+                window.notify.success(`Đã khôi phục template "${builtIn.name}" về mặc định`);
+            }
+
+            this.renderTemplatesList();
+            this.refreshAllTemplateButtons();
+
+        } catch (error) {
+            console.error('[TemplateManager] Error resetting template:', error);
+            alert('Lỗi khôi phục template: ' + error.message);
+        }
     }
 
     /**
@@ -409,7 +508,10 @@ class TemplateManager {
         if (!modalContainer) return;
 
         const isEdit = mode === 'edit';
-        const title = isEdit ? 'Chỉnh Sửa Template' : 'Tạo Template Mới';
+        const isBuiltIn = data?.isBuiltIn || false;
+        const title = isEdit
+            ? (isBuiltIn ? `Tùy Chỉnh Template: ${data?.name || ''}` : 'Chỉnh Sửa Template')
+            : 'Tạo Template Mới';
 
         // Default values
         const templateData = data || {
@@ -433,6 +535,12 @@ class TemplateManager {
                             <i data-lucide="x"></i>
                         </button>
                     </div>
+                    ${isBuiltIn ? `
+                        <div class="modal-notice">
+                            <i data-lucide="info"></i>
+                            <span>Bạn đang tùy chỉnh template mặc định. Thay đổi sẽ được lưu riêng và có thể khôi phục về mặc định bất cứ lúc nào.</span>
+                        </div>
+                    ` : ''}
                     <div class="modal-body">
                         <div class="form-row">
                             <div class="form-group">
@@ -444,9 +552,11 @@ class TemplateManager {
                             <div class="form-group">
                                 <label>Tên hiển thị</label>
                                 <input type="text" id="templateName" value="${templateData.name || ''}"
-                                       placeholder="vd: Nhóm Bán Hàng Mới" />
+                                       placeholder="vd: Nhóm Bán Hàng Mới"
+                                       ${isBuiltIn ? 'readonly style="background: var(--gray-100)"' : ''} />
                             </div>
                         </div>
+                        <input type="hidden" id="templateIsBuiltIn" value="${isBuiltIn}" />
 
                         <div class="form-group">
                             <label>Mô tả</label>
@@ -557,6 +667,7 @@ class TemplateManager {
         const description = document.getElementById('templateDesc').value.trim();
         const icon = document.getElementById('templateIcon').value;
         const color = document.getElementById('templateColor').value;
+        const isBuiltIn = document.getElementById('templateIsBuiltIn')?.value === 'true';
 
         // Validation
         if (!id) {
@@ -574,8 +685,8 @@ class TemplateManager {
             return;
         }
 
-        // Check if ID already exists (for create mode)
-        if (mode === 'create') {
+        // Check if ID already exists (for create mode only, not for built-in edits)
+        if (mode === 'create' && !isBuiltIn) {
             if (this.builtInTemplates[id]) {
                 alert('ID này đã được sử dụng bởi template hệ thống!');
                 return;
@@ -597,12 +708,13 @@ class TemplateManager {
             icon: icon,
             color: color,
             detailedPermissions: detailedPermissions,
-            isCustom: true,
+            isCustom: !isBuiltIn, // Mark as custom only if not a built-in override
+            isBuiltInOverride: isBuiltIn, // Mark if this is overriding a built-in template
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: JSON.parse(localStorage.getItem('loginindex_auth'))?.username || 'unknown'
         };
 
-        if (mode === 'create') {
+        if (mode === 'create' || (mode === 'edit' && !this.customTemplates[id])) {
             templateData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
             templateData.createdBy = JSON.parse(localStorage.getItem('loginindex_auth'))?.username || 'unknown';
         }
@@ -611,11 +723,12 @@ class TemplateManager {
             await db.collection('permission_templates').doc(id).set(templateData, { merge: true });
 
             // Update local cache
-            this.customTemplates[id] = { id, ...templateData, isCustom: true };
+            this.customTemplates[id] = { id, ...templateData };
             this.allTemplates[id] = this.customTemplates[id];
 
+            const actionText = isBuiltIn ? 'tùy chỉnh' : (mode === 'edit' ? 'cập nhật' : 'tạo');
             if (window.notify) {
-                window.notify.success(`Đã ${mode === 'edit' ? 'cập nhật' : 'tạo'} template "${name}"`);
+                window.notify.success(`Đã ${actionText} template "${name}"`);
             }
 
             this.closeModal();
@@ -836,6 +949,16 @@ templateManagerStyle.textContent = `
     color: #3b82f6;
 }
 
+.template-badge.modified {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.template-badge.admin {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
 .template-card-actions {
     display: flex;
     gap: 8px;
@@ -858,6 +981,25 @@ templateManagerStyle.textContent = `
 .template-card-actions .btn-danger:hover {
     background: #dc2626;
     color: white;
+}
+
+.template-card-actions .btn-warning {
+    background: #fffbeb;
+    color: #d97706;
+    border-color: #fde68a;
+}
+
+.template-card-actions .btn-warning:hover {
+    background: #f59e0b;
+    color: white;
+}
+
+.template-card.modified {
+    border-color: #f59e0b;
+}
+
+.template-card.admin-template {
+    opacity: 0.9;
 }
 
 /* Modal Styles */
@@ -906,6 +1048,23 @@ templateManagerStyle.textContent = `
     width: 24px;
     height: 24px;
     color: var(--accent-color, #6366f1);
+}
+
+.modal-notice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+    background: #eff6ff;
+    border-bottom: 1px solid #bfdbfe;
+    color: #1e40af;
+    font-size: 13px;
+}
+
+.modal-notice i {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
 }
 
 .btn-close {
