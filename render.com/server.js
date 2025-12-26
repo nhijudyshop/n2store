@@ -164,6 +164,7 @@ const cloudflareBackupRoutes = require('./routes/cloudflare-backup');
 const realtimeRoutes = require('./routes/realtime');
 const { saveRealtimeUpdate } = require('./routes/realtime');
 const geminiRoutes = require('./routes/gemini');
+const deepseekRoutes = require('./routes/deepseek');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -174,6 +175,7 @@ app.use('/api/sepay', sepayWebhookRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/realtime', realtimeRoutes);
 app.use('/api/gemini', geminiRoutes);
+app.use('/api/deepseek', deepseekRoutes);
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
 app.use('/api', cloudflareBackupRoutes);

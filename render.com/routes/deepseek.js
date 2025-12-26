@@ -16,7 +16,15 @@ router.get('/', (req, res) => {
         status: 'ok',
         service: 'DeepSeek AI Proxy',
         hasApiKey: !!DEEPSEEK_API_KEY,
-        model: 'deepseek-chat'
+        availableModels: [
+            'deepseek-chat',
+            'deepseek-coder',
+            'deepseek-reasoner'
+        ],
+        endpoints: [
+            'POST /chat - Chat completions',
+            'POST /ocr - OCR with vision model'
+        ]
     });
 });
 
@@ -31,11 +39,11 @@ router.post('/chat', async (req, res) => {
             });
         }
 
-        const { 
-            model = 'deepseek-chat', 
-            messages, 
-            max_tokens = 4096, 
-            temperature = 0.3 
+        const {
+            model = 'deepseek-chat',
+            messages,
+            max_tokens = 4096,
+            temperature = 0.3
         } = req.body;
 
         if (!messages || !Array.isArray(messages)) {
@@ -44,7 +52,7 @@ router.post('/chat', async (req, res) => {
             });
         }
 
-        console.log(`[DEEPSEEK] Request with ${messages.length} message(s)`);
+        console.log(`[DEEPSEEK] Chat request to ${model} with ${messages.length} message(s)`);
 
         const response = await fetch(DEEPSEEK_API_URL, {
             method: 'POST',
@@ -75,6 +83,78 @@ router.post('/chat', async (req, res) => {
         console.error('[DEEPSEEK] Server error:', error.message);
         res.status(500).json({
             error: { message: 'Proxy server error: ' + error.message }
+        });
+    }
+});
+
+// OCR endpoint using DeepSeek Vision
+// POST /api/deepseek/ocr
+// Body: { image: "base64 or url", prompt?: "custom prompt" }
+router.post('/ocr', async (req, res) => {
+    try {
+        if (!DEEPSEEK_API_KEY) {
+            return res.status(500).json({
+                error: { message: 'DEEPSEEK_API_KEY not configured on server' }
+            });
+        }
+
+        const { image, prompt = 'Extract all text from this image. Return only the extracted text, no explanations.' } = req.body;
+
+        if (!image) {
+            return res.status(400).json({
+                error: { message: 'Invalid request: image is required (base64 or URL)' }
+            });
+        }
+
+        console.log('[DEEPSEEK] OCR request');
+
+        // Determine if image is URL or base64
+        const imageContent = image.startsWith('http')
+            ? { type: 'image_url', image_url: { url: image } }
+            : { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${image}` } };
+
+        const messages = [
+            {
+                role: 'user',
+                content: [
+                    { type: 'text', text: prompt },
+                    imageContent
+                ]
+            }
+        ];
+
+        const response = await fetch(DEEPSEEK_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: 'deepseek-chat',
+                messages: messages,
+                max_tokens: 4096
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            console.error('[DEEPSEEK] OCR error:', data.error.message || data.error);
+            res.json(data);
+        } else {
+            const extractedText = data.choices?.[0]?.message?.content || '';
+            console.log('[DEEPSEEK] OCR success');
+            res.json({
+                success: true,
+                text: extractedText,
+                raw: data
+            });
+        }
+
+    } catch (error) {
+        console.error('[DEEPSEEK] OCR error:', error.message);
+        res.status(500).json({
+            error: { message: 'OCR error: ' + error.message }
         });
     }
 });
