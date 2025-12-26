@@ -9,7 +9,7 @@
 
 ## ✅ ĐÃ TỐI ƯU (26/12/2024)
 
-**Tối ưu localStorage caching cho displaySettings:**
+**1. Tối ưu localStorage caching cho displaySettings:**
 - `product-search/product-list.html` - localStorage cache + Firebase sync
 - `product-search/index.html` - localStorage cache + Firebase sync
 - `order-management/order-list.html` - localStorage cache + Firebase sync
@@ -21,6 +21,12 @@
 3. Cache vào localStorage khi Firebase cập nhật
 
 **Lợi ích:** Trang load nhanh hơn mà vẫn giữ được tính năng multi-device sync.
+
+**2. Xóa `dropped_products_history` (26/12/2024):**
+- Đã xóa code ghi history trong `orders-report/dropped-products-manager.js`
+- UI hiển thị thông báo "Lịch sử đã tắt"
+- **⚠️ CẦN XÓA DATA:** Vào Firebase Console → Realtime Database → xóa node `dropped_products_history`
+- **Tiết kiệm ước tính:** 25-30% chi phí
 
 ---
 
@@ -68,7 +74,7 @@ Những collections này **BẮT BUỘC** phải dùng Realtime Database:
 
 | Collection | Đề xuất | Tiết kiệm |
 |------------|---------|-----------|
-| `dropped_products_history` | ✅ Firestore | 25-30% |
+| `dropped_products_history` | ✅ ĐÃ XÓA | 25-30% |
 | `bulkTagHistory` | ✅ Firestore | 5% |
 | `bulkTagDeleteHistory` | ✅ Firestore | 5% |
 | `cartHistory` | ✅ Firestore | 5% |
@@ -160,7 +166,7 @@ Những collections này có thể **không còn sử dụng** hoặc là backup
 - [ ] Export backup toàn bộ database
 
 ### Giai đoạn 2: Migrate History (Tùy chọn)
-- [ ] `dropped_products_history` → Firestore
+- [x] `dropped_products_history` → ĐÃ XÓA (không cần migrate)
 - [ ] `bulkTagHistory` + `bulkTagDeleteHistory` → Firestore
 - [ ] `cartHistory` + `soluongCartHistory` → Firestore
 
