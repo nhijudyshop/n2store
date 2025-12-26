@@ -7,7 +7,7 @@
  * Export shipments to Excel
  */
 async function exportToExcel() {
-    if (!hasPermission('export_data')) {
+    if (!permissionHelper?.can('export_data')) {
         toast.error('Ban khong co quyen xuat file');
         return;
     }
@@ -16,7 +16,7 @@ async function exportToExcel() {
         toast.loading('Dang tao file Excel...');
 
         const { filteredShipments } = globalState;
-        const canExportFinance = hasPermission('tab_congNo');
+        const canExportFinance = permissionHelper?.can('tab_congNo');
 
         // Create workbook
         const wb = XLSX.utils.book_new();

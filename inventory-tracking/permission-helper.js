@@ -38,11 +38,11 @@ const DEFAULT_PERMISSIONS = {
     create_otherExpense: false,
     edit_otherExpense: false,
     delete_otherExpense: false,
-    edit_invoiceTotal: false,
-    edit_shippingCost: false,
+    edit_invoice_from_finance: false,
+    edit_shipping_from_finance: false,
 
     // Export
-    export_excel: true,
+    export_data: true,
 };
 
 /**
@@ -73,9 +73,9 @@ const ADMIN_PERMISSIONS = {
     create_otherExpense: true,
     edit_otherExpense: true,
     delete_otherExpense: true,
-    edit_invoiceTotal: true,
-    edit_shippingCost: true,
-    export_excel: true,
+    edit_invoice_from_finance: true,
+    edit_shipping_from_finance: true,
+    export_data: true,
 };
 
 // Note: Named InventoryPermissionHelper to avoid conflict with global PermissionHelper from core-loader
@@ -187,7 +187,7 @@ class InventoryPermissionHelper {
         // Export button
         const exportButton = document.getElementById('exportButton');
         if (exportButton) {
-            exportButton.style.display = this.can('export_excel') ? '' : 'none';
+            exportButton.style.display = this.can('export_data') ? '' : 'none';
         }
 
         // Finance action buttons
