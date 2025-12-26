@@ -3363,3 +3363,37 @@ setTimeout(() => {
         console.log('[VERSION] Version Checker initialized');
     }
 }, 2000); // Wait 2 seconds for Firebase to be ready
+
+// =====================================================
+// AI CHAT WIDGET LOADER
+// Load floating AI chat widget on all pages
+// =====================================================
+(function loadAIChatWidget() {
+    // Check if already loaded
+    if (window.AIChatWidget) {
+        console.log('[AI Widget] Already loaded');
+        return;
+    }
+
+    // Determine script path based on current page location
+    const currentPath = window.location.pathname;
+    let basePath = '../js/';
+
+    // Handle different directory depths
+    if (currentPath.includes('/n2store/') && !currentPath.includes('/n2store/js/')) {
+        // Find the depth from n2store root
+        const parts = currentPath.split('/n2store/')[1]?.split('/').filter(p => p && !p.includes('.html'));
+        if (parts && parts.length > 1) {
+            basePath = '../'.repeat(parts.length) + 'js/';
+        }
+    }
+
+    // Create and load the script
+    const script = document.createElement('script');
+    script.src = basePath + 'ai-chat-widget.js';
+    script.async = true;
+    script.onerror = () => console.warn('[AI Widget] Failed to load widget script');
+    document.head.appendChild(script);
+
+    console.log('[AI Widget] Loading from:', basePath + 'ai-chat-widget.js');
+})();
