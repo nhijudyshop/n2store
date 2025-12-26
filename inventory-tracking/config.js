@@ -88,13 +88,19 @@ let globalState = {
     userPermissions: null,
 };
 
-// Initialize Firebase
+// Initialize Firebase (handle case where it's already initialized by core-loader)
 let app, db, storage;
 try {
-    app = firebase.initializeApp(firebaseConfig);
+    // Check if Firebase is already initialized
+    if (firebase.apps && firebase.apps.length > 0) {
+        app = firebase.apps[0];
+        console.log('[CONFIG] Using existing Firebase app');
+    } else {
+        app = firebase.initializeApp(firebaseConfig);
+        console.log('[CONFIG] Firebase initialized successfully');
+    }
     db = firebase.firestore();
     storage = firebase.storage();
-    console.log('[CONFIG] Firebase initialized successfully');
 } catch (error) {
     console.error('[CONFIG] Firebase initialization error:', error);
 }

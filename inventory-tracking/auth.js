@@ -71,7 +71,10 @@ class AuthManager {
     isAdmin() {
         const auth = this.getAuthState();
         if (!auth) return false;
-        return parseInt(auth.checkLogin) === 0;
+        // Support both new (roleTemplate) and old (checkLogin) admin check
+        return auth.roleTemplate === 'admin' ||
+               parseInt(auth.checkLogin) === 0 ||
+               auth.checkLogin === "0";
     }
 
     hasPermission(requiredLevel) {
