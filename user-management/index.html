@@ -250,10 +250,8 @@
                             <div class="form-group"></div>
                         </div>
 
-                        <!-- Page Access Permissions Section -->
-                        <div id="editPagePermissions" class="page-permissions-container"></div>
-
-                        <!-- Detailed Permissions Section -->
+                        <!-- Permissions Section (Simplified - only detailed permissions) -->
+                        <!-- Page access is now derived from detailed permissions -->
                         <div id="editDetailedPermissions" class="detailed-permissions-container"></div>
 
                         <div class="form-actions">
@@ -339,10 +337,8 @@
                             <div class="form-group"></div>
                         </div>
 
-                        <!-- Page Access Permissions Section -->
-                        <div id="newPagePermissions" class="page-permissions-container"></div>
-
-                        <!-- Detailed Permissions Section -->
+                        <!-- Permissions Section (Simplified - only detailed permissions) -->
+                        <!-- Page access is now derived from detailed permissions -->
                         <div id="newDetailedPermissions" class="detailed-permissions-container"></div>
 
                         <div class="form-actions">
@@ -506,7 +502,7 @@
 
     <!-- Permissions Registry - Single Source of Truth (phải load trước các UI) -->
     <script src="permissions-registry.js"></script>
-    <script src="page-permissions-ui.js"></script>
+    <!-- page-permissions-ui.js REMOVED - replaced by simplified system using only detailedPermissions -->
 
     <script>
         // Create compatibility elements before loading other scripts
@@ -554,6 +550,9 @@
     <script src="detailed-permissions-ui.js"></script>
     <script src="user-management-enhanced.js"></script>
     <script src="permissions-overview.js"></script>
+
+    <!-- Migration Script - Có thể xóa sau khi migration xong -->
+    <script src="permissions-migration.js"></script>
 
     <script>
         // Initialize

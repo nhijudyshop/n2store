@@ -179,11 +179,16 @@ class DetailedPermissionsUI {
         const subPermissions = pagePerms.subPermissions;
         const checkedCount = this.getCheckedCountForPage(page.id);
         const totalCount = Object.keys(subPermissions).length;
-        const hasPerms = checkedCount > 0;
+        const hasAccess = checkedCount > 0; // User has access if at least one permission is true
         const categoryColor = this.getCategoryColor(page.category);
 
+        // Access indicator - shows if user can access this page
+        const accessIndicator = hasAccess
+            ? `<span class="access-badge access-granted"><i data-lucide="check-circle"></i> Có quyền truy cập</span>`
+            : `<span class="access-badge access-denied"><i data-lucide="x-circle"></i> Không có quyền</span>`;
+
         return `
-            <div class="permission-card-detailed ${hasPerms ? 'has-permissions' : ''}"
+            <div class="permission-card-detailed ${hasAccess ? 'has-permissions' : ''}"
                  data-page-id="${page.id}"
                  style="--category-color: ${categoryColor}">
                 <div class="permission-header">
@@ -194,14 +199,15 @@ class DetailedPermissionsUI {
                         <div class="page-details">
                             <h4>${page.name}</h4>
                             <p class="permission-desc">${page.description}</p>
+                            ${accessIndicator}
                         </div>
                     </div>
                     <div class="permission-actions">
                         <span class="perm-count">${checkedCount}/${totalCount}</span>
-                        <button type="button" class="toggle-all-btn"
+                        <button type="button" class="toggle-all-btn ${hasAccess ? 'active' : ''}"
                                 onclick="window.${this.prefix}DetailedPermUI.toggleAllForPage('${page.id}')"
-                                title="Chọn/bỏ chọn tất cả">
-                            <i data-lucide="check-square"></i>
+                                title="${hasAccess ? 'Thu hồi quyền truy cập' : 'Cấp full quyền'}">
+                            <i data-lucide="${hasAccess ? 'toggle-right' : 'toggle-left'}"></i>
                         </button>
                     </div>
                 </div>
@@ -869,6 +875,42 @@ detailedPermissionsStyle.textContent = `
     width: 16px;
     height: 16px;
     color: var(--text-secondary, #374151);
+}
+
+.toggle-all-btn.active {
+    background: var(--category-color, #6366f1);
+    border-color: var(--category-color, #6366f1);
+}
+
+.toggle-all-btn.active i {
+    color: white;
+}
+
+/* Access Badge - Page access indicator */
+.access-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+    margin-top: 6px;
+}
+
+.access-badge i {
+    width: 12px;
+    height: 12px;
+}
+
+.access-badge.access-granted {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.access-badge.access-denied {
+    background: #fee2e2;
+    color: #dc2626;
 }
 
 /* Sub Permissions */
