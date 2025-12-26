@@ -321,22 +321,12 @@
         // API Key - will be loaded from Firebase
         window.GEMINI_PRO_KEY = '';
 
-        // Firebase Config
-        const FIREBASE_CONFIG = {
-            apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-            authDomain: "n2shop-69e37.firebaseapp.com",
-            projectId: "n2shop-69e37",
-            storageBucket: "n2shop-69e37-ne0q1",
-            messagingSenderId: "598906493303",
-            appId: "1:598906493303:web:46d6236a1fdc2eff33e972"
-        };
-
         // Initialize Firebase and load API key
         async function initializeGeminiAPI() {
             try {
-                // Initialize Firebase if not already done
+                // Use global FIREBASE_CONFIG from core-loader.js
                 if (!firebase.apps.length) {
-                    firebase.initializeApp(FIREBASE_CONFIG);
+                    firebase.initializeApp(window.FIREBASE_CONFIG);
                 }
                 const db = firebase.firestore();
 
