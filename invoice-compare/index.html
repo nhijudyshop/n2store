@@ -28,18 +28,10 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-    <!-- Load API Keys -->
+    <!-- API Keys are now managed securely on Render server -->
     <script>
-        // DeepSeek API Key
-        const savedDeepSeekKey = localStorage.getItem('deepseek_api_key') || '';
-        window.DEEPSEEK_API_KEY = savedDeepSeekKey || 'sk-319cef4faabf413aa84beb51c383e9b1' || '';
-
-        // Google Cloud Vision API Key (for high-accuracy OCR)
-        const savedGoogleVisionKey = localStorage.getItem('google_vision_api_key') || '';
-        window.GOOGLE_CLOUD_VISION_API_KEY = savedGoogleVisionKey || 'AIzaSyCNBRc_50uk8_O39RUoqtrHnzCuiFzG6MY' || '';
-
-        console.log('[API-KEYS] DeepSeek:', window.DEEPSEEK_API_KEY ? 'Configured ✓' : '⚠️ NOT CONFIGURED');
-        console.log('[API-KEYS] Google Cloud Vision:', window.GOOGLE_CLOUD_VISION_API_KEY ? 'Configured ✓' : '⚠️ NOT CONFIGURED');
+        // API Keys are stored on Render server, no longer needed here
+        console.log('[API-KEYS] Using Render proxy for DeepSeek and Google Vision (keys stored server-side)');
     </script>
 
     <!-- DeepSeek AI Helper -->

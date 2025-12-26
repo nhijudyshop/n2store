@@ -341,7 +341,6 @@ function editUser(username) {
     document.getElementById("editUsername").value = user.id;
     document.getElementById("editDisplayName").value = user.displayName;
     document.getElementById("editIdentifier").value = user.identifier || "";
-    document.getElementById("editCheckLogin").value = user.checkLogin;
     document.getElementById("editNewPassword").value = "";
 
     // Load detailed permissions and roleTemplate (NEW SYSTEM)
@@ -406,9 +405,6 @@ async function updateUser() {
     const username = document.getElementById("editUsername").value.trim();
     const displayName = document.getElementById("editDisplayName").value.trim();
     const identifier = document.getElementById("editIdentifier").value.trim();
-    const checkLogin = parseInt(
-        document.getElementById("editCheckLogin").value,
-    );
     const newPassword = document.getElementById("editNewPassword").value.trim();
 
     if (!username || !displayName) {
@@ -433,9 +429,8 @@ async function updateUser() {
         let updateData = {
             displayName: displayName,
             identifier: identifier,
-            checkLogin: checkLogin, // Kept for backward compatibility display
             detailedPermissions: detailedPermissions,
-            roleTemplate: roleTemplate, // NEW: Save role template
+            roleTemplate: roleTemplate,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
                 .username,
@@ -468,7 +463,7 @@ async function updateUser() {
         });
 
         showSuccess(
-            `Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nTruy cập trang: ${accessiblePages} trang\nQuyền chi tiết: ${permCount} quyền${newPassword ? "\n🔒 Đã thay đổi password" : ""}`,
+            `Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nNhóm quyền: ${roleTemplate}\nTruy cập trang: ${accessiblePages} trang\nQuyền chi tiết: ${permCount} quyền${newPassword ? "\n🔒 Đã thay đổi password" : ""}`,
         );
 
         setTimeout(loadUsers, 1000);
@@ -499,7 +494,6 @@ async function createUser() {
         document.getElementById("newDisplayName").value.trim() ||
         username.charAt(0).toUpperCase() + username.slice(1);
     const identifier = document.getElementById("newIdentifier").value.trim();
-    const checkLogin = parseInt(document.getElementById("newCheckLogin").value);
 
     if (!username || !password) {
         showError("Vui lòng nhập username và password!");
@@ -550,9 +544,8 @@ async function createUser() {
             .set({
                 displayName: displayName,
                 identifier: identifier,
-                checkLogin: checkLogin, // Kept for backward compatibility display
                 detailedPermissions: detailedPermissions,
-                roleTemplate: roleTemplate, // NEW: Save role template
+                roleTemplate: roleTemplate,
                 passwordHash: hash,
                 salt: salt,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -574,7 +567,7 @@ async function createUser() {
         });
 
         showSuccess(
-            `Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nTruy cập trang: ${accessiblePages} trang\nQuyền chi tiết: ${permCount} quyền\n🔒 Password đã được hash an toàn`,
+            `Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nNhóm quyền: ${roleTemplate}\nTruy cập trang: ${accessiblePages} trang\nQuyền chi tiết: ${permCount} quyền\n🔒 Password đã được hash an toàn`,
         );
 
         clearCreateForm();
@@ -919,7 +912,6 @@ function clearEditForm() {
     document.getElementById("editUsername").value = "";
     document.getElementById("editDisplayName").value = "";
     document.getElementById("editIdentifier").value = "";
-    document.getElementById("editCheckLogin").value = "1";
     document.getElementById("editNewPassword").value = "";
 
     // Clear detailed permissions UI (simplified system - only detailedPermissions)
@@ -938,7 +930,6 @@ function clearCreateForm() {
     document.getElementById("newPassword").value = "";
     document.getElementById("newDisplayName").value = "";
     document.getElementById("newIdentifier").value = "";
-    document.getElementById("newCheckLogin").value = "1";
 
     // Clear detailed permissions UI (simplified system - only detailedPermissions)
     if (window.newDetailedPermUI) {

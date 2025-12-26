@@ -319,7 +319,8 @@ const PAGES_REGISTRY = {
             edit: { name: "Sửa user", icon: "edit", description: "Chỉnh sửa thông tin user" },
             delete: { name: "Xóa tài khoản", icon: "user-minus", description: "Xóa user khỏi hệ thống" },
             permissions: { name: "Phân quyền", icon: "shield", description: "Cấp/thu hồi quyền" },
-            resetPassword: { name: "Reset mật khẩu", icon: "key", description: "Đặt lại mật khẩu user" }
+            resetPassword: { name: "Reset mật khẩu", icon: "key", description: "Đặt lại mật khẩu user" },
+            manageTemplates: { name: "Quản lý Templates", icon: "layout-template", description: "Thêm/sửa/xóa các mẫu phân quyền" }
         }
     },
 

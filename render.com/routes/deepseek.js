@@ -8,7 +8,7 @@ const router = express.Router();
 
 // API Key from environment variable (set on Render)
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
+const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
 // Health check
 router.get('/', (req, res) => {
@@ -28,9 +28,9 @@ router.get('/', (req, res) => {
     });
 });
 
-// Chat endpoint
+// Main chat endpoint
 // POST /api/deepseek/chat
-// Body: { model?: "deepseek-chat", messages: [...] }
+// Body: { model?: "deepseek-chat", messages: [...], max_tokens?: 4096, temperature?: 0.3 }
 router.post('/chat', async (req, res) => {
     try {
         if (!DEEPSEEK_API_KEY) {
@@ -39,7 +39,12 @@ router.post('/chat', async (req, res) => {
             });
         }
 
-        const { model = 'deepseek-chat', messages, temperature, max_tokens } = req.body;
+        const {
+            model = 'deepseek-chat',
+            messages,
+            max_tokens = 4096,
+            temperature = 0.3
+        } = req.body;
 
         if (!messages || !Array.isArray(messages)) {
             return res.status(400).json({
@@ -49,25 +54,27 @@ router.post('/chat', async (req, res) => {
 
         console.log(`[DEEPSEEK] Chat request to ${model} with ${messages.length} message(s)`);
 
-        const requestBody = { model, messages };
-        if (temperature !== undefined) requestBody.temperature = temperature;
-        if (max_tokens !== undefined) requestBody.max_tokens = max_tokens;
-
         const response = await fetch(DEEPSEEK_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify({
+                model,
+                messages,
+                max_tokens,
+                temperature
+            })
         });
 
         const data = await response.json();
 
         if (data.error) {
-            console.error('[DEEPSEEK] API error:', data.error.message);
+            console.error('[DEEPSEEK] API error:', data.error.message || data.error);
         } else {
-            console.log('[DEEPSEEK] Chat success');
+            const tokens = data.usage?.total_tokens || 'N/A';
+            console.log(`[DEEPSEEK] Success - Tokens: ${tokens}`);
         }
 
         res.json(data);
@@ -132,7 +139,7 @@ router.post('/ocr', async (req, res) => {
         const data = await response.json();
 
         if (data.error) {
-            console.error('[DEEPSEEK] OCR error:', data.error.message);
+            console.error('[DEEPSEEK] OCR error:', data.error.message || data.error);
             res.json(data);
         } else {
             const extractedText = data.choices?.[0]?.message?.content || '';

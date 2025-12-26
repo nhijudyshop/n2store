@@ -117,21 +117,60 @@ class DetailedPermissionsUI {
     }
 
     renderTemplateButtons() {
-        const templates = typeof PERMISSION_TEMPLATES !== 'undefined' ? PERMISSION_TEMPLATES : {};
+        let templates = typeof PERMISSION_TEMPLATES !== 'undefined' ? { ...PERMISSION_TEMPLATES } : {};
 
-        return Object.entries(templates).map(([id, template]) => `
+        // Remove 'custom' placeholder if exists
+        delete templates.custom;
+
+        // Add custom templates from templateManager if available
+        if (typeof window.templateManager !== 'undefined' && window.templateManager.customTemplates) {
+            Object.entries(window.templateManager.customTemplates).forEach(([id, template]) => {
+                templates[id] = {
+                    ...template,
+                    isCustom: true
+                };
+            });
+        }
+
+        // Separate built-in and custom templates
+        const builtInTemplates = Object.entries(templates).filter(([_, t]) => !t.isCustom);
+        const customTemplates = Object.entries(templates).filter(([_, t]) => t.isCustom);
+
+        let html = '';
+
+        // Built-in templates
+        html += builtInTemplates.map(([id, template]) => `
             <button type="button" class="template-btn"
                     style="--template-color: ${template.color || '#6366f1'}"
                     onclick="window.${this.prefix}DetailedPermUI.applyTemplate('${id}')">
                 <i data-lucide="${template.icon}"></i>
-                <span>${template.name.split(' - ')[0]}</span>
+                <span>${(template.name || id).split(' - ')[0]}</span>
             </button>
-        `).join('') + `
+        `).join('');
+
+        // Custom templates (if any)
+        if (customTemplates.length > 0) {
+            html += `<span class="template-separator">|</span>`;
+            html += customTemplates.map(([id, template]) => `
+                <button type="button" class="template-btn custom-template"
+                        style="--template-color: ${template.color || '#3b82f6'}"
+                        onclick="window.${this.prefix}DetailedPermUI.applyTemplate('${id}', true)"
+                        title="Template tùy chỉnh">
+                    <i data-lucide="${template.icon || 'sliders'}"></i>
+                    <span>${(template.name || id).split(' - ')[0]}</span>
+                </button>
+            `).join('');
+        }
+
+        // Clear button
+        html += `
             <button type="button" class="template-btn clear-btn" onclick="window.${this.prefix}DetailedPermUI.applyTemplate('clear')">
                 <i data-lucide="trash-2"></i>
                 <span>Xóa tất cả</span>
             </button>
         `;
+
+        return html;
     }
 
     renderGroupedByCategory() {
@@ -377,10 +416,17 @@ class DetailedPermissionsUI {
         this.updateSummary();
     }
 
-    applyTemplate(templateKey) {
+    applyTemplate(templateKey, isCustom = false) {
         if (templateKey === "clear") {
             this.currentPermissions = {};
+        } else if (isCustom && typeof window.templateManager !== 'undefined') {
+            // Load custom template from templateManager
+            const customTemplate = window.templateManager.customTemplates[templateKey];
+            if (customTemplate && customTemplate.detailedPermissions) {
+                this.currentPermissions = JSON.parse(JSON.stringify(customTemplate.detailedPermissions));
+            }
         } else if (typeof PermissionsRegistry !== 'undefined' && PermissionsRegistry.generateTemplatePermissions) {
+            // Load built-in template from registry
             const templateData = PermissionsRegistry.generateTemplatePermissions(templateKey);
             this.currentPermissions = templateData.detailedPermissions || {};
         }
@@ -454,6 +500,22 @@ class DetailedPermissionsUI {
 
     getPermissions() {
         return this.currentPermissions;
+    }
+
+    /**
+     * Refresh template buttons (called when custom templates are loaded)
+     */
+    refreshTemplateButtons() {
+        const container = document.getElementById(this.containerId);
+        if (!container) return;
+
+        const templateButtonsContainer = container.querySelector('.template-buttons');
+        if (templateButtonsContainer) {
+            templateButtonsContainer.innerHTML = this.renderTemplateButtons();
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
     }
 
     setPermissions(permissions) {
@@ -624,6 +686,17 @@ detailedPermissionsStyle.textContent = `
 
 .template-btn.clear-btn {
     --template-color: #ef4444;
+}
+
+.template-btn.custom-template {
+    border-style: dashed;
+}
+
+.template-separator {
+    color: var(--border-color, #e5e7eb);
+    font-weight: 300;
+    margin: 0 4px;
+    align-self: center;
 }
 
 /* Summary Bar */
