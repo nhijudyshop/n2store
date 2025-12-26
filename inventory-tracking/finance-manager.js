@@ -71,7 +71,7 @@ function buildTransactionsList() {
                 soTien: data.total,
                 ghiChu: `${data.nccCount} NCC`,
                 shipmentIds: data.shipments.map(s => s.id),
-                canEdit: permissionHelper?.can('edit_invoiceTotal'),
+                canEdit: permissionHelper?.can('edit_invoice_from_finance'),
                 canDelete: false,
                 canViewDetail: true
             });
@@ -100,7 +100,7 @@ function buildTransactionsList() {
                 soTien: data.total,
                 ghiChu: `${data.count} khoan`,
                 shipmentIds: data.shipments.map(s => s.id),
-                canEdit: permissionHelper?.can('edit_shippingCost'),
+                canEdit: permissionHelper?.can('edit_shipping_from_finance'),
                 canDelete: false,
                 canViewDetail: true
             });

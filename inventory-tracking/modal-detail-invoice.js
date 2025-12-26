@@ -60,7 +60,7 @@ function renderInvoiceDetailTable(shipments, ngay) {
                     <th class="text-center">Tong mon</th>
                     <th class="text-center">Thieu</th>
                     <th>Ghi chu</th>
-                    ${hasPermission('edit_invoice_from_finance') ? '<th class="text-center">Sua</th>' : ''}
+                    ${permissionHelper?.can('edit_invoice_from_finance') ? '<th class="text-center">Sua</th>' : ''}
                 </tr>
             </thead>
             <tbody>
@@ -79,7 +79,7 @@ function renderInvoiceDetailTable(shipments, ngay) {
                         <td class="text-center">${hd.tongMon || 0}</td>
                         <td class="text-center ${hd.soMonThieu ? 'text-danger' : ''}">${hd.soMonThieu || 0}</td>
                         <td>${hd.ghiChu || ''}</td>
-                        ${hasPermission('edit_invoice_from_finance') ? `
+                        ${permissionHelper?.can('edit_invoice_from_finance') ? `
                             <td class="text-center">
                                 <button class="btn-icon" onclick="editInvoiceFromDetail('${hd.shipmentId}', '${hd.id}')">
                                     <i data-lucide="pencil"></i>
@@ -94,7 +94,7 @@ function renderInvoiceDetailTable(shipments, ngay) {
                     <td colspan="2"><strong>Tong cong</strong></td>
                     <td class="text-right"><strong>${formatCurrency(totalAmount)}</strong></td>
                     <td class="text-center"><strong>${totalItems}</strong></td>
-                    <td colspan="${hasPermission('edit_invoice_from_finance') ? '3' : '2'}"></td>
+                    <td colspan="${permissionHelper?.can('edit_invoice_from_finance') ? '3' : '2'}"></td>
                 </tr>
             </tfoot>
         </table>

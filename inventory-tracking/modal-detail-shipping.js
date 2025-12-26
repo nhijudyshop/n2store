@@ -58,7 +58,7 @@ function renderShippingDetailTable(shipments, ngay) {
                 <td class="text-right">${formatWeight(weight)}</td>
                 <td class="text-right">${formatCurrency(cost)}</td>
                 <td>${shipment.ghiChu || ''}</td>
-                ${hasPermission('edit_shipping_from_finance') ? `
+                ${permissionHelper?.can('edit_shipping_from_finance') ? `
                     <td class="text-center">
                         <button class="btn-icon" onclick="editShippingFromDetail('${shipment.id}')">
                             <i data-lucide="pencil"></i>
@@ -78,7 +78,7 @@ function renderShippingDetailTable(shipments, ngay) {
                     <th class="text-right">Tong ky</th>
                     <th class="text-right">Chi phi</th>
                     <th>Ghi chu</th>
-                    ${hasPermission('edit_shipping_from_finance') ? '<th class="text-center">Sua</th>' : ''}
+                    ${permissionHelper?.can('edit_shipping_from_finance') ? '<th class="text-center">Sua</th>' : ''}
                 </tr>
             </thead>
             <tbody>
@@ -90,7 +90,7 @@ function renderShippingDetailTable(shipments, ngay) {
                     <td></td>
                     <td class="text-right"><strong>${formatWeight(totalWeight)}</strong></td>
                     <td class="text-right"><strong>${formatCurrency(totalCost)}</strong></td>
-                    <td colspan="${hasPermission('edit_shipping_from_finance') ? '2' : '1'}"></td>
+                    <td colspan="${permissionHelper?.can('edit_shipping_from_finance') ? '2' : '1'}"></td>
                 </tr>
             </tfoot>
         </table>
