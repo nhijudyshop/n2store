@@ -3,49 +3,155 @@
 
 <head>
     <meta charset="UTF-8" />
+    <title>Gemini AI Assistant</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Interior Design Assistant - Tile Visualizer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="../hanghoan/modern.css" />
+
+    <!-- Core Utilities Loader -->
+    <script src="../js/core-loader.js"></script>
+    <script src="../js/navigation-modern.js"></script>
+    <script src="../js/common-utils.js"></script>
+
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Marked for markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <style>
-        body {
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f3f4f6;
+        /* Chat specific styles */
+        .chat-section {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - var(--topbar-height) - 2rem);
+            margin: var(--spacing-lg) var(--spacing-xl);
         }
 
         .chat-container {
-            height: 500px;
+            flex: 1;
             overflow-y: auto;
+            padding: var(--spacing-lg);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
             scroll-behavior: smooth;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: var(--gray-300);
+            border-radius: 3px;
         }
 
         .message {
             max-width: 80%;
-            margin-bottom: 1rem;
-            padding: 1rem;
-            border-radius: 1rem;
+            margin-bottom: var(--spacing-lg);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            line-height: 1.6;
+        }
+
+        .message p {
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .message p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message pre {
+            background: var(--gray-800);
+            color: #e5e7eb;
+            padding: var(--spacing-md);
+            border-radius: var(--radius);
+            overflow-x: auto;
+            margin: var(--spacing-md) 0;
+        }
+
+        .message code {
+            background: var(--gray-100);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+
+        .message pre code {
+            background: transparent;
+            padding: 0;
         }
 
         .user-msg {
-            background-color: #dbeafe;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
             margin-left: auto;
-            color: #1e3a8a;
+            border-bottom-right-radius: var(--spacing-xs);
+        }
+
+        .user-msg code {
+            background: rgba(255,255,255,0.2);
+            color: white;
         }
 
         .ai-msg {
-            background-color: #ffffff;
+            background: var(--gray-50);
+            color: var(--text-primary);
             margin-right: auto;
-            border: 1px solid #e5e7eb;
-            color: #374151;
+            border: 1px solid var(--border);
+            border-bottom-left-radius: var(--spacing-xs);
         }
 
-        .loading {
-            display: inline-block;
+        .chat-input-section {
+            display: flex;
+            gap: var(--spacing-md);
+            padding: var(--spacing-lg);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+        }
+
+        .chat-input-section textarea {
+            flex: 1;
+            padding: var(--spacing-md);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 0.9375rem;
+            resize: none;
+            min-height: 48px;
+            max-height: 200px;
+            transition: var(--transition-fast);
+        }
+
+        .chat-input-section textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+        }
+
+        .chat-input-section .btn {
+            align-self: flex-end;
+            min-width: 100px;
+        }
+
+        .loading-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .loading-indicator .spinner {
             width: 20px;
             height: 20px;
-            border: 3px solid rgba(0, 0, 0, 0.3);
+            border: 3px solid var(--gray-300);
             border-radius: 50%;
-            border-top-color: #2563eb;
+            border-top-color: var(--primary);
             animation: spin 1s ease-in-out infinite;
         }
 
@@ -55,257 +161,211 @@
             }
         }
 
-        /* Visualization Styles */
-        #visualizer-area {
-            position: relative;
-            overflow: hidden;
-            max-height: 600px;
-            border: 2px dashed #cbd5e1;
-            display: flex;
+        /* Welcome message styling */
+        .welcome-msg {
+            text-align: center;
+            padding: var(--spacing-xl);
+            color: var(--text-secondary);
+        }
+
+        .welcome-msg i {
+            width: 64px;
+            height: 64px;
+            color: var(--primary);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .welcome-msg h2 {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .welcome-msg p {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .model-badge {
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            background: #e2e8f0;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs) var(--spacing-md);
+            background: var(--gray-100);
+            border-radius: var(--radius);
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
         }
 
-        #room-bg {
-            max-width: 100%;
-            max-height: 600px;
-            display: block;
+        .model-badge i {
+            width: 16px;
+            height: 16px;
+            color: var(--success);
         }
 
-        #tile-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            opacity: 0.7;
-            mix-blend-mode: multiply;
-            background-repeat: repeat;
-            display: none;
+        /* Clear chat button */
+        .btn-clear {
+            background: var(--gray-100);
+            color: var(--text-secondary);
         }
 
-        .control-panel {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 8px;
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            display: none;
+        .btn-clear:hover {
+            background: var(--gray-200);
+            color: var(--danger);
         }
     </style>
 </head>
 
-<body class="h-screen flex flex-col">
-    <header class="bg-blue-900 text-white p-4 shadow-md flex justify-between items-center">
-        <h1 class="text-xl font-bold flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            AI Tile Design Assistant
-        </h1>
-    </header>
-
-    <div class="flex flex-1 overflow-hidden">
-        <div class="w-1/3 flex flex-col border-r border-gray-300 bg-white">
-            <div id="chat-box" class="chat-container flex-1 p-4 bg-gray-50">
-                <div class="message ai-msg">
-                    <p>
-                        <strong>Xin chào!</strong> Tôi là trợ lý thiết kế
-                        nội thất ảo sử dụng <strong>Gemini 1.5 Pro</strong>.
-                    </p>
-                    <p>
-                        Để bắt đầu, vui lòng tải lên
-                        hình ảnh căn phòng bạn muốn ốp gạch.
-                    </p>
-                </div>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i data-lucide="zap"></i>
+                <span>N2Shop</span>
             </div>
-
-            <div class="p-4 border-t border-gray-200 bg-white">
-                <div class="mb-2 flex gap-2">
-                    <label
-                        class="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded inline-flex items-center w-1/2 justify-center text-sm">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
-                            </path>
-                        </svg>
-                        <span>Ảnh Phòng</span>
-                        <input type="file" id="roomInput" accept="image/*" class="hidden"
-                            onchange="handleRoomUpload(this)" />
-                    </label>
-                    <label
-                        class="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded inline-flex items-center w-1/2 justify-center text-sm">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
-                            </path>
-                        </svg>
-                        <span>Ảnh Gạch</span>
-                        <input type="file" id="tileInput" accept="image/*" class="hidden"
-                            onchange="handleTileUpload(this)" />
-                    </label>
-                </div>
-
-                <div class="flex gap-2">
-                    <textarea id="userInput"
-                        class="flex-1 border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500"
-                        rows="2" placeholder="Nhập kích thước tường hoặc yêu cầu..."></textarea>
-                    <button onclick="sendMessage()"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                        Gửi
-                    </button>
-                </div>
-            </div>
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i data-lucide="panel-left-close"></i>
+            </button>
         </div>
 
-        <div class="w-2/3 bg-gray-200 p-4 flex flex-col">
-            <h2 class="text-lg font-bold mb-2 text-gray-700">
-                Góc nhìn Trực quan (Mô phỏng)
-            </h2>
-            <div id="visualizer-area" class="flex-1 rounded-lg shadow-inner bg-white relative">
-                <p id="placeholder-text" class="text-gray-400">
-                    Chưa có ảnh phòng
-                </p>
-                <img id="room-bg" src="" alt="Room Image" style="display: none" />
-                <div id="tile-overlay"></div>
+        <nav class="sidebar-nav" id="sidebarNav">
+            <!-- Menu items auto-generated -->
+        </nav>
 
-                <div id="vis-controls" class="control-panel">
-                    <div class="flex items-center gap-4 text-sm">
-                        <span class="font-bold">Điều chỉnh Gạch:</span>
-                        <div>
-                            <label>Kích thước:</label>
-                            <input type="range" min="10" max="200" value="50" oninput="updateTileSize(this.value)" />
-                        </div>
-                        <div>
-                            <label>Độ mờ:</label>
-                            <input type="range" min="0" max="100" value="70" oninput="updateOpacity(this.value)" />
-                        </div>
-                        <div>
-                            <label>Chế độ hòa trộn:</label>
-                            <select onchange="updateBlendMode(this.value)" class="border p-1 rounded">
-                                <option value="multiply">
-                                    Multiply (Tối)
-                                </option>
-                                <option value="overlay">
-                                    Overlay (Phủ)
-                                </option>
-                                <option value="screen">
-                                    Screen (Sáng)
-                                </option>
-                                <option value="normal">
-                                    Normal (Bình thường)
-                                </option>
-                            </select>
-                        </div>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i data-lucide="user-circle"></i>
+                </div>
+                <div class="user-details">
+                    <div class="user-name" id="userName">Admin</div>
+                    <div class="user-role">Quản trị viên</div>
+                </div>
+            </div>
+            <button class="btn-permissions" id="btnPermissions">
+                <i data-lucide="shield-check"></i>
+                <span>Xem Quyền Của Tôi</span>
+            </button>
+            <button class="btn-logout" id="btnLogout">
+                <i data-lucide="log-out"></i>
+                <span>Đăng xuất</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <button class="btn-icon" id="menuToggle">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="breadcrumb">
+                    <i data-lucide="bot"></i>
+                    <span>Gemini AI Assistant</span>
+                </div>
+            </div>
+            <div class="top-bar-right">
+                <div class="model-badge">
+                    <i data-lucide="check-circle"></i>
+                    <span id="modelName">gemini-2.0-flash</span>
+                </div>
+                <button class="btn btn-clear" id="btnClearChat" title="Xóa cuộc trò chuyện">
+                    <i data-lucide="trash-2"></i>
+                    <span>Xóa chat</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Chat Section -->
+        <section class="chat-section">
+            <div id="chat-box" class="chat-container">
+                <div class="welcome-msg">
+                    <i data-lucide="sparkles"></i>
+                    <h2>Gemini AI Assistant</h2>
+                    <p>Nhap noi dung bat ky de bat dau tro chuyen voi AI.</p>
+                    <div class="model-badge">
+                        <i data-lucide="cpu"></i>
+                        <span>Powered by Google Gemini</span>
                     </div>
                 </div>
             </div>
-            <div class="mt-2 text-xs text-gray-500 italic">
-                * Lưu ý: Đây là công cụ mô phỏng nhanh bằng CSS Overlay.
-                Gemini AI sẽ cung cấp phân tích chuyên sâu bên khung chat.
+
+            <div class="chat-input-section">
+                <textarea id="userInput" rows="1" placeholder="Nhap tin nhan..."></textarea>
+                <button class="btn btn-primary" id="btnSend">
+                    <i data-lucide="send"></i>
+                    <span>Gui</span>
+                </button>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
+
+    <!-- Auth Script -->
+    <script src="../hanghoan/auth.js"></script>
 
     <script>
-        // API Key Management - Priority: localStorage > GitHub Secrets > empty
+        // ============================================================
+        // GEMINI AI CONFIGURATION
+        // ============================================================
+
+        // API Key Management - Priority: localStorage > Default Key
         const savedGeminiProKey = localStorage.getItem("geminiApiKey");
         window.GEMINI_PRO_KEY = savedGeminiProKey || 'AIzaSyAQtOsL4Iir7MpLBwaNjIll1I_bQDfHobs' || '';
 
-        // Model Configuration - Use Gemini 1.5 Pro for better quality
-        const GEMINI_MODEL = 'gemini-1.5-pro';
+        // Model Configuration - Using Gemini 2.0 Flash
+        const GEMINI_MODEL = 'gemini-2.0-flash';
         const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
         console.log('[GEMINI] Using model:', GEMINI_MODEL);
-        console.log('[GEMINI] API Key configured:', window.GEMINI_PRO_KEY ? '✅' : '❌');
+        console.log('[GEMINI] API Key configured:', window.GEMINI_PRO_KEY ? 'Yes' : 'No');
 
-        // State
-        let roomImageBase64 = null;
-        let tileImageBase64 = null;
+        // Update model name in UI
+        document.getElementById('modelName').textContent = GEMINI_MODEL;
+
+        // ============================================================
+        // STATE
+        // ============================================================
+
         let conversationHistory = [];
 
-        // System Prompt
-        const systemInstruction = `
-            Act as a professional Interior Design and Virtual Staging Assistant. Your goal is to help visualize tile designs.
-            Follow this strict workflow:
-            1. Analyze the uploaded Room Image (ask for dimensions if not given).
-            2. Analyze the uploaded Tile Image/Code.
-            3. Provide a professional assessment of how this tile fits the room's style, lighting, and existing furniture.
-            4. Describe vividly what the room will look like with the new tiles (e.g., "The marble vein will add depth to the small bathroom...").
-            Since you cannot generate images directly, instruct the user to look at the "Visualization Panel" on the right to adjust the tile overlay manually based on your advice.
-            Output in Vietnamese language.
-            `;
+        // ============================================================
+        // CHAT FUNCTIONS
+        // ============================================================
 
-        // Image Handling
-        function handleRoomUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                roomImageBase64 = e.target.result.split(",")[1];
-                const img = document.getElementById("room-bg");
-                img.src = e.target.result;
-                img.style.display = "block";
-                document.getElementById("placeholder-text").style.display =
-                    "none";
-
-                addMessage(
-                    "user",
-                    "Đã tải lên ảnh phòng. [Hình ảnh được gửi kèm]",
-                );
-                document.getElementById("vis-controls").style.display =
-                    "block";
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function handleTileUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                tileImageBase64 = e.target.result.split(",")[1];
-
-                const overlay = document.getElementById("tile-overlay");
-                overlay.style.backgroundImage = `url(${e.target.result})`;
-                overlay.style.display = "block";
-
-                addMessage(
-                    "user",
-                    "Đã tải lên mẫu gạch. [Hình ảnh được gửi kèm]",
-                );
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // Visualization Controls
-        function updateTileSize(val) {
-            document.getElementById("tile-overlay").style.backgroundSize =
-                `${val}px`;
-        }
-        function updateOpacity(val) {
-            document.getElementById("tile-overlay").style.opacity =
-                val / 100;
-        }
-        function updateBlendMode(val) {
-            document.getElementById("tile-overlay").style.mixBlendMode =
-                val;
-        }
-
-        // Chat Logic
         function addMessage(role, text) {
             const box = document.getElementById("chat-box");
+
+            // Remove welcome message if exists
+            const welcome = box.querySelector('.welcome-msg');
+            if (welcome) welcome.remove();
+
             const div = document.createElement("div");
             div.className = `message ${role === "user" ? "user-msg" : "ai-msg"}`;
             div.innerHTML = marked.parse(text);
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
+        }
+
+        function showLoading() {
+            const box = document.getElementById("chat-box");
+            const loadingDiv = document.createElement("div");
+            loadingDiv.className = "message ai-msg";
+            loadingDiv.id = "loading-msg";
+            loadingDiv.innerHTML = `
+                <div class="loading-indicator">
+                    <span class="spinner"></span>
+                    <span>Dang xu ly...</span>
+                </div>
+            `;
+            box.appendChild(loadingDiv);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById("loading-msg");
+            if (loading) loading.remove();
         }
 
         async function sendMessage() {
@@ -314,98 +374,147 @@
             const apiKey = window.GEMINI_PRO_KEY;
 
             if (!apiKey) {
-                addMessage("ai", "⚠️ Không tìm thấy API Key. Vui lòng liên hệ quản trị viên.");
+                addMessage("ai", "Khong tim thay API Key. Vui long lien he quan tri vien.");
                 return;
             }
-            if (!text && !roomImageBase64 && !tileImageBase64) return;
+            if (!text) return;
 
             // Display user message
-            if (text) addMessage("user", text);
+            addMessage("user", text);
             input.value = "";
+            input.style.height = 'auto';
 
             // Show loading
-            const box = document.getElementById("chat-box");
-            const loadingDiv = document.createElement("div");
-            loadingDiv.className = "message ai-msg";
-            loadingDiv.innerHTML =
-                '<span class="loading"></span> Đang phân tích...';
-            loadingDiv.id = "loading-msg";
-            box.appendChild(loadingDiv);
+            showLoading();
 
             try {
-                // Construct Payload
-                const parts = [];
-
-                if (text) parts.push({ text: text });
-
-                if (roomImageBase64) {
-                    parts.push({
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: roomImageBase64,
-                        },
-                    });
-                }
-                if (tileImageBase64) {
-                    parts.push({
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: tileImageBase64,
-                        },
-                    });
-                }
-
-                if (conversationHistory.length === 0) {
-                    parts.unshift({ text: systemInstruction });
-                }
-
+                // Build request payload - NO system prompt, free input
+                const parts = [{ text: text }];
                 const contents = [{ role: "user", parts: parts }];
 
                 // Call Gemini API
-                const response = await fetch(
-                    `${GEMINI_API_URL}?key=${apiKey}`,
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ contents: contents }),
-                    },
-                );
+                const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents: contents }),
+                });
 
                 const data = await response.json();
-
-                // Remove loading
-                document.getElementById("loading-msg").remove();
+                hideLoading();
 
                 if (data.error) {
-                    addMessage("ai", `❌ Lỗi: ${data.error.message}`);
+                    addMessage("ai", `Loi: ${data.error.message}`);
                 } else {
                     const aiText = data.candidates[0].content.parts[0].text;
                     addMessage("ai", aiText);
-                    conversationHistory.push({
-                        role: "user",
-                        parts: parts,
-                    });
-                    conversationHistory.push({
-                        role: "model",
-                        parts: [{ text: aiText }],
-                    });
+
+                    // Save to conversation history
+                    conversationHistory.push({ role: "user", parts: parts });
+                    conversationHistory.push({ role: "model", parts: [{ text: aiText }] });
                 }
             } catch (error) {
-                document.getElementById("loading-msg").remove();
-                addMessage(
-                    "ai",
-                    "❌ Có lỗi xảy ra khi kết nối với Gemini AI.",
-                );
-                console.error(error);
+                hideLoading();
+                addMessage("ai", "Co loi xay ra khi ket noi voi Gemini AI.");
+                console.error('[GEMINI ERROR]', error);
             }
         }
 
-        // Allow Enter key to send message
+        // ============================================================
+        // UTILITY FUNCTIONS FOR GEMINI API
+        // ============================================================
+
+        /**
+         * Call Gemini API directly with custom prompt
+         * @param {string} prompt - The prompt to send
+         * @param {Array} imageParts - Optional array of image data objects
+         * @returns {Promise<string>} - The AI response text
+         */
+        async function callGeminiAPI(prompt, imageParts = []) {
+            const apiKey = window.GEMINI_PRO_KEY;
+            if (!apiKey) throw new Error('API Key not configured');
+
+            const parts = [{ text: prompt }, ...imageParts];
+
+            const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ role: "user", parts: parts }]
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.error) throw new Error(data.error.message);
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        /**
+         * Convert file to base64 for Gemini API
+         * @param {File} file - The file to convert
+         * @returns {Promise<Object>} - Object with inline_data for Gemini API
+         */
+        function fileToGeminiPart(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(",")[1];
+                    resolve({
+                        inline_data: {
+                            mime_type: file.type,
+                            data: base64,
+                        }
+                    });
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ============================================================
+        // EVENT LISTENERS
+        // ============================================================
+
+        // Send button click
+        document.getElementById('btnSend').addEventListener('click', sendMessage);
+
+        // Enter key to send (Shift+Enter for new line)
         document.getElementById('userInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
             }
+        });
+
+        // Auto-resize textarea
+        document.getElementById('userInput').addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+        });
+
+        // Clear chat button
+        document.getElementById('btnClearChat').addEventListener('click', function () {
+            if (confirm('Ban co chac muon xoa cuoc tro chuyen?')) {
+                conversationHistory = [];
+                const box = document.getElementById("chat-box");
+                box.innerHTML = `
+                    <div class="welcome-msg">
+                        <i data-lucide="sparkles"></i>
+                        <h2>Gemini AI Assistant</h2>
+                        <p>Nhap noi dung bat ky de bat dau tro chuyen voi AI.</p>
+                        <div class="model-badge">
+                            <i data-lucide="cpu"></i>
+                            <span>Powered by Google Gemini</span>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        });
+
+        // Initialize Lucide icons
+        document.addEventListener('DOMContentLoaded', function () {
+            lucide.createIcons();
         });
     </script>
 </body>
