@@ -34,23 +34,17 @@ function checkAdminAccess() {
     try {
         const auth = JSON.parse(authData);
 
-        // Admin BYPASS - full access to everything
-        if (auth.roleTemplate === 'admin') {
-            hasPermission = true;
-            console.log("Permission check: Admin (roleTemplate) - BYPASS");
-        } else {
-            // Other users check detailedPermissions for 'user-management' page
-            if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
-                const userMgmtPerms = auth.detailedPermissions['user-management'];
-                hasPermission = Object.values(userMgmtPerms).some(v => v === true);
-            }
-
-            console.log("Permission check:", {
-                hasDetailedPermissions: !!auth.detailedPermissions,
-                hasUserManagementPermission: hasPermission,
-                roleTemplate: auth.roleTemplate || 'unknown'
-            });
+        // ALL users (including Admin) check detailedPermissions - NO bypass
+        if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
+            const userMgmtPerms = auth.detailedPermissions['user-management'];
+            hasPermission = Object.values(userMgmtPerms).some(v => v === true);
         }
+
+        console.log("Permission check:", {
+            hasDetailedPermissions: !!auth.detailedPermissions,
+            hasUserManagementPermission: hasPermission,
+            roleTemplate: auth.roleTemplate || 'unknown'
+        });
     } catch (e) {
         console.error("Error checking permissions:", e);
     }
