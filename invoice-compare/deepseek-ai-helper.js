@@ -3,24 +3,25 @@
    Multi-OCR Engine Support with Intelligent Fallback
 
    OCR Priority:
-   1. Google Cloud Vision (highest accuracy, 95%+)
+   1. Google Cloud Vision via Render proxy (highest accuracy, 95%+)
    2. DeepSeek-OCR via alphaXiv (good accuracy)
    3. Tesseract.js (fallback, lower accuracy)
 
    Flow:
    Image → [OCR Engine] → Raw text → [DeepSeek API] → Structured JSON
+   
+   API Keys: Stored securely on Render server, not in client code
    ===================================================== */
 
-// Load API Keys
-const DEEPSEEK_API_KEY = (window.DEEPSEEK_API_KEY || "").trim();
-const GOOGLE_CLOUD_VISION_API_KEY = (window.GOOGLE_CLOUD_VISION_API_KEY || "").trim();
-
-// API Configuration
-const WORKER_PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-const DEEPSEEK_API_BASE = `${WORKER_PROXY_URL}/api/deepseek`;
-const DEEPSEEK_OCR_API = `${WORKER_PROXY_URL}/api/deepseek-ocr`;
+// Render Proxy URL - API keys are stored securely on server
+const RENDER_PROXY_URL = 'https://n2store-fallback.onrender.com';
+const DEEPSEEK_API_BASE = `${RENDER_PROXY_URL}/api/deepseek/chat`;
+const GOOGLE_VISION_API_URL = `${RENDER_PROXY_URL}/api/google-vision/ocr`;
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-chat';
-const GOOGLE_VISION_API_URL = 'https://vision.googleapis.com/v1/images:annotate';
+
+// Legacy Cloudflare proxy for DeepSeek-OCR (alphaXiv) - no key needed
+const WORKER_PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+const DEEPSEEK_OCR_API = `${WORKER_PROXY_URL}/api/deepseek-ocr`;
 
 // Rate limiting
 let lastRequestTime = 0;
@@ -33,41 +34,30 @@ let deepseekOcrAvailable = true;
 let googleVisionAvailable = true;
 
 // =====================================================
-// 1. GOOGLE CLOUD VISION OCR (Primary - Highest Accuracy)
+// 1. GOOGLE CLOUD VISION OCR via Render Proxy (Primary)
 // =====================================================
 
 async function extractTextWithGoogleVision(base64Image) {
-    if (!GOOGLE_CLOUD_VISION_API_KEY) {
-        throw new Error('Google Cloud Vision API key not configured');
-    }
-
-    console.log('[GOOGLE-VISION] 📷 Calling Google Cloud Vision API...');
-
-    const url = `${GOOGLE_VISION_API_URL}?key=${GOOGLE_CLOUD_VISION_API_KEY}`;
-
-    const requestBody = {
-        requests: [{
-            image: { content: base64Image },
-            features: [{ type: 'DOCUMENT_TEXT_DETECTION', maxResults: 1 }],
-            imageContext: { languageHints: ['vi', 'en'] }
-        }]
-    };
+    console.log('[GOOGLE-VISION] 📷 Calling Google Cloud Vision via Render proxy...');
 
     try {
-        const response = await fetch(url, {
+        const response = await fetch(GOOGLE_VISION_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify({
+                image: base64Image,
+                languageHints: ['vi', 'en']
+            })
         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error?.message || response.statusText);
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error.message || 'Google Vision API error');
         }
 
-        const result = await response.json();
-        const fullText = result.responses?.[0]?.fullTextAnnotation?.text
-            || result.responses?.[0]?.textAnnotations?.[0]?.description
+        const fullText = data.responses?.[0]?.fullTextAnnotation?.text
+            || data.responses?.[0]?.textAnnotations?.[0]?.description
             || '';
 
         if (!fullText) {
@@ -216,10 +206,10 @@ async function extractTextFromImage(imageSource, mimeType = 'image/jpeg') {
         base64Data = imageSource.split(',')[1];
     }
 
-    // 1. Try Google Cloud Vision first (most accurate)
-    if (GOOGLE_CLOUD_VISION_API_KEY && googleVisionAvailable) {
+    // 1. Try Google Cloud Vision first (most accurate) via Render proxy
+    if (googleVisionAvailable) {
         try {
-            console.log('[OCR] 🔍 Trying Google Cloud Vision (Primary)...');
+            console.log('[OCR] 🔍 Trying Google Cloud Vision via Render (Primary)...');
             return await extractTextWithGoogleVision(base64Data);
         } catch (error) {
             console.warn('[OCR] Google Vision failed:', error.message);
@@ -243,8 +233,8 @@ async function extractTextFromImage(imageSource, mimeType = 'image/jpeg') {
 
 // Get current OCR engine name
 function getCurrentOCREngine() {
-    if (GOOGLE_CLOUD_VISION_API_KEY && googleVisionAvailable) {
-        return 'Google Cloud Vision';
+    if (googleVisionAvailable) {
+        return 'Google Cloud Vision (Render)';
     }
     if (deepseekOcrAvailable) {
         return 'DeepSeek-OCR';
@@ -253,7 +243,7 @@ function getCurrentOCREngine() {
 }
 
 // =====================================================
-// DEEPSEEK API CALL
+// DEEPSEEK API CALL via Render Proxy
 // =====================================================
 
 async function callDeepSeekAPI(messages, options = {}) {
@@ -263,10 +253,6 @@ async function callDeepSeekAPI(messages, options = {}) {
         temperature = 0.3,
     } = options;
 
-    if (!DEEPSEEK_API_KEY) {
-        throw new Error('DeepSeek API key not configured');
-    }
-
     // Rate limiting
     const now = Date.now();
     if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
@@ -275,16 +261,19 @@ async function callDeepSeekAPI(messages, options = {}) {
     lastRequestTime = Date.now();
 
     try {
-        console.log(`[DEEPSEEK] 🤖 Calling API (model: ${model})...`);
+        console.log(`[DEEPSEEK] 🤖 Calling API via Render proxy (model: ${model})...`);
 
+        // Call via Render proxy - no auth header needed, server adds it
         const response = await fetch(DEEPSEEK_API_BASE, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
             },
             body: JSON.stringify({
-                model, messages, max_tokens: maxTokens, temperature,
+                model,
+                messages,
+                max_tokens: maxTokens,
+                temperature,
             }),
         });
 
@@ -294,6 +283,11 @@ async function callDeepSeekAPI(messages, options = {}) {
         }
 
         const result = await response.json();
+
+        if (result.error) {
+            throw new Error(result.error.message || 'DeepSeek API error');
+        }
+
         const text = result.choices?.[0]?.message?.content;
 
         if (!text) throw new Error('No content in response');
@@ -408,9 +402,7 @@ async function terminateOCR() {
 
 async function initializeOCR() {
     console.log('[OCR] Initializing...');
-    if (GOOGLE_CLOUD_VISION_API_KEY) {
-        console.log('[OCR] ✅ Google Cloud Vision ready');
-    }
+    console.log('[OCR] ✅ Google Cloud Vision ready (via Render proxy)');
     if (deepseekOcrAvailable) {
         console.log('[OCR] ✅ DeepSeek-OCR ready');
     }
@@ -441,28 +433,29 @@ window.DeepSeekAI = {
     // Utils
     fileToBase64,
 
-    // Status
-    isConfigured: () => !!DEEPSEEK_API_KEY,
-    isGoogleVisionConfigured: () => !!GOOGLE_CLOUD_VISION_API_KEY,
+    // Status - APIs are now managed server-side
+    isConfigured: () => true, // Always true since keys are on server
+    isGoogleVisionConfigured: () => googleVisionAvailable,
     isDeepSeekOCRAvailable: () => deepseekOcrAvailable,
-    isOCRReady: () => !!GOOGLE_CLOUD_VISION_API_KEY || deepseekOcrAvailable || ocrReady,
+    isOCRReady: () => googleVisionAvailable || deepseekOcrAvailable || ocrReady,
 
     getStats: () => ({
-        deepseekConfigured: !!DEEPSEEK_API_KEY,
-        googleVisionConfigured: !!GOOGLE_CLOUD_VISION_API_KEY,
+        deepseekConfigured: true, // Key on server
+        googleVisionConfigured: googleVisionAvailable,
         deepseekOcrAvailable,
         tesseractReady: ocrReady,
         currentOCREngine: getCurrentOCREngine(),
         model: DEEPSEEK_DEFAULT_MODEL,
-        proxyUrl: WORKER_PROXY_URL,
+        proxyUrl: RENDER_PROXY_URL,
     }),
 };
 
 // Log status
 console.log(`[AI-HELPER] ====================================`);
-console.log(`[AI-HELPER] DeepSeek API: ${DEEPSEEK_API_KEY ? '✅' : '❌'}`);
-console.log(`[AI-HELPER] Google Cloud Vision: ${GOOGLE_CLOUD_VISION_API_KEY ? '✅ (Primary)' : '❌'}`);
+console.log(`[AI-HELPER] DeepSeek API: ✅ (via Render proxy)`);
+console.log(`[AI-HELPER] Google Cloud Vision: ✅ (via Render proxy)`);
 console.log(`[AI-HELPER] DeepSeek-OCR: ✅ (Secondary)`);
 console.log(`[AI-HELPER] Tesseract.js: ✅ (Fallback)`);
 console.log(`[AI-HELPER] Current OCR: ${getCurrentOCREngine()}`);
+console.log(`[AI-HELPER] Proxy URL: ${RENDER_PROXY_URL}`);
 console.log(`[AI-HELPER] ====================================`);
