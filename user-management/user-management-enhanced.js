@@ -865,12 +865,9 @@ function clearEditForm() {
     document.getElementById("editCheckLogin").value = "1";
     document.getElementById("editNewPassword").value = "";
 
-    if (window.editPagePermUI) {
-        window.editPagePermUI.setPermissions([]);
-    }
-
-    if (editPermissionsUI) {
-        editPermissionsUI.setPermissions({});
+    // Clear detailed permissions UI (simplified system - only detailedPermissions)
+    if (window.editDetailedPermUI) {
+        window.editDetailedPermUI.setPermissions({});
     }
 
     const output = document.getElementById("editOutput");
@@ -886,12 +883,9 @@ function clearCreateForm() {
     document.getElementById("newIdentifier").value = "";
     document.getElementById("newCheckLogin").value = "1";
 
-    if (window.newPagePermUI) {
-        window.newPagePermUI.setPermissions([]);
-    }
-
-    if (newPermissionsUI) {
-        newPermissionsUI.setPermissions({});
+    // Clear detailed permissions UI (simplified system - only detailedPermissions)
+    if (window.newDetailedPermUI) {
+        window.newDetailedPermUI.setPermissions({});
     }
 
     const output = document.getElementById("createOutput");
@@ -951,22 +945,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }, 1000);
 
-    // Initialize Page Permissions UI
-    setTimeout(() => {
-        if (typeof PagePermissionsUI !== "undefined") {
-            window.editPagePermUI = new PagePermissionsUI(
-                "editPagePermissions",
-                "edit"
-            );
-            window.newPagePermUI = new PagePermissionsUI(
-                "newPagePermissions",
-                "new"
-            );
-            console.log("✅ Page Permissions UI initialized");
-        } else {
-            console.error("❌ PagePermissionsUI not loaded!");
-        }
-    }, 500);
+    // Note: PagePermissionsUI removed - now using simplified system with only detailedPermissions
+    // DetailedPermissionsUI is initialized in detailed-permissions-ui.js
+    console.log("✅ User Management initialized with simplified permission system");
 });
 
 console.log(
