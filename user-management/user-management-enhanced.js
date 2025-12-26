@@ -29,15 +29,23 @@ function checkAdminAccess() {
     let hasPermission = false;
 
     if (!isAdmin) {
-        // Check for specific user-management permission
+        // Check for specific user-management permission using detailedPermissions
         try {
             const auth = JSON.parse(authData);
-            const pagePermissions = auth.pagePermissions || [];
-            hasPermission = pagePermissions.includes("user-management");
+
+            // NEW: Check detailedPermissions first (new system)
+            if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
+                const userMgmtPerms = auth.detailedPermissions['user-management'];
+                hasPermission = Object.values(userMgmtPerms).some(v => v === true);
+            }
+            // LEGACY: Fall back to pagePermissions for old data
+            else if (auth.pagePermissions && Array.isArray(auth.pagePermissions)) {
+                hasPermission = auth.pagePermissions.includes("user-management");
+            }
 
             console.log("Permission check:", {
                 isAdmin: false,
-                pagePermissions,
+                hasDetailedPermissions: !!auth.detailedPermissions,
                 hasUserManagementPermission: hasPermission
             });
         } catch (e) {
@@ -173,16 +181,15 @@ function renderUserList(users) {
         const roleClass = getRoleClass(user.checkLogin);
         const roleIcon = getRoleIcon(user.checkLogin);
 
-        // Count page permissions
-        const pagePermCount = user.pagePermissions ? user.pagePermissions.length : 0;
-
-        // Count detailed permissions
+        // Count detailed permissions and derive page access count
         let permissionCount = 0;
+        let accessiblePagesCount = 0;
         if (user.detailedPermissions) {
-            Object.values(user.detailedPermissions).forEach((pagePerms) => {
-                permissionCount += Object.values(pagePerms).filter(
-                    (v) => v === true,
-                ).length;
+            Object.entries(user.detailedPermissions).forEach(([pageId, pagePerms]) => {
+                const pagePermCount = Object.values(pagePerms).filter(v => v === true).length;
+                permissionCount += pagePermCount;
+                // User has access to this page if at least one permission is true
+                if (pagePermCount > 0) accessiblePagesCount++;
             });
         }
 
@@ -217,7 +224,7 @@ function renderUserList(users) {
                                 <i data-lucide="${roleIcon}"></i>
                                 ${getRoleName(user.checkLogin)}
                             </span>
-                            <span><i data-lucide="layout-grid" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${pagePermCount} trang</span>
+                            <span><i data-lucide="layout-grid" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${accessiblePagesCount} trang</span>
                             <span><i data-lucide="shield-check" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${permissionCount}/${totalPerms} quyền</span>
                             <span><i data-lucide="calendar" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${createdDate}${updatedDate}</span>
                         </div>
@@ -295,14 +302,9 @@ function editUser(username) {
     document.getElementById("editCheckLogin").value = user.checkLogin;
     document.getElementById("editNewPassword").value = "";
 
-    // Load page permissions
-    if (window.editPagePermUI) {
-        window.editPagePermUI.setPermissions(user.pagePermissions || []);
-    }
-
-    // Load detailed permissions
-    if (editPermissionsUI) {
-        editPermissionsUI.setPermissions(user.detailedPermissions || {});
+    // Load detailed permissions (page access is derived automatically)
+    if (window.editDetailedPermUI) {
+        window.editDetailedPermUI.setPermissions(user.detailedPermissions || {});
     }
 
     document.querySelector('[data-tab="manage"]').click();
@@ -370,14 +372,9 @@ async function updateUser() {
         return;
     }
 
-    // Get page permissions from UI
-    const pagePermissions = window.editPagePermUI
-        ? window.editPagePermUI.getPermissions()
-        : [];
-
-    // Get detailed permissions from UI
-    const detailedPermissions = editPermissionsUI
-        ? editPermissionsUI.getPermissions()
+    // Get detailed permissions from UI (page access is derived from this)
+    const detailedPermissions = window.editDetailedPermUI
+        ? window.editDetailedPermUI.getPermissions()
         : {};
 
     const loadingId = showFloatingAlert(
@@ -390,7 +387,6 @@ async function updateUser() {
             displayName: displayName,
             identifier: identifier,
             checkLogin: checkLogin,
-            pagePermissions: pagePermissions,
             detailedPermissions: detailedPermissions,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
@@ -414,16 +410,17 @@ async function updateUser() {
             window.notify.remove(loadingId);
         }
 
-        // Count permissions
+        // Count permissions and derive accessible pages
         let permCount = 0;
-        Object.values(detailedPermissions).forEach((pagePerms) => {
-            permCount += Object.values(pagePerms).filter(
-                (v) => v === true,
-            ).length;
+        let accessiblePages = 0;
+        Object.entries(detailedPermissions).forEach(([pageId, pagePerms]) => {
+            const grantedCount = Object.values(pagePerms).filter(v => v === true).length;
+            permCount += grantedCount;
+            if (grantedCount > 0) accessiblePages++;
         });
 
         showSuccess(
-            `Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nTruy cập trang: ${pagePermissions.length} trang\nQuyền chi tiết: ${permCount} quyền${newPassword ? "\n🔒 Đã thay đổi password" : ""}`,
+            `Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nTruy cập trang: ${accessiblePages} trang\nQuyền chi tiết: ${permCount} quyền${newPassword ? "\n🔒 Đã thay đổi password" : ""}`,
         );
 
         setTimeout(loadUsers, 1000);
@@ -473,14 +470,9 @@ async function createUser() {
         return;
     }
 
-    // Get page permissions from UI
-    const pagePermissions = window.newPagePermUI
-        ? window.newPagePermUI.getPermissions()
-        : [];
-
-    // Get detailed permissions from UI
-    const detailedPermissions = newPermissionsUI
-        ? newPermissionsUI.getPermissions()
+    // Get detailed permissions from UI (page access is derived from this)
+    const detailedPermissions = window.newDetailedPermUI
+        ? window.newDetailedPermUI.getPermissions()
         : {};
 
     const loadingId = showFloatingAlert("Đang tạo tài khoản...", "loading");
@@ -508,7 +500,6 @@ async function createUser() {
                 displayName: displayName,
                 identifier: identifier,
                 checkLogin: checkLogin,
-                pagePermissions: pagePermissions,
                 detailedPermissions: detailedPermissions,
                 passwordHash: hash,
                 salt: salt,
@@ -521,16 +512,17 @@ async function createUser() {
             window.notify.remove(loadingId);
         }
 
-        // Count permissions
+        // Count permissions and derive accessible pages
         let permCount = 0;
-        Object.values(detailedPermissions).forEach((pagePerms) => {
-            permCount += Object.values(pagePerms).filter(
-                (v) => v === true,
-            ).length;
+        let accessiblePages = 0;
+        Object.entries(detailedPermissions).forEach(([pageId, pagePerms]) => {
+            const grantedCount = Object.values(pagePerms).filter(v => v === true).length;
+            permCount += grantedCount;
+            if (grantedCount > 0) accessiblePages++;
         });
 
         showSuccess(
-            `Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nTruy cập trang: ${pagePermissions.length} trang\nQuyền chi tiết: ${permCount} quyền\n🔒 Password đã được hash an toàn`,
+            `Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nTruy cập trang: ${accessiblePages} trang\nQuyền chi tiết: ${permCount} quyền\n🔒 Password đã được hash an toàn`,
         );
 
         clearCreateForm();

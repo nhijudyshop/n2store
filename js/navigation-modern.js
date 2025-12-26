@@ -411,6 +411,7 @@ class UnifiedNavigationManager {
             this.userPermissions = MENU_CONFIG.map(
                 (item) => item.permissionRequired,
             ).filter(Boolean);
+            this.userDetailedPermissions = null; // Admin bypasses detailed permissions
             console.log(
                 "[Permission Load] Admin - all permissions granted:",
                 this.userPermissions,
@@ -418,19 +419,34 @@ class UnifiedNavigationManager {
             return;
         }
 
-        // Try to load from localStorage cache
+        // Try to load from localStorage cache (prefer detailedPermissions)
         try {
             const authData = localStorage.getItem("loginindex_auth");
             if (authData) {
                 const userAuth = JSON.parse(authData);
+
+                // NEW: Check for detailedPermissions first (new system)
+                if (userAuth.detailedPermissions && Object.keys(userAuth.detailedPermissions).length > 0) {
+                    this.userDetailedPermissions = userAuth.detailedPermissions;
+                    // Derive userPermissions from detailedPermissions for backward compatibility
+                    this.userPermissions = this._getAccessiblePagesFromDetailed(userAuth.detailedPermissions);
+                    console.log(
+                        "[Permission Load] Loaded cached detailedPermissions:",
+                        Object.keys(this.userDetailedPermissions).length, "pages configured"
+                    );
+                    return;
+                }
+
+                // LEGACY: Fall back to pagePermissions for old data
                 if (
                     userAuth.pagePermissions &&
                     Array.isArray(userAuth.pagePermissions) &&
                     userAuth.pagePermissions.length > 0
                 ) {
                     this.userPermissions = userAuth.pagePermissions;
+                    this.userDetailedPermissions = null;
                     console.log(
-                        "[Permission Load] Loaded cached permissions:",
+                        "[Permission Load] Loaded cached pagePermissions (legacy):",
                         this.userPermissions,
                     );
                     return;
@@ -453,6 +469,7 @@ class UnifiedNavigationManager {
                 if (!authData || !authData.username) {
                     console.error("[Permission Load] No username in auth data");
                     this.userPermissions = [];
+                    this.userDetailedPermissions = null;
                     return;
                 }
 
@@ -464,7 +481,29 @@ class UnifiedNavigationManager {
 
                 if (userDoc.exists) {
                     const userData = userDoc.data();
+
+                    // NEW: Check for detailedPermissions first
+                    if (userData.detailedPermissions && Object.keys(userData.detailedPermissions).length > 0) {
+                        this.userDetailedPermissions = userData.detailedPermissions;
+                        this.userPermissions = this._getAccessiblePagesFromDetailed(userData.detailedPermissions);
+
+                        // Cache to localStorage
+                        authData.detailedPermissions = this.userDetailedPermissions;
+                        localStorage.setItem(
+                            "loginindex_auth",
+                            JSON.stringify(authData),
+                        );
+
+                        console.log(
+                            "[Permission Load] Loaded detailedPermissions from Firebase:",
+                            Object.keys(this.userDetailedPermissions).length, "pages"
+                        );
+                        return;
+                    }
+
+                    // LEGACY: Fall back to pagePermissions
                     this.userPermissions = userData.pagePermissions || [];
+                    this.userDetailedPermissions = null;
 
                     // Cache to localStorage
                     authData.pagePermissions = this.userPermissions;
@@ -474,7 +513,7 @@ class UnifiedNavigationManager {
                     );
 
                     console.log(
-                        "[Permission Load] Loaded from Firebase:",
+                        "[Permission Load] Loaded pagePermissions from Firebase (legacy):",
                         this.userPermissions,
                     );
                     return;
@@ -492,9 +531,43 @@ class UnifiedNavigationManager {
         }
 
         this.userPermissions = [];
+        this.userDetailedPermissions = null;
         console.log(
             "[Permission Load] No permissions loaded, defaulting to empty",
         );
+    }
+
+    /**
+     * NEW: Derive accessible pages from detailedPermissions
+     * A page is accessible if user has at least one permission = true for that page
+     * @param {Object} detailedPermissions
+     * @returns {Array} List of page IDs user can access
+     */
+    _getAccessiblePagesFromDetailed(detailedPermissions) {
+        if (!detailedPermissions) return [];
+
+        return Object.entries(detailedPermissions)
+            .filter(([pageId, perms]) => {
+                // Check if any permission in this page is true
+                return Object.values(perms).some(value => value === true);
+            })
+            .map(([pageId]) => pageId);
+    }
+
+    /**
+     * NEW: Check if user has a specific detailed permission
+     * @param {string} pageId
+     * @param {string} permissionKey
+     * @returns {boolean}
+     */
+    hasDetailedPermission(pageId, permissionKey) {
+        if (this.isAdmin) return true;
+        if (!this.userDetailedPermissions) return false;
+
+        const pagePerms = this.userDetailedPermissions[pageId];
+        if (!pagePerms) return false;
+
+        return pagePerms[permissionKey] === true;
     }
 
     getCurrentPageIdentifier() {

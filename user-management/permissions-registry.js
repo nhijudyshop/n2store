@@ -768,6 +768,134 @@ function validatePermissions(permissions) {
 }
 
 // =====================================================
+// SIMPLIFIED PERMISSION SYSTEM - Hệ thống quyền đơn giản
+// Chỉ dùng detailedPermissions, bỏ pagePermissions
+// =====================================================
+
+/**
+ * Kiểm tra user có quyền truy cập trang không
+ * User có quyền nếu có ít nhất 1 detailed permission = true cho trang đó
+ *
+ * @param {Object} detailedPermissions - Object detailedPermissions của user
+ * @param {string} pageId - ID của trang cần kiểm tra
+ * @returns {boolean} true nếu có quyền truy cập
+ */
+function hasPageAccess(detailedPermissions, pageId) {
+    if (!detailedPermissions || !detailedPermissions[pageId]) {
+        return false;
+    }
+
+    const pagePerms = detailedPermissions[pageId];
+    return Object.values(pagePerms).some(value => value === true);
+}
+
+/**
+ * Lấy danh sách các trang mà user có quyền truy cập
+ *
+ * @param {Object} detailedPermissions - Object detailedPermissions của user
+ * @returns {Array} Mảng các page IDs mà user có quyền
+ */
+function getAccessiblePages(detailedPermissions) {
+    if (!detailedPermissions) return [];
+
+    return Object.entries(detailedPermissions)
+        .filter(([pageId, perms]) => {
+            return Object.values(perms).some(value => value === true);
+        })
+        .map(([pageId]) => pageId);
+}
+
+/**
+ * Kiểm tra user có quyền cụ thể không
+ *
+ * @param {Object} detailedPermissions - Object detailedPermissions của user
+ * @param {string} pageId - ID của trang
+ * @param {string} permissionKey - Key của quyền cần kiểm tra (view, edit, delete, etc.)
+ * @returns {boolean} true nếu có quyền
+ */
+function hasPermission(detailedPermissions, pageId, permissionKey) {
+    if (!detailedPermissions || !detailedPermissions[pageId]) {
+        return false;
+    }
+
+    return detailedPermissions[pageId][permissionKey] === true;
+}
+
+/**
+ * Đếm số quyền đã được cấp cho user
+ *
+ * @param {Object} detailedPermissions - Object detailedPermissions của user
+ * @returns {Object} { total, granted, pages }
+ */
+function countGrantedPermissions(detailedPermissions) {
+    const result = {
+        total: getTotalPermissionsCount(),
+        granted: 0,
+        pages: 0
+    };
+
+    if (!detailedPermissions) return result;
+
+    const pagesWithAccess = new Set();
+
+    Object.entries(detailedPermissions).forEach(([pageId, perms]) => {
+        Object.entries(perms).forEach(([key, value]) => {
+            if (value === true) {
+                result.granted++;
+                pagesWithAccess.add(pageId);
+            }
+        });
+    });
+
+    result.pages = pagesWithAccess.size;
+    return result;
+}
+
+/**
+ * Tạo full permissions cho tất cả pages (tất cả quyền = true)
+ * Dùng cho migration hoặc tạo admin user
+ *
+ * @returns {Object} detailedPermissions với tất cả quyền = true
+ */
+function generateFullDetailedPermissions() {
+    const fullPerms = {};
+
+    Object.entries(PAGES_REGISTRY).forEach(([pageId, page]) => {
+        fullPerms[pageId] = {};
+
+        if (page.detailedPermissions) {
+            Object.keys(page.detailedPermissions).forEach(permKey => {
+                fullPerms[pageId][permKey] = true;
+            });
+        }
+    });
+
+    return fullPerms;
+}
+
+/**
+ * Tạo empty permissions (tất cả quyền = false)
+ * Dùng khi tạo user mới
+ *
+ * @returns {Object} detailedPermissions với tất cả quyền = false
+ */
+function generateEmptyDetailedPermissions() {
+    const emptyPerms = {};
+
+    Object.entries(PAGES_REGISTRY).forEach(([pageId, page]) => {
+        emptyPerms[pageId] = {};
+
+        if (page.detailedPermissions) {
+            Object.keys(page.detailedPermissions).forEach(permKey => {
+                emptyPerms[pageId][permKey] = false;
+            });
+        }
+    });
+
+    return emptyPerms;
+}
+
+// =====================================================
 // BACKWARD COMPATIBILITY - Tương thích ngược
 // =====================================================
 
@@ -824,7 +952,14 @@ if (typeof window !== 'undefined') {
         getSortedCategories,
         validatePermissions,
         getLegacyPagePermissionsConfig,
-        getLegacyDetailedPermissions
+        getLegacyDetailedPermissions,
+        // Simplified permission system
+        hasPageAccess,
+        getAccessiblePages,
+        hasPermission,
+        countGrantedPermissions,
+        generateFullDetailedPermissions,
+        generateEmptyDetailedPermissions
     };
 }
 
