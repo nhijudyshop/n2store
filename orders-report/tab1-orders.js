@@ -14689,7 +14689,7 @@ function renderChatMessages(messages, scrollToBottom = false) {
                     const displayContent = textContent || attachmentPreview || '<div style="font-size: 12px; color: #9ca3af;">[Không có nội dung]</div>';
 
                     // Add click handler if we have a message ID
-                    const clickHandler = quotedMessageId ? `onclick="window.scrollToMessage('${quotedMessageId}')" style="cursor: pointer;"` : '';
+                    const clickHandler = quotedMessageId ? `onclick="window.scrollToMessage('${quotedMessageId}')"` : '';
                     const cursorStyle = quotedMessageId ? 'cursor: pointer;' : '';
 
                     content = `
