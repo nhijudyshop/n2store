@@ -503,6 +503,9 @@
     <script src="../orders-report/decoding-utility.js"></script>
     <script src="menu-rename-manager.js"></script>
     <script src="notification-system.js"></script>
+
+    <!-- Permissions Registry - Single Source of Truth (phải load trước các UI) -->
+    <script src="permissions-registry.js"></script>
     <script src="page-permissions-ui.js"></script>
 
     <script>
@@ -547,9 +550,10 @@
 
     <script src="image-system.js"></script>
     <script src="auth.js"></script>
-    <script src="detailed-permissions-config.js"></script>
+    <!-- detailed-permissions-config.js REMOVED - replaced by permissions-registry.js -->
     <script src="detailed-permissions-ui.js"></script>
     <script src="user-management-enhanced.js"></script>
+    <script src="permissions-overview.js"></script>
 
     <script>
         // Initialize
