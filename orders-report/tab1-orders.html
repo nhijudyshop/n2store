@@ -4858,15 +4858,14 @@
             }
         }
 
-        // ====== TAG FILTER DROPDOWN ======
+        // ====== TAG FILTER ======
         /**
-         * Load available tags from API
+         * Load available tags from API and populate select
          */
         async function loadAvailableTags() {
             try {
                 console.log('[TAG-FILTER] Loading available tags from API...');
 
-                // Get fresh token from local storage via token manager
                 const authHeader = await window.tokenManager.getAuthHeader();
 
                 const response = await fetch("https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000", {
@@ -4888,146 +4887,45 @@
                     window.availableTags = data.value;
                     console.log(`[TAG-FILTER] Loaded ${data.value.length} tags from API`);
 
-                    // Populate tag filter dropdown
-                    populateTagFilterDropdown();
+                    // Populate tag filter select
+                    populateTagFilterSelect();
                 } else {
                     throw new Error('Invalid response format');
                 }
             } catch (error) {
                 console.error('[TAG-FILTER] Error loading tags:', error);
                 window.availableTags = [];
-
-                if (window.notificationManager) {
-                    window.notificationManager.show('❌ Lỗi khi tải danh sách tag', 'error');
-                }
             }
         }
 
         /**
-         * Populate tag filter dropdown with options
+         * Populate tag filter select dropdown
          */
-        function populateTagFilterDropdown() {
-            const optionsContainer = document.getElementById('tagFilterOptions');
-            if (!optionsContainer) return;
+        function populateTagFilterSelect() {
+            const selectEl = document.getElementById('tagFilter');
+            if (!selectEl) return;
 
             const tags = window.availableTags || [];
+            const currentValue = selectEl.value;
 
-            // Create "Tất cả" option
-            let optionsHTML = `
-                <div class="dropdown-option" onclick="selectTagFilter('all', 'Tất cả')">
-                    <span>Tất cả</span>
-                </div>
-            `;
+            // Clear and add default option
+            selectEl.innerHTML = '<option value="all">Tất cả</option>';
 
-            // Create options for each tag
+            // Add tag options
             tags.forEach(tag => {
-                optionsHTML += `
-                    <div class="dropdown-option" onclick="selectTagFilter('${tag.Id}', '${tag.Name.replace(/'/g, "\\'")}')">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 12px; height: 12px; border-radius: 3px; background-color: ${tag.Color || '#6b7280'}; flex-shrink: 0;"></div>
-                            <span>${tag.Name}</span>
-                        </div>
-                    </div>
-                `;
+                const option = document.createElement('option');
+                option.value = tag.Id;
+                option.textContent = tag.Name || 'Unnamed Tag';
+                selectEl.appendChild(option);
             });
 
-            optionsContainer.innerHTML = optionsHTML;
-            console.log(`[TAG-FILTER] Populated dropdown with ${tags.length} tags`);
+            // Restore selection if exists
+            if (currentValue && selectEl.querySelector(`option[value="${currentValue}"]`)) {
+                selectEl.value = currentValue;
+            }
+
+            console.log(`[TAG-FILTER] Populated select with ${tags.length} tags`);
         }
-
-        /**
-         * Toggle tag filter dropdown
-         */
-        function toggleTagDropdown() {
-            const container = document.getElementById('tagFilterContainer');
-            if (!container) return;
-
-            const isOpen = container.classList.contains('show');
-
-            // Close all other dropdowns first
-            document.querySelectorAll('.dropdown-container.show').forEach(dropdown => {
-                if (dropdown !== container) {
-                    dropdown.classList.remove('show');
-                }
-            });
-
-            if (!isOpen) {
-                // Open dropdown
-                container.classList.add('show');
-
-                // Always load fresh tags data when opening dropdown
-                loadAvailableTags();
-            } else {
-                // Close dropdown
-                container.classList.remove('show');
-            }
-        }
-
-        /**
-         * Filter tag dropdown based on search input
-         */
-        function filterTagDropdown() {
-            const input = document.getElementById('tagFilterInput');
-            const optionsContainer = document.getElementById('tagFilterOptions');
-
-            if (!input || !optionsContainer) return;
-
-            const searchTerm = input.value.toLowerCase().trim();
-            const options = optionsContainer.querySelectorAll('.dropdown-option');
-
-            options.forEach(option => {
-                const text = option.textContent.toLowerCase();
-                if (text.includes(searchTerm)) {
-                    option.style.display = '';
-                } else {
-                    option.style.display = 'none';
-                }
-            });
-        }
-
-        /**
-         * Select a tag filter option
-         */
-        function selectTagFilter(tagId, tagName) {
-            const selectedSpan = document.querySelector('#tagFilterSelected span');
-            const hiddenInput = document.getElementById('tagFilter');
-            const container = document.getElementById('tagFilterContainer');
-
-            if (selectedSpan) {
-                selectedSpan.textContent = tagName;
-            }
-
-            if (hiddenInput) {
-                hiddenInput.value = tagId;
-            }
-
-            if (container) {
-                container.classList.remove('show');
-            }
-
-            // Clear search input
-            const searchInput = document.getElementById('tagFilterInput');
-            if (searchInput) {
-                searchInput.value = '';
-            }
-
-            // Trigger table search/filter
-            if (typeof performTableSearch === 'function') {
-                performTableSearch();
-            }
-
-            console.log(`[TAG-FILTER] Selected tag: ${tagName} (ID: ${tagId})`);
-        }
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function (event) {
-            const dropdown = document.getElementById('tagFilterDropdown');
-            const container = document.getElementById('tagFilterContainer');
-
-            if (dropdown && container && !dropdown.contains(event.target)) {
-                container.classList.remove('show');
-            }
-        });
 
         // ====== TAG SETTINGS ======
         const TAG_SETTINGS_KEY = 'tagSettingsCustomData';
