@@ -767,6 +767,7 @@ body {
     border-radius: var(--radius-lg);
     margin-bottom: 16px;
     overflow: hidden;
+    font-size: 1.4em;
 }
 
 .shipment-header {
@@ -826,8 +827,32 @@ body {
     color: var(--primary);
 }
 
-/* Package Info */
-.packages-grid {
+/* Package Info - Inline Style */
+.packages-inline {
+    margin-bottom: 12px;
+}
+
+.packages-header-inline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.packages-header-inline > i {
+    width: 20px;
+    height: 20px;
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.packages-summary {
+    font-weight: 600;
+    color: var(--gray-700);
+    white-space: nowrap;
+}
+
+.packages-badges-inline {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -837,25 +862,23 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 12px;
+    padding: 6px 10px;
     background: var(--info-light);
     color: var(--info);
     border-radius: var(--radius);
     font-weight: 500;
-    font-size: 13px;
 }
 
 .package-badge i {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
 }
 
-.packages-summary {
+/* Legacy packages-grid for backward compatibility */
+.packages-grid {
     display: flex;
-    gap: 16px;
-    margin-top: 8px;
-    font-size: 13px;
-    color: var(--gray-600);
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 /* Invoice Table - Excel-like bordered style */
