@@ -91,6 +91,37 @@
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         }
 
+        .btn-action.blue {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+
+        .btn-action.blue:disabled {
+            background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .btn-action-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-action-icon:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
         .btn-action i.spinning {
             animation: spin 1s linear infinite;
         }
@@ -1606,6 +1637,14 @@
                     style="margin-top: 20px;">
                     <i class="fas fa-download"></i> Lấy chi tiết đơn hàng
                 </button>
+                <button class="btn-action blue" onclick="openSaveReportModal()" id="btnSaveReport"
+                    style="margin-top: 20px;" disabled title="Lưu bản sao báo cáo">
+                    <i class="fas fa-save"></i> Lưu báo cáo
+                </button>
+                <button class="btn-action-icon" onclick="openManageReportsModal()" id="btnManageReports"
+                    style="margin-top: 20px;" title="Quản lý bản lưu">
+                    <i class="fas fa-cog"></i>
+                </button>
             </div>
         </div>
 
@@ -1779,6 +1818,89 @@
             </div>
             <div class="modal-body" id="mobilePopupBody" style="padding: 20px;">
                 <!-- Content injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Lưu báo cáo -->
+    <div class="modal-overlay" id="saveReportModal">
+        <div class="modal-content" style="width: 95%; max-width: 500px; border-radius: 16px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                <h3 style="margin: 0; color: white;">
+                    <i class="fas fa-save"></i> Lưu bản sao báo cáo
+                </h3>
+                <button class="modal-close" onclick="closeSaveReportModal()" style="color: white; opacity: 0.8;">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 25px;">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151;">
+                        <i class="fas fa-tag" style="color: #3b82f6; margin-right: 5px;"></i>
+                        Tên bản lưu:
+                    </label>
+                    <input type="text" id="saveReportName"
+                        style="width: 100%; padding: 12px 15px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 15px; transition: border-color 0.2s;"
+                        placeholder="Nhập tên bản lưu..."
+                        onfocus="this.style.borderColor='#3b82f6'"
+                        onblur="this.style.borderColor='#e5e7eb'">
+                </div>
+                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 12px 15px; margin-bottom: 20px;">
+                    <div style="font-size: 13px; color: #0369a1;">
+                        <i class="fas fa-info-circle" style="margin-right: 5px;"></i>
+                        <strong>Chiến dịch gốc:</strong> <span id="saveReportOriginalCampaign">-</span>
+                    </div>
+                    <div style="font-size: 13px; color: #0369a1; margin-top: 5px;">
+                        <i class="fas fa-database" style="margin-right: 5px;"></i>
+                        <strong>Số đơn hàng:</strong> <span id="saveReportOrderCount">0</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="closeSaveReportModal()"
+                        style="padding: 10px 20px; border: 2px solid #e5e7eb; background: white; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                        Hủy
+                    </button>
+                    <button onclick="confirmSaveReport()"
+                        style="padding: 10px 25px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                        <i class="fas fa-save" style="margin-right: 5px;"></i> Lưu
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Quản lý bản lưu -->
+    <div class="modal-overlay" id="manageReportsModal">
+        <div class="modal-content" style="width: 95%; max-width: 700px; border-radius: 16px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);">
+                <h3 style="margin: 0; color: white;">
+                    <i class="fas fa-cog"></i> Quản lý bản lưu
+                </h3>
+                <button class="modal-close" onclick="closeManageReportsModal()" style="color: white; opacity: 0.8;">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
+                <div id="manageReportsLoading" style="text-align: center; padding: 40px; color: #6b7280;">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p>Đang tải danh sách...</p>
+                </div>
+                <div id="manageReportsList" style="display: none;">
+                    <table class="manage-reports-table" style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f3f4f6;">
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">Loại</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">Tên báo cáo</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e5e7eb;">Số đơn</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e5e7eb;">Ngày tạo</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e5e7eb;">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="manageReportsTableBody">
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="manageReportsEmpty" style="display: none; text-align: center; padding: 40px; color: #9ca3af;">
+                    <i class="fas fa-folder-open fa-3x" style="margin-bottom: 15px;"></i>
+                    <p>Chưa có bản lưu nào</p>
+                </div>
             </div>
         </div>
     </div>
@@ -3785,18 +3907,27 @@
                     const originalName = tableData.tableName || safeTableName.replace(/_/g, ' ');
                     const orderCount = tableData.totalOrders || tableData.orders?.length || 0;
                     const fetchedAt = tableData.fetchedAt ? new Date(tableData.fetchedAt).toLocaleString('vi-VN') : '';
+                    const isSavedCopy = tableData.isSavedCopy || false;
+                    const originalCampaign = tableData.originalCampaign || null;
 
                     // Store only metadata (not full orders array)
                     tableMetadata[originalName] = {
                         tableName: originalName,
                         safeTableName: safeTableName,
                         orderCount: orderCount,
-                        fetchedAt: tableData.fetchedAt
+                        fetchedAt: tableData.fetchedAt,
+                        isSavedCopy: isSavedCopy,
+                        originalCampaign: originalCampaign
                     };
+
+                    // Display with emoji: 📌 for main, 💾 for saved copy
+                    const icon = isSavedCopy ? '💾' : '📌';
+                    const typeLabel = isSavedCopy ? 'Bản lưu' : 'Chính';
 
                     const option = document.createElement('option');
                     option.value = originalName;
-                    option.textContent = `${originalName} (${orderCount} đơn - ${fetchedAt})`;
+                    option.textContent = `${icon} ${originalName} (${orderCount} đơn - ${fetchedAt}) [${typeLabel}]`;
+                    option.dataset.isSavedCopy = isSavedCopy;
                     selector.appendChild(option);
                 });
 
@@ -3967,6 +4098,9 @@
             const badge = document.getElementById('cachedCountBadge');
             const currentData = cachedOrderDetails[currentTableName];
             badge.textContent = currentData?.orders?.length || 0;
+
+            // Also update save report button state
+            updateSaveReportButton();
         }
 
         // =====================================================
@@ -4804,6 +4938,232 @@
                     }
                     return '<span class="' + cls + '">' + match + '</span>';
                 });
+        }
+
+        // =====================================================
+        // SAVE REPORT FUNCTIONS
+        // =====================================================
+
+        // Update save report button state
+        function updateSaveReportButton() {
+            const btn = document.getElementById('btnSaveReport');
+            if (!btn) return;
+
+            const currentData = cachedOrderDetails[currentTableName];
+            const hasData = currentData && currentData.orders && currentData.orders.length > 0;
+
+            btn.disabled = !hasData;
+        }
+
+        // Open save report modal
+        function openSaveReportModal() {
+            const currentData = cachedOrderDetails[currentTableName];
+            if (!currentData || !currentData.orders || currentData.orders.length === 0) {
+                alert('Chưa có dữ liệu chi tiết để lưu. Vui lòng "Lấy chi tiết đơn hàng" trước.');
+                return;
+            }
+
+            // Set default name suggestion
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('vi-VN').replace(/\//g, '-');
+            const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+            const suggestedName = `${currentTableName} - Bản lưu ${dateStr} ${timeStr}`;
+
+            document.getElementById('saveReportName').value = suggestedName;
+            document.getElementById('saveReportOriginalCampaign').textContent = currentTableName;
+            document.getElementById('saveReportOrderCount').textContent = currentData.orders.length;
+
+            document.getElementById('saveReportModal').style.display = 'flex';
+        }
+
+        // Close save report modal
+        function closeSaveReportModal() {
+            document.getElementById('saveReportModal').style.display = 'none';
+        }
+
+        // Confirm and save report copy
+        async function confirmSaveReport() {
+            const reportName = document.getElementById('saveReportName').value.trim();
+
+            if (!reportName) {
+                alert('Vui lòng nhập tên bản lưu');
+                return;
+            }
+
+            // Check if name already exists
+            const safeReportName = reportName.replace(/[.$#\[\]\/]/g, '_');
+            const existingRef = database.ref(`${FIREBASE_PATH}/${safeReportName}`);
+            const existingSnapshot = await existingRef.once('value');
+
+            if (existingSnapshot.exists()) {
+                if (!confirm(`Tên "${reportName}" đã tồn tại. Bạn có muốn ghi đè không?`)) {
+                    return;
+                }
+            }
+
+            // Get current data
+            const currentData = cachedOrderDetails[currentTableName];
+            if (!currentData) {
+                alert('Không tìm thấy dữ liệu để lưu');
+                return;
+            }
+
+            try {
+                // Save to Firebase with isSavedCopy flag
+                const saveData = {
+                    tableName: reportName,
+                    orders: sanitizeForFirebase(currentData.orders),
+                    fetchedAt: new Date().toISOString(),
+                    totalOrders: currentData.orders.length,
+                    successCount: currentData.successCount || currentData.orders.length,
+                    errorCount: currentData.errorCount || 0,
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP,
+                    isSavedCopy: true,
+                    originalCampaign: currentTableName
+                };
+
+                await existingRef.set(saveData);
+
+                console.log(`[REPORT] ✅ Saved report copy: ${reportName}`);
+
+                closeSaveReportModal();
+                alert(`Đã lưu bản sao "${reportName}" thành công!`);
+
+                // Reload dropdown to show new saved copy
+                await loadAvailableTables();
+
+            } catch (error) {
+                console.error('[REPORT] ❌ Error saving report copy:', error);
+                alert('Lỗi khi lưu bản sao: ' + error.message);
+            }
+        }
+
+        // Open manage reports modal
+        async function openManageReportsModal() {
+            document.getElementById('manageReportsModal').style.display = 'flex';
+            document.getElementById('manageReportsLoading').style.display = 'block';
+            document.getElementById('manageReportsList').style.display = 'none';
+            document.getElementById('manageReportsEmpty').style.display = 'none';
+
+            await loadAllReportsForManagement();
+        }
+
+        // Close manage reports modal
+        function closeManageReportsModal() {
+            document.getElementById('manageReportsModal').style.display = 'none';
+        }
+
+        // Load all reports for management modal
+        async function loadAllReportsForManagement() {
+            try {
+                const ref = database.ref(FIREBASE_PATH);
+                const snapshot = await ref.once('value');
+                const tables = snapshot.val() || {};
+
+                const tbody = document.getElementById('manageReportsTableBody');
+                tbody.innerHTML = '';
+
+                const tableKeys = Object.keys(tables);
+
+                if (tableKeys.length === 0) {
+                    document.getElementById('manageReportsLoading').style.display = 'none';
+                    document.getElementById('manageReportsEmpty').style.display = 'block';
+                    return;
+                }
+
+                // Sort: Main reports first, then saved copies, both sorted by fetchedAt desc
+                tableKeys.sort((a, b) => {
+                    const dataA = tables[a];
+                    const dataB = tables[b];
+                    const isCopyA = dataA.isSavedCopy || false;
+                    const isCopyB = dataB.isSavedCopy || false;
+
+                    if (isCopyA !== isCopyB) return isCopyA ? 1 : -1;
+
+                    const dateA = dataA.fetchedAt ? new Date(dataA.fetchedAt).getTime() : 0;
+                    const dateB = dataB.fetchedAt ? new Date(dataB.fetchedAt).getTime() : 0;
+                    return dateB - dateA;
+                });
+
+                tableKeys.forEach(safeTableName => {
+                    const tableData = tables[safeTableName];
+                    const originalName = tableData.tableName || safeTableName.replace(/_/g, ' ');
+                    const orderCount = tableData.totalOrders || tableData.orders?.length || 0;
+                    const fetchedAt = tableData.fetchedAt ? new Date(tableData.fetchedAt).toLocaleString('vi-VN') : '-';
+                    const isSavedCopy = tableData.isSavedCopy || false;
+
+                    const icon = isSavedCopy ? '💾' : '📌';
+                    const typeLabel = isSavedCopy ? 'Bản lưu' : 'Chính';
+                    const typeBadgeColor = isSavedCopy ? '#3b82f6' : '#10b981';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+                            <span style="font-size: 20px;">${icon}</span>
+                        </td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+                            <div style="font-weight: 600;">${originalName}</div>
+                            ${isSavedCopy && tableData.originalCampaign ? `<div style="font-size: 12px; color: #6b7280;">Từ: ${tableData.originalCampaign}</div>` : ''}
+                        </td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">
+                            <span style="background: #f3f4f6; padding: 4px 10px; border-radius: 20px; font-weight: 600;">${orderCount}</span>
+                        </td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; font-size: 13px; color: #6b7280;">
+                            ${fetchedAt}
+                        </td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">
+                            <button onclick="deleteReport('${safeTableName}', '${originalName.replace(/'/g, "\\'")}', ${isSavedCopy})"
+                                style="padding: 6px 12px; background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s;"
+                                onmouseover="this.style.background='#fecaca'"
+                                onmouseout="this.style.background='#fee2e2'">
+                                <i class="fas fa-trash"></i> Xóa
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById('manageReportsLoading').style.display = 'none';
+                document.getElementById('manageReportsList').style.display = 'block';
+
+            } catch (error) {
+                console.error('[REPORT] ❌ Error loading reports for management:', error);
+                document.getElementById('manageReportsLoading').innerHTML = `
+                    <i class="fas fa-exclamation-triangle fa-2x" style="color: #dc2626;"></i>
+                    <p style="color: #dc2626;">Lỗi khi tải danh sách: ${error.message}</p>
+                `;
+            }
+        }
+
+        // Delete a report
+        async function deleteReport(safeTableName, displayName, isSavedCopy) {
+            const typeLabel = isSavedCopy ? 'bản lưu' : 'báo cáo chính';
+            const warningMsg = isSavedCopy
+                ? `Bạn có chắc muốn xóa ${typeLabel} "${displayName}"?`
+                : `⚠️ CẢNH BÁO: Đây là báo cáo CHÍNH!\n\nBạn có chắc muốn xóa "${displayName}"?\n\nHành động này không thể hoàn tác!`;
+
+            if (!confirm(warningMsg)) {
+                return;
+            }
+
+            try {
+                const ref = database.ref(`${FIREBASE_PATH}/${safeTableName}`);
+                await ref.remove();
+
+                console.log(`[REPORT] ✅ Deleted report: ${displayName}`);
+
+                // Reload the list
+                await loadAllReportsForManagement();
+
+                // Also reload dropdown
+                await loadAvailableTables();
+
+                alert(`Đã xóa "${displayName}" thành công!`);
+
+            } catch (error) {
+                console.error('[REPORT] ❌ Error deleting report:', error);
+                alert('Lỗi khi xóa: ' + error.message);
+            }
         }
 
         // =====================================================
