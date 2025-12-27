@@ -560,7 +560,7 @@ function formatInvoiceDetails(invoice, shipment) {
     const tongTien = invoice.tongTienHD || invoice.tongTien || 0;
     const imageCount = invoice.anhHoaDon?.length || 0;
 
-    let text = `📋 CHI TIẾT HÓA ĐƠN NCC ${invoice.sttNCC}\n`;
+    let text = `📋 HÓA ĐƠN 1 - NCC ${invoice.sttNCC}\n`;
     text += `${'─'.repeat(30)}\n\n`;
 
     text += `📦 Shipment: ${shipment.id}\n`;
@@ -588,15 +588,68 @@ function formatInvoiceDetails(invoice, shipment) {
     text += `\n${'─'.repeat(30)}\n`;
     text += `💰 Tiền HĐ: ${tongTien.toLocaleString()}\n`;
     text += `📊 Tổng món: ${tongMon}\n`;
-    text += `🖼️ Ảnh: ${imageCount} ảnh\n`;
+    text += `🖼️ Ảnh HĐ1: ${imageCount} ảnh\n`;
 
     if (invoice.ghiChu) {
         text += `📝 Ghi chú: ${invoice.ghiChu}\n`;
     }
 
-    text += `\n💡 Gửi ảnh + caption "/${invoice.sttNCC}" để thêm ảnh`;
+    // Show subInvoice info if exists
+    if (invoice.subInvoice) {
+        const sub = invoice.subInvoice;
+        const subProducts = sub.sanPham || [];
+        const subTongMon = subProducts.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+        const subTongTien = sub.tongTienHD || 0;
+        const subImageCount = sub.anhHoaDon?.length || 0;
+
+        text += `\n${'═'.repeat(30)}\n`;
+        text += `📋 HÓA ĐƠN 2 (PHỤ)\n`;
+        text += `${'─'.repeat(30)}\n`;
+
+        if (subProducts.length === 0) {
+            text += `(Không có sản phẩm)\n`;
+        } else {
+            subProducts.forEach((p, idx) => {
+                const name = p.tenSP_vi || translateToVietnamese(p.tenSP) || p.tenSP || '';
+                const color = p.soMau_vi || translateToVietnamese(p.soMau) || p.soMau || '';
+                text += `${idx + 1}. MA ${p.maSP || ''} ${name}`;
+                if (color) text += ` - ${color}`;
+                text += ` x${p.soLuong || 0}\n`;
+            });
+        }
+
+        text += `\n${'─'.repeat(30)}\n`;
+        text += `💰 Tiền HĐ: ${subTongTien.toLocaleString()}\n`;
+        text += `📊 Tổng món: ${subTongMon}\n`;
+        text += `🖼️ Ảnh HĐ2: ${subImageCount} ảnh\n`;
+
+        if (sub.ghiChu) {
+            text += `📝 Ghi chú: ${sub.ghiChu}\n`;
+        }
+    }
 
     return text;
+}
+
+/**
+ * Build inline keyboard for NCC invoice with edit buttons
+ */
+function buildNccKeyboard(nccCode, hasSubInvoice) {
+    const keyboard = {
+        inline_keyboard: [
+            [
+                { text: '🖼️ Sửa ảnh HĐ1', callback_data: `edit_img_1_${nccCode}` }
+            ]
+        ]
+    };
+
+    if (hasSubInvoice) {
+        keyboard.inline_keyboard[0].push(
+            { text: '🖼️ Sửa ảnh HĐ2', callback_data: `edit_img_2_${nccCode}` }
+        );
+    }
+
+    return keyboard;
 }
 
 // Bot username (will be fetched on first request)
@@ -608,6 +661,9 @@ const MAX_HISTORY_LENGTH = 20; // Keep last 20 messages per chat
 
 // Store pending invoice confirmations
 const pendingInvoices = new Map();
+
+// Store pending image edits (chatId -> { nccCode, invoiceType: 1 or 2 })
+const pendingImageEdits = new Map();
 
 // =====================================================
 // CHINESE TO VIETNAMESE TRANSLATION
@@ -1307,6 +1363,36 @@ router.post('/webhook', async (req, res) => {
                     `❌ Đã hủy. Bạn có thể gửi lại ảnh hóa đơn khác.`
                 );
             }
+            // Handle edit image buttons
+            else if (data.startsWith('edit_img_')) {
+                const match = data.match(/^edit_img_(\d+)_(\d+)$/);
+                if (match) {
+                    const invoiceType = parseInt(match[1]); // 1 or 2
+                    const nccCode = match[2];
+
+                    // Store pending edit state
+                    pendingImageEdits.set(chatId, {
+                        nccCode,
+                        invoiceType,
+                        timestamp: Date.now()
+                    });
+
+                    // Auto-expire after 5 minutes
+                    setTimeout(() => {
+                        const edit = pendingImageEdits.get(chatId);
+                        if (edit && edit.nccCode === nccCode && edit.invoiceType === invoiceType) {
+                            pendingImageEdits.delete(chatId);
+                        }
+                    }, 5 * 60 * 1000);
+
+                    const invoiceLabel = invoiceType === 1 ? 'Hóa đơn 1' : 'Hóa đơn 2 (phụ)';
+                    await sendTelegramMessage(chatId,
+                        `📤 Gửi ảnh mới để thay thế ảnh ${invoiceLabel} của NCC ${nccCode}\n\n` +
+                        `⏳ Bạn có 5 phút để gửi ảnh.\n` +
+                        `❌ Gửi /cancel để hủy.`
+                    );
+                }
+            }
             return;
         }
 
@@ -1380,7 +1466,80 @@ router.post('/webhook', async (req, res) => {
                 }
 
                 // ==========================================
-                // CASE 2: Photo without command - Process as invoice
+                // CASE 2: Check for pending image edit
+                // ==========================================
+                const pendingEdit = pendingImageEdits.get(chatId);
+                if (pendingEdit) {
+                    console.log(`[TELEGRAM] Processing pending image edit for NCC ${pendingEdit.nccCode}, type ${pendingEdit.invoiceType}`);
+
+                    await sendChatAction(chatId, 'upload_photo');
+                    await sendTelegramMessage(chatId, '📤 Đang upload ảnh...', messageId);
+
+                    try {
+                        const photo = message.photo[message.photo.length - 1];
+                        const { shipment, invoiceIndex, invoice } = await findInvoiceByNCC(pendingEdit.nccCode, chatId);
+
+                        // Download and upload image
+                        const { buffer, mimeType } = await downloadTelegramFile(photo.file_id);
+                        const timestamp = Date.now();
+                        const extension = mimeType.split('/')[1] || 'jpg';
+                        const fileName = `ncc_${pendingEdit.nccCode}_hd${pendingEdit.invoiceType}_${timestamp}.${extension}`;
+                        const imageUrl = await uploadImageToStorage(buffer, fileName, mimeType);
+
+                        // Update the correct invoice
+                        const hoaDon = shipment.hoaDon;
+
+                        if (pendingEdit.invoiceType === 1) {
+                            // Update main invoice images
+                            if (!hoaDon[invoiceIndex].anhHoaDon) {
+                                hoaDon[invoiceIndex].anhHoaDon = [];
+                            }
+                            hoaDon[invoiceIndex].anhHoaDon.push(imageUrl);
+                        } else if (pendingEdit.invoiceType === 2 && hoaDon[invoiceIndex].subInvoice) {
+                            // Update subInvoice images
+                            if (!hoaDon[invoiceIndex].subInvoice.anhHoaDon) {
+                                hoaDon[invoiceIndex].subInvoice.anhHoaDon = [];
+                            }
+                            hoaDon[invoiceIndex].subInvoice.anhHoaDon.push(imageUrl);
+                        } else {
+                            throw new Error('Không tìm thấy hóa đơn phụ để thêm ảnh');
+                        }
+
+                        // Save to Firestore
+                        const firestore = getFirestoreDb();
+                        await firestore.collection('inventory_tracking').doc(shipment.id).update({
+                            hoaDon: hoaDon,
+                            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                        });
+
+                        // Clear pending edit
+                        pendingImageEdits.delete(chatId);
+
+                        const invoiceLabel = pendingEdit.invoiceType === 1 ? 'Hóa đơn 1' : 'Hóa đơn 2 (phụ)';
+                        const imageCount = pendingEdit.invoiceType === 1
+                            ? hoaDon[invoiceIndex].anhHoaDon.length
+                            : hoaDon[invoiceIndex].subInvoice?.anhHoaDon?.length || 0;
+
+                        await sendTelegramMessage(chatId,
+                            `✅ Đã thêm ảnh vào ${invoiceLabel} của NCC ${pendingEdit.nccCode}\n\n` +
+                            `🖼️ Tổng ảnh ${invoiceLabel}: ${imageCount}\n` +
+                            `☁️ Đã lưu lên Firebase Storage`,
+                            messageId
+                        );
+
+                    } catch (error) {
+                        console.error('[TELEGRAM] Edit image error:', error.message);
+                        pendingImageEdits.delete(chatId);
+                        await sendTelegramMessage(chatId,
+                            `❌ Lỗi thêm ảnh:\n${error.message}`,
+                            messageId
+                        );
+                    }
+                    return;
+                }
+
+                // ==========================================
+                // CASE 3: Photo without command - Process as invoice
                 // ==========================================
                 console.log('[TELEGRAM] Photo received - processing invoice');
 
@@ -1463,6 +1622,25 @@ router.post('/webhook', async (req, res) => {
                 return;
             }
 
+            // /cancel command - Cancel pending image edit
+            if (commandText === '/cancel') {
+                const hadPending = pendingImageEdits.has(chatId);
+                pendingImageEdits.delete(chatId);
+
+                if (hadPending) {
+                    await sendTelegramMessage(chatId,
+                        '❌ Đã hủy thao tác sửa ảnh.',
+                        messageId
+                    );
+                } else {
+                    await sendTelegramMessage(chatId,
+                        '✓ Không có thao tác nào đang chờ.',
+                        messageId
+                    );
+                }
+                return;
+            }
+
             // /help command
             if (commandText === '/help') {
                 const groupHelp = isGroup
@@ -1493,7 +1671,7 @@ router.post('/webhook', async (req, res) => {
                 return;
             }
 
-            // /NCC command (e.g., /15) - Show invoice details
+            // /NCC command (e.g., /15) - Show invoice details with edit buttons
             const nccTextMatch = commandText?.match(/^\/(\d+)$/);
             if (nccTextMatch) {
                 const nccCode = nccTextMatch[1];
@@ -1504,8 +1682,10 @@ router.post('/webhook', async (req, res) => {
                 try {
                     const { shipment, invoice } = await findInvoiceByNCC(nccCode, chatId);
                     const detailsText = formatInvoiceDetails(invoice, shipment);
+                    const hasSubInvoice = !!invoice.subInvoice;
+                    const keyboard = buildNccKeyboard(nccCode, hasSubInvoice);
 
-                    await sendTelegramMessage(chatId, detailsText, messageId);
+                    await sendTelegramMessage(chatId, detailsText, messageId, keyboard);
                 } catch (error) {
                     console.error('[TELEGRAM] NCC lookup error:', error.message);
                     await sendTelegramMessage(chatId,
