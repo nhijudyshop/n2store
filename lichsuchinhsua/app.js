@@ -37,10 +37,9 @@ if (!auth || auth.isLoggedIn !== "true") {
     }, 1500);
 }
 
-// Admin BYPASS - full access. Others check detailedPermissions
-const isAdmin = auth?.roleTemplate === 'admin';
-const hasPageAccess = isAdmin || (auth?.detailedPermissions?.['lichsuchinhsua'] &&
-    Object.values(auth.detailedPermissions['lichsuchinhsua']).some(v => v === true));
+// ALL users (including Admin) check detailedPermissions - NO bypass
+const hasPageAccess = auth?.detailedPermissions?.['lichsuchinhsua'] &&
+    Object.values(auth.detailedPermissions['lichsuchinhsua']).some(v => v === true);
 
 if (!hasPageAccess) {
     notify.error("Bạn không có quyền truy cập trang này!");
@@ -570,7 +569,8 @@ function resetFilters() {
 // =====================================================
 
 async function clearFilteredHistory() {
-    if (checkLogin !== 0) {
+    // Check for delete permission in detailedPermissions
+    if (!auth?.detailedPermissions?.['lichsuchinhsua']?.['delete']) {
         notify.warning("Không đủ quyền thực hiện hành động này!");
         return;
     }

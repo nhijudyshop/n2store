@@ -49,7 +49,9 @@ class TableManager {
 
     // Handle tooltip display
     handleTooltip(e) {
-        if (!authManager.hasPermission(0)) return;
+        // Check delete permission via detailedPermissions
+        const auth = authManager?.getAuthState ? authManager.getAuthState() : null;
+        if (!auth?.detailedPermissions?.['ib']?.['delete']) return;
 
         const tooltip = document.getElementById("tooltip");
         const row = e.target.closest("tr");
@@ -208,9 +210,8 @@ class TableManager {
         );
 
         // Add delete button if authorized
-        // Admin BYPASS - full access. Others check detailedPermissions
-        const isAdmin = auth?.roleTemplate === 'admin';
-        const hasDeletePerm = isAdmin || (auth && auth.detailedPermissions?.['ib']?.['delete'] === true);
+        // ALL users check detailedPermissions - NO admin bypass
+        const hasDeletePerm = auth?.detailedPermissions?.['ib']?.['delete'] === true;
         if (hasDeletePerm) {
             this.addDeleteButton(actionCell, dataItem.user || "Unknown");
         }
@@ -300,7 +301,9 @@ class TableManager {
 
     // Delete row
     deleteRow(row, button) {
-        if (!authManager.hasPermission(0)) {
+        // Check delete permission via detailedPermissions
+        const auth = authManager?.getAuthState ? authManager.getAuthState() : null;
+        if (!auth?.detailedPermissions?.['ib']?.['delete']) {
             uiManager.showError("Bạn không đủ quyền để thực hiện thao tác này");
             return;
         }

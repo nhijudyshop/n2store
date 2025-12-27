@@ -9,16 +9,23 @@ let users = [];
 
 // Check admin access - Admin (roleTemplate='admin') has FULL BYPASS
 function checkAdminAccess() {
-    const isLoggedIn = localStorage.getItem("isLoggedIn");
-    const authData = localStorage.getItem("loginindex_auth");
+    const isLoggedIn = localStorage.getItem("isLoggedIn") || sessionStorage.getItem("isLoggedIn");
+    // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
+    const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
 
     console.log("Checking admin access:", {
         isLoggedIn,
         authData: !!authData,
+        source: localStorage.getItem("loginindex_auth") ? "localStorage" : "sessionStorage"
     });
 
     if (!isLoggedIn || isLoggedIn !== "true") {
         showAccessDenied("Bạn chưa đăng nhập hệ thống.");
+        return false;
+    }
+
+    if (!authData) {
+        showAccessDenied("Không tìm thấy thông tin đăng nhập.");
         return false;
     }
 
@@ -27,23 +34,17 @@ function checkAdminAccess() {
     try {
         const auth = JSON.parse(authData);
 
-        // Admin BYPASS - full access to everything
-        if (auth.roleTemplate === 'admin') {
-            hasPermission = true;
-            console.log("Permission check: Admin (roleTemplate) - BYPASS");
-        } else {
-            // Other users check detailedPermissions for 'user-management' page
-            if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
-                const userMgmtPerms = auth.detailedPermissions['user-management'];
-                hasPermission = Object.values(userMgmtPerms).some(v => v === true);
-            }
-
-            console.log("Permission check:", {
-                hasDetailedPermissions: !!auth.detailedPermissions,
-                hasUserManagementPermission: hasPermission,
-                roleTemplate: auth.roleTemplate || 'unknown'
-            });
+        // ALL users (including Admin) check detailedPermissions - NO bypass
+        if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
+            const userMgmtPerms = auth.detailedPermissions['user-management'];
+            hasPermission = Object.values(userMgmtPerms).some(v => v === true);
         }
+
+        console.log("Permission check:", {
+            hasDetailedPermissions: !!auth.detailedPermissions,
+            hasUserManagementPermission: hasPermission,
+            roleTemplate: auth.roleTemplate || 'unknown'
+        });
     } catch (e) {
         console.error("Error checking permissions:", e);
     }

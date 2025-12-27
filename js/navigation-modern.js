@@ -39,6 +39,14 @@ const MENU_CONFIG = [
         permissionRequired: "nhanhang",
     },
     {
+        href: "../inventory-tracking/index.html",
+        icon: "package-search",
+        text: "Theo Dõi Nhập Hàng SL",
+        shortText: "Nhập Hàng",
+        pageIdentifier: "inventory-tracking",
+        permissionRequired: "inventoryTracking",
+    },
+    {
         href: "../hangrotxa/index.html",
         icon: "clipboard-list",
         text: "Hàng Rớt - Xả",
@@ -322,7 +330,7 @@ class UnifiedNavigationManager {
     constructor() {
         this.currentPage = null;
         this.userPermissions = [];
-        this.isAdmin = false;
+        this.isAdminTemplate = false; // For UI display only, NOT for bypass
         this.isMobile = window.innerWidth <= 768;
         this.init();
     }
@@ -340,10 +348,14 @@ class UnifiedNavigationManager {
         }
 
         try {
-            // Get user info - Admin has FULL BYPASS, others check detailedPermissions
-            const authData = JSON.parse(localStorage.getItem("loginindex_auth") || "{}");
-            this.isAdmin = authData.roleTemplate === 'admin';
-            console.log("[Unified Nav] Is Admin (roleTemplate):", this.isAdmin, "- Has BYPASS");
+            // Get user info - ALL users (including Admin) use detailedPermissions
+            // NO bypass - Admin has full permissions set in detailedPermissions
+            // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
+            const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
+            const authData = JSON.parse(authDataStr);
+            // isAdminTemplate is for UI display only (role badge, etc.), NOT for bypass
+            this.isAdminTemplate = authData.roleTemplate === 'admin';
+            console.log("[Unified Nav] Role Template:", authData.roleTemplate, "| Source:", localStorage.getItem("loginindex_auth") ? "localStorage" : "sessionStorage");
 
             // Load permissions
             await this.loadUserPermissions();
@@ -413,12 +425,12 @@ class UnifiedNavigationManager {
     }
 
     async loadUserPermissions() {
-        // NO BYPASS - All users check detailedPermissions (including admin)
-        // Admin is just a user with all permissions = true
+        // Load detailedPermissions from auth data
+        // ALL users (including Admin) use detailedPermissions - NO bypass
 
-        // Try to load from localStorage cache
+        // Try to load from cache (check both localStorage AND sessionStorage)
         try {
-            const authData = localStorage.getItem("loginindex_auth");
+            const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
             if (authData) {
                 const userAuth = JSON.parse(authData);
 
@@ -444,9 +456,8 @@ class UnifiedNavigationManager {
         // Try to load from Firebase if not in cache
         try {
             if (typeof firebase !== "undefined" && firebase.firestore) {
-                const authData = JSON.parse(
-                    localStorage.getItem("loginindex_auth"),
-                );
+                const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+                const authData = authDataStr ? JSON.parse(authDataStr) : null;
 
                 if (!authData || !authData.username) {
                     console.error("[Permission Load] No username in auth data");
@@ -528,9 +539,7 @@ class UnifiedNavigationManager {
      * @returns {boolean}
      */
     hasDetailedPermission(pageId, permissionKey) {
-        // Admin BYPASS - full access to everything
-        if (this.isAdmin) return true;
-
+        // ALL users (including Admin) check detailedPermissions - NO bypass
         if (!this.userDetailedPermissions) return false;
 
         const pagePerms = this.userDetailedPermissions[pageId];
@@ -594,13 +603,8 @@ class UnifiedNavigationManager {
             return true;
         }
 
-        // Admin BYPASS - full access to everything
-        if (this.isAdmin) {
-            console.log("[Permission Check] Admin user (roleTemplate), allowing access");
-            return true;
-        }
-
-        // Other users check detailedPermissions
+        // ALL users (including Admin) check detailedPermissions - NO bypass
+        // Admin gets full access by having all permissions set to true in detailedPermissions
         const hasPermission = this.userPermissions.includes(
             pageInfo.permissionRequired,
         );
@@ -609,6 +613,7 @@ class UnifiedNavigationManager {
             currentPage: this.currentPage,
             requiredPermission: pageInfo.permissionRequired,
             userPermissions: this.userPermissions,
+            roleTemplate: this.isAdminTemplate ? 'admin' : 'other',
             hasAccess: hasPermission,
         });
 
@@ -901,10 +906,9 @@ class UnifiedNavigationManager {
         let renderedCount = 0;
 
         MENU_CONFIG.forEach((menuItem) => {
-            // Admin BYPASS - show all menu items
+            // ALL users check detailedPermissions - NO admin bypass
             // Items without permissionRequired are shown to everyone
-            const hasPermission = this.isAdmin ||
-                !menuItem.permissionRequired ||
+            const hasPermission = !menuItem.permissionRequired ||
                 this.userPermissions.includes(menuItem.permissionRequired);
 
             if (!hasPermission) {
@@ -1233,10 +1237,10 @@ class UnifiedNavigationManager {
     }
 
     getAccessiblePages() {
-        // Admin BYPASS - access all pages
+        // ALL users check detailedPermissions - NO admin bypass
         const accessible = MENU_CONFIG.filter((item) => {
-            if (this.isAdmin) return true;
-            if (item.adminOnly) return false;
+            // Items without permissionRequired are accessible to everyone
+            if (!item.permissionRequired) return true;
             return this.userPermissions.includes(item.permissionRequired);
         });
 
@@ -3011,7 +3015,7 @@ class UnifiedNavigationManager {
             pageName: pageName,
             requiredPermission: requiredPermission,
             userPermissions: this.userPermissions,
-            isAdmin: this.isAdmin,
+            roleTemplate: this.isAdminTemplate ? 'admin' : 'other',
             firstAccessiblePage: firstAccessiblePage
                 ? firstAccessiblePage.pageIdentifier
                 : "none",
@@ -3355,3 +3359,37 @@ setTimeout(() => {
         console.log('[VERSION] Version Checker initialized');
     }
 }, 2000); // Wait 2 seconds for Firebase to be ready
+
+// =====================================================
+// AI CHAT WIDGET LOADER
+// Load floating AI chat widget on all pages
+// =====================================================
+(function loadAIChatWidget() {
+    // Check if already loaded
+    if (window.AIChatWidget) {
+        console.log('[AI Widget] Already loaded');
+        return;
+    }
+
+    // Determine script path based on current page location
+    const currentPath = window.location.pathname;
+    let basePath = '../js/';
+
+    // Handle different directory depths
+    if (currentPath.includes('/n2store/') && !currentPath.includes('/n2store/js/')) {
+        // Find the depth from n2store root
+        const parts = currentPath.split('/n2store/')[1]?.split('/').filter(p => p && !p.includes('.html'));
+        if (parts && parts.length > 1) {
+            basePath = '../'.repeat(parts.length) + 'js/';
+        }
+    }
+
+    // Create and load the script
+    const script = document.createElement('script');
+    script.src = basePath + 'ai-chat-widget.js';
+    script.async = true;
+    script.onerror = () => console.warn('[AI Widget] Failed to load widget script');
+    document.head.appendChild(script);
+
+    console.log('[AI Widget] Loading from:', basePath + 'ai-chat-widget.js');
+})();
