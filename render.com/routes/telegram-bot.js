@@ -184,13 +184,28 @@ function shouldRespondInGroup(message, botUsername) {
         return true;
     }
 
-    // Respond if bot is mentioned
+    // Check Telegram entities for mention (more reliable)
+    if (message.entities && botUsername) {
+        for (const entity of message.entities) {
+            if (entity.type === 'mention') {
+                const mentionText = text.substring(entity.offset, entity.offset + entity.length);
+                if (mentionText.toLowerCase() === `@${botUsername.toLowerCase()}`) {
+                    console.log('[TELEGRAM] Bot mentioned via entity:', mentionText);
+                    return true;
+                }
+            }
+        }
+    }
+
+    // Fallback: check if bot username appears in text
     if (botUsername && text.toLowerCase().includes(`@${botUsername.toLowerCase()}`)) {
+        console.log('[TELEGRAM] Bot mentioned in text');
         return true;
     }
 
     // Respond if message is a reply to bot's message
     if (message.reply_to_message && message.reply_to_message.from?.is_bot) {
+        console.log('[TELEGRAM] Reply to bot message');
         return true;
     }
 
@@ -250,9 +265,11 @@ router.post('/webhook', async (req, res) => {
             await getBotUsername();
 
             console.log(`[TELEGRAM] ${isGroup ? 'Group' : 'Private'} message from ${firstName} in ${chatName}: ${text?.substring(0, 50)}...`);
+            console.log(`[TELEGRAM] BOT_USERNAME: ${BOT_USERNAME}, entities:`, message.entities);
 
             // In groups, only respond if mentioned, replied to, or command
             if (isGroup && !shouldRespondInGroup(message, BOT_USERNAME)) {
+                console.log('[TELEGRAM] Skipping - not triggered in group');
                 return; // Ignore message in group if not triggered
             }
 
