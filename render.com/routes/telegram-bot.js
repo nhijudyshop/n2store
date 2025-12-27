@@ -253,22 +253,29 @@ async function findInvoiceByNCC(nccCode, chatId) {
         throw new Error('Firebase không khả dụng');
     }
 
-    // Query for shipments from this chat with matching NCC
-    // Get most recent first
+    // Query for shipments from this chat
+    // Note: Simple query without orderBy to avoid needing composite index
     const snapshot = await firestore
         .collection('inventory_tracking')
         .where('telegramChatId', '==', chatId)
-        .orderBy('createdAt', 'desc')
-        .limit(20)  // Check last 20 shipments
+        .limit(50)  // Get recent shipments
         .get();
 
     if (snapshot.empty) {
         throw new Error(`Không tìm thấy hóa đơn nào từ chat này`);
     }
 
+    // Sort by createdAt in memory (descending - newest first)
+    const shipments = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => {
+            const timeA = a.createdAt?.toMillis?.() || 0;
+            const timeB = b.createdAt?.toMillis?.() || 0;
+            return timeB - timeA;  // Descending
+        });
+
     // Find shipment with matching NCC in hoaDon array
-    for (const doc of snapshot.docs) {
-        const data = doc.data();
+    for (const data of shipments) {
         const hoaDonList = data.hoaDon || [];
 
         const invoiceIndex = hoaDonList.findIndex(hd =>
@@ -277,7 +284,7 @@ async function findInvoiceByNCC(nccCode, chatId) {
 
         if (invoiceIndex !== -1) {
             return {
-                shipment: { id: doc.id, ...data },
+                shipment: data,
                 invoiceIndex: invoiceIndex,
                 invoice: hoaDonList[invoiceIndex]
             };
