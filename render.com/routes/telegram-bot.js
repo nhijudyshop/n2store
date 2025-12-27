@@ -88,26 +88,34 @@ const pendingInvoices = new Map();
 // INVOICE EXTRACTION PROMPT
 // =====================================================
 
-const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia phân tích hóa đơn viết tay. Hãy phân tích ảnh hóa đơn này và trích xuất thông tin theo format JSON.
+const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia phân tích hóa đơn. Hãy phân tích ảnh hóa đơn này và trích xuất thông tin theo format JSON.
 
 QUAN TRỌNG:
+- Tìm SỐ KHOANH TRÒN trên hóa đơn (thường viết tay, được khoanh tròn bằng bút) - đây là MÃ NCC (nhà cung cấp)
 - Đọc kỹ từng dòng sản phẩm
-- SKU thường là mã số/chữ viết tắt ở đầu dòng
-- Số lượng thường ở cuối dòng hoặc sau dấu x
+- SKU thường là mã số ở đầu dòng (VD: 7977, 7975, 7862)
+- Số lượng thường ở cột "数量" hoặc cuối dòng
 - Nếu không đọc được rõ, ghi "unclear"
 
 Trả về CHÍNH XÁC theo format JSON sau (không có markdown, không có \`\`\`):
 {
   "success": true,
+  "ncc": "15",
   "supplier": "Tên nhà cung cấp (nếu có)",
   "date": "DD/MM/YYYY (nếu có)",
   "products": [
-    {"sku": "MÃ_SP", "name": "Tên sản phẩm", "quantity": 10},
-    {"sku": "MÃ_SP2", "name": "Tên sản phẩm 2", "quantity": 5}
+    {"sku": "7977", "name": "Tên sản phẩm", "color": "黑条", "quantity": 12},
+    {"sku": "7977", "name": "Tên sản phẩm", "color": "咖条", "quantity": 8}
   ],
-  "totalItems": 15,
+  "totalItems": 70,
+  "totalAmount": 2250.00,
   "notes": "Ghi chú thêm nếu có"
 }
+
+LƯU Ý:
+- "ncc": Số được KHOANH TRÒN bằng bút trên hóa đơn (rất quan trọng!)
+- "supplier": Tên cửa hàng/nhà cung cấp in trên hóa đơn
+- "color": Màu sắc sản phẩm nếu có (VD: 黑条, 咖条, 黑色, 灰色...)
 
 Nếu ảnh không phải hóa đơn hoặc không đọc được:
 {
@@ -472,8 +480,12 @@ function formatInvoicePreview(invoiceData) {
     let text = `📋 KẾT QUẢ PHÂN TÍCH HÓA ĐƠN\n`;
     text += `${'─'.repeat(30)}\n`;
 
+    // Mã NCC (số khoanh tròn) - hiển thị đầu tiên và nổi bật
+    if (invoiceData.ncc) {
+        text += `🔢 MÃ NCC: ${invoiceData.ncc}\n`;
+    }
     if (invoiceData.supplier) {
-        text += `🏪 NCC: ${invoiceData.supplier}\n`;
+        text += `🏪 Tên NCC: ${invoiceData.supplier}\n`;
     }
     if (invoiceData.date) {
         text += `📅 Ngày: ${invoiceData.date}\n`;
@@ -483,13 +495,18 @@ function formatInvoicePreview(invoiceData) {
 
     if (invoiceData.products && invoiceData.products.length > 0) {
         invoiceData.products.forEach((p, i) => {
-            text += `${i + 1}. ${p.sku || '?'} - ${p.name || 'N/A'}: ${p.quantity} cái\n`;
+            const color = p.color ? ` (${p.color})` : '';
+            text += `${i + 1}. ${p.sku || '?'} - ${p.name || 'N/A'}${color}: ${p.quantity} cái\n`;
         });
     } else {
         text += `(Không có sản phẩm)\n`;
     }
 
     text += `\n📊 Tổng: ${invoiceData.totalItems || 0} sản phẩm`;
+
+    if (invoiceData.totalAmount) {
+        text += `\n💰 Thành tiền: ¥${invoiceData.totalAmount.toLocaleString()}`;
+    }
 
     if (invoiceData.notes) {
         text += `\n📝 Ghi chú: ${invoiceData.notes}`;
@@ -550,8 +567,9 @@ router.post('/webhook', async (req, res) => {
                         await editMessageText(chatId, messageId,
                             `✅ ĐÃ LƯU THÀNH CÔNG!\n\n` +
                             `📋 Mã hóa đơn: ${docId}\n` +
-                            `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm\n` +
-                            `🏪 NCC: ${invoiceData.supplier || 'N/A'}`
+                            `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
+                            `🏪 Tên NCC: ${invoiceData.supplier || 'N/A'}\n` +
+                            `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm`
                         );
                     } catch (error) {
                         console.error('[TELEGRAM] Firebase save error:', error.message);
