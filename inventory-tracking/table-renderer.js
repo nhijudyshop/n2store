@@ -78,7 +78,6 @@ function createShipmentCard(shipment) {
         <div class="shipment-body">
             ${renderPackagesSection(shipment)}
             ${renderInvoicesSection(shipment)}
-            ${canViewCost ? renderShippingCostSection(shipment) : ''}
             ${canViewNote && shipment.ghiChuAdmin ? renderAdminNoteSection(shipment) : ''}
         </div>
     `;
@@ -112,10 +111,12 @@ function renderPackagesSection(shipment) {
 }
 
 /**
- * Render invoices section
+ * Render invoices section with shipping costs as column
  */
 function renderInvoicesSection(shipment) {
     const invoices = shipment.hoaDon || [];
+    const costs = shipment.chiPhiHangVe || [];
+    const canViewCost = permissionHelper?.can('view_chiPhiHangVe');
 
     if (invoices.length === 0) {
         return `
@@ -132,35 +133,38 @@ function renderInvoicesSection(shipment) {
     const totalAmount = invoices.reduce((sum, hd) => sum + (hd.tongTienHD || 0), 0);
     const totalItems = invoices.reduce((sum, hd) => sum + (hd.tongMon || 0), 0);
     const totalShortage = invoices.reduce((sum, hd) => sum + (hd.soMonThieu || 0), 0);
+    const totalCost = costs.reduce((sum, c) => sum + (c.soTien || 0), 0);
+
+    // Build cost cells - distribute across invoice rows
+    const costCells = canViewCost ? buildCostCells(costs, invoices.length) : [];
 
     return `
-        <div class="shipment-section">
-            <div class="section-title">
-                <i data-lucide="receipt"></i>
-                <span>HÓA ĐƠN NHÀ CUNG CẤP</span>
-            </div>
+        <div class="shipment-section shipment-table-section">
             <div class="table-container">
-                <table class="invoice-table">
+                <table class="invoice-table invoice-table-bordered">
                     <thead>
                         <tr>
-                            <th style="width: 60px;">NCC</th>
-                            <th>Chi tiết sản phẩm</th>
-                            <th class="text-right" style="width: 100px;">Tiền HĐ</th>
-                            <th class="text-center" style="width: 70px;">Tổng món</th>
-                            <th class="text-center" style="width: 70px;">Thiếu</th>
-                            <th class="text-center" style="width: 60px;">Ảnh</th>
+                            <th class="col-ncc">NCC</th>
+                            <th class="col-products">Chi Tiết Sản Phẩm</th>
+                            <th class="col-amount text-right">Tiền HĐ</th>
+                            <th class="col-total text-center">Tổng Món</th>
+                            <th class="col-shortage text-center">Thiếu</th>
+                            ${canViewCost ? '<th class="col-cost text-right">Chi Phí Hàng Về</th>' : ''}
+                            <th class="col-note">Ghi Chú</th>
+                            <th class="col-image text-center">Ảnh</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${invoices.map(hd => renderInvoiceRow(hd, shipment.id)).join('')}
+                        ${invoices.map((hd, idx) => renderInvoiceRowNew(hd, shipment.id, idx, costCells[idx], canViewCost)).join('')}
                     </tbody>
                     <tfoot>
-                        <tr style="background: var(--gray-50); font-weight: 600;">
-                            <td colspan="2" class="text-right">TỔNG:</td>
-                            <td class="text-right">${formatNumber(totalAmount)}</td>
-                            <td class="text-center">${formatNumber(totalItems)}</td>
-                            <td class="text-center">${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</td>
-                            <td></td>
+                        <tr class="total-row">
+                            <td colspan="2" class="text-right"><strong>TỔNG:</strong></td>
+                            <td class="text-right"><strong>${formatNumber(totalAmount)}</strong></td>
+                            <td class="text-center"><strong>${formatNumber(totalItems)}</strong></td>
+                            <td class="text-center"><strong>${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</strong></td>
+                            ${canViewCost ? `<td class="text-right cost-total-cell"><strong>${formatNumber(totalCost)}</strong></td>` : ''}
+                            <td colspan="2"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -170,31 +174,61 @@ function renderInvoicesSection(shipment) {
 }
 
 /**
- * Render single invoice row
+ * Build cost cells to distribute across invoice rows
  */
-function renderInvoiceRow(invoice, shipmentId) {
+function buildCostCells(costs, rowCount) {
+    const cells = [];
+    for (let i = 0; i < rowCount; i++) {
+        if (i < costs.length) {
+            cells.push({
+                loai: costs[i].loai,
+                soTien: costs[i].soTien
+            });
+        } else {
+            cells.push(null);
+        }
+    }
+    return cells;
+}
+
+/**
+ * Render single invoice row (new format)
+ */
+function renderInvoiceRowNew(invoice, shipmentId, rowIndex, costCell, canViewCost) {
     const products = invoice.sanPham || [];
     const imageCount = invoice.anhHoaDon?.length || 0;
+    const rowClass = rowIndex % 2 === 0 ? 'row-even' : 'row-odd';
 
-    const productListHtml = products.slice(0, 3).map(p =>
-        `<div class="product-item">${p.rawText || `MA ${p.maSP} ${p.soMau} MAU ${p.soLuong}X${p.giaDonVi}`}</div>`
+    // Render all products
+    const productListHtml = products.map(p =>
+        `<div class="product-line">${p.rawText || `MA ${p.maSP} ${p.soMau} MAU ${p.soLuong}X${p.giaDonVi}`}</div>`
     ).join('');
 
-    const moreCount = products.length - 3;
-
     return `
-        <tr>
-            <td><strong>${invoice.sttNCC}</strong></td>
-            <td>
-                <div class="product-list">
-                    ${productListHtml}
-                    ${moreCount > 0 ? `<span class="show-more">(+${moreCount} dòng)</span>` : ''}
+        <tr class="${rowClass}">
+            <td class="col-ncc"><strong>${invoice.sttNCC}</strong></td>
+            <td class="col-products">
+                <div class="product-list-full">
+                    ${productListHtml || '<span class="text-muted">-</span>'}
                 </div>
             </td>
-            <td class="text-right">${formatNumber(invoice.tongTienHD)}</td>
-            <td class="text-center">${formatNumber(invoice.tongMon)}</td>
-            <td class="text-center">${invoice.soMonThieu > 0 ? formatNumber(invoice.soMonThieu) : '-'}</td>
-            <td class="text-center">
+            <td class="col-amount text-right">${formatNumber(invoice.tongTienHD)}</td>
+            <td class="col-total text-center">${formatNumber(invoice.tongMon)}</td>
+            <td class="col-shortage text-center">${invoice.soMonThieu > 0 ? formatNumber(invoice.soMonThieu) : '-'}</td>
+            ${canViewCost ? `
+                <td class="col-cost text-right cost-cell">
+                    ${costCell ? `
+                        <div class="cost-item-inline">
+                            <span class="cost-label">${costCell.loai}</span>
+                            <span class="cost-value">${formatNumber(costCell.soTien)}</span>
+                        </div>
+                    ` : ''}
+                </td>
+            ` : ''}
+            <td class="col-note">
+                <span class="note-text">${invoice.ghiChuThieu || ''}</span>
+            </td>
+            <td class="col-image text-center">
                 ${imageCount > 0 ? `
                     <span class="image-count" onclick="viewInvoiceImages('${shipmentId}', '${invoice.id}')">
                         <i data-lucide="image"></i>
@@ -206,33 +240,6 @@ function renderInvoiceRow(invoice, shipmentId) {
     `;
 }
 
-/**
- * Render shipping cost section (Admin only)
- */
-function renderShippingCostSection(shipment) {
-    const costs = shipment.chiPhiHangVe || [];
-    if (costs.length === 0) return '';
-
-    const totalCost = costs.reduce((sum, c) => sum + (c.soTien || 0), 0);
-
-    return `
-        <div class="shipping-cost-section">
-            <div class="shipping-cost-header">
-                <i data-lucide="lock"></i>
-                <span>CHI PHÍ HÀNG VỀ</span>
-            </div>
-            <div class="shipping-cost-items">
-                ${costs.map(c => `
-                    <span class="cost-item">
-                        <span class="cost-label">${c.loai}:</span>
-                        <span class="cost-value">${formatNumber(c.soTien)}</span>
-                    </span>
-                `).join('')}
-                <span class="cost-total">= ${formatNumber(totalCost)}</span>
-            </div>
-        </div>
-    `;
-}
 
 /**
  * Render admin note section

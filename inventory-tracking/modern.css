@@ -695,28 +695,36 @@ body {
     color: var(--gray-600);
 }
 
-/* Invoice Table */
+/* Invoice Table - Excel-like bordered style */
 .invoice-table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 13px;
+}
+
+.invoice-table-bordered {
+    border: 2px solid var(--gray-300);
+}
+
+.invoice-table-bordered th,
+.invoice-table-bordered td {
+    border: 1px solid var(--gray-300);
 }
 
 .invoice-table th,
 .invoice-table td {
-    padding: 12px;
+    padding: 10px 12px;
     text-align: left;
-    border-bottom: 1px solid var(--gray-200);
+    vertical-align: top;
 }
 
 .invoice-table th {
-    background: var(--gray-50);
+    background: var(--gray-100);
     font-weight: 600;
-    font-size: 13px;
-    color: var(--gray-600);
-}
-
-.invoice-table tr:last-child td {
-    border-bottom: none;
+    font-size: 12px;
+    color: var(--gray-700);
+    text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .invoice-table .text-right {
@@ -727,6 +735,100 @@ body {
     text-align: center;
 }
 
+/* Column widths */
+.invoice-table .col-ncc { width: 50px; text-align: center; }
+.invoice-table .col-products { min-width: 200px; }
+.invoice-table .col-amount { width: 100px; }
+.invoice-table .col-total { width: 70px; }
+.invoice-table .col-shortage { width: 60px; }
+.invoice-table .col-cost { width: 140px; }
+.invoice-table .col-note { min-width: 100px; }
+.invoice-table .col-image { width: 50px; }
+
+/* Alternating row colors */
+.invoice-table tbody tr.row-even {
+    background-color: white;
+}
+
+.invoice-table tbody tr.row-odd {
+    background-color: var(--gray-50);
+}
+
+.invoice-table tbody tr:hover {
+    background-color: var(--info-light) !important;
+}
+
+/* Cost column special styling */
+.invoice-table .cost-cell {
+    background-color: #fff8e6 !important;
+    border-left: 2px solid var(--warning) !important;
+}
+
+.invoice-table th.col-cost {
+    background-color: #fef3c7;
+    color: #b45309;
+}
+
+.invoice-table .cost-total-cell {
+    background-color: #fef3c7 !important;
+    border-left: 2px solid var(--warning) !important;
+}
+
+/* Cost item inline display */
+.cost-item-inline {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cost-item-inline .cost-label {
+    font-size: 11px;
+    color: var(--gray-500);
+    text-transform: uppercase;
+}
+
+.cost-item-inline .cost-value {
+    font-weight: 600;
+    color: var(--danger);
+}
+
+/* Product list full display */
+.product-list-full {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.product-line {
+    padding: 2px 0;
+    color: var(--gray-800);
+    border-bottom: 1px dotted var(--gray-200);
+}
+
+.product-line:last-child {
+    border-bottom: none;
+}
+
+/* Total row */
+.invoice-table .total-row {
+    background: var(--gray-100) !important;
+}
+
+.invoice-table .total-row td {
+    border-top: 2px solid var(--gray-400);
+}
+
+/* Note text */
+.note-text {
+    font-size: 12px;
+    color: var(--gray-600);
+}
+
+.text-muted {
+    color: var(--gray-400);
+}
+
+/* Legacy support */
 .product-list {
     max-height: 100px;
     overflow-y: auto;
@@ -756,61 +858,15 @@ body {
     text-decoration: underline;
 }
 
-/* Shipping Cost Summary (Admin Only) */
-.shipping-cost-section {
-    padding: 16px;
-    background: var(--warning-light);
-    border-radius: var(--radius);
-    margin-top: 16px;
+/* Shipment Table Section */
+.shipment-table-section {
+    margin-bottom: 0;
+    padding: 0;
 }
 
-.shipping-cost-section.hidden {
-    display: none;
-}
-
-.shipping-cost-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 600;
-    color: var(--warning);
-    margin-bottom: 8px;
-}
-
-.shipping-cost-header i {
-    width: 18px;
-    height: 18px;
-}
-
-.shipping-cost-items {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.cost-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    background: white;
-    border-radius: var(--radius);
-    font-size: 13px;
-}
-
-.cost-item .cost-label {
-    color: var(--gray-600);
-}
-
-.cost-item .cost-value {
-    font-weight: 600;
-    color: var(--danger);
-}
-
-.cost-total {
-    font-weight: 600;
-    color: var(--danger);
-    margin-left: auto;
+.shipment-table-section .table-container {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
 }
 
 /* Admin Note */
