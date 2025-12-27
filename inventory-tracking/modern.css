@@ -736,35 +736,75 @@ body {
 }
 
 /* Column widths */
-.invoice-table .col-ncc { width: 50px; text-align: center; }
+.invoice-table .col-ncc { width: 50px; text-align: center; vertical-align: middle; }
+.invoice-table .col-stt { width: 40px; text-align: center; }
 .invoice-table .col-products { min-width: 200px; }
-.invoice-table .col-amount { width: 100px; }
-.invoice-table .col-total { width: 70px; }
-.invoice-table .col-shortage { width: 60px; }
-.invoice-table .col-cost { width: 140px; }
+.invoice-table .col-amount { width: 100px; vertical-align: middle; }
+.invoice-table .col-total { width: 70px; vertical-align: middle; }
+.invoice-table .col-shortage { width: 60px; vertical-align: middle; }
+.invoice-table .col-cost { width: 100px; }
+.invoice-table .col-cost-note { min-width: 120px; }
 .invoice-table .col-note { min-width: 100px; }
-.invoice-table .col-image { width: 50px; }
+.invoice-table .col-image { width: 50px; vertical-align: middle; }
 
-/* Alternating row colors */
-.invoice-table tbody tr.row-even {
+/* Alternating colors by INVOICE (not by row) */
+.invoice-table tbody tr.invoice-even {
     background-color: white;
 }
 
-.invoice-table tbody tr.row-odd {
-    background-color: var(--gray-50);
+.invoice-table tbody tr.invoice-odd {
+    background-color: #f5f5f5;
+}
+
+/* Thicker border between invoices */
+.invoice-table tbody tr.invoice-last-row td {
+    border-bottom: 2px solid var(--gray-400);
 }
 
 .invoice-table tbody tr:hover {
     background-color: var(--info-light) !important;
 }
 
-/* Cost column special styling */
-.invoice-table .cost-cell {
+/* Product text in table */
+.invoice-table .product-text {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 12px;
+    color: var(--gray-700);
+}
+
+/* Bold and larger font for amounts */
+.invoice-table .amount-value,
+.invoice-table .total-value,
+.invoice-table .shortage-value,
+.invoice-table .cost-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gray-900);
+}
+
+.invoice-table .shortage-value {
+    color: var(--danger);
+}
+
+.invoice-table .total-amount,
+.invoice-table .total-items,
+.invoice-table .total-cost {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* Cost columns special styling (Chi Phí + Ghi Chú CP) */
+.invoice-table .cost-cell,
+.invoice-table .cost-note-cell {
     background-color: #fff8e6 !important;
+}
+
+.invoice-table .cost-cell {
     border-left: 2px solid var(--warning) !important;
 }
 
-.invoice-table th.col-cost {
+.invoice-table th.col-cost,
+.invoice-table th.col-cost-note {
     background-color: #fef3c7;
     color: #b45309;
 }
@@ -772,6 +812,17 @@ body {
 .invoice-table .cost-total-cell {
     background-color: #fef3c7 !important;
     border-left: 2px solid var(--warning) !important;
+}
+
+.invoice-table tfoot .cost-note-cell {
+    background-color: #fef3c7 !important;
+}
+
+/* Cost label (ghi chú) */
+.invoice-table .cost-label {
+    font-size: 12px;
+    color: var(--gray-600);
+    font-style: italic;
 }
 
 /* Cost item inline display */
