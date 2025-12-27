@@ -53,7 +53,53 @@ function getFirestoreDb() {
 }
 
 /**
- * Save invoice to Firestore
+ * Generate unique shipment ID
+ */
+function generateShipmentId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = 'ship_';
+    for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+/**
+ * Convert invoice data to inventory_tracking format
+ */
+function convertToInventoryFormat(invoiceData) {
+    // Convert products to sanPham format
+    const sanPham = (invoiceData.products || []).map(p => ({
+        maSP: p.sku || '',
+        tenSP: p.name || '',
+        mauSac: p.color || '',
+        soLuong: p.quantity || 0,
+        donGia: 0 // Price per item if available
+    }));
+
+    // Convert date from DD/MM/YYYY to YYYY-MM-DD
+    let ngayDiHang = '';
+    if (invoiceData.date) {
+        const parts = invoiceData.date.split('/');
+        if (parts.length === 3) {
+            ngayDiHang = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+    }
+
+    return {
+        sttNCC: invoiceData.ncc || '',
+        tenNCC: invoiceData.supplier || '',
+        sanPham: sanPham,
+        tongTien: invoiceData.totalAmount || 0,
+        tongMon: invoiceData.totalItems || 0,
+        ngayDiHang: ngayDiHang,
+        ghiChu: invoiceData.notes || '',
+        source: 'telegram_bot'
+    };
+}
+
+/**
+ * Save invoice to inventory_tracking collection
  */
 async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
     const firestore = getFirestoreDb();
@@ -61,17 +107,38 @@ async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
         throw new Error('Firebase không khả dụng');
     }
 
+    const shipmentId = generateShipmentId();
+    const inventoryData = convertToInventoryFormat(invoiceData);
+
+    // Build document matching inventory_tracking structure
     const docData = {
-        ...invoiceData,
-        chatId: chatId,
-        userId: userId,
+        id: shipmentId,
+        ngayDiHang: inventoryData.ngayDiHang || new Date().toISOString().split('T')[0],
+        hoaDon: [{
+            sttNCC: inventoryData.sttNCC,
+            tenNCC: inventoryData.tenNCC,
+            sanPham: inventoryData.sanPham,
+            tongTien: inventoryData.tongTien,
+            ghiChu: inventoryData.ghiChu
+        }],
+        tongTienHoaDon: inventoryData.tongTien,
+        tongMon: inventoryData.tongMon,
+        soMonThieu: 0,
+        chiPhiHangVe: [],
+        tongChiPhi: 0,
+        ghiChuAdmin: '',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        status: 'confirmed'
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: `telegram_${userId}`,
+        updatedBy: `telegram_${userId}`,
+        telegramChatId: chatId,
+        source: 'telegram_bot'
     };
 
-    const docRef = await firestore.collection('telegram_invoices').add(docData);
-    console.log('[FIREBASE] Invoice saved with ID:', docRef.id);
-    return docRef.id;
+    // Save to inventory_tracking collection
+    await firestore.collection('inventory_tracking').doc(shipmentId).set(docData);
+    console.log('[FIREBASE] Inventory saved with ID:', shipmentId);
+    return shipmentId;
 }
 
 // Bot username (will be fetched on first request)
