@@ -1637,6 +1637,10 @@
                     style="margin-top: 20px;">
                     <i class="fas fa-download"></i> Lấy chi tiết đơn hàng
                 </button>
+                <button class="btn-action orange" onclick="refreshTagsOnly()" id="btnRefreshTags"
+                    style="margin-top: 20px;" disabled title="Cập nhật lại tags từ Tab Quản lý đơn hàng">
+                    <i class="fas fa-tags"></i> Lấy chi tiết tag
+                </button>
                 <button class="btn-action blue" onclick="openSaveReportModal()" id="btnSaveReport"
                     style="margin-top: 20px;" disabled title="Lưu bản sao báo cáo">
                     <i class="fas fa-save"></i> Lưu báo cáo
@@ -4944,15 +4948,16 @@
         // SAVE REPORT FUNCTIONS
         // =====================================================
 
-        // Update save report button state
+        // Update save report and refresh tags button state
         function updateSaveReportButton() {
-            const btn = document.getElementById('btnSaveReport');
-            if (!btn) return;
+            const btnSave = document.getElementById('btnSaveReport');
+            const btnRefreshTags = document.getElementById('btnRefreshTags');
 
             const currentData = cachedOrderDetails[currentTableName];
             const hasData = currentData && currentData.orders && currentData.orders.length > 0;
 
-            btn.disabled = !hasData;
+            if (btnSave) btnSave.disabled = !hasData;
+            if (btnRefreshTags) btnRefreshTags.disabled = !hasData;
         }
 
         // Open save report modal
@@ -5164,6 +5169,121 @@
                 console.error('[REPORT] ❌ Error deleting report:', error);
                 alert('Lỗi khi xóa: ' + error.message);
             }
+        }
+
+        // =====================================================
+        // REFRESH TAGS ONLY
+        // =====================================================
+
+        let isRefreshingTags = false;
+
+        // Refresh tags only without re-fetching order details
+        async function refreshTagsOnly() {
+            if (isRefreshingTags) {
+                alert('Đang trong quá trình cập nhật tags, vui lòng đợi...');
+                return;
+            }
+
+            const currentData = cachedOrderDetails[currentTableName];
+            if (!currentData || !currentData.orders || currentData.orders.length === 0) {
+                alert('Chưa có dữ liệu chi tiết để cập nhật tags. Vui lòng "Lấy chi tiết đơn hàng" trước.');
+                return;
+            }
+
+            // Confirm before refreshing
+            const confirmMsg = `Sẽ cập nhật tags cho ${currentData.orders.length} đơn hàng từ Tab Quản lý đơn hàng.\n\nLưu ý: Tags mới sẽ được lấy từ dữ liệu hiện tại của Tab Quản lý đơn hàng.\n\nBạn có muốn tiếp tục?`;
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            isRefreshingTags = true;
+            const btn = document.getElementById('btnRefreshTags');
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang cập nhật...';
+
+                console.log('[REPORT] 🏷️ Starting tags refresh...');
+
+                // Request fresh data from Tab1
+                await requestFreshDataFromTab1();
+
+                // Wait a bit for data to arrive
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                // Now allOrders should have fresh tags from Tab1
+                if (allOrders.length === 0) {
+                    throw new Error('Không nhận được dữ liệu từ Tab Quản lý đơn hàng. Vui lòng đảm bảo tab này đang mở.');
+                }
+
+                // Build a map of orderId -> Tags from allOrders
+                const tagsMap = new Map();
+                allOrders.forEach(order => {
+                    const orderId = order.orderId || order.Id;
+                    if (orderId && order.Tags) {
+                        tagsMap.set(orderId, order.Tags);
+                    }
+                });
+
+                console.log(`[REPORT] 🏷️ Built tags map with ${tagsMap.size} entries`);
+
+                // Update tags in cachedOrderDetails
+                let updatedCount = 0;
+                currentData.orders.forEach(order => {
+                    const orderId = order.Id || order.orderId;
+                    if (tagsMap.has(orderId)) {
+                        order.Tags = tagsMap.get(orderId);
+                        updatedCount++;
+                    }
+                });
+
+                console.log(`[REPORT] 🏷️ Updated tags for ${updatedCount}/${currentData.orders.length} orders`);
+
+                // Save updated data to Firebase
+                const saveData = {
+                    ...currentData,
+                    fetchedAt: currentData.fetchedAt, // Keep original fetch time
+                    tagsUpdatedAt: new Date().toISOString(), // Add tags update time
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                };
+
+                const safeTableName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
+                await database.ref(`${FIREBASE_PATH}/${safeTableName}`).update({
+                    orders: sanitizeForFirebase(currentData.orders),
+                    tagsUpdatedAt: new Date().toISOString(),
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                console.log('[REPORT] ✅ Tags updated and saved to Firebase');
+
+                // Refresh statistics
+                renderStatistics();
+                renderCachedDetailsTab();
+
+                alert(`Đã cập nhật tags cho ${updatedCount} đơn hàng thành công!`);
+
+            } catch (error) {
+                console.error('[REPORT] ❌ Error refreshing tags:', error);
+                alert('Lỗi khi cập nhật tags: ' + error.message);
+            } finally {
+                isRefreshingTags = false;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-tags"></i> Lấy chi tiết tag';
+                updateSaveReportButton();
+            }
+        }
+
+        // Request fresh data from Tab1
+        function requestFreshDataFromTab1() {
+            return new Promise((resolve) => {
+                console.log('[REPORT] 🔄 Requesting fresh data from Tab1...');
+                window.parent.postMessage({
+                    type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
+                }, '*');
+
+                // Resolve after a timeout (data will arrive via message listener)
+                setTimeout(resolve, 500);
+            });
         }
 
         // =====================================================
