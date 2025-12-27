@@ -11,7 +11,7 @@ const admin = require('firebase-admin');
 // API Keys from environment variables (set on Render)
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = 'gemini-2.0-flash'; // Same as AI/gemini.html default
+const GEMINI_MODEL = 'gemini-3-flash-preview'; // Latest Gemini 3 Flash model
 
 // =====================================================
 // FIREBASE INITIALIZATION
