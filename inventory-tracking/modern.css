@@ -756,8 +756,9 @@ body {
     background-color: #f5f5f5;
 }
 
-/* Thicker border between invoices - only for invoice columns (NCC to Ảnh), not cost columns */
-.invoice-table tbody tr.invoice-last-row td.invoice-border {
+/* Thicker border between invoices - spans all invoice columns (NCC to Ảnh) */
+/* Applied to rowspanned cells (always) and non-rowspanned cells (on last row) */
+.invoice-table tbody td.invoice-border {
     border-bottom: 2px solid var(--gray-400);
 }
 
