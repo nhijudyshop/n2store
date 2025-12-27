@@ -432,12 +432,17 @@ function viewInvoiceImages(shipmentId, invoiceIdentifier) {
 
     // Find invoice by id, sttNCC, or index
     let invoiceIdx = -1;
-    if (typeof invoiceIdentifier === 'number') {
-        invoiceIdx = invoiceIdentifier;
-    } else {
+
+    // Check if invoiceIdentifier is a number or numeric string (index)
+    const numericId = typeof invoiceIdentifier === 'number' ? invoiceIdentifier : parseInt(invoiceIdentifier, 10);
+    if (!isNaN(numericId) && numericId >= 0 && numericId < (shipment.hoaDon?.length || 0)) {
+        // It's a valid index
+        invoiceIdx = numericId;
+    } else if (typeof invoiceIdentifier === 'string') {
+        // Try to find by id or sttNCC
         invoiceIdx = shipment.hoaDon?.findIndex(hd =>
-            hd.id === invoiceIdentifier || String(hd.sttNCC) === String(invoiceIdentifier)
-        );
+            hd.id === invoiceIdentifier || String(hd.sttNCC) === invoiceIdentifier
+        ) ?? -1;
     }
 
     if (invoiceIdx === -1 || !shipment.hoaDon?.[invoiceIdx]) {
