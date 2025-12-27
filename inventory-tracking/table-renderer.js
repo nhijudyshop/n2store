@@ -249,6 +249,9 @@ function renderInvoicesSection(shipment) {
         const invoiceTongMon = hd.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
         const invoiceTongTienHD = hd.tongTienHD || hd.tongTien || 0;
 
+        // Check if invoice has subInvoice
+        const hasSubInvoice = !!hd.subInvoice;
+
         if (products.length === 0) {
             // No products - single row
             const costItem = canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
@@ -269,7 +272,9 @@ function renderInvoicesSection(shipment) {
                 shipmentId: shipment.id,
                 invoiceId: hd.id || invoiceIdx,  // Fallback to index if no id
                 costItem,
-                canViewCost
+                canViewCost,
+                hasSubInvoice,
+                subInvoice: hd.subInvoice
             }));
             absoluteRowIdx++;
         } else {
@@ -293,7 +298,9 @@ function renderInvoicesSection(shipment) {
                     shipmentId: shipment.id,
                     invoiceId: hd.id || invoiceIdx,  // Fallback to index if no id
                     costItem,
-                    canViewCost
+                    canViewCost,
+                    hasSubInvoice,
+                    subInvoice: hd.subInvoice
                 }));
                 absoluteRowIdx++;
             });
@@ -347,7 +354,8 @@ function renderProductRow(opts) {
         invoiceIdx, invoiceClass, sttNCC, productIdx, product,
         isFirstRow, isLastRow, rowSpan,
         tongTienHD, tongMon, soMonThieu, imageCount, ghiChu,
-        shipmentId, invoiceId, costItem, canViewCost
+        shipmentId, invoiceId, costItem, canViewCost,
+        hasSubInvoice, subInvoice
     } = opts;
 
     const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
@@ -377,9 +385,14 @@ function renderProductRow(opts) {
     const rowspanBorderClass = 'invoice-border';
     const borderClass = isLastRow ? 'invoice-border' : '';
 
+    // Sub-invoice indicator and click handler
+    const subInvoiceIndicator = hasSubInvoice && isFirstRow ? `<span class="sub-invoice-indicator" title="Có hóa đơn phụ - Click để xem">▼</span>` : '';
+    const nccClickHandler = hasSubInvoice && isFirstRow ? `onclick="showSubInvoice('${shipmentId}', ${invoiceIdx})" style="cursor: pointer;"` : '';
+    const nccClass = hasSubInvoice ? 'has-sub-invoice' : '';
+
     return `
         <tr class="${rowClass}">
-            ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass}" rowspan="${rowSpan}"><strong>${sttNCC}</strong></td>` : ''}
+            ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass} ${nccClass}" rowspan="${rowSpan}" ${nccClickHandler}><strong>${sttNCC}</strong>${subInvoiceIndicator}</td>` : ''}
             <td class="col-stt ${borderClass}">${product ? productIdx + 1 : '-'}</td>
             <td class="col-products ${borderClass}">
                 <span class="product-text">${productText}</span>
@@ -551,6 +564,222 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
 
     } catch (error) {
         console.error('[RENDERER] Delete image error:', error);
+        toast.error('Lỗi xóa ảnh: ' + error.message);
+    }
+}
+
+/**
+ * Show sub-invoice modal
+ * Displays the sub-invoice (invoice 2) in a modal table
+ */
+function showSubInvoice(shipmentId, invoiceIdx) {
+    const shipment = globalState.shipments.find(s => s.id === shipmentId);
+    if (!shipment) {
+        toast.info('Không tìm thấy shipment');
+        return;
+    }
+
+    if (invoiceIdx < 0 || invoiceIdx >= (shipment.hoaDon?.length || 0)) {
+        toast.info('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    const invoice = shipment.hoaDon[invoiceIdx];
+    if (!invoice.subInvoice) {
+        toast.info('Không có hóa đơn phụ');
+        return;
+    }
+
+    const subInvoice = invoice.subInvoice;
+    const products = subInvoice.sanPham || [];
+    const isVietnamese = globalState.langMode === 'vi';
+
+    // Build product rows
+    const productRows = products.map((product, idx) => {
+        let productText = '-';
+        if (product) {
+            if (isVietnamese) {
+                if (product.rawText_vi) {
+                    productText = product.rawText_vi;
+                } else if (product.rawText) {
+                    productText = translateToVietnamese(product.rawText);
+                } else {
+                    const tenSP = product.tenSP_vi || translateToVietnamese(product.tenSP || '');
+                    const soMau = product.soMau_vi || translateToVietnamese(product.soMau || '');
+                    productText = `MA ${product.maSP || ''} ${tenSP} MAU ${soMau} SL ${product.soLuong || 0}`;
+                }
+            } else {
+                productText = product.rawText || `MA ${product.maSP || ''} ${product.tenSP || ''} MAU ${product.soMau || ''} SL ${product.soLuong || 0}`;
+            }
+        }
+        return `
+            <tr>
+                <td class="text-center">${idx + 1}</td>
+                <td>${productText}</td>
+            </tr>
+        `;
+    }).join('');
+
+    // Calculate tongMon from products if not set
+    const tongMon = subInvoice.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+    const tongTienHD = subInvoice.tongTienHD || 0;
+    const imageCount = subInvoice.anhHoaDon?.length || 0;
+
+    // Build modal HTML
+    const modalHtml = `
+        <div id="subInvoiceModal" class="modal-overlay" onclick="if(event.target===this)closeSubInvoiceModal()">
+            <div class="modal-container" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h2>Hóa Đơn Phụ - NCC ${invoice.sttNCC}</h2>
+                    <button class="modal-close" onclick="closeSubInvoiceModal()">×</button>
+                </div>
+                <div class="modal-content" style="padding: 20px;">
+                    <div class="sub-invoice-info" style="margin-bottom: 15px; padding: 10px; background: var(--gray-50); border-radius: 8px;">
+                        <p><strong>Tiền HĐ:</strong> ${formatNumber(tongTienHD)} ¥</p>
+                        <p><strong>Tổng món:</strong> ${formatNumber(tongMon)}</p>
+                        ${subInvoice.ghiChu ? `<p><strong>Ghi chú:</strong> ${subInvoice.ghiChu}</p>` : ''}
+                        ${imageCount > 0 ? `
+                            <p>
+                                <strong>Ảnh:</strong>
+                                <span class="image-count" onclick="viewSubInvoiceImages('${shipmentId}', ${invoiceIdx})" style="cursor: pointer; color: var(--primary); margin-left: 5px;">
+                                    📷 ${imageCount} ảnh
+                                </span>
+                            </p>
+                        ` : ''}
+                    </div>
+                    <table class="invoice-table invoice-table-bordered" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 60px;">STT</th>
+                                <th>Chi Tiết Sản Phẩm</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${productRows.length > 0 ? productRows : '<tr><td colspan="2" class="text-center">Không có sản phẩm</td></tr>'}
+                        </tbody>
+                        <tfoot>
+                            <tr class="total-row">
+                                <td class="text-right"><strong>TỔNG:</strong></td>
+                                <td><strong>${formatNumber(tongMon)} món - ${formatNumber(tongTienHD)} ¥</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('subInvoiceModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Close sub-invoice modal
+ */
+function closeSubInvoiceModal() {
+    const modal = document.getElementById('subInvoiceModal');
+    if (modal) {
+        modal.remove();
+        document.body.style.overflow = '';
+    }
+}
+
+/**
+ * View sub-invoice images
+ */
+function viewSubInvoiceImages(shipmentId, invoiceIdx) {
+    const shipment = globalState.shipments.find(s => s.id === shipmentId);
+    if (!shipment || !shipment.hoaDon?.[invoiceIdx]?.subInvoice?.anhHoaDon?.length) {
+        toast.info('Không có ảnh hóa đơn phụ');
+        return;
+    }
+
+    const images = shipment.hoaDon[invoiceIdx].subInvoice.anhHoaDon;
+
+    const modal = document.getElementById('modalImageViewer');
+    const body = document.getElementById('imageViewerBody');
+
+    if (body) {
+        body.innerHTML = images.map((url, index) => `
+            <div class="image-item" style="position: relative;">
+                <img src="${url}" alt="Hóa đơn phụ" onclick="window.open('${url}', '_blank')" style="cursor: pointer;">
+                <button class="btn-delete-image" onclick="deleteSubInvoiceImage('${shipmentId}', ${invoiceIdx}, ${index})"
+                    title="Xóa ảnh này" style="position: absolute; top: 5px; right: 5px;
+                    background: rgba(220, 53, 69, 0.9); color: white; border: none;
+                    border-radius: 50%; width: 24px; height: 24px; cursor: pointer;
+                    font-size: 14px; line-height: 1; display: flex; align-items: center;
+                    justify-content: center;">×</button>
+            </div>
+        `).join('');
+    }
+
+    openModal('modalImageViewer');
+}
+
+/**
+ * Delete sub-invoice image
+ */
+async function deleteSubInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
+    if (!confirm('Bạn có chắc muốn xóa ảnh này?')) {
+        return;
+    }
+
+    try {
+        const shipment = globalState.shipments.find(s => s.id === shipmentId);
+        if (!shipment || !shipment.hoaDon?.[invoiceIdx]?.subInvoice) {
+            toast.error('Không tìm thấy hóa đơn phụ');
+            return;
+        }
+
+        const subInvoice = shipment.hoaDon[invoiceIdx].subInvoice;
+        if (!subInvoice.anhHoaDon || imageIndex >= subInvoice.anhHoaDon.length) {
+            toast.error('Không tìm thấy ảnh');
+            return;
+        }
+
+        // Remove the image URL from array
+        const updatedImages = [...subInvoice.anhHoaDon];
+        updatedImages.splice(imageIndex, 1);
+
+        // Update subInvoice
+        const updatedHoaDon = [...shipment.hoaDon];
+        updatedHoaDon[invoiceIdx] = {
+            ...shipment.hoaDon[invoiceIdx],
+            subInvoice: {
+                ...subInvoice,
+                anhHoaDon: updatedImages
+            }
+        };
+
+        // Update Firestore
+        await db.collection('inventory_tracking').doc(shipmentId).update({
+            hoaDon: updatedHoaDon,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Update local state
+        shipment.hoaDon = updatedHoaDon;
+
+        // Re-render the images modal
+        if (updatedImages.length > 0) {
+            viewSubInvoiceImages(shipmentId, invoiceIdx);
+        } else {
+            closeModal('modalImageViewer');
+        }
+
+        // Re-render the shipments table
+        renderShipments(globalState.filteredShipments);
+
+        toast.success('Đã xóa ảnh');
+    } catch (error) {
+        console.error('[RENDERER] Delete sub-invoice image error:', error);
         toast.error('Lỗi xóa ảnh: ' + error.message);
     }
 }
