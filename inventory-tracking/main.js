@@ -92,6 +92,31 @@ class InventoryTrackingApp {
 
         // Set default date filters (last 30 days)
         this.setDefaultDateFilters();
+
+        // Load saved language preference
+        this.loadLanguagePreference();
+    }
+
+    /**
+     * Load language preference from localStorage
+     */
+    loadLanguagePreference() {
+        const savedLang = localStorage.getItem('inventory_lang_mode');
+        if (savedLang === 'cn' || savedLang === 'vi') {
+            globalState.langMode = savedLang;
+        }
+
+        // Update button display based on current mode
+        const toggleIcon = document.getElementById('langToggleIcon');
+        const toggleText = document.getElementById('langToggleText');
+
+        if (globalState.langMode === 'vi') {
+            if (toggleIcon) toggleIcon.textContent = '🇻🇳';
+            if (toggleText) toggleText.textContent = 'Việt hóa';
+        } else {
+            if (toggleIcon) toggleIcon.textContent = '🇨🇳';
+            if (toggleText) toggleText.textContent = 'Tiếng Trung';
+        }
     }
 
     /**
@@ -207,6 +232,12 @@ class InventoryTrackingApp {
                     exportToExcel();
                 }
             });
+        }
+
+        // Language toggle button
+        const langToggleButton = document.getElementById('langToggleButton');
+        if (langToggleButton) {
+            langToggleButton.addEventListener('click', () => this.toggleLanguage());
         }
 
         // Add shipment button
@@ -415,6 +446,36 @@ class InventoryTrackingApp {
                 refreshButton.querySelector('i')?.classList.remove('spin');
             }
         }
+    }
+
+    /**
+     * Toggle language between Vietnamese and Chinese
+     */
+    toggleLanguage() {
+        // Toggle the language mode
+        globalState.langMode = globalState.langMode === 'vi' ? 'cn' : 'vi';
+
+        // Update button display
+        const toggleIcon = document.getElementById('langToggleIcon');
+        const toggleText = document.getElementById('langToggleText');
+
+        if (globalState.langMode === 'vi') {
+            if (toggleIcon) toggleIcon.textContent = '🇻🇳';
+            if (toggleText) toggleText.textContent = 'Việt hóa';
+        } else {
+            if (toggleIcon) toggleIcon.textContent = '🇨🇳';
+            if (toggleText) toggleText.textContent = 'Tiếng Trung';
+        }
+
+        // Re-render the shipments table
+        if (typeof renderShipments === 'function') {
+            renderShipments(globalState.filteredShipments);
+        }
+
+        // Save preference to localStorage
+        localStorage.setItem('inventory_lang_mode', globalState.langMode);
+
+        console.log('[APP] Language mode changed to:', globalState.langMode);
     }
 
     /**

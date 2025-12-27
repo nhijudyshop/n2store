@@ -247,7 +247,13 @@ function renderProductRow(opts) {
     } = opts;
 
     const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
-    const productText = product ? (product.rawText || `MA ${product.maSP} ${product.soMau} MAU ${product.soLuong}X${product.giaDonVi}`) : '-';
+    // Use Vietnamese or Chinese based on langMode setting
+    const isVietnamese = globalState.langMode === 'vi';
+    const productText = product
+        ? (isVietnamese
+            ? (product.rawText_vi || product.rawText || `MA ${product.maSP} ${product.tenSP_vi || product.tenSP || ''} MAU ${product.soMau_vi || product.soMau || ''} SL ${product.soLuong}`)
+            : (product.rawText || `MA ${product.maSP} ${product.tenSP || ''} MAU ${product.soMau || ''} SL ${product.soLuong}`))
+        : '-';
     // For rowspanned cells (rendered on first row), always apply invoice-border since their
     // bottom border appears at the end of their rowspan (which is the last row of invoice)
     // For non-rowspanned cells (STT, Products), only apply on last row

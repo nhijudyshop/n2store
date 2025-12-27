@@ -86,6 +86,7 @@ let globalState = {
         product: '',
     },
     userPermissions: null,
+    langMode: 'vi',  // 'vi' = Vietnamese (default), 'cn' = Chinese original
 };
 
 // Initialize Firebase
