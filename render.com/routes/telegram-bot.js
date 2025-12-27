@@ -166,6 +166,90 @@ async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
     return shipmentId;
 }
 
+/**
+ * Add image to invoice by NCC code
+ * Finds the most recent shipment with matching NCC and adds image to anhHoaDon
+ */
+async function addImageToInvoiceByNCC(nccCode, imageUrl, chatId) {
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+        throw new Error('Firebase không khả dụng');
+    }
+
+    // Query for shipments from this chat with matching NCC
+    // Get most recent first
+    const snapshot = await firestore
+        .collection('inventory_tracking')
+        .where('telegramChatId', '==', chatId)
+        .orderBy('createdAt', 'desc')
+        .limit(20)  // Check last 20 shipments
+        .get();
+
+    if (snapshot.empty) {
+        throw new Error(`Không tìm thấy hóa đơn nào từ chat này`);
+    }
+
+    // Find shipment with matching NCC in hoaDon array
+    let targetShipment = null;
+    let targetInvoiceIndex = -1;
+
+    for (const doc of snapshot.docs) {
+        const data = doc.data();
+        const hoaDonList = data.hoaDon || [];
+
+        const invoiceIndex = hoaDonList.findIndex(hd =>
+            String(hd.sttNCC) === String(nccCode)
+        );
+
+        if (invoiceIndex !== -1) {
+            targetShipment = { id: doc.id, ...data };
+            targetInvoiceIndex = invoiceIndex;
+            break;
+        }
+    }
+
+    if (!targetShipment) {
+        throw new Error(`Không tìm thấy hóa đơn với NCC = ${nccCode}`);
+    }
+
+    // Add image to the invoice's anhHoaDon array
+    const hoaDon = targetShipment.hoaDon;
+    if (!hoaDon[targetInvoiceIndex].anhHoaDon) {
+        hoaDon[targetInvoiceIndex].anhHoaDon = [];
+    }
+    hoaDon[targetInvoiceIndex].anhHoaDon.push(imageUrl);
+
+    // Update the document
+    await firestore.collection('inventory_tracking').doc(targetShipment.id).update({
+        hoaDon: hoaDon,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log(`[FIREBASE] Added image to NCC ${nccCode} in shipment ${targetShipment.id}`);
+    return {
+        shipmentId: targetShipment.id,
+        nccCode: nccCode,
+        imageCount: hoaDon[targetInvoiceIndex].anhHoaDon.length
+    };
+}
+
+/**
+ * Get permanent Telegram file URL
+ * Note: Telegram file URLs expire after ~1 hour, so we store file_id for later retrieval
+ */
+async function getTelegramFileUrl(fileId) {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!data.ok) {
+        throw new Error('Không thể lấy file từ Telegram');
+    }
+
+    // Return the full file URL
+    return `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${data.result.file_path}`;
+}
+
 // Bot username (will be fetched on first request)
 let BOT_USERNAME = null;
 
@@ -870,9 +954,51 @@ router.post('/webhook', async (req, res) => {
             const historyKey = isGroup ? `group_${chatId}` : `user_${userId}`;
 
             // ==========================================
-            // HANDLE PHOTO MESSAGES (Invoice Processing)
+            // HANDLE PHOTO MESSAGES
             // ==========================================
             if (message.photo) {
+                const caption = message.caption || '';
+                const nccMatch = caption.match(/^\/(\d+)$/);
+
+                // ==========================================
+                // CASE 1: Photo with /NCC command - Add image to existing invoice
+                // Example: /15 with photo attached
+                // ==========================================
+                if (nccMatch) {
+                    const nccCode = nccMatch[1];
+                    console.log(`[TELEGRAM] Photo with NCC command: /${nccCode}`);
+
+                    await sendChatAction(chatId, 'typing');
+
+                    try {
+                        // Get the largest photo
+                        const photo = message.photo[message.photo.length - 1];
+                        const imageUrl = await getTelegramFileUrl(photo.file_id);
+
+                        // Add image to the invoice with matching NCC
+                        const result = await addImageToInvoiceByNCC(nccCode, imageUrl, chatId);
+
+                        await sendTelegramMessage(chatId,
+                            `✅ Đã thêm ảnh vào hóa đơn NCC ${nccCode}\n\n` +
+                            `📦 Shipment: ${result.shipmentId}\n` +
+                            `🖼️ Tổng ảnh: ${result.imageCount}\n\n` +
+                            `Xem tại: https://nhijudyshop.github.io/n2store/inventory-tracking/`,
+                            messageId
+                        );
+                    } catch (error) {
+                        console.error('[TELEGRAM] Add image error:', error.message);
+                        await sendTelegramMessage(chatId,
+                            `❌ Lỗi thêm ảnh:\n${error.message}\n\n` +
+                            `💡 Đảm bảo đã có hóa đơn với NCC = ${nccCode} trong hệ thống.`,
+                            messageId
+                        );
+                    }
+                    return;
+                }
+
+                // ==========================================
+                // CASE 2: Photo without command - Process as invoice
+                // ==========================================
                 console.log('[TELEGRAM] Photo received - processing invoice');
 
                 await sendChatAction(chatId, 'typing');
@@ -965,6 +1091,10 @@ router.post('/webhook', async (req, res) => {
                     `- Gửi ảnh hóa đơn viết tay\n` +
                     `- Bot sẽ phân tích và trích xuất dữ liệu\n` +
                     `- Xác nhận để lưu vào hệ thống\n\n` +
+                    `🖼️ THÊM ẢNH VÀO HÓA ĐƠN:\n` +
+                    `- Gửi ảnh với caption /NCC\n` +
+                    `- VD: Gửi ảnh + caption "/15"\n` +
+                    `- Ảnh sẽ được thêm vào hóa đơn NCC 15\n\n` +
                     `💬 TRÒ CHUYỆN AI:\n` +
                     `- Gửi tin nhắn bất kỳ\n` +
                     `- Bot sẽ trả lời bằng Gemini AI\n\n` +
