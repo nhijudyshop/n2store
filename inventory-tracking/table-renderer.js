@@ -135,8 +135,60 @@ function renderInvoicesSection(shipment) {
     const totalShortage = invoices.reduce((sum, hd) => sum + (hd.soMonThieu || 0), 0);
     const totalCost = costs.reduce((sum, c) => sum + (c.soTien || 0), 0);
 
-    // Build cost cells - distribute across invoice rows
-    const costCells = canViewCost ? buildCostCells(costs, invoices.length) : [];
+    // Build invoice rows with product lines
+    let allRows = [];
+    invoices.forEach((hd, invoiceIdx) => {
+        const products = hd.sanPham || [];
+        const imageCount = hd.anhHoaDon?.length || 0;
+        const invoiceClass = invoiceIdx % 2 === 0 ? 'invoice-even' : 'invoice-odd';
+
+        // Get cost for this invoice row (only first product row shows cost)
+        const costItem = canViewCost && invoiceIdx < costs.length ? costs[invoiceIdx] : null;
+
+        if (products.length === 0) {
+            // No products - single row
+            allRows.push(renderProductRow({
+                invoiceIdx,
+                invoiceClass,
+                sttNCC: hd.sttNCC,
+                productIdx: 0,
+                product: null,
+                isFirstRow: true,
+                isLastRow: true,
+                rowSpan: 1,
+                tongTienHD: hd.tongTienHD,
+                tongMon: hd.tongMon,
+                soMonThieu: hd.soMonThieu,
+                imageCount,
+                shipmentId: shipment.id,
+                invoiceId: hd.id,
+                costItem,
+                canViewCost
+            }));
+        } else {
+            // Multiple products
+            products.forEach((product, productIdx) => {
+                allRows.push(renderProductRow({
+                    invoiceIdx,
+                    invoiceClass,
+                    sttNCC: hd.sttNCC,
+                    productIdx,
+                    product,
+                    isFirstRow: productIdx === 0,
+                    isLastRow: productIdx === products.length - 1,
+                    rowSpan: products.length,
+                    tongTienHD: hd.tongTienHD,
+                    tongMon: hd.tongMon,
+                    soMonThieu: hd.soMonThieu,
+                    imageCount,
+                    shipmentId: shipment.id,
+                    invoiceId: hd.id,
+                    costItem: productIdx === 0 ? costItem : null, // Only first row shows cost
+                    canViewCost
+                }));
+            });
+        }
+    });
 
     return `
         <div class="shipment-section shipment-table-section">
@@ -145,26 +197,28 @@ function renderInvoicesSection(shipment) {
                     <thead>
                         <tr>
                             <th class="col-ncc">NCC</th>
+                            <th class="col-stt">STT</th>
                             <th class="col-products">Chi Tiết Sản Phẩm</th>
                             <th class="col-amount text-right">Tiền HĐ</th>
                             <th class="col-total text-center">Tổng Món</th>
                             <th class="col-shortage text-center">Thiếu</th>
-                            ${canViewCost ? '<th class="col-cost text-right">Chi Phí Hàng Về</th>' : ''}
-                            <th class="col-note">Ghi Chú</th>
                             <th class="col-image text-center">Ảnh</th>
+                            ${canViewCost ? '<th class="col-cost text-right">Chi Phí</th>' : ''}
+                            ${canViewCost ? '<th class="col-cost-note">Ghi Chú CP</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
-                        ${invoices.map((hd, idx) => renderInvoiceRowNew(hd, shipment.id, idx, costCells[idx], canViewCost)).join('')}
+                        ${allRows.join('')}
                     </tbody>
                     <tfoot>
                         <tr class="total-row">
-                            <td colspan="2" class="text-right"><strong>TỔNG:</strong></td>
-                            <td class="text-right"><strong>${formatNumber(totalAmount)}</strong></td>
-                            <td class="text-center"><strong>${formatNumber(totalItems)}</strong></td>
+                            <td colspan="3" class="text-right"><strong>TỔNG:</strong></td>
+                            <td class="text-right"><strong class="total-amount">${formatNumber(totalAmount)}</strong></td>
+                            <td class="text-center"><strong class="total-items">${formatNumber(totalItems)}</strong></td>
                             <td class="text-center"><strong>${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</strong></td>
-                            ${canViewCost ? `<td class="text-right cost-total-cell"><strong>${formatNumber(totalCost)}</strong></td>` : ''}
-                            <td colspan="2"></td>
+                            <td></td>
+                            ${canViewCost ? `<td class="text-right cost-total-cell"><strong class="total-cost">${formatNumber(totalCost)}</strong></td>` : ''}
+                            ${canViewCost ? '<td class="cost-note-cell"></td>' : ''}
                         </tr>
                     </tfoot>
                 </table>
@@ -174,68 +228,53 @@ function renderInvoicesSection(shipment) {
 }
 
 /**
- * Build cost cells to distribute across invoice rows
+ * Render a single product row
  */
-function buildCostCells(costs, rowCount) {
-    const cells = [];
-    for (let i = 0; i < rowCount; i++) {
-        if (i < costs.length) {
-            cells.push({
-                loai: costs[i].loai,
-                soTien: costs[i].soTien
-            });
-        } else {
-            cells.push(null);
-        }
-    }
-    return cells;
-}
+function renderProductRow(opts) {
+    const {
+        invoiceIdx, invoiceClass, sttNCC, productIdx, product,
+        isFirstRow, isLastRow, rowSpan,
+        tongTienHD, tongMon, soMonThieu, imageCount,
+        shipmentId, invoiceId, costItem, canViewCost
+    } = opts;
 
-/**
- * Render single invoice row (new format)
- */
-function renderInvoiceRowNew(invoice, shipmentId, rowIndex, costCell, canViewCost) {
-    const products = invoice.sanPham || [];
-    const imageCount = invoice.anhHoaDon?.length || 0;
-    const rowClass = rowIndex % 2 === 0 ? 'row-even' : 'row-odd';
-
-    // Render all products
-    const productListHtml = products.map(p =>
-        `<div class="product-line">${p.rawText || `MA ${p.maSP} ${p.soMau} MAU ${p.soLuong}X${p.giaDonVi}`}</div>`
-    ).join('');
+    const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
+    const productText = product ? (product.rawText || `MA ${product.maSP} ${product.soMau} MAU ${product.soLuong}X${product.giaDonVi}`) : '-';
 
     return `
         <tr class="${rowClass}">
-            <td class="col-ncc"><strong>${invoice.sttNCC}</strong></td>
+            ${isFirstRow ? `<td class="col-ncc" rowspan="${rowSpan}"><strong>${sttNCC}</strong></td>` : ''}
+            <td class="col-stt">${product ? productIdx + 1 : '-'}</td>
             <td class="col-products">
-                <div class="product-list-full">
-                    ${productListHtml || '<span class="text-muted">-</span>'}
-                </div>
+                <span class="product-text">${productText}</span>
             </td>
-            <td class="col-amount text-right">${formatNumber(invoice.tongTienHD)}</td>
-            <td class="col-total text-center">${formatNumber(invoice.tongMon)}</td>
-            <td class="col-shortage text-center">${invoice.soMonThieu > 0 ? formatNumber(invoice.soMonThieu) : '-'}</td>
-            ${canViewCost ? `
-                <td class="col-cost text-right cost-cell">
-                    ${costCell ? `
-                        <div class="cost-item-inline">
-                            <span class="cost-label">${costCell.loai}</span>
-                            <span class="cost-value">${formatNumber(costCell.soTien)}</span>
-                        </div>
-                    ` : ''}
+            ${isFirstRow ? `
+                <td class="col-amount text-right" rowspan="${rowSpan}">
+                    <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
+                </td>
+                <td class="col-total text-center" rowspan="${rowSpan}">
+                    <strong class="total-value">${formatNumber(tongMon)}</strong>
+                </td>
+                <td class="col-shortage text-center" rowspan="${rowSpan}">
+                    <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
+                </td>
+                <td class="col-image text-center" rowspan="${rowSpan}">
+                    ${imageCount > 0 ? `
+                        <span class="image-count" onclick="viewInvoiceImages('${shipmentId}', '${invoiceId}')">
+                            <i data-lucide="image"></i>
+                            ${imageCount}
+                        </span>
+                    ` : '-'}
                 </td>
             ` : ''}
-            <td class="col-note">
-                <span class="note-text">${invoice.ghiChuThieu || ''}</span>
-            </td>
-            <td class="col-image text-center">
-                ${imageCount > 0 ? `
-                    <span class="image-count" onclick="viewInvoiceImages('${shipmentId}', '${invoice.id}')">
-                        <i data-lucide="image"></i>
-                        ${imageCount}
-                    </span>
-                ` : '-'}
-            </td>
+            ${canViewCost ? `
+                <td class="col-cost text-right cost-cell">
+                    ${costItem ? `<strong class="cost-value">${formatNumber(costItem.soTien)}</strong>` : ''}
+                </td>
+                <td class="col-cost-note cost-note-cell">
+                    ${costItem ? `<span class="cost-label">${costItem.loai}</span>` : ''}
+                </td>
+            ` : ''}
         </tr>
     `;
 }
