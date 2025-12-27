@@ -207,7 +207,6 @@ let searchTimeout = null;
 
 // Tag Management State
 let availableTags = [];
-let selectedFilterTags = []; // Multi-tag filter: stores array of {Id, Name, Color}
 let currentEditingOrderId = null;
 
 
@@ -2330,283 +2329,36 @@ async function createNewTag() {
 }
 
 function populateTagFilter() {
-    const tagFilterOptions = document.getElementById('tagFilterOptions');
-    if (!tagFilterOptions) {
-        console.log('[TAG-FILTER] tagFilterOptions element not found');
+    const tagFilterSelect = document.getElementById('tagFilter');
+    if (!tagFilterSelect) {
+        console.log('[TAG-FILTER] tagFilter select element not found');
         return;
     }
 
-    // Clear existing options
-    tagFilterOptions.innerHTML = '';
+    // Save current selection
+    const currentValue = tagFilterSelect.value;
 
-    // Add "Tất cả" option
-    const allOption = document.createElement('div');
-    allOption.className = 'dropdown-option selected';
-    allOption.dataset.value = 'all';
-    allOption.innerHTML = '<span>Tất cả</span>';
-    allOption.onclick = () => selectTagFilter('all', 'Tất cả');
-    tagFilterOptions.appendChild(allOption);
+    // Clear existing options except "Tất cả"
+    tagFilterSelect.innerHTML = '<option value="all">Tất cả</option>';
 
     // Add tag options
     if (availableTags && availableTags.length > 0) {
         availableTags.forEach(tag => {
-            const option = document.createElement('div');
-            option.className = 'dropdown-option';
-            option.dataset.value = tag.Id;
-
-            // Create color dot
-            const colorDot = tag.Color ? `<span style="width: 10px; height: 10px; background-color: ${tag.Color}; border-radius: 50%; display: inline-block;"></span>` : '';
-
-            option.innerHTML = `${colorDot} <span>${tag.Name || 'Unnamed Tag'}</span>`;
-            option.onclick = () => selectTagFilter(tag.Id, tag.Name);
-            tagFilterOptions.appendChild(option);
+            const option = document.createElement('option');
+            option.value = tag.Id;
+            option.textContent = tag.Name || 'Unnamed Tag';
+            tagFilterSelect.appendChild(option);
         });
         console.log(`[TAG-FILTER] Populated ${availableTags.length} tags in filter dropdown`);
     } else {
         console.log('[TAG-FILTER] No tags available to populate');
     }
-}
 
-// --- Searchable Dropdown Functions ---
-
-function toggleTagDropdown() {
-    const container = document.getElementById('tagFilterContainer');
-    const input = document.getElementById('tagFilterInput');
-    if (container) {
-        container.classList.toggle('show');
-        if (container.classList.contains('show') && input) {
-            input.focus();
-        }
+    // Restore selection if it still exists
+    if (currentValue && tagFilterSelect.querySelector(`option[value="${currentValue}"]`)) {
+        tagFilterSelect.value = currentValue;
     }
 }
-
-function showTagDropdown() {
-    const container = document.getElementById('tagFilterContainer');
-    if (container) container.classList.add('show');
-}
-
-function hideTagDropdown() {
-    const container = document.getElementById('tagFilterContainer');
-    if (container) container.classList.remove('show');
-}
-
-function filterTagDropdown() {
-    const input = document.getElementById('tagFilterInput');
-    const filter = input.value.toLowerCase();
-    const options = document.getElementById('tagFilterOptions').getElementsByClassName('dropdown-option');
-
-    for (let i = 0; i < options.length; i++) {
-        const span = options[i].getElementsByTagName("span")[0];
-        if (span) {
-            const txtValue = span.textContent || span.innerText;
-            if (txtValue.toLowerCase().indexOf(filter) > -1) {
-                options[i].style.display = "";
-            } else {
-                options[i].style.display = "none";
-            }
-        }
-    }
-}
-
-function selectTagFilter(value, name) {
-    // Update hidden input
-    const hiddenInput = document.getElementById('tagFilter');
-    if (hiddenInput) hiddenInput.value = value;
-
-    // Update selected display
-    const selectedDisplay = document.getElementById('tagFilterSelected');
-    if (selectedDisplay) {
-        selectedDisplay.innerHTML = `<span>${name || 'Tất cả'}</span> <i class="fas fa-chevron-down"></i>`;
-    }
-
-    // Update selected class in options
-    const options = document.getElementById('tagFilterOptions').getElementsByClassName('dropdown-option');
-    for (let i = 0; i < options.length; i++) {
-        if (options[i].dataset.value == value) {
-            options[i].classList.add('selected');
-        } else {
-            options[i].classList.remove('selected');
-        }
-    }
-
-    // Hide dropdown
-    hideTagDropdown();
-
-    // Trigger search
-    performTableSearch();
-}
-
-// Close dropdown when clicking outside
-window.addEventListener('click', function (e) {
-    const dropdown = document.getElementById('tagFilterDropdown');
-    if (dropdown && !dropdown.contains(e.target)) {
-        hideTagDropdown();
-    }
-});
-
-// --- Multi-tag Filter Modal Functions ---
-
-function openMultiTagModal() {
-    const modal = document.getElementById('multiTagModal');
-    if (!modal) return;
-
-    // Populate the tag list
-    populateMultiTagList();
-
-    // Show modal
-    modal.classList.add('show');
-
-    // Focus search input
-    setTimeout(() => {
-        const searchInput = document.getElementById('multiTagSearch');
-        if (searchInput) {
-            searchInput.value = '';
-            searchInput.focus();
-        }
-    }, 100);
-}
-
-function closeMultiTagModal() {
-    const modal = document.getElementById('multiTagModal');
-    if (modal) modal.classList.remove('show');
-}
-
-function populateMultiTagList() {
-    const listContainer = document.getElementById('multiTagList');
-    if (!listContainer) return;
-
-    listContainer.innerHTML = '';
-
-    if (!availableTags || availableTags.length === 0) {
-        listContainer.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 20px;">Không có tag nào</div>';
-        return;
-    }
-
-    availableTags.forEach(tag => {
-        const isSelected = selectedFilterTags.some(t => String(t.Id) === String(tag.Id));
-        const item = document.createElement('div');
-        item.className = `multi-tag-item ${isSelected ? 'selected' : ''}`;
-        item.dataset.tagId = tag.Id;
-        item.dataset.tagName = tag.Name || '';
-
-        const colorStyle = tag.Color ? `background-color: ${tag.Color}` : 'background-color: #9ca3af';
-
-        item.innerHTML = `
-            <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleMultiTagSelection('${tag.Id}')">
-            <span class="tag-color" style="${colorStyle}"></span>
-            <span class="tag-name">${tag.Name || 'Unnamed Tag'}</span>
-        `;
-
-        item.onclick = (e) => {
-            if (e.target.type !== 'checkbox') {
-                toggleMultiTagSelection(tag.Id);
-            }
-        };
-
-        listContainer.appendChild(item);
-    });
-
-    updateMultiTagSelectedCount();
-}
-
-function toggleMultiTagSelection(tagId) {
-    const index = selectedFilterTags.findIndex(t => String(t.Id) === String(tagId));
-
-    if (index > -1) {
-        // Remove from selection
-        selectedFilterTags.splice(index, 1);
-    } else {
-        // Add to selection
-        const tag = availableTags.find(t => String(t.Id) === String(tagId));
-        if (tag) {
-            selectedFilterTags.push({
-                Id: tag.Id,
-                Name: tag.Name,
-                Color: tag.Color
-            });
-        }
-    }
-
-    // Update UI
-    const item = document.querySelector(`.multi-tag-item[data-tag-id="${tagId}"]`);
-    if (item) {
-        const checkbox = item.querySelector('input[type="checkbox"]');
-        const isNowSelected = selectedFilterTags.some(t => String(t.Id) === String(tagId));
-        item.classList.toggle('selected', isNowSelected);
-        if (checkbox) checkbox.checked = isNowSelected;
-    }
-
-    updateMultiTagSelectedCount();
-}
-
-function updateMultiTagSelectedCount() {
-    const countEl = document.getElementById('multiTagSelectedCount');
-    if (!countEl) return;
-
-    const count = selectedFilterTags.length;
-    if (count === 0) {
-        countEl.textContent = '';
-    } else {
-        countEl.textContent = `Đã chọn ${count} tag (lọc AND - đơn hàng phải có TẤT CẢ tag đã chọn)`;
-    }
-}
-
-function filterMultiTagList() {
-    const searchInput = document.getElementById('multiTagSearch');
-    const filter = (searchInput?.value || '').toLowerCase();
-    const items = document.querySelectorAll('.multi-tag-item');
-
-    items.forEach(item => {
-        const tagName = (item.dataset.tagName || '').toLowerCase();
-        item.style.display = tagName.includes(filter) ? '' : 'none';
-    });
-}
-
-function clearMultiTagSelection() {
-    selectedFilterTags = [];
-    populateMultiTagList();
-    updateTagFilterButton();
-    performTableSearch();
-    closeMultiTagModal();
-}
-
-function applyMultiTagFilter() {
-    updateTagFilterButton();
-    performTableSearch();
-    closeMultiTagModal();
-
-    if (selectedFilterTags.length > 0) {
-        const tagNames = selectedFilterTags.map(t => t.Name).join(' + ');
-        if (window.notificationManager) {
-            window.notificationManager.success(`Đang lọc: ${tagNames}`);
-        }
-    }
-}
-
-function updateTagFilterButton() {
-    const btn = document.getElementById('tagFilterBtn');
-    const btnText = document.getElementById('tagFilterBtnText');
-    if (!btn || !btnText) return;
-
-    if (selectedFilterTags.length === 0) {
-        btnText.textContent = 'Tất cả';
-        btn.classList.remove('has-filter');
-    } else if (selectedFilterTags.length === 1) {
-        btnText.textContent = selectedFilterTags[0].Name;
-        btn.classList.add('has-filter');
-    } else {
-        btnText.textContent = `${selectedFilterTags.length} tags`;
-        btn.classList.add('has-filter');
-    }
-}
-
-// Close modal when clicking outside
-document.addEventListener('click', function(e) {
-    const modal = document.getElementById('multiTagModal');
-    if (modal && e.target === modal) {
-        closeMultiTagModal();
-    }
-});
 
 function openTagModal(orderId, orderCode) {
     currentEditingOrderId = orderId;
@@ -5538,29 +5290,10 @@ function performTableSearch() {
         });
     }
 
-    // Apply TAG filter (supports multi-tag AND filter)
+    // Apply TAG filter
     const tagFilter = document.getElementById('tagFilter')?.value || 'all';
 
-    // Check if multi-tag filter is active
-    if (selectedFilterTags && selectedFilterTags.length > 0) {
-        // Multi-tag AND filter: order must have ALL selected tags
-        tempData = tempData.filter(order => {
-            if (!order.Tags) return false;
-
-            try {
-                const orderTags = JSON.parse(order.Tags);
-                if (!Array.isArray(orderTags) || orderTags.length === 0) return false;
-
-                // Check if order has ALL selected filter tags (AND logic)
-                return selectedFilterTags.every(filterTag => {
-                    return orderTags.some(orderTag => String(orderTag.Id) === String(filterTag.Id));
-                });
-            } catch (e) {
-                return false;
-            }
-        });
-    } else if (tagFilter !== 'all') {
-        // Single tag filter (original behavior)
+    if (tagFilter !== 'all') {
         tempData = tempData.filter(order => {
             if (!order.Tags) return false;
 
@@ -5569,7 +5302,6 @@ function performTableSearch() {
                 if (!Array.isArray(orderTags) || orderTags.length === 0) return false;
 
                 // Check if the order has the selected tag
-                // Convert both to string to handle type mismatch (tagFilter is string, tag.Id might be number)
                 return orderTags.some(tag => String(tag.Id) === String(tagFilter));
             } catch (e) {
                 return false;
