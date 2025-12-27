@@ -258,39 +258,72 @@ function translateToVietnamese(text) {
 // INVOICE EXTRACTION PROMPT
 // =====================================================
 
-const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia phân tích hóa đơn. Hãy phân tích ảnh hóa đơn này và trích xuất thông tin theo format JSON.
+const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia phân tích hóa đơn nhập hàng từ Trung Quốc. Hãy phân tích ảnh hóa đơn và trích xuất thông tin CHÍNH XÁC theo format JSON.
 
-QUAN TRỌNG:
-- Tìm SỐ KHOANH TRÒN trên hóa đơn (thường viết tay, được khoanh tròn bằng bút) - đây là MÃ NCC (nhà cung cấp)
-- Đọc kỹ từng dòng sản phẩm
-- SKU thường là mã số ở đầu dòng (VD: 7977, 7975, 7862)
-- Số lượng thường ở cột "数量" hoặc cuối dòng
-- Nếu không đọc được rõ, ghi "unclear"
+=== CẤU TRÚC BẢNG INVENTORY TRACKING ===
+Dữ liệu sẽ hiển thị trên bảng với các cột:
+| NCC | STT | CHI TIẾT SẢN PHẨM | TIỀN HĐ | TỔNG MÓN | THIẾU | ẢNH | GHI CHÚ |
 
-Trả về CHÍNH XÁC theo format JSON sau (không có markdown, không có \`\`\`):
+=== HƯỚNG DẪN ĐỌC HÓA ĐƠN ===
+
+1. MÃ NCC (ncc) - RẤT QUAN TRỌNG:
+   - Tìm SỐ ĐƯỢC KHOANH TRÒN bằng bút trên hóa đơn
+   - Thường viết tay, nằm ở góc hoặc đầu hóa đơn
+   - Đây là mã nhà cung cấp (VD: "15", "23", "8")
+
+2. TÊN NHÀ CUNG CẤP (supplier):
+   - Tên cửa hàng/shop in trên hóa đơn
+   - Thường ở header hóa đơn (VD: "广州XXX服装店")
+
+3. NGÀY (date):
+   - Ngày trên hóa đơn, format DD/MM/YYYY
+   - Nếu không có, để trống ""
+
+4. DANH SÁCH SẢN PHẨM (products) - ĐỌC KỸ TỪNG DÒNG:
+   - sku: Mã sản phẩm (số ở đầu dòng, VD: "7977", "7975", "7862")
+   - name: Tên sản phẩm tiếng Trung (VD: "苏条纹斜角上衣", "交叉领上衣")
+   - color: Màu sắc (VD: "黑条", "咖条", "灰色", "12X黑" - giữ nguyên tiếng Trung)
+   - quantity: Số lượng (cột 数量, ĐẾM CHÍNH XÁC từng dòng)
+   - price: Đơn giá mỗi sản phẩm (cột 单价 hoặc 金额/数量)
+
+5. TỔNG TIỀN HÓA ĐƠN (totalAmount):
+   - Tìm dòng "合计", "总计", "Total" ở cuối hóa đơn
+   - Đây là TIỀN HĐ hiển thị trên bảng
+   - Nếu không có, tính = SUM(quantity * price)
+
+6. TỔNG SỐ MÓN (totalItems):
+   - Tổng số lượng tất cả sản phẩm = SUM(quantity của từng dòng)
+   - VD: 12+8+12+8+10+6+4+5+5 = 70 món
+
+=== FORMAT JSON OUTPUT ===
+Trả về CHÍNH XÁC (không markdown, không \`\`\`):
 {
   "success": true,
   "ncc": "15",
-  "supplier": "Tên nhà cung cấp (nếu có)",
-  "date": "DD/MM/YYYY (nếu có)",
+  "supplier": "Tên shop tiếng Trung",
+  "date": "26/12/2025",
   "products": [
-    {"sku": "7977", "name": "Tên sản phẩm", "color": "黑条", "quantity": 12},
-    {"sku": "7977", "name": "Tên sản phẩm", "color": "咖条", "quantity": 8}
+    {"sku": "7977", "name": "苏条纹斜角上衣", "color": "黑条", "quantity": 12, "price": 45},
+    {"sku": "7977", "name": "苏条纹斜角上衣", "color": "咖条", "quantity": 8, "price": 45},
+    {"sku": "7975", "name": "交叉领上衣", "color": "黑", "quantity": 12, "price": 42}
   ],
   "totalItems": 70,
   "totalAmount": 2250.00,
-  "notes": "Ghi chú thêm nếu có"
+  "notes": "Ghi chú nếu có"
 }
 
-LƯU Ý:
-- "ncc": Số được KHOANH TRÒN bằng bút trên hóa đơn (rất quan trọng!)
-- "supplier": Tên cửa hàng/nhà cung cấp in trên hóa đơn
-- "color": Màu sắc sản phẩm nếu có (VD: 黑条, 咖条, 黑色, 灰色...)
+=== LƯU Ý QUAN TRỌNG ===
+- KHÔNG bỏ sót dòng sản phẩm nào
+- Mỗi màu khác nhau là 1 dòng riêng (cùng SKU, khác màu = 2 dòng)
+- quantity phải là SỐ NGUYÊN (không phải chuỗi)
+- price là đơn giá 1 sản phẩm (số thập phân OK)
+- totalAmount và totalItems phải KHỚP với tổng thực tế
+- Nếu không đọc rõ giá trị nào, ghi "unclear" cho trường đó
 
-Nếu ảnh không phải hóa đơn hoặc không đọc được:
+=== NẾU KHÔNG XỬ LÝ ĐƯỢC ===
 {
   "success": false,
-  "error": "Lý do không xử lý được"
+  "error": "Lý do cụ thể (ảnh mờ, không phải hóa đơn, etc.)"
 }`;
 
 // =====================================================
