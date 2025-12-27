@@ -181,6 +181,108 @@
             color: #374151;
         }
 
+        /* Multi-tag filter styles */
+        .tag-add-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .tag-add-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
+        }
+
+        .tag-add-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .multi-tag-filter-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 1px solid #86efac;
+            border-radius: 8px;
+            padding: 6px 10px;
+            flex-wrap: wrap;
+        }
+
+        .multi-tag-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #166534;
+            white-space: nowrap;
+        }
+
+        .selected-tags-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .selected-tag-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: white;
+            border: 1px solid #86efac;
+            border-radius: 12px;
+            padding: 2px 8px 2px 6px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #166534;
+        }
+
+        .selected-tag-chip .tag-color-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .selected-tag-chip .remove-tag {
+            cursor: pointer;
+            color: #dc2626;
+            font-size: 10px;
+            margin-left: 2px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .selected-tag-chip .remove-tag:hover {
+            opacity: 1;
+        }
+
+        .clear-all-tags-btn {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .clear-all-tags-btn:hover {
+            background: #fecaca;
+        }
+
         /* Status Grid Styles */
         .status-grid {
             display: grid;
@@ -476,7 +578,7 @@
                     </button>
                 </div>
 
-                <!-- TAG Filter -->
+                <!-- TAG Filter with Multi-select -->
                 <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
                     <label style="font-size: 12px; font-weight: 500; color: #6b7280;">TAG:</label>
                     <div class="custom-dropdown" id="tagFilterDropdown" style="min-width: 150px;">
@@ -493,6 +595,17 @@
                         </div>
                         <input type="hidden" id="tagFilter" value="all">
                     </div>
+                    <button class="tag-add-btn" onclick="addSelectedTagToFilter()" title="Thêm tag để lọc AND">
+                        <i class="fas fa-plus"></i> TAG+
+                    </button>
+                </div>
+                <!-- Multi-tag filter display -->
+                <div id="multiTagFilterContainer" class="multi-tag-filter-container" style="display: none;">
+                    <span class="multi-tag-label">Lọc AND:</span>
+                    <div id="selectedTagsDisplay" class="selected-tags-display"></div>
+                    <button class="clear-all-tags-btn" onclick="clearAllTagFilters()" title="Xóa tất cả tag">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
 
                 <!-- Messages Filter -->
