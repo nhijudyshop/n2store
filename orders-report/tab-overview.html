@@ -1637,9 +1637,9 @@
                     style="margin-top: 20px;">
                     <i class="fas fa-download"></i> Lấy chi tiết đơn hàng
                 </button>
-                <button class="btn-action orange" onclick="refreshTagsOnly()" id="btnRefreshTags"
-                    style="margin-top: 20px;" disabled title="Cập nhật lại tags từ Tab Quản lý đơn hàng">
-                    <i class="fas fa-tags"></i> Lấy chi tiết tag
+                <button class="btn-action orange" onclick="syncAllDataFromTab1()" id="btnRefreshTags"
+                    style="margin-top: 20px;" disabled title="Đồng bộ toàn bộ dữ liệu mới nhất từ Tab Quản lý đơn hàng">
+                    <i class="fas fa-sync"></i> Đồng bộ Tab1
                 </button>
                 <button class="btn-action blue" onclick="openSaveReportModal()" id="btnSaveReport"
                     style="margin-top: 20px;" disabled title="Lưu bản sao báo cáo">
@@ -5563,35 +5563,39 @@
         // REFRESH TAGS ONLY
         // =====================================================
 
-        let isRefreshingTags = false;
+        let isSyncingData = false;
 
-        // Refresh tags only without re-fetching order details
-        async function refreshTagsOnly() {
-            if (isRefreshingTags) {
-                alert('Đang trong quá trình cập nhật tags, vui lòng đợi...');
+        /**
+         * Sync ALL order data from Tab1 (allData) to Firebase cache
+         * This updates everything: Tags, Status, Notes, TotalAmount, etc.
+         * Only preserves: Details (product info fetched from API)
+         */
+        async function syncAllDataFromTab1() {
+            if (isSyncingData) {
+                alert('Đang trong quá trình đồng bộ, vui lòng đợi...');
                 return;
             }
 
             const currentData = cachedOrderDetails[currentTableName];
             if (!currentData || !currentData.orders || currentData.orders.length === 0) {
-                alert('Chưa có dữ liệu chi tiết để cập nhật tags. Vui lòng "Lấy chi tiết đơn hàng" trước.');
+                alert('Chưa có dữ liệu chi tiết để đồng bộ. Vui lòng "Lấy chi tiết đơn hàng" trước.');
                 return;
             }
 
-            // Confirm before refreshing
-            const confirmMsg = `Sẽ cập nhật tags cho ${currentData.orders.length} đơn hàng từ Tab Quản lý đơn hàng.\n\nLưu ý: Tags mới sẽ được lấy từ dữ liệu hiện tại của Tab Quản lý đơn hàng.\n\nBạn có muốn tiếp tục?`;
+            // Confirm before syncing
+            const confirmMsg = `Sẽ đồng bộ TOÀN BỘ dữ liệu cho ${currentData.orders.length} đơn hàng từ Tab Quản lý đơn hàng.\n\nCập nhật: Tags, Trạng thái, Ghi chú, Tổng tiền, SĐT, Địa chỉ...\nGiữ nguyên: Chi tiết sản phẩm (Details)\n\nBạn có muốn tiếp tục?`;
             if (!confirm(confirmMsg)) {
                 return;
             }
 
-            isRefreshingTags = true;
+            isSyncingData = true;
             const btn = document.getElementById('btnRefreshTags');
 
             try {
                 btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang cập nhật...';
+                btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang đồng bộ...';
 
-                console.log('[REPORT] 🏷️ Starting tags refresh...');
+                console.log('[REPORT] 🔄 Starting full data sync from Tab1...');
 
                 // Request fresh data from Tab1
                 await requestFreshDataFromTab1();
@@ -5599,64 +5603,102 @@
                 // Wait a bit for data to arrive
                 await new Promise(resolve => setTimeout(resolve, 1500));
 
-                // Now allOrders should have fresh tags from Tab1
+                // Now allOrders should have fresh data from Tab1
                 if (allOrders.length === 0) {
                     throw new Error('Không nhận được dữ liệu từ Tab Quản lý đơn hàng. Vui lòng đảm bảo tab này đang mở.');
                 }
 
-                // Build a map of orderId -> Tags from allOrders
-                const tagsMap = new Map();
+                // Build a map of orderId -> full order data from allOrders
+                const ordersMap = new Map();
                 allOrders.forEach(order => {
                     const orderId = order.orderId || order.Id;
-                    if (orderId && order.Tags) {
-                        tagsMap.set(orderId, order.Tags);
+                    if (orderId) {
+                        ordersMap.set(orderId, order);
                     }
                 });
 
-                console.log(`[REPORT] 🏷️ Built tags map with ${tagsMap.size} entries`);
+                console.log(`[REPORT] 🔄 Built orders map with ${ordersMap.size} entries from Tab1`);
 
-                // Update tags in cachedOrderDetails
+                // Update orders in cachedOrderDetails - merge new data but keep Details
                 let updatedCount = 0;
-                currentData.orders.forEach(order => {
-                    const orderId = order.Id || order.orderId;
-                    if (tagsMap.has(orderId)) {
-                        order.Tags = tagsMap.get(orderId);
+                let newOrdersCount = 0;
+                const updatedOrders = [];
+
+                // First, update existing orders
+                currentData.orders.forEach(cachedOrder => {
+                    const orderId = cachedOrder.Id || cachedOrder.orderId;
+
+                    if (ordersMap.has(orderId)) {
+                        const freshOrder = ordersMap.get(orderId);
+
+                        // Merge: take all data from Tab1, but KEEP Details from cache
+                        const mergedOrder = {
+                            ...freshOrder,  // All fresh data from Tab1
+                            Details: cachedOrder.Details || freshOrder.Details,  // Keep cached Details if exists
+                            _syncedAt: new Date().toISOString()
+                        };
+
+                        updatedOrders.push(mergedOrder);
                         updatedCount++;
+
+                        // Remove from map (to track new orders later)
+                        ordersMap.delete(orderId);
+                    } else {
+                        // Order exists in cache but not in Tab1 - keep it
+                        updatedOrders.push(cachedOrder);
                     }
                 });
 
-                console.log(`[REPORT] 🏷️ Updated tags for ${updatedCount}/${currentData.orders.length} orders`);
+                // Add new orders from Tab1 that don't exist in cache
+                ordersMap.forEach((newOrder, orderId) => {
+                    updatedOrders.push({
+                        ...newOrder,
+                        _syncedAt: new Date().toISOString(),
+                        _isNew: true
+                    });
+                    newOrdersCount++;
+                });
+
+                console.log(`[REPORT] 🔄 Synced ${updatedCount} existing orders, added ${newOrdersCount} new orders`);
+                console.log(`[REPORT] 🔄 Total orders after sync: ${updatedOrders.length}`);
+
+                // Update cache
+                currentData.orders = updatedOrders;
+                currentData.totalOrders = updatedOrders.length;
 
                 // Save updated data to Firebase
-                const saveData = {
-                    ...currentData,
-                    fetchedAt: currentData.fetchedAt, // Keep original fetch time
-                    tagsUpdatedAt: new Date().toISOString(), // Add tags update time
-                    updatedAt: firebase.database.ServerValue.TIMESTAMP
-                };
-
                 const safeTableName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
                 await database.ref(`${FIREBASE_PATH}/${safeTableName}`).update({
-                    orders: sanitizeForFirebase(currentData.orders),
-                    tagsUpdatedAt: new Date().toISOString(),
+                    orders: sanitizeForFirebase(updatedOrders),
+                    totalOrders: updatedOrders.length,
+                    lastSyncedAt: new Date().toISOString(),
                     updatedAt: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                console.log('[REPORT] ✅ Tags updated and saved to Firebase');
+                console.log('[REPORT] ✅ All data synced and saved to Firebase');
 
-                // Refresh statistics
+                // Refresh statistics and UI
                 renderStatistics();
                 renderCachedDetailsTab();
+                updateCachedCountBadge();
 
-                alert(`Đã cập nhật tags cho ${updatedCount} đơn hàng thành công!`);
+                // Show success message
+                let message = `Đã đồng bộ thành công!\n\n`;
+                message += `✅ Cập nhật: ${updatedCount} đơn hàng\n`;
+                if (newOrdersCount > 0) {
+                    message += `➕ Thêm mới: ${newOrdersCount} đơn hàng\n`;
+                }
+                message += `📊 Tổng: ${updatedOrders.length} đơn hàng`;
+
+                alert(message);
 
             } catch (error) {
-                console.error('[REPORT] ❌ Error refreshing tags:', error);
-                alert('Lỗi khi cập nhật tags: ' + error.message);
+                console.error('[REPORT] ❌ Error syncing data:', error);
+                alert('Lỗi khi đồng bộ dữ liệu: ' + error.message);
             } finally {
-                isRefreshingTags = false;
+                isSyncingData = false;
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-tags"></i> Lấy chi tiết tag';
+                btn.innerHTML = '<i class="fas fa-sync"></i> Đồng bộ Tab1';
                 updateSaveReportButton();
             }
         }
