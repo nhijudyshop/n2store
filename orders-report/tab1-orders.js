@@ -2329,35 +2329,11 @@ async function createNewTag() {
 }
 
 function populateTagFilter() {
-    const tagFilterSelect = document.getElementById('tagFilter');
-    if (!tagFilterSelect) {
-        console.log('[TAG-FILTER] tagFilter select element not found');
-        return;
+    // Call the inline script function if available
+    if (typeof populateTagFilterOptions === 'function') {
+        populateTagFilterOptions();
     }
-
-    // Save current selection
-    const currentValue = tagFilterSelect.value;
-
-    // Clear existing options except "Tất cả"
-    tagFilterSelect.innerHTML = '<option value="all">Tất cả</option>';
-
-    // Add tag options
-    if (availableTags && availableTags.length > 0) {
-        availableTags.forEach(tag => {
-            const option = document.createElement('option');
-            option.value = tag.Id;
-            option.textContent = tag.Name || 'Unnamed Tag';
-            tagFilterSelect.appendChild(option);
-        });
-        console.log(`[TAG-FILTER] Populated ${availableTags.length} tags in filter dropdown`);
-    } else {
-        console.log('[TAG-FILTER] No tags available to populate');
-    }
-
-    // Restore selection if it still exists
-    if (currentValue && tagFilterSelect.querySelector(`option[value="${currentValue}"]`)) {
-        tagFilterSelect.value = currentValue;
-    }
+    console.log('[TAG-FILTER] populateTagFilter called');
 }
 
 function openTagModal(orderId, orderCode) {

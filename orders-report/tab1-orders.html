@@ -181,6 +181,126 @@
             color: #374151;
         }
 
+        /* Custom Tag Filter Dropdown */
+        .tag-filter-dropdown {
+            position: relative;
+            min-width: 140px;
+        }
+
+        .tag-filter-selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+            transition: all 0.2s;
+        }
+
+        .tag-filter-selected:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .tag-filter-selected i {
+            font-size: 10px;
+            opacity: 0.8;
+            transition: transform 0.2s;
+        }
+
+        .tag-filter-dropdown.open .tag-filter-selected i {
+            transform: rotate(180deg);
+        }
+
+        .tag-filter-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            min-width: 220px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        .tag-filter-dropdown.open .tag-filter-menu {
+            display: block;
+        }
+
+        .tag-filter-search {
+            padding: 8px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tag-filter-search i {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        .tag-filter-search input {
+            border: none;
+            outline: none;
+            font-size: 13px;
+            width: 100%;
+            color: #374151;
+        }
+
+        .tag-filter-search input::placeholder {
+            color: #9ca3af;
+        }
+
+        .tag-filter-options {
+            max-height: 320px;
+            overflow-y: auto;
+        }
+
+        .tag-filter-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #374151;
+            transition: background 0.15s;
+        }
+
+        .tag-filter-option:hover {
+            background: #f3f4f6;
+        }
+
+        .tag-filter-option.selected {
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-weight: 500;
+        }
+
+        .tag-filter-option .tag-color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .tag-filter-option .tag-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         /* Status Grid Styles */
         .status-grid {
             display: grid;
@@ -476,13 +596,25 @@
                     </button>
                 </div>
 
-                <!-- TAG Filter -->
-                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
+                <!-- TAG Filter with Search -->
+                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px; position: relative;">
                     <label style="font-size: 12px; font-weight: 500; color: #6b7280;">TAG:</label>
-                    <select id="tagFilter" onchange="performTableSearch()" class="search-filter-select">
-                        <option value="all" selected>Tất cả</option>
-                        <!-- Options populated by JS -->
-                    </select>
+                    <div class="tag-filter-dropdown" id="tagFilterDropdown">
+                        <div class="tag-filter-selected" onclick="toggleTagFilterDropdown()" id="tagFilterSelected">
+                            <span id="tagFilterText">Tất cả</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="tag-filter-menu" id="tagFilterMenu">
+                            <div class="tag-filter-search">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="tagFilterSearchInput" placeholder="Tìm tag..." oninput="filterTagOptions()">
+                            </div>
+                            <div class="tag-filter-options" id="tagFilterOptions">
+                                <!-- Options populated by JS -->
+                            </div>
+                        </div>
+                        <input type="hidden" id="tagFilter" value="all">
+                    </div>
                 </div>
 
                 <!-- Messages Filter -->
@@ -4859,8 +4991,10 @@
         }
 
         // ====== TAG FILTER ======
+        const TAG_FILTER_LIMIT = 12; // Show only 12 tags initially
+
         /**
-         * Load available tags from API and populate select
+         * Load available tags from API
          */
         async function loadAvailableTags() {
             try {
@@ -4886,9 +5020,7 @@
                 if (data.value && Array.isArray(data.value)) {
                     window.availableTags = data.value;
                     console.log(`[TAG-FILTER] Loaded ${data.value.length} tags from API`);
-
-                    // Populate tag filter select
-                    populateTagFilterSelect();
+                    populateTagFilterOptions();
                 } else {
                     throw new Error('Invalid response format');
                 }
@@ -4899,33 +5031,136 @@
         }
 
         /**
-         * Populate tag filter select dropdown
+         * Toggle tag filter dropdown
          */
-        function populateTagFilterSelect() {
-            const selectEl = document.getElementById('tagFilter');
-            if (!selectEl) return;
+        function toggleTagFilterDropdown() {
+            const dropdown = document.getElementById('tagFilterDropdown');
+            if (!dropdown) return;
+
+            const isOpen = dropdown.classList.contains('open');
+
+            // Close all other dropdowns
+            document.querySelectorAll('.tag-filter-dropdown.open').forEach(d => d.classList.remove('open'));
+
+            if (!isOpen) {
+                dropdown.classList.add('open');
+                // Load tags if not loaded
+                if (!window.availableTags || window.availableTags.length === 0) {
+                    loadAvailableTags();
+                } else {
+                    populateTagFilterOptions();
+                }
+                // Focus search input
+                setTimeout(() => {
+                    const searchInput = document.getElementById('tagFilterSearchInput');
+                    if (searchInput) searchInput.focus();
+                }, 100);
+            }
+        }
+
+        /**
+         * Close tag filter dropdown
+         */
+        function closeTagFilterDropdown() {
+            const dropdown = document.getElementById('tagFilterDropdown');
+            if (dropdown) dropdown.classList.remove('open');
+        }
+
+        /**
+         * Populate tag filter options
+         */
+        function populateTagFilterOptions(searchTerm = '') {
+            const optionsContainer = document.getElementById('tagFilterOptions');
+            if (!optionsContainer) return;
 
             const tags = window.availableTags || [];
-            const currentValue = selectEl.value;
+            const currentValue = document.getElementById('tagFilter')?.value || 'all';
+            const search = searchTerm.toLowerCase().trim();
 
-            // Clear and add default option
-            selectEl.innerHTML = '<option value="all">Tất cả</option>';
-
-            // Add tag options
-            tags.forEach(tag => {
-                const option = document.createElement('option');
-                option.value = tag.Id;
-                option.textContent = tag.Name || 'Unnamed Tag';
-                selectEl.appendChild(option);
-            });
-
-            // Restore selection if exists
-            if (currentValue && selectEl.querySelector(`option[value="${currentValue}"]`)) {
-                selectEl.value = currentValue;
+            // Filter tags by search term
+            let filteredTags = tags;
+            if (search) {
+                filteredTags = tags.filter(tag =>
+                    (tag.Name || '').toLowerCase().includes(search)
+                );
             }
 
-            console.log(`[TAG-FILTER] Populated select with ${tags.length} tags`);
+            // Limit to 12 tags if not searching
+            const displayTags = search ? filteredTags : filteredTags.slice(0, TAG_FILTER_LIMIT);
+
+            // Build options HTML
+            let html = `
+                <div class="tag-filter-option ${currentValue === 'all' ? 'selected' : ''}"
+                     onclick="selectTagFilterOption('all', 'Tất cả')">
+                    <span class="tag-name">Tất cả</span>
+                </div>
+            `;
+
+            displayTags.forEach(tag => {
+                const isSelected = String(currentValue) === String(tag.Id);
+                const colorStyle = tag.Color ? `background-color: ${tag.Color}` : 'background-color: #9ca3af';
+                html += `
+                    <div class="tag-filter-option ${isSelected ? 'selected' : ''}"
+                         onclick="selectTagFilterOption('${tag.Id}', '${(tag.Name || '').replace(/'/g, "\\'")}')">
+                        <span class="tag-color-dot" style="${colorStyle}"></span>
+                        <span class="tag-name">${tag.Name || 'Unnamed'}</span>
+                    </div>
+                `;
+            });
+
+            // Show "more" message if limited
+            if (!search && filteredTags.length > TAG_FILTER_LIMIT) {
+                html += `<div style="padding: 8px 12px; font-size: 11px; color: #9ca3af; text-align: center;">
+                    Gõ để tìm thêm ${filteredTags.length - TAG_FILTER_LIMIT} tag khác...
+                </div>`;
+            }
+
+            optionsContainer.innerHTML = html;
         }
+
+        /**
+         * Filter tag options based on search input
+         */
+        function filterTagOptions() {
+            const searchInput = document.getElementById('tagFilterSearchInput');
+            const searchTerm = searchInput ? searchInput.value : '';
+            populateTagFilterOptions(searchTerm);
+        }
+
+        /**
+         * Select a tag filter option
+         */
+        function selectTagFilterOption(tagId, tagName) {
+            // Update hidden input
+            const hiddenInput = document.getElementById('tagFilter');
+            if (hiddenInput) hiddenInput.value = tagId;
+
+            // Update display text
+            const displayText = document.getElementById('tagFilterText');
+            if (displayText) displayText.textContent = tagName;
+
+            // Close dropdown
+            closeTagFilterDropdown();
+
+            // Clear search
+            const searchInput = document.getElementById('tagFilterSearchInput');
+            if (searchInput) searchInput.value = '';
+
+            // Trigger table search
+            if (typeof performTableSearch === 'function') {
+                performTableSearch();
+            }
+
+            console.log(`[TAG-FILTER] Selected: ${tagName} (ID: ${tagId})`);
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('tagFilterDropdown');
+            if (dropdown && !dropdown.contains(event.target)) {
+                closeTagFilterDropdown();
+            }
+        });
 
         // ====== TAG SETTINGS ======
         const TAG_SETTINGS_KEY = 'tagSettingsCustomData';
