@@ -161,6 +161,7 @@ function renderInvoicesSection(shipment) {
                 tongMon: hd.tongMon,
                 soMonThieu: hd.soMonThieu,
                 imageCount,
+                ghiChu: hd.ghiChu,
                 shipmentId: shipment.id,
                 invoiceId: hd.id,
                 costItem,
@@ -184,6 +185,7 @@ function renderInvoicesSection(shipment) {
                     tongMon: hd.tongMon,
                     soMonThieu: hd.soMonThieu,
                     imageCount,
+                    ghiChu: hd.ghiChu,
                     shipmentId: shipment.id,
                     invoiceId: hd.id,
                     costItem,
@@ -207,6 +209,7 @@ function renderInvoicesSection(shipment) {
                             <th class="col-total text-center">Tổng Món</th>
                             <th class="col-shortage text-center">Thiếu</th>
                             <th class="col-image text-center">Ảnh</th>
+                            <th class="col-invoice-note">Ghi Chú</th>
                             ${canViewCost ? '<th class="col-cost text-right">Chi Phí</th>' : ''}
                             ${canViewCost ? '<th class="col-cost-note">Ghi Chú CP</th>' : ''}
                         </tr>
@@ -220,6 +223,7 @@ function renderInvoicesSection(shipment) {
                             <td class="text-right"><strong class="total-amount">${formatNumber(totalAmount)}</strong></td>
                             <td class="text-center"><strong class="total-items">${formatNumber(totalItems)}</strong></td>
                             <td class="text-center"><strong>${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</strong></td>
+                            <td></td>
                             <td></td>
                             ${canViewCost ? `<td class="text-right cost-total-cell"><strong class="total-cost">${formatNumber(totalCost)}</strong></td>` : ''}
                             ${canViewCost ? '<td class="cost-note-cell"></td>' : ''}
@@ -238,7 +242,7 @@ function renderProductRow(opts) {
     const {
         invoiceIdx, invoiceClass, sttNCC, productIdx, product,
         isFirstRow, isLastRow, rowSpan,
-        tongTienHD, tongMon, soMonThieu, imageCount,
+        tongTienHD, tongMon, soMonThieu, imageCount, ghiChu,
         shipmentId, invoiceId, costItem, canViewCost
     } = opts;
 
@@ -274,6 +278,9 @@ function renderProductRow(opts) {
                             ${imageCount}
                         </span>
                     ` : '-'}
+                </td>
+                <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
+                    ${ghiChu ? `<span class="invoice-note-text">${ghiChu}</span>` : ''}
                 </td>
             ` : ''}
             ${canViewCost ? `
