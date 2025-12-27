@@ -170,19 +170,22 @@ function renderPackagesSection(shipment) {
     const packages = shipment.kienHang || [];
     const totalKg = packages.reduce((sum, p) => sum + (p.soKg || 0), 0);
 
+    // Render badges inline with header
+    const packageBadges = packages.map(p => `
+        <span class="package-badge">
+            <i data-lucide="package"></i>
+            Kiện ${p.stt}: ${p.soKg} kg
+        </span>
+    `).join('');
+
     return `
-        <div class="shipment-section">
-            <div class="section-title">
+        <div class="shipment-section packages-inline">
+            <div class="packages-header-inline">
                 <i data-lucide="box"></i>
-                <span>KIỆN HÀNG: ${packages.length} kiện | Tổng: ${formatNumber(totalKg)} kg</span>
-            </div>
-            <div class="packages-grid">
-                ${packages.map(p => `
-                    <span class="package-badge">
-                        <i data-lucide="package"></i>
-                        Kiện ${p.stt}: ${p.soKg} kg
-                    </span>
-                `).join('')}
+                <span class="packages-summary">KIỆN HÀNG: ${packages.length} kiện | Tổng: ${formatNumber(totalKg)} kg</span>
+                <div class="packages-badges-inline">
+                    ${packageBadges}
+                </div>
             </div>
         </div>
     `;
