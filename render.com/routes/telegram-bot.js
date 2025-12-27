@@ -69,13 +69,34 @@ function generateShipmentId() {
  */
 function convertToInventoryFormat(invoiceData) {
     // Convert products to sanPham format
-    const sanPham = (invoiceData.products || []).map(p => ({
-        maSP: p.sku || '',
-        tenSP: p.name || '',
-        mauSac: p.color || '',
-        soLuong: p.quantity || 0,
-        donGia: 0 // Price per item if available
-    }));
+    const sanPham = (invoiceData.products || []).map(p => {
+        const maSP = p.sku || '';
+        const tenSP = p.name || '';
+        const soMau = p.color || '';  // Color field expected by inventory-tracking
+        const soLuong = p.quantity || 0;
+        const giaDonVi = p.price || 0;  // Unit price field expected by inventory-tracking
+
+        // Vietnamese translation for display
+        const tenSP_vi = translateToVietnamese(tenSP);
+        const soMau_vi = translateToVietnamese(soMau);
+
+        // Build rawText for display (Chinese original)
+        const rawText = `MA ${maSP} ${tenSP} MAU ${soMau} SL ${soLuong}`;
+        // Vietnamese version
+        const rawText_vi = `MA ${maSP} ${tenSP_vi} MAU ${soMau_vi} SL ${soLuong}`;
+
+        return {
+            maSP,
+            tenSP,
+            tenSP_vi,      // Vietnamese product name
+            soMau,
+            soMau_vi,      // Vietnamese color
+            soLuong,
+            giaDonVi,
+            rawText,       // Chinese original
+            rawText_vi     // Vietnamese translation
+        };
+    });
 
     // Convert date from DD/MM/YYYY to YYYY-MM-DD
     let ngayDiHang = '';
