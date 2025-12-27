@@ -1773,3 +1773,58 @@ body {
         max-height: calc(100vh - 32px);
     }
 }
+
+/* ===== SUB-INVOICE STYLES ===== */
+.has-sub-invoice {
+    background-color: rgba(var(--primary-rgb, 59, 130, 246), 0.1) !important;
+}
+
+.has-sub-invoice:hover {
+    background-color: rgba(var(--primary-rgb, 59, 130, 246), 0.2) !important;
+}
+
+.sub-invoice-indicator {
+    display: inline-block;
+    margin-left: 6px;
+    color: var(--primary);
+    font-size: 10px;
+    animation: bounce 1s ease infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(2px); }
+}
+
+/* Sub-invoice Modal */
+#subInvoiceModal .modal-header {
+    background: linear-gradient(135deg, var(--primary), #3b82f6);
+    color: white;
+    padding: 16px 20px;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+#subInvoiceModal .modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+#subInvoiceModal .modal-close {
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+
+#subInvoiceModal .modal-close:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.sub-invoice-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.sub-invoice-info p {
+    margin: 0;
+    flex: 1 1 200px;
+}

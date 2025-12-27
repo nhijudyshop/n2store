@@ -270,6 +270,156 @@ async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
 }
 
 /**
+ * Save invoice with subInvoice handling
+ * - If NCC doesn't exist: Create new shipment
+ * - If NCC exists but no subInvoice: Add as subInvoice (invoice 2)
+ * - If NCC exists with subInvoice: Replace subInvoice data (invoice 3, 4, 5...)
+ */
+async function saveInvoiceWithSubInvoice(invoiceData, chatId, userId) {
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+        throw new Error('Firebase không khả dụng');
+    }
+
+    const nccCode = invoiceData.ncc;
+
+    // Upload image to Firebase Storage if photoFileId exists
+    let imageUrl = null;
+    if (invoiceData.photoFileId) {
+        try {
+            const { buffer, mimeType } = await downloadTelegramFile(invoiceData.photoFileId);
+            const timestamp = Date.now();
+            const extension = mimeType.split('/')[1] || 'jpg';
+            const fileName = `invoice_${nccCode}_${timestamp}.${extension}`;
+            imageUrl = await uploadImageToStorage(buffer, fileName, mimeType);
+            console.log('[FIREBASE] Invoice image uploaded:', imageUrl);
+        } catch (error) {
+            console.error('[FIREBASE] Image upload error:', error.message);
+        }
+    }
+
+    // Try to find existing invoice with this NCC
+    let existingShipment = null;
+    let existingInvoiceIndex = -1;
+
+    try {
+        const snapshot = await firestore
+            .collection('inventory_tracking')
+            .where('telegramChatId', '==', chatId)
+            .limit(50)
+            .get();
+
+        if (!snapshot.empty) {
+            const shipments = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => {
+                    const timeA = a.createdAt?.toMillis?.() || 0;
+                    const timeB = b.createdAt?.toMillis?.() || 0;
+                    return timeB - timeA;
+                });
+
+            for (const shipment of shipments) {
+                const hoaDonList = shipment.hoaDon || [];
+                const idx = hoaDonList.findIndex(hd => String(hd.sttNCC) === String(nccCode));
+                if (idx !== -1) {
+                    existingShipment = shipment;
+                    existingInvoiceIndex = idx;
+                    break;
+                }
+            }
+        }
+    } catch (error) {
+        console.log('[FIREBASE] No existing NCC found, creating new');
+    }
+
+    // Convert invoice data
+    const inventoryData = convertToInventoryFormat(invoiceData);
+    const tongMon = inventoryData.sanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+
+    // CASE 1: NCC already exists
+    if (existingShipment && existingInvoiceIndex !== -1) {
+        const hoaDon = existingShipment.hoaDon;
+        const mainInvoice = hoaDon[existingInvoiceIndex];
+
+        // Build subInvoice data
+        const subInvoiceData = {
+            sanPham: inventoryData.sanPham,
+            tongTienHD: inventoryData.tongTien,
+            tongMon: tongMon,
+            ghiChu: inventoryData.ghiChu,
+            anhHoaDon: imageUrl ? [imageUrl] : [],
+            createdAt: new Date().toISOString()
+        };
+
+        if (!mainInvoice.subInvoice) {
+            // CASE 1a: No subInvoice yet - Add as invoice 2
+            hoaDon[existingInvoiceIndex].subInvoice = subInvoiceData;
+            console.log(`[FIREBASE] Added subInvoice to NCC ${nccCode}`);
+        } else {
+            // CASE 1b: subInvoice exists - Replace with new data (invoice 3, 4, 5...)
+            // Keep old images if new one is empty
+            if (imageUrl) {
+                subInvoiceData.anhHoaDon = [imageUrl];
+            } else {
+                subInvoiceData.anhHoaDon = mainInvoice.subInvoice.anhHoaDon || [];
+            }
+            hoaDon[existingInvoiceIndex].subInvoice = subInvoiceData;
+            console.log(`[FIREBASE] Replaced subInvoice for NCC ${nccCode}`);
+        }
+
+        // Update document
+        await firestore.collection('inventory_tracking').doc(existingShipment.id).update({
+            hoaDon: hoaDon,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedBy: `telegram_${userId}`
+        });
+
+        return {
+            docId: existingShipment.id,
+            isSubInvoice: true,
+            isReplaced: !!mainInvoice.subInvoice
+        };
+    }
+
+    // CASE 2: NCC doesn't exist - Create new shipment
+    const shipmentId = generateShipmentId();
+    const docData = {
+        id: shipmentId,
+        ngayDiHang: inventoryData.ngayDiHang || new Date().toISOString().split('T')[0],
+        hoaDon: [{
+            sttNCC: inventoryData.sttNCC,
+            tenNCC: inventoryData.tenNCC,
+            sanPham: inventoryData.sanPham,
+            tongTienHD: inventoryData.tongTien,
+            tongMon: tongMon,
+            ghiChu: inventoryData.ghiChu,
+            anhHoaDon: imageUrl ? [imageUrl] : []
+        }],
+        tongTienHoaDon: inventoryData.tongTien,
+        tongMon: tongMon,
+        soMonThieu: 0,
+        chiPhiHangVe: [],
+        tongChiPhi: 0,
+        ghiChuAdmin: '',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: `telegram_${userId}`,
+        updatedBy: `telegram_${userId}`,
+        telegramChatId: chatId,
+        source: 'telegram_bot'
+    };
+
+    await firestore.collection('inventory_tracking').doc(shipmentId).set(docData);
+    console.log('[FIREBASE] New shipment created with ID:', shipmentId);
+
+    return {
+        docId: shipmentId,
+        isSubInvoice: false,
+        isReplaced: false
+    };
+}
+
+/**
  * Find invoice by NCC code
  * Returns the shipment and invoice details
  */
@@ -1104,18 +1254,38 @@ router.post('/webhook', async (req, res) => {
 
                 if (invoiceData) {
                     try {
-                        // Save to Firebase
+                        // Save to Firebase with subInvoice handling
                         const userId = callbackQuery.from.id;
-                        const docId = await saveInvoiceToFirebase(invoiceData, chatId, userId);
+                        const result = await saveInvoiceWithSubInvoice(invoiceData, chatId, userId);
                         pendingInvoices.delete(invoiceId);
 
-                        await editMessageText(chatId, messageId,
-                            `✅ ĐÃ LƯU THÀNH CÔNG!\n\n` +
-                            `📋 Mã hóa đơn: ${docId}\n` +
-                            `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
-                            `🏪 Tên NCC: ${translateToVietnamese(invoiceData.supplier) || 'N/A'}\n` +
-                            `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm`
-                        );
+                        // Build success message based on result
+                        let successMsg = '';
+                        if (result.isSubInvoice) {
+                            if (result.isReplaced) {
+                                successMsg = `✅ ĐÃ THAY THẾ HÓA ĐƠN PHỤ!\n\n` +
+                                    `📋 Shipment: ${result.docId}\n` +
+                                    `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
+                                    `📄 Hóa đơn phụ đã được cập nhật\n` +
+                                    `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm\n\n` +
+                                    `💡 NCC ${invoiceData.ncc} đã có hóa đơn phụ.\nDữ liệu mới đã thay thế hóa đơn phụ cũ.`;
+                            } else {
+                                successMsg = `✅ ĐÃ THÊM HÓA ĐƠN PHỤ!\n\n` +
+                                    `📋 Shipment: ${result.docId}\n` +
+                                    `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
+                                    `📄 Đã thêm vào hóa đơn chính\n` +
+                                    `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm\n\n` +
+                                    `💡 Click vào hóa đơn chính trên web để xem hóa đơn phụ này.`;
+                            }
+                        } else {
+                            successMsg = `✅ ĐÃ LƯU THÀNH CÔNG!\n\n` +
+                                `📋 Mã hóa đơn: ${result.docId}\n` +
+                                `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
+                                `🏪 Tên NCC: ${translateToVietnamese(invoiceData.supplier) || 'N/A'}\n` +
+                                `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm`;
+                        }
+
+                        await editMessageText(chatId, messageId, successMsg);
                     } catch (error) {
                         console.error('[TELEGRAM] Firebase save error:', error.message);
                         await editMessageText(chatId, messageId,
@@ -1231,6 +1401,8 @@ router.post('/webhook', async (req, res) => {
                     if (invoiceData.success) {
                         // Generate unique invoice ID
                         const invoiceId = `${chatId}_${Date.now()}`;
+                        // Store file_id for uploading image later
+                        invoiceData.photoFileId = photo.file_id;
                         pendingInvoices.set(invoiceId, invoiceData);
 
                         // Auto-expire after 10 minutes
