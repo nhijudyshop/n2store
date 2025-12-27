@@ -3,6 +3,84 @@
 // Phase 3: Will be fully implemented
 // =====================================================
 
+// =====================================================
+// CHINESE TO VIETNAMESE TRANSLATION
+// =====================================================
+
+const CHINESE_TO_VIETNAMESE = {
+    // Colors - Màu sắc
+    '黑': 'Đen',
+    '白': 'Trắng',
+    '红': 'Đỏ',
+    '蓝': 'Xanh dương',
+    '绿': 'Xanh lá',
+    '黄': 'Vàng',
+    '紫': 'Tím',
+    '粉': 'Hồng',
+    '灰': 'Xám',
+    '棕': 'Nâu',
+    '咖': 'Cà phê',
+    '米': 'Kem',
+    '杏': 'Mơ',
+    '橙': 'Cam',
+    '酱': 'Nâu đậm',
+    '卡其': 'Kaki',
+    '驼': 'Lạc đà',
+    '藏青': 'Xanh đen',
+    '酒红': 'Đỏ rượu',
+    '墨绿': 'Xanh rêu',
+    '浅': 'Nhạt',
+    '深': 'Đậm',
+
+    // Patterns - Họa tiết
+    '条': 'Sọc',
+    '纹': 'Vân',
+    '格': 'Caro',
+    '花': 'Hoa',
+    '点': 'Chấm',
+    '印': 'In',
+
+    // Materials/Style - Chất liệu/Kiểu
+    '棉': 'Cotton',
+    '麻': 'Lanh',
+    '丝': 'Lụa',
+    '绒': 'Nhung',
+    '毛': 'Len',
+    '皮': 'Da',
+
+    // Common terms
+    '色': '',
+    '款': 'Kiểu',
+    '上衣': 'Áo',
+    '裤': 'Quần',
+    '裙': 'Váy',
+    '外套': 'Áo khoác',
+    '衬衫': 'Sơ mi',
+    '领': 'Cổ',
+    '交叉': 'Chéo',
+    '斜角': 'Xéo góc',
+    '苏': 'Tô'
+};
+
+/**
+ * Translate Chinese text to Vietnamese
+ */
+function translateToVietnamese(text) {
+    if (!text) return text;
+
+    let result = text;
+
+    // Sort by length (longer first) to avoid partial replacements
+    const sortedKeys = Object.keys(CHINESE_TO_VIETNAMESE).sort((a, b) => b.length - a.length);
+
+    for (const chinese of sortedKeys) {
+        const vietnamese = CHINESE_TO_VIETNAMESE[chinese];
+        result = result.split(chinese).join(vietnamese);
+    }
+
+    return result.trim();
+}
+
 /**
  * Render shipments list
  */
@@ -130,8 +208,15 @@ function renderInvoicesSection(shipment) {
         `;
     }
 
-    const totalAmount = invoices.reduce((sum, hd) => sum + (hd.tongTienHD || 0), 0);
-    const totalItems = invoices.reduce((sum, hd) => sum + (hd.tongMon || 0), 0);
+    // Support both tongTienHD (new) and tongTien (old) field names
+    const totalAmount = invoices.reduce((sum, hd) => sum + (hd.tongTienHD || hd.tongTien || 0), 0);
+    // Calculate tongMon from products if not available
+    const totalItems = invoices.reduce((sum, hd) => {
+        if (hd.tongMon) return sum + hd.tongMon;
+        // Fallback: calculate from products
+        const products = hd.sanPham || [];
+        return sum + products.reduce((pSum, p) => pSum + (p.soLuong || 0), 0);
+    }, 0);
     const totalShortage = invoices.reduce((sum, hd) => sum + (hd.soMonThieu || 0), 0);
     const totalCost = costs.reduce((sum, c) => sum + (c.soTien || 0), 0);
 
@@ -145,6 +230,10 @@ function renderInvoicesSection(shipment) {
         const imageCount = hd.anhHoaDon?.length || 0;
         const invoiceClass = invoiceIdx % 2 === 0 ? 'invoice-even' : 'invoice-odd';
 
+        // Calculate tongMon for this invoice (fallback from products if not set)
+        const invoiceTongMon = hd.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+        const invoiceTongTienHD = hd.tongTienHD || hd.tongTien || 0;
+
         if (products.length === 0) {
             // No products - single row
             const costItem = canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
@@ -157,8 +246,8 @@ function renderInvoicesSection(shipment) {
                 isFirstRow: true,
                 isLastRow: true,
                 rowSpan: 1,
-                tongTienHD: hd.tongTienHD,
-                tongMon: hd.tongMon,
+                tongTienHD: invoiceTongTienHD,
+                tongMon: invoiceTongMon,
                 soMonThieu: hd.soMonThieu,
                 imageCount,
                 ghiChu: hd.ghiChu,
@@ -181,8 +270,8 @@ function renderInvoicesSection(shipment) {
                     isFirstRow: productIdx === 0,
                     isLastRow: productIdx === products.length - 1,
                     rowSpan: products.length,
-                    tongTienHD: hd.tongTienHD,
-                    tongMon: hd.tongMon,
+                    tongTienHD: invoiceTongTienHD,
+                    tongMon: invoiceTongMon,
                     soMonThieu: hd.soMonThieu,
                     imageCount,
                     ghiChu: hd.ghiChu,
@@ -249,11 +338,24 @@ function renderProductRow(opts) {
     const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
     // Use Vietnamese or Chinese based on langMode setting
     const isVietnamese = globalState.langMode === 'vi';
-    const productText = product
-        ? (isVietnamese
-            ? (product.rawText_vi || product.rawText || `MA ${product.maSP} ${product.tenSP_vi || product.tenSP || ''} MAU ${product.soMau_vi || product.soMau || ''} SL ${product.soLuong}`)
-            : (product.rawText || `MA ${product.maSP} ${product.tenSP || ''} MAU ${product.soMau || ''} SL ${product.soLuong}`))
-        : '-';
+    let productText = '-';
+    if (product) {
+        if (isVietnamese) {
+            // Try rawText_vi first, then translate rawText, then build from fields
+            if (product.rawText_vi) {
+                productText = product.rawText_vi;
+            } else if (product.rawText) {
+                productText = translateToVietnamese(product.rawText);
+            } else {
+                const tenSP = product.tenSP_vi || translateToVietnamese(product.tenSP || '');
+                const soMau = product.soMau_vi || translateToVietnamese(product.soMau || '');
+                productText = `MA ${product.maSP || ''} ${tenSP} MAU ${soMau} SL ${product.soLuong || 0}`;
+            }
+        } else {
+            // Chinese mode - use original text
+            productText = product.rawText || `MA ${product.maSP || ''} ${product.tenSP || ''} MAU ${product.soMau || ''} SL ${product.soLuong || 0}`;
+        }
+    }
     // For rowspanned cells (rendered on first row), always apply invoice-border since their
     // bottom border appears at the end of their rowspan (which is the last row of invoice)
     // For non-rowspanned cells (STT, Products), only apply on last row
