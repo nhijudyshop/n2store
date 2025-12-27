@@ -4483,6 +4483,35 @@
             updateSaveReportButton();
         }
 
+        /**
+         * Add a table option to dropdown if it doesn't exist (without clearing dropdown)
+         * This prevents race conditions where dropdown gets cleared while being updated
+         */
+        function addTableOptionIfNotExists(tableName, orderCount) {
+            const selector = document.getElementById('tableSelector');
+            if (!selector || !tableName) return;
+
+            // Check if option already exists
+            for (let option of selector.options) {
+                if (option.value === tableName) {
+                    // Update text if order count changed
+                    if (orderCount > 0) {
+                        option.textContent = `${tableName} (${orderCount} đơn - hiện tại)`;
+                    }
+                    return; // Already exists
+                }
+            }
+
+            // Add new option
+            const newOption = document.createElement('option');
+            newOption.value = tableName;
+            newOption.textContent = orderCount > 0
+                ? `${tableName} (${orderCount} đơn - hiện tại)`
+                : `${tableName} (hiện tại)`;
+            selector.appendChild(newOption);
+            console.log(`[REPORT] ➕ Added table option: ${tableName}`);
+        }
+
         // =====================================================
         // MESSAGE LISTENER - Receive data from tab1
         // =====================================================
@@ -4509,23 +4538,8 @@
                 if (userManuallySelectedTable && currentTableName && currentTableName !== tab1TableName) {
                     console.log(`[REPORT] ⚠️ User manually selected "${currentTableName}", ignoring tab1 data for "${tab1TableName}"`);
 
-                    // Still update the dropdown options (add tab1's table if not exists)
-                    const selector = document.getElementById('tableSelector');
-                    if (selector) {
-                        let optionExists = false;
-                        for (let option of selector.options) {
-                            if (option.value === tab1TableName) {
-                                optionExists = true;
-                                break;
-                            }
-                        }
-                        if (!optionExists) {
-                            const newOption = document.createElement('option');
-                            newOption.value = tab1TableName;
-                            newOption.textContent = `${tab1TableName} (${event.data.orders?.length || 0} đơn - hiện tại)`;
-                            selector.appendChild(newOption);
-                        }
-                    }
+                    // Still add tab1's table to dropdown if not exists (don't clear dropdown)
+                    addTableOptionIfNotExists(tab1TableName, event.data.orders?.length || 0);
 
                     // Stop loading state but keep current selection
                     setRefreshLoading(false);
@@ -4536,26 +4550,10 @@
                 currentTableName = tab1TableName;
                 justReceivedFromTab1 = true; // Prevent auto-load from Firebase
 
-                // Update selector - update text if exists, add new if not
+                // Update selector - add option if not exists, update text, then select
+                addTableOptionIfNotExists(currentTableName, allOrders.length);
                 const selector = document.getElementById('tableSelector');
-                if (selector && currentTableName) {
-                    let optionExists = false;
-                    for (let option of selector.options) {
-                        if (option.value === currentTableName) {
-                            optionExists = true;
-                            // UPDATE: Always update option text with current order count from tab1
-                            option.textContent = `${currentTableName} (${allOrders.length} đơn - hiện tại)`;
-                            break;
-                        }
-                    }
-
-                    if (!optionExists) {
-                        const newOption = document.createElement('option');
-                        newOption.value = currentTableName;
-                        newOption.textContent = `${currentTableName} (${allOrders.length} đơn - hiện tại)`;
-                        selector.appendChild(newOption);
-                    }
-
+                if (selector) {
                     selector.value = currentTableName;
                 }
 
@@ -4581,8 +4579,11 @@
                 // Check Firebase status for this table
                 checkFirebaseStatus();
 
-                // Reload available tables to trigger auto-load of cached data
-                loadAvailableTables();
+                // Load Firebase data for current table WITHOUT clearing/repopulating dropdown
+                // This prevents race condition where dropdown gets cleared while being updated
+                if (currentTableName) {
+                    loadTableDataFromFirebase(currentTableName);
+                }
 
                 // Stop loading state
                 setRefreshLoading(false);
@@ -4592,24 +4593,29 @@
             if (event.data.type === 'TABLE_NAME_CHANGED') {
                 console.log('[REPORT] 📬 Table name changed in tab1:', event.data.tableName);
 
+                const newTableName = event.data.tableName;
+
                 // If user has manually selected a different table, don't override
-                if (userManuallySelectedTable && currentTableName && currentTableName !== event.data.tableName) {
-                    console.log(`[REPORT] ⚠️ User manually selected "${currentTableName}", not switching to tab1's "${event.data.tableName}"`);
-                    // Still reload table list to show the new table as an option
-                    loadAvailableTables();
+                if (userManuallySelectedTable && currentTableName && currentTableName !== newTableName) {
+                    console.log(`[REPORT] ⚠️ User manually selected "${currentTableName}", not switching to tab1's "${newTableName}"`);
+                    // Just add the new table option if it doesn't exist (don't reset dropdown)
+                    addTableOptionIfNotExists(newTableName, 0);
                     return;
                 }
 
-                currentTableName = event.data.tableName;
+                currentTableName = newTableName;
 
-                // Update selector
+                // Update selector - add option if not exists, then select it
+                addTableOptionIfNotExists(newTableName, 0);
                 const selector = document.getElementById('tableSelector');
                 if (selector) {
                     selector.value = currentTableName;
                 }
 
-                // Reload table list to reflect changes
-                loadAvailableTables();
+                // Load Firebase data for the new table
+                if (currentTableName) {
+                    loadTableDataFromFirebase(currentTableName);
+                }
             }
         });
 
