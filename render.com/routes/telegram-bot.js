@@ -17,7 +17,7 @@ const GEMINI_MODEL = 'gemini-3-flash-preview'; // Latest Gemini 3 Flash model
 // FIREBASE INITIALIZATION
 // =====================================================
 
-const FIREBASE_STORAGE_BUCKET = 'n2shop-69e37.appspot.com';
+const FIREBASE_STORAGE_BUCKET = 'n2shop-69e37-ne0q1';
 let db = null;
 let bucket = null;
 
@@ -62,7 +62,8 @@ function getStorageBucket() {
     getFirestoreDb();
 
     try {
-        bucket = admin.storage().bucket();
+        // Explicitly specify bucket name
+        bucket = admin.storage().bucket(FIREBASE_STORAGE_BUCKET);
         return bucket;
     } catch (error) {
         console.error('[FIREBASE] Storage init error:', error.message);
