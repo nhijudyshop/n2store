@@ -2042,9 +2042,11 @@
             return 'Bảng 1'; // Default
         }
 
-        // Sanitize data for Firebase (remove invalid keys)
+        // Sanitize data for Firebase (remove invalid keys and undefined values)
         function sanitizeForFirebase(obj) {
-            if (obj === null || obj === undefined) return obj;
+            // Firebase doesn't accept undefined - convert to null
+            if (obj === undefined) return null;
+            if (obj === null) return null;
 
             if (Array.isArray(obj)) {
                 return obj.map(item => sanitizeForFirebase(item));
@@ -2058,7 +2060,12 @@
                         key.includes('$') || key.includes('/') || key.includes('[') || key.includes(']')) {
                         continue;
                     }
-                    cleaned[key] = sanitizeForFirebase(obj[key]);
+                    // Skip undefined values (Firebase doesn't accept undefined)
+                    const value = obj[key];
+                    if (value === undefined) {
+                        continue; // Skip this key entirely
+                    }
+                    cleaned[key] = sanitizeForFirebase(value);
                 }
                 return cleaned;
             }
