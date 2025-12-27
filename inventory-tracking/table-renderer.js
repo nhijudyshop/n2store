@@ -136,17 +136,18 @@ function renderInvoicesSection(shipment) {
     const totalCost = costs.reduce((sum, c) => sum + (c.soTien || 0), 0);
 
     // Build invoice rows with product lines
+    // Costs are for the entire shipment, listed sequentially by absolute row index
     let allRows = [];
+    let absoluteRowIdx = 0; // Track row index across all invoices for cost assignment
+
     invoices.forEach((hd, invoiceIdx) => {
         const products = hd.sanPham || [];
         const imageCount = hd.anhHoaDon?.length || 0;
         const invoiceClass = invoiceIdx % 2 === 0 ? 'invoice-even' : 'invoice-odd';
 
-        // Get cost for this invoice row (only first product row shows cost)
-        const costItem = canViewCost && invoiceIdx < costs.length ? costs[invoiceIdx] : null;
-
         if (products.length === 0) {
             // No products - single row
+            const costItem = canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
             allRows.push(renderProductRow({
                 invoiceIdx,
                 invoiceClass,
@@ -165,9 +166,11 @@ function renderInvoicesSection(shipment) {
                 costItem,
                 canViewCost
             }));
+            absoluteRowIdx++;
         } else {
-            // Multiple products
+            // Multiple products - cost assigned by absolute row index
             products.forEach((product, productIdx) => {
+                const costItem = canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
                 allRows.push(renderProductRow({
                     invoiceIdx,
                     invoiceClass,
@@ -183,9 +186,10 @@ function renderInvoicesSection(shipment) {
                     imageCount,
                     shipmentId: shipment.id,
                     invoiceId: hd.id,
-                    costItem: productIdx === 0 ? costItem : null, // Only first row shows cost
+                    costItem,
                     canViewCost
                 }));
+                absoluteRowIdx++;
             });
         }
     });
@@ -240,25 +244,27 @@ function renderProductRow(opts) {
 
     const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
     const productText = product ? (product.rawText || `MA ${product.maSP} ${product.soMau} MAU ${product.soLuong}X${product.giaDonVi}`) : '-';
+    // For invoice-last-row, apply thick border only to invoice columns (NCC to Ảnh), not cost columns
+    const borderClass = isLastRow ? 'invoice-border' : '';
 
     return `
         <tr class="${rowClass}">
-            ${isFirstRow ? `<td class="col-ncc" rowspan="${rowSpan}"><strong>${sttNCC}</strong></td>` : ''}
-            <td class="col-stt">${product ? productIdx + 1 : '-'}</td>
-            <td class="col-products">
+            ${isFirstRow ? `<td class="col-ncc ${borderClass}" rowspan="${rowSpan}"><strong>${sttNCC}</strong></td>` : ''}
+            <td class="col-stt ${borderClass}">${product ? productIdx + 1 : '-'}</td>
+            <td class="col-products ${borderClass}">
                 <span class="product-text">${productText}</span>
             </td>
             ${isFirstRow ? `
-                <td class="col-amount text-right" rowspan="${rowSpan}">
+                <td class="col-amount text-right ${borderClass}" rowspan="${rowSpan}">
                     <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
                 </td>
-                <td class="col-total text-center" rowspan="${rowSpan}">
+                <td class="col-total text-center ${borderClass}" rowspan="${rowSpan}">
                     <strong class="total-value">${formatNumber(tongMon)}</strong>
                 </td>
-                <td class="col-shortage text-center" rowspan="${rowSpan}">
+                <td class="col-shortage text-center ${borderClass}" rowspan="${rowSpan}">
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
-                <td class="col-image text-center" rowspan="${rowSpan}">
+                <td class="col-image text-center ${borderClass}" rowspan="${rowSpan}">
                     ${imageCount > 0 ? `
                         <span class="image-count" onclick="viewInvoiceImages('${shipmentId}', '${invoiceId}')">
                             <i data-lucide="image"></i>
