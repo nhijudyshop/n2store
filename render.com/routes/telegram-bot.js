@@ -87,20 +87,28 @@ async function uploadImageToStorage(imageBuffer, fileName, mimeType = 'image/jpe
     const filePath = `inventory-tracking/invoices/${fileName}`;
     const file = storageBucket.file(filePath);
 
-    // Upload the file
+    // Generate a download token
+    const uuid = require('crypto').randomUUID();
+
+    // Upload the file with metadata including download token
     await file.save(imageBuffer, {
         metadata: {
             contentType: mimeType,
+            metadata: {
+                firebaseStorageDownloadTokens: uuid
+            }
         }
     });
 
     // Make the file publicly accessible
     await file.makePublic();
 
-    // Get public URL
-    const publicUrl = `https://storage.googleapis.com/${FIREBASE_STORAGE_BUCKET}/${filePath}`;
-    console.log('[FIREBASE] Image uploaded and made public:', publicUrl);
-    return publicUrl;
+    // Generate Firebase Storage download URL format
+    const encodedPath = encodeURIComponent(filePath);
+    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o/${encodedPath}?alt=media&token=${uuid}`;
+
+    console.log('[FIREBASE] Image uploaded:', downloadUrl);
+    return downloadUrl;
 }
 
 /**
@@ -113,14 +121,28 @@ async function deleteImageFromStorage(imageUrl) {
         throw new Error('Firebase Storage không khả dụng');
     }
 
-    // Extract file path from URL
-    const baseUrl = `https://storage.googleapis.com/${FIREBASE_STORAGE_BUCKET}/`;
-    if (!imageUrl.startsWith(baseUrl)) {
-        console.log('[FIREBASE] Not a Firebase Storage URL, skipping delete');
+    let filePath = null;
+
+    // Handle Firebase Storage download URL format
+    // https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded-path}?alt=media&token={token}
+    const firebaseUrlPattern = /firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/([^?]+)/;
+    const firebaseMatch = imageUrl.match(firebaseUrlPattern);
+    if (firebaseMatch) {
+        filePath = decodeURIComponent(firebaseMatch[1]);
+    }
+
+    // Handle Google Cloud Storage URL format
+    // https://storage.googleapis.com/{bucket}/{path}
+    const gcsBaseUrl = `https://storage.googleapis.com/${FIREBASE_STORAGE_BUCKET}/`;
+    if (!filePath && imageUrl.startsWith(gcsBaseUrl)) {
+        filePath = imageUrl.replace(gcsBaseUrl, '');
+    }
+
+    if (!filePath) {
+        console.log('[FIREBASE] Unknown URL format, skipping delete:', imageUrl);
         return false;
     }
 
-    const filePath = imageUrl.replace(baseUrl, '');
     const file = storageBucket.file(filePath);
 
     try {
