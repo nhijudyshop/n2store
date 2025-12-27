@@ -131,11 +131,24 @@ function createShipmentCard(shipment) {
     const canViewCost = permissionHelper?.can('view_chiPhiHangVe');
     const canViewNote = permissionHelper?.can('view_ghiChuAdmin');
 
+    // Build packages info string
+    const packages = shipment.kienHang || [];
+    const totalKg = packages.reduce((sum, p) => sum + (p.soKg || 0), 0);
+    const packageWeights = packages.map(p => `${p.soKg} KG`).join(', ');
+    const packagesInfo = packages.length > 0
+        ? `${packages.length} Kiện : ${packageWeights} | Tổng ${formatNumber(totalKg)} KG`
+        : '0 Kiện';
+
     card.innerHTML = `
         <div class="shipment-header">
-            <div class="shipment-date">
+            <div class="shipment-date-packages">
                 <i data-lucide="calendar"></i>
-                <span>${formatDateDisplay(shipment.ngayDiHang)}</span>
+                <span class="shipment-date-text">${formatDateDisplay(shipment.ngayDiHang)}</span>
+                <span class="shipment-separator">-</span>
+                <span class="shipment-packages-badge">
+                    <i data-lucide="box"></i>
+                    ${packagesInfo}
+                </span>
             </div>
             <div class="shipment-actions">
                 ${canEdit ? `
@@ -154,7 +167,6 @@ function createShipmentCard(shipment) {
             </div>
         </div>
         <div class="shipment-body">
-            ${renderPackagesSection(shipment)}
             ${renderInvoicesSection(shipment)}
             ${canViewNote && shipment.ghiChuAdmin ? renderAdminNoteSection(shipment) : ''}
         </div>

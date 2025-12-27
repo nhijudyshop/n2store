@@ -779,12 +779,53 @@ body {
     border-bottom: 1px solid var(--gray-200);
 }
 
+/* Date and Packages Combined Header */
+.shipment-date-packages {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.shipment-date-packages > i {
+    width: 20px;
+    height: 20px;
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.shipment-date-text {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.shipment-separator {
+    color: var(--gray-400);
+    font-weight: 500;
+}
+
+.shipment-packages-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--info-light);
+    color: var(--info);
+    border-radius: var(--radius);
+    font-weight: 600;
+}
+
+.shipment-packages-badge i {
+    width: 16px;
+    height: 16px;
+}
+
+/* Legacy shipment-date for backward compatibility */
 .shipment-date {
     display: flex;
     align-items: center;
     gap: 10px;
     font-weight: 600;
-    font-size: 16px;
     color: var(--gray-800);
 }
 
