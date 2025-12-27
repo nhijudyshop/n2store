@@ -252,7 +252,7 @@ function renderInvoicesSection(shipment) {
                 imageCount,
                 ghiChu: hd.ghiChu,
                 shipmentId: shipment.id,
-                invoiceId: hd.id,
+                invoiceId: hd.id || invoiceIdx,  // Fallback to index if no id
                 costItem,
                 canViewCost
             }));
@@ -276,7 +276,7 @@ function renderInvoicesSection(shipment) {
                     imageCount,
                     ghiChu: hd.ghiChu,
                     shipmentId: shipment.id,
-                    invoiceId: hd.id,
+                    invoiceId: hd.id || invoiceIdx,  // Fallback to index if no id
                     costItem,
                     canViewCost
                 }));
