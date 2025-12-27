@@ -6,11 +6,73 @@
 
 const express = require('express');
 const router = express.Router();
+const admin = require('firebase-admin');
 
 // API Keys from environment variables (set on Render)
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = 'gemini-2.0-flash'; // Supports image analysis via inline_data
+const GEMINI_MODEL = 'gemini-2.0-flash'; // Same as AI/gemini.html default
+
+// =====================================================
+// FIREBASE INITIALIZATION
+// =====================================================
+
+let db = null;
+
+function getFirestoreDb() {
+    if (db) return db;
+
+    try {
+        // Check if Firebase is already initialized
+        if (admin.apps.length === 0) {
+            const projectId = process.env.FIREBASE_PROJECT_ID;
+            const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+            const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+            if (!projectId || !clientEmail || !privateKey) {
+                console.log('[FIREBASE] Missing credentials, Firebase disabled');
+                return null;
+            }
+
+            admin.initializeApp({
+                credential: admin.credential.cert({
+                    projectId,
+                    clientEmail,
+                    privateKey
+                })
+            });
+            console.log('[FIREBASE] Initialized for project:', projectId);
+        }
+
+        db = admin.firestore();
+        return db;
+    } catch (error) {
+        console.error('[FIREBASE] Init error:', error.message);
+        return null;
+    }
+}
+
+/**
+ * Save invoice to Firestore
+ */
+async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+        throw new Error('Firebase không khả dụng');
+    }
+
+    const docData = {
+        ...invoiceData,
+        chatId: chatId,
+        userId: userId,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: 'confirmed'
+    };
+
+    const docRef = await firestore.collection('telegram_invoices').add(docData);
+    console.log('[FIREBASE] Invoice saved with ID:', docRef.id);
+    return docRef.id;
+}
 
 // Bot username (will be fetched on first request)
 let BOT_USERNAME = null;
@@ -442,16 +504,18 @@ function formatInvoicePreview(invoiceData) {
 
 // Health check
 router.get('/', (req, res) => {
+    const firestore = getFirestoreDb();
     res.json({
         status: 'ok',
         service: 'Telegram Bot with Gemini AI',
         model: GEMINI_MODEL,
         hasBotToken: !!TELEGRAM_BOT_TOKEN,
         hasGeminiKey: !!GEMINI_API_KEY,
+        hasFirebase: !!firestore,
         botUsername: BOT_USERNAME,
         activeConversations: conversationHistory.size,
         pendingInvoices: pendingInvoices.size,
-        features: ['text_chat', 'invoice_processing', 'group_chat', 'mention_trigger']
+        features: ['text_chat', 'invoice_processing', 'group_chat', 'mention_trigger', 'firebase_storage']
     });
 });
 
@@ -477,14 +541,24 @@ router.post('/webhook', async (req, res) => {
                 const invoiceData = pendingInvoices.get(invoiceId);
 
                 if (invoiceData) {
-                    // TODO: Save to Firebase here
-                    pendingInvoices.delete(invoiceId);
+                    try {
+                        // Save to Firebase
+                        const userId = callbackQuery.from.id;
+                        const docId = await saveInvoiceToFirebase(invoiceData, chatId, userId);
+                        pendingInvoices.delete(invoiceId);
 
-                    await editMessageText(chatId, messageId,
-                        `✅ ĐÃ XÁC NHẬN!\n\n` +
-                        `Hóa đơn đã được lưu thành công.\n` +
-                        `(Firebase integration coming soon)`
-                    );
+                        await editMessageText(chatId, messageId,
+                            `✅ ĐÃ LƯU THÀNH CÔNG!\n\n` +
+                            `📋 Mã hóa đơn: ${docId}\n` +
+                            `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm\n` +
+                            `🏪 NCC: ${invoiceData.supplier || 'N/A'}`
+                        );
+                    } catch (error) {
+                        console.error('[TELEGRAM] Firebase save error:', error.message);
+                        await editMessageText(chatId, messageId,
+                            `❌ Lỗi lưu hóa đơn:\n${error.message}\n\nVui lòng thử lại.`
+                        );
+                    }
                 } else {
                     await editMessageText(chatId, messageId,
                         `⚠️ Hóa đơn đã hết hạn. Vui lòng gửi lại ảnh.`
