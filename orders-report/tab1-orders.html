@@ -181,106 +181,217 @@
             color: #374151;
         }
 
-        /* Multi-tag filter styles */
-        .tag-add-btn {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        /* Multi-tag filter button styles */
+        .tag-filter-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             border-radius: 6px;
-            padding: 6px 10px;
-            font-size: 11px;
-            font-weight: 600;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
-            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
             white-space: nowrap;
         }
 
-        .tag-add-btn:hover {
+        .tag-filter-btn:hover {
             transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .tag-filter-btn.has-filter {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+        }
+
+        .tag-filter-btn.has-filter:hover {
             box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
         }
 
-        .tag-add-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
+        /* Multi-tag Modal styles */
+        .multi-tag-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
         }
 
-        .multi-tag-filter-container {
+        .multi-tag-modal.show {
             display: flex;
-            align-items: center;
-            gap: 8px;
-            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-            border: 1px solid #86efac;
-            border-radius: 8px;
-            padding: 6px 10px;
-            flex-wrap: wrap;
         }
 
-        .multi-tag-label {
-            font-size: 11px;
-            font-weight: 600;
-            color: #166534;
-            white-space: nowrap;
-        }
-
-        .selected-tags-display {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-            align-items: center;
-        }
-
-        .selected-tag-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
+        .multi-tag-modal-content {
             background: white;
-            border: 1px solid #86efac;
             border-radius: 12px;
-            padding: 2px 8px 2px 6px;
-            font-size: 11px;
-            font-weight: 500;
-            color: #166534;
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
 
-        .selected-tag-chip .tag-color-dot {
-            width: 8px;
-            height: 8px;
+        .multi-tag-modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .multi-tag-modal-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .multi-tag-modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .multi-tag-modal-close:hover {
+            color: #1f2937;
+        }
+
+        .multi-tag-modal-body {
+            padding: 16px 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .multi-tag-search {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .multi-tag-search:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .multi-tag-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .multi-tag-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .multi-tag-item:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+        }
+
+        .multi-tag-item.selected {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border-color: #86efac;
+        }
+
+        .multi-tag-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #10b981;
+        }
+
+        .multi-tag-item .tag-color {
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
             flex-shrink: 0;
         }
 
-        .selected-tag-chip .remove-tag {
-            cursor: pointer;
-            color: #dc2626;
-            font-size: 10px;
-            margin-left: 2px;
-            opacity: 0.7;
-            transition: opacity 0.2s;
+        .multi-tag-item .tag-name {
+            flex: 1;
+            font-size: 14px;
+            color: #374151;
         }
 
-        .selected-tag-chip .remove-tag:hover {
-            opacity: 1;
+        .multi-tag-modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
         }
 
-        .clear-all-tags-btn {
-            background: #fee2e2;
-            color: #dc2626;
-            border: 1px solid #fecaca;
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-size: 10px;
+        .multi-tag-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
         }
 
-        .clear-all-tags-btn:hover {
+        .multi-tag-btn-cancel {
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            color: #374151;
+        }
+
+        .multi-tag-btn-cancel:hover {
+            background: #e5e7eb;
+        }
+
+        .multi-tag-btn-clear {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
+
+        .multi-tag-btn-clear:hover {
             background: #fecaca;
+        }
+
+        .multi-tag-btn-apply {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            color: white;
+        }
+
+        .multi-tag-btn-apply:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .multi-tag-selected-count {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 8px;
         }
 
         /* Status Grid Styles */
@@ -578,33 +689,12 @@
                     </button>
                 </div>
 
-                <!-- TAG Filter with Multi-select -->
+                <!-- TAG Filter with Multi-select Modal -->
                 <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
                     <label style="font-size: 12px; font-weight: 500; color: #6b7280;">TAG:</label>
-                    <div class="custom-dropdown" id="tagFilterDropdown" style="min-width: 150px;">
-                        <div class="dropdown-selected search-filter-btn" onclick="toggleTagDropdown()" id="tagFilterSelected">
-                            <span>Tất cả</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <div class="dropdown-container" id="tagFilterContainer">
-                            <input type="text" id="tagFilterInput" placeholder="Tìm tag..." onkeyup="filterTagDropdown()"
-                                onclick="event.stopPropagation()">
-                            <div id="tagFilterOptions" class="dropdown-options">
-                                <!-- Options populated by JS -->
-                            </div>
-                        </div>
-                        <input type="hidden" id="tagFilter" value="all">
-                    </div>
-                    <button class="tag-add-btn" onclick="addSelectedTagToFilter()" title="Thêm tag để lọc AND">
-                        <i class="fas fa-plus"></i> TAG+
-                    </button>
-                </div>
-                <!-- Multi-tag filter display -->
-                <div id="multiTagFilterContainer" class="multi-tag-filter-container" style="display: none;">
-                    <span class="multi-tag-label">Lọc AND:</span>
-                    <div id="selectedTagsDisplay" class="selected-tags-display"></div>
-                    <button class="clear-all-tags-btn" onclick="clearAllTagFilters()" title="Xóa tất cả tag">
-                        <i class="fas fa-times"></i>
+                    <button class="tag-filter-btn" onclick="openMultiTagModal()" id="tagFilterBtn">
+                        <span id="tagFilterBtnText">Tất cả</span>
+                        <i class="fas fa-tags"></i>
                     </button>
                 </div>
 
@@ -689,6 +779,32 @@
             </div>
         </div>
     </div>
+    <!-- Multi-tag Filter Modal -->
+    <div class="multi-tag-modal" id="multiTagModal">
+        <div class="multi-tag-modal-content">
+            <div class="multi-tag-modal-header">
+                <h3><i class="fas fa-tags"></i> Lọc theo nhiều Tag (AND)</h3>
+                <button class="multi-tag-modal-close" onclick="closeMultiTagModal()">&times;</button>
+            </div>
+            <div class="multi-tag-modal-body">
+                <input type="text" class="multi-tag-search" id="multiTagSearch" placeholder="Tìm tag..." oninput="filterMultiTagList()">
+                <div class="multi-tag-list" id="multiTagList">
+                    <!-- Tags will be populated by JS -->
+                </div>
+                <div class="multi-tag-selected-count" id="multiTagSelectedCount"></div>
+            </div>
+            <div class="multi-tag-modal-footer">
+                <button class="multi-tag-btn multi-tag-btn-clear" onclick="clearMultiTagSelection()">
+                    <i class="fas fa-trash"></i> Xóa lọc
+                </button>
+                <button class="multi-tag-btn multi-tag-btn-cancel" onclick="closeMultiTagModal()">Hủy</button>
+                <button class="multi-tag-btn multi-tag-btn-apply" onclick="applyMultiTagFilter()">
+                    <i class="fas fa-check"></i> Áp dụng
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Tag Management Modal -->
     <div class="tag-modal" id="tagModal">
         <div class="tag-modal-content">
