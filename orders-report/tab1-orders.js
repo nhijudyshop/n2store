@@ -2447,28 +2447,41 @@ window.addEventListener('click', function (e) {
 // --- Multi-tag Filter Functions ---
 
 function addSelectedTagToFilter() {
+    console.log('[MULTI-TAG] addSelectedTagToFilter called');
+
     const tagFilterValue = document.getElementById('tagFilter')?.value;
+    console.log('[MULTI-TAG] tagFilterValue:', tagFilterValue);
+    console.log('[MULTI-TAG] availableTags:', availableTags);
 
     // Don't add if "Tất cả" is selected
     if (!tagFilterValue || tagFilterValue === 'all') {
+        console.log('[MULTI-TAG] No tag selected or "all" selected');
         if (window.notificationManager) {
             window.notificationManager.warning('Vui lòng chọn một tag trước khi nhấn TAG+');
+        } else {
+            alert('Vui lòng chọn một tag trước khi nhấn TAG+');
         }
         return;
     }
 
     // Check if tag is already in the filter
     if (selectedFilterTags.some(t => String(t.Id) === String(tagFilterValue))) {
+        console.log('[MULTI-TAG] Tag already in filter');
         if (window.notificationManager) {
             window.notificationManager.info('Tag này đã được thêm vào bộ lọc');
+        } else {
+            alert('Tag này đã được thêm vào bộ lọc');
         }
         return;
     }
 
     // Find the tag details from availableTags
     const tagDetails = availableTags.find(t => String(t.Id) === String(tagFilterValue));
+    console.log('[MULTI-TAG] tagDetails found:', tagDetails);
+
     if (!tagDetails) {
         console.error('[MULTI-TAG] Tag not found in availableTags:', tagFilterValue);
+        alert('Không tìm thấy tag trong danh sách. Vui lòng thử lại.');
         return;
     }
 
@@ -2484,8 +2497,19 @@ function addSelectedTagToFilter() {
     // Update UI
     updateMultiTagFilterDisplay();
 
-    // Reset dropdown to "Tất cả"
-    selectTagFilter('all', 'Tất cả');
+    // Reset dropdown to "Tất cả" but DON'T trigger search yet (we'll do it after)
+    const hiddenInput = document.getElementById('tagFilter');
+    if (hiddenInput) hiddenInput.value = 'all';
+
+    const selectedDisplay = document.getElementById('tagFilterSelected');
+    if (selectedDisplay) {
+        selectedDisplay.innerHTML = `<span>Tất cả</span> <i class="fas fa-chevron-down"></i>`;
+    }
+
+    hideTagDropdown();
+
+    // Trigger search with multi-tag filter
+    performTableSearch();
 }
 
 function removeTagFromFilter(tagId) {
