@@ -244,27 +244,30 @@ function renderProductRow(opts) {
 
     const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
     const productText = product ? (product.rawText || `MA ${product.maSP} ${product.soMau} MAU ${product.soLuong}X${product.giaDonVi}`) : '-';
-    // For invoice-last-row, apply thick border only to invoice columns (NCC to Ảnh), not cost columns
+    // For rowspanned cells (rendered on first row), always apply invoice-border since their
+    // bottom border appears at the end of their rowspan (which is the last row of invoice)
+    // For non-rowspanned cells (STT, Products), only apply on last row
+    const rowspanBorderClass = 'invoice-border';
     const borderClass = isLastRow ? 'invoice-border' : '';
 
     return `
         <tr class="${rowClass}">
-            ${isFirstRow ? `<td class="col-ncc ${borderClass}" rowspan="${rowSpan}"><strong>${sttNCC}</strong></td>` : ''}
+            ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass}" rowspan="${rowSpan}"><strong>${sttNCC}</strong></td>` : ''}
             <td class="col-stt ${borderClass}">${product ? productIdx + 1 : '-'}</td>
             <td class="col-products ${borderClass}">
                 <span class="product-text">${productText}</span>
             </td>
             ${isFirstRow ? `
-                <td class="col-amount text-right ${borderClass}" rowspan="${rowSpan}">
+                <td class="col-amount text-right ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
                 </td>
-                <td class="col-total text-center ${borderClass}" rowspan="${rowSpan}">
+                <td class="col-total text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="total-value">${formatNumber(tongMon)}</strong>
                 </td>
-                <td class="col-shortage text-center ${borderClass}" rowspan="${rowSpan}">
+                <td class="col-shortage text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
-                <td class="col-image text-center ${borderClass}" rowspan="${rowSpan}">
+                <td class="col-image text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${imageCount > 0 ? `
                         <span class="image-count" onclick="viewInvoiceImages('${shipmentId}', '${invoiceId}')">
                             <i data-lucide="image"></i>
