@@ -738,14 +738,15 @@ body {
 /* Column widths */
 .invoice-table .col-ncc { width: 50px; text-align: center; vertical-align: middle; }
 .invoice-table .col-stt { width: 40px; text-align: center; }
-.invoice-table .col-products { min-width: 200px; }
+.invoice-table .col-products { width: 60%; }
 .invoice-table .col-amount { width: 100px; vertical-align: middle; }
 .invoice-table .col-total { width: 70px; vertical-align: middle; }
 .invoice-table .col-shortage { width: 60px; vertical-align: middle; }
+.invoice-table .col-image { width: 50px; vertical-align: middle; }
+.invoice-table .col-invoice-note { vertical-align: middle; }
 .invoice-table .col-cost { width: 100px; }
 .invoice-table .col-cost-note { min-width: 120px; }
 .invoice-table .col-note { min-width: 100px; }
-.invoice-table .col-image { width: 50px; vertical-align: middle; }
 
 /* Alternating colors by INVOICE (not by row) */
 .invoice-table tbody tr.invoice-even {
@@ -756,7 +757,7 @@ body {
     background-color: #f5f5f5;
 }
 
-/* Thicker border between invoices - spans all invoice columns (NCC to Ảnh) */
+/* Thicker border between invoices - spans all invoice columns (NCC to Ghi Chú) */
 /* Applied to rowspanned cells (always) and non-rowspanned cells (on last row) */
 .invoice-table tbody td.invoice-border {
     border-bottom: 2px solid var(--gray-400);
@@ -824,6 +825,12 @@ body {
     font-size: 12px;
     color: var(--gray-600);
     font-style: italic;
+}
+
+/* Invoice note text */
+.invoice-table .invoice-note-text {
+    font-size: 12px;
+    color: var(--gray-700);
 }
 
 /* Cost item inline display */
