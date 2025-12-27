@@ -110,67 +110,54 @@
 
         <!-- Tab 1: Tracking -->
         <div class="tab-content active" id="tabContentTracking">
-            <!-- Filters Section -->
-            <section class="filters-section card">
-                <div class="card-header filter-header" id="filterHeader">
-                    <div class="card-title">
-                        <i data-lucide="filter"></i>
-                        <h2>Bộ Lọc Dữ Liệu</h2>
+            <!-- Filters Section - Inline Navigation Style -->
+            <div class="filters-navigation">
+                <div class="filters-nav-left">
+                    <!-- Quick date range buttons -->
+                    <div class="quick-date-buttons">
+                        <button class="btn-quick-date" id="btn7Days" title="7 ngày gần nhất">7N</button>
+                        <button class="btn-quick-date" id="btn15Days" title="15 ngày gần nhất">15N</button>
+                        <button class="btn-quick-date" id="btn30Days" title="30 ngày gần nhất">30N</button>
                     </div>
-                    <button class="filter-toggle" id="filterToggle">
-                        <i data-lucide="chevron-down" id="filterToggleIcon"></i>
+
+                    <!-- Date From -->
+                    <div class="filter-inline-item">
+                        <i data-lucide="calendar"></i>
+                        <input type="date" id="filterDateFrom" class="filter-inline-input">
+                    </div>
+
+                    <span class="filter-separator">→</span>
+
+                    <!-- Date To -->
+                    <div class="filter-inline-item">
+                        <i data-lucide="calendar"></i>
+                        <input type="date" id="filterDateTo" class="filter-inline-input">
+                    </div>
+
+                    <!-- NCC Filter -->
+                    <div class="filter-inline-item">
+                        <i data-lucide="building"></i>
+                        <select id="filterNCC" class="filter-inline-select">
+                            <option value="all">Tất cả NCC</option>
+                        </select>
+                    </div>
+
+                    <!-- Product Search -->
+                    <div class="filter-inline-item filter-search">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="filterProduct" class="filter-inline-input" placeholder="Tìm mã SP...">
+                    </div>
+
+                    <!-- Clear Filter Button -->
+                    <button class="btn-clear-filters" id="btnClearFilters" title="Xóa bộ lọc">
+                        <i data-lucide="x"></i>
                     </button>
                 </div>
-                <div class="card-body filter-body" id="filterBody">
-                    <div class="filters-grid">
-                        <!-- Date From -->
-                        <div class="filter-item">
-                            <label>
-                                <i data-lucide="calendar"></i>
-                                Từ Ngày
-                            </label>
-                            <input type="date" id="filterDateFrom" class="filter-input">
-                        </div>
 
-                        <!-- Date To -->
-                        <div class="filter-item">
-                            <label>
-                                <i data-lucide="calendar"></i>
-                                Đến Ngày
-                            </label>
-                            <input type="date" id="filterDateTo" class="filter-input">
-                        </div>
-
-                        <!-- NCC Filter -->
-                        <div class="filter-item">
-                            <label>
-                                <i data-lucide="building"></i>
-                                Nhà Cung Cấp
-                            </label>
-                            <select id="filterNCC" class="filter-select">
-                                <option value="all">Tất cả</option>
-                            </select>
-                        </div>
-
-                        <!-- Product Search -->
-                        <div class="filter-item filter-item-wide">
-                            <label>
-                                <i data-lucide="search"></i>
-                                Tìm Mã SP
-                            </label>
-                            <input type="text" id="filterProduct" class="filter-input" placeholder="Nhập mã sản phẩm...">
-                        </div>
-                    </div>
-
-                    <div class="filter-actions">
-                        <button class="btn btn-outline btn-sm" id="btnClearFilters">
-                            <i data-lucide="x"></i>
-                            Xóa bộ lọc
-                        </button>
-                        <span class="filter-count" id="filterCount">0 đợt hàng</span>
-                    </div>
+                <div class="filters-nav-right">
+                    <span class="filter-count" id="filterCount">0 đợt hàng</span>
                 </div>
-            </section>
+            </div>
 
             <!-- Add Shipment Button -->
             <div class="action-bar">

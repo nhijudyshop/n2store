@@ -9,31 +9,99 @@
 function initFilters() {
     const dateFromInput = document.getElementById('filterDateFrom');
     const dateToInput = document.getElementById('filterDateTo');
-    const nccInput = document.getElementById('filterNCC');
-    const btnApply = document.getElementById('btnApplyFilter');
-    const btnClear = document.getElementById('btnClearFilter');
+    const nccSelect = document.getElementById('filterNCC');
+    const productInput = document.getElementById('filterProduct');
+    const btnClear = document.getElementById('btnClearFilters');
 
-    // Set default date range (current month)
+    // Quick date buttons
+    const btn7Days = document.getElementById('btn7Days');
+    const btn15Days = document.getElementById('btn15Days');
+    const btn30Days = document.getElementById('btn30Days');
+
+    // Set default date range (last 30 days)
     if (dateFromInput && !dateFromInput.value) {
         const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-        dateFromInput.value = firstDay.toISOString().split('T')[0];
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        dateFromInput.value = thirtyDaysAgo.toISOString().split('T')[0];
     }
     if (dateToInput && !dateToInput.value) {
         dateToInput.value = new Date().toISOString().split('T')[0];
     }
 
-    // Event listeners
-    btnApply?.addEventListener('click', applyFilters);
+    // Event listeners for quick date buttons
+    btn7Days?.addEventListener('click', () => setQuickDateRange(7, btn7Days));
+    btn15Days?.addEventListener('click', () => setQuickDateRange(15, btn15Days));
+    btn30Days?.addEventListener('click', () => setQuickDateRange(30, btn30Days));
+
+    // Event listeners for real-time filtering
+    dateFromInput?.addEventListener('change', () => {
+        clearQuickDateButtonActive();
+        applyFilters();
+    });
+    dateToInput?.addEventListener('change', () => {
+        clearQuickDateButtonActive();
+        applyFilters();
+    });
+    nccSelect?.addEventListener('change', applyFilters);
+
+    // Product search with debounce
+    let searchTimeout;
+    productInput?.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            globalState.searchQuery = productInput.value.trim();
+            applyFiltersAndRender();
+        }, 300);
+    });
+
+    // Clear button
     btnClear?.addEventListener('click', clearFilters);
 
     // Auto-apply on enter
-    [dateFromInput, dateToInput, nccInput].forEach(input => {
+    [dateFromInput, dateToInput, productInput].forEach(input => {
         input?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 applyFilters();
             }
         });
+    });
+
+    // Initialize with 30 days active
+    btn30Days?.classList.add('active');
+}
+
+/**
+ * Set quick date range
+ */
+function setQuickDateRange(days, activeBtn) {
+    const dateFromInput = document.getElementById('filterDateFrom');
+    const dateToInput = document.getElementById('filterDateTo');
+
+    const now = new Date();
+    const pastDate = new Date(now);
+    pastDate.setDate(pastDate.getDate() - days);
+
+    if (dateFromInput) {
+        dateFromInput.value = pastDate.toISOString().split('T')[0];
+    }
+    if (dateToInput) {
+        dateToInput.value = now.toISOString().split('T')[0];
+    }
+
+    // Update active button state
+    clearQuickDateButtonActive();
+    activeBtn?.classList.add('active');
+
+    applyFilters();
+}
+
+/**
+ * Clear active state from all quick date buttons
+ */
+function clearQuickDateButtonActive() {
+    document.querySelectorAll('.btn-quick-date').forEach(btn => {
+        btn.classList.remove('active');
     });
 }
 
@@ -58,12 +126,30 @@ function applyFilters() {
  * Clear all filters
  */
 function clearFilters() {
-    document.getElementById('filterDateFrom').value = '';
-    document.getElementById('filterDateTo').value = '';
-    document.getElementById('filterNCC').value = '';
-    document.getElementById('filterProductCode').value = '';
+    const dateFromInput = document.getElementById('filterDateFrom');
+    const dateToInput = document.getElementById('filterDateTo');
+    const nccSelect = document.getElementById('filterNCC');
+    const productInput = document.getElementById('filterProduct');
 
-    globalState.filters = {};
+    // Reset to 30 days range
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    if (dateFromInput) dateFromInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+    if (dateToInput) dateToInput.value = now.toISOString().split('T')[0];
+    if (nccSelect) nccSelect.value = 'all';
+    if (productInput) productInput.value = '';
+
+    // Set 30N button as active
+    clearQuickDateButtonActive();
+    document.getElementById('btn30Days')?.classList.add('active');
+
+    globalState.filters = {
+        dateFrom: thirtyDaysAgo.toISOString().split('T')[0],
+        dateTo: now.toISOString().split('T')[0],
+        ncc: 'all'
+    };
     globalState.searchQuery = '';
 
     applyFiltersAndRender();
