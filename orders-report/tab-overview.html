@@ -2472,6 +2472,7 @@
             });
 
             // Find orders with duplicate tags (more than 1 tag from LIVE_STAT_TAGS)
+            // NOTE: Now includes 'ordered' status as a tag for duplicate checking
             const duplicateOrders = [];
             let hasUnacceptableDuplicate = false;
 
@@ -2484,13 +2485,12 @@
             };
 
             orderTagsMap.forEach((data, orderId) => {
-                // Exclude 'ordered' when checking for duplicates (status is not a tag)
-                const tagKeysWithoutOrdered = new Set(data.tagKeys);
-                tagKeysWithoutOrdered.delete('ordered');
+                // Include 'ordered' when checking for duplicates (ĐÃ RA ĐƠN counts as a tag)
+                const tagKeys = data.tagKeys;
 
-                if (tagKeysWithoutOrdered.size > 1) {
-                    duplicateOrders.push(data.order);
-                    if (!isAcceptableDuplicate(tagKeysWithoutOrdered)) {
+                if (tagKeys.size > 1) {
+                    duplicateOrders.push({ ...data.order, _matchedTagKeys: Array.from(tagKeys) });
+                    if (!isAcceptableDuplicate(tagKeys)) {
                         hasUnacceptableDuplicate = true;
                     }
                 }
@@ -2765,6 +2765,7 @@
                 });
 
                 // Find duplicate orders for this employee
+                // NOTE: Now includes 'ordered' status as a tag for duplicate checking
                 const duplicateOrders = [];
                 let hasUnacceptableDuplicate = false;
 
@@ -2776,13 +2777,12 @@
                 };
 
                 orderTagsMap.forEach((data, orderId) => {
-                    // Exclude 'ordered' when checking for duplicates (status is not a tag)
-                    const tagKeysWithoutOrdered = new Set(data.tagKeys);
-                    tagKeysWithoutOrdered.delete('ordered');
+                    // Include 'ordered' when checking for duplicates (ĐÃ RA ĐƠN counts as a tag)
+                    const tagKeys = data.tagKeys;
 
-                    if (tagKeysWithoutOrdered.size > 1) {
-                        duplicateOrders.push(data.order);
-                        if (!isAcceptableDuplicate(tagKeysWithoutOrdered)) {
+                    if (tagKeys.size > 1) {
+                        duplicateOrders.push({ ...data.order, _matchedTagKeys: Array.from(tagKeys) });
+                        if (!isAcceptableDuplicate(tagKeys)) {
                             hasUnacceptableDuplicate = true;
                         }
                     }
@@ -3644,12 +3644,18 @@
                 return stt >= start && stt <= end;
             });
 
-            // Handle TAG TRÙNG (duplicate tags)
+            // Handle TAG TRÙNG (duplicate tags) - includes 'ordered' status
             if (tagKey === 'tag_trung') {
                 displayName = 'TAG TRÙNG';
                 filteredOrders = empOrders.filter(order => {
                     const orderTags = parseOrderTags(order.Tags);
+                    const statusText = order.StatusText || order.Status || '';
                     const matchedKeys = new Set();
+
+                    // Check for ĐÃ RA ĐƠN status (counts as a tag)
+                    if (statusText === 'Đơn hàng') {
+                        matchedKeys.add('ordered');
+                    }
 
                     orderTags.forEach(orderTag => {
                         const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
@@ -3663,6 +3669,11 @@
                             }
                         });
                     });
+
+                    // Store matched keys for display
+                    if (matchedKeys.size > 1) {
+                        order._matchedTagKeys = Array.from(matchedKeys);
+                    }
 
                     return matchedKeys.size > 1;
                 });
@@ -3812,7 +3823,7 @@
                                 <tr>
                                     <td>${order.SessionIndex || ''}</td>
                                     <td class="order-code">${order.Code || ''}</td>
-                                    <td><div class="tags-cell">${parseOrderTagsHtml(order.Tags)}</div></td>
+                                    <td><div class="tags-cell">${parseOrderTagsHtml(order.Tags, order)}</div></td>
                                     <td>${order.Name || order.PartnerName || ''}</td>
                                     <td>${order.Details?.length || 0}</td>
                                     <td class="amount">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
@@ -4007,7 +4018,7 @@
                                 <tr onclick="openCachedOrderDetailFromModal(${orders.indexOf(order)}, '${order.Code}')" style="cursor: pointer;">
                                     <td>${order.SessionIndex || '-'}</td>
                                     <td class="order-code">${order.Code || ''}</td>
-                                    <td><div class="tags-cell">${parseOrderTagsHtml(order.Tags)}</div></td>
+                                    <td><div class="tags-cell">${parseOrderTagsHtml(order.Tags, order)}</div></td>
                                     <td>${order.Name || order.PartnerName || ''}</td>
                                     <td>${order.Telephone || ''}</td>
                                     <td>${(order.Details || []).length}</td>
@@ -5068,22 +5079,28 @@
          * @param {string|Array} tagsData - Tags JSON string or array
          * @returns {string} HTML string for displaying tags
          */
-        function parseOrderTagsHtml(tagsData) {
+        function parseOrderTagsHtml(tagsData, order = null) {
             try {
                 let tags = tagsData;
+                let html = '';
 
                 // Parse JSON string if needed
                 if (typeof tagsData === 'string') {
                     tags = JSON.parse(tagsData);
                 }
 
-                if (!Array.isArray(tags) || tags.length === 0) {
-                    return '';
+                // Add virtual "ĐÃ RA ĐƠN" tag if order has matched 'ordered' key (for TAG TRÙNG display)
+                if (order && order._matchedTagKeys && order._matchedTagKeys.includes('ordered')) {
+                    html += `<span class="order-tag" style="background-color: #22c55e; border: 2px dashed #15803d;" title="Tag ảo - Trạng thái Đơn hàng">✓ ĐÃ RA ĐƠN</span>`;
                 }
 
-                return tags.map(tag =>
-                    `<span class="order-tag" style="background-color: ${tag.Color || '#6b7280'};" title="${tag.Name || ''}">${tag.Name || ''}</span>`
-                ).join('');
+                if (Array.isArray(tags) && tags.length > 0) {
+                    html += tags.map(tag =>
+                        `<span class="order-tag" style="background-color: ${tag.Color || '#6b7280'};" title="${tag.Name || ''}">${tag.Name || ''}</span>`
+                    ).join('');
+                }
+
+                return html;
             } catch (e) {
                 return '';
             }
