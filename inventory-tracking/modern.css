@@ -2043,3 +2043,110 @@ body {
         max-height: calc(100vh - 32px);
     }
 }
+
+/* ===== FONT SIZE SETTINGS ===== */
+.font-size-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.font-setting-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    border: 1px solid var(--gray-200);
+}
+
+.font-setting-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.font-setting-name {
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.font-setting-preview {
+    padding: 4px 10px;
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    font-weight: 500;
+    color: var(--gray-600);
+    transition: font-size 0.2s ease;
+}
+
+.font-setting-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-font-adjust {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--gray-200);
+    background: white;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--gray-600);
+}
+
+.btn-font-adjust:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.btn-font-adjust:active {
+    transform: scale(0.95);
+}
+
+.btn-font-adjust i {
+    width: 16px;
+    height: 16px;
+}
+
+.font-size-input {
+    width: 60px;
+    padding: 6px 8px;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--gray-800);
+}
+
+.font-size-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.font-size-unit {
+    font-weight: 600;
+    color: var(--gray-500);
+}
+
+/* Font Size Modal Header Icon */
+#modalFontSize .modal-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#modalFontSize .modal-header h3 i {
+    width: 22px;
+    height: 22px;
+    color: var(--primary);
+}

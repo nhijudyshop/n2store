@@ -85,6 +85,9 @@
                     <i data-lucide="download"></i>
                     <span>Xuất Excel</span>
                 </button>
+                <button class="btn-icon" id="fontSizeSettingsBtn" title="Cài đặt cỡ chữ">
+                    <i data-lucide="type"></i>
+                </button>
                 <button class="btn-icon" id="refreshButton" title="Làm mới dữ liệu">
                     <i data-lucide="refresh-cw"></i>
                 </button>
@@ -437,6 +440,125 @@
         </div>
     </div>
 
+    <!-- Modal: Font Size Settings -->
+    <div class="modal" id="modalFontSize">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-md">
+            <div class="modal-header">
+                <h3>
+                    <i data-lucide="type"></i>
+                    Cài Đặt Cỡ Chữ
+                </h3>
+                <button class="modal-close" id="btnCloseFontSizeModal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="font-size-settings">
+                    <!-- Header Section -->
+                    <div class="font-setting-item">
+                        <div class="font-setting-label">
+                            <span class="font-setting-name">Header / Top Bar</span>
+                            <span class="font-setting-preview" data-section="header">Abc</span>
+                        </div>
+                        <div class="font-setting-control">
+                            <button class="btn-font-adjust" data-action="decrease" data-section="header">
+                                <i data-lucide="minus"></i>
+                            </button>
+                            <input type="number" class="font-size-input" id="fontSize-header" value="100" min="50" max="200" step="5">
+                            <span class="font-size-unit">%</span>
+                            <button class="btn-font-adjust" data-action="increase" data-section="header">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filters Section -->
+                    <div class="font-setting-item">
+                        <div class="font-setting-label">
+                            <span class="font-setting-name">Bộ Lọc</span>
+                            <span class="font-setting-preview" data-section="filters">Abc</span>
+                        </div>
+                        <div class="font-setting-control">
+                            <button class="btn-font-adjust" data-action="decrease" data-section="filters">
+                                <i data-lucide="minus"></i>
+                            </button>
+                            <input type="number" class="font-size-input" id="fontSize-filters" value="100" min="50" max="200" step="5">
+                            <span class="font-size-unit">%</span>
+                            <button class="btn-font-adjust" data-action="increase" data-section="filters">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Shipment Cards Section -->
+                    <div class="font-setting-item">
+                        <div class="font-setting-label">
+                            <span class="font-setting-name">Thẻ Đợt Hàng</span>
+                            <span class="font-setting-preview" data-section="shipmentCards">Abc</span>
+                        </div>
+                        <div class="font-setting-control">
+                            <button class="btn-font-adjust" data-action="decrease" data-section="shipmentCards">
+                                <i data-lucide="minus"></i>
+                            </button>
+                            <input type="number" class="font-size-input" id="fontSize-shipmentCards" value="140" min="50" max="200" step="5">
+                            <span class="font-size-unit">%</span>
+                            <button class="btn-font-adjust" data-action="increase" data-section="shipmentCards">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Table Section -->
+                    <div class="font-setting-item">
+                        <div class="font-setting-label">
+                            <span class="font-setting-name">Bảng Dữ Liệu</span>
+                            <span class="font-setting-preview" data-section="table">Abc</span>
+                        </div>
+                        <div class="font-setting-control">
+                            <button class="btn-font-adjust" data-action="decrease" data-section="table">
+                                <i data-lucide="minus"></i>
+                            </button>
+                            <input type="number" class="font-size-input" id="fontSize-table" value="100" min="50" max="200" step="5">
+                            <span class="font-size-unit">%</span>
+                            <button class="btn-font-adjust" data-action="increase" data-section="table">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Modal Section -->
+                    <div class="font-setting-item">
+                        <div class="font-setting-label">
+                            <span class="font-setting-name">Modal / Form</span>
+                            <span class="font-setting-preview" data-section="modal">Abc</span>
+                        </div>
+                        <div class="font-setting-control">
+                            <button class="btn-font-adjust" data-action="decrease" data-section="modal">
+                                <i data-lucide="minus"></i>
+                            </button>
+                            <input type="number" class="font-size-input" id="fontSize-modal" value="100" min="50" max="200" step="5">
+                            <span class="font-size-unit">%</span>
+                            <button class="btn-font-adjust" data-action="increase" data-section="modal">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btnResetFontSize">
+                    <i data-lucide="rotate-ccw"></i>
+                    Đặt lại mặc định
+                </button>
+                <button class="btn btn-primary" id="btnSaveFontSize">
+                    <i data-lucide="save"></i>
+                    Lưu cài đặt
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toastContainer"></div>
 
@@ -462,6 +584,7 @@
     <script src="search.js"></script>
     <script src="export.js"></script>
     <script src="edit-history.js"></script>
+    <script src="font-size-settings.js"></script>
     <script src="main.js"></script>
 </body>
 </html>
