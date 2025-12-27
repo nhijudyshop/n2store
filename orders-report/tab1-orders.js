@@ -207,6 +207,7 @@ let searchTimeout = null;
 
 // Tag Management State
 let availableTags = [];
+let selectedFilterTags = []; // Multi-tag filter: stores array of {Id, Name, Color}
 let currentEditingOrderId = null;
 
 
@@ -2442,6 +2443,97 @@ window.addEventListener('click', function (e) {
         hideTagDropdown();
     }
 });
+
+// --- Multi-tag Filter Functions ---
+
+function addSelectedTagToFilter() {
+    const tagFilterValue = document.getElementById('tagFilter')?.value;
+
+    // Don't add if "Tất cả" is selected
+    if (!tagFilterValue || tagFilterValue === 'all') {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Vui lòng chọn một tag trước khi nhấn TAG+');
+        }
+        return;
+    }
+
+    // Check if tag is already in the filter
+    if (selectedFilterTags.some(t => String(t.Id) === String(tagFilterValue))) {
+        if (window.notificationManager) {
+            window.notificationManager.info('Tag này đã được thêm vào bộ lọc');
+        }
+        return;
+    }
+
+    // Find the tag details from availableTags
+    const tagDetails = availableTags.find(t => String(t.Id) === String(tagFilterValue));
+    if (!tagDetails) {
+        console.error('[MULTI-TAG] Tag not found in availableTags:', tagFilterValue);
+        return;
+    }
+
+    // Add tag to selected filter tags
+    selectedFilterTags.push({
+        Id: tagDetails.Id,
+        Name: tagDetails.Name,
+        Color: tagDetails.Color
+    });
+
+    console.log('[MULTI-TAG] Added tag to filter:', tagDetails.Name, 'Total tags:', selectedFilterTags.length);
+
+    // Update UI
+    updateMultiTagFilterDisplay();
+
+    // Reset dropdown to "Tất cả"
+    selectTagFilter('all', 'Tất cả');
+}
+
+function removeTagFromFilter(tagId) {
+    selectedFilterTags = selectedFilterTags.filter(t => String(t.Id) !== String(tagId));
+    console.log('[MULTI-TAG] Removed tag from filter. Remaining tags:', selectedFilterTags.length);
+
+    updateMultiTagFilterDisplay();
+    performTableSearch();
+}
+
+function clearAllTagFilters() {
+    selectedFilterTags = [];
+    console.log('[MULTI-TAG] Cleared all tag filters');
+
+    updateMultiTagFilterDisplay();
+    performTableSearch();
+}
+
+function updateMultiTagFilterDisplay() {
+    const container = document.getElementById('multiTagFilterContainer');
+    const display = document.getElementById('selectedTagsDisplay');
+
+    if (!container || !display) return;
+
+    if (selectedFilterTags.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'flex';
+
+    // Build chips HTML
+    let chipsHtml = '';
+    selectedFilterTags.forEach(tag => {
+        const colorDot = tag.Color
+            ? `<span class="tag-color-dot" style="background-color: ${tag.Color};"></span>`
+            : '';
+        chipsHtml += `
+            <span class="selected-tag-chip">
+                ${colorDot}
+                <span>${tag.Name}</span>
+                <i class="fas fa-times remove-tag" onclick="removeTagFromFilter('${tag.Id}')"></i>
+            </span>
+        `;
+    });
+
+    display.innerHTML = chipsHtml;
+}
 
 function openTagModal(orderId, orderCode) {
     currentEditingOrderId = orderId;
@@ -5373,10 +5465,29 @@ function performTableSearch() {
         });
     }
 
-    // Apply TAG filter
+    // Apply TAG filter (supports multi-tag AND filter)
     const tagFilter = document.getElementById('tagFilter')?.value || 'all';
 
-    if (tagFilter !== 'all') {
+    // Check if multi-tag filter is active
+    if (selectedFilterTags && selectedFilterTags.length > 0) {
+        // Multi-tag AND filter: order must have ALL selected tags
+        tempData = tempData.filter(order => {
+            if (!order.Tags) return false;
+
+            try {
+                const orderTags = JSON.parse(order.Tags);
+                if (!Array.isArray(orderTags) || orderTags.length === 0) return false;
+
+                // Check if order has ALL selected filter tags (AND logic)
+                return selectedFilterTags.every(filterTag => {
+                    return orderTags.some(orderTag => String(orderTag.Id) === String(filterTag.Id));
+                });
+            } catch (e) {
+                return false;
+            }
+        });
+    } else if (tagFilter !== 'all') {
+        // Single tag filter (original behavior)
         tempData = tempData.filter(order => {
             if (!order.Tags) return false;
 
