@@ -131,6 +131,9 @@ async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
     const shipmentId = generateShipmentId();
     const inventoryData = convertToInventoryFormat(invoiceData);
 
+    // Calculate tongMon from products
+    const tongMon = inventoryData.sanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+
     // Build document matching inventory_tracking structure
     const docData = {
         id: shipmentId,
@@ -139,11 +142,12 @@ async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
             sttNCC: inventoryData.sttNCC,
             tenNCC: inventoryData.tenNCC,
             sanPham: inventoryData.sanPham,
-            tongTien: inventoryData.tongTien,
+            tongTienHD: inventoryData.tongTien,  // Field name expected by table-renderer
+            tongMon: tongMon,                     // Total items in this invoice
             ghiChu: inventoryData.ghiChu
         }],
         tongTienHoaDon: inventoryData.tongTien,
-        tongMon: inventoryData.tongMon,
+        tongMon: tongMon,
         soMonThieu: 0,
         chiPhiHangVe: [],
         tongChiPhi: 0,

@@ -208,8 +208,15 @@ function renderInvoicesSection(shipment) {
         `;
     }
 
-    const totalAmount = invoices.reduce((sum, hd) => sum + (hd.tongTienHD || 0), 0);
-    const totalItems = invoices.reduce((sum, hd) => sum + (hd.tongMon || 0), 0);
+    // Support both tongTienHD (new) and tongTien (old) field names
+    const totalAmount = invoices.reduce((sum, hd) => sum + (hd.tongTienHD || hd.tongTien || 0), 0);
+    // Calculate tongMon from products if not available
+    const totalItems = invoices.reduce((sum, hd) => {
+        if (hd.tongMon) return sum + hd.tongMon;
+        // Fallback: calculate from products
+        const products = hd.sanPham || [];
+        return sum + products.reduce((pSum, p) => pSum + (p.soLuong || 0), 0);
+    }, 0);
     const totalShortage = invoices.reduce((sum, hd) => sum + (hd.soMonThieu || 0), 0);
     const totalCost = costs.reduce((sum, c) => sum + (c.soTien || 0), 0);
 
@@ -223,6 +230,10 @@ function renderInvoicesSection(shipment) {
         const imageCount = hd.anhHoaDon?.length || 0;
         const invoiceClass = invoiceIdx % 2 === 0 ? 'invoice-even' : 'invoice-odd';
 
+        // Calculate tongMon for this invoice (fallback from products if not set)
+        const invoiceTongMon = hd.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+        const invoiceTongTienHD = hd.tongTienHD || hd.tongTien || 0;
+
         if (products.length === 0) {
             // No products - single row
             const costItem = canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
@@ -235,8 +246,8 @@ function renderInvoicesSection(shipment) {
                 isFirstRow: true,
                 isLastRow: true,
                 rowSpan: 1,
-                tongTienHD: hd.tongTienHD,
-                tongMon: hd.tongMon,
+                tongTienHD: invoiceTongTienHD,
+                tongMon: invoiceTongMon,
                 soMonThieu: hd.soMonThieu,
                 imageCount,
                 ghiChu: hd.ghiChu,
@@ -259,8 +270,8 @@ function renderInvoicesSection(shipment) {
                     isFirstRow: productIdx === 0,
                     isLastRow: productIdx === products.length - 1,
                     rowSpan: products.length,
-                    tongTienHD: hd.tongTienHD,
-                    tongMon: hd.tongMon,
+                    tongTienHD: invoiceTongTienHD,
+                    tongMon: invoiceTongMon,
                     soMonThieu: hd.soMonThieu,
                     imageCount,
                     ghiChu: hd.ghiChu,
