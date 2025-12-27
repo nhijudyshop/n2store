@@ -1743,6 +1743,28 @@
                         <!-- Employee cards will be rendered here -->
                     </div>
                 </div>
+
+                <!-- Empty Cart Reasons Section -->
+                <div class="content-section" id="emptyCartReasonsSection" style="display: none;">
+                    <h2>
+                        <i class="fas fa-shopping-cart" style="color: #f59e0b;"></i> Lý Do Giỏ Trống
+                        <span class="section-badge" id="emptyCartTotalBadge" style="background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; margin-left: 10px;">0 đơn</span>
+                    </h2>
+                    <div class="stats-table-wrapper">
+                        <table class="stats-table" id="emptyCartReasonsTable">
+                            <thead>
+                                <tr>
+                                    <th>Lý do (Tag kèm theo)</th>
+                                    <th>Số đơn</th>
+                                    <th>Tỷ lệ</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="emptyCartReasonsBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- Empty state when no cached data -->
@@ -3143,6 +3165,10 @@
             // Render employee stats
             renderEmployeeStats(employeeStats, orders);
 
+            // Calculate and render empty cart reasons
+            const emptyCartReasons = calculateEmptyCartReasons(orders);
+            renderEmptyCartReasons(emptyCartReasons);
+
             // Dispatch event for mobile UI (after DOM updates)
             setTimeout(() => {
                 window.dispatchEvent(new CustomEvent('statisticsRendered', {
@@ -3482,6 +3508,166 @@
         function closeOrdersDetailModal() {
             const modal = document.getElementById('ordersDetailModal');
             modal.classList.remove('show');
+        }
+
+        /**
+         * Calculate empty cart reasons breakdown
+         * Orders with "Giỏ Trống" tag + other tags (excluding "thẻ khách lạ" related tags)
+         */
+        function calculateEmptyCartReasons(orders) {
+            const reasonsMap = new Map();
+            let totalEmptyCartOrders = 0;
+
+            // Tags to exclude from counting (thẻ khách lạ variations)
+            const excludedPatterns = ['thẻ khách lạ', 'the khach la', 'khách lạ'];
+
+            orders.forEach(order => {
+                const orderTags = parseOrderTags(order.Tags);
+                if (!orderTags || orderTags.length === 0) return;
+
+                // Find if order has "giỏ trống" tag
+                const hasGioTrong = orderTags.some(tag => {
+                    const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
+                    return tagName === 'giỏ trống' || tagName === 'gio trong';
+                });
+
+                if (!hasGioTrong) return;
+
+                totalEmptyCartOrders++;
+
+                // Get other tags (excluding "giỏ trống" and "thẻ khách lạ" variations)
+                orderTags.forEach(tag => {
+                    const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
+                    const originalTagName = tag.Name || tag.name || '';
+
+                    // Skip the "giỏ trống" tag itself
+                    if (tagName === 'giỏ trống' || tagName === 'gio trong') return;
+
+                    // Skip excluded patterns (thẻ khách lạ)
+                    const isExcluded = excludedPatterns.some(p => tagName.includes(p));
+                    if (isExcluded) return;
+
+                    // Count this tag as a reason
+                    const key = tagName;
+                    if (!reasonsMap.has(key)) {
+                        reasonsMap.set(key, {
+                            tagName: originalTagName,
+                            tagNameLower: tagName,
+                            count: 0,
+                            orders: [],
+                            color: tag.Color || tag.color || '#6b7280'
+                        });
+                    }
+                    const reason = reasonsMap.get(key);
+                    reason.count++;
+                    reason.orders.push(order);
+                });
+            });
+
+            // Convert to array and sort by count descending
+            const reasons = Array.from(reasonsMap.values())
+                .sort((a, b) => b.count - a.count);
+
+            return {
+                totalEmptyCartOrders,
+                reasons
+            };
+        }
+
+        /**
+         * Render empty cart reasons table
+         */
+        function renderEmptyCartReasons(data) {
+            const section = document.getElementById('emptyCartReasonsSection');
+            const tbody = document.getElementById('emptyCartReasonsBody');
+            const totalBadge = document.getElementById('emptyCartTotalBadge');
+
+            if (!data || data.totalEmptyCartOrders === 0) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            totalBadge.textContent = `${data.totalEmptyCartOrders} đơn`;
+
+            if (data.reasons.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #999; padding: 20px;">
+                            <i class="fas fa-info-circle" style="margin-right: 5px;"></i>
+                            Các đơn giỏ trống không có tag lý do kèm theo
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = data.reasons.map(reason => {
+                const percentage = data.totalEmptyCartOrders > 0
+                    ? ((reason.count / data.totalEmptyCartOrders) * 100).toFixed(1)
+                    : 0;
+
+                // Escape special characters for onclick handler
+                const escapedTagName = reason.tagNameLower.replace(/'/g, "\\'").replace(/"/g, '\\"');
+
+                return `
+                <tr>
+                    <td>
+                        <div class="tag-cell">
+                            <span class="tag-color" style="background-color: ${reason.color}"></span>
+                            <span>${reason.tagName}</span>
+                        </div>
+                    </td>
+                    <td><strong>${reason.count.toLocaleString('vi-VN')}</strong></td>
+                    <td class="percentage">${percentage}%</td>
+                    <td>
+                        <button class="btn-view-detail" onclick="viewEmptyCartReasonOrders('${escapedTagName}')" title="Xem chi tiết">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        /**
+         * View orders for specific empty cart reason
+         */
+        function viewEmptyCartReasonOrders(tagNameLower) {
+            const cached = cachedOrderDetails[currentTableName];
+            const orders = cached?.orders || [];
+
+            // Filter orders that have both "giỏ trống" and the specific tag
+            const filteredOrders = orders.filter(order => {
+                const orderTags = parseOrderTags(order.Tags);
+                if (!orderTags || orderTags.length === 0) return false;
+
+                const hasGioTrong = orderTags.some(tag => {
+                    const name = (tag.Name || tag.name || '').toLowerCase().trim();
+                    return name === 'giỏ trống' || name === 'gio trong';
+                });
+
+                const hasTargetTag = orderTags.some(tag => {
+                    const name = (tag.Name || tag.name || '').toLowerCase().trim();
+                    return name === tagNameLower;
+                });
+
+                return hasGioTrong && hasTargetTag;
+            });
+
+            // Find display name from first matching order
+            let displayName = tagNameLower;
+            if (filteredOrders.length > 0) {
+                const orderTags = parseOrderTags(filteredOrders[0].Tags);
+                const matchingTag = orderTags.find(tag => {
+                    const name = (tag.Name || tag.name || '').toLowerCase().trim();
+                    return name === tagNameLower;
+                });
+                if (matchingTag) {
+                    displayName = matchingTag.Name || matchingTag.name || tagNameLower;
+                }
+            }
+
+            openOrdersDetailModal(`Giỏ Trống + ${displayName}`, filteredOrders);
         }
 
         /**
