@@ -423,12 +423,27 @@ function renderAdminNoteSection(shipment) {
 /**
  * View invoice images
  */
-function viewInvoiceImages(shipmentId, invoiceId) {
+function viewInvoiceImages(shipmentId, invoiceIdentifier) {
     const shipment = globalState.shipments.find(s => s.id === shipmentId);
     if (!shipment) return;
 
-    const invoice = shipment.hoaDon?.find(hd => hd.id === invoiceId);
-    if (!invoice || !invoice.anhHoaDon?.length) {
+    // Find invoice by id, sttNCC, or index
+    let invoiceIdx = -1;
+    if (typeof invoiceIdentifier === 'number') {
+        invoiceIdx = invoiceIdentifier;
+    } else {
+        invoiceIdx = shipment.hoaDon?.findIndex(hd =>
+            hd.id === invoiceIdentifier || String(hd.sttNCC) === String(invoiceIdentifier)
+        );
+    }
+
+    if (invoiceIdx === -1 || !shipment.hoaDon?.[invoiceIdx]) {
+        toast.info('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    const invoice = shipment.hoaDon[invoiceIdx];
+    if (!invoice.anhHoaDon?.length) {
         toast.info('Không có ảnh hóa đơn');
         return;
     }
@@ -437,14 +452,87 @@ function viewInvoiceImages(shipmentId, invoiceId) {
     const body = document.getElementById('imageViewerBody');
 
     if (body) {
-        body.innerHTML = invoice.anhHoaDon.map(url => `
-            <div class="image-item">
-                <img src="${url}" alt="Hóa đơn" onclick="window.open('${url}', '_blank')">
+        body.innerHTML = invoice.anhHoaDon.map((url, index) => `
+            <div class="image-item" style="position: relative;">
+                <img src="${url}" alt="Hóa đơn" onclick="window.open('${url}', '_blank')" style="cursor: pointer;">
+                <button class="btn-delete-image" onclick="deleteInvoiceImage('${shipmentId}', ${invoiceIdx}, ${index})"
+                    title="Xóa ảnh này" style="position: absolute; top: 5px; right: 5px;
+                    background: rgba(220, 53, 69, 0.9); color: white; border: none;
+                    border-radius: 50%; width: 24px; height: 24px; cursor: pointer;
+                    font-size: 14px; line-height: 1; display: flex; align-items: center;
+                    justify-content: center;">×</button>
             </div>
         `).join('');
     }
 
+    // Store current invoice index for re-render after delete
+    modal.dataset.currentInvoiceIdx = invoiceIdx;
     openModal('modalImageViewer');
+}
+
+/**
+ * Delete an image from invoice
+ */
+async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
+    if (!confirm('Bạn có chắc muốn xóa ảnh này?')) {
+        return;
+    }
+
+    try {
+        const shipment = globalState.shipments.find(s => s.id === shipmentId);
+        if (!shipment) {
+            toast.error('Không tìm thấy shipment');
+            return;
+        }
+
+        if (invoiceIdx < 0 || invoiceIdx >= (shipment.hoaDon?.length || 0)) {
+            toast.error('Không tìm thấy hóa đơn');
+            return;
+        }
+
+        const invoice = shipment.hoaDon[invoiceIdx];
+        if (!invoice.anhHoaDon || imageIndex >= invoice.anhHoaDon.length) {
+            toast.error('Không tìm thấy ảnh');
+            return;
+        }
+
+        // Remove the image URL from array
+        const updatedImages = [...invoice.anhHoaDon];
+        updatedImages.splice(imageIndex, 1);
+
+        // Update hoaDon array
+        const updatedHoaDon = [...shipment.hoaDon];
+        updatedHoaDon[invoiceIdx] = {
+            ...invoice,
+            anhHoaDon: updatedImages
+        };
+
+        // Update Firestore
+        await db.collection('inventory_tracking').doc(shipmentId).update({
+            hoaDon: updatedHoaDon,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Update local state
+        shipment.hoaDon = updatedHoaDon;
+
+        // Re-render the images modal
+        if (updatedImages.length > 0) {
+            viewInvoiceImages(shipmentId, invoiceIdx);
+        } else {
+            closeModal('modalImageViewer');
+        }
+
+        // Re-render the shipments table
+        renderShipments(globalState.filteredShipments);
+
+        toast.success('Đã xóa ảnh');
+        console.log('[RENDERER] Image deleted from invoice');
+
+    } catch (error) {
+        console.error('[RENDERER] Delete image error:', error);
+        toast.error('Lỗi xóa ảnh: ' + error.message);
+    }
 }
 
 console.log('[RENDERER] Table renderer initialized');

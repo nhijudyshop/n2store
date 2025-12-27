@@ -17,7 +17,9 @@ const GEMINI_MODEL = 'gemini-3-flash-preview'; // Latest Gemini 3 Flash model
 // FIREBASE INITIALIZATION
 // =====================================================
 
+const FIREBASE_STORAGE_BUCKET = 'n2shop-69e37.appspot.com';
 let db = null;
+let bucket = null;
 
 function getFirestoreDb() {
     if (db) return db;
@@ -39,7 +41,8 @@ function getFirestoreDb() {
                     projectId,
                     clientEmail,
                     privateKey
-                })
+                }),
+                storageBucket: FIREBASE_STORAGE_BUCKET
             });
             console.log('[FIREBASE] Initialized for project:', projectId);
         }
@@ -49,6 +52,80 @@ function getFirestoreDb() {
     } catch (error) {
         console.error('[FIREBASE] Init error:', error.message);
         return null;
+    }
+}
+
+function getStorageBucket() {
+    if (bucket) return bucket;
+
+    // Ensure Firebase is initialized
+    getFirestoreDb();
+
+    try {
+        bucket = admin.storage().bucket();
+        return bucket;
+    } catch (error) {
+        console.error('[FIREBASE] Storage init error:', error.message);
+        return null;
+    }
+}
+
+/**
+ * Upload image to Firebase Storage
+ * @param {Buffer} imageBuffer - Image data as buffer
+ * @param {string} fileName - File name for storage
+ * @param {string} mimeType - MIME type of the image
+ * @returns {Promise<string>} Public URL of the uploaded image
+ */
+async function uploadImageToStorage(imageBuffer, fileName, mimeType = 'image/jpeg') {
+    const storageBucket = getStorageBucket();
+    if (!storageBucket) {
+        throw new Error('Firebase Storage không khả dụng');
+    }
+
+    const filePath = `inventory-tracking/invoices/${fileName}`;
+    const file = storageBucket.file(filePath);
+
+    await file.save(imageBuffer, {
+        metadata: {
+            contentType: mimeType,
+        },
+        public: true
+    });
+
+    // Get public URL
+    const publicUrl = `https://storage.googleapis.com/${FIREBASE_STORAGE_BUCKET}/${filePath}`;
+    console.log('[FIREBASE] Image uploaded:', publicUrl);
+    return publicUrl;
+}
+
+/**
+ * Delete image from Firebase Storage
+ * @param {string} imageUrl - Public URL of the image to delete
+ */
+async function deleteImageFromStorage(imageUrl) {
+    const storageBucket = getStorageBucket();
+    if (!storageBucket) {
+        throw new Error('Firebase Storage không khả dụng');
+    }
+
+    // Extract file path from URL
+    const baseUrl = `https://storage.googleapis.com/${FIREBASE_STORAGE_BUCKET}/`;
+    if (!imageUrl.startsWith(baseUrl)) {
+        console.log('[FIREBASE] Not a Firebase Storage URL, skipping delete');
+        return false;
+    }
+
+    const filePath = imageUrl.replace(baseUrl, '');
+    const file = storageBucket.file(filePath);
+
+    try {
+        await file.delete();
+        console.log('[FIREBASE] Image deleted:', filePath);
+        return true;
+    } catch (error) {
+        console.error('[FIREBASE] Delete error:', error.message);
+        return false;
     }
 }
 
@@ -167,10 +244,10 @@ async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
 }
 
 /**
- * Add image to invoice by NCC code
- * Finds the most recent shipment with matching NCC and adds image to anhHoaDon
+ * Find invoice by NCC code
+ * Returns the shipment and invoice details
  */
-async function addImageToInvoiceByNCC(nccCode, imageUrl, chatId) {
+async function findInvoiceByNCC(nccCode, chatId) {
     const firestore = getFirestoreDb();
     if (!firestore) {
         throw new Error('Firebase không khả dụng');
@@ -190,9 +267,6 @@ async function addImageToInvoiceByNCC(nccCode, imageUrl, chatId) {
     }
 
     // Find shipment with matching NCC in hoaDon array
-    let targetShipment = null;
-    let targetInvoiceIndex = -1;
-
     for (const doc of snapshot.docs) {
         const data = doc.data();
         const hoaDonList = data.hoaDon || [];
@@ -202,52 +276,144 @@ async function addImageToInvoiceByNCC(nccCode, imageUrl, chatId) {
         );
 
         if (invoiceIndex !== -1) {
-            targetShipment = { id: doc.id, ...data };
-            targetInvoiceIndex = invoiceIndex;
-            break;
+            return {
+                shipment: { id: doc.id, ...data },
+                invoiceIndex: invoiceIndex,
+                invoice: hoaDonList[invoiceIndex]
+            };
         }
     }
 
-    if (!targetShipment) {
-        throw new Error(`Không tìm thấy hóa đơn với NCC = ${nccCode}`);
-    }
+    throw new Error(`Không tìm thấy hóa đơn với NCC = ${nccCode}`);
+}
 
-    // Add image to the invoice's anhHoaDon array
-    const hoaDon = targetShipment.hoaDon;
-    if (!hoaDon[targetInvoiceIndex].anhHoaDon) {
-        hoaDon[targetInvoiceIndex].anhHoaDon = [];
+/**
+ * Add image to invoice by NCC code
+ * Downloads from Telegram, uploads to Firebase Storage, and saves URL
+ */
+async function addImageToInvoiceByNCC(nccCode, fileId, chatId) {
+    // Find the invoice first
+    const { shipment, invoiceIndex, invoice } = await findInvoiceByNCC(nccCode, chatId);
+
+    // Download image from Telegram
+    const { buffer, mimeType } = await downloadTelegramFile(fileId);
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const extension = mimeType.split('/')[1] || 'jpg';
+    const fileName = `ncc_${nccCode}_${timestamp}.${extension}`;
+
+    // Upload to Firebase Storage
+    const imageUrl = await uploadImageToStorage(buffer, fileName, mimeType);
+
+    // Add image URL to the invoice's anhHoaDon array
+    const hoaDon = shipment.hoaDon;
+    if (!hoaDon[invoiceIndex].anhHoaDon) {
+        hoaDon[invoiceIndex].anhHoaDon = [];
     }
-    hoaDon[targetInvoiceIndex].anhHoaDon.push(imageUrl);
+    hoaDon[invoiceIndex].anhHoaDon.push(imageUrl);
 
     // Update the document
-    await firestore.collection('inventory_tracking').doc(targetShipment.id).update({
+    const firestore = getFirestoreDb();
+    await firestore.collection('inventory_tracking').doc(shipment.id).update({
         hoaDon: hoaDon,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    console.log(`[FIREBASE] Added image to NCC ${nccCode} in shipment ${targetShipment.id}`);
+    console.log(`[FIREBASE] Added image to NCC ${nccCode} in shipment ${shipment.id}`);
     return {
-        shipmentId: targetShipment.id,
+        shipmentId: shipment.id,
         nccCode: nccCode,
-        imageCount: hoaDon[targetInvoiceIndex].anhHoaDon.length
+        imageCount: hoaDon[invoiceIndex].anhHoaDon.length,
+        imageUrl: imageUrl
     };
 }
 
 /**
- * Get permanent Telegram file URL
- * Note: Telegram file URLs expire after ~1 hour, so we store file_id for later retrieval
+ * Download file from Telegram as buffer
  */
-async function getTelegramFileUrl(fileId) {
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`;
-    const response = await fetch(url);
-    const data = await response.json();
+async function downloadTelegramFile(fileId) {
+    // Get file path from Telegram
+    const fileInfoUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`;
+    const fileInfoResponse = await fetch(fileInfoUrl);
+    const fileInfo = await fileInfoResponse.json();
 
-    if (!data.ok) {
-        throw new Error('Không thể lấy file từ Telegram');
+    if (!fileInfo.ok) {
+        throw new Error('Không thể lấy thông tin file từ Telegram');
     }
 
-    // Return the full file URL
-    return `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${data.result.file_path}`;
+    const filePath = fileInfo.result.file_path;
+    const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`;
+
+    // Download the file
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+        throw new Error('Không thể tải file từ Telegram');
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Determine MIME type from file path
+    const extension = filePath.split('.').pop().toLowerCase();
+    const mimeTypes = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp'
+    };
+    const mimeType = mimeTypes[extension] || 'image/jpeg';
+
+    return { buffer, mimeType };
+}
+
+/**
+ * Format invoice details for Telegram message
+ */
+function formatInvoiceDetails(invoice, shipment) {
+    const products = invoice.sanPham || [];
+    const tongMon = products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+    const tongTien = invoice.tongTienHD || invoice.tongTien || 0;
+    const imageCount = invoice.anhHoaDon?.length || 0;
+
+    let text = `📋 CHI TIẾT HÓA ĐƠN NCC ${invoice.sttNCC}\n`;
+    text += `${'─'.repeat(30)}\n\n`;
+
+    text += `📦 Shipment: ${shipment.id}\n`;
+    text += `📅 Ngày: ${shipment.ngayDiHang || 'N/A'}\n`;
+    if (invoice.tenNCC) {
+        text += `🏪 NCC: ${invoice.tenNCC}\n`;
+    }
+    text += `\n`;
+
+    text += `📝 DANH SÁCH SẢN PHẨM:\n`;
+    text += `${'─'.repeat(30)}\n`;
+
+    if (products.length === 0) {
+        text += `(Không có sản phẩm)\n`;
+    } else {
+        products.forEach((p, idx) => {
+            const name = p.tenSP_vi || translateToVietnamese(p.tenSP) || p.tenSP || '';
+            const color = p.soMau_vi || translateToVietnamese(p.soMau) || p.soMau || '';
+            text += `${idx + 1}. MA ${p.maSP || ''} ${name}`;
+            if (color) text += ` - ${color}`;
+            text += ` x${p.soLuong || 0}\n`;
+        });
+    }
+
+    text += `\n${'─'.repeat(30)}\n`;
+    text += `💰 Tiền HĐ: ${tongTien.toLocaleString()}\n`;
+    text += `📊 Tổng món: ${tongMon}\n`;
+    text += `🖼️ Ảnh: ${imageCount} ảnh\n`;
+
+    if (invoice.ghiChu) {
+        text += `📝 Ghi chú: ${invoice.ghiChu}\n`;
+    }
+
+    text += `\n💡 Gửi ảnh + caption "/${invoice.sttNCC}" để thêm ảnh`;
+
+    return text;
 }
 
 // Bot username (will be fetched on first request)
@@ -968,20 +1134,21 @@ router.post('/webhook', async (req, res) => {
                     const nccCode = nccMatch[1];
                     console.log(`[TELEGRAM] Photo with NCC command: /${nccCode}`);
 
-                    await sendChatAction(chatId, 'typing');
+                    await sendChatAction(chatId, 'upload_photo');
+                    await sendTelegramMessage(chatId, '📤 Đang upload ảnh lên Firebase Storage...', messageId);
 
                     try {
                         // Get the largest photo
                         const photo = message.photo[message.photo.length - 1];
-                        const imageUrl = await getTelegramFileUrl(photo.file_id);
 
-                        // Add image to the invoice with matching NCC
-                        const result = await addImageToInvoiceByNCC(nccCode, imageUrl, chatId);
+                        // Add image to the invoice with matching NCC (uploads to Firebase Storage)
+                        const result = await addImageToInvoiceByNCC(nccCode, photo.file_id, chatId);
 
                         await sendTelegramMessage(chatId,
                             `✅ Đã thêm ảnh vào hóa đơn NCC ${nccCode}\n\n` +
                             `📦 Shipment: ${result.shipmentId}\n` +
-                            `🖼️ Tổng ảnh: ${result.imageCount}\n\n` +
+                            `🖼️ Tổng ảnh: ${result.imageCount}\n` +
+                            `☁️ Đã lưu lên Firebase Storage\n\n` +
                             `Xem tại: https://nhijudyshop.github.io/n2store/inventory-tracking/`,
                             messageId
                         );
@@ -1091,10 +1258,13 @@ router.post('/webhook', async (req, res) => {
                     `- Gửi ảnh hóa đơn viết tay\n` +
                     `- Bot sẽ phân tích và trích xuất dữ liệu\n` +
                     `- Xác nhận để lưu vào hệ thống\n\n` +
+                    `📋 XEM CHI TIẾT HÓA ĐƠN:\n` +
+                    `- Gửi /NCC (VD: /15)\n` +
+                    `- Hiển thị chi tiết hóa đơn của NCC đó\n\n` +
                     `🖼️ THÊM ẢNH VÀO HÓA ĐƠN:\n` +
                     `- Gửi ảnh với caption /NCC\n` +
                     `- VD: Gửi ảnh + caption "/15"\n` +
-                    `- Ảnh sẽ được thêm vào hóa đơn NCC 15\n\n` +
+                    `- Ảnh sẽ upload lên Firebase Storage\n\n` +
                     `💬 TRÒ CHUYỆN AI:\n` +
                     `- Gửi tin nhắn bất kỳ\n` +
                     `- Bot sẽ trả lời bằng Gemini AI\n\n` +
@@ -1102,6 +1272,30 @@ router.post('/webhook', async (req, res) => {
                     groupHelp,
                     messageId
                 );
+                return;
+            }
+
+            // /NCC command (e.g., /15) - Show invoice details
+            const nccTextMatch = commandText?.match(/^\/(\d+)$/);
+            if (nccTextMatch) {
+                const nccCode = nccTextMatch[1];
+                console.log(`[TELEGRAM] NCC command: /${nccCode}`);
+
+                await sendChatAction(chatId, 'typing');
+
+                try {
+                    const { shipment, invoice } = await findInvoiceByNCC(nccCode, chatId);
+                    const detailsText = formatInvoiceDetails(invoice, shipment);
+
+                    await sendTelegramMessage(chatId, detailsText, messageId);
+                } catch (error) {
+                    console.error('[TELEGRAM] NCC lookup error:', error.message);
+                    await sendTelegramMessage(chatId,
+                        `❌ ${error.message}\n\n` +
+                        `💡 Gửi ảnh hóa đơn để tạo mới, hoặc kiểm tra lại mã NCC.`,
+                        messageId
+                    );
+                }
                 return;
             }
 
