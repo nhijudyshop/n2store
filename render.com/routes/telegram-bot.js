@@ -152,6 +152,84 @@ const MAX_HISTORY_LENGTH = 20; // Keep last 20 messages per chat
 const pendingInvoices = new Map();
 
 // =====================================================
+// CHINESE TO VIETNAMESE TRANSLATION
+// =====================================================
+
+const CHINESE_TO_VIETNAMESE = {
+    // Colors - Màu sắc
+    '黑': 'Đen',
+    '白': 'Trắng',
+    '红': 'Đỏ',
+    '蓝': 'Xanh dương',
+    '绿': 'Xanh lá',
+    '黄': 'Vàng',
+    '紫': 'Tím',
+    '粉': 'Hồng',
+    '灰': 'Xám',
+    '棕': 'Nâu',
+    '咖': 'Cà phê',
+    '米': 'Kem',
+    '杏': 'Mơ',
+    '橙': 'Cam',
+    '酱': 'Nâu đậm',
+    '卡其': 'Kaki',
+    '驼': 'Lạc đà',
+    '藏青': 'Xanh đen',
+    '酒红': 'Đỏ rượu',
+    '墨绿': 'Xanh rêu',
+    '浅': 'Nhạt',
+    '深': 'Đậm',
+
+    // Patterns - Họa tiết
+    '条': 'Sọc',
+    '纹': 'Vân',
+    '格': 'Caro',
+    '花': 'Hoa',
+    '点': 'Chấm',
+    '印': 'In',
+
+    // Materials/Style - Chất liệu/Kiểu
+    '棉': 'Cotton',
+    '麻': 'Lanh',
+    '丝': 'Lụa',
+    '绒': 'Nhung',
+    '毛': 'Len',
+    '皮': 'Da',
+
+    // Common terms
+    '色': '',
+    '款': 'Kiểu',
+    '上衣': 'Áo',
+    '裤': 'Quần',
+    '裙': 'Váy',
+    '外套': 'Áo khoác',
+    '衬衫': 'Sơ mi',
+    '领': 'Cổ',
+    '交叉': 'Chéo',
+    '斜角': 'Xéo góc',
+    '苏': 'Tô'
+};
+
+/**
+ * Translate Chinese text to Vietnamese
+ */
+function translateToVietnamese(text) {
+    if (!text) return text;
+
+    let result = text;
+
+    // Sort by length (longer first) to avoid partial replacements
+    const sortedKeys = Object.keys(CHINESE_TO_VIETNAMESE).sort((a, b) => b.length - a.length);
+
+    for (const chinese of sortedKeys) {
+        const vietnamese = CHINESE_TO_VIETNAMESE[chinese];
+        result = result.split(chinese).join(vietnamese);
+    }
+
+    return result.trim();
+}
+
+// =====================================================
 // INVOICE EXTRACTION PROMPT
 // =====================================================
 
@@ -537,14 +615,19 @@ function removeBotMention(text, botUsername) {
 }
 
 /**
- * Format invoice data for display
+ * Format invoice preview with language mode
+ * @param {object} invoiceData - Invoice data from AI
+ * @param {string} langMode - 'vi' for Vietnamese (default) or 'cn' for Chinese original
  */
-function formatInvoicePreview(invoiceData) {
+function formatInvoicePreview(invoiceData, langMode = 'vi') {
     if (!invoiceData.success) {
         return `❌ Không thể xử lý hóa đơn:\n${invoiceData.error}`;
     }
 
-    let text = `📋 KẾT QUẢ PHÂN TÍCH HÓA ĐƠN\n`;
+    const isVietnamese = langMode === 'vi';
+    const langLabel = isVietnamese ? '🇻🇳 Việt hóa' : '🇨🇳 Tiếng Trung';
+
+    let text = `📋 KẾT QUẢ PHÂN TÍCH HÓA ĐƠN [${langLabel}]\n`;
     text += `${'─'.repeat(30)}\n`;
 
     // Mã NCC (số khoanh tròn) - hiển thị đầu tiên và nổi bật
@@ -552,7 +635,8 @@ function formatInvoicePreview(invoiceData) {
         text += `🔢 MÃ NCC: ${invoiceData.ncc}\n`;
     }
     if (invoiceData.supplier) {
-        text += `🏪 Tên NCC: ${invoiceData.supplier}\n`;
+        const supplier = isVietnamese ? translateToVietnamese(invoiceData.supplier) : invoiceData.supplier;
+        text += `🏪 Tên NCC: ${supplier}\n`;
     }
     if (invoiceData.date) {
         text += `📅 Ngày: ${invoiceData.date}\n`;
@@ -562,8 +646,11 @@ function formatInvoicePreview(invoiceData) {
 
     if (invoiceData.products && invoiceData.products.length > 0) {
         invoiceData.products.forEach((p, i) => {
-            const color = p.color ? ` (${p.color})` : '';
-            text += `${i + 1}. ${p.sku || '?'} - ${p.name || 'N/A'}${color}: ${p.quantity} cái\n`;
+            const name = isVietnamese ? translateToVietnamese(p.name) : p.name;
+            const color = p.color
+                ? ` (${isVietnamese ? translateToVietnamese(p.color) : p.color})`
+                : '';
+            text += `${i + 1}. ${p.sku || '?'} - ${name || 'N/A'}${color}: ${p.quantity} cái\n`;
         });
     } else {
         text += `(Không có sản phẩm)\n`;
@@ -576,10 +663,30 @@ function formatInvoicePreview(invoiceData) {
     }
 
     if (invoiceData.notes) {
-        text += `\n📝 Ghi chú: ${invoiceData.notes}`;
+        const notes = isVietnamese ? translateToVietnamese(invoiceData.notes) : invoiceData.notes;
+        text += `\n📝 Ghi chú: ${notes}`;
     }
 
     return text;
+}
+
+/**
+ * Build inline keyboard for invoice preview
+ */
+function buildInvoiceKeyboard(invoiceId, langMode = 'vi') {
+    const toggleButton = langMode === 'vi'
+        ? { text: '🇨🇳 Xem tiếng Trung', callback_data: `lang_cn_${invoiceId}` }
+        : { text: '🇻🇳 Xem Việt hóa', callback_data: `lang_vi_${invoiceId}` };
+
+    return {
+        inline_keyboard: [
+            [toggleButton],
+            [
+                { text: '✅ Xác nhận lưu', callback_data: `confirm_invoice_${invoiceId}` },
+                { text: '❌ Hủy', callback_data: `cancel_invoice_${invoiceId}` }
+            ]
+        ]
+    };
 }
 
 // =====================================================
@@ -620,7 +727,24 @@ router.post('/webhook', async (req, res) => {
 
             await answerCallbackQuery(callbackQuery.id);
 
-            if (data.startsWith('confirm_invoice_')) {
+            // Handle language toggle
+            if (data.startsWith('lang_vi_') || data.startsWith('lang_cn_')) {
+                const langMode = data.startsWith('lang_vi_') ? 'vi' : 'cn';
+                const invoiceId = data.replace(/^lang_(vi|cn)_/, '');
+                const invoiceData = pendingInvoices.get(invoiceId);
+
+                if (invoiceData) {
+                    const previewText = formatInvoicePreview(invoiceData, langMode);
+                    const keyboard = buildInvoiceKeyboard(invoiceId, langMode);
+                    await editMessageText(chatId, messageId, previewText, keyboard);
+                } else {
+                    await editMessageText(chatId, messageId,
+                        `⚠️ Hóa đơn đã hết hạn. Vui lòng gửi lại ảnh.`
+                    );
+                }
+            }
+            // Handle confirm invoice
+            else if (data.startsWith('confirm_invoice_')) {
                 const invoiceId = data.replace('confirm_invoice_', '');
                 const invoiceData = pendingInvoices.get(invoiceId);
 
@@ -635,7 +759,7 @@ router.post('/webhook', async (req, res) => {
                             `✅ ĐÃ LƯU THÀNH CÔNG!\n\n` +
                             `📋 Mã hóa đơn: ${docId}\n` +
                             `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
-                            `🏪 Tên NCC: ${invoiceData.supplier || 'N/A'}\n` +
+                            `🏪 Tên NCC: ${translateToVietnamese(invoiceData.supplier) || 'N/A'}\n` +
                             `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm`
                         );
                     } catch (error) {
@@ -649,7 +773,9 @@ router.post('/webhook', async (req, res) => {
                         `⚠️ Hóa đơn đã hết hạn. Vui lòng gửi lại ảnh.`
                     );
                 }
-            } else if (data.startsWith('cancel_invoice_')) {
+            }
+            // Handle cancel invoice
+            else if (data.startsWith('cancel_invoice_')) {
                 const invoiceId = data.replace('cancel_invoice_', '');
                 pendingInvoices.delete(invoiceId);
 
@@ -702,8 +828,8 @@ router.post('/webhook', async (req, res) => {
                     // Analyze with Gemini Vision
                     const invoiceData = await analyzeInvoiceImage(base64, mimeType);
 
-                    // Format and send preview
-                    const previewText = formatInvoicePreview(invoiceData);
+                    // Format and send preview (default: Vietnamese mode)
+                    const previewText = formatInvoicePreview(invoiceData, 'vi');
 
                     if (invoiceData.success) {
                         // Generate unique invoice ID
@@ -713,15 +839,9 @@ router.post('/webhook', async (req, res) => {
                         // Auto-expire after 10 minutes
                         setTimeout(() => pendingInvoices.delete(invoiceId), 10 * 60 * 1000);
 
-                        // Send with confirmation buttons
-                        await sendTelegramMessage(chatId, previewText, messageId, {
-                            inline_keyboard: [
-                                [
-                                    { text: '✅ Xác nhận lưu', callback_data: `confirm_invoice_${invoiceId}` },
-                                    { text: '❌ Hủy', callback_data: `cancel_invoice_${invoiceId}` }
-                                ]
-                            ]
-                        });
+                        // Send with language toggle and confirmation buttons (default: Vietnamese)
+                        const keyboard = buildInvoiceKeyboard(invoiceId, 'vi');
+                        await sendTelegramMessage(chatId, previewText, messageId, keyboard);
                     } else {
                         await sendTelegramMessage(chatId, previewText, messageId);
                     }
