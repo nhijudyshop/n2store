@@ -40,9 +40,12 @@ function openShipmentModal(shipment = null) {
 function renderShipmentForm(shipment) {
     const isEdit = !!shipment;
     const date = shipment?.ngayDiHang || new Date().toISOString().split('T')[0];
-    const packages = shipment?.kienHang || [{ stt: 1, soKg: '' }];
+    const packages = shipment?.kienHang || [];
     const invoices = shipment?.hoaDon || [];
     const costs = shipment?.chiPhiHangVe || [];
+
+    // Convert packages array to string (e.g., "10 20 50 88")
+    const packagesString = packages.map(p => p.soKg).filter(kg => kg > 0).join(' ');
 
     const canEditCost = permissionHelper?.can('edit_chiPhiHangVe');
     const canEditNote = permissionHelper?.can('edit_ghiChuAdmin');
@@ -55,21 +58,12 @@ function renderShipmentForm(shipment) {
 
         <div class="form-section">
             <h4><i data-lucide="box"></i> Kiện Hàng</h4>
-            <div id="packagesContainer">
-                ${packages.map((p, i) => `
-                    <div class="package-row" data-index="${i}">
-                        <span class="package-label">Kiện ${p.stt || i + 1}</span>
-                        <input type="number" class="form-input package-kg" value="${p.soKg || ''}" placeholder="Số kg">
-                        <button type="button" class="btn btn-sm btn-outline btn-remove-package" ${packages.length <= 1 ? 'disabled' : ''}>
-                            <i data-lucide="trash-2"></i>
-                        </button>
-                    </div>
-                `).join('')}
+            <div class="form-group">
+                <label>Nhập số kg các kiện (cách nhau bởi dấu cách hoặc dấu phẩy)</label>
+                <input type="text" id="packagesInput" class="form-input" value="${packagesString}" placeholder="VD: 10 20 50 88 hoặc 10, 20, 50, 88">
+                <div class="packages-hint">Ví dụ: "10 20 50 88" = 4 kiện (10kg, 20kg, 50kg, 88kg)</div>
             </div>
-            <button type="button" class="btn btn-sm btn-outline" id="btnAddPackage">
-                <i data-lucide="plus"></i> Thêm kiện
-            </button>
-            <div class="packages-total">Tổng: <span id="totalPackages">${packages.length}</span> kiện, <span id="totalKg">0</span> kg</div>
+            <div class="packages-total">Tổng: <span id="totalPackages">0</span> kiện, <span id="totalKg">0</span> kg</div>
         </div>
 
         <div class="form-section">
@@ -123,7 +117,7 @@ function renderInvoiceForm(invoice, index) {
         <div class="invoice-form" data-index="${index}">
             <div class="invoice-header">
                 <label>NCC #</label>
-                <input type="number" class="form-input invoice-ncc" value="${invoice?.sttNCC || ''}" placeholder="STT NCC" style="width: 80px;">
+                <input type="number" class="form-input invoice-ncc" value="${invoice?.sttNCC || ''}" placeholder="STT N" style="width: 80px;">
                 <button type="button" class="btn btn-sm btn-outline btn-remove-invoice" title="Xóa hóa đơn">
                     <i data-lucide="trash-2"></i>
                 </button>
@@ -158,21 +152,17 @@ function renderInvoiceForm(invoice, index) {
  * Setup form event listeners
  */
 function setupShipmentFormListeners() {
-    // Add package
-    document.getElementById('btnAddPackage')?.addEventListener('click', addPackageRow);
-
     // Add invoice
     document.getElementById('btnAddInvoice')?.addEventListener('click', addInvoiceForm);
 
     // Add cost
     document.getElementById('btnAddCost')?.addEventListener('click', addCostRow);
 
+    // Packages input listener
+    document.getElementById('packagesInput')?.addEventListener('input', updatePackageTotals);
+
     // Remove buttons delegation
     document.getElementById('modalShipmentBody')?.addEventListener('click', (e) => {
-        if (e.target.closest('.btn-remove-package')) {
-            e.target.closest('.package-row')?.remove();
-            updatePackageTotals();
-        }
         if (e.target.closest('.btn-remove-invoice')) {
             e.target.closest('.invoice-form')?.remove();
         }
@@ -185,11 +175,8 @@ function setupShipmentFormListeners() {
         }
     });
 
-    // Package kg input
+    // Input delegation
     document.getElementById('modalShipmentBody')?.addEventListener('input', (e) => {
-        if (e.target.classList.contains('package-kg')) {
-            updatePackageTotals();
-        }
         if (e.target.classList.contains('invoice-products')) {
             updateInvoicePreview(e.target.closest('.invoice-form'));
         }
@@ -204,23 +191,6 @@ function setupShipmentFormListeners() {
     // Initial calculations
     updatePackageTotals();
     updateCostTotal();
-}
-
-function addPackageRow() {
-    const container = document.getElementById('packagesContainer');
-    const count = container.querySelectorAll('.package-row').length;
-    const html = `
-        <div class="package-row" data-index="${count}">
-            <span class="package-label">Kiện ${count + 1}</span>
-            <input type="number" class="form-input package-kg" placeholder="Số kg">
-            <button type="button" class="btn btn-sm btn-outline btn-remove-package">
-                <i data-lucide="trash-2"></i>
-            </button>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', html);
-    if (window.lucide) lucide.createIcons();
-    updatePackageTotals();
 }
 
 function addInvoiceForm() {
@@ -246,15 +216,42 @@ function addCostRow() {
     if (window.lucide) lucide.createIcons();
 }
 
-function updatePackageTotals() {
-    const packages = document.querySelectorAll('.package-row');
-    let totalKg = 0;
-    packages.forEach(row => {
-        const kg = parseFloat(row.querySelector('.package-kg')?.value) || 0;
-        totalKg += kg;
+/**
+ * Parse packages from input string
+ * Accepts: "10 20 50 88" or "10, 20, 50, 88" or "10,20,50,88"
+ */
+function parsePackagesInput(inputString) {
+    if (!inputString || !inputString.trim()) return [];
+
+    // Replace commas with spaces, then split by whitespace
+    const normalized = inputString.replace(/,/g, ' ').trim();
+    const parts = normalized.split(/\s+/).filter(p => p.length > 0);
+
+    const packages = [];
+    parts.forEach((part, index) => {
+        const kg = parseFloat(part);
+        if (!isNaN(kg) && kg > 0) {
+            packages.push({
+                stt: index + 1,
+                soKg: kg
+            });
+        }
     });
-    document.getElementById('totalPackages').textContent = packages.length;
-    document.getElementById('totalKg').textContent = formatNumber(totalKg);
+
+    return packages;
+}
+
+function updatePackageTotals() {
+    const input = document.getElementById('packagesInput');
+    const packages = parsePackagesInput(input?.value || '');
+
+    const totalKg = packages.reduce((sum, p) => sum + p.soKg, 0);
+
+    const totalPackagesEl = document.getElementById('totalPackages');
+    const totalKgEl = document.getElementById('totalKg');
+
+    if (totalPackagesEl) totalPackagesEl.textContent = packages.length;
+    if (totalKgEl) totalKgEl.textContent = formatNumber(totalKg);
 }
 
 function updateCostTotal() {
@@ -350,18 +347,9 @@ async function saveShipment() {
             return;
         }
 
-        // Collect packages
-        const packageRows = document.querySelectorAll('.package-row');
-        const kienHang = [];
-        packageRows.forEach((row, index) => {
-            const soKg = parseFloat(row.querySelector('.package-kg')?.value) || 0;
-            if (soKg > 0) {
-                kienHang.push({
-                    stt: index + 1,
-                    soKg: soKg
-                });
-            }
-        });
+        // Collect packages from single input
+        const packagesInput = document.getElementById('packagesInput');
+        const kienHang = parsePackagesInput(packagesInput?.value || '');
 
         // Collect invoices
         const invoiceForms = document.querySelectorAll('.invoice-form');
