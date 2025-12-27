@@ -87,16 +87,19 @@ async function uploadImageToStorage(imageBuffer, fileName, mimeType = 'image/jpe
     const filePath = `inventory-tracking/invoices/${fileName}`;
     const file = storageBucket.file(filePath);
 
+    // Upload the file
     await file.save(imageBuffer, {
         metadata: {
             contentType: mimeType,
-        },
-        public: true
+        }
     });
+
+    // Make the file publicly accessible
+    await file.makePublic();
 
     // Get public URL
     const publicUrl = `https://storage.googleapis.com/${FIREBASE_STORAGE_BUCKET}/${filePath}`;
-    console.log('[FIREBASE] Image uploaded:', publicUrl);
+    console.log('[FIREBASE] Image uploaded and made public:', publicUrl);
     return publicUrl;
 }
 
