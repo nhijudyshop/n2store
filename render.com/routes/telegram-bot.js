@@ -541,10 +541,26 @@ function translateToVietnamese(text) {
 // INVOICE EXTRACTION PROMPT
 // =====================================================
 
-const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia phân tích hóa đơn nhập hàng từ Trung Quốc. Hãy phân tích ảnh hóa đơn và trích xuất thông tin CHÍNH XÁC theo format JSON.
+const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia phân tích hóa đơn nhập hàng từ Trung Quốc. Hãy phân tích ảnh hóa đơn và trích xuất thông tin, DỊCH SANG TIẾNG VIỆT, theo format JSON.
+
+=== QUAN TRỌNG: DỊCH SANG TIẾNG VIỆT ===
+- Tên sản phẩm: Dịch từ tiếng Trung sang tiếng Việt
+- Màu sắc: Dịch từ tiếng Trung sang tiếng Việt
+- Ghi chú: Dịch sang tiếng Việt
+
+=== BẢNG DỊCH MÀU SẮC ===
+黑 = Đen, 白 = Trắng, 红 = Đỏ, 蓝 = Xanh dương, 绿 = Xanh lá
+黄 = Vàng, 紫 = Tím, 粉 = Hồng, 灰 = Xám, 棕 = Nâu
+咖 = Cà phê, 米 = Kem, 杏 = Mơ, 橙 = Cam, 酱 = Nâu đậm
+条 = Sọc, 纹 = Vân, 格 = Caro, 花 = Hoa, 点 = Chấm
+浅 = Nhạt, 深 = Đậm, 色 = (bỏ qua)
+
+=== BẢNG DỊCH LOẠI ÁO ===
+上衣 = Áo, 裤 = Quần, 裙 = Váy, 外套 = Áo khoác
+衬衫 = Sơ mi, 领 = Cổ, 交叉 = Chéo, 斜角 = Xéo góc
+苏 = Tô, 棉 = Cotton, 麻 = Lanh, 丝 = Lụa
 
 === CẤU TRÚC BẢNG INVENTORY TRACKING ===
-Dữ liệu sẽ hiển thị trên bảng với các cột:
 | NCC | STT | CHI TIẾT SẢN PHẨM | TIỀN HĐ | TỔNG MÓN | THIẾU | ẢNH | GHI CHÚ |
 
 === HƯỚNG DẪN ĐỌC HÓA ĐƠN ===
@@ -556,52 +572,49 @@ Dữ liệu sẽ hiển thị trên bảng với các cột:
 
 2. TÊN NHÀ CUNG CẤP (supplier):
    - Tên cửa hàng/shop in trên hóa đơn
-   - Thường ở header hóa đơn (VD: "广州XXX服装店")
+   - Giữ nguyên tiếng Trung nếu có
 
 3. NGÀY (date):
    - Ngày trên hóa đơn, format DD/MM/YYYY
    - Nếu không có, để trống ""
 
-4. DANH SÁCH SẢN PHẨM (products) - ĐỌC KỸ TỪNG DÒNG:
+4. DANH SÁCH SẢN PHẨM (products) - ĐỌC VÀ DỊCH:
    - sku: Mã sản phẩm (số ở đầu dòng, VD: "7977", "7975", "7862")
-   - name: Tên sản phẩm tiếng Trung (VD: "苏条纹斜角上衣", "交叉领上衣")
-   - color: Màu sắc (VD: "黑条", "咖条", "灰色", "12X黑" - giữ nguyên tiếng Trung)
+   - name: Tên sản phẩm DỊCH SANG TIẾNG VIỆT (VD: "Áo sọc vân xéo góc", "Áo cổ chéo")
+   - color: Màu sắc DỊCH SANG TIẾNG VIỆT (VD: "Đen sọc", "Cà phê sọc", "Xám")
    - quantity: Số lượng (cột 数量, ĐẾM CHÍNH XÁC từng dòng)
    - price: Đơn giá mỗi sản phẩm (cột 单价 hoặc 金额/数量)
 
 5. TỔNG TIỀN HÓA ĐƠN (totalAmount):
    - Tìm dòng "合计", "总计", "Total" ở cuối hóa đơn
-   - Đây là TIỀN HĐ hiển thị trên bảng
    - Nếu không có, tính = SUM(quantity * price)
 
 6. TỔNG SỐ MÓN (totalItems):
-   - Tổng số lượng tất cả sản phẩm = SUM(quantity của từng dòng)
-   - VD: 12+8+12+8+10+6+4+5+5 = 70 món
+   - Tổng số lượng = SUM(quantity của từng dòng)
 
 === FORMAT JSON OUTPUT ===
 Trả về CHÍNH XÁC (không markdown, không \`\`\`):
 {
   "success": true,
   "ncc": "15",
-  "supplier": "Tên shop tiếng Trung",
+  "supplier": "添添酱",
   "date": "26/12/2025",
   "products": [
-    {"sku": "7977", "name": "苏条纹斜角上衣", "color": "黑条", "quantity": 12, "price": 45},
-    {"sku": "7977", "name": "苏条纹斜角上衣", "color": "咖条", "quantity": 8, "price": 45},
-    {"sku": "7975", "name": "交叉领上衣", "color": "黑", "quantity": 12, "price": 42}
+    {"sku": "7977", "name": "Áo sọc vân xéo góc", "color": "Đen sọc", "quantity": 12, "price": 45},
+    {"sku": "7977", "name": "Áo sọc vân xéo góc", "color": "Cà phê sọc", "quantity": 8, "price": 45},
+    {"sku": "7975", "name": "Áo cổ chéo", "color": "Đen", "quantity": 12, "price": 42}
   ],
   "totalItems": 70,
   "totalAmount": 2250.00,
-  "notes": "Ghi chú nếu có"
+  "notes": "Khách hàng: Hà Tường Ni, Nhân viên: Tuyết Tuyết"
 }
 
 === LƯU Ý QUAN TRỌNG ===
+- DỊCH tên sản phẩm và màu sắc sang TIẾNG VIỆT
 - KHÔNG bỏ sót dòng sản phẩm nào
-- Mỗi màu khác nhau là 1 dòng riêng (cùng SKU, khác màu = 2 dòng)
-- quantity phải là SỐ NGUYÊN (không phải chuỗi)
-- price là đơn giá 1 sản phẩm (số thập phân OK)
+- Mỗi màu khác nhau là 1 dòng riêng
+- quantity phải là SỐ NGUYÊN
 - totalAmount và totalItems phải KHỚP với tổng thực tế
-- Nếu không đọc rõ giá trị nào, ghi "unclear" cho trường đó
 
 === NẾU KHÔNG XỬ LÝ ĐƯỢC ===
 {
