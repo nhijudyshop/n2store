@@ -6421,3 +6421,78 @@ td[data-column].hidden {
     font-size: 11px;
     font-weight: 600;
 }
+
+/* Fast Sale Results Modal Styles */
+.fast-sale-results-tabs {
+    display: flex;
+    border-bottom: 2px solid #e5e7eb;
+    background: #f9fafb;
+    padding: 0 20px;
+}
+
+.fast-sale-results-tab {
+    padding: 15px 30px;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    position: relative;
+    top: 2px;
+}
+
+.fast-sale-results-tab:hover {
+    color: #374151;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.fast-sale-results-tab.active {
+    color: #dc2626;
+    border-bottom-color: #dc2626;
+    background: white;
+}
+
+.fast-sale-results-content {
+    display: none;
+}
+
+.fast-sale-results-content.active {
+    display: block;
+}
+
+.fast-sale-results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.fast-sale-results-table thead {
+    background: #f3f4f6;
+}
+
+.fast-sale-results-table th {
+    padding: 12px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.fast-sale-results-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+}
+
+.fast-sale-results-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.fast-sale-error-msg {
+    color: #dc2626;
+    font-size: 13px;
+    line-height: 1.5;
+}

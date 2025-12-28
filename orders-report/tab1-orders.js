@@ -25369,69 +25369,8 @@ async function saveFastSaleOrders(isApprove = false) {
             loadingNotif.close();
         }
 
-        // Handle response
-        const successCount = result.OrdersSucessed?.length || 0;
-        const errorCount = (result.OrdersError?.length || 0) + (result.DataErrorFast?.length || 0);
-
-        if (successCount > 0 && errorCount === 0) {
-            // All success
-            window.notificationManager.success(
-                `Đã ${isApprove ? 'lưu và xác nhận' : 'lưu'} thành công ${successCount} đơn hàng`,
-                'Thành công'
-            );
-
-            // Close modal and refresh data
-            closeFastSaleModal();
-
-            // Deselect orders
-            selectedOrderIds.clear();
-            updateActionButtons();
-
-            // Refresh table
-            if (typeof filterAndDisplayOrders === 'function') {
-                filterAndDisplayOrders();
-            }
-        } else if (successCount > 0 && errorCount > 0) {
-            // Partial success
-            let errorMessage = `Thành công: ${successCount} đơn\nLỗi: ${errorCount} đơn`;
-
-            if (result.OrdersError?.length > 0) {
-                errorMessage += '\n\nĐơn lỗi:\n';
-                result.OrdersError.slice(0, 3).forEach(err => {
-                    errorMessage += `- ${err.Partner?.PartnerDisplayName || 'N/A'}\n`;
-                });
-            }
-
-            if (result.DataErrorFast?.length > 0) {
-                errorMessage += '\n\nDữ liệu lỗi:\n';
-                result.DataErrorFast.slice(0, 3).forEach(err => {
-                    errorMessage += `- ${err.Partner?.PartnerDisplayName || 'N/A'}\n`;
-                });
-            }
-
-            window.notificationManager.warning(errorMessage, 'Hoàn thành một phần');
-
-            // Still close modal if some succeeded
-            if (successCount > errorCount) {
-                setTimeout(() => {
-                    closeFastSaleModal();
-                    selectedOrderIds.clear();
-                    updateActionButtons();
-                    if (typeof filterAndDisplayOrders === 'function') {
-                        filterAndDisplayOrders();
-                    }
-                }, 3000);
-            }
-        } else {
-            // All failed
-            let errorMessage = `Không thể lưu đơn hàng`;
-
-            if (result.OrdersError?.length > 0 && result.OrdersError[0].Partner) {
-                errorMessage += `\nĐơn đầu tiên lỗi: ${result.OrdersError[0].Partner.PartnerDisplayName}`;
-            }
-
-            window.notificationManager.error(errorMessage, 'Lỗi');
-        }
+        // Show results modal
+        showFastSaleResultsModal(result);
 
     } catch (error) {
         console.error('[FAST-SALE] Error saving orders:', error);
@@ -25442,11 +25381,297 @@ async function saveFastSaleOrders(isApprove = false) {
     }
 }
 
+/**
+ * Store Fast Sale results data
+ */
+let fastSaleResultsData = {
+    forced: [],
+    failed: [],
+    success: []
+};
+
+/**
+ * Show Fast Sale Results Modal
+ * @param {Object} results - API response with OrdersSucessed, OrdersError, DataErrorFast
+ */
+function showFastSaleResultsModal(results) {
+    // Store results
+    fastSaleResultsData = {
+        forced: results.DataErrorFast || [],
+        failed: results.OrdersError || [],
+        success: results.OrdersSucessed || []
+    };
+
+    // Update counts
+    document.getElementById('forcedCount').textContent = fastSaleResultsData.forced.length;
+    document.getElementById('failedCount').textContent = fastSaleResultsData.failed.length;
+    document.getElementById('successCount').textContent = fastSaleResultsData.success.length;
+
+    // Render tables
+    renderForcedOrdersTable();
+    renderFailedOrdersTable();
+    renderSuccessOrdersTable();
+
+    // Show modal
+    const modal = document.getElementById('fastSaleResultsModal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+
+    // Switch to appropriate tab
+    if (fastSaleResultsData.forced.length > 0) {
+        switchResultsTab('forced');
+    } else if (fastSaleResultsData.failed.length > 0) {
+        switchResultsTab('failed');
+    } else {
+        switchResultsTab('success');
+    }
+}
+
+/**
+ * Close Fast Sale Results Modal
+ */
+function closeFastSaleResultsModal() {
+    const modal = document.getElementById('fastSaleResultsModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+
+    // Close Fast Sale modal if still open
+    closeFastSaleModal();
+
+    // Refresh table
+    selectedOrderIds.clear();
+    updateActionButtons();
+    if (typeof filterAndDisplayOrders === 'function') {
+        filterAndDisplayOrders();
+    }
+}
+
+/**
+ * Switch between results tabs
+ * @param {string} tabName - 'forced', 'failed', or 'success'
+ */
+function switchResultsTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.fast-sale-results-tab').forEach(tab => {
+        if (tab.dataset.tab === tabName) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
+
+    // Update tab content
+    document.querySelectorAll('.fast-sale-results-content').forEach(content => {
+        if (content.id === `${tabName}Tab`) {
+            content.classList.add('active');
+        } else {
+            content.classList.remove('active');
+        }
+    });
+}
+
+/**
+ * Render Forced Orders Table (Cưỡng bức)
+ */
+function renderForcedOrdersTable() {
+    const container = document.getElementById('forcedOrdersTable');
+    if (!container) return;
+
+    if (fastSaleResultsData.forced.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng cần cưỡng bức</p>';
+        return;
+    }
+
+    const html = `
+        <table class="fast-sale-results-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th style="width: 40px;"><input type="checkbox" id="selectAllForced" onchange="toggleAllForcedOrders(this.checked)"></th>
+                    <th>Mã</th>
+                    <th>Số phiếu</th>
+                    <th>Khách hàng</th>
+                    <th>Lỗi</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${fastSaleResultsData.forced.map((order, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><input type="checkbox" class="forced-order-checkbox" value="${index}"></td>
+                        <td>${order.Reference || 'N/A'}</td>
+                        <td>${order.Number || ''}</td>
+                        <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
+                        <td><div class="fast-sale-error-msg">${order.Error || 'Lỗi không xác định'}</div></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = html;
+}
+
+/**
+ * Render Failed Orders Table (Thất bại)
+ */
+function renderFailedOrdersTable() {
+    const container = document.getElementById('failedOrdersTable');
+    if (!container) return;
+
+    if (fastSaleResultsData.failed.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng thất bại</p>';
+        return;
+    }
+
+    const html = `
+        <table class="fast-sale-results-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th>Mã</th>
+                    <th>Số phiếu</th>
+                    <th>Khách hàng</th>
+                    <th>Lỗi</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${fastSaleResultsData.failed.map((order, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${order.Reference || 'N/A'}</td>
+                        <td>${order.Number || ''}</td>
+                        <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
+                        <td><div class="fast-sale-error-msg">${order.Error || 'Lỗi không xác định'}</div></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = html;
+}
+
+/**
+ * Render Success Orders Table (Thành công)
+ */
+function renderSuccessOrdersTable() {
+    const container = document.getElementById('successOrdersTable');
+    if (!container) return;
+
+    if (fastSaleResultsData.success.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng thành công</p>';
+        return;
+    }
+
+    const html = `
+        <table class="fast-sale-results-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th>Mã</th>
+                    <th>Số phiếu</th>
+                    <th>Khách hàng</th>
+                    <th>Trạng thái</th>
+                    <th>Tracking</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${fastSaleResultsData.success.map((order, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${order.Reference || 'N/A'}</td>
+                        <td>${order.Number || ''}</td>
+                        <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
+                        <td><span style="color: #10b981; font-weight: 600;">✓ ${order.ShowState || 'Thành công'}</span></td>
+                        <td>${order.TrackingRef || ''}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = html;
+}
+
+/**
+ * Toggle all forced orders checkboxes
+ * @param {boolean} checked
+ */
+function toggleAllForcedOrders(checked) {
+    document.querySelectorAll('.forced-order-checkbox').forEach(cb => {
+        cb.checked = checked;
+    });
+}
+
+/**
+ * Create Forced Orders (Tạo cưỡng bức)
+ */
+async function createForcedOrders() {
+    const selectedIndexes = Array.from(document.querySelectorAll('.forced-order-checkbox:checked'))
+        .map(cb => parseInt(cb.value));
+
+    if (selectedIndexes.length === 0) {
+        window.notificationManager.warning('Vui lòng chọn ít nhất 1 đơn hàng để tạo cưỡng bức', 'Thông báo');
+        return;
+    }
+
+    const selectedOrders = selectedIndexes.map(i => fastSaleResultsData.forced[i]);
+
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.InsertListOrderModel?$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+
+        // Use is_approve: true for forced creation
+        const requestBody = {
+            is_approve: true,
+            model: selectedOrders
+        };
+
+        window.notificationManager.info(`Đang tạo cưỡng bức ${selectedIndexes.length} đơn hàng...`, 'Đang xử lý');
+
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('[FAST-SALE] Force create result:', result);
+
+        // Show results in the same modal
+        showFastSaleResultsModal(result);
+
+        window.notificationManager.success(
+            `Đã tạo cưỡng bức ${result.OrdersSucessed?.length || 0} đơn hàng`,
+            'Thành công'
+        );
+
+    } catch (error) {
+        console.error('[FAST-SALE] Error creating forced orders:', error);
+        window.notificationManager.error(`Lỗi khi tạo cưỡng bức: ${error.message}`, 'Lỗi');
+    }
+}
+
 // Make functions globally accessible
 window.showFastSaleModal = showFastSaleModal;
 window.closeFastSaleModal = closeFastSaleModal;
 window.confirmFastSale = confirmFastSale;
 window.confirmAndCheckFastSale = confirmAndCheckFastSale;
 window.updateFastSaleShippingFee = updateFastSaleShippingFee;
+window.showFastSaleResultsModal = showFastSaleResultsModal;
+window.closeFastSaleResultsModal = closeFastSaleResultsModal;
+window.switchResultsTab = switchResultsTab;
+window.toggleAllForcedOrders = toggleAllForcedOrders;
+window.createForcedOrders = createForcedOrders;
 
 // #endregion FAST SALE MODAL
