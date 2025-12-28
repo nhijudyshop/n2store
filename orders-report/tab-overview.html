@@ -1597,6 +1597,658 @@
         .modal-close-white:hover {
             opacity: 1;
         }
+
+        /* ================================================
+           DISCOUNT STATS SECTION STYLES
+           ================================================ */
+
+        /* Section Container */
+        #discountStatsSection {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        #discountStatsSection.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        #discountStatsSection h2 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #f59e0b;
+        }
+
+        #discountStatsSection h2 i {
+            color: #f59e0b;
+        }
+
+        /* Sub-tabs */
+        .discount-sub-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            background: #f3f4f6;
+            padding: 5px;
+            border-radius: 12px;
+            flex-wrap: wrap;
+        }
+
+        .discount-sub-tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            color: #6b7280;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+        }
+
+        .discount-sub-tab:hover {
+            background: #e5e7eb;
+        }
+
+        .discount-sub-tab.active {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .discount-tab-content {
+            display: none;
+        }
+
+        .discount-tab-content.active {
+            display: block;
+        }
+
+        /* KPI Cards */
+        .discount-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .discount-kpi-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border-left: 4px solid #e5e7eb;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .discount-kpi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .discount-kpi-card.red { border-left-color: #ef4444; }
+        .discount-kpi-card.green { border-left-color: #10b981; }
+        .discount-kpi-card.blue { border-left-color: #3b82f6; }
+        .discount-kpi-card.purple { border-left-color: #8b5cf6; }
+        .discount-kpi-card.warning { border-left-color: #f59e0b; }
+        .discount-kpi-card.black { border-left-color: #1f2937; }
+
+        .discount-kpi-card .kpi-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #6b7280;
+        }
+
+        .discount-kpi-card.red .kpi-icon { color: #ef4444; }
+        .discount-kpi-card.green .kpi-icon { color: #10b981; }
+        .discount-kpi-card.blue .kpi-icon { color: #3b82f6; }
+        .discount-kpi-card.purple .kpi-icon { color: #8b5cf6; }
+        .discount-kpi-card.warning .kpi-icon { color: #f59e0b; }
+        .discount-kpi-card.black .kpi-icon { color: #1f2937; }
+
+        .discount-kpi-card .kpi-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+
+        .discount-kpi-card .kpi-label {
+            font-size: 13px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .discount-kpi-card .kpi-sub {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 5px;
+        }
+
+        /* Risk Distribution */
+        .discount-risk-section {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .discount-risk-section h4 {
+            margin: 0 0 15px 0;
+            color: #374151;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .risk-distribution {
+            margin-bottom: 10px;
+        }
+
+        .risk-bar {
+            height: 30px;
+            background: #e5e7eb;
+            border-radius: 15px;
+            display: flex;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .risk-segment {
+            transition: width 0.5s ease;
+        }
+
+        .risk-segment.safe { background: linear-gradient(135deg, #10b981, #059669); }
+        .risk-segment.warning { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .risk-segment.danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .risk-segment.loss { background: linear-gradient(135deg, #1f2937, #111827); }
+
+        .risk-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .risk-item {
+            font-size: 13px;
+            color: #4b5563;
+        }
+
+        /* Metrics Row */
+        .discount-metrics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .metric-box {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .metric-box .metric-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+
+        .metric-box .metric-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .metric-box .metric-value.positive { color: #10b981; }
+        .metric-box .metric-value.negative { color: #ef4444; }
+        .metric-box .metric-value.warning { color: #f59e0b; }
+
+        .metric-box .metric-hint {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 3px;
+        }
+
+        /* Threshold Settings */
+        .threshold-settings {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .threshold-settings h4 {
+            margin: 0 0 15px 0;
+            color: #92400e;
+            font-size: 14px;
+        }
+
+        .threshold-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .threshold-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .threshold-item label {
+            font-size: 13px;
+            color: #78350f;
+        }
+
+        .threshold-item input {
+            width: 60px;
+            padding: 6px 10px;
+            border: 1px solid #fcd34d;
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .btn-apply-threshold {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-apply-threshold:hover {
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        /* Discount Table */
+        .discount-table-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .discount-table-controls .table-info {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .discount-table-controls select {
+            padding: 8px 15px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 13px;
+            background: white;
+        }
+
+        .discount-table-wrapper {
+            overflow-x: auto;
+            max-height: 500px;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .discount-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .discount-table thead {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .discount-table th {
+            padding: 12px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .discount-table tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+            transition: background 0.2s;
+        }
+
+        .discount-table tbody tr:hover {
+            background: #fefce8;
+        }
+
+        .discount-table tbody tr.risk-safe { background: rgba(16, 185, 129, 0.05); }
+        .discount-table tbody tr.risk-warning { background: rgba(245, 158, 11, 0.05); }
+        .discount-table tbody tr.risk-danger { background: rgba(239, 68, 68, 0.05); }
+        .discount-table tbody tr.risk-loss { background: rgba(31, 41, 55, 0.05); }
+
+        .discount-table td {
+            padding: 10px;
+            color: #374151;
+        }
+
+        .discount-table td.code { font-weight: 600; color: #f59e0b; }
+        .discount-table td.name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+        .discount-table td.qty { text-align: center; }
+        .discount-table td.price { color: #6b7280; }
+        .discount-table td.discount-price { color: #3b82f6; font-weight: 600; }
+        .discount-table td.cost { color: #9ca3af; }
+        .discount-table td.discount-amount { color: #ef4444; }
+        .discount-table td.positive { color: #10b981; font-weight: 600; }
+        .discount-table td.negative { color: #ef4444; font-weight: 600; }
+        .discount-table td.warning { color: #f59e0b; }
+        .discount-table td.status { white-space: nowrap; }
+
+        /* Analysis Section */
+        .analysis-section {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .analysis-section h4 {
+            margin: 0 0 15px 0;
+            color: #374151;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Scenario Comparison */
+        .scenario-comparison {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .scenario-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            min-width: 200px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .scenario-card.no-discount {
+            border-top: 3px solid #6b7280;
+        }
+
+        .scenario-card.with-discount {
+            border-top: 3px solid #f59e0b;
+        }
+
+        .scenario-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 15px;
+        }
+
+        .scenario-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 13px;
+        }
+
+        .scenario-row:last-child {
+            border-bottom: none;
+        }
+
+        .scenario-arrow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            color: #9ca3af;
+            font-size: 24px;
+        }
+
+        .diff-badge {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .diff-badge.negative {
+            background: #fef2f2;
+            color: #ef4444;
+        }
+
+        .scenario-summary {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .summary-item {
+            font-size: 14px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .summary-item .negative {
+            color: #ef4444;
+        }
+
+        .summary-item .positive {
+            color: #10b981;
+        }
+
+        /* Top Products */
+        .top-products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .top-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .top-card.danger {
+            border-left: 3px solid #ef4444;
+        }
+
+        .top-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 10px;
+        }
+
+        .top-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .top-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            padding: 6px;
+            background: #f9fafb;
+            border-radius: 6px;
+        }
+
+        .top-item .rank {
+            font-weight: 700;
+            color: #f59e0b;
+            min-width: 25px;
+        }
+
+        .top-item .name {
+            flex: 1;
+            color: #4b5563;
+        }
+
+        .top-item .value {
+            font-weight: 600;
+        }
+
+        .top-item .value.positive { color: #10b981; }
+        .top-item .value.negative { color: #ef4444; }
+
+        .empty-top {
+            text-align: center;
+            padding: 15px;
+            color: #10b981;
+            font-size: 13px;
+        }
+
+        /* CFO Insights */
+        .cfo-insights {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #fcd34d;
+        }
+
+        .insights-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .insight-item {
+            background: white;
+            border-radius: 8px;
+            padding: 12px 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .insight-item.success {
+            border-left: 3px solid #10b981;
+        }
+
+        .insight-item.warning {
+            border-left: 3px solid #f59e0b;
+        }
+
+        .insight-item.danger {
+            border-left: 3px solid #ef4444;
+        }
+
+        .insight-icon {
+            font-size: 18px;
+        }
+
+        .insight-text {
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.5;
+        }
+
+        /* Empty/No Discount State */
+        .no-discount-state,
+        .error-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: #6b7280;
+        }
+
+        .no-discount-state i,
+        .error-state i {
+            font-size: 50px;
+            margin-bottom: 15px;
+            color: #d1d5db;
+        }
+
+        .error-state i {
+            color: #ef4444;
+        }
+
+        .no-discount-state h3,
+        .error-state h3 {
+            color: #374151;
+            margin-bottom: 10px;
+        }
+
+        .btn-retry {
+            margin-top: 15px;
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* Loading State */
+        #discountStatsLoading {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #discountStatsLoading i {
+            font-size: 40px;
+            color: #f59e0b;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Refresh Button */
+        .btn-refresh-discount {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-refresh-discount:hover {
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
     </style>
 
     <!-- Mobile-optimized CSS for responsive design -->
@@ -1763,6 +2415,68 @@
                             <tbody id="emptyCartReasonsBody">
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- ================================================
+                     DISCOUNT STATS SECTION - Thống Kê Giảm Giá
+                     ================================================ -->
+                <div id="discountStatsSection" class="content-section" style="display: none;">
+                    <h2>
+                        <i class="fas fa-percentage"></i> Thống Kê Giảm Giá
+                        <button class="btn-refresh-discount" onclick="window.discountStatsUI.refreshStats()">
+                            <i class="fas fa-sync-alt"></i> Làm mới
+                        </button>
+                    </h2>
+
+                    <!-- Loading State -->
+                    <div id="discountStatsLoading">
+                        <i class="fas fa-spinner"></i>
+                        <span>Đang tính toán thống kê giảm giá...</span>
+                    </div>
+
+                    <!-- Sub-tabs -->
+                    <div class="discount-sub-tabs">
+                        <button class="discount-sub-tab active" data-tab="overview">
+                            <i class="fas fa-chart-pie"></i> Tổng Quan
+                        </button>
+                        <button class="discount-sub-tab" data-tab="products">
+                            <i class="fas fa-box"></i> Chi Tiết SP
+                        </button>
+                        <button class="discount-sub-tab" data-tab="orders">
+                            <i class="fas fa-shopping-cart"></i> Chi Tiết Đơn
+                        </button>
+                        <button class="discount-sub-tab" data-tab="analysis">
+                            <i class="fas fa-chart-line"></i> Phân Tích
+                        </button>
+                    </div>
+
+                    <!-- Tab Content: Overview -->
+                    <div id="discountTabOverview" class="discount-tab-content active">
+                        <div id="discountOverviewContent">
+                            <!-- Content rendered by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Tab Content: Products -->
+                    <div id="discountTabProducts" class="discount-tab-content">
+                        <div id="discountProductsContent">
+                            <!-- Content rendered by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Tab Content: Orders -->
+                    <div id="discountTabOrders" class="discount-tab-content">
+                        <div id="discountOrdersContent">
+                            <!-- Content rendered by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Tab Content: Analysis -->
+                    <div id="discountTabAnalysis" class="discount-tab-content">
+                        <div id="discountAnalysisContent">
+                            <!-- Content rendered by JS -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1939,6 +2653,13 @@
     <script src="config.js"></script>
     <script src="api-config.js"></script>
     <script src="token-manager.js"></script>
+
+    <!-- Discount Stats Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="product-search-manager.js"></script>
+    <script src="standard-price-manager.js"></script>
+    <script src="discount-stats-calculator.js"></script>
+    <script src="discount-stats-ui.js"></script>
 
     <script>
         // =====================================================
@@ -3176,6 +3897,9 @@
             const emptyCartReasons = calculateEmptyCartReasons(orders);
             renderEmptyCartReasons(emptyCartReasons);
 
+            // Calculate and render discount statistics
+            renderDiscountStatistics(orders);
+
             // Dispatch event for mobile UI (after DOM updates)
             setTimeout(() => {
                 window.dispatchEvent(new CustomEvent('statisticsRendered', {
@@ -3634,6 +4358,33 @@
                     </td>
                 </tr>`;
             }).join('');
+        }
+
+        /**
+         * Render discount statistics section
+         */
+        async function renderDiscountStatistics(orders) {
+            const section = document.getElementById('discountStatsSection');
+
+            if (!orders || orders.length === 0) {
+                if (section) section.style.display = 'none';
+                return;
+            }
+
+            // Show section
+            if (section) section.style.display = 'block';
+
+            // Initialize discount stats UI if available
+            if (window.discountStatsUI) {
+                try {
+                    await window.discountStatsUI.calculateAndRender(orders);
+                    console.log('[DISCOUNT-STATS] Rendered successfully');
+                } catch (error) {
+                    console.error('[DISCOUNT-STATS] Error rendering:', error);
+                }
+            } else {
+                console.warn('[DISCOUNT-STATS] discountStatsUI not available');
+            }
         }
 
         /**
@@ -5793,6 +6544,12 @@
             // Render statistics if cached data exists
             renderStatistics();
 
+            // Initialize discount stats UI
+            if (window.discountStatsUI) {
+                window.discountStatsUI.init();
+                console.log('[REPORT] 💰 Discount Stats UI initialized');
+            }
+
             console.log(`[REPORT] 🎉 Firebase init complete. cachedOrders for "${currentTableName}": ${cachedOrderDetails[currentTableName]?.orders?.length || 0}`);
 
             // ALWAYS request data from Tab1 for Tổng quan tab
@@ -5810,10 +6567,15 @@
             getAllOrders: () => allOrders,
             getCachedDetails: () => cachedOrderDetails,
             getCurrentCampaign: () => currentCampaignName,
+            getCurrentTableName: () => currentTableName,
             fetchOrderData: fetchOrderData,
             refreshData: requestDataFromTab1,
             startBatchFetch: startBatchFetch
         };
+
+        // Expose for discount stats
+        window.cachedOrderDetails = cachedOrderDetails;
+        window.currentTableName = currentTableName;
     </script>
 
     <!-- Mobile-specific JavaScript V2 - Event-based system -->
