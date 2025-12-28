@@ -25800,11 +25800,25 @@ async function printSuccessOrders(type) {
                 printWindow.document.write(result.html);
                 printWindow.document.close();
 
-                // Wait for content to load then trigger print
+                // Use both onload and setTimeout for reliability
+                let printed = false;
+
+                printWindow.onload = function() {
+                    if (!printed) {
+                        printed = true;
+                        printWindow.focus();
+                        printWindow.print();
+                    }
+                };
+
+                // Fallback timeout in case onload doesn't fire
                 setTimeout(() => {
-                    printWindow.focus();
-                    printWindow.print();
-                }, 500); // Wait 500ms for content to render
+                    if (!printed) {
+                        printed = true;
+                        printWindow.focus();
+                        printWindow.print();
+                    }
+                }, 1000); // Increased to 1000ms for complex HTML
 
                 window.notificationManager.success(
                     `Đã mở cửa sổ in ${printLabel} cho ${orderIds.length} đơn hàng`,
