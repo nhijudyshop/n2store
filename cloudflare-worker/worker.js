@@ -1099,6 +1099,73 @@ export default {
         }
       }
 
+      // ========== TPOS PRODUCT EXCEL EXPORT (Standard Price V2 - Giá mua/vốn) ==========
+      // POST /api/Product/ExportFileWithStandardPriceV2
+      // Cần headers đặc biệt giống như request trực tiếp từ tomato.tpos.vn
+      if (pathname === '/api/Product/ExportFileWithStandardPriceV2' && request.method === 'POST') {
+        const targetUrl = 'https://tomato.tpos.vn/Product/ExportFileWithStandardPriceV2';
+
+        console.log('[TPOS-EXCEL-STANDARD-PRICE] ========================================');
+        console.log('[TPOS-EXCEL-STANDARD-PRICE] Proxying to TPOS:', targetUrl);
+
+        // Build headers giống 100% như request từ browser trên tomato.tpos.vn
+        const tposHeaders = new Headers();
+
+        // Copy Authorization header from original request
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          tposHeaders.set('Authorization', authHeader);
+        }
+
+        // Set headers giống như browser request trực tiếp
+        tposHeaders.set('Accept', '*/*');
+        tposHeaders.set('Accept-Language', 'vi-VN,vi;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6,en;q=0.5');
+        tposHeaders.set('Content-Type', 'application/json');
+        tposHeaders.set('Cache-Control', 'no-cache');
+        tposHeaders.set('Pragma', 'no-cache');
+        tposHeaders.set('Origin', 'https://tomato.tpos.vn');
+        tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
+        tposHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+        tposHeaders.set('sec-ch-ua', '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"');
+        tposHeaders.set('sec-ch-ua-mobile', '?0');
+        tposHeaders.set('sec-ch-ua-platform', '"Windows"');
+        tposHeaders.set('sec-fetch-dest', 'empty');
+        tposHeaders.set('sec-fetch-mode', 'cors');
+        tposHeaders.set('sec-fetch-site', 'same-origin');
+
+        try {
+          const tposResponse = await fetch(targetUrl, {
+            method: 'POST',
+            headers: tposHeaders,
+            body: await request.text(),
+          });
+
+          console.log('[TPOS-EXCEL-STANDARD-PRICE] TPOS Response status:', tposResponse.status);
+          console.log('[TPOS-EXCEL-STANDARD-PRICE] ========================================');
+
+          // Clone response and add CORS headers
+          const newResponse = new Response(tposResponse.body, tposResponse);
+          newResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+          newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+
+          return newResponse;
+
+        } catch (error) {
+          console.error('[TPOS-EXCEL-STANDARD-PRICE] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Failed to fetch standard price Excel from TPOS',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
       let isTPOSRequest = false;
