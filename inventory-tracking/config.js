@@ -26,10 +26,9 @@ const APP_CONFIG = {
 
 // Collection Names
 const COLLECTIONS = {
-    SHIPMENTS: 'inventory_tracking',
+    SHIPMENTS: 'inventory_tracking',  // Now stores NCC documents with datHang[] and dotHang[]
     PREPAYMENTS: 'inventory_prepayments',
     OTHER_EXPENSES: 'inventory_other_expenses',
-    ORDER_BOOKINGS: 'order_bookings',
     EDIT_HISTORY: 'edit_history',
     USERS: 'users',
 };
@@ -99,24 +98,33 @@ const TRANSACTION_CONFIG = {
     },
 };
 
-// Global State
+// Global State - Restructured with sttNCC as primary key
 let globalState = {
-    shipments: [],
+    // NCC-based structure (new)
+    nccList: [],              // Array of NCC documents {sttNCC, datHang[], dotHang[], ...}
+    filteredNCCList: [],      // Filtered NCC list
+
+    // Flattened views for convenience (derived from nccList)
+    shipments: [],            // Flattened dotHang from all NCCs (for backward compatibility)
+    filteredShipments: [],
+    orderBookings: [],        // Flattened datHang from all NCCs (for backward compatibility)
+    filteredOrderBookings: [],
+
+    // Other collections
     prepayments: [],
     otherExpenses: [],
-    orderBookings: [],
-    filteredShipments: [],
-    filteredOrderBookings: [],
     transactions: [],
+
+    // UI state
     isLoading: false,
-    currentTab: 'booking',  // Default to booking tab
+    currentTab: 'booking',    // Default to booking tab
     currentEditingId: null,
     filters: {
         dateFrom: '',
         dateTo: '',
         ncc: 'all',
         product: '',
-        bookingStatus: 'all',  // Filter for order booking status
+        bookingStatus: 'all',
     },
     userPermissions: null,
     langMode: 'vi',  // 'vi' = Vietnamese (default), 'cn' = Chinese original
@@ -134,10 +142,10 @@ try {
 }
 
 // Collection References
+// Note: shipmentsRef now stores NCC documents with datHang[] and dotHang[]
 const shipmentsRef = db?.collection(COLLECTIONS.SHIPMENTS);
 const prepaymentsRef = db?.collection(COLLECTIONS.PREPAYMENTS);
 const otherExpensesRef = db?.collection(COLLECTIONS.OTHER_EXPENSES);
-const orderBookingsRef = db?.collection(COLLECTIONS.ORDER_BOOKINGS);
 const editHistoryRef = db?.collection(COLLECTIONS.EDIT_HISTORY);
 const usersRef = db?.collection(COLLECTIONS.USERS);
 

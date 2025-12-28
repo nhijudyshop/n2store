@@ -1,6 +1,7 @@
 // =====================================================
 // FILTERS - INVENTORY TRACKING
-// Phase 5: Filter shipments by date range, NCC, etc.
+// Filter shipments and bookings by date range, NCC, etc.
+// Note: Uses flattened shipments/orderBookings from nccList
 // =====================================================
 
 /**
