@@ -6310,3 +6310,114 @@ td[data-column].hidden {
 .bulk-tag-delete-result .bulk-tag-result-modal-header {
     background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 }
+
+/* =====================================================
+   FAST SALE MODAL (Tạo nhanh PBH)
+   ===================================================== */
+
+.fast-sale-container {
+    padding: 20px;
+}
+
+.fast-sale-header {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.fast-sale-partner-select label,
+.fast-sale-search label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.fast-sale-partner-select select,
+.fast-sale-search select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: white;
+    cursor: pointer;
+}
+
+.fast-sale-note {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.fast-sale-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.fast-sale-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: white;
+}
+
+.fast-sale-table thead {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.fast-sale-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #d1d5db;
+    white-space: nowrap;
+}
+
+.fast-sale-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+}
+
+.fast-sale-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.fast-sale-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Form controls inside table */
+.fast-sale-table .form-control,
+.fast-sale-table .form-control-sm {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.fast-sale-table .form-control:focus,
+.fast-sale-table .form-control-sm:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* Badge styles */
+.fast-sale-table .badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}

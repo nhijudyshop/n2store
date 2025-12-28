@@ -472,6 +472,12 @@
                 <i class="fas fa-tags"></i>
                 Xóa Tag Hàng Loạt
             </button>
+            <button class="btn-primary" id="createFastSaleBtn" onclick="showFastSaleModal()"
+                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: none;"
+                title="Tạo nhanh phiếu bán hàng từ các đơn đã chọn">
+                <i class="fas fa-file-invoice-dollar"></i>
+                Tạo nhanh PBH (F9)
+            </button>
 
             <!-- Hidden elements - moved to Campaign Settings Modal -->
             <div style="display: none;">
@@ -6190,6 +6196,46 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
             "></div>
+        </div>
+    </div>
+
+    <!-- Fast Sale Modal -->
+    <div class="merge-modal" id="fastSaleModal">
+        <div class="merge-modal-content" style="max-width: 1200px;">
+            <!-- Header -->
+            <div class="merge-modal-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                <div class="merge-header-info">
+                    <h3><i class="fas fa-file-invoice-dollar"></i> Thêm hóa đơn nhanh</h3>
+                    <p id="fastSaleModalSubtitle">Tạo phiếu bán hàng từ các đơn đã chọn</p>
+                </div>
+                <div class="merge-header-actions">
+                    <button class="merge-modal-close" onclick="closeFastSaleModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="merge-modal-body" id="fastSaleModalBody">
+                <div class="merge-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Đang tải dữ liệu...</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="merge-modal-footer">
+                <button class="merge-btn-cancel" onclick="closeFastSaleModal()">
+                    <i class="fas fa-times"></i> Đóng
+                </button>
+                <button class="merge-btn-confirm" id="confirmFastSaleBtn" onclick="confirmFastSale()">
+                    <i class="fas fa-check"></i> Lưu
+                </button>
+                <button class="merge-btn-confirm" id="confirmAndCheckFastSaleBtn" onclick="confirmAndCheckFastSale()"
+                    style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                    <i class="fas fa-check-double"></i> Lưu xác nhận
+                </button>
+            </div>
         </div>
     </div>
 

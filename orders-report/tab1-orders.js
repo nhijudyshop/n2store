@@ -8015,6 +8015,7 @@ function updateActionButtons() {
     const actionButtonsSection = document.getElementById('actionButtonsSection');
     const selectedCountSpan = document.getElementById('selectedOrdersCount');
     const createSaleButtonBtn = document.getElementById('createSaleButtonBtn');
+    const createFastSaleBtn = document.getElementById('createFastSaleBtn');
     const checkedCount = selectedOrderIds.size;
 
     if (checkedCount > 0) {
@@ -8027,6 +8028,11 @@ function updateActionButtons() {
     // Show "Tạo nút bán hàng" button only when exactly 1 order is selected
     if (createSaleButtonBtn) {
         createSaleButtonBtn.style.display = checkedCount === 1 ? 'flex' : 'none';
+    }
+
+    // Show "Tạo nhanh PBH" button when more than 1 order is selected
+    if (createFastSaleBtn) {
+        createFastSaleBtn.style.display = checkedCount > 1 ? 'inline-block' : 'none';
     }
 }
 
@@ -24592,3 +24598,320 @@ document.addEventListener('keydown', function (event) {
 });
 
 // #endregion IMAGE ZOOM
+
+// =====================================================
+// FAST SALE MODAL (Tạo nhanh PBH)
+// =====================================================
+
+let fastSaleOrdersData = [];
+
+/**
+ * Show Fast Sale Modal and fetch data for selected orders
+ */
+async function showFastSaleModal() {
+    const modal = document.getElementById('fastSaleModal');
+    const modalBody = document.getElementById('fastSaleModalBody');
+    const subtitle = document.getElementById('fastSaleModalSubtitle');
+
+    // Reset state
+    fastSaleOrdersData = [];
+
+    // Show modal with loading state
+    modal.classList.add('show');
+    modalBody.innerHTML = `
+        <div class="merge-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Đang tải dữ liệu đơn hàng...</p>
+        </div>
+    `;
+
+    try {
+        // Get selected order IDs
+        const selectedIds = Array.from(selectedOrderIds);
+
+        if (selectedIds.length === 0) {
+            modalBody.innerHTML = `
+                <div class="merge-no-duplicates">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Vui lòng chọn ít nhất một đơn hàng.</p>
+                </div>
+            `;
+            return;
+        }
+
+        subtitle.textContent = `Đã chọn ${selectedIds.length} đơn hàng`;
+
+        // Fetch FastSaleOrder data for selected orders
+        console.log(`[FAST-SALE] Fetching data for ${selectedIds.length} orders...`);
+
+        const fetchPromises = selectedIds.map(orderId => fetchFastSaleOrderData(orderId));
+        const results = await Promise.all(fetchPromises);
+
+        // Filter out null results (failed fetches)
+        fastSaleOrdersData = results.filter(data => data !== null);
+
+        if (fastSaleOrdersData.length === 0) {
+            modalBody.innerHTML = `
+                <div class="merge-no-duplicates">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Không thể tải dữ liệu đơn hàng. Vui lòng thử lại.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Render modal body
+        renderFastSaleModalBody();
+
+    } catch (error) {
+        console.error('[FAST-SALE] Error loading data:', error);
+        modalBody.innerHTML = `
+            <div class="merge-no-duplicates">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>Đã xảy ra lỗi khi tải dữ liệu: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Close Fast Sale Modal
+ */
+function closeFastSaleModal() {
+    const modal = document.getElementById('fastSaleModal');
+    modal.classList.remove('show');
+
+    // Reset state
+    fastSaleOrdersData = [];
+}
+
+/**
+ * Fetch FastSaleOrder data for a single order
+ * @param {string} orderId - Order ID
+ * @returns {Promise<Object|null>} FastSaleOrder data or null if failed
+ */
+async function fetchFastSaleOrderData(orderId) {
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+
+        // Find the order in displayedData to get the Reference (order code)
+        const order = displayedData.find(o => o.Id === orderId);
+        if (!order || !order.Code) {
+            console.warn(`[FAST-SALE] Order ${orderId} not found or has no Code`);
+            return null;
+        }
+
+        // Fetch FastSaleOrder by Reference (order code)
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder?$filter=Reference eq '${order.Code}'&$expand=OrderLines,Partner,Carrier`;
+
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'GET',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.value && data.value.length > 0) {
+            return data.value[0]; // Return first match
+        } else {
+            console.warn(`[FAST-SALE] No FastSaleOrder found for Reference: ${order.Code}`);
+            return {
+                // Return basic data from SaleOnlineOrder if FastSaleOrder not found
+                Id: null,
+                Reference: order.Code,
+                PartnerDisplayName: order.Name || order.PartnerName,
+                PartnerPhone: order.Telephone,
+                SaleOnlineOrder: order,
+                OrderLines: order.Details || [],
+                NotFound: true
+            };
+        }
+    } catch (error) {
+        console.error(`[FAST-SALE] Error fetching order ${orderId}:`, error);
+        return null;
+    }
+}
+
+/**
+ * Render Fast Sale Modal Body
+ */
+function renderFastSaleModalBody() {
+    const modalBody = document.getElementById('fastSaleModalBody');
+
+    if (fastSaleOrdersData.length === 0) {
+        modalBody.innerHTML = `
+            <div class="merge-no-duplicates">
+                <i class="fas fa-inbox"></i>
+                <p>Không có dữ liệu để hiển thị.</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Render table similar to the image provided
+    const html = `
+        <div class="fast-sale-container">
+            <div class="fast-sale-header">
+                <div class="fast-sale-partner-select">
+                    <label for="fastSalePartner">Đối tác giao hàng</label>
+                    <select id="fastSalePartner" class="form-control">
+                        <option value="SHIP TỈNH">SHIP TỈNH</option>
+                    </select>
+                </div>
+                <div class="fast-sale-search">
+                    <label>Nhập từ khóa tìm kiếm</label>
+                    <select class="form-control">
+                        <option>Nhập từ khóa tìm kiếm</option>
+                    </select>
+                </div>
+                <div class="fast-sale-note">
+                    <p style="color: #dc2626; font-size: 13px; margin: 0;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Phần mềm sẽ tự chọn với số tiền ship thấp nhất
+                    </p>
+                    <p style="color: #dc2626; font-size: 13px; margin: 4px 0 0 0;">
+                        <i class="fas fa-info-circle"></i>
+                        Lưu ý: Chỉ có thể tìm kiếm đơn hàng phát sinh trong 2 tháng vừa qua!
+                    </p>
+                </div>
+            </div>
+            <div class="fast-sale-table-wrapper">
+                <table class="fast-sale-table">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Sản phẩm</th>
+                            <th>Số lượng</th>
+                            <th>Số tiền</th>
+                            <th>Tổng tiền</th>
+                            <th>Ghi chú</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${fastSaleOrdersData.map((order, index) => renderFastSaleOrderRow(order, index)).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    modalBody.innerHTML = html;
+}
+
+/**
+ * Render a single order row in Fast Sale Modal
+ * @param {Object} order - FastSaleOrder data
+ * @param {number} index - Row index
+ * @returns {string} HTML string
+ */
+function renderFastSaleOrderRow(order, index) {
+    const customerName = order.PartnerDisplayName || order.Partner?.PartnerDisplayName || 'N/A';
+    const customerCode = order.Reference || 'N/A';
+    const customerPhone = order.PartnerPhone || order.Partner?.PartnerPhone || 'N/A';
+    const customerAddress = order.Partner?.PartnerAddress || '*Chưa có địa chỉ';
+
+    // Get products from OrderLines or SaleOnlineOrder Details
+    const products = order.OrderLines || order.SaleOnlineOrder?.Details || [];
+
+    // Build product rows
+    const productRows = products.map((product, pIndex) => {
+        const productName = product.ProductName || 'N/A';
+        const quantity = product.ProductUOMQty || product.Quantity || 0;
+        const price = product.PriceUnit || product.Price || 0;
+        const total = product.PriceSubTotal || (quantity * price) || 0;
+        const note = product.Note || '';
+
+        return `
+            <tr>
+                ${pIndex === 0 ? `
+                    <td rowspan="${products.length}" style="vertical-align: top;">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="font-weight: 600;">${customerName}</div>
+                            <div style="font-size: 12px; color: #6b7280;">${customerCode}</div>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-phone" style="font-size: 10px; color: #9ca3af;"></i>
+                                <span style="font-size: 12px;">${customerPhone}</span>
+                            </div>
+                            ${order.ShowShipStatus ? `<span class="badge" style="background: #10b981; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">Bom hàng</span>` : ''}
+                            <div style="font-size: 12px; color: #6b7280;">
+                                <i class="fas fa-map-marker-alt" style="font-size: 10px;"></i>
+                                ${customerAddress}
+                            </div>
+                            <div style="font-size: 11px; color: #9ca3af;">
+                                Chiến dịch Live: ${order.SaleOnlineNames || 'N/A'}
+                            </div>
+                            <div style="margin-top: 8px;">
+                                <div style="font-size: 11px; color: #6b7280;">Đối tác:</div>
+                                <select class="form-control form-control-sm" style="font-size: 12px; margin-top: 4px;">
+                                    <option>SHIP TỈNH ▼</option>
+                                </select>
+                            </div>
+                            <div style="margin-top: 4px;">
+                                <div style="font-size: 11px; color: #6b7280;">Tiền ship:</div>
+                                <input type="number" class="form-control form-control-sm" value="35000" style="font-size: 12px; margin-top: 4px;" />
+                            </div>
+                            <div style="margin-top: 4px;">
+                                <div style="font-size: 11px; color: #6b7280;">KL (g)</div>
+                                <input type="number" class="form-control form-control-sm" value="100" style="font-size: 12px; margin-top: 4px;" />
+                            </div>
+                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 11px; color: #6b7280;">Chiều dài:</div>
+                                    <input type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-size: 11px; color: #6b7280;">Chiều rộng:</div>
+                                    <input type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-size: 11px; color: #6b7280;">Chiều cao:</div>
+                                    <input type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                ` : ''}
+                <td>
+                    <div style="font-weight: 500; font-size: 13px;">${productName}</div>
+                </td>
+                <td style="text-align: center;">${quantity}</td>
+                <td style="text-align: right;">${price.toLocaleString('vi-VN')}</td>
+                <td style="text-align: right; font-weight: 600;">${total.toLocaleString('vi-VN')}</td>
+                <td>${note}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return productRows;
+}
+
+/**
+ * Confirm and save Fast Sale (Lưu button)
+ */
+async function confirmFastSale() {
+    console.log('[FAST-SALE] Saving Fast Sale orders...');
+    window.notificationManager.info('Tính năng đang được phát triển...', 'Thông báo');
+}
+
+/**
+ * Confirm and check Fast Sale (Lưu xác nhận button)
+ */
+async function confirmAndCheckFastSale() {
+    console.log('[FAST-SALE] Saving and checking Fast Sale orders...');
+    window.notificationManager.info('Tính năng đang được phát triển...', 'Thông báo');
+}
+
+// Make functions globally accessible
+window.showFastSaleModal = showFastSaleModal;
+window.closeFastSaleModal = closeFastSaleModal;
+window.confirmFastSale = confirmFastSale;
+window.confirmAndCheckFastSale = confirmAndCheckFastSale;
+
+// #endregion FAST SALE MODAL
