@@ -742,9 +742,15 @@ Ctrl+F: #TAG
 | `/api/sepay/*` | → | `n2store-fallback.onrender.com/api/sepay/*` |
 | `/api/customers/*` | → | `n2store-fallback.onrender.com/api/customers/*` |
 
-**Product Excel APIs:**
+**Product Excel APIs:** (có special handler trong Worker)
 - `ExportFileWithVariantPrice` - Trả về Excel với giá bán biến thể (dùng cho tìm kiếm SP)
 - `ExportFileWithStandardPriceV2` - Trả về Excel với giá mua + giá vốn (dùng cho thống kê giảm giá)
+
+> **Note:** Các endpoint `/api/Product/ExportFile*` được xử lý riêng trong Worker với headers đặc biệt:
+> - `Content-Type: application/json;IEEE754Compatible=false;charset=utf-8`
+> - `tposappversion: 5.11.16.1`
+> - `x-tpos-lang: vi`
+> - Headers này cần thiết để tránh lỗi 403 Forbidden từ TPOS
 
 ### Ví dụ sử dụng
 

@@ -1246,6 +1246,62 @@ export default {
             },
           });
         }
+      } else if (pathname.startsWith('/api/Product/ExportFile')) {
+        // ========== TPOS PRODUCT EXCEL EXPORT API ==========
+        // Handles: ExportFileWithVariantPrice, ExportFileWithStandardPriceV2, etc.
+        // These endpoints require explicit TPOS headers to avoid 403 errors
+        const apiPath = pathname.replace(/^\/api\//, '');
+        targetUrl = `https://tomato.tpos.vn/${apiPath}${url.search}`;
+        console.log('[TPOS-PRODUCT-EXCEL] Forwarding to:', targetUrl);
+
+        // Build headers for TPOS Product Excel API
+        const tposExcelHeaders = new Headers();
+
+        // Copy Authorization header from original request
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          tposExcelHeaders.set('Authorization', authHeader);
+        }
+
+        // Set required headers for TPOS (same format as REST API)
+        tposExcelHeaders.set('Accept', '*/*');
+        tposExcelHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
+        tposExcelHeaders.set('tposappversion', '5.11.16.1');
+        tposExcelHeaders.set('x-tpos-lang', 'vi');
+        tposExcelHeaders.set('Origin', 'https://tomato.tpos.vn');
+        tposExcelHeaders.set('Referer', 'https://tomato.tpos.vn/');
+        tposExcelHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+
+        try {
+          const excelResponse = await fetch(targetUrl, {
+            method: request.method,
+            headers: tposExcelHeaders,
+            body: request.method !== 'GET' && request.method !== 'HEAD'
+              ? await request.arrayBuffer()
+              : null,
+          });
+
+          console.log('[TPOS-PRODUCT-EXCEL] Response status:', excelResponse.status);
+
+          const newExcelResponse = new Response(excelResponse.body, excelResponse);
+          newExcelResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newExcelResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+          newExcelResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, tposappversion, x-tpos-lang');
+
+          return newExcelResponse;
+        } catch (excelError) {
+          console.error('[TPOS-PRODUCT-EXCEL] Error:', excelError.message);
+          return new Response(JSON.stringify({
+            error: 'TPOS Product Excel API failed',
+            message: excelError.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
       } else if (pathname.startsWith('/api/')) {
         // TPOS API (catch-all) - forward to tomato.tpos.vn/api/...
         const apiPath = pathname.replace(/^\/api\//, '');
