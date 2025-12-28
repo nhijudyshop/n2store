@@ -145,7 +145,11 @@ class InventoryTrackingApp {
             btn.addEventListener('click', () => {
                 const tabId = btn.dataset.tab;
 
-                // Check permission for finance tab
+                // Check permissions for tabs
+                if (tabId === 'booking' && !permissionHelper?.can('tab_datHang')) {
+                    toast.warning('Ban khong co quyen truy cap tab nay');
+                    return;
+                }
                 if (tabId === 'finance' && !permissionHelper?.can('tab_congNo')) {
                     toast.warning('Ban khong co quyen truy cap tab nay');
                     return;
@@ -160,9 +164,23 @@ class InventoryTrackingApp {
                     content.classList.remove('active');
                 });
 
-                const targetContent = document.getElementById(
-                    tabId === 'tracking' ? 'tabContentTracking' : 'tabContentFinance'
-                );
+                // Map tab ID to content ID
+                let targetContentId;
+                switch (tabId) {
+                    case 'booking':
+                        targetContentId = 'tabContentBooking';
+                        break;
+                    case 'tracking':
+                        targetContentId = 'tabContentTracking';
+                        break;
+                    case 'finance':
+                        targetContentId = 'tabContentFinance';
+                        break;
+                    default:
+                        targetContentId = 'tabContentBooking';
+                }
+
+                const targetContent = document.getElementById(targetContentId);
                 if (targetContent) {
                     targetContent.classList.add('active');
                 }
@@ -186,6 +204,7 @@ class InventoryTrackingApp {
         const thirtyDaysAgo = new Date(today);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+        // Tracking tab filters
         const dateFromInput = document.getElementById('filterDateFrom');
         const dateToInput = document.getElementById('filterDateTo');
 
@@ -194,6 +213,17 @@ class InventoryTrackingApp {
         }
         if (dateToInput) {
             dateToInput.value = this.formatDate(today);
+        }
+
+        // Booking tab filters
+        const bookingDateFromInput = document.getElementById('filterBookingDateFrom');
+        const bookingDateToInput = document.getElementById('filterBookingDateTo');
+
+        if (bookingDateFromInput) {
+            bookingDateFromInput.value = this.formatDate(thirtyDaysAgo);
+        }
+        if (bookingDateToInput) {
+            bookingDateToInput.value = this.formatDate(today);
         }
 
         // Update global state
@@ -402,14 +432,29 @@ class InventoryTrackingApp {
     async loadData() {
         const loadingState = document.getElementById('loadingState');
         const emptyState = document.getElementById('emptyState');
+        const bookingLoadingState = document.getElementById('bookingLoadingState');
 
         try {
             if (loadingState) loadingState.classList.remove('hidden');
             if (emptyState) emptyState.classList.add('hidden');
+            if (bookingLoadingState) bookingLoadingState.classList.remove('hidden');
 
             // Load shipments data
             if (typeof loadShipmentsData === 'function') {
                 await loadShipmentsData();
+            }
+
+            // Load order bookings data
+            if (typeof loadOrderBookings === 'function') {
+                await loadOrderBookings();
+                // Populate NCC filter for bookings
+                if (typeof populateBookingNCCFilter === 'function') {
+                    populateBookingNCCFilter();
+                }
+                // Render order bookings
+                if (typeof renderOrderBookings === 'function') {
+                    renderOrderBookings(globalState.orderBookings);
+                }
             }
 
             // Load finance data if on finance tab
@@ -422,6 +467,7 @@ class InventoryTrackingApp {
             toast.error('Khong the tai du lieu');
         } finally {
             if (loadingState) loadingState.classList.add('hidden');
+            if (bookingLoadingState) bookingLoadingState.classList.add('hidden');
         }
     }
 
@@ -470,6 +516,11 @@ class InventoryTrackingApp {
         // Re-render the shipments table
         if (typeof renderShipments === 'function') {
             renderShipments(globalState.filteredShipments);
+        }
+
+        // Re-render the order bookings table
+        if (typeof renderOrderBookings === 'function') {
+            renderOrderBookings(globalState.filteredOrderBookings || globalState.orderBookings);
         }
 
         // Save preference to localStorage

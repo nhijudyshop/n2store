@@ -94,7 +94,14 @@
         <!-- Tabs Navigation -->
         <div class="tabs-container">
             <div class="tabs-nav">
-                <button class="tab-btn active" data-tab="tracking">
+                <button class="tab-btn active" data-tab="booking" id="tabBooking">
+                    <i data-lucide="shopping-cart"></i>
+                    <span>Đặt Hàng</span>
+                    <span class="tab-lock hidden" id="bookingLock">
+                        <i data-lucide="lock"></i>
+                    </span>
+                </button>
+                <button class="tab-btn" data-tab="tracking">
                     <i data-lucide="package"></i>
                     <span>Theo Dõi Đơn Hàng</span>
                 </button>
@@ -108,8 +115,93 @@
             </div>
         </div>
 
-        <!-- Tab 1: Tracking -->
-        <div class="tab-content active" id="tabContentTracking">
+        <!-- Tab 1: Order Booking (Đặt Hàng) -->
+        <div class="tab-content active" id="tabContentBooking">
+            <!-- Filters Section - Inline Navigation Style -->
+            <div class="filters-navigation">
+                <div class="filters-nav-left">
+                    <!-- Quick date range buttons -->
+                    <div class="quick-date-buttons">
+                        <button class="btn-quick-date" id="btnBooking7Days" title="7 ngày gần nhất">7N</button>
+                        <button class="btn-quick-date" id="btnBooking15Days" title="15 ngày gần nhất">15N</button>
+                        <button class="btn-quick-date" id="btnBooking30Days" title="30 ngày gần nhất">30N</button>
+                    </div>
+
+                    <!-- Date From -->
+                    <div class="filter-inline-item">
+                        <i data-lucide="calendar"></i>
+                        <input type="date" id="filterBookingDateFrom" class="filter-inline-input">
+                    </div>
+
+                    <span class="filter-separator">→</span>
+
+                    <!-- Date To -->
+                    <div class="filter-inline-item">
+                        <i data-lucide="calendar"></i>
+                        <input type="date" id="filterBookingDateTo" class="filter-inline-input">
+                    </div>
+
+                    <!-- NCC Filter -->
+                    <div class="filter-inline-item">
+                        <i data-lucide="building"></i>
+                        <select id="filterBookingNCC" class="filter-inline-select">
+                            <option value="all">Tất cả NCC</option>
+                        </select>
+                    </div>
+
+                    <!-- Status Filter -->
+                    <div class="filter-inline-item">
+                        <i data-lucide="filter"></i>
+                        <select id="filterBookingStatus" class="filter-inline-select">
+                            <option value="all">Tất cả trạng thái</option>
+                            <option value="pending">Đang chờ giao</option>
+                            <option value="received">Đã nhận hàng</option>
+                            <option value="cancelled">Đã hủy</option>
+                        </select>
+                    </div>
+
+                    <!-- Product Search -->
+                    <div class="filter-inline-item filter-search">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="filterBookingProduct" class="filter-inline-input" placeholder="Tìm mã SP...">
+                    </div>
+
+                    <!-- Clear Filter Button -->
+                    <button class="btn-clear-filters" id="btnClearBookingFilters" title="Xóa bộ lọc">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
+                <div class="filters-nav-right">
+                    <span class="filter-count" id="filterBookingCount">0 đơn đặt hàng</span>
+                </div>
+            </div>
+
+            <!-- Add Order Booking Button -->
+            <div class="action-bar">
+                <button class="btn btn-primary" id="btnAddOrderBooking">
+                    <i data-lucide="plus"></i>
+                    <span>Thêm Đơn Đặt Hàng</span>
+                </button>
+            </div>
+
+            <!-- Order Bookings List -->
+            <section class="shipments-section" id="orderBookingsContainer">
+                <div class="loading-state" id="bookingLoadingState">
+                    <div class="loading-spinner"></div>
+                    <span>Đang tải dữ liệu...</span>
+                </div>
+                <div class="empty-state hidden" id="bookingEmptyState">
+                    <i data-lucide="shopping-cart"></i>
+                    <h3>Chưa có đơn đặt hàng nào</h3>
+                    <p>Bấm "Thêm Đơn Đặt Hàng" để bắt đầu</p>
+                </div>
+                <!-- Order booking cards will be rendered here -->
+            </section>
+        </div>
+
+        <!-- Tab 2: Tracking -->
+        <div class="tab-content" id="tabContentTracking">
             <!-- Filters Section - Inline Navigation Style -->
             <div class="filters-navigation">
                 <div class="filters-nav-left">
@@ -437,6 +529,71 @@
         </div>
     </div>
 
+    <!-- Modal: Add/Edit Order Booking -->
+    <div class="modal" id="modalOrderBooking">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <h3 id="modalOrderBookingTitle">Thêm Đơn Đặt Hàng</h3>
+                <button class="modal-close" id="btnCloseOrderBookingModal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalOrderBookingBody">
+                <!-- Form content will be rendered by modal-order-booking.js -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btnCancelOrderBooking">Hủy</button>
+                <button class="btn btn-primary" id="btnSaveOrderBooking">
+                    <i data-lucide="save"></i>
+                    Lưu Đơn Đặt Hàng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Compare Order vs Received -->
+    <div class="modal" id="modalCompare">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <h3 id="modalCompareTitle">So Sánh Đặt Hàng vs Thực Nhận</h3>
+                <button class="modal-close" id="btnCloseCompareModal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalCompareBody">
+                <!-- Content will be rendered by modal-compare.js -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btnCloseCompare">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Link Order to Shipment -->
+    <div class="modal" id="modalLinkShipment">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-md">
+            <div class="modal-header">
+                <h3>Liên Kết Đợt Hàng Thực Nhận</h3>
+                <button class="modal-close" id="btnCloseLinkShipmentModal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalLinkShipmentBody">
+                <!-- Content will be rendered dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btnCancelLinkShipment">Hủy</button>
+                <button class="btn btn-success" id="btnConfirmLinkShipment">
+                    <i data-lucide="link"></i>
+                    Xác Nhận Liên Kết
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toastContainer"></div>
 
@@ -462,6 +619,10 @@
     <script src="search.js"></script>
     <script src="export.js"></script>
     <script src="edit-history.js"></script>
+    <script src="order-booking-renderer.js"></script>
+    <script src="order-booking-crud.js"></script>
+    <script src="modal-order-booking.js"></script>
+    <script src="modal-compare.js"></script>
     <script src="main.js"></script>
 </body>
 </html>

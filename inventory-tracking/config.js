@@ -29,8 +29,38 @@ const COLLECTIONS = {
     SHIPMENTS: 'inventory_tracking',
     PREPAYMENTS: 'inventory_prepayments',
     OTHER_EXPENSES: 'inventory_other_expenses',
+    ORDER_BOOKINGS: 'order_bookings',
     EDIT_HISTORY: 'edit_history',
     USERS: 'users',
+};
+
+// Order Booking Status
+const ORDER_BOOKING_STATUS = {
+    PENDING: 'pending',
+    RECEIVED: 'received',
+    CANCELLED: 'cancelled',
+};
+
+// Order Booking Status Config
+const ORDER_BOOKING_STATUS_CONFIG = {
+    [ORDER_BOOKING_STATUS.PENDING]: {
+        label: 'Đang chờ giao',
+        icon: 'clock',
+        colorClass: 'status-pending',
+        badgeClass: 'badge-warning',
+    },
+    [ORDER_BOOKING_STATUS.RECEIVED]: {
+        label: 'Đã nhận hàng',
+        icon: 'check-circle',
+        colorClass: 'status-received',
+        badgeClass: 'badge-success',
+    },
+    [ORDER_BOOKING_STATUS.CANCELLED]: {
+        label: 'Đã hủy',
+        icon: 'x-circle',
+        colorClass: 'status-cancelled',
+        badgeClass: 'badge-danger',
+    },
 };
 
 // Transaction Types
@@ -74,16 +104,19 @@ let globalState = {
     shipments: [],
     prepayments: [],
     otherExpenses: [],
+    orderBookings: [],
     filteredShipments: [],
+    filteredOrderBookings: [],
     transactions: [],
     isLoading: false,
-    currentTab: 'tracking',
+    currentTab: 'booking',  // Default to booking tab
     currentEditingId: null,
     filters: {
         dateFrom: '',
         dateTo: '',
         ncc: 'all',
         product: '',
+        bookingStatus: 'all',  // Filter for order booking status
     },
     userPermissions: null,
     langMode: 'vi',  // 'vi' = Vietnamese (default), 'cn' = Chinese original
@@ -104,6 +137,7 @@ try {
 const shipmentsRef = db?.collection(COLLECTIONS.SHIPMENTS);
 const prepaymentsRef = db?.collection(COLLECTIONS.PREPAYMENTS);
 const otherExpensesRef = db?.collection(COLLECTIONS.OTHER_EXPENSES);
+const orderBookingsRef = db?.collection(COLLECTIONS.ORDER_BOOKINGS);
 const editHistoryRef = db?.collection(COLLECTIONS.EDIT_HISTORY);
 const usersRef = db?.collection(COLLECTIONS.USERS);
 
