@@ -156,74 +156,246 @@ async function deleteImageFromStorage(imageUrl) {
 }
 
 /**
- * Generate unique shipment ID
+ * Generate unique ID with prefix
  */
-function generateShipmentId() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = 'ship_';
-    for (let i = 0; i < 8; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+function generateId(prefix = 'id') {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    return `${prefix}_${timestamp}_${random}`;
 }
 
 /**
- * Convert invoice data to inventory_tracking format
+ * Get today's date in YYYY-MM-DD format
  */
-function convertToInventoryFormat(invoiceData) {
-    // Convert products to sanPham format
-    const sanPham = (invoiceData.products || []).map(p => {
+function getTodayDate() {
+    return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Check if NCC document exists
+ */
+async function checkNCCExists(sttNCC) {
+    const firestore = getFirestoreDb();
+    if (!firestore) return false;
+
+    const docId = `ncc_${sttNCC}`;
+    const doc = await firestore.collection('inventory_tracking').doc(docId).get();
+    return doc.exists;
+}
+
+/**
+ * Convert products to sanPham format
+ */
+function convertProducts(products) {
+    return (products || []).map(p => {
         const maSP = p.sku || '';
         const tenSP = p.name || '';
-        const soMau = p.color || '';  // Color field expected by inventory-tracking
+        const soMau = p.color || '';
         const soLuong = p.quantity || 0;
-        const giaDonVi = p.price || 0;  // Unit price field expected by inventory-tracking
+        const giaDonVi = p.price || 0;
 
         // Vietnamese translation for display
         const tenSP_vi = translateToVietnamese(tenSP);
         const soMau_vi = translateToVietnamese(soMau);
 
-        // Build rawText for display (Chinese original)
+        // Build rawText for display
         const rawText = `MA ${maSP} ${tenSP} MAU ${soMau} SL ${soLuong}`;
-        // Vietnamese version
         const rawText_vi = `MA ${maSP} ${tenSP_vi} MAU ${soMau_vi} SL ${soLuong}`;
 
         return {
             maSP,
             tenSP,
-            tenSP_vi,      // Vietnamese product name
+            tenSP_vi,
             soMau,
-            soMau_vi,      // Vietnamese color
+            soMau_vi,
             soLuong,
             giaDonVi,
-            rawText,       // Chinese original
-            rawText_vi     // Vietnamese translation
+            rawText,
+            rawText_vi
         };
     });
+}
 
-    // Convert date from DD/MM/YYYY to YYYY-MM-DD
-    let ngayDiHang = '';
-    if (invoiceData.date) {
-        const parts = invoiceData.date.split('/');
-        if (parts.length === 3) {
-            ngayDiHang = `${parts[2]}-${parts[1]}-${parts[0]}`;
-        }
+/**
+ * Calculate soMonThieu (difference between order and delivery)
+ */
+function calculateSoMonThieu(datHangList, tongMonThucGiao) {
+    if (!datHangList || datHangList.length === 0) return 0;
+
+    // Get tongMon from latest datHang
+    const latestDatHang = datHangList[datHangList.length - 1];
+    const tongMonDat = latestDatHang.tongMon || 0;
+
+    return Math.max(0, tongMonDat - tongMonThucGiao);
+}
+
+/**
+ * Create datHang entry (Tab 1 - Đặt hàng) for NEW NCC
+ * Creates NCC document and adds first datHang entry
+ */
+async function createDatHang(invoiceData, imageUrl, chatId, userId) {
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+        throw new Error('Firebase không khả dụng');
     }
 
-    return {
-        sttNCC: invoiceData.ncc || '',
+    const sttNCC = parseInt(invoiceData.ncc, 10);
+    const docId = `ncc_${sttNCC}`;
+    const sanPham = convertProducts(invoiceData.products);
+    const tongMon = sanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+
+    const datHangEntry = {
+        id: generateId('booking'),
+        ngayDatHang: getTodayDate(),
         tenNCC: invoiceData.supplier || '',
+        trangThai: 'pending',
         sanPham: sanPham,
-        tongTien: invoiceData.totalAmount || 0,
-        tongMon: invoiceData.totalItems || 0,
-        ngayDiHang: ngayDiHang,
+        tongTienHD: invoiceData.totalAmount || 0,
+        tongMon: tongMon,
+        anhHoaDon: imageUrl ? [imageUrl] : [],
         ghiChu: invoiceData.notes || '',
-        source: 'telegram_bot'
+        source: 'telegram_bot',
+        telegramChatId: chatId,
+        createdAt: new Date().toISOString(),
+        createdBy: `telegram_${userId}`,
+        updatedAt: new Date().toISOString(),
+        updatedBy: `telegram_${userId}`
+    };
+
+    // Create new NCC document with datHang
+    await firestore.collection('inventory_tracking').doc(docId).set({
+        sttNCC: sttNCC,
+        datHang: [datHangEntry],
+        dotHang: [],
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log(`[FIREBASE] Created NCC ${sttNCC} with datHang:`, datHangEntry.id);
+
+    return {
+        docId: docId,
+        entryId: datHangEntry.id,
+        type: 'datHang',
+        isNew: true,
+        tongMon: tongMon
     };
 }
 
 /**
- * Save invoice to inventory_tracking collection
+ * Add or Update dotHang entry (Tab 2 - Theo dõi đơn hàng) for EXISTING NCC
+ * - If dotHang with same ngayDiHang exists: UPDATE it
+ * - If no dotHang with same ngayDiHang: ADD new dotHang
+ */
+async function addOrUpdateDotHang(invoiceData, imageUrl, chatId, userId) {
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+        throw new Error('Firebase không khả dụng');
+    }
+
+    const sttNCC = parseInt(invoiceData.ncc, 10);
+    const docId = `ncc_${sttNCC}`;
+    const today = getTodayDate();
+
+    // Get NCC document
+    const docRef = firestore.collection('inventory_tracking').doc(docId);
+    const doc = await docRef.get();
+    const data = doc.data();
+
+    const dotHang = data.dotHang || [];
+    const datHang = data.datHang || [];
+    const sanPham = convertProducts(invoiceData.products);
+    const tongMon = sanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+
+    // Calculate soMonThieu
+    const soMonThieu = calculateSoMonThieu(datHang, tongMon);
+
+    // Find existing dotHang with same date
+    const existingIndex = dotHang.findIndex(d => d.ngayDiHang === today);
+
+    let isUpdate = false;
+    let entryId = '';
+
+    if (existingIndex !== -1) {
+        // UPDATE existing dotHang
+        isUpdate = true;
+        entryId = dotHang[existingIndex].id;
+
+        // Merge sanPham arrays
+        const existingSanPham = dotHang[existingIndex].sanPham || [];
+        const mergedSanPham = [...existingSanPham, ...sanPham];
+
+        // Merge anhHoaDon arrays
+        const existingImages = dotHang[existingIndex].anhHoaDon || [];
+        const mergedImages = imageUrl ? [...existingImages, imageUrl] : existingImages;
+
+        // Update the entry
+        dotHang[existingIndex] = {
+            ...dotHang[existingIndex],
+            sanPham: mergedSanPham,
+            tongTienHD: (dotHang[existingIndex].tongTienHD || 0) + (invoiceData.totalAmount || 0),
+            tongMon: mergedSanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0),
+            soMonThieu: calculateSoMonThieu(datHang, mergedSanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0)),
+            anhHoaDon: mergedImages,
+            ghiChu: dotHang[existingIndex].ghiChu
+                ? `${dotHang[existingIndex].ghiChu}\n${invoiceData.notes || ''}`.trim()
+                : (invoiceData.notes || ''),
+            updatedAt: new Date().toISOString(),
+            updatedBy: `telegram_${userId}`
+        };
+
+        console.log(`[FIREBASE] Updated dotHang for NCC ${sttNCC}, date ${today}`);
+    } else {
+        // ADD new dotHang
+        entryId = generateId('dot');
+
+        const newDotHang = {
+            id: entryId,
+            ngayDiHang: today,
+            tenNCC: invoiceData.supplier || data.datHang?.[0]?.tenNCC || '',
+            sanPham: sanPham,
+            tongTienHD: invoiceData.totalAmount || 0,
+            tongMon: tongMon,
+            soMonThieu: soMonThieu,
+            ghiChuThieu: '',
+            anhHoaDon: imageUrl ? [imageUrl] : [],
+            ghiChu: invoiceData.notes || '',
+            source: 'telegram_bot',
+            telegramChatId: chatId,
+            createdAt: new Date().toISOString(),
+            createdBy: `telegram_${userId}`,
+            updatedAt: new Date().toISOString(),
+            updatedBy: `telegram_${userId}`
+        };
+
+        dotHang.push(newDotHang);
+        console.log(`[FIREBASE] Added new dotHang for NCC ${sttNCC}:`, entryId);
+    }
+
+    // Update Firestore
+    await docRef.update({
+        dotHang: dotHang,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return {
+        docId: docId,
+        entryId: entryId,
+        type: 'dotHang',
+        isUpdate: isUpdate,
+        soMonThieu: isUpdate
+            ? dotHang[existingIndex].soMonThieu
+            : soMonThieu,
+        tongMon: isUpdate
+            ? dotHang[existingIndex].tongMon
+            : tongMon
+    };
+}
+
+/**
+ * Main function: Save invoice with new NCC-based structure
+ * - NCC doesn't exist: Create datHang (Tab 1 - Đặt hàng)
+ * - NCC exists: Add/Update dotHang (Tab 2 - Theo dõi đơn hàng)
  */
 async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
     const firestore = getFirestoreDb();
@@ -231,57 +403,10 @@ async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
         throw new Error('Firebase không khả dụng');
     }
 
-    const shipmentId = generateShipmentId();
-    const inventoryData = convertToInventoryFormat(invoiceData);
-
-    // Calculate tongMon from products
-    const tongMon = inventoryData.sanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0);
-
-    // Build document matching inventory_tracking structure
-    const docData = {
-        id: shipmentId,
-        ngayDiHang: inventoryData.ngayDiHang || new Date().toISOString().split('T')[0],
-        hoaDon: [{
-            sttNCC: inventoryData.sttNCC,
-            tenNCC: inventoryData.tenNCC,
-            sanPham: inventoryData.sanPham,
-            tongTienHD: inventoryData.tongTien,  // Field name expected by table-renderer
-            tongMon: tongMon,                     // Total items in this invoice
-            ghiChu: inventoryData.ghiChu
-        }],
-        tongTienHoaDon: inventoryData.tongTien,
-        tongMon: tongMon,
-        soMonThieu: 0,
-        chiPhiHangVe: [],
-        tongChiPhi: 0,
-        ghiChuAdmin: '',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        createdBy: `telegram_${userId}`,
-        updatedBy: `telegram_${userId}`,
-        telegramChatId: chatId,
-        source: 'telegram_bot'
-    };
-
-    // Save to inventory_tracking collection
-    await firestore.collection('inventory_tracking').doc(shipmentId).set(docData);
-    console.log('[FIREBASE] Inventory saved with ID:', shipmentId);
-    return shipmentId;
-}
-
-/**
- * Save invoice with subInvoice handling
- * - If NCC doesn't exist: Create new shipment
- * - If NCC exists but no subInvoice: Add as subInvoice (invoice 2)
- * - If NCC exists with subInvoice: Replace subInvoice data (invoice 3, 4, 5...)
- */
-async function saveInvoiceWithSubInvoice(invoiceData, chatId, userId) {
-    const firestore = getFirestoreDb();
-    if (!firestore) {
-        throw new Error('Firebase không khả dụng');
-    }
-
     const nccCode = invoiceData.ncc;
+    if (!nccCode) {
+        throw new Error('Không tìm thấy mã NCC trong hóa đơn');
+    }
 
     // Upload image to Firebase Storage if photoFileId exists
     let imageUrl = null;
@@ -298,185 +423,74 @@ async function saveInvoiceWithSubInvoice(invoiceData, chatId, userId) {
         }
     }
 
-    // Try to find existing invoice with this NCC
-    let existingShipment = null;
-    let existingInvoiceIndex = -1;
+    // Check if NCC exists
+    const nccExists = await checkNCCExists(nccCode);
 
-    try {
-        const snapshot = await firestore
-            .collection('inventory_tracking')
-            .where('telegramChatId', '==', chatId)
-            .limit(50)
-            .get();
-
-        if (!snapshot.empty) {
-            const shipments = snapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() }))
-                .sort((a, b) => {
-                    const timeA = a.createdAt?.toMillis?.() || 0;
-                    const timeB = b.createdAt?.toMillis?.() || 0;
-                    return timeB - timeA;
-                });
-
-            for (const shipment of shipments) {
-                const hoaDonList = shipment.hoaDon || [];
-                const idx = hoaDonList.findIndex(hd => String(hd.sttNCC) === String(nccCode));
-                if (idx !== -1) {
-                    existingShipment = shipment;
-                    existingInvoiceIndex = idx;
-                    break;
-                }
-            }
-        }
-    } catch (error) {
-        console.log('[FIREBASE] No existing NCC found, creating new');
+    if (!nccExists) {
+        // NCC không tồn tại → Tạo datHang (Tab 1)
+        return await createDatHang(invoiceData, imageUrl, chatId, userId);
+    } else {
+        // NCC đã tồn tại → Thêm/Update dotHang (Tab 2)
+        return await addOrUpdateDotHang(invoiceData, imageUrl, chatId, userId);
     }
-
-    // Convert invoice data
-    const inventoryData = convertToInventoryFormat(invoiceData);
-    const tongMon = inventoryData.sanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0);
-
-    // CASE 1: NCC already exists
-    if (existingShipment && existingInvoiceIndex !== -1) {
-        const hoaDon = existingShipment.hoaDon;
-        const mainInvoice = hoaDon[existingInvoiceIndex];
-
-        // Build subInvoice data
-        const subInvoiceData = {
-            sanPham: inventoryData.sanPham,
-            tongTienHD: inventoryData.tongTien,
-            tongMon: tongMon,
-            ghiChu: inventoryData.ghiChu,
-            anhHoaDon: imageUrl ? [imageUrl] : [],
-            createdAt: new Date().toISOString()
-        };
-
-        if (!mainInvoice.subInvoice) {
-            // CASE 1a: No subInvoice yet - Add as invoice 2
-            hoaDon[existingInvoiceIndex].subInvoice = subInvoiceData;
-            console.log(`[FIREBASE] Added subInvoice to NCC ${nccCode}`);
-        } else {
-            // CASE 1b: subInvoice exists - Replace with new data (invoice 3, 4, 5...)
-            // Keep old images if new one is empty
-            if (imageUrl) {
-                subInvoiceData.anhHoaDon = [imageUrl];
-            } else {
-                subInvoiceData.anhHoaDon = mainInvoice.subInvoice.anhHoaDon || [];
-            }
-            hoaDon[existingInvoiceIndex].subInvoice = subInvoiceData;
-            console.log(`[FIREBASE] Replaced subInvoice for NCC ${nccCode}`);
-        }
-
-        // Update document
-        await firestore.collection('inventory_tracking').doc(existingShipment.id).update({
-            hoaDon: hoaDon,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedBy: `telegram_${userId}`
-        });
-
-        return {
-            docId: existingShipment.id,
-            isSubInvoice: true,
-            isReplaced: !!mainInvoice.subInvoice
-        };
-    }
-
-    // CASE 2: NCC doesn't exist - Create new shipment
-    const shipmentId = generateShipmentId();
-    const docData = {
-        id: shipmentId,
-        ngayDiHang: inventoryData.ngayDiHang || new Date().toISOString().split('T')[0],
-        hoaDon: [{
-            sttNCC: inventoryData.sttNCC,
-            tenNCC: inventoryData.tenNCC,
-            sanPham: inventoryData.sanPham,
-            tongTienHD: inventoryData.tongTien,
-            tongMon: tongMon,
-            ghiChu: inventoryData.ghiChu,
-            anhHoaDon: imageUrl ? [imageUrl] : []
-        }],
-        tongTienHoaDon: inventoryData.tongTien,
-        tongMon: tongMon,
-        soMonThieu: 0,
-        chiPhiHangVe: [],
-        tongChiPhi: 0,
-        ghiChuAdmin: '',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        createdBy: `telegram_${userId}`,
-        updatedBy: `telegram_${userId}`,
-        telegramChatId: chatId,
-        source: 'telegram_bot'
-    };
-
-    await firestore.collection('inventory_tracking').doc(shipmentId).set(docData);
-    console.log('[FIREBASE] New shipment created with ID:', shipmentId);
-
-    return {
-        docId: shipmentId,
-        isSubInvoice: false,
-        isReplaced: false
-    };
 }
 
 /**
- * Find invoice by NCC code
- * Returns the shipment and invoice details
+ * Find NCC document by sttNCC
+ * Returns the NCC document with datHang and dotHang arrays
  */
-async function findInvoiceByNCC(nccCode, chatId) {
+async function findNCCDocument(nccCode) {
     const firestore = getFirestoreDb();
     if (!firestore) {
         throw new Error('Firebase không khả dụng');
     }
 
-    // Query for shipments from this chat
-    // Note: Simple query without orderBy to avoid needing composite index
-    const snapshot = await firestore
-        .collection('inventory_tracking')
-        .where('telegramChatId', '==', chatId)
-        .limit(50)  // Get recent shipments
-        .get();
+    const docId = `ncc_${nccCode}`;
+    const doc = await firestore.collection('inventory_tracking').doc(docId).get();
 
-    if (snapshot.empty) {
-        throw new Error(`Không tìm thấy hóa đơn nào từ chat này`);
+    if (!doc.exists) {
+        throw new Error(`Không tìm thấy NCC ${nccCode}`);
     }
 
-    // Sort by createdAt in memory (descending - newest first)
-    const shipments = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => {
-            const timeA = a.createdAt?.toMillis?.() || 0;
-            const timeB = b.createdAt?.toMillis?.() || 0;
-            return timeB - timeA;  // Descending
-        });
-
-    // Find shipment with matching NCC in hoaDon array
-    for (const data of shipments) {
-        const hoaDonList = data.hoaDon || [];
-
-        const invoiceIndex = hoaDonList.findIndex(hd =>
-            String(hd.sttNCC) === String(nccCode)
-        );
-
-        if (invoiceIndex !== -1) {
-            return {
-                shipment: data,
-                invoiceIndex: invoiceIndex,
-                invoice: hoaDonList[invoiceIndex]
-            };
-        }
-    }
-
-    throw new Error(`Không tìm thấy hóa đơn với NCC = ${nccCode}`);
+    return {
+        id: doc.id,
+        ...doc.data()
+    };
 }
 
 /**
- * Add image to invoice by NCC code
+ * Get latest entry (datHang or dotHang) for display
+ */
+function getLatestEntry(nccDoc) {
+    const datHang = nccDoc.datHang || [];
+    const dotHang = nccDoc.dotHang || [];
+
+    // Get latest from each array
+    const latestDatHang = datHang.length > 0 ? datHang[datHang.length - 1] : null;
+    const latestDotHang = dotHang.length > 0 ? dotHang[dotHang.length - 1] : null;
+
+    // Compare timestamps to find the most recent
+    const datHangTime = latestDatHang ? new Date(latestDatHang.createdAt || 0).getTime() : 0;
+    const dotHangTime = latestDotHang ? new Date(latestDotHang.createdAt || 0).getTime() : 0;
+
+    if (dotHangTime > datHangTime && latestDotHang) {
+        return { entry: latestDotHang, type: 'dotHang', date: latestDotHang.ngayDiHang };
+    } else if (latestDatHang) {
+        return { entry: latestDatHang, type: 'datHang', date: latestDatHang.ngayDatHang };
+    }
+
+    return null;
+}
+
+/**
+ * Add image to NCC (either datHang or dotHang based on date)
  * Downloads from Telegram, uploads to Firebase Storage, and saves URL
  */
-async function addImageToInvoiceByNCC(nccCode, fileId, chatId) {
-    // Find the invoice first
-    const { shipment, invoiceIndex, invoice } = await findInvoiceByNCC(nccCode, chatId);
+async function addImageToNCC(nccCode, fileId, targetType = 'latest') {
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+        throw new Error('Firebase không khả dụng');
+    }
 
     // Download image from Telegram
     const { buffer, mimeType } = await downloadTelegramFile(fileId);
@@ -489,25 +503,66 @@ async function addImageToInvoiceByNCC(nccCode, fileId, chatId) {
     // Upload to Firebase Storage
     const imageUrl = await uploadImageToStorage(buffer, fileName, mimeType);
 
-    // Add image URL to the invoice's anhHoaDon array
-    const hoaDon = shipment.hoaDon;
-    if (!hoaDon[invoiceIndex].anhHoaDon) {
-        hoaDon[invoiceIndex].anhHoaDon = [];
+    // Get NCC document
+    const docId = `ncc_${nccCode}`;
+    const docRef = firestore.collection('inventory_tracking').doc(docId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+        throw new Error(`Không tìm thấy NCC ${nccCode}`);
     }
-    hoaDon[invoiceIndex].anhHoaDon.push(imageUrl);
 
-    // Update the document
-    const firestore = getFirestoreDb();
-    await firestore.collection('inventory_tracking').doc(shipment.id).update({
-        hoaDon: hoaDon,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    const data = doc.data();
+    const today = getTodayDate();
+    let arrayType = '';
+    let entryIndex = -1;
+    let imageCount = 0;
 
-    console.log(`[FIREBASE] Added image to NCC ${nccCode} in shipment ${shipment.id}`);
+    // Try to add to today's dotHang first
+    const dotHang = data.dotHang || [];
+    const todayDotHangIndex = dotHang.findIndex(d => d.ngayDiHang === today);
+
+    if (todayDotHangIndex !== -1) {
+        // Add to today's dotHang
+        arrayType = 'dotHang';
+        entryIndex = todayDotHangIndex;
+        if (!dotHang[todayDotHangIndex].anhHoaDon) {
+            dotHang[todayDotHangIndex].anhHoaDon = [];
+        }
+        dotHang[todayDotHangIndex].anhHoaDon.push(imageUrl);
+        imageCount = dotHang[todayDotHangIndex].anhHoaDon.length;
+
+        await docRef.update({
+            dotHang: dotHang,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+    } else {
+        // Add to latest datHang
+        const datHang = data.datHang || [];
+        if (datHang.length > 0) {
+            arrayType = 'datHang';
+            entryIndex = datHang.length - 1;
+            if (!datHang[entryIndex].anhHoaDon) {
+                datHang[entryIndex].anhHoaDon = [];
+            }
+            datHang[entryIndex].anhHoaDon.push(imageUrl);
+            imageCount = datHang[entryIndex].anhHoaDon.length;
+
+            await docRef.update({
+                datHang: datHang,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+        } else {
+            throw new Error(`NCC ${nccCode} không có datHang hoặc dotHang để thêm ảnh`);
+        }
+    }
+
+    console.log(`[FIREBASE] Added image to NCC ${nccCode} (${arrayType})`);
     return {
-        shipmentId: shipment.id,
+        docId: docId,
         nccCode: nccCode,
-        imageCount: hoaDon[invoiceIndex].anhHoaDon.length,
+        arrayType: arrayType,
+        imageCount: imageCount,
         imageUrl: imageUrl
     };
 }
@@ -552,104 +607,100 @@ async function downloadTelegramFile(fileId) {
 }
 
 /**
- * Format invoice details for Telegram message
+ * Format NCC details for Telegram message
+ * Shows both datHang and dotHang info
  */
-function formatInvoiceDetails(invoice, shipment) {
-    const products = invoice.sanPham || [];
-    const tongMon = products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
-    const tongTien = invoice.tongTienHD || invoice.tongTien || 0;
-    const imageCount = invoice.anhHoaDon?.length || 0;
+function formatNCCDetails(nccDoc) {
+    const sttNCC = nccDoc.sttNCC;
+    const datHang = nccDoc.datHang || [];
+    const dotHang = nccDoc.dotHang || [];
 
-    let text = `📋 HÓA ĐƠN 1 - NCC ${invoice.sttNCC}\n`;
-    text += `${'─'.repeat(30)}\n\n`;
+    let text = `📋 NCC ${sttNCC}\n`;
+    text += `${'═'.repeat(30)}\n\n`;
 
-    text += `📦 Shipment: ${shipment.id}\n`;
-    text += `📅 Ngày: ${shipment.ngayDiHang || 'N/A'}\n`;
-    if (invoice.tenNCC) {
-        text += `🏪 NCC: ${invoice.tenNCC}\n`;
-    }
-    text += `\n`;
-
-    text += `📝 DANH SÁCH SẢN PHẨM:\n`;
-    text += `${'─'.repeat(30)}\n`;
-
-    if (products.length === 0) {
-        text += `(Không có sản phẩm)\n`;
-    } else {
-        products.forEach((p, idx) => {
-            const name = p.tenSP_vi || translateToVietnamese(p.tenSP) || p.tenSP || '';
-            const color = p.soMau_vi || translateToVietnamese(p.soMau) || p.soMau || '';
-            text += `${idx + 1}. MA ${p.maSP || ''} ${name}`;
-            if (color) text += ` - ${color}`;
-            text += ` x${p.soLuong || 0}\n`;
-        });
+    // Get tenNCC from latest entry
+    const tenNCC = datHang[datHang.length - 1]?.tenNCC || dotHang[dotHang.length - 1]?.tenNCC || '';
+    if (tenNCC) {
+        text += `🏪 Tên NCC: ${tenNCC}\n\n`;
     }
 
-    text += `\n${'─'.repeat(30)}\n`;
-    text += `💰 Tiền HĐ: ${tongTien.toLocaleString()}\n`;
-    text += `📊 Tổng món: ${tongMon}\n`;
-    text += `🖼️ Ảnh HĐ1: ${imageCount} ảnh\n`;
-
-    if (invoice.ghiChu) {
-        text += `📝 Ghi chú: ${invoice.ghiChu}\n`;
-    }
-
-    // Show subInvoice info if exists
-    if (invoice.subInvoice) {
-        const sub = invoice.subInvoice;
-        const subProducts = sub.sanPham || [];
-        const subTongMon = subProducts.reduce((sum, p) => sum + (p.soLuong || 0), 0);
-        const subTongTien = sub.tongTienHD || 0;
-        const subImageCount = sub.anhHoaDon?.length || 0;
-
-        text += `\n${'═'.repeat(30)}\n`;
-        text += `📋 HÓA ĐƠN 2 (PHỤ)\n`;
+    // Show datHang (Tab 1 - Đặt hàng)
+    if (datHang.length > 0) {
+        text += `📦 ĐẶT HÀNG (Tab 1): ${datHang.length} đơn\n`;
         text += `${'─'.repeat(30)}\n`;
 
-        if (subProducts.length === 0) {
-            text += `(Không có sản phẩm)\n`;
-        } else {
-            subProducts.forEach((p, idx) => {
+        const latestDatHang = datHang[datHang.length - 1];
+        const products = latestDatHang.sanPham || [];
+        const tongMon = products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+        const imageCount = latestDatHang.anhHoaDon?.length || 0;
+
+        text += `📅 Ngày đặt: ${latestDatHang.ngayDatHang || 'N/A'}\n`;
+        text += `📊 Tổng món: ${tongMon}\n`;
+        text += `💰 Tiền HĐ: ${(latestDatHang.tongTienHD || 0).toLocaleString()}\n`;
+        text += `🖼️ Ảnh: ${imageCount}\n`;
+
+        if (products.length > 0) {
+            text += `\n📝 Sản phẩm:\n`;
+            products.slice(0, 5).forEach((p, idx) => {
                 const name = p.tenSP_vi || translateToVietnamese(p.tenSP) || p.tenSP || '';
-                const color = p.soMau_vi || translateToVietnamese(p.soMau) || p.soMau || '';
-                text += `${idx + 1}. MA ${p.maSP || ''} ${name}`;
-                if (color) text += ` - ${color}`;
-                text += ` x${p.soLuong || 0}\n`;
+                text += `  ${idx + 1}. ${p.maSP || ''} ${name} x${p.soLuong || 0}\n`;
             });
+            if (products.length > 5) {
+                text += `  ... và ${products.length - 5} sản phẩm khác\n`;
+            }
+        }
+        text += `\n`;
+    }
+
+    // Show dotHang (Tab 2 - Theo dõi đơn hàng)
+    if (dotHang.length > 0) {
+        text += `🚚 GIAO HÀNG (Tab 2): ${dotHang.length} đợt\n`;
+        text += `${'─'.repeat(30)}\n`;
+
+        const latestDotHang = dotHang[dotHang.length - 1];
+        const products = latestDotHang.sanPham || [];
+        const tongMon = products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+        const imageCount = latestDotHang.anhHoaDon?.length || 0;
+
+        text += `📅 Ngày giao: ${latestDotHang.ngayDiHang || 'N/A'}\n`;
+        text += `📊 Tổng món: ${tongMon}\n`;
+        text += `💰 Tiền HĐ: ${(latestDotHang.tongTienHD || 0).toLocaleString()}\n`;
+        text += `🖼️ Ảnh: ${imageCount}\n`;
+
+        if (latestDotHang.soMonThieu > 0) {
+            text += `⚠️ Thiếu: ${latestDotHang.soMonThieu} món\n`;
         }
 
-        text += `\n${'─'.repeat(30)}\n`;
-        text += `💰 Tiền HĐ: ${subTongTien.toLocaleString()}\n`;
-        text += `📊 Tổng món: ${subTongMon}\n`;
-        text += `🖼️ Ảnh HĐ2: ${subImageCount} ảnh\n`;
-
-        if (sub.ghiChu) {
-            text += `📝 Ghi chú: ${sub.ghiChu}\n`;
+        if (products.length > 0) {
+            text += `\n📝 Sản phẩm:\n`;
+            products.slice(0, 5).forEach((p, idx) => {
+                const name = p.tenSP_vi || translateToVietnamese(p.tenSP) || p.tenSP || '';
+                text += `  ${idx + 1}. ${p.maSP || ''} ${name} x${p.soLuong || 0}\n`;
+            });
+            if (products.length > 5) {
+                text += `  ... và ${products.length - 5} sản phẩm khác\n`;
+            }
         }
+    }
+
+    if (datHang.length === 0 && dotHang.length === 0) {
+        text += `(Chưa có dữ liệu)\n`;
     }
 
     return text;
 }
 
 /**
- * Build inline keyboard for NCC invoice with edit buttons
+ * Build inline keyboard for NCC with add image button
  */
-function buildNccKeyboard(nccCode, hasSubInvoice) {
-    const keyboard = {
+function buildNccKeyboard(nccCode) {
+    return {
         inline_keyboard: [
             [
-                { text: '🖼️ Sửa ảnh HĐ1', callback_data: `edit_img_1_${nccCode}` }
+                { text: '🖼️ Thêm ảnh', callback_data: `add_img_${nccCode}` }
             ]
         ]
     };
-
-    if (hasSubInvoice) {
-        keyboard.inline_keyboard[0].push(
-            { text: '🖼️ Sửa ảnh HĐ2', callback_data: `edit_img_2_${nccCode}` }
-        );
-    }
-
-    return keyboard;
 }
 
 // Bot username (will be fetched on first request)
@@ -1310,35 +1361,45 @@ router.post('/webhook', async (req, res) => {
 
                 if (invoiceData) {
                     try {
-                        // Save to Firebase with subInvoice handling
+                        // Save to Firebase with new NCC-based structure
                         const userId = callbackQuery.from.id;
-                        const result = await saveInvoiceWithSubInvoice(invoiceData, chatId, userId);
+                        const result = await saveInvoiceToFirebase(invoiceData, chatId, userId);
                         pendingInvoices.delete(invoiceId);
 
-                        // Build success message based on result
+                        // Build success message based on result type
                         let successMsg = '';
-                        if (result.isSubInvoice) {
-                            if (result.isReplaced) {
-                                successMsg = `✅ ĐÃ THAY THẾ HÓA ĐƠN PHỤ!\n\n` +
-                                    `📋 Shipment: ${result.docId}\n` +
-                                    `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
-                                    `📄 Hóa đơn phụ đã được cập nhật\n` +
-                                    `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm\n\n` +
-                                    `💡 NCC ${invoiceData.ncc} đã có hóa đơn phụ.\nDữ liệu mới đã thay thế hóa đơn phụ cũ.`;
-                            } else {
-                                successMsg = `✅ ĐÃ THÊM HÓA ĐƠN PHỤ!\n\n` +
-                                    `📋 Shipment: ${result.docId}\n` +
-                                    `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
-                                    `📄 Đã thêm vào hóa đơn chính\n` +
-                                    `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm\n\n` +
-                                    `💡 Click vào hóa đơn chính trên web để xem hóa đơn phụ này.`;
-                            }
-                        } else {
-                            successMsg = `✅ ĐÃ LƯU THÀNH CÔNG!\n\n` +
-                                `📋 Mã hóa đơn: ${result.docId}\n` +
+                        if (result.type === 'datHang') {
+                            // New NCC - created datHang (Tab 1)
+                            successMsg = `✅ ĐÃ TẠO ĐƠN ĐẶT HÀNG MỚI!\n\n` +
+                                `📋 Document: ${result.docId}\n` +
                                 `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
                                 `🏪 Tên NCC: ${translateToVietnamese(invoiceData.supplier) || 'N/A'}\n` +
-                                `📦 Tổng: ${invoiceData.totalItems || 0} sản phẩm`;
+                                `📦 Tổng món: ${result.tongMon || 0}\n\n` +
+                                `📝 Tab 1 - Đặt hàng\n` +
+                                `💡 NCC mới được tạo với đơn đặt hàng đầu tiên.`;
+                        } else if (result.type === 'dotHang') {
+                            // Existing NCC - added/updated dotHang (Tab 2)
+                            if (result.isUpdate) {
+                                successMsg = `✅ ĐÃ CẬP NHẬT ĐỢT HÀNG!\n\n` +
+                                    `📋 Document: ${result.docId}\n` +
+                                    `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
+                                    `📦 Tổng món: ${result.tongMon || 0}\n`;
+                                if (result.soMonThieu > 0) {
+                                    successMsg += `⚠️ Thiếu: ${result.soMonThieu} món\n`;
+                                }
+                                successMsg += `\n📝 Tab 2 - Theo dõi đơn hàng\n` +
+                                    `💡 Đã gộp vào đợt hàng hôm nay.`;
+                            } else {
+                                successMsg = `✅ ĐÃ THÊM ĐỢT HÀNG MỚI!\n\n` +
+                                    `📋 Document: ${result.docId}\n` +
+                                    `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
+                                    `📦 Tổng món: ${result.tongMon || 0}\n`;
+                                if (result.soMonThieu > 0) {
+                                    successMsg += `⚠️ Thiếu: ${result.soMonThieu} món\n`;
+                                }
+                                successMsg += `\n📝 Tab 2 - Theo dõi đơn hàng\n` +
+                                    `💡 NCC ${invoiceData.ncc} đã tồn tại, thêm đợt giao hàng mới.`;
+                            }
                         }
 
                         await editMessageText(chatId, messageId, successMsg);
@@ -1363,35 +1424,29 @@ router.post('/webhook', async (req, res) => {
                     `❌ Đã hủy. Bạn có thể gửi lại ảnh hóa đơn khác.`
                 );
             }
-            // Handle edit image buttons
-            else if (data.startsWith('edit_img_')) {
-                const match = data.match(/^edit_img_(\d+)_(\d+)$/);
-                if (match) {
-                    const invoiceType = parseInt(match[1]); // 1 or 2
-                    const nccCode = match[2];
+            // Handle add image button
+            else if (data.startsWith('add_img_')) {
+                const nccCode = data.replace('add_img_', '');
 
-                    // Store pending edit state
-                    pendingImageEdits.set(chatId, {
-                        nccCode,
-                        invoiceType,
-                        timestamp: Date.now()
-                    });
+                // Store pending add image state
+                pendingImageEdits.set(chatId, {
+                    nccCode,
+                    timestamp: Date.now()
+                });
 
-                    // Auto-expire after 5 minutes
-                    setTimeout(() => {
-                        const edit = pendingImageEdits.get(chatId);
-                        if (edit && edit.nccCode === nccCode && edit.invoiceType === invoiceType) {
-                            pendingImageEdits.delete(chatId);
-                        }
-                    }, 5 * 60 * 1000);
+                // Auto-expire after 5 minutes
+                setTimeout(() => {
+                    const edit = pendingImageEdits.get(chatId);
+                    if (edit && edit.nccCode === nccCode) {
+                        pendingImageEdits.delete(chatId);
+                    }
+                }, 5 * 60 * 1000);
 
-                    const invoiceLabel = invoiceType === 1 ? 'Hóa đơn 1' : 'Hóa đơn 2 (phụ)';
-                    await sendTelegramMessage(chatId,
-                        `📤 Gửi ảnh mới để thay thế ảnh ${invoiceLabel} của NCC ${nccCode}\n\n` +
-                        `⏳ Bạn có 5 phút để gửi ảnh.\n` +
-                        `❌ Gửi /cancel để hủy.`
-                    );
-                }
+                await sendTelegramMessage(chatId,
+                    `📤 Gửi ảnh để thêm vào NCC ${nccCode}\n\n` +
+                    `⏳ Bạn có 5 phút để gửi ảnh.\n` +
+                    `❌ Gửi /cancel để hủy.`
+                );
             }
             return;
         }
@@ -1429,7 +1484,7 @@ router.post('/webhook', async (req, res) => {
                 const nccMatch = caption.match(/^\/(\d+)$/);
 
                 // ==========================================
-                // CASE 1: Photo with /NCC command - Add image to existing invoice
+                // CASE 1: Photo with /NCC command - Add image to NCC
                 // Example: /15 with photo attached
                 // ==========================================
                 if (nccMatch) {
@@ -1443,12 +1498,14 @@ router.post('/webhook', async (req, res) => {
                         // Get the largest photo
                         const photo = message.photo[message.photo.length - 1];
 
-                        // Add image to the invoice with matching NCC (uploads to Firebase Storage)
-                        const result = await addImageToInvoiceByNCC(nccCode, photo.file_id, chatId);
+                        // Add image to NCC document (uploads to Firebase Storage)
+                        const result = await addImageToNCC(nccCode, photo.file_id);
 
+                        const tabLabel = result.arrayType === 'datHang' ? 'Tab 1 - Đặt hàng' : 'Tab 2 - Theo dõi';
                         await sendTelegramMessage(chatId,
-                            `✅ Đã thêm ảnh vào hóa đơn NCC ${nccCode}\n\n` +
-                            `📦 Shipment: ${result.shipmentId}\n` +
+                            `✅ Đã thêm ảnh vào NCC ${nccCode}\n\n` +
+                            `📋 Document: ${result.docId}\n` +
+                            `📝 ${tabLabel}\n` +
                             `🖼️ Tổng ảnh: ${result.imageCount}\n` +
                             `☁️ Đã lưu lên Firebase Storage\n\n` +
                             `Xem tại: https://nhijudyshop.github.io/n2store/inventory-tracking/`,
@@ -1458,7 +1515,7 @@ router.post('/webhook', async (req, res) => {
                         console.error('[TELEGRAM] Add image error:', error.message);
                         await sendTelegramMessage(chatId,
                             `❌ Lỗi thêm ảnh:\n${error.message}\n\n` +
-                            `💡 Đảm bảo đã có hóa đơn với NCC = ${nccCode} trong hệ thống.`,
+                            `💡 Đảm bảo đã có NCC ${nccCode} trong hệ thống.`,
                             messageId
                         );
                     }
@@ -1466,69 +1523,35 @@ router.post('/webhook', async (req, res) => {
                 }
 
                 // ==========================================
-                // CASE 2: Check for pending image edit
+                // CASE 2: Check for pending image add
                 // ==========================================
                 const pendingEdit = pendingImageEdits.get(chatId);
                 if (pendingEdit) {
-                    console.log(`[TELEGRAM] Processing pending image edit for NCC ${pendingEdit.nccCode}, type ${pendingEdit.invoiceType}`);
+                    console.log(`[TELEGRAM] Processing pending image add for NCC ${pendingEdit.nccCode}`);
 
                     await sendChatAction(chatId, 'upload_photo');
                     await sendTelegramMessage(chatId, '📤 Đang upload ảnh...', messageId);
 
                     try {
                         const photo = message.photo[message.photo.length - 1];
-                        const { shipment, invoiceIndex, invoice } = await findInvoiceByNCC(pendingEdit.nccCode, chatId);
 
-                        // Download and upload image
-                        const { buffer, mimeType } = await downloadTelegramFile(photo.file_id);
-                        const timestamp = Date.now();
-                        const extension = mimeType.split('/')[1] || 'jpg';
-                        const fileName = `ncc_${pendingEdit.nccCode}_hd${pendingEdit.invoiceType}_${timestamp}.${extension}`;
-                        const imageUrl = await uploadImageToStorage(buffer, fileName, mimeType);
-
-                        // Update the correct invoice
-                        const hoaDon = shipment.hoaDon;
-
-                        if (pendingEdit.invoiceType === 1) {
-                            // Update main invoice images
-                            if (!hoaDon[invoiceIndex].anhHoaDon) {
-                                hoaDon[invoiceIndex].anhHoaDon = [];
-                            }
-                            hoaDon[invoiceIndex].anhHoaDon.push(imageUrl);
-                        } else if (pendingEdit.invoiceType === 2 && hoaDon[invoiceIndex].subInvoice) {
-                            // Update subInvoice images
-                            if (!hoaDon[invoiceIndex].subInvoice.anhHoaDon) {
-                                hoaDon[invoiceIndex].subInvoice.anhHoaDon = [];
-                            }
-                            hoaDon[invoiceIndex].subInvoice.anhHoaDon.push(imageUrl);
-                        } else {
-                            throw new Error('Không tìm thấy hóa đơn phụ để thêm ảnh');
-                        }
-
-                        // Save to Firestore
-                        const firestore = getFirestoreDb();
-                        await firestore.collection('inventory_tracking').doc(shipment.id).update({
-                            hoaDon: hoaDon,
-                            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                        });
+                        // Add image to NCC
+                        const result = await addImageToNCC(pendingEdit.nccCode, photo.file_id);
 
                         // Clear pending edit
                         pendingImageEdits.delete(chatId);
 
-                        const invoiceLabel = pendingEdit.invoiceType === 1 ? 'Hóa đơn 1' : 'Hóa đơn 2 (phụ)';
-                        const imageCount = pendingEdit.invoiceType === 1
-                            ? hoaDon[invoiceIndex].anhHoaDon.length
-                            : hoaDon[invoiceIndex].subInvoice?.anhHoaDon?.length || 0;
-
+                        const tabLabel = result.arrayType === 'datHang' ? 'Tab 1 - Đặt hàng' : 'Tab 2 - Theo dõi';
                         await sendTelegramMessage(chatId,
-                            `✅ Đã thêm ảnh vào ${invoiceLabel} của NCC ${pendingEdit.nccCode}\n\n` +
-                            `🖼️ Tổng ảnh ${invoiceLabel}: ${imageCount}\n` +
+                            `✅ Đã thêm ảnh vào NCC ${pendingEdit.nccCode}\n\n` +
+                            `📝 ${tabLabel}\n` +
+                            `🖼️ Tổng ảnh: ${result.imageCount}\n` +
                             `☁️ Đã lưu lên Firebase Storage`,
                             messageId
                         );
 
                     } catch (error) {
-                        console.error('[TELEGRAM] Edit image error:', error.message);
+                        console.error('[TELEGRAM] Add image error:', error.message);
                         pendingImageEdits.delete(chatId);
                         await sendTelegramMessage(chatId,
                             `❌ Lỗi thêm ảnh:\n${error.message}`,
@@ -1671,7 +1694,7 @@ router.post('/webhook', async (req, res) => {
                 return;
             }
 
-            // /NCC command (e.g., /15) - Show invoice details with edit buttons
+            // /NCC command (e.g., /15) - Show NCC details with add image button
             const nccTextMatch = commandText?.match(/^\/(\d+)$/);
             if (nccTextMatch) {
                 const nccCode = nccTextMatch[1];
@@ -1680,10 +1703,9 @@ router.post('/webhook', async (req, res) => {
                 await sendChatAction(chatId, 'typing');
 
                 try {
-                    const { shipment, invoice } = await findInvoiceByNCC(nccCode, chatId);
-                    const detailsText = formatInvoiceDetails(invoice, shipment);
-                    const hasSubInvoice = !!invoice.subInvoice;
-                    const keyboard = buildNccKeyboard(nccCode, hasSubInvoice);
+                    const nccDoc = await findNCCDocument(nccCode);
+                    const detailsText = formatNCCDetails(nccDoc);
+                    const keyboard = buildNccKeyboard(nccCode);
 
                     await sendTelegramMessage(chatId, detailsText, messageId, keyboard);
                 } catch (error) {
