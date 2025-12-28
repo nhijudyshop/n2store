@@ -321,7 +321,8 @@ router.get('/history', async (req, res) => {
             SELECT
                 id, sepay_id, gateway, transaction_date, account_number,
                 code, content, transfer_type, transfer_amount, accumulated,
-                sub_account, reference_code, description, created_at
+                sub_account, reference_code, description, created_at,
+                debt_added, debt_match_source, debt_matched_phone, pending_match_phones
             FROM balance_history
             ${whereClause}
             ORDER BY transaction_date DESC
@@ -506,7 +507,160 @@ async function logWebhook(db, sepayId, req, statusCode, responseBody, errorMessa
 }
 
 /**
+ * Extract 5-6 digit phone suffixes from transaction content
+ * Only excludes GD pattern at the end of content
+ * @param {string} content - Transaction content
+ * @returns {Array} Array of {digits, length} objects
+ */
+function extractPhoneSuffixes(content) {
+    if (!content) return [];
+
+    // Only remove GD pattern at the end (e.g., "GD 5361MCOBB2MELW4I")
+    let cleaned = content.replace(/GD\s*\S+$/gi, '');
+
+    const matches = [];
+
+    // Find all 6-digit sequences
+    const sixDigitMatches = cleaned.match(/\d{6}/g) || [];
+    sixDigitMatches.forEach(s => {
+        if (!matches.some(m => m.digits === s)) {
+            matches.push({ digits: s, length: 6 });
+        }
+    });
+
+    // Find all 5-digit sequences that are not part of a 6-digit sequence
+    const fiveDigitMatches = cleaned.match(/\d{5}/g) || [];
+    fiveDigitMatches.forEach(s => {
+        // Check if this 5-digit is NOT a substring of any 6-digit match
+        const isPartOfSix = sixDigitMatches.some(six => six.includes(s));
+        if (!isPartOfSix && !matches.some(m => m.digits === s)) {
+            matches.push({ digits: s, length: 5 });
+        }
+    });
+
+    console.log('[EXTRACT-SUFFIX] Content:', content.substring(0, 100));
+    console.log('[EXTRACT-SUFFIX] Found suffixes:', matches);
+
+    return matches;
+}
+
+/**
+ * Find customers by phone suffix (last 5-6 digits)
+ * Priority: balance_customer_info first, then customers table
+ * @param {Object} db - Database connection
+ * @param {Array} suffixes - Array of {digits, length} objects
+ * @returns {Array} Array of matched customers
+ */
+async function findCustomersByPhoneSuffix(db, suffixes) {
+    const results = [];
+
+    for (const suffix of suffixes) {
+        // Priority 1: Search in balance_customer_info (customers with QR history)
+        const infoResult = await db.query(`
+            SELECT DISTINCT customer_phone, customer_name
+            FROM balance_customer_info
+            WHERE customer_phone LIKE $1
+              AND customer_phone IS NOT NULL
+              AND customer_phone != ''
+        `, [`%${suffix.digits}`]);
+
+        if (infoResult.rows.length > 0) {
+            infoResult.rows.forEach(r => {
+                if (!results.some(res => res.phone === r.customer_phone)) {
+                    results.push({
+                        phone: r.customer_phone,
+                        name: r.customer_name,
+                        suffix: suffix.digits,
+                        suffixLength: suffix.length,
+                        source: 'balance_customer_info'
+                    });
+                }
+            });
+            continue; // Found in priority source, skip customers table for this suffix
+        }
+
+        // Priority 2: Search in customers table
+        const custResult = await db.query(`
+            SELECT phone, name
+            FROM customers
+            WHERE phone LIKE $1
+              AND active = true
+        `, [`%${suffix.digits}`]);
+
+        custResult.rows.forEach(r => {
+            if (!results.some(res => res.phone === r.phone)) {
+                results.push({
+                    phone: r.phone,
+                    name: r.name,
+                    suffix: suffix.digits,
+                    suffixLength: suffix.length,
+                    source: 'customers'
+                });
+            }
+        });
+    }
+
+    console.log('[FIND-CUSTOMER] Found customers:', results);
+    return results;
+}
+
+/**
+ * Update customer debt and mark transaction as matched
+ * @param {Object} db - Database connection
+ * @param {number} transactionId - Transaction ID
+ * @param {string} phone - Customer phone
+ * @param {number} amount - Transaction amount
+ * @param {string} matchSource - Match source (qr_code, phone_5_digits, phone_6_digits, manual)
+ */
+async function updateDebtAndMarkMatched(db, transactionId, phone, amount, matchSource) {
+    // Update customer debt (UPSERT)
+    const updateResult = await db.query(
+        `INSERT INTO customers (phone, name, debt, status, active)
+         VALUES ($1, $1, $2, 'Bình thường', true)
+         ON CONFLICT (phone) DO UPDATE SET
+             debt = COALESCE(customers.debt, 0) + $2,
+             updated_at = CURRENT_TIMESTAMP
+         RETURNING id, phone, debt`,
+        [phone, amount]
+    );
+
+    const customer = updateResult.rows[0];
+
+    // Mark transaction as processed with match info
+    await db.query(
+        `UPDATE balance_history
+         SET debt_added = TRUE,
+             debt_match_source = $2,
+             debt_matched_phone = $3,
+             pending_match_phones = NULL
+         WHERE id = $1`,
+        [transactionId, matchSource, phone]
+    );
+
+    console.log('[DEBT-MATCH] ✅ Matched:', { transactionId, phone, matchSource, newDebt: customer.debt });
+    return customer;
+}
+
+/**
+ * Mark transaction as pending (multiple customers match)
+ * @param {Object} db - Database connection
+ * @param {number} transactionId - Transaction ID
+ * @param {Array} matchedPhones - Array of phone numbers that match
+ */
+async function markAsPendingMatch(db, transactionId, matchedPhones) {
+    await db.query(
+        `UPDATE balance_history
+         SET debt_match_source = 'pending',
+             pending_match_phones = $2
+         WHERE id = $1`,
+        [transactionId, JSON.stringify(matchedPhones)]
+    );
+    console.log('[DEBT-MATCH] ⏳ Pending:', { transactionId, matchedPhones });
+}
+
+/**
  * Process debt update for a single transaction
+ * Supports both QR code matching and phone suffix (5-6 digits) matching
  * @param {Object} db - Database connection
  * @param {number} transactionId - The ID of the transaction in balance_history
  */
@@ -515,7 +669,7 @@ async function processDebtUpdate(db, transactionId) {
 
     // 1. Get transaction details
     const txResult = await db.query(
-        `SELECT id, content, transfer_amount, transfer_type, debt_added
+        `SELECT id, content, transfer_amount, transfer_type, debt_added, debt_match_source
          FROM balance_history
          WHERE id = $1`,
         [transactionId]
@@ -540,69 +694,88 @@ async function processDebtUpdate(db, transactionId) {
         return { success: false, reason: 'Not incoming transaction' };
     }
 
-    // 4. Extract QR code from content (N2 + 16 alphanumeric)
     const content = tx.content || '';
-    const qrMatch = content.toUpperCase().match(/N2[A-Z0-9]{16}/);
-    if (!qrMatch) {
-        console.log('[DEBT-UPDATE] No QR code in content:', transactionId);
-        return { success: false, reason: 'No QR code found' };
-    }
-
-    const qrCode = qrMatch[0];
-    console.log('[DEBT-UPDATE] QR code found:', qrCode);
-
-    // 5. Find phone number from balance_customer_info (case-insensitive)
-    const infoResult = await db.query(
-        `SELECT customer_phone FROM balance_customer_info
-         WHERE UPPER(unique_code) = $1`,
-        [qrCode]
-    );
-
-    if (infoResult.rows.length === 0 || !infoResult.rows[0].customer_phone) {
-        console.log('[DEBT-UPDATE] No phone linked to QR:', qrCode);
-        return { success: false, reason: 'No phone linked to QR code' };
-    }
-
-    const phone = infoResult.rows[0].customer_phone;
     const amount = parseInt(tx.transfer_amount) || 0;
 
-    console.log('[DEBT-UPDATE] Phone:', phone, 'Amount:', amount);
+    // ============================================
+    // PRIORITY 1: Try QR code matching first
+    // ============================================
+    const qrMatch = content.toUpperCase().match(/N2[A-Z0-9]{16}/);
+    if (qrMatch) {
+        const qrCode = qrMatch[0];
+        console.log('[DEBT-UPDATE] QR code found:', qrCode);
 
-    // 6. Update customer debt (UPSERT)
-    const updateResult = await db.query(
-        `INSERT INTO customers (phone, name, debt, status, active)
-         VALUES ($1, $1, $2, 'Bình thường', true)
-         ON CONFLICT (phone) DO UPDATE SET
-             debt = COALESCE(customers.debt, 0) + $2,
-             updated_at = CURRENT_TIMESTAMP
-         RETURNING id, phone, debt`,
-        [phone, amount]
-    );
+        const infoResult = await db.query(
+            `SELECT customer_phone FROM balance_customer_info
+             WHERE UPPER(unique_code) = $1`,
+            [qrCode]
+        );
 
-    const customer = updateResult.rows[0];
-    console.log('[DEBT-UPDATE] Customer updated:', customer);
+        if (infoResult.rows.length > 0 && infoResult.rows[0].customer_phone) {
+            const phone = infoResult.rows[0].customer_phone;
+            const customer = await updateDebtAndMarkMatched(db, transactionId, phone, amount, 'qr_code');
 
-    // 7. Mark transaction as processed
-    await db.query(
-        `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
-        [transactionId]
-    );
+            return {
+                success: true,
+                transactionId,
+                matchType: 'qr_code',
+                qrCode,
+                phone,
+                amount,
+                newDebt: customer.debt
+            };
+        }
 
-    console.log('[DEBT-UPDATE] ✅ Success:', {
-        transactionId,
-        qrCode,
-        phone,
-        amount,
-        newDebt: customer.debt
-    });
+        console.log('[DEBT-UPDATE] QR code found but no phone linked:', qrCode);
+    }
+
+    // ============================================
+    // PRIORITY 2: Try phone suffix matching (5-6 digits)
+    // ============================================
+    console.log('[DEBT-UPDATE] No QR match, trying phone suffix matching...');
+
+    const phoneSuffixes = extractPhoneSuffixes(content);
+
+    if (phoneSuffixes.length === 0) {
+        console.log('[DEBT-UPDATE] No phone suffix found in content');
+        return { success: false, reason: 'No QR code or phone suffix found' };
+    }
+
+    // Find customers matching these suffixes
+    const matchedCustomers = await findCustomersByPhoneSuffix(db, phoneSuffixes);
+
+    if (matchedCustomers.length === 0) {
+        console.log('[DEBT-UPDATE] No customers match the phone suffixes');
+        return { success: false, reason: 'No customers match phone suffix' };
+    }
+
+    if (matchedCustomers.length === 1) {
+        // Only 1 customer matches -> Auto-match
+        const customer = matchedCustomers[0];
+        const matchSource = customer.suffixLength === 5 ? 'phone_5_digits' : 'phone_6_digits';
+        const updatedCustomer = await updateDebtAndMarkMatched(db, transactionId, customer.phone, amount, matchSource);
+
+        return {
+            success: true,
+            transactionId,
+            matchType: matchSource,
+            phone: customer.phone,
+            suffix: customer.suffix,
+            amount,
+            newDebt: updatedCustomer.debt
+        };
+    }
+
+    // Multiple customers match -> Mark as pending for manual selection
+    const matchedPhones = matchedCustomers.map(c => c.phone);
+    await markAsPendingMatch(db, transactionId, matchedPhones);
 
     return {
-        success: true,
+        success: false,
+        reason: 'Multiple customers match - pending manual selection',
         transactionId,
-        qrCode,
-        phone,
-        amount,
-        newDebt: customer.debt
+        matchedCustomers: matchedPhones,
+        pendingSelection: true
     };
 }
 
@@ -1900,6 +2073,225 @@ router.post('/fetch-by-reference/:referenceCode', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch transaction',
+            message: error.message
+        });
+    }
+});
+
+// =====================================================
+// PENDING MATCH ENDPOINTS - For phone suffix matching
+// =====================================================
+
+/**
+ * GET /api/sepay/pending-matches
+ * Get list of transactions pending manual phone selection
+ */
+router.get('/pending-matches', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { page = 1, limit = 50 } = req.query;
+
+    try {
+        const offset = (page - 1) * limit;
+
+        // Get total count
+        const countResult = await db.query(
+            `SELECT COUNT(*) FROM balance_history WHERE debt_match_source = 'pending'`
+        );
+        const total = parseInt(countResult.rows[0].count);
+
+        // Get pending transactions
+        const result = await db.query(`
+            SELECT
+                id,
+                sepay_id,
+                gateway,
+                transaction_date,
+                account_number,
+                content,
+                transfer_type,
+                transfer_amount,
+                accumulated,
+                reference_code,
+                debt_match_source,
+                pending_match_phones,
+                created_at
+            FROM balance_history
+            WHERE debt_match_source = 'pending'
+            ORDER BY transaction_date DESC
+            LIMIT $1 OFFSET $2
+        `, [limit, offset]);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (error) {
+        console.error('[PENDING-MATCHES] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch pending matches',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/confirm-match
+ * Confirm phone selection for a pending transaction
+ * Body: { transactionId, selectedPhone }
+ */
+router.post('/confirm-match', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { transactionId, selectedPhone } = req.body;
+
+    if (!transactionId || !selectedPhone) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required parameters: transactionId, selectedPhone'
+        });
+    }
+
+    try {
+        // Get transaction details
+        const txResult = await db.query(
+            `SELECT id, transfer_amount, debt_match_source, pending_match_phones
+             FROM balance_history
+             WHERE id = $1`,
+            [transactionId]
+        );
+
+        if (txResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Transaction not found'
+            });
+        }
+
+        const tx = txResult.rows[0];
+
+        // Verify selectedPhone is in the pending list
+        const pendingPhones = tx.pending_match_phones || [];
+        if (!pendingPhones.includes(selectedPhone)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Selected phone is not in the pending match list'
+            });
+        }
+
+        const amount = parseInt(tx.transfer_amount) || 0;
+
+        // Update debt and mark as matched
+        const customer = await updateDebtAndMarkMatched(db, transactionId, selectedPhone, amount, 'manual');
+
+        console.log('[CONFIRM-MATCH] ✅ Confirmed:', {
+            transactionId,
+            selectedPhone,
+            amount,
+            newDebt: customer.debt
+        });
+
+        res.json({
+            success: true,
+            message: 'Match confirmed successfully',
+            data: {
+                transactionId,
+                phone: selectedPhone,
+                amount,
+                newDebt: customer.debt
+            }
+        });
+
+    } catch (error) {
+        console.error('[CONFIRM-MATCH] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to confirm match',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/skip-match
+ * Skip matching for a pending transaction (no customer assignment)
+ * Body: { transactionId }
+ */
+router.post('/skip-match', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { transactionId } = req.body;
+
+    if (!transactionId) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required parameter: transactionId'
+        });
+    }
+
+    try {
+        // Update transaction to skipped status
+        const result = await db.query(
+            `UPDATE balance_history
+             SET debt_match_source = 'skipped',
+                 pending_match_phones = NULL
+             WHERE id = $1
+             RETURNING id`,
+            [transactionId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Transaction not found'
+            });
+        }
+
+        console.log('[SKIP-MATCH] ✅ Skipped:', { transactionId });
+
+        res.json({
+            success: true,
+            message: 'Match skipped successfully',
+            data: { transactionId }
+        });
+
+    } catch (error) {
+        console.error('[SKIP-MATCH] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to skip match',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sepay/pending-matches/count
+ * Get count of pending matches for badge display
+ */
+router.get('/pending-matches/count', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        const result = await db.query(
+            `SELECT COUNT(*) FROM balance_history WHERE debt_match_source = 'pending'`
+        );
+
+        res.json({
+            success: true,
+            count: parseInt(result.rows[0].count)
+        });
+
+    } catch (error) {
+        console.error('[PENDING-COUNT] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get pending count',
             message: error.message
         });
     }

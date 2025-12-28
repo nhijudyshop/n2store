@@ -138,6 +138,30 @@ function getQuickFilterDates(filterType) {
 
 // Apply Quick Filter
 function applyQuickFilter(filterType) {
+    // Special handling for pending match filter
+    if (filterType === 'pendingMatch') {
+        // Clear date filters and set special filter for pending matches
+        document.getElementById('filterStartDate').value = '';
+        document.getElementById('filterEndDate').value = '';
+        filters.startDate = '';
+        filters.endDate = '';
+        filters.pendingMatch = true;
+
+        // Update active button
+        document.querySelectorAll('.btn-quick-filter').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-filter="${filterType}"]`)?.classList.add('active');
+
+        currentQuickFilter = filterType;
+        currentPage = 1;
+        loadPendingMatches();
+        return;
+    }
+
+    // Clear pending match filter if switching to other filters
+    filters.pendingMatch = false;
+
     const dates = getQuickFilterDates(filterType);
 
     if (dates) {
@@ -165,6 +189,34 @@ function applyQuickFilter(filterType) {
     }
 }
 
+/**
+ * Load pending matches (transactions waiting for manual phone selection)
+ */
+async function loadPendingMatches() {
+    showLoading();
+    const API_BASE_URL = window.CONFIG?.API_BASE_URL || '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches?page=${currentPage}&limit=50`);
+        const result = await response.json();
+
+        if (result.success) {
+            renderTable(result.data, true); // Skip gap detection for pending view
+            updatePagination(result.pagination);
+
+            // Update statistics to show pending info
+            document.getElementById('totalInCount').textContent = `${result.pagination.total} giao dịch chờ xác nhận`;
+        } else {
+            showNotification('Lỗi tải danh sách chờ xác nhận', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading pending matches:', error);
+        showNotification('Lỗi kết nối server', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize CustomerInfoManager and sync from database
@@ -176,6 +228,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loadData();
     loadStatistics();
     setupEventListeners();
+
+    // Load pending match count for badge
+    updatePendingMatchCount();
 });
 
 // Event Listeners
@@ -514,6 +569,7 @@ function renderTable(data, skipGapDetection = false) {
 
 /**
  * Render a single transaction row
+ * Supports: QR code matching, phone suffix matching, pending matches
  */
 function renderTransactionRow(row) {
     // Extract unique code from content (look for N2 prefix pattern - exactly 18 chars)
@@ -521,14 +577,78 @@ function renderTransactionRow(row) {
     const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
     const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
 
-    // Get customer info if unique code exists
+    // Check if this is a pending match (multiple customers match phone suffix)
+    const isPendingMatch = row.debt_match_source === 'pending';
+    const pendingPhones = row.pending_match_phones || [];
+    const matchedPhone = row.debt_matched_phone || null;
+    const matchSource = row.debt_match_source || null;
+
+    // Get customer info
     let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
-    if (uniqueCode && window.CustomerInfoManager) {
+
+    if (matchedPhone) {
+        // Transaction already matched (via QR, phone suffix, or manual)
+        customerDisplay = {
+            name: matchedPhone, // Use phone as name fallback
+            phone: matchedPhone,
+            hasInfo: true
+        };
+        // Try to get actual name from CustomerInfoManager if available
+        if (uniqueCode && window.CustomerInfoManager) {
+            const infoFromQR = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+            if (infoFromQR.hasInfo) {
+                customerDisplay.name = infoFromQR.name;
+            }
+        }
+    } else if (uniqueCode && window.CustomerInfoManager) {
+        // Try QR code lookup
         customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
     }
 
+    // Row class for pending matches (highlight yellow)
+    const rowClass = isPendingMatch ? 'row-pending-match' : '';
+
+    // Build phone cell content
+    let phoneCellContent = '';
+    if (isPendingMatch && pendingPhones.length > 0) {
+        // Show dropdown for pending matches
+        const phonesJson = JSON.stringify(pendingPhones).replace(/"/g, '&quot;');
+        phoneCellContent = `
+            <select class="pending-phone-select"
+                    data-tx-id="${row.id}"
+                    onchange="handlePendingPhoneSelect(this)">
+                <option value="">-- Chọn (${pendingPhones.length} KH) --</option>
+                ${pendingPhones.map(p => `<option value="${p}">${p}</option>`).join('')}
+                <option value="__skip__">Bỏ qua</option>
+            </select>
+        `;
+    } else if (matchedPhone) {
+        // Show matched phone with source indicator
+        const sourceIcon = matchSource === 'qr_code' ? 'qr-code' :
+                          matchSource === 'manual' ? 'user-check' : 'phone';
+        const sourceTitle = matchSource === 'qr_code' ? 'Khớp từ mã QR' :
+                           matchSource === 'manual' ? 'Chọn thủ công' :
+                           matchSource === 'phone_6_digits' ? 'Khớp 6 số cuối SĐT' :
+                           matchSource === 'phone_5_digits' ? 'Khớp 5 số cuối SĐT' : 'Đã khớp';
+        phoneCellContent = `
+            <a href="javascript:void(0)" onclick="showCustomersByPhone('${matchedPhone}')" class="phone-link" title="${sourceTitle}" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                ${matchedPhone}
+                <i data-lucide="${sourceIcon}" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
+            </a>
+        `;
+    } else if (uniqueCode && customerDisplay.phone !== 'N/A') {
+        phoneCellContent = `
+            <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                ${customerDisplay.phone}
+                <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
+            </a>
+        `;
+    } else {
+        phoneCellContent = '<span style="color: #999;">N/A</span>';
+    }
+
     return `
-    <tr>
+    <tr class="${rowClass}">
         <td>${formatDateTime(row.transaction_date)}</td>
         <td>${row.gateway}</td>
         <td>
@@ -543,7 +663,7 @@ function renderTransactionRow(row) {
         <td>${formatCurrency(row.accumulated)}</td>
         <td>${truncateText(content || 'N/A', 50)}</td>
         <td>${row.reference_code || 'N/A'}</td>
-        <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
+        <td class="customer-info-cell ${customerDisplay.hasInfo || isPendingMatch ? '' : 'no-info'}">
             ${uniqueCode ? `
                 <div style="display: flex; align-items: center; gap: 5px;">
                     <span>${customerDisplay.name}</span>
@@ -552,6 +672,10 @@ function renderTransactionRow(row) {
                             <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
                         </button>
                     ` : ''}
+                </div>
+            ` : isPendingMatch ? `
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="color: #f59e0b; font-weight: 500;">Chờ chọn KH</span>
                 </div>
             ` : `
                 <div style="display: flex; align-items: center; gap: 5px;">
@@ -564,13 +688,8 @@ function renderTransactionRow(row) {
                 </div>
             `}
         </td>
-        <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-            ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
-                <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
-                    ${customerDisplay.phone}
-                    <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
-                </a>
-            ` : '<span style="color: #999;">N/A</span>'}
+        <td class="customer-info-cell ${customerDisplay.hasInfo || isPendingMatch ? '' : 'no-info'}">
+            ${phoneCellContent}
         </td>
         <td class="text-center">
             ${uniqueCode ? `
@@ -589,6 +708,86 @@ function renderTransactionRow(row) {
         </td>
     </tr>
     `;
+}
+
+/**
+ * Handle pending phone selection from dropdown
+ */
+async function handlePendingPhoneSelect(selectElement) {
+    const transactionId = selectElement.dataset.txId;
+    const selectedPhone = selectElement.value;
+
+    if (!selectedPhone) return;
+
+    const API_BASE_URL = window.CONFIG?.API_BASE_URL || '';
+
+    try {
+        if (selectedPhone === '__skip__') {
+            // Skip this match
+            const response = await fetch(`${API_BASE_URL}/api/sepay/skip-match`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transactionId: parseInt(transactionId) })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                showNotification('Đã bỏ qua giao dịch này', 'info');
+                loadData(); // Reload table
+                updatePendingMatchCount();
+            } else {
+                showNotification('Lỗi: ' + (result.error || 'Không thể bỏ qua'), 'error');
+            }
+        } else {
+            // Confirm this phone match
+            const response = await fetch(`${API_BASE_URL}/api/sepay/confirm-match`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transactionId: parseInt(transactionId),
+                    selectedPhone: selectedPhone
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                showNotification(`Đã xác nhận khách hàng ${selectedPhone}. Công nợ mới: ${formatCurrency(result.data.newDebt)}`, 'success');
+                loadData(); // Reload table
+                updatePendingMatchCount();
+            } else {
+                showNotification('Lỗi: ' + (result.error || 'Không thể xác nhận'), 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Error handling phone select:', error);
+        showNotification('Lỗi kết nối server', 'error');
+    }
+}
+
+/**
+ * Update pending match count badge
+ */
+async function updatePendingMatchCount() {
+    const API_BASE_URL = window.CONFIG?.API_BASE_URL || '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/count`);
+        const result = await response.json();
+
+        const badge = document.getElementById('pendingMatchCount');
+        if (badge) {
+            badge.textContent = result.count || 0;
+            badge.style.display = result.count > 0 ? 'inline-block' : 'none';
+        }
+
+        // Update filter button visibility
+        const filterBtn = document.querySelector('[data-filter="pendingMatch"]');
+        if (filterBtn) {
+            filterBtn.style.display = result.count > 0 ? 'inline-block' : 'none';
+        }
+    } catch (error) {
+        console.error('Error fetching pending count:', error);
+    }
 }
 
 /**

@@ -1485,3 +1485,90 @@ body {
         transform: rotate(360deg);
     }
 }
+
+/* =====================================================
+   PENDING MATCH STYLES - Phone suffix matching
+   ===================================================== */
+
+/* Highlight row for pending matches (needs manual phone selection) */
+.row-pending-match {
+    background: linear-gradient(90deg, #fef3c7 0%, #fffbeb 50%, #fef3c7 100%) !important;
+    border-left: 4px solid #f59e0b !important;
+    animation: pulse-yellow 2s ease-in-out infinite;
+}
+
+.row-pending-match:hover {
+    background: #fde68a !important;
+}
+
+@keyframes pulse-yellow {
+    0%, 100% {
+        background: linear-gradient(90deg, #fef3c7 0%, #fffbeb 50%, #fef3c7 100%);
+    }
+    50% {
+        background: linear-gradient(90deg, #fde68a 0%, #fef3c7 50%, #fde68a 100%);
+    }
+}
+
+/* Dropdown select for pending phone selection */
+.pending-phone-select {
+    padding: 6px 10px;
+    border: 2px solid #f59e0b;
+    border-radius: var(--radius-md);
+    background: white;
+    color: #92400e;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    min-width: 150px;
+    transition: all var(--transition-fast);
+}
+
+.pending-phone-select:hover {
+    border-color: #d97706;
+    background: #fffbeb;
+}
+
+.pending-phone-select:focus {
+    outline: none;
+    border-color: #d97706;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+/* Quick filter button for pending matches */
+.filter-pending {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: none;
+    position: relative;
+}
+
+.filter-pending:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.filter-pending .badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #dc2626;
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+/* Match source indicator icons */
+.match-source-icon {
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+    margin-left: 4px;
+    opacity: 0.7;
+}
+
+.match-source-qr { color: #10b981; }
+.match-source-phone { color: #3b82f6; }
+.match-source-manual { color: #8b5cf6; }
