@@ -24816,13 +24816,24 @@ function renderFastSaleModalBody() {
  * @returns {string} HTML string
  */
 function renderFastSaleOrderRow(order, index) {
-    const customerName = order.PartnerDisplayName || order.Partner?.PartnerDisplayName || 'N/A';
+    // Get SaleOnlineOrder from displayedData to get phone and address
+    let saleOnlineOrder = null;
+    if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+        const saleOnlineId = order.SaleOnlineIds[0];
+        saleOnlineOrder = displayedData.find(o => o.Id === saleOnlineId);
+    }
+
+    const customerName = order.PartnerDisplayName || order.Partner?.PartnerDisplayName || saleOnlineOrder?.Name || 'N/A';
     const customerCode = order.Reference || 'N/A';
-    const customerPhone = order.PartnerPhone || order.Partner?.PartnerPhone || 'N/A';
-    const customerAddress = order.Partner?.PartnerAddress || '*Chưa có địa chỉ';
+
+    // Get phone from SaleOnlineOrder first, then fallback to FastSaleOrder
+    const customerPhone = saleOnlineOrder?.Telephone || order.PartnerPhone || order.Partner?.PartnerPhone || 'N/A';
+
+    // Get address from SaleOnlineOrder first, then fallback to FastSaleOrder
+    const customerAddress = saleOnlineOrder?.Address || order.Partner?.PartnerAddress || '*Chưa có địa chỉ';
 
     // Get products from OrderLines or SaleOnlineOrder Details
-    const products = order.OrderLines || order.SaleOnlineOrder?.Details || [];
+    const products = order.OrderLines || saleOnlineOrder?.Details || [];
 
     // Build product rows
     const productRows = products.map((product, pIndex) => {
