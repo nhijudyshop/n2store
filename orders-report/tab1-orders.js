@@ -25706,7 +25706,7 @@ function toggleAllSuccessOrders(checked) {
  * Print success orders (In hóa đơn, In phiếu ship, In soạn hàng)
  * @param {string} type - 'invoice', 'shipping', or 'picking'
  */
-function printSuccessOrders(type) {
+async function printSuccessOrders(type) {
     const selectedIndexes = Array.from(document.querySelectorAll('.success-order-checkbox:checked'))
         .map(cb => parseInt(cb.value));
 
@@ -25725,22 +25725,50 @@ function printSuccessOrders(type) {
 
     console.log(`[FAST-SALE] Printing ${type} for ${orderIds.length} orders:`, orderIds);
 
-    // Call appropriate print function based on type
-    if (type === 'invoice') {
-        // Print invoice
-        window.notificationManager.info(`Đang in hóa đơn cho ${orderIds.length} đơn hàng...`, 'In hóa đơn');
-        // TODO: Implement actual print logic
-        // Example: window.open(`/print/invoice?ids=${orderIds.join(',')}`, '_blank');
-    } else if (type === 'shipping') {
-        // Print shipping label
-        window.notificationManager.info(`Đang in phiếu ship cho ${orderIds.length} đơn hàng...`, 'In phiếu ship');
-        // TODO: Implement actual print logic
-        // Example: window.open(`/print/shipping?ids=${orderIds.join(',')}`, '_blank');
-    } else if (type === 'picking') {
-        // Print picking list
-        window.notificationManager.info(`Đang in soạn hàng cho ${orderIds.length} đơn hàng...`, 'In soạn hàng');
-        // TODO: Implement actual print logic
-        // Example: window.open(`/print/picking?ids=${orderIds.join(',')}`, '_blank');
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const idsParam = orderIds.join(',');
+
+        let printEndpoint = '';
+        let printLabel = '';
+
+        // Determine endpoint based on print type
+        if (type === 'invoice') {
+            printEndpoint = 'print1'; // In hóa đơn
+            printLabel = 'hóa đơn';
+        } else if (type === 'shipping') {
+            printEndpoint = 'print2'; // In phiếu ship (assumption)
+            printLabel = 'phiếu ship';
+        } else if (type === 'picking') {
+            printEndpoint = 'print3'; // In soạn hàng (assumption)
+            printLabel = 'soạn hàng';
+        }
+
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fastsaleorder/${printEndpoint}?ids=${idsParam}`;
+
+        console.log(`[FAST-SALE] Opening print window: ${url}`);
+
+        // Open in new window/tab for printing
+        const printWindow = window.open(url, '_blank');
+
+        if (printWindow) {
+            window.notificationManager.success(
+                `Đã mở cửa sổ in ${printLabel} cho ${orderIds.length} đơn hàng`,
+                2000
+            );
+        } else {
+            window.notificationManager.error(
+                'Không thể mở cửa sổ in. Vui lòng kiểm tra popup blocker',
+                'Lỗi'
+            );
+        }
+
+    } catch (error) {
+        console.error('[FAST-SALE] Error printing orders:', error);
+        window.notificationManager.error(
+            `Lỗi khi in: ${error.message}`,
+            'Lỗi'
+        );
     }
 }
 
