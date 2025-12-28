@@ -25737,28 +25737,79 @@ async function printSuccessOrders(type) {
             printEndpoint = 'print1'; // In hóa đơn
             printLabel = 'hóa đơn';
         } else if (type === 'shipping') {
-            printEndpoint = 'print2'; // In phiếu ship (assumption)
+            printEndpoint = 'print2'; // In phiếu ship
             printLabel = 'phiếu ship';
         } else if (type === 'picking') {
-            printEndpoint = 'print3'; // In soạn hàng (assumption)
+            printEndpoint = 'print3'; // In soạn hàng
             printLabel = 'soạn hàng';
         }
 
         const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fastsaleorder/${printEndpoint}?ids=${idsParam}`;
 
-        console.log(`[FAST-SALE] Opening print window: ${url}`);
+        console.log(`[FAST-SALE] Fetching print HTML from: ${url}`);
 
-        // Open in new window/tab for printing
-        const printWindow = window.open(url, '_blank');
+        // Show loading notification
+        const loadingNotif = window.notificationManager.info(
+            `Đang chuẩn bị in ${printLabel}...`,
+            3000
+        );
 
-        if (printWindow) {
-            window.notificationManager.success(
-                `Đã mở cửa sổ in ${printLabel} cho ${orderIds.length} đơn hàng`,
-                2000
+        // Fetch the print HTML
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'GET',
+            headers: {
+                ...headers,
+                'Accept': 'application/json, text/javascript, */*; q=0.01'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('[FAST-SALE] Print response:', result);
+
+        // Close loading notification
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
+            loadingNotif.close();
+        }
+
+        // Check for errors
+        if (result.listErrors && result.listErrors.length > 0) {
+            window.notificationManager.error(
+                `Lỗi khi in: ${result.listErrors.join(', ')}`,
+                'Lỗi'
             );
+            return;
+        }
+
+        // Open new window and write HTML
+        if (result.html) {
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(result.html);
+                printWindow.document.close();
+
+                // Wait for content to load then trigger print
+                printWindow.onload = function() {
+                    printWindow.focus();
+                    printWindow.print();
+                };
+
+                window.notificationManager.success(
+                    `Đã mở cửa sổ in ${printLabel} cho ${orderIds.length} đơn hàng`,
+                    2000
+                );
+            } else {
+                window.notificationManager.error(
+                    'Không thể mở cửa sổ in. Vui lòng kiểm tra popup blocker',
+                    'Lỗi'
+                );
+            }
         } else {
             window.notificationManager.error(
-                'Không thể mở cửa sổ in. Vui lòng kiểm tra popup blocker',
+                'Không nhận được HTML để in',
                 'Lỗi'
             );
         }
