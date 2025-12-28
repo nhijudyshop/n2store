@@ -372,8 +372,13 @@ function renderProductRow(opts) {
 
     // Sub-invoice indicator and click handler
     const subInvoiceIndicator = hasSubInvoice && isFirstRow ? `<span class="sub-invoice-indicator" title="Có hóa đơn phụ - Click để xem">▼</span>` : '';
-    const nccClickHandler = hasSubInvoice && isFirstRow ? `onclick="showSubInvoice('${shipmentId}', ${invoiceIdx})" style="cursor: pointer;"` : '';
+    const nccClickHandler = hasSubInvoice && isFirstRow ? `onclick="showSubInvoice('${shipmentId}', ${invoiceIdx}); event.stopPropagation();" style="cursor: pointer;"` : '';
     const nccClass = hasSubInvoice ? 'has-sub-invoice' : '';
+
+    // Debug log
+    if (hasSubInvoice && isFirstRow) {
+        console.log('[TABLE] NCC with subInvoice:', sttNCC, 'shipmentId:', shipmentId, 'invoiceIdx:', invoiceIdx);
+    }
 
     return `
         <tr class="${rowClass}">
@@ -558,18 +563,26 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
  * Displays the sub-invoice (invoice 2) in a modal table
  */
 function showSubInvoice(shipmentId, invoiceIdx) {
+    console.log('[MODAL] showSubInvoice called:', shipmentId, invoiceIdx);
+
     const shipment = globalState.shipments.find(s => s.id === shipmentId);
     if (!shipment) {
+        console.error('[MODAL] Shipment not found:', shipmentId);
         toast.info('Không tìm thấy shipment');
         return;
     }
 
+    console.log('[MODAL] Found shipment, hoaDon count:', shipment.hoaDon?.length);
+
     if (invoiceIdx < 0 || invoiceIdx >= (shipment.hoaDon?.length || 0)) {
+        console.error('[MODAL] Invalid invoiceIdx:', invoiceIdx);
         toast.info('Không tìm thấy hóa đơn');
         return;
     }
 
     const invoice = shipment.hoaDon[invoiceIdx];
+    console.log('[MODAL] Invoice:', invoice.sttNCC, 'hasSubInvoice:', !!invoice.subInvoice);
+
     if (!invoice.subInvoice) {
         toast.info('Không có hóa đơn phụ');
         return;
