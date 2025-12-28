@@ -252,6 +252,9 @@ function renderInvoicesSection(shipment) {
         // Check if invoice has subInvoice
         const hasSubInvoice = !!hd.subInvoice;
 
+        // Debug: Log subInvoice status for each invoice
+        console.log(`[RENDER] NCC ${hd.sttNCC}: hasSubInvoice=${hasSubInvoice}`, hd.subInvoice ? 'subInvoice exists' : 'no subInvoice');
+
         if (products.length === 0) {
             // No products - single row
             const costItem = canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
