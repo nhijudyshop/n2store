@@ -25577,21 +25577,23 @@ function renderSuccessOrdersTable() {
             <thead>
                 <tr>
                     <th style="width: 40px;">#</th>
+                    <th style="width: 40px;"><input type="checkbox" id="selectAllSuccess" onchange="toggleAllSuccessOrders(this.checked)"></th>
                     <th>Mã</th>
                     <th>Số phiếu</th>
-                    <th>Khách hàng</th>
                     <th>Trạng thái</th>
-                    <th>Tracking</th>
+                    <th>Khách hàng</th>
+                    <th>Mã vận đơn</th>
                 </tr>
             </thead>
             <tbody>
                 ${fastSaleResultsData.success.map((order, index) => `
                     <tr>
                         <td>${index + 1}</td>
+                        <td><input type="checkbox" class="success-order-checkbox" value="${index}" data-order-id="${order.Id}"></td>
                         <td>${order.Reference || 'N/A'}</td>
                         <td>${order.Number || ''}</td>
+                        <td><span style="color: #10b981; font-weight: 600;">✓ ${order.ShowState || 'Nhập'}</span></td>
                         <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
-                        <td><span style="color: #10b981; font-weight: 600;">✓ ${order.ShowState || 'Thành công'}</span></td>
                         <td>${order.TrackingRef || ''}</td>
                     </tr>
                 `).join('')}
@@ -25687,6 +25689,58 @@ async function createForcedOrders() {
     }
 }
 
+/**
+ * Toggle all success orders checkboxes
+ * @param {boolean} checked
+ */
+function toggleAllSuccessOrders(checked) {
+    document.querySelectorAll('.success-order-checkbox').forEach(cb => {
+        cb.checked = checked;
+    });
+}
+
+/**
+ * Print success orders (In hóa đơn, In phiếu ship, In soạn hàng)
+ * @param {string} type - 'invoice', 'shipping', or 'picking'
+ */
+function printSuccessOrders(type) {
+    const selectedIndexes = Array.from(document.querySelectorAll('.success-order-checkbox:checked'))
+        .map(cb => parseInt(cb.value));
+
+    if (selectedIndexes.length === 0) {
+        window.notificationManager.warning('Vui lòng chọn ít nhất 1 đơn hàng để in', 'Thông báo');
+        return;
+    }
+
+    const selectedOrders = selectedIndexes.map(i => fastSaleResultsData.success[i]);
+    const orderIds = selectedOrders.map(o => o.Id).filter(id => id);
+
+    if (orderIds.length === 0) {
+        window.notificationManager.error('Không tìm thấy ID đơn hàng để in', 'Lỗi');
+        return;
+    }
+
+    console.log(`[FAST-SALE] Printing ${type} for ${orderIds.length} orders:`, orderIds);
+
+    // Call appropriate print function based on type
+    if (type === 'invoice') {
+        // Print invoice
+        window.notificationManager.info(`Đang in hóa đơn cho ${orderIds.length} đơn hàng...`, 'In hóa đơn');
+        // TODO: Implement actual print logic
+        // Example: window.open(`/print/invoice?ids=${orderIds.join(',')}`, '_blank');
+    } else if (type === 'shipping') {
+        // Print shipping label
+        window.notificationManager.info(`Đang in phiếu ship cho ${orderIds.length} đơn hàng...`, 'In phiếu ship');
+        // TODO: Implement actual print logic
+        // Example: window.open(`/print/shipping?ids=${orderIds.join(',')}`, '_blank');
+    } else if (type === 'picking') {
+        // Print picking list
+        window.notificationManager.info(`Đang in soạn hàng cho ${orderIds.length} đơn hàng...`, 'In soạn hàng');
+        // TODO: Implement actual print logic
+        // Example: window.open(`/print/picking?ids=${orderIds.join(',')}`, '_blank');
+    }
+}
+
 // Make functions globally accessible
 window.showFastSaleModal = showFastSaleModal;
 window.closeFastSaleModal = closeFastSaleModal;
@@ -25697,6 +25751,8 @@ window.showFastSaleResultsModal = showFastSaleResultsModal;
 window.closeFastSaleResultsModal = closeFastSaleResultsModal;
 window.switchResultsTab = switchResultsTab;
 window.toggleAllForcedOrders = toggleAllForcedOrders;
+window.toggleAllSuccessOrders = toggleAllSuccessOrders;
 window.createForcedOrders = createForcedOrders;
+window.printSuccessOrders = printSuccessOrders;
 
 // #endregion FAST SALE MODAL
