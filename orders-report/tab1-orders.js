@@ -8032,7 +8032,7 @@ function updateActionButtons() {
 
     // Show "Tạo nhanh PBH" button when more than 1 order is selected
     if (createFastSaleBtn) {
-        createFastSaleBtn.style.display = checkedCount > 1 ? 'inline-block' : 'none';
+        createFastSaleBtn.style.display = checkedCount > 1 ? 'flex' : 'none';
     }
 }
 
