@@ -25306,16 +25306,16 @@ async function saveFastSaleOrders(isApprove = false) {
 
         // Validate required fields
         const invalidOrders = models.filter((m, index) => {
-            if (!m.CarrierId) {
-                console.error(`[FAST-SALE] Order ${index} missing carrier`);
+            if (!m.CarrierId || m.CarrierId === 0) {
+                console.error(`[FAST-SALE] Order ${index} (${m.Reference}) missing carrier`);
                 return true;
             }
-            if (!m.PartnerPhone) {
-                console.error(`[FAST-SALE] Order ${index} missing phone`);
+            if (!m.Partner || !m.Partner.Phone) {
+                console.error(`[FAST-SALE] Order ${index} (${m.Reference}) missing phone`);
                 return true;
             }
-            if (!m.PartnerAddress || m.PartnerAddress === '*Chưa có địa chỉ') {
-                console.error(`[FAST-SALE] Order ${index} missing address`);
+            if (!m.Partner || !m.Partner.Street) {
+                console.error(`[FAST-SALE] Order ${index} (${m.Reference}) missing address`);
                 return true;
             }
             return false;
