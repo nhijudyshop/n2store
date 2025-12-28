@@ -156,7 +156,7 @@ function clearFilters() {
 }
 
 /**
- * Apply filters and render
+ * Apply filters and render for tracking tab
  */
 function applyFiltersAndRender() {
     const { shipments, filters, searchQuery } = globalState;
@@ -194,11 +194,9 @@ function applyFiltersAndRender() {
 
     globalState.filteredShipments = filtered;
 
-    // Render based on current tab
-    if (globalState.currentTab === 'tracking') {
+    // Always render shipments for tracking tab
+    if (typeof renderShipments === 'function') {
         renderShipments(filtered);
-    } else {
-        renderFinanceTable();
     }
 
     // Update count

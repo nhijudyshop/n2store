@@ -188,8 +188,18 @@ class InventoryTrackingApp {
                 // Update global state
                 globalState.currentTab = tabId;
 
-                // Load tab-specific data if needed
-                if (tabId === 'finance' && typeof loadFinanceData === 'function') {
+                // Load/render tab-specific data
+                if (tabId === 'booking') {
+                    // Re-render order bookings
+                    if (typeof renderOrderBookings === 'function') {
+                        renderOrderBookings(globalState.filteredOrderBookings || globalState.orderBookings);
+                    }
+                } else if (tabId === 'tracking') {
+                    // Re-render shipments
+                    if (typeof renderShipments === 'function') {
+                        renderShipments(globalState.filteredShipments || globalState.shipments);
+                    }
+                } else if (tabId === 'finance' && typeof loadFinanceData === 'function') {
                     loadFinanceData();
                 }
             });

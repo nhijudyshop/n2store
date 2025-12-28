@@ -2103,10 +2103,55 @@ body {
    ORDER BOOKING TAB STYLES
    ===================================================== */
 
+/* Booking Card - reuse shipment card styles */
+.booking-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+    overflow: hidden;
+    font-size: 1.4em;
+}
+
 /* Booking Header */
 .booking-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
     background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
     border-left: 4px solid var(--success);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.booking-header .shipment-date-packages {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.booking-header .shipment-date-text {
+    font-weight: 600;
+    color: var(--gray-800);
+    font-size: 15px;
+}
+
+.booking-header .shipment-separator {
+    color: var(--gray-400);
+}
+
+/* Booking Body */
+.booking-body {
+    padding: 0;
+}
+
+.booking-body .shipment-section {
+    padding: 0;
+}
+
+.booking-body .table-container {
+    overflow-x: auto;
 }
 
 .booking-count-badge {

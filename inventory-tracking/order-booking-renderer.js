@@ -69,7 +69,7 @@ function groupBookingsByDate(bookings) {
  */
 function createBookingDateCard(date, bookings) {
     const card = document.createElement('div');
-    card.className = 'booking-card shipment-card';
+    card.className = 'booking-card';
     card.dataset.date = date;
 
     // Count statuses
@@ -98,7 +98,7 @@ function createBookingDateCard(date, bookings) {
     }
 
     card.innerHTML = `
-        <div class="shipment-header booking-header">
+        <div class="booking-header">
             <div class="shipment-date-packages">
                 <i data-lucide="calendar"></i>
                 <span class="shipment-date-text">Ngày đặt: ${formatDateDisplay(date)}</span>
@@ -112,7 +112,7 @@ function createBookingDateCard(date, bookings) {
                 </div>
             </div>
         </div>
-        <div class="shipment-body">
+        <div class="booking-body">
             ${renderBookingInvoicesTable(bookings)}
         </div>
     `;
