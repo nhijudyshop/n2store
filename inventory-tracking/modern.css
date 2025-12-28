@@ -2154,6 +2154,83 @@ body {
     overflow-x: auto;
 }
 
+/* Detailed Booking Table with rowspan */
+.booking-table-detailed {
+    border-collapse: collapse;
+}
+
+.booking-table-detailed th,
+.booking-table-detailed td {
+    border: 1px solid var(--gray-200);
+    padding: 10px 12px;
+    vertical-align: middle;
+}
+
+.booking-table-detailed th {
+    background: var(--gray-100);
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.booking-table-detailed .col-ncc {
+    width: 60px;
+    font-weight: 700;
+}
+
+.booking-table-detailed .col-stt {
+    width: 50px;
+    color: var(--gray-600);
+}
+
+.booking-table-detailed .col-products {
+    min-width: 200px;
+}
+
+.booking-table-detailed .col-amount,
+.booking-table-detailed .col-total {
+    width: 100px;
+}
+
+.booking-table-detailed .col-image {
+    width: 60px;
+}
+
+.booking-table-detailed .col-status {
+    width: 130px;
+}
+
+.booking-table-detailed .col-actions {
+    width: 100px;
+}
+
+/* Alternating row backgrounds for NCC groups */
+.booking-row-white {
+    background-color: #ffffff;
+}
+
+.booking-row-gray {
+    background-color: #f8f9fa;
+}
+
+/* NCC cell styling */
+.booking-ncc-cell {
+    font-size: 16px;
+    font-weight: 700 !important;
+    color: var(--primary);
+    background: inherit;
+}
+
+/* Hover effect for rows */
+.booking-table-detailed tbody tr:hover {
+    background-color: #e3f2fd !important;
+}
+
+/* Border between NCC groups */
+.booking-row-white td,
+.booking-row-gray td {
+    border-bottom: 1px solid var(--gray-200);
+}
+
 .booking-count-badge {
     display: inline-flex;
     align-items: center;

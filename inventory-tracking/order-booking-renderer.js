@@ -121,7 +121,8 @@ function createBookingDateCard(date, bookings) {
 }
 
 /**
- * Render booking invoices table (similar to shipment but without cost columns)
+ * Render booking invoices table with detailed product rows
+ * Each NCC shows all products, with alternating backgrounds between NCCs
  */
 function renderBookingInvoicesTable(bookings) {
     if (bookings.length === 0) {
@@ -144,21 +145,23 @@ function renderBookingInvoicesTable(bookings) {
         return sum + products.reduce((pSum, p) => pSum + (p.soLuong || 0), 0);
     }, 0);
 
-    // Build rows
-    const rows = bookings.map((booking, idx) => renderBookingRow(booking, idx, canEdit, canDelete, canUpdateStatus)).join('');
+    // Build rows - each booking expands to multiple product rows
+    const rows = bookings.map((booking, idx) =>
+        renderBookingProductRows(booking, idx, canEdit, canDelete, canUpdateStatus)
+    ).join('');
 
     return `
         <div class="shipment-section shipment-table-section">
             <div class="table-container">
-                <table class="invoice-table invoice-table-bordered booking-table">
+                <table class="invoice-table invoice-table-bordered booking-table booking-table-detailed">
                     <thead>
                         <tr>
-                            <th class="col-ncc">NCC</th>
+                            <th class="col-ncc text-center">NCC</th>
+                            <th class="col-stt text-center">STT</th>
                             <th class="col-products">Chi Tiết Sản Phẩm</th>
                             <th class="col-amount text-right">Tiền HĐ</th>
                             <th class="col-total text-center">Tổng Món</th>
                             <th class="col-image text-center">Ảnh</th>
-                            <th class="col-note">Ghi Chú</th>
                             <th class="col-status text-center">Trạng Thái</th>
                             <th class="col-actions text-center">Thao Tác</th>
                         </tr>
@@ -168,11 +171,10 @@ function renderBookingInvoicesTable(bookings) {
                     </tbody>
                     <tfoot>
                         <tr class="total-row">
-                            <td class="text-right"><strong>TỔNG:</strong></td>
-                            <td></td>
+                            <td colspan="3" class="text-right"><strong>TỔNG:</strong></td>
                             <td class="text-right"><strong class="total-amount">${formatNumber(totalAmount)}</strong></td>
                             <td class="text-center"><strong class="total-items">${formatNumber(totalItems)}</strong></td>
-                            <td colspan="4"></td>
+                            <td colspan="3"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -182,38 +184,25 @@ function renderBookingInvoicesTable(bookings) {
 }
 
 /**
- * Render a single booking row
+ * Render multiple rows for a single booking (one row per product)
+ * NCC, totals, image, status, actions span all product rows
  */
-function renderBookingRow(booking, idx, canEdit, canDelete, canUpdateStatus) {
+function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUpdateStatus) {
     const products = booking.sanPham || [];
     const imageCount = booking.anhHoaDon?.length || 0;
     const status = booking.trangThai || 'pending';
     const statusConfig = ORDER_BOOKING_STATUS_CONFIG[status] || ORDER_BOOKING_STATUS_CONFIG.pending;
-
-    // Check if this booking has comparison differences
-    const hasDifference = booking.linkedShipmentId && booking.hasDifference;
-    const rowClass = hasDifference ? 'has-difference' : '';
-    const nccClass = hasDifference ? 'ncc-has-difference' : '';
-
-    // Build product lines preview
     const isVietnamese = globalState.langMode === 'vi';
-    let productPreview = '-';
-    if (products.length > 0) {
-        const firstProduct = products[0];
-        if (isVietnamese) {
-            productPreview = firstProduct.rawText_vi || translateToVietnamese(firstProduct.rawText || '') ||
-                `${firstProduct.maSP || ''} ${translateToVietnamese(firstProduct.soMau || '')}`;
-        } else {
-            productPreview = firstProduct.rawText || `${firstProduct.maSP || ''} ${firstProduct.soMau || ''}`;
-        }
-        if (products.length > 1) {
-            productPreview += ` <span class="more-products">+${products.length - 1} sản phẩm khác</span>`;
-        }
-    }
 
     // Calculate tongMon
     const tongMon = booking.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
     const tongTienHD = booking.tongTienHD || 0;
+
+    // Alternating background: even index = white, odd index = gray
+    const bgClass = bookingIdx % 2 === 0 ? 'booking-row-white' : 'booking-row-gray';
+
+    // If no products, show at least one row
+    const rowCount = products.length > 0 ? products.length : 1;
 
     // Status dropdown or badge
     const statusHtml = canUpdateStatus ? `
@@ -229,56 +218,106 @@ function renderBookingRow(booking, idx, canEdit, canDelete, canUpdateStatus) {
         </span>
     `;
 
-    // NCC click handler for comparison
-    const nccClickable = booking.linkedShipmentId;
-    const nccClickHandler = nccClickable ? `onclick="showBookingComparison('${booking.id}')" style="cursor: pointer;" title="Click để xem so sánh"` : '';
-
-    return `
-        <tr class="${rowClass}" data-booking-id="${booking.id}">
-            <td class="col-ncc ${nccClass}" ${nccClickHandler}>
-                <strong>${booking.sttNCC || '-'}</strong>
-                ${hasDifference ? '<span class="difference-indicator" title="Có chênh lệch">⚠️</span>' : ''}
-                ${nccClickable && !hasDifference ? '<span class="linked-indicator" title="Đã liên kết">🔗</span>' : ''}
-            </td>
-            <td class="col-products">
-                <span class="product-text">${productPreview}</span>
-            </td>
-            <td class="col-amount text-right">
-                <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
-            </td>
-            <td class="col-total text-center">
-                <strong class="total-value">${formatNumber(tongMon)}</strong>
-            </td>
-            <td class="col-image text-center">
-                ${imageCount > 0 ? `
-                    <span class="image-count" onclick="viewBookingImages('${booking.id}')">
-                        <i data-lucide="image"></i>
-                        ${imageCount}
-                    </span>
-                ` : '-'}
-            </td>
-            <td class="col-note">
-                ${booking.ghiChu ? `<span class="invoice-note-text">${booking.ghiChu}</span>` : ''}
-            </td>
-            <td class="col-status text-center">
-                ${statusHtml}
-            </td>
-            <td class="col-actions text-center">
-                <div class="action-buttons">
-                    ${canEdit ? `
-                        <button class="btn btn-sm btn-outline" onclick="editOrderBooking('${booking.id}')" title="Sửa">
-                            <i data-lucide="edit"></i>
-                        </button>
-                    ` : ''}
-                    ${canDelete ? `
-                        <button class="btn btn-sm btn-outline btn-danger-outline" onclick="deleteOrderBooking('${booking.id}')" title="Xóa">
-                            <i data-lucide="trash-2"></i>
-                        </button>
-                    ` : ''}
-                </div>
-            </td>
-        </tr>
+    // Action buttons
+    const actionsHtml = `
+        <div class="action-buttons">
+            ${canEdit ? `
+                <button class="btn btn-sm btn-outline" onclick="editOrderBooking('${booking.id}')" title="Sửa">
+                    <i data-lucide="edit"></i>
+                </button>
+            ` : ''}
+            ${canDelete ? `
+                <button class="btn btn-sm btn-outline btn-danger-outline" onclick="deleteOrderBooking('${booking.id}')" title="Xóa">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            ` : ''}
+        </div>
     `;
+
+    // Image cell
+    const imageHtml = imageCount > 0 ? `
+        <span class="image-count" onclick="viewBookingImages('${booking.id}')" style="cursor: pointer;">
+            <i data-lucide="image"></i>
+            ${imageCount}
+        </span>
+    ` : '-';
+
+    // Build rows
+    let rowsHtml = '';
+
+    if (products.length === 0) {
+        // No products - single row
+        rowsHtml = `
+            <tr class="${bgClass}" data-booking-id="${booking.id}">
+                <td class="col-ncc text-center booking-ncc-cell">
+                    <strong>${booking.sttNCC || '-'}</strong>
+                </td>
+                <td class="col-stt text-center">-</td>
+                <td class="col-products">
+                    <span class="product-text text-muted">Chưa có sản phẩm</span>
+                </td>
+                <td class="col-amount text-right">
+                    <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
+                </td>
+                <td class="col-total text-center">
+                    <strong class="total-value">${formatNumber(tongMon)}</strong>
+                </td>
+                <td class="col-image text-center">${imageHtml}</td>
+                <td class="col-status text-center">${statusHtml}</td>
+                <td class="col-actions text-center">${actionsHtml}</td>
+            </tr>
+        `;
+    } else {
+        // Multiple product rows
+        products.forEach((product, productIdx) => {
+            const isFirstRow = productIdx === 0;
+
+            // Get product display text
+            let productText = '';
+            if (isVietnamese) {
+                productText = product.rawText_vi || translateToVietnamese(product.rawText || '') ||
+                    `${product.maSP || ''} ${translateToVietnamese(product.soMau || '')}`;
+            } else {
+                productText = product.rawText || `${product.maSP || ''} ${product.soMau || ''}`;
+            }
+
+            // First row gets the rowspan cells
+            if (isFirstRow) {
+                rowsHtml += `
+                    <tr class="${bgClass}" data-booking-id="${booking.id}">
+                        <td class="col-ncc text-center booking-ncc-cell" rowspan="${rowCount}">
+                            <strong>${booking.sttNCC || '-'}</strong>
+                        </td>
+                        <td class="col-stt text-center">${productIdx + 1}</td>
+                        <td class="col-products">
+                            <span class="product-text">${productText}</span>
+                        </td>
+                        <td class="col-amount text-right" rowspan="${rowCount}">
+                            <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
+                        </td>
+                        <td class="col-total text-center" rowspan="${rowCount}">
+                            <strong class="total-value">${formatNumber(tongMon)}</strong>
+                        </td>
+                        <td class="col-image text-center" rowspan="${rowCount}">${imageHtml}</td>
+                        <td class="col-status text-center" rowspan="${rowCount}">${statusHtml}</td>
+                        <td class="col-actions text-center" rowspan="${rowCount}">${actionsHtml}</td>
+                    </tr>
+                `;
+            } else {
+                // Subsequent rows only have STT and product columns
+                rowsHtml += `
+                    <tr class="${bgClass}" data-booking-id="${booking.id}">
+                        <td class="col-stt text-center">${productIdx + 1}</td>
+                        <td class="col-products">
+                            <span class="product-text">${productText}</span>
+                        </td>
+                    </tr>
+                `;
+            }
+        });
+    }
+
+    return rowsHtml;
 }
 
 /**
