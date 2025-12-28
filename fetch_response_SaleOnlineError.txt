@@ -1,0 +1,195 @@
+fetch("https://tomato.tpos.vn/TemplateHtml/SaleOnlineError", {
+  "headers": {
+    "accept": "application/json, text/plain, */*",
+    "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZmMwZjQ0MzktOWNmNi00ZDg4LWE4YzctNzU5Y2E4Mjk1MTQyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52MjAiLCJEaXNwbGF5TmFtZSI6IlTDuiIsIkF2YXRhclVybCI6IiIsIlNlY3VyaXR5U3RhbXAiOiI2NmQxNWRjMC03MTY3LTQzYjMtYTliNC00MjA2Yjk1NWM5YTIiLCJDb21wYW55SWQiOiIxIiwiVGVuYW50SWQiOiJ0b21hdG8udHBvcy52biIsIlJvbGVJZHMiOiI0MmZmYzk5Yi1lNGY2LTQwMDAtYjcyOS1hZTNmMDAyOGEyODksNmExZDAwMDAtNWQxYS0wMDE1LTBlNmMtMDhkYzM3OTUzMmU5LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZiw4YmM4ZjQ1YS05MWY4LTQ5NzMtYjE4Mi1hZTNmMDAzYWI4NTUsYTljMjAwMDAtNWRiNi0wMDE1LTQ1YWItMDhkYWIxYmZlMjIyIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjpbIlF14bqjbiBMw70gTWFpIiwiQ8OSSSIsIkNTS0ggLSBMw6BpIiwiS2hvIFBoxrDhu5tjLSBLaeG7h3QiLCJRdeG6o24gTMO9IEtobyAtIEJvIl0sImp0aSI6ImZlY2MxMjQ1LWE0MzQtNDE4OS04ZDk4LWUxMmY3MjE2MzY5NCIsImlhdCI6IjE3NjY0MDc5MzciLCJuYmYiOjE3NjY0MDc5MzcsImV4cCI6MTc2NzcwMzkzNywiaXNzIjoiaHR0cHM6Ly90b21hdG8udHBvcy52biIsImF1ZCI6Imh0dHBzOi8vdG9tYXRvLnRwb3Mudm4saHR0cHM6Ly90cG9zLnZuIn0.gu-MhyGZtNNxgoQy0nCo9cykxzRwXUtdvNYP34m8Ua0",
+    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"macOS\"",
+    "tposappversion": "5.11.16.1",
+    "x-tpos-lang": "vi",
+    "Referer": "https://tomato.tpos.vn/"
+  },
+  "body": null,
+  "method": "GET"
+});
+
+response:
+
+
+<div>
+    <div class="modal-header">
+        <button aria-hidden="true" class="close" data-dismiss="modal" type="button" ng-click="vm.cancel()">×</button>
+        <strong class="modal-title" style="color:red">Kết quả đơn hàng</strong>
+    </div>
+
+    <div class="modal-body">
+        <uib-tabset active="vm.active" class="tab-container">
+            <uib-tab index="0" disable="vm.orderForces.length == 0" ng-if="vm.type != 'SendDelivery'">
+                <uib-tab-heading>
+                    <b class="text-warning">Cưỡng bức ({{vm.orderForces.length}} đơn)</b>
+                </uib-tab-heading>
+                <div class="panel panel-default">
+                    <div class="panel-body">
+                        <div class="table_select_cs table-responsive">
+                            <table id="table_details" class="o_list_view table table-bordered table-hover-body table-cs-form">
+                                <thead>
+                                    <tr>
+                                        <th width="50" class="text-center">#</th>
+                                        <th class="text-center" width="50">
+                                            <label class="i-checks checkbox-inline" title="Chọn tất cả">
+                                                <input type="checkbox" ng-model="vm.isCheckForcesAll" ng-click="vm.checkAll(vm.orderForces, vm.isCheckForcesAll)" />
+                                                <i></i>
+                                            </label>
+                                        </th>
+                                        <th width="300">Mã</th>
+                                        <th width="150">Số phiếu</th>
+                                        <th width="200">Khách hàng</th>
+                                        <th>Lỗi</th>
+                                    </tr>
+                                </thead>
+                                <tbody ng-repeat="item in vm.orderForces">
+                                    <tr>
+                                        <td class="text-center"> {{$index + 1}} </td>
+                                        <td class="text-center">
+                                            <label class="i-checks checkbox-inline">
+                                                <input type="checkbox" ng-model="item.IsSelect" />
+                                                <i></i>
+                                            </label>
+                                        </td>
+                                        <td>{{item.Reference}}</td>
+                                        <td>{{item.Number}}</td>
+                                        <td>{{item.Partner.DisplayName}}</td>
+                                        <td>
+                                            <text class="text-danger">{{"label.customer"| translate}} {{item.Partner.Name}} {{item.Partner.Phone?'('+item.Partner.Phone+')' : '' }} {{"so.created_order_total_amount"| translate}} {{ (item.TotalAmount || item.AmountTotal) | number}} {{"so.period_time"| translate}} {{item.TimeLock}} {{"so.minutes_pls_do_it"| translate}} {{item.TimeLock}} {{"so.minutes_again_or_choose_list_force_create"| translate}}" </text>
+                                        </td>
+                                    </tr>
+
+                                </tbody>
+                                <tr ng-if="vm.orderForces && vm.orderForces.length == 0">
+                                    <td>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="m-t-5">
+                            <button class="btn btn-sm btn-success" ng-click="vm.createForce()">{{"so.create_forced"| translate}}</button>
+                        </div>
+                    </div>
+                </div>
+            </uib-tab>
+            <uib-tab index="1" disable="vm.ordersError.length == 0">
+                <uib-tab-heading>
+                    <b class="text-danger">Thất bại ({{vm.ordersError.length}} đơn)</b>
+                </uib-tab-heading>
+                <div class="panel panel-default">
+                    <div class="panel-body">
+                        <div class="table_select_cs table-responsive">
+                            <table id="table_details" class=" table table-bordered table-hover-body table-cs-form">
+                                <thead>
+                                    <tr>
+                                        <th width="50" class="text-center">#</th>
+                                        <th class="text-center" width="50" title="Chọn tất cả">
+                                            <label class="i-checks checkbox-inline">
+                                                <input type="checkbox" ng-model="vm.isCheckErrorAll" ng-click="vm.checkAll(vm.ordersError, vm.isCheckErrorAll)" />
+                                                <i></i>
+                                            </label>
+                                        </th>
+                                        <th width="300">Mã</th>
+                                        <th width="150">Số phiếu</th>
+                                        <th width="200">Khách hàng</th>
+                                        <th>Lỗi</th>
+                                    </tr>
+                                </thead>
+                                <tbody ng-repeat="item in vm.ordersError">
+                                    <tr>
+                                        <td class="text-center"> {{$index + 1}} </td>
+                                        <td class="text-center">
+                                            <label class="i-checks checkbox-inline">
+                                                <input type="checkbox" ng-model="item.IsSelect" />
+                                                <i></i>
+                                            </label>
+                                        </td>
+                                        <td>{{item.Reference}}</td>
+                                        <td>{{item.Number}}</td>
+                                        <td>{{item.Partner.DisplayName}}</td>
+                                        <td class="text-danger">
+                                            <span ng-if="item.Error.Code">
+                                                {{item.Error.Code}} :
+                                            </span>
+                                            <span>{{item.Error.Message}}</span>
+                                            <ul>
+                                                <li ng-repeat="error in item.Error.Errors">
+                                                    <text class="text-danger">{{error.Message}}</text>
+                                                </li>
+                                            </ul>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary btn-sm" ng-click="vm.onPrint('print', vm.ordersError)" type="button">In hóa đơn</button>
+                            <button class="btn btn-info btn-sm" ng-click="vm.onPrint('printShip', vm.ordersError)" type="button">In phiếu ship</button>
+                            <button class="btn btn-success btn-sm" ng-if="vm.type == 'CreateInvoiceFast'" ng-click="vm.onPrint('printPrepareGoods', vm.ordersError)" type="button">In soạn hàng</button>
+                        </div>
+                    </div>
+                </div>
+            </uib-tab>
+            <uib-tab index="2" disable="vm.ordersSucessed.length == 0">
+                <uib-tab-heading>
+                    <b class="text-success">Thành công ({{vm.ordersSucessed.length}} đơn)</b>
+                </uib-tab-heading>
+                <div class="panel panel-default">
+                    <div class="panel-body">
+                        <div class="table_select_cs table-responsive">
+                            <table id="table_details" class=" table table-bordered table-hover-body table-cs-form">
+                                <thead>
+                                    <tr>
+                                        <th width="50" class="text-center">#</th>
+                                        <th class="text-center" width="50" title="Chọn tất cả">
+                                            <label class="i-checks checkbox-inline">
+                                                <input type="checkbox" ng-model="vm.isCheckSuccessAll" ng-click="vm.checkAll(vm.ordersSucessed, vm.isCheckSuccessAll)" />
+                                                <i></i>
+                                            </label>
+                                        </th>
+                                        <th width="300">Mã</th>
+                                        <th width="150">Số phiếu</th>
+                                        <th width="150">Trạng thái</th>
+                                        <th width="200">Khách hàng</th>
+                                        <th width="200">Mã vận đơn </th>
+                                    </tr>
+                                </thead>
+                                <tbody ng-repeat="item in vm.ordersSucessed">
+                                    <tr>
+                                        <td class="text-center"> {{$index + 1}} </td>
+                                        <td class="text-center">
+                                            <label class="i-checks checkbox-inline">
+                                                <input type="checkbox" ng-model="item.IsSelect" />
+                                                <i></i>
+                                            </label>
+                                        </td>
+                                        <td>{{item.Reference}}</td>
+                                        <td>{{item.Number}}</td>
+                                        <td>{{item.ShowState}}</td>
+                                        <td>{{item.Partner.DisplayName}}</td>
+                                        <td class="text-success">
+                                            {{item.TrackingRef}}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div>
+                                <button class="btn btn-primary btn-sm" ng-click="vm.onPrint('print', vm.ordersSucessed)" type="button">In hóa đơn</button>
+                                <button class="btn btn-info btn-sm" ng-click="vm.onPrint('printShip', vm.ordersSucessed)" type="button">In phiếu ship</button>
+                                <button class="btn btn-success btn-sm" ng-if="vm.type == 'CreateInvoiceFast'" ng-click="vm.onPrint('printPrepareGoods', vm.ordersSucessed)" type="button">In soạn hàng</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </uib-tab>
+        </uib-tabset>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-sm btn-info" ng-click="vm.cancel()"><i class="fa fa-times"></i> {{"label.close"| translate}}</button>
+    </div>
+</div>
