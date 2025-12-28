@@ -28,8 +28,13 @@ async function loadShipmentsData() {
 
         console.log(`[DATA] Loaded ${globalState.shipments.length} shipments`);
 
+        // Update NCC filter options
+        updateNCCFilterOptions();
+
         // Apply filters and render
-        applyFiltersAndRender();
+        if (typeof applyFiltersAndRender === 'function') {
+            applyFiltersAndRender();
+        }
 
     } catch (error) {
         console.error('[DATA] Error loading shipments:', error);
@@ -89,58 +94,7 @@ async function loadOtherExpensesData() {
     }
 }
 
-/**
- * Apply filters and render
- */
-function applyFiltersAndRender() {
-    const { dateFrom, dateTo, ncc, product } = globalState.filters;
-
-    let filtered = [...globalState.shipments];
-
-    // Filter by date range
-    if (dateFrom) {
-        filtered = filtered.filter(s => s.ngayDiHang >= dateFrom);
-    }
-    if (dateTo) {
-        filtered = filtered.filter(s => s.ngayDiHang <= dateTo);
-    }
-
-    // Filter by NCC
-    if (ncc && ncc !== 'all') {
-        filtered = filtered.filter(s =>
-            s.hoaDon?.some(hd => String(hd.sttNCC) === String(ncc))
-        );
-    }
-
-    // Filter by product code
-    if (product) {
-        const searchTerm = product.toLowerCase();
-        filtered = filtered.filter(s =>
-            s.hoaDon?.some(hd =>
-                hd.sanPham?.some(sp =>
-                    sp.maSP?.toLowerCase().includes(searchTerm) ||
-                    sp.rawText?.toLowerCase().includes(searchTerm)
-                )
-            )
-        );
-    }
-
-    globalState.filteredShipments = filtered;
-
-    // Update filter count
-    const filterCount = document.getElementById('filterCount');
-    if (filterCount) {
-        filterCount.textContent = `${filtered.length} dot hang`;
-    }
-
-    // Render shipments
-    if (typeof renderShipments === 'function') {
-        renderShipments(filtered);
-    }
-
-    // Update NCC filter options
-    updateNCCFilterOptions();
-}
+// Note: applyFiltersAndRender is defined in filters.js
 
 /**
  * Update NCC filter dropdown options
