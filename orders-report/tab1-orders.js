@@ -25628,11 +25628,12 @@ async function createForcedOrders() {
 
     try {
         const headers = await window.tokenManager.getAuthHeader();
-        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.InsertListOrderModel?$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+        // Use isForce=true query parameter for forced creation
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
 
-        // Use is_approve: true for forced creation
+        // Use is_approve: false with isForce=true for forced creation
         const requestBody = {
-            is_approve: true,
+            is_approve: false,
             model: selectedOrders
         };
 
@@ -25661,6 +25662,13 @@ async function createForcedOrders() {
 
         // Show results in the same modal
         showFastSaleResultsModal(result);
+
+        // Auto-switch to Success tab if there are successful orders
+        if (result.OrdersSucessed && result.OrdersSucessed.length > 0) {
+            setTimeout(() => {
+                switchResultsTab('success');
+            }, 100);
+        }
 
         window.notificationManager.success(
             `Đã tạo cưỡng bức ${result.OrdersSucessed?.length || 0} đơn hàng`,
