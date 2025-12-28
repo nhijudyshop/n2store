@@ -25792,10 +25792,10 @@ async function printSuccessOrders(type) {
                 printWindow.document.close();
 
                 // Wait for content to load then trigger print
-                printWindow.onload = function() {
+                setTimeout(() => {
                     printWindow.focus();
                     printWindow.print();
-                };
+                }, 500); // Wait 500ms for content to render
 
                 window.notificationManager.success(
                     `Đã mở cửa sổ in ${printLabel} cho ${orderIds.length} đơn hàng`,
