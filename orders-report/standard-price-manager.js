@@ -127,18 +127,15 @@ class StandardPriceManager {
             console.log("[STANDARD-PRICE] Fetching from API...");
 
             // Get auth headers
-            const authHeaders = await window.tokenManager.getAuthHeader();
+            const headers = await window.tokenManager.getAuthHeader();
 
             // POST request to get Excel file
-            // Note: This API requires additional TPOS headers
             const response = await fetch(this.API_ENDPOINT, {
                 method: "POST",
                 headers: {
-                    ...authHeaders,
+                    ...headers,
                     "Content-Type": "application/json",
-                    "Accept": "*/*",
-                    "tposappversion": "5.11.16.1",
-                    "x-tpos-lang": "vi",
+                    Accept: "application/json",
                 },
                 body: JSON.stringify({
                     model: { Active: "true" },
