@@ -8,15 +8,22 @@
  */
 const DEFAULT_PERMISSIONS = {
     // Tab permissions
+    tab_datHang: true,      // Tab Đặt Hàng - mặc định mở cho tất cả
     tab_tracking: true,
     tab_congNo: false,
 
-    // CRUD permissions - Tab 1
+    // CRUD permissions - Tab Đặt Hàng
+    create_orderBooking: true,
+    edit_orderBooking: true,
+    delete_orderBooking: false,
+    update_orderBookingStatus: true,
+
+    // CRUD permissions - Tab Theo Dõi Đơn Hàng
     create_shipment: false,
     edit_shipment: false,
     delete_shipment: false,
 
-    // Field permissions (Tab 1)
+    // Field permissions (Tab Theo Dõi Đơn Hàng)
     view_ngayDiHang: true,
     view_kienHang: true,
     view_hoaDon: true,
@@ -30,7 +37,7 @@ const DEFAULT_PERMISSIONS = {
     view_ghiChuAdmin: false,
     edit_ghiChuAdmin: false,
 
-    // Tab 2 - Cong No
+    // Tab Công Nợ
     view_congNo: false,
     create_prepayment: false,
     edit_prepayment: false,
@@ -49,8 +56,18 @@ const DEFAULT_PERMISSIONS = {
  * Admin permissions - full access
  */
 const ADMIN_PERMISSIONS = {
+    // Tab permissions
+    tab_datHang: true,
     tab_tracking: true,
     tab_congNo: true,
+
+    // Tab Đặt Hàng
+    create_orderBooking: true,
+    edit_orderBooking: true,
+    delete_orderBooking: true,
+    update_orderBookingStatus: true,
+
+    // Tab Theo Dõi Đơn Hàng
     create_shipment: true,
     edit_shipment: true,
     delete_shipment: true,
@@ -66,6 +83,8 @@ const ADMIN_PERMISSIONS = {
     edit_chiPhiHangVe: true,
     view_ghiChuAdmin: true,
     edit_ghiChuAdmin: true,
+
+    // Tab Công Nợ
     view_congNo: true,
     create_prepayment: true,
     edit_prepayment: true,
@@ -75,6 +94,8 @@ const ADMIN_PERMISSIONS = {
     delete_otherExpense: true,
     edit_invoice_from_finance: true,
     edit_shipping_from_finance: true,
+
+    // Export
     export_data: true,
 };
 
@@ -165,6 +186,19 @@ class InventoryPermissionHelper {
      * Hide or disable elements based on permissions
      */
     applyToUI() {
+        // Tab Đặt Hàng visibility
+        const tabBooking = document.getElementById('tabBooking');
+        const bookingLock = document.getElementById('bookingLock');
+        if (tabBooking) {
+            if (!this.can('tab_datHang')) {
+                tabBooking.classList.add('disabled');
+                if (bookingLock) bookingLock.classList.remove('hidden');
+            } else {
+                tabBooking.classList.remove('disabled');
+                if (bookingLock) bookingLock.classList.add('hidden');
+            }
+        }
+
         // Tab Finance visibility
         const tabFinance = document.getElementById('tabFinance');
         const financeLock = document.getElementById('financeLock');
@@ -176,6 +210,12 @@ class InventoryPermissionHelper {
                 tabFinance.classList.remove('disabled');
                 if (financeLock) financeLock.classList.add('hidden');
             }
+        }
+
+        // Add order booking button
+        const btnAddOrderBooking = document.getElementById('btnAddOrderBooking');
+        if (btnAddOrderBooking) {
+            btnAddOrderBooking.style.display = this.can('create_orderBooking') ? '' : 'none';
         }
 
         // Add shipment button
