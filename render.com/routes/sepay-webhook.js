@@ -506,6 +506,69 @@ async function logWebhook(db, sepayId, req, statusCode, responseBody, errorMessa
 }
 
 /**
+ * Helper: Parse transaction content to extract phone number
+ * Step 1: If content has "GD" or "-GD", take text BEFORE it
+ * Step 2: Find first sequence of 5+ digits
+ */
+function extractPhoneFromContent(content) {
+    if (!content) return null;
+
+    let textToParse = content;
+
+    // Step 1: If has "GD", take part before " GD" or "-GD"
+    const gdMatch = content.match(/^(.*?)(?:\s*-?\s*GD)/i);
+    if (gdMatch) {
+        textToParse = gdMatch[1].trim();
+        console.log('[EXTRACT-PHONE] Found GD, parsing before GD:', textToParse);
+    }
+
+    // Step 2: Find sequence of 5+ digits
+    const phoneMatch = textToParse.match(/\d{5,}/);
+    if (phoneMatch) {
+        const phone = phoneMatch[0];
+        console.log('[EXTRACT-PHONE] Found phone:', phone);
+        return phone;
+    }
+
+    console.log('[EXTRACT-PHONE] No phone found in:', textToParse);
+    return null;
+}
+
+/**
+ * Helper: Search customer by phone using internal API
+ * Returns array of matching customers
+ */
+async function searchCustomerByPhone(db, phone) {
+    if (!phone) return [];
+
+    console.log('[SEARCH-CUSTOMER] Searching for phone:', phone);
+
+    try {
+        // Search in customers table using same logic as /api/customers/search
+        const query = `
+            SELECT id, phone, name, email, address, status, debt, tpos_id
+            FROM customers
+            WHERE phone LIKE $1 || '%' OR phone LIKE '%' || $1
+            ORDER BY
+                CASE
+                    WHEN phone = $1 THEN 100
+                    WHEN phone LIKE $1 || '%' THEN 95
+                    ELSE 90
+                END DESC
+            LIMIT 10
+        `;
+
+        const result = await db.query(query, [phone]);
+        console.log('[SEARCH-CUSTOMER] Found', result.rows.length, 'customers');
+
+        return result.rows;
+    } catch (error) {
+        console.error('[SEARCH-CUSTOMER] Error:', error.message);
+        return [];
+    }
+}
+
+/**
  * Process debt update for a single transaction
  * @param {Object} db - Database connection
  * @param {number} transactionId - The ID of the transaction in balance_history
@@ -540,70 +603,190 @@ async function processDebtUpdate(db, transactionId) {
         return { success: false, reason: 'Not incoming transaction' };
     }
 
-    // 4. Extract QR code from content (N2 + 16 alphanumeric)
     const content = tx.content || '';
+
+    // 4. FIRST: Try to extract QR code (N2 + 16 alphanumeric)
     const qrMatch = content.toUpperCase().match(/N2[A-Z0-9]{16}/);
-    if (!qrMatch) {
-        console.log('[DEBT-UPDATE] No QR code in content:', transactionId);
-        return { success: false, reason: 'No QR code found' };
+
+    if (qrMatch) {
+        const qrCode = qrMatch[0];
+        console.log('[DEBT-UPDATE] QR code found:', qrCode);
+
+        // 5. Find phone number from balance_customer_info (case-insensitive)
+        const infoResult = await db.query(
+            `SELECT customer_phone, customer_name FROM balance_customer_info
+             WHERE UPPER(unique_code) = $1`,
+            [qrCode]
+        );
+
+        if (infoResult.rows.length > 0 && infoResult.rows[0].customer_phone) {
+            const phone = infoResult.rows[0].customer_phone;
+            const customerName = infoResult.rows[0].customer_name;
+            const amount = parseInt(tx.transfer_amount) || 0;
+
+            console.log('[DEBT-UPDATE] Phone from QR:', phone, 'Amount:', amount);
+
+            // 6. Update customer debt (UPSERT)
+            const updateResult = await db.query(
+                `INSERT INTO customers (phone, name, debt, status, active)
+                 VALUES ($1, $2, $3, 'Bình thường', true)
+                 ON CONFLICT (phone) DO UPDATE SET
+                     debt = COALESCE(customers.debt, 0) + $3,
+                     updated_at = CURRENT_TIMESTAMP
+                 RETURNING id, phone, debt`,
+                [phone, customerName || phone, amount]
+            );
+
+            const customer = updateResult.rows[0];
+            console.log('[DEBT-UPDATE] Customer updated from QR:', customer);
+
+            // 7. Mark transaction as processed
+            await db.query(
+                `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
+                [transactionId]
+            );
+
+            console.log('[DEBT-UPDATE] ✅ Success (QR method):', {
+                transactionId,
+                qrCode,
+                phone,
+                amount,
+                newDebt: customer.debt
+            });
+
+            return {
+                success: true,
+                method: 'qr_code',
+                transactionId,
+                qrCode,
+                phone,
+                amount,
+                newDebt: customer.debt
+            };
+        }
     }
 
-    const qrCode = qrMatch[0];
-    console.log('[DEBT-UPDATE] QR code found:', qrCode);
+    // 8. FALLBACK: No QR code or QR not linked to phone -> Try to extract phone from content
+    console.log('[DEBT-UPDATE] No QR code linked to phone, trying phone extraction...');
 
-    // 5. Find phone number from balance_customer_info (case-insensitive)
-    const infoResult = await db.query(
-        `SELECT customer_phone FROM balance_customer_info
-         WHERE UPPER(unique_code) = $1`,
-        [qrCode]
-    );
+    const extractedPhone = extractPhoneFromContent(content);
 
-    if (infoResult.rows.length === 0 || !infoResult.rows[0].customer_phone) {
-        console.log('[DEBT-UPDATE] No phone linked to QR:', qrCode);
-        return { success: false, reason: 'No phone linked to QR code' };
+    if (!extractedPhone) {
+        console.log('[DEBT-UPDATE] No phone extracted from content:', content);
+        return { success: false, reason: 'No phone found in content' };
     }
 
-    const phone = infoResult.rows[0].customer_phone;
-    const amount = parseInt(tx.transfer_amount) || 0;
+    // 9. Search for customer by phone
+    const matchedCustomers = await searchCustomerByPhone(db, extractedPhone);
 
-    console.log('[DEBT-UPDATE] Phone:', phone, 'Amount:', amount);
+    if (matchedCustomers.length === 0) {
+        console.log('[DEBT-UPDATE] No customers found for phone:', extractedPhone);
+        return { success: false, reason: 'No customers found', extractedPhone };
+    }
 
-    // 6. Update customer debt (UPSERT)
-    const updateResult = await db.query(
-        `INSERT INTO customers (phone, name, debt, status, active)
-         VALUES ($1, $1, $2, 'Bình thường', true)
-         ON CONFLICT (phone) DO UPDATE SET
-             debt = COALESCE(customers.debt, 0) + $2,
-             updated_at = CURRENT_TIMESTAMP
-         RETURNING id, phone, debt`,
-        [phone, amount]
-    );
+    // 10. Handle different match scenarios
+    if (matchedCustomers.length === 1) {
+        // Single match - Auto save to balance_customer_info
+        const customer = matchedCustomers[0];
+        const amount = parseInt(tx.transfer_amount) || 0;
 
-    const customer = updateResult.rows[0];
-    console.log('[DEBT-UPDATE] Customer updated:', customer);
+        console.log('[DEBT-UPDATE] Single match found:', customer.phone, customer.name);
 
-    // 7. Mark transaction as processed
-    await db.query(
-        `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
-        [transactionId]
-    );
+        // Generate unique code if not exists (fallback case)
+        // Format: PHONE + timestamp last 6 digits
+        const uniqueCode = `PHONE${extractedPhone}${Date.now().toString().slice(-6)}`;
 
-    console.log('[DEBT-UPDATE] ✅ Success:', {
-        transactionId,
-        qrCode,
-        phone,
-        amount,
-        newDebt: customer.debt
-    });
+        // Save to balance_customer_info
+        await db.query(
+            `INSERT INTO balance_customer_info (unique_code, customer_name, customer_phone)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (unique_code) DO UPDATE SET
+                 customer_name = EXCLUDED.customer_name,
+                 customer_phone = EXCLUDED.customer_phone,
+                 updated_at = CURRENT_TIMESTAMP`,
+            [uniqueCode, customer.name, customer.phone]
+        );
 
-    return {
-        success: true,
-        transactionId,
-        qrCode,
-        phone,
-        amount,
-        newDebt: customer.debt
-    };
+        // Update customer debt
+        const updateResult = await db.query(
+            `INSERT INTO customers (phone, name, debt, status, active)
+             VALUES ($1, $2, $3, 'Bình thường', true)
+             ON CONFLICT (phone) DO UPDATE SET
+                 debt = COALESCE(customers.debt, 0) + $3,
+                 updated_at = CURRENT_TIMESTAMP
+             RETURNING id, phone, debt`,
+            [customer.phone, customer.name, amount]
+        );
+
+        const updatedCustomer = updateResult.rows[0];
+        console.log('[DEBT-UPDATE] Customer updated from phone extraction:', updatedCustomer);
+
+        // Mark transaction as processed
+        await db.query(
+            `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
+            [transactionId]
+        );
+
+        console.log('[DEBT-UPDATE] ✅ Success (phone extraction - single match):', {
+            transactionId,
+            extractedPhone,
+            phone: customer.phone,
+            amount,
+            newDebt: updatedCustomer.debt
+        });
+
+        return {
+            success: true,
+            method: 'phone_extraction_auto',
+            transactionId,
+            extractedPhone,
+            phone: customer.phone,
+            amount,
+            newDebt: updatedCustomer.debt
+        };
+    }
+
+    // 11. Multiple matches - Save to pending_customer_matches for admin review
+    console.log('[DEBT-UPDATE] Multiple matches found:', matchedCustomers.length);
+
+    try {
+        await db.query(
+            `INSERT INTO pending_customer_matches
+             (transaction_id, extracted_phone, matched_customers, status)
+             VALUES ($1, $2, $3, 'pending')
+             ON CONFLICT (transaction_id) WHERE status = 'pending' DO NOTHING`,
+            [
+                transactionId,
+                extractedPhone,
+                JSON.stringify(matchedCustomers.map(c => ({
+                    id: c.id,
+                    phone: c.phone,
+                    name: c.name,
+                    email: c.email,
+                    status: c.status,
+                    debt: c.debt
+                })))
+            ]
+        );
+
+        console.log('[DEBT-UPDATE] ⚠️  Saved to pending matches (multiple customers found)');
+
+        return {
+            success: false,
+            reason: 'Multiple customers found - pending admin review',
+            method: 'pending_match',
+            transactionId,
+            extractedPhone,
+            matchCount: matchedCustomers.length
+        };
+    } catch (pendingError) {
+        console.error('[DEBT-UPDATE] Failed to save pending match:', pendingError.message);
+        return {
+            success: false,
+            reason: 'Failed to save pending match',
+            error: pendingError.message
+        };
+    }
 }
 
 /**
@@ -1900,6 +2083,259 @@ router.post('/fetch-by-reference/:referenceCode', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch transaction',
+            message: error.message
+        });
+    }
+});
+
+// =====================================================
+// PENDING CUSTOMER MATCHES ENDPOINTS
+// =====================================================
+
+/**
+ * GET /api/sepay/pending-matches
+ * Get all pending customer matches
+ * Query params:
+ *   - status: pending, resolved, skipped (default: pending)
+ *   - limit: max results (default: 50)
+ */
+router.get('/pending-matches', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { status = 'pending', limit = 50 } = req.query;
+
+    try {
+        const limitCount = Math.min(parseInt(limit) || 50, 200);
+
+        const query = `
+            SELECT
+                pcm.id,
+                pcm.transaction_id,
+                pcm.extracted_phone,
+                pcm.matched_customers,
+                pcm.selected_customer_id,
+                pcm.status,
+                pcm.resolution_notes,
+                pcm.created_at,
+                pcm.resolved_at,
+                pcm.resolved_by,
+                bh.content as transaction_content,
+                bh.transfer_amount,
+                bh.transaction_date,
+                bh.gateway
+            FROM pending_customer_matches pcm
+            INNER JOIN balance_history bh ON pcm.transaction_id = bh.id
+            WHERE pcm.status = $1
+            ORDER BY pcm.created_at DESC
+            LIMIT $2
+        `;
+
+        const result = await db.query(query, [status, limitCount]);
+
+        console.log('[PENDING-MATCHES] Found', result.rows.length, 'matches with status:', status);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            count: result.rows.length
+        });
+
+    } catch (error) {
+        console.error('[PENDING-MATCHES] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch pending matches',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/pending-matches/:id/resolve
+ * Resolve a pending match by selecting a customer
+ * Body:
+ *   - customer_id: The selected customer ID
+ *   - resolved_by: Admin username (optional)
+ */
+router.post('/pending-matches/:id/resolve', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { customer_id, resolved_by = 'admin' } = req.body;
+
+    if (!customer_id) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required parameter: customer_id'
+        });
+    }
+
+    try {
+        // 1. Get pending match details
+        const matchResult = await db.query(
+            `SELECT
+                pcm.transaction_id,
+                pcm.extracted_phone,
+                pcm.matched_customers,
+                bh.transfer_amount,
+                bh.content
+             FROM pending_customer_matches pcm
+             INNER JOIN balance_history bh ON pcm.transaction_id = bh.id
+             WHERE pcm.id = $1 AND pcm.status = 'pending'`,
+            [id]
+        );
+
+        if (matchResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Pending match not found or already resolved'
+            });
+        }
+
+        const match = matchResult.rows[0];
+        const matchedCustomers = match.matched_customers;
+
+        // 2. Verify customer_id is in matched list
+        const selectedCustomer = matchedCustomers.find(c => c.id === parseInt(customer_id));
+
+        if (!selectedCustomer) {
+            return res.status(400).json({
+                success: false,
+                error: 'Selected customer not in matched list',
+                matched_customer_ids: matchedCustomers.map(c => c.id)
+            });
+        }
+
+        console.log('[RESOLVE-MATCH] Resolving match', id, 'with customer:', selectedCustomer.phone);
+
+        // 3. Generate unique code for balance_customer_info
+        const uniqueCode = `PHONE${match.extracted_phone}${Date.now().toString().slice(-6)}`;
+
+        // 4. Save to balance_customer_info
+        await db.query(
+            `INSERT INTO balance_customer_info (unique_code, customer_name, customer_phone)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (unique_code) DO UPDATE SET
+                 customer_name = EXCLUDED.customer_name,
+                 customer_phone = EXCLUDED.customer_phone,
+                 updated_at = CURRENT_TIMESTAMP`,
+            [uniqueCode, selectedCustomer.name, selectedCustomer.phone]
+        );
+
+        // 5. Update customer debt
+        const amount = parseInt(match.transfer_amount) || 0;
+
+        const debtResult = await db.query(
+            `INSERT INTO customers (phone, name, debt, status, active)
+             VALUES ($1, $2, $3, 'Bình thường', true)
+             ON CONFLICT (phone) DO UPDATE SET
+                 debt = COALESCE(customers.debt, 0) + $3,
+                 updated_at = CURRENT_TIMESTAMP
+             RETURNING id, phone, debt`,
+            [selectedCustomer.phone, selectedCustomer.name, amount]
+        );
+
+        const updatedCustomer = debtResult.rows[0];
+
+        // 6. Mark transaction as processed
+        await db.query(
+            `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
+            [match.transaction_id]
+        );
+
+        // 7. Update pending match status
+        await db.query(
+            `UPDATE pending_customer_matches
+             SET status = 'resolved',
+                 selected_customer_id = $2,
+                 resolved_at = CURRENT_TIMESTAMP,
+                 resolved_by = $3,
+                 resolution_notes = $4
+             WHERE id = $1`,
+            [
+                id,
+                customer_id,
+                resolved_by,
+                `Selected customer: ${selectedCustomer.name} (${selectedCustomer.phone})`
+            ]
+        );
+
+        console.log('[RESOLVE-MATCH] ✅ Match resolved:', {
+            match_id: id,
+            transaction_id: match.transaction_id,
+            customer_phone: selectedCustomer.phone,
+            amount,
+            new_debt: updatedCustomer.debt
+        });
+
+        res.json({
+            success: true,
+            message: 'Match resolved successfully',
+            data: {
+                match_id: id,
+                transaction_id: match.transaction_id,
+                customer: {
+                    id: updatedCustomer.id,
+                    phone: updatedCustomer.phone,
+                    name: selectedCustomer.name,
+                    new_debt: updatedCustomer.debt
+                },
+                amount_added: amount
+            }
+        });
+
+    } catch (error) {
+        console.error('[RESOLVE-MATCH] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to resolve match',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/pending-matches/:id/skip
+ * Skip/ignore a pending match
+ * Body:
+ *   - reason: Reason for skipping (optional)
+ *   - resolved_by: Admin username (optional)
+ */
+router.post('/pending-matches/:id/skip', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { reason = 'Skipped by admin', resolved_by = 'admin' } = req.body;
+
+    try {
+        const result = await db.query(
+            `UPDATE pending_customer_matches
+             SET status = 'skipped',
+                 resolved_at = CURRENT_TIMESTAMP,
+                 resolved_by = $2,
+                 resolution_notes = $3
+             WHERE id = $1 AND status = 'pending'
+             RETURNING id, transaction_id, extracted_phone`,
+            [id, resolved_by, reason]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Pending match not found or already resolved'
+            });
+        }
+
+        console.log('[SKIP-MATCH] Match skipped:', result.rows[0]);
+
+        res.json({
+            success: true,
+            message: 'Match skipped successfully',
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[SKIP-MATCH] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to skip match',
             message: error.message
         });
     }
