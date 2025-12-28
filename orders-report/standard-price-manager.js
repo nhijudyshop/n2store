@@ -129,13 +129,16 @@ class StandardPriceManager {
             // Get auth headers
             const headers = await window.tokenManager.getAuthHeader();
 
-            // POST request to get Excel file (giống 100% như product-search-manager.js)
+            // POST request to get Excel file
+            // Sử dụng đúng headers như các TPOS API khác để tránh 403
             const response = await fetch(this.API_ENDPOINT, {
                 method: "POST",
                 headers: {
                     ...headers,
                     "Content-Type": "application/json",
                     Accept: "application/json",
+                    "tposappversion": "5.11.16.1",
+                    "x-tpos-lang": "vi",
                 },
                 body: JSON.stringify({
                     model: { Active: "true" },
