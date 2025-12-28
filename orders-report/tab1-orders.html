@@ -6253,6 +6253,73 @@
         </div>
     </div>
 
+    <!-- Fast Sale Results Modal -->
+    <div class="merge-modal" id="fastSaleResultsModal">
+        <div class="merge-modal-content" style="max-width: 1400px;">
+            <!-- Header -->
+            <div class="merge-modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                <div class="merge-header-info">
+                    <h3><i class="fas fa-poll"></i> Kết quả đơn hàng</h3>
+                </div>
+                <div class="merge-header-actions">
+                    <button class="merge-modal-close" onclick="closeFastSaleResultsModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="fast-sale-results-tabs">
+                <button class="fast-sale-results-tab active" data-tab="forced" onclick="switchResultsTab('forced')">
+                    Cưỡng bức (<span id="forcedCount">0</span> đơn)
+                </button>
+                <button class="fast-sale-results-tab" data-tab="failed" onclick="switchResultsTab('failed')">
+                    Thất bại (<span id="failedCount">0</span> đơn)
+                </button>
+                <button class="fast-sale-results-tab" data-tab="success" onclick="switchResultsTab('success')">
+                    Thành công (<span id="successCount">0</span> đơn)
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="merge-modal-body" id="fastSaleResultsBody" style="padding: 0;">
+                <!-- Forced Tab -->
+                <div class="fast-sale-results-content active" id="forcedTab">
+                    <div style="padding: 20px;">
+                        <div id="forcedOrdersTable"></div>
+                        <div style="margin-top: 20px;">
+                            <button class="merge-btn-confirm" id="createForcedBtn" onclick="createForcedOrders()"
+                                style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                                <i class="fas fa-bolt"></i> Tạo cưỡng bức
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Failed Tab -->
+                <div class="fast-sale-results-content" id="failedTab">
+                    <div style="padding: 20px;">
+                        <div id="failedOrdersTable"></div>
+                    </div>
+                </div>
+
+                <!-- Success Tab -->
+                <div class="fast-sale-results-content" id="successTab">
+                    <div style="padding: 20px;">
+                        <div id="successOrdersTable"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="merge-modal-footer">
+                <button class="merge-btn-cancel" onclick="closeFastSaleResultsModal()">
+                    <i class="fas fa-times"></i> Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>
