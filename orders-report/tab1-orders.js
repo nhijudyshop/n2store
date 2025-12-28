@@ -25329,10 +25329,10 @@ async function saveFastSaleOrders(isApprove = false) {
             return;
         }
 
-        // Show loading notification
+        // Show loading notification with timeout
         const loadingNotif = window.notificationManager.info(
             `Đang ${isApprove ? 'lưu và xác nhận' : 'lưu'} ${models.length} đơn hàng...`,
-            'Đang xử lý'
+            3000 // Auto-dismiss after 3 seconds
         );
 
         // Build request body
@@ -25639,7 +25639,10 @@ async function createForcedOrders() {
             model: selectedOrders
         };
 
-        const loadingNotif = window.notificationManager.info(`Đang tạo cưỡng bức ${selectedIndexes.length} đơn hàng...`, 'Đang xử lý');
+        const loadingNotif = window.notificationManager.info(
+            `Đang tạo cưỡng bức ${selectedIndexes.length} đơn hàng...`,
+            3000 // Auto-dismiss after 3 seconds
+        );
 
         const response = await API_CONFIG.smartFetch(url, {
             method: 'POST',
