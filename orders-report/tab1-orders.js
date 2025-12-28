@@ -24921,20 +24921,20 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                             </div>
                             <div style="margin-top: 4px;">
                                 <div style="font-size: 11px; color: #6b7280;">KL (g)</div>
-                                <input type="number" class="form-control form-control-sm" value="100" style="font-size: 12px; margin-top: 4px;" />
+                                <input id="fastSaleWeight_${index}" type="number" class="form-control form-control-sm" value="100" style="font-size: 12px; margin-top: 4px;" />
                             </div>
                             <div style="display: flex; gap: 8px; margin-top: 8px;">
                                 <div style="flex: 1;">
                                     <div style="font-size: 11px; color: #6b7280;">Chiều dài:</div>
-                                    <input type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
+                                    <input id="fastSaleLength_${index}" type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
                                 </div>
                                 <div style="flex: 1;">
                                     <div style="font-size: 11px; color: #6b7280;">Chiều rộng:</div>
-                                    <input type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
+                                    <input id="fastSaleWidth_${index}" type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
                                 </div>
                                 <div style="flex: 1;">
                                     <div style="font-size: 11px; color: #6b7280;">Chiều cao:</div>
-                                    <input type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
+                                    <input id="fastSaleHeight_${index}" type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
                                 </div>
                             </div>
                         </div>
@@ -25003,19 +25003,241 @@ function smartSelectCarrierForRow(select, address, extraAddress = null) {
 }
 
 /**
+ * Collect Fast Sale data from modal inputs
+ * @returns {Array<Object>} Array of order models
+ */
+function collectFastSaleData() {
+    const models = [];
+
+    fastSaleOrdersData.forEach((order, index) => {
+        // Get input values
+        const carrierSelect = document.getElementById(`fastSaleCarrier_${index}`);
+        const shippingFeeInput = document.getElementById(`fastSaleShippingFee_${index}`);
+        const weightInput = document.getElementById(`fastSaleWeight_${index}`);
+        const lengthInput = document.getElementById(`fastSaleLength_${index}`);
+        const widthInput = document.getElementById(`fastSaleWidth_${index}`);
+        const heightInput = document.getElementById(`fastSaleHeight_${index}`);
+
+        // Get carrier info
+        const carrierId = carrierSelect?.value || null;
+        const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.dataset?.name || '';
+
+        // Get SaleOnlineOrder for phone and address
+        let saleOnlineOrder = null;
+        if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+            const saleOnlineId = order.SaleOnlineIds[0];
+            saleOnlineOrder = displayedData.find(o => o.Id === saleOnlineId);
+        }
+
+        // Build order model
+        const model = {
+            Id: order.Id || null,
+            Reference: order.Reference || '',
+            SaleOnlineIds: order.SaleOnlineIds || [],
+            SaleOnlineNames: order.SaleOnlineNames || '',
+
+            // Partner information
+            PartnerId: order.PartnerId || null,
+            PartnerDisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+            PartnerPhone: saleOnlineOrder?.Telephone || order.PartnerPhone || '',
+            PartnerAddress: saleOnlineOrder?.Address || order.Partner?.PartnerAddress || '',
+
+            // Shipping information
+            CarrierId: carrierId,
+            CarrierName: carrierName,
+            DeliveryPrice: parseFloat(shippingFeeInput?.value) || 0,
+            Weight: parseFloat(weightInput?.value) || 100,
+            Length: parseFloat(lengthInput?.value) || 0,
+            Width: parseFloat(widthInput?.value) || 0,
+            Height: parseFloat(heightInput?.value) || 0,
+
+            // Order lines
+            OrderLines: (order.OrderLines || []).map(line => ({
+                ProductId: line.ProductId,
+                ProductName: line.ProductName,
+                ProductUOMQty: line.ProductUOMQty || line.Quantity || 0,
+                PriceUnit: line.PriceUnit || line.Price || 0,
+                PriceSubTotal: line.PriceSubTotal || 0,
+                Note: line.Note || ''
+            })),
+
+            // Additional fields
+            ShowShipStatus: order.ShowShipStatus || false,
+            Note: order.Note || ''
+        };
+
+        models.push(model);
+    });
+
+    return models;
+}
+
+/**
  * Confirm and save Fast Sale (Lưu button)
  */
 async function confirmFastSale() {
-    console.log('[FAST-SALE] Saving Fast Sale orders...');
-    window.notificationManager.info('Tính năng đang được phát triển...', 'Thông báo');
+    await saveFastSaleOrders(false);
 }
 
 /**
  * Confirm and check Fast Sale (Lưu xác nhận button)
  */
 async function confirmAndCheckFastSale() {
-    console.log('[FAST-SALE] Saving and checking Fast Sale orders...');
-    window.notificationManager.info('Tính năng đang được phát triển...', 'Thông báo');
+    await saveFastSaleOrders(true);
+}
+
+/**
+ * Save Fast Sale orders to backend
+ * @param {boolean} isApprove - Whether to approve orders (Lưu xác nhận)
+ */
+async function saveFastSaleOrders(isApprove = false) {
+    try {
+        console.log(`[FAST-SALE] Saving Fast Sale orders (is_approve: ${isApprove})...`);
+
+        // Collect data from modal
+        const models = collectFastSaleData();
+
+        if (models.length === 0) {
+            window.notificationManager.error('Không có dữ liệu để lưu', 'Lỗi');
+            return;
+        }
+
+        // Validate required fields
+        const invalidOrders = models.filter((m, index) => {
+            if (!m.CarrierId) {
+                console.error(`[FAST-SALE] Order ${index} missing carrier`);
+                return true;
+            }
+            if (!m.PartnerPhone) {
+                console.error(`[FAST-SALE] Order ${index} missing phone`);
+                return true;
+            }
+            if (!m.PartnerAddress || m.PartnerAddress === '*Chưa có địa chỉ') {
+                console.error(`[FAST-SALE] Order ${index} missing address`);
+                return true;
+            }
+            return false;
+        });
+
+        if (invalidOrders.length > 0) {
+            window.notificationManager.error(
+                `Có ${invalidOrders.length} đơn hàng thiếu thông tin bắt buộc (đối tác ship, SĐT, địa chỉ)`,
+                'Lỗi validation'
+            );
+            return;
+        }
+
+        // Show loading notification
+        const loadingNotif = window.notificationManager.info(
+            `Đang ${isApprove ? 'lưu và xác nhận' : 'lưu'} ${models.length} đơn hàng...`,
+            'Đang xử lý'
+        );
+
+        // Build request body
+        const requestBody = {
+            is_approve: isApprove,
+            model: models
+        };
+
+        console.log('[FAST-SALE] Request body:', requestBody);
+
+        // Call API
+        const headers = await window.tokenManager.getAuthHeader();
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.InsertListOrderModel?$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('[FAST-SALE] Save result:', result);
+
+        // Close loading notification
+        if (loadingNotif && loadingNotif.close) {
+            loadingNotif.close();
+        }
+
+        // Handle response
+        const successCount = result.OrdersSucessed?.length || 0;
+        const errorCount = (result.OrdersError?.length || 0) + (result.DataErrorFast?.length || 0);
+
+        if (successCount > 0 && errorCount === 0) {
+            // All success
+            window.notificationManager.success(
+                `Đã ${isApprove ? 'lưu và xác nhận' : 'lưu'} thành công ${successCount} đơn hàng`,
+                'Thành công'
+            );
+
+            // Close modal and refresh data
+            closeFastSaleModal();
+
+            // Deselect orders
+            selectedOrderIds.clear();
+            updateActionButtons();
+
+            // Refresh table
+            if (typeof filterAndDisplayOrders === 'function') {
+                filterAndDisplayOrders();
+            }
+        } else if (successCount > 0 && errorCount > 0) {
+            // Partial success
+            let errorMessage = `Thành công: ${successCount} đơn\nLỗi: ${errorCount} đơn`;
+
+            if (result.OrdersError?.length > 0) {
+                errorMessage += '\n\nĐơn lỗi:\n';
+                result.OrdersError.slice(0, 3).forEach(err => {
+                    errorMessage += `- ${err.Partner?.PartnerDisplayName || 'N/A'}\n`;
+                });
+            }
+
+            if (result.DataErrorFast?.length > 0) {
+                errorMessage += '\n\nDữ liệu lỗi:\n';
+                result.DataErrorFast.slice(0, 3).forEach(err => {
+                    errorMessage += `- ${err.Partner?.PartnerDisplayName || 'N/A'}\n`;
+                });
+            }
+
+            window.notificationManager.warning(errorMessage, 'Hoàn thành một phần');
+
+            // Still close modal if some succeeded
+            if (successCount > errorCount) {
+                setTimeout(() => {
+                    closeFastSaleModal();
+                    selectedOrderIds.clear();
+                    updateActionButtons();
+                    if (typeof filterAndDisplayOrders === 'function') {
+                        filterAndDisplayOrders();
+                    }
+                }, 3000);
+            }
+        } else {
+            // All failed
+            let errorMessage = `Không thể lưu đơn hàng`;
+
+            if (result.OrdersError?.length > 0 && result.OrdersError[0].Partner) {
+                errorMessage += `\nĐơn đầu tiên lỗi: ${result.OrdersError[0].Partner.PartnerDisplayName}`;
+            }
+
+            window.notificationManager.error(errorMessage, 'Lỗi');
+        }
+
+    } catch (error) {
+        console.error('[FAST-SALE] Error saving orders:', error);
+        window.notificationManager.error(
+            `Lỗi khi lưu đơn hàng: ${error.message}`,
+            'Lỗi hệ thống'
+        );
+    }
 }
 
 // Make functions globally accessible
