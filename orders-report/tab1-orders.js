@@ -24746,7 +24746,7 @@ async function fetchFastSaleOrdersData(orderIds) {
 /**
  * Render Fast Sale Modal Body
  */
-function renderFastSaleModalBody() {
+async function renderFastSaleModalBody() {
     const modalBody = document.getElementById('fastSaleModalBody');
 
     if (fastSaleOrdersData.length === 0) {
@@ -24759,6 +24759,10 @@ function renderFastSaleModalBody() {
         return;
     }
 
+    // Fetch delivery carriers first
+    const carriers = await fetchDeliveryCarriers();
+    console.log(`[FAST-SALE] Fetched ${carriers.length} delivery carriers`);
+
     // Render table similar to the image provided
     const html = `
         <div class="fast-sale-container">
@@ -24766,7 +24770,12 @@ function renderFastSaleModalBody() {
                 <div class="fast-sale-partner-select">
                     <label for="fastSalePartner">Đối tác giao hàng</label>
                     <select id="fastSalePartner" class="form-control">
-                        <option value="SHIP TỈNH">SHIP TỈNH</option>
+                        <option value="">-- Chọn mặc định --</option>
+                        ${carriers.map(c => {
+                            const fee = c.Config_DefaultFee || c.FixedPrice || 0;
+                            const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
+                            return `<option value="${c.Id}" data-fee="${fee}" data-name="${c.Name}">${c.Name}${feeText}</option>`;
+                        }).join('')}
                     </select>
                 </div>
                 <div class="fast-sale-search">
@@ -24799,7 +24808,7 @@ function renderFastSaleModalBody() {
                         </tr>
                     </thead>
                     <tbody>
-                        ${fastSaleOrdersData.map((order, index) => renderFastSaleOrderRow(order, index)).join('')}
+                        ${fastSaleOrdersData.map((order, index) => renderFastSaleOrderRow(order, index, carriers)).join('')}
                     </tbody>
                 </table>
             </div>
@@ -24807,15 +24816,38 @@ function renderFastSaleModalBody() {
     `;
 
     modalBody.innerHTML = html;
+
+    // Auto-select carriers for each order based on address
+    setTimeout(() => {
+        fastSaleOrdersData.forEach((order, index) => {
+            const rowCarrierSelect = document.querySelector(`#fastSaleCarrier_${index}`);
+            if (rowCarrierSelect && rowCarrierSelect.options.length > 1) {
+                // Get address from SaleOnlineOrder
+                let address = '';
+                let saleOnlineOrder = null;
+                if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+                    const saleOnlineId = order.SaleOnlineIds[0];
+                    saleOnlineOrder = displayedData.find(o => o.Id === saleOnlineId);
+                    address = saleOnlineOrder?.Address || '';
+                }
+
+                if (address) {
+                    console.log(`[FAST-SALE] Auto-selecting carrier for order ${index} with address: ${address}`);
+                    smartSelectCarrierForRow(rowCarrierSelect, address, null);
+                }
+            }
+        });
+    }, 100);
 }
 
 /**
  * Render a single order row in Fast Sale Modal
  * @param {Object} order - FastSaleOrder data
  * @param {number} index - Row index
+ * @param {Array} carriers - Array of delivery carriers
  * @returns {string} HTML string
  */
-function renderFastSaleOrderRow(order, index) {
+function renderFastSaleOrderRow(order, index, carriers = []) {
     // Get SaleOnlineOrder from displayedData to get phone and address
     let saleOnlineOrder = null;
     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
@@ -24834,6 +24866,16 @@ function renderFastSaleOrderRow(order, index) {
 
     // Get products from OrderLines or SaleOnlineOrder Details
     const products = order.OrderLines || saleOnlineOrder?.Details || [];
+
+    // Build carrier options
+    const carrierOptions = carriers.map(c => {
+        const fee = c.Config_DefaultFee || c.FixedPrice || 0;
+        const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
+        return `<option value="${c.Id}" data-fee="${fee}" data-name="${c.Name}">${c.Name}${feeText}</option>`;
+    }).join('');
+
+    // Get default shipping fee from order or use 35000
+    const defaultShippingFee = order.DeliveryPrice || 35000;
 
     // Build product rows
     const productRows = products.map((product, pIndex) => {
@@ -24864,13 +24906,18 @@ function renderFastSaleOrderRow(order, index) {
                             </div>
                             <div style="margin-top: 8px;">
                                 <div style="font-size: 11px; color: #6b7280;">Đối tác:</div>
-                                <select class="form-control form-control-sm" style="font-size: 12px; margin-top: 4px;">
-                                    <option>SHIP TỈNH ▼</option>
+                                <select id="fastSaleCarrier_${index}" class="form-control form-control-sm fast-sale-carrier-select"
+                                        data-row-index="${index}"
+                                        style="font-size: 12px; margin-top: 4px;"
+                                        onchange="updateFastSaleShippingFee(${index})">
+                                    <option value="">-- Chọn --</option>
+                                    ${carrierOptions}
                                 </select>
                             </div>
                             <div style="margin-top: 4px;">
                                 <div style="font-size: 11px; color: #6b7280;">Tiền ship:</div>
-                                <input type="number" class="form-control form-control-sm" value="35000" style="font-size: 12px; margin-top: 4px;" />
+                                <input id="fastSaleShippingFee_${index}" type="number" class="form-control form-control-sm"
+                                       value="${defaultShippingFee}" style="font-size: 12px; margin-top: 4px;" />
                             </div>
                             <div style="margin-top: 4px;">
                                 <div style="font-size: 11px; color: #6b7280;">KL (g)</div>
@@ -24908,6 +24955,54 @@ function renderFastSaleOrderRow(order, index) {
 }
 
 /**
+ * Update shipping fee when carrier is selected for a row
+ * @param {number} index - Row index
+ */
+function updateFastSaleShippingFee(index) {
+    const carrierSelect = document.getElementById(`fastSaleCarrier_${index}`);
+    const shippingFeeInput = document.getElementById(`fastSaleShippingFee_${index}`);
+
+    if (carrierSelect && shippingFeeInput) {
+        const selectedOption = carrierSelect.options[carrierSelect.selectedIndex];
+        const fee = parseFloat(selectedOption.dataset.fee) || 0;
+        shippingFeeInput.value = fee;
+    }
+}
+
+/**
+ * Smart select carrier for a specific row based on address
+ * @param {HTMLSelectElement} select - The carrier dropdown for this row
+ * @param {string} address - Customer address
+ * @param {object} extraAddress - Optional ExtraAddress object
+ */
+function smartSelectCarrierForRow(select, address, extraAddress = null) {
+    if (!select || select.options.length <= 1) {
+        return;
+    }
+
+    // Extract district info
+    const districtInfo = extractDistrictFromAddress(address, extraAddress);
+
+    if (!districtInfo) {
+        console.log('[FAST-SALE] Could not extract district, selecting default carrier');
+        selectCarrierByName(select, 'SHIP TỈNH', false);
+        return;
+    }
+
+    // Find matching carrier
+    const matchedCarrier = findMatchingCarrier(select, districtInfo);
+
+    if (matchedCarrier) {
+        console.log('[FAST-SALE] ✅ Auto-selected carrier:', matchedCarrier.name);
+        select.value = matchedCarrier.id;
+        select.dispatchEvent(new Event('change'));
+    } else {
+        console.log('[FAST-SALE] No matching carrier, selecting SHIP TỈNH');
+        selectCarrierByName(select, 'SHIP TỈNH', false);
+    }
+}
+
+/**
  * Confirm and save Fast Sale (Lưu button)
  */
 async function confirmFastSale() {
@@ -24928,5 +25023,6 @@ window.showFastSaleModal = showFastSaleModal;
 window.closeFastSaleModal = closeFastSaleModal;
 window.confirmFastSale = confirmFastSale;
 window.confirmAndCheckFastSale = confirmAndCheckFastSale;
+window.updateFastSaleShippingFee = updateFastSaleShippingFee;
 
 // #endregion FAST SALE MODAL
