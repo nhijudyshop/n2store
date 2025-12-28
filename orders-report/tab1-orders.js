@@ -25816,8 +25816,19 @@ async function printSuccessOrders(type) {
 
     } catch (error) {
         console.error('[FAST-SALE] Error printing orders:', error);
+
+        // Better error message extraction
+        let errorMessage = 'Không xác định';
+        if (error instanceof Error) {
+            errorMessage = error.message;
+        } else if (typeof error === 'string') {
+            errorMessage = error;
+        } else if (error && error.toString) {
+            errorMessage = error.toString();
+        }
+
         window.notificationManager.error(
-            `Lỗi khi in: ${error.message}`,
+            `Lỗi khi in: ${errorMessage}`,
             'Lỗi'
         );
     }
