@@ -801,3 +801,11 @@ async function deleteSubInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
 }
 
 console.log('[RENDERER] Table renderer initialized');
+
+// Expose functions to global scope for onclick handlers
+window.showSubInvoice = showSubInvoice;
+window.closeSubInvoiceModal = closeSubInvoiceModal;
+window.viewSubInvoiceImages = viewSubInvoiceImages;
+window.deleteSubInvoiceImage = deleteSubInvoiceImage;
+window.viewInvoiceImages = viewInvoiceImages;
+window.deleteInvoiceImage = deleteInvoiceImage;
