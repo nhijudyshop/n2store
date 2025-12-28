@@ -25365,7 +25365,7 @@ async function saveFastSaleOrders(isApprove = false) {
         console.log('[FAST-SALE] Save result:', result);
 
         // Close loading notification
-        if (loadingNotif && loadingNotif.close) {
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
             loadingNotif.close();
         }
 
@@ -25374,6 +25374,12 @@ async function saveFastSaleOrders(isApprove = false) {
 
     } catch (error) {
         console.error('[FAST-SALE] Error saving orders:', error);
+
+        // Close loading notification on error
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
+            loadingNotif.close();
+        }
+
         window.notificationManager.error(
             `Lỗi khi lưu đơn hàng: ${error.message}`,
             'Lỗi hệ thống'
@@ -25504,7 +25510,7 @@ function renderForcedOrdersTable() {
                         <td>${order.Reference || 'N/A'}</td>
                         <td>${order.Number || ''}</td>
                         <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
-                        <td><div class="fast-sale-error-msg">${order.Error || 'Lỗi không xác định'}</div></td>
+                        <td><div class="fast-sale-error-msg">${order.DeliveryNote || 'Lỗi không xác định'}</div></td>
                     </tr>
                 `).join('')}
             </tbody>
@@ -25544,7 +25550,7 @@ function renderFailedOrdersTable() {
                         <td>${order.Reference || 'N/A'}</td>
                         <td>${order.Number || ''}</td>
                         <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
-                        <td><div class="fast-sale-error-msg">${order.Error || 'Lỗi không xác định'}</div></td>
+                        <td><div class="fast-sale-error-msg">${order.DeliveryNote || 'Lỗi không xác định'}</div></td>
                     </tr>
                 `).join('')}
             </tbody>
@@ -25630,7 +25636,7 @@ async function createForcedOrders() {
             model: selectedOrders
         };
 
-        window.notificationManager.info(`Đang tạo cưỡng bức ${selectedIndexes.length} đơn hàng...`, 'Đang xử lý');
+        const loadingNotif = window.notificationManager.info(`Đang tạo cưỡng bức ${selectedIndexes.length} đơn hàng...`, 'Đang xử lý');
 
         const response = await API_CONFIG.smartFetch(url, {
             method: 'POST',
@@ -25648,6 +25654,11 @@ async function createForcedOrders() {
         const result = await response.json();
         console.log('[FAST-SALE] Force create result:', result);
 
+        // Close loading notification
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
+            loadingNotif.close();
+        }
+
         // Show results in the same modal
         showFastSaleResultsModal(result);
 
@@ -25658,6 +25669,12 @@ async function createForcedOrders() {
 
     } catch (error) {
         console.error('[FAST-SALE] Error creating forced orders:', error);
+
+        // Close loading notification on error
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
+            loadingNotif.close();
+        }
+
         window.notificationManager.error(`Lỗi khi tạo cưỡng bức: ${error.message}`, 'Lỗi');
     }
 }
