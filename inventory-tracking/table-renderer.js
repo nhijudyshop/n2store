@@ -237,9 +237,6 @@ function renderInvoicesSection(shipment) {
         // Check if invoice has subInvoice
         const hasSubInvoice = !!hd.subInvoice;
 
-        // Debug: Log subInvoice status for each invoice
-        console.log(`[RENDER] NCC ${hd.sttNCC}: hasSubInvoice=${hasSubInvoice}`, hd.subInvoice ? 'subInvoice exists' : 'no subInvoice');
-
         if (products.length === 0) {
             // No products - single row
             const costItem = canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
@@ -377,11 +374,6 @@ function renderProductRow(opts) {
     const subInvoiceIndicator = hasSubInvoice && isFirstRow ? `<span class="sub-invoice-indicator" title="Có hóa đơn phụ - Click để xem">▼</span>` : '';
     const nccClickHandler = hasSubInvoice && isFirstRow ? `onclick="showSubInvoice('${shipmentId}', ${invoiceIdx}); event.stopPropagation();" style="cursor: pointer;"` : '';
     const nccClass = hasSubInvoice ? 'has-sub-invoice' : '';
-
-    // Debug log
-    if (hasSubInvoice && isFirstRow) {
-        console.log('[TABLE] NCC with subInvoice:', sttNCC, 'shipmentId:', shipmentId, 'invoiceIdx:', invoiceIdx);
-    }
 
     return `
         <tr class="${rowClass}">
@@ -566,78 +558,63 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
  * Displays the sub-invoice (invoice 2) in a modal table
  */
 function showSubInvoice(shipmentId, invoiceIdx) {
-    alert('showSubInvoice called: ' + shipmentId + ', ' + invoiceIdx);
-
-    try {
-        const shipment = globalState.shipments.find(s => s.id === shipmentId);
-        if (!shipment) {
-            alert('Không tìm thấy shipment!');
-            return;
-        }
-
-        const invoice = shipment.hoaDon?.[invoiceIdx];
-        if (!invoice) {
-            alert('Không tìm thấy hóa đơn!');
-            return;
-        }
-
-        if (!invoice.subInvoice) {
-            alert('Không có hóa đơn phụ!');
-            return;
-        }
-
-        const subInvoice = invoice.subInvoice;
-        const products = subInvoice.sanPham || [];
-
-        // Build product rows
-        let productRows = '';
-        products.forEach((product, idx) => {
-            const text = product.rawText_vi || product.rawText || 'Sản phẩm ' + (idx + 1);
-            productRows += '<tr><td style="text-align:center;padding:8px;border:1px solid #ddd;">' + (idx + 1) + '</td><td style="padding:8px;border:1px solid #ddd;">' + text + '</td></tr>';
-        });
-
-        const tongMon = subInvoice.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
-        const tongTienHD = subInvoice.tongTienHD || 0;
-        const imageCount = subInvoice.anhHoaDon?.length || 0;
-
-        // Build modal HTML
-        const modalHtml =
-            '<div id="subInvoiceModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;" onclick="if(event.target===this)window.closeSubInvoiceModal()">' +
-                '<div style="background:white;border-radius:12px;max-width:800px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
-                    '<div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;padding:16px 20px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
-                        '<h2 style="margin:0;font-size:18px;">Hóa Đơn Phụ - NCC ' + invoice.sttNCC + '</h2>' +
-                        '<button onclick="window.closeSubInvoiceModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;">×</button>' +
-                    '</div>' +
-                    '<div style="padding:20px;">' +
-                        '<div style="margin-bottom:15px;padding:12px;background:#f5f5f5;border-radius:8px;">' +
-                            '<p style="margin:5px 0;"><strong>Tiền HĐ:</strong> ' + tongTienHD.toLocaleString() + ' ¥</p>' +
-                            '<p style="margin:5px 0;"><strong>Tổng món:</strong> ' + tongMon + '</p>' +
-                            (subInvoice.ghiChu ? '<p style="margin:5px 0;"><strong>Ghi chú:</strong> ' + subInvoice.ghiChu + '</p>' : '') +
-                            (imageCount > 0 ? '<p style="margin:5px 0;"><strong>Ảnh:</strong> ' + imageCount + ' ảnh</p>' : '') +
-                        '</div>' +
-                        '<table style="width:100%;border-collapse:collapse;">' +
-                            '<thead><tr style="background:#f0f0f0;"><th style="padding:10px;border:1px solid #ddd;width:60px;">STT</th><th style="padding:10px;border:1px solid #ddd;">Chi Tiết Sản Phẩm</th></tr></thead>' +
-                            '<tbody>' + (productRows || '<tr><td colspan="2" style="text-align:center;padding:20px;">Không có sản phẩm</td></tr>') + '</tbody>' +
-                            '<tfoot><tr style="background:#e8f4e8;font-weight:bold;"><td style="padding:10px;border:1px solid #ddd;text-align:right;">TỔNG:</td><td style="padding:10px;border:1px solid #ddd;">' + tongMon + ' món - ' + tongTienHD.toLocaleString() + ' ¥</td></tr></tfoot>' +
-                        '</table>' +
-                    '</div>' +
-                '</div>' +
-            '</div>';
-
-        // Remove existing modal
-        const existing = document.getElementById('subInvoiceModal');
-        if (existing) existing.remove();
-
-        // Add modal to body
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        document.body.style.overflow = 'hidden';
-
-        alert('Modal created!');
-
-    } catch (err) {
-        alert('Error: ' + err.message);
-        console.error(err);
+    const shipment = globalState.shipments.find(s => s.id === shipmentId);
+    if (!shipment) {
+        toast.info('Không tìm thấy shipment');
+        return;
     }
+
+    const invoice = shipment.hoaDon?.[invoiceIdx];
+    if (!invoice || !invoice.subInvoice) {
+        toast.info('Không có hóa đơn phụ');
+        return;
+    }
+
+    const subInvoice = invoice.subInvoice;
+    const products = subInvoice.sanPham || [];
+
+    // Build product rows
+    let productRows = '';
+    products.forEach((product, idx) => {
+        const text = product.rawText_vi || product.rawText || 'Sản phẩm ' + (idx + 1);
+        productRows += '<tr><td style="text-align:center;padding:8px;border:1px solid #ddd;">' + (idx + 1) + '</td><td style="padding:8px;border:1px solid #ddd;">' + text + '</td></tr>';
+    });
+
+    const tongMon = subInvoice.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+    const tongTienHD = subInvoice.tongTienHD || 0;
+    const imageCount = subInvoice.anhHoaDon?.length || 0;
+
+    // Build modal HTML
+    const modalHtml =
+        '<div id="subInvoiceModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;" onclick="if(event.target===this)window.closeSubInvoiceModal()">' +
+            '<div style="background:white;border-radius:12px;max-width:800px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+                '<div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;padding:16px 20px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
+                    '<h2 style="margin:0;font-size:18px;">Hóa Đơn Phụ - NCC ' + invoice.sttNCC + '</h2>' +
+                    '<button onclick="window.closeSubInvoiceModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;">×</button>' +
+                '</div>' +
+                '<div style="padding:20px;">' +
+                    '<div style="margin-bottom:15px;padding:12px;background:#f5f5f5;border-radius:8px;">' +
+                        '<p style="margin:5px 0;"><strong>Tiền HĐ:</strong> ' + tongTienHD.toLocaleString() + ' ¥</p>' +
+                        '<p style="margin:5px 0;"><strong>Tổng món:</strong> ' + tongMon + '</p>' +
+                        (subInvoice.ghiChu ? '<p style="margin:5px 0;"><strong>Ghi chú:</strong> ' + subInvoice.ghiChu + '</p>' : '') +
+                        (imageCount > 0 ? '<p style="margin:5px 0;"><strong>Ảnh:</strong> <span style="cursor:pointer;color:#3b82f6;" onclick="window.viewSubInvoiceImages(\'' + shipmentId + '\',' + invoiceIdx + ')">' + imageCount + ' ảnh (click để xem)</span></p>' : '') +
+                    '</div>' +
+                    '<table style="width:100%;border-collapse:collapse;">' +
+                        '<thead><tr style="background:#f0f0f0;"><th style="padding:10px;border:1px solid #ddd;width:60px;">STT</th><th style="padding:10px;border:1px solid #ddd;">Chi Tiết Sản Phẩm</th></tr></thead>' +
+                        '<tbody>' + (productRows || '<tr><td colspan="2" style="text-align:center;padding:20px;">Không có sản phẩm</td></tr>') + '</tbody>' +
+                        '<tfoot><tr style="background:#e8f4e8;font-weight:bold;"><td style="padding:10px;border:1px solid #ddd;text-align:right;">TỔNG:</td><td style="padding:10px;border:1px solid #ddd;">' + tongMon + ' món - ' + tongTienHD.toLocaleString() + ' ¥</td></tr></tfoot>' +
+                    '</table>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+    // Remove existing modal
+    const existing = document.getElementById('subInvoiceModal');
+    if (existing) existing.remove();
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.body.style.overflow = 'hidden';
 }
 
 /**
