@@ -24641,14 +24641,8 @@ async function showFastSaleModal() {
 
         subtitle.textContent = `Đã chọn ${selectedIds.length} đơn hàng`;
 
-        // Fetch FastSaleOrder data for selected orders
-        console.log(`[FAST-SALE] Fetching data for ${selectedIds.length} orders...`);
-
-        const fetchPromises = selectedIds.map(orderId => fetchFastSaleOrderData(orderId));
-        const results = await Promise.all(fetchPromises);
-
-        // Filter out null results (failed fetches)
-        fastSaleOrdersData = results.filter(data => data !== null);
+        // Fetch FastSaleOrder data using batch API
+        fastSaleOrdersData = await fetchFastSaleOrdersData(selectedIds);
 
         if (fastSaleOrdersData.length === 0) {
             modalBody.innerHTML = `
@@ -24686,56 +24680,66 @@ function closeFastSaleModal() {
 }
 
 /**
- * Fetch FastSaleOrder data for a single order
- * @param {string} orderId - Order ID
- * @returns {Promise<Object|null>} FastSaleOrder data or null if failed
+ * Fetch FastSaleOrder data for multiple orders (batch)
+ * @param {Array<string>} orderIds - Array of Order IDs
+ * @returns {Promise<Array<Object>>} Array of FastSaleOrder data
  */
-async function fetchFastSaleOrderData(orderId) {
+async function fetchFastSaleOrdersData(orderIds) {
     try {
         const headers = await window.tokenManager.getAuthHeader();
 
-        // Find the order in displayedData to get the Reference (order code)
-        const order = displayedData.find(o => o.Id === orderId);
-        if (!order || !order.Code) {
-            console.warn(`[FAST-SALE] Order ${orderId} not found or has no Code`);
-            return null;
-        }
+        // Fetch FastSaleOrder using POST with order IDs
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines,Partner,Carrier`;
 
-        // Fetch FastSaleOrder by Reference (order code)
-        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder?$filter=Reference eq '${order.Code}'&$expand=OrderLines,Partner,Carrier`;
+        console.log(`[FAST-SALE] Fetching ${orderIds.length} orders from API...`);
 
         const response = await API_CONFIG.smartFetch(url, {
-            method: 'GET',
+            method: 'POST',
             headers: {
                 ...headers,
                 'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({
+                ids: orderIds
+            })
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
         const data = await response.json();
 
         if (data.value && data.value.length > 0) {
-            return data.value[0]; // Return first match
+            console.log(`[FAST-SALE] Successfully fetched ${data.value.length} FastSaleOrders`);
+            return data.value;
         } else {
-            console.warn(`[FAST-SALE] No FastSaleOrder found for Reference: ${order.Code}`);
+            console.warn(`[FAST-SALE] No FastSaleOrder found for ${orderIds.length} orders`);
+            return [];
+        }
+    } catch (error) {
+        console.error(`[FAST-SALE] Error fetching orders:`, error);
+
+        // Fallback: return basic data from displayedData
+        console.warn('[FAST-SALE] Using fallback data from displayedData');
+        return orderIds.map(orderId => {
+            const order = displayedData.find(o => o.Id === orderId);
+            if (!order) return null;
+
             return {
-                // Return basic data from SaleOnlineOrder if FastSaleOrder not found
                 Id: null,
                 Reference: order.Code,
                 PartnerDisplayName: order.Name || order.PartnerName,
                 PartnerPhone: order.Telephone,
+                PartnerAddress: order.Address,
+                DeliveryPrice: 35000,
+                CarrierName: 'SHIP TỈNH',
                 SaleOnlineOrder: order,
                 OrderLines: order.Details || [],
                 NotFound: true
             };
-        }
-    } catch (error) {
-        console.error(`[FAST-SALE] Error fetching order ${orderId}:`, error);
-        return null;
+        }).filter(o => o !== null);
     }
 }
 
