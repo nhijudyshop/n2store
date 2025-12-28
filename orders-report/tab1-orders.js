@@ -25345,7 +25345,16 @@ async function saveFastSaleOrders(isApprove = false) {
 
         // Call API
         const headers = await window.tokenManager.getAuthHeader();
-        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.InsertListOrderModel?$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+
+        // Use different endpoint based on isApprove
+        // "Lưu xác nhận" uses isForce=true endpoint with is_approve: true
+        // "Lưu" uses normal endpoint with is_approve: false
+        let url;
+        if (isApprove) {
+            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+        } else {
+            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.InsertListOrderModel?$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+        }
 
         const response = await API_CONFIG.smartFetch(url, {
             method: 'POST',
