@@ -324,8 +324,83 @@ orders-report/
 | `productSearchManager.getStats()` | Thống kê cache |
 
 **Data Sources:**
-1. Excel file trên Supabase (suggestions)
+1. Excel file từ TPOS API `ExportFileWithVariantPrice` (giá bán)
 2. TPOS API `/api/odata/Product({id})` (full details)
+
+---
+
+#### `standard-price-manager.js` (300+ dòng)
+
+**Mục đích:** Lấy giá vốn/giá mua từ TPOS để tính thống kê giảm giá.
+
+| Method | Mô tả |
+|--------|-------|
+| `standardPriceManager.fetchProducts(force)` | Load giá vốn từ Excel |
+| `standardPriceManager.getById(productId)` | Lấy SP theo ID |
+| `standardPriceManager.getByCode(code)` | Lấy SP theo mã |
+| `standardPriceManager.getCostPrice(idOrCode)` | Lấy giá vốn |
+| `standardPriceManager.refresh()` | Clear cache và reload |
+
+**API Endpoint:**
+```
+POST /api/Product/ExportFileWithStandardPriceV2
+→ Proxy to: tomato.tpos.vn/Product/ExportFileWithStandardPriceV2
+Body: { "model": { "Active": "true" }, "ids": "" }
+Returns: Excel file với cấu trúc:
+  - Column A: Id (Product ID)
+  - Column B: Mã sản phẩm (Code)
+  - Column C: Tên sản phẩm (Name)
+  - Column D: Giá mua (PurchasePrice)
+  - Column E: Giá vốn (StandardPrice/CostPrice)
+```
+
+**Cache:** localStorage `standard_price_cache_v1` (TTL: 6 giờ)
+
+---
+
+#### `discount-stats-calculator.js` (500+ dòng)
+
+**Mục đích:** Tính toán thống kê giảm giá cho đợt live sale.
+
+| Method | Mô tả |
+|--------|-------|
+| `discountStatsCalculator.parseDiscountFromNote(note)` | Parse giá giảm từ ghi chú (230, 230k...) |
+| `discountStatsCalculator.calculateProductDiscount(product, listPrice, costPrice)` | Tính discount cho 1 SP |
+| `discountStatsCalculator.calculateOrderDiscount(order)` | Tính discount cho 1 đơn |
+| `discountStatsCalculator.calculateLiveSessionStats(orders)` | Tính tổng hợp đợt live |
+| `discountStatsCalculator.setThresholds(safe, warning)` | Cài đặt ngưỡng cảnh báo |
+
+**Công thức tính:**
+- **Giảm giá SP** = Giá bán - Giá giảm (từ note)
+- **Lợi nhuận còn lại** = Giá giảm - Giá vốn
+- **Margin %** = (Giá giảm - Giá vốn) / Giá giảm × 100
+- **Discount ROI** = Tổng lợi nhuận / Tổng tiền giảm
+
+**Ngưỡng rủi ro (mặc định):**
+- 🟢 An toàn: Margin ≥ 20%
+- 🟡 Cảnh báo: Margin 10-20%
+- 🔴 Nguy hiểm: Margin 0-10%
+- ⚫ Lỗ vốn: Margin < 0%
+
+---
+
+#### `discount-stats-ui.js` (600+ dòng)
+
+**Mục đích:** Render UI thống kê giảm giá với 4 sub-tabs.
+
+| Method | Mô tả |
+|--------|-------|
+| `discountStatsUI.calculateAndRender(orders)` | Tính toán và render |
+| `discountStatsUI.refreshStats()` | Làm mới dữ liệu |
+| `discountStatsUI.switchSubTab(tabName)` | Chuyển tab |
+| `discountStatsUI.filterProducts()` | Lọc SP theo rủi ro |
+| `discountStatsUI.filterOrders()` | Lọc đơn theo rủi ro |
+
+**Sub-tabs:**
+1. **Tổng quan** - KPIs, phân bổ rủi ro, cài đặt ngưỡng
+2. **Chi tiết SP** - Bảng từng sản phẩm giảm giá
+3. **Chi tiết Đơn** - Bảng từng đơn hàng
+4. **Phân tích** - So sánh kịch bản, Top SP, CFO insights
 
 ---
 
@@ -661,9 +736,15 @@ Ctrl+F: #TAG
 |----------------|-------------|--------|
 | `/api/odata/*` | → | `tomato.tpos.vn/odata/*` |
 | `/api/token` | → | `tomato.tpos.vn/token` (có cache) |
+| `/api/Product/ExportFileWithVariantPrice` | → | `tomato.tpos.vn/Product/ExportFileWithVariantPrice` (Giá bán) |
+| `/api/Product/ExportFileWithStandardPriceV2` | → | `tomato.tpos.vn/Product/ExportFileWithStandardPriceV2` (Giá vốn) |
 | `/api/pancake/*` | → | `pancake.vn/api/v1/*` |
 | `/api/sepay/*` | → | `n2store-fallback.onrender.com/api/sepay/*` |
 | `/api/customers/*` | → | `n2store-fallback.onrender.com/api/customers/*` |
+
+**Product Excel APIs:**
+- `ExportFileWithVariantPrice` - Trả về Excel với giá bán biến thể (dùng cho tìm kiếm SP)
+- `ExportFileWithStandardPriceV2` - Trả về Excel với giá mua + giá vốn (dùng cho thống kê giảm giá)
 
 ### Ví dụ sử dụng
 
