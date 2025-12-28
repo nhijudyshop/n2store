@@ -259,6 +259,7 @@ function renderInvoicesSection(shipment) {
                 invoiceIdx,
                 invoiceClass,
                 sttNCC: hd.sttNCC,
+                tenNCC: hd.tenNCC || '',
                 productIdx: 0,
                 product: null,
                 isFirstRow: true,
@@ -285,6 +286,7 @@ function renderInvoicesSection(shipment) {
                     invoiceIdx,
                     invoiceClass,
                     sttNCC: hd.sttNCC,
+                    tenNCC: hd.tenNCC || '',
                     productIdx,
                     product,
                     isFirstRow: productIdx === 0,
@@ -351,7 +353,7 @@ function renderInvoicesSection(shipment) {
  */
 function renderProductRow(opts) {
     const {
-        invoiceIdx, invoiceClass, sttNCC, productIdx, product,
+        invoiceIdx, invoiceClass, sttNCC, tenNCC, productIdx, product,
         isFirstRow, isLastRow, rowSpan,
         tongTienHD, tongMon, soMonThieu, imageCount, ghiChu,
         shipmentId, invoiceId, costItem, canViewCost,
@@ -390,9 +392,14 @@ function renderProductRow(opts) {
     const nccClickHandler = hasSubInvoice && isFirstRow ? `onclick="showSubInvoice('${shipmentId}', ${invoiceIdx}); event.stopPropagation();" style="cursor: pointer;"` : '';
     const nccClass = hasSubInvoice ? 'has-sub-invoice' : '';
 
+    // Display NCC with tenNCC if available
+    const nccDisplay = tenNCC
+        ? `<strong>${sttNCC}</strong><br><span class="ncc-name">${tenNCC}</span>`
+        : `<strong>${sttNCC}</strong>`;
+
     return `
         <tr class="${rowClass}">
-            ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass} ${nccClass}" rowspan="${rowSpan}" ${nccClickHandler}><strong>${sttNCC}</strong>${subInvoiceIndicator}</td>` : ''}
+            ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass} ${nccClass}" rowspan="${rowSpan}" ${nccClickHandler}>${nccDisplay}${subInvoiceIndicator}</td>` : ''}
             <td class="col-stt ${borderClass}">${product ? productIdx + 1 : '-'}</td>
             <td class="col-products ${borderClass}">
                 <span class="product-text">${productText}</span>

@@ -117,7 +117,8 @@ function renderInvoiceForm(invoice, index) {
         <div class="invoice-form" data-index="${index}">
             <div class="invoice-header">
                 <label>NCC #</label>
-                <input type="number" class="form-input invoice-ncc" value="${invoice?.sttNCC || ''}" placeholder="STT N" style="width: 80px;">
+                <input type="number" class="form-input invoice-ncc" value="${invoice?.sttNCC || ''}" placeholder="STT" style="width: 70px;">
+                <input type="text" class="form-input invoice-ten-ncc" value="${invoice?.tenNCC || ''}" placeholder="Tên NCC (tùy chọn)" style="flex: 1; margin-left: 8px;">
                 <button type="button" class="btn btn-sm btn-outline btn-remove-invoice" title="Xóa hóa đơn">
                     <i data-lucide="trash-2"></i>
                 </button>
@@ -182,6 +183,21 @@ function setupShipmentFormListeners() {
         }
         if (e.target.classList.contains('cost-amount')) {
             updateCostTotal();
+        }
+    });
+
+    // Auto-fill tenNCC when sttNCC changes
+    document.getElementById('modalShipmentBody')?.addEventListener('change', (e) => {
+        if (e.target.classList.contains('invoice-ncc')) {
+            const form = e.target.closest('.invoice-form');
+            const tenNCCInput = form?.querySelector('.invoice-ten-ncc');
+            const sttNCC = parseInt(e.target.value, 10);
+            if (sttNCC && tenNCCInput && !tenNCCInput.value && typeof getSuggestedTenNCC === 'function') {
+                const suggestedName = getSuggestedTenNCC(sttNCC);
+                if (suggestedName) {
+                    tenNCCInput.value = suggestedName;
+                }
+            }
         }
     });
 
@@ -358,6 +374,7 @@ async function saveShipment() {
 
         for (const form of invoiceForms) {
             const sttNCC = parseInt(form.querySelector('.invoice-ncc')?.value);
+            const tenNCC = form.querySelector('.invoice-ten-ncc')?.value?.trim() || '';
             const productText = form.querySelector('.invoice-products')?.value?.trim();
 
             if (!sttNCC) continue;
@@ -375,6 +392,7 @@ async function saveShipment() {
             hoaDon.push({
                 id: existingInvoice?.id || generateId('hd'),
                 sttNCC: sttNCC,
+                tenNCC: tenNCC,
                 sanPham: validProducts,
                 tongTienHD: totals.tongTienHD,
                 tongMon: totals.tongMon,

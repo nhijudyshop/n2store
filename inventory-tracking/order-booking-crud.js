@@ -1,28 +1,27 @@
 // =====================================================
 // ORDER BOOKING CRUD OPERATIONS
-// Create, Read, Update, Delete for order bookings
+// Restructured: datHang[] nested in NCC documents
 // =====================================================
 
 /**
- * Load all order bookings from Firestore
+ * Load all order bookings from NCC documents
+ * Uses getAllDatHang() from data-loader.js
  */
 async function loadOrderBookings() {
     try {
-        console.log('[ORDER-BOOKING-CRUD] Loading order bookings...');
+        console.log('[ORDER-BOOKING-CRUD] Loading order bookings from NCC data...');
 
-        const snapshot = await orderBookingsRef.orderBy('ngayDatHang', 'desc').get();
+        // Load NCC data if not already loaded
+        if (globalState.nccList.length === 0) {
+            await loadNCCData();
+        }
 
-        const bookings = [];
-        snapshot.forEach(doc => {
-            bookings.push({
-                id: doc.id,
-                ...doc.data()
-            });
-        });
+        // Get flattened datHang from all NCCs
+        const bookings = getAllDatHang();
 
         // Check for differences with linked shipments
         bookings.forEach(booking => {
-            if (booking.linkedShipmentId) {
+            if (booking.linkedDotHangId) {
                 booking.hasDifference = checkBookingDifference(booking);
             }
         });
@@ -41,46 +40,60 @@ async function loadOrderBookings() {
 }
 
 /**
- * Create new order booking
+ * Create new order booking (datHang) in NCC document
  */
 async function createOrderBooking(data) {
     try {
+        const sttNCC = parseInt(data.sttNCC, 10);
+        if (!sttNCC) {
+            throw new Error('sttNCC is required');
+        }
+
         const auth = authManager?.getAuthState();
         const username = auth?.userType?.split('-')[0] || 'unknown';
 
-        const bookingData = {
+        // Get or create NCC document
+        const ncc = await getOrCreateNCC(sttNCC);
+
+        // Create new booking entry
+        const newBooking = {
+            id: generateId('booking'),
             ngayDatHang: data.ngayDatHang,
-            sttNCC: data.sttNCC,
+            tenNCC: data.tenNCC || '',
             trangThai: data.trangThai || 'pending',
-            anhHoaDon: data.anhHoaDon || [],
             sanPham: data.sanPham || [],
             tongTienHD: data.tongTienHD || 0,
             tongMon: data.tongMon || 0,
+            anhHoaDon: data.anhHoaDon || [],
             ghiChu: data.ghiChu || '',
-            linkedShipmentId: null,
-            linkedInvoiceIdx: null,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            linkedDotHangId: null,
+            createdAt: new Date().toISOString(),
             createdBy: username,
+            updatedAt: new Date().toISOString(),
             updatedBy: username
         };
 
-        const docRef = await orderBookingsRef.add(bookingData);
+        // Update NCC document - push to datHang array
+        await shipmentsRef.doc(ncc.id).update({
+            datHang: firebase.firestore.FieldValue.arrayUnion(newBooking),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
 
-        // Add to local state
-        const newBooking = {
-            id: docRef.id,
-            ...bookingData,
-            createdAt: new Date(),
-            updatedAt: new Date()
-        };
+        // Update local state
+        const nccIndex = globalState.nccList.findIndex(n => n.id === ncc.id);
+        if (nccIndex !== -1) {
+            if (!globalState.nccList[nccIndex].datHang) {
+                globalState.nccList[nccIndex].datHang = [];
+            }
+            globalState.nccList[nccIndex].datHang.push(newBooking);
+        }
 
-        globalState.orderBookings.unshift(newBooking);
-        globalState.filteredOrderBookings = [...globalState.orderBookings];
+        // Refresh flattened data
+        flattenNCCData();
 
-        console.log('[ORDER-BOOKING-CRUD] Created order booking:', docRef.id);
+        console.log('[ORDER-BOOKING-CRUD] Created order booking:', newBooking.id);
 
-        return newBooking;
+        return { ...newBooking, sttNCC, nccDocId: ncc.id };
     } catch (error) {
         console.error('[ORDER-BOOKING-CRUD] Error creating order booking:', error);
         throw error;
@@ -88,51 +101,68 @@ async function createOrderBooking(data) {
 }
 
 /**
- * Update existing order booking
+ * Update existing order booking in NCC document
  */
 async function updateOrderBooking(bookingId, data) {
     try {
         const auth = authManager?.getAuthState();
         const username = auth?.userType?.split('-')[0] || 'unknown';
 
-        const updateData = {
+        // Find booking in flattened list to get sttNCC and nccDocId
+        const existingBooking = globalState.orderBookings.find(b => b.id === bookingId);
+        if (!existingBooking) {
+            throw new Error('Booking not found');
+        }
+
+        const nccDocId = existingBooking.nccDocId;
+        const sttNCC = existingBooking.sttNCC;
+
+        // Find NCC document
+        const ncc = globalState.nccList.find(n => n.id === nccDocId);
+        if (!ncc) {
+            throw new Error('NCC not found');
+        }
+
+        // Find and update the booking in datHang array
+        const datHang = [...(ncc.datHang || [])];
+        const bookingIndex = datHang.findIndex(b => b.id === bookingId);
+        if (bookingIndex === -1) {
+            throw new Error('Booking not found in NCC');
+        }
+
+        // Update booking data
+        datHang[bookingIndex] = {
+            ...datHang[bookingIndex],
             ...data,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: new Date().toISOString(),
             updatedBy: username
         };
 
         // Remove undefined fields
-        Object.keys(updateData).forEach(key => {
-            if (updateData[key] === undefined) {
-                delete updateData[key];
+        Object.keys(datHang[bookingIndex]).forEach(key => {
+            if (datHang[bookingIndex][key] === undefined) {
+                delete datHang[bookingIndex][key];
             }
         });
 
-        await orderBookingsRef.doc(bookingId).update(updateData);
+        // Update Firestore
+        await shipmentsRef.doc(nccDocId).update({
+            datHang: datHang,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
 
         // Update local state
-        const idx = globalState.orderBookings.findIndex(b => b.id === bookingId);
-        if (idx !== -1) {
-            globalState.orderBookings[idx] = {
-                ...globalState.orderBookings[idx],
-                ...updateData,
-                updatedAt: new Date()
-            };
+        const nccIndex = globalState.nccList.findIndex(n => n.id === nccDocId);
+        if (nccIndex !== -1) {
+            globalState.nccList[nccIndex].datHang = datHang;
         }
 
-        // Update filtered list
-        const filteredIdx = globalState.filteredOrderBookings.findIndex(b => b.id === bookingId);
-        if (filteredIdx !== -1) {
-            globalState.filteredOrderBookings[filteredIdx] = {
-                ...globalState.filteredOrderBookings[filteredIdx],
-                ...updateData,
-                updatedAt: new Date()
-            };
-        }
+        // Refresh flattened data
+        flattenNCCData();
 
         console.log('[ORDER-BOOKING-CRUD] Updated order booking:', bookingId);
 
-        return globalState.orderBookings[idx];
+        return { ...datHang[bookingIndex], sttNCC, nccDocId };
     } catch (error) {
         console.error('[ORDER-BOOKING-CRUD] Error updating order booking:', error);
         throw error;
@@ -140,15 +170,41 @@ async function updateOrderBooking(bookingId, data) {
 }
 
 /**
- * Delete order booking
+ * Delete order booking from NCC document
  */
 async function deleteOrderBookingFromDB(bookingId) {
     try {
-        await orderBookingsRef.doc(bookingId).delete();
+        // Find booking in flattened list
+        const existingBooking = globalState.orderBookings.find(b => b.id === bookingId);
+        if (!existingBooking) {
+            throw new Error('Booking not found');
+        }
 
-        // Remove from local state
-        globalState.orderBookings = globalState.orderBookings.filter(b => b.id !== bookingId);
-        globalState.filteredOrderBookings = globalState.filteredOrderBookings.filter(b => b.id !== bookingId);
+        const nccDocId = existingBooking.nccDocId;
+
+        // Find NCC document
+        const ncc = globalState.nccList.find(n => n.id === nccDocId);
+        if (!ncc) {
+            throw new Error('NCC not found');
+        }
+
+        // Remove booking from datHang array
+        const datHang = (ncc.datHang || []).filter(b => b.id !== bookingId);
+
+        // Update Firestore
+        await shipmentsRef.doc(nccDocId).update({
+            datHang: datHang,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Update local state
+        const nccIndex = globalState.nccList.findIndex(n => n.id === nccDocId);
+        if (nccIndex !== -1) {
+            globalState.nccList[nccIndex].datHang = datHang;
+        }
+
+        // Refresh flattened data
+        flattenNCCData();
 
         console.log('[ORDER-BOOKING-CRUD] Deleted order booking:', bookingId);
 
@@ -277,9 +333,11 @@ function populateBookingNCCFilter() {
     select.innerHTML = '<option value="all">Tất cả NCC</option>';
 
     nccList.forEach(ncc => {
+        const nccDoc = getNCCById(parseInt(ncc));
+        const tenNCC = getNCCDisplayName(nccDoc);
         const option = document.createElement('option');
         option.value = ncc;
-        option.textContent = `NCC ${ncc}`;
+        option.textContent = tenNCC ? `NCC ${ncc} - ${tenNCC}` : `NCC ${ncc}`;
         select.appendChild(option);
     });
 
@@ -287,6 +345,15 @@ function populateBookingNCCFilter() {
     if (currentValue && nccList.includes(currentValue)) {
         select.value = currentValue;
     }
+}
+
+/**
+ * Get suggested tenNCC from existing NCC data
+ */
+function getSuggestedTenNCC(sttNCC) {
+    const ncc = getNCCById(sttNCC);
+    if (!ncc) return '';
+    return getNCCDisplayName(ncc);
 }
 
 console.log('[ORDER-BOOKING-CRUD] Loaded successfully');

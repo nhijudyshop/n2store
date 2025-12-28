@@ -204,6 +204,11 @@ function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUp
     // If no products, show at least one row
     const rowCount = products.length > 0 ? products.length : 1;
 
+    // Display NCC with tenNCC if available
+    const nccDisplay = booking.tenNCC
+        ? `<strong>${booking.sttNCC}</strong><br><span class="ncc-name">${booking.tenNCC}</span>`
+        : `<strong>${booking.sttNCC || '-'}</strong>`;
+
     // Status dropdown or badge
     const statusHtml = canUpdateStatus ? `
         <select class="status-select ${statusConfig.badgeClass}" onchange="updateBookingStatus('${booking.id}', this.value)">
@@ -250,7 +255,7 @@ function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUp
         rowsHtml = `
             <tr class="${bgClass}" data-booking-id="${booking.id}">
                 <td class="col-ncc text-center booking-ncc-cell">
-                    <strong>${booking.sttNCC || '-'}</strong>
+                    ${nccDisplay}
                 </td>
                 <td class="col-stt text-center">-</td>
                 <td class="col-products">
@@ -286,7 +291,7 @@ function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUp
                 rowsHtml += `
                     <tr class="${bgClass}" data-booking-id="${booking.id}">
                         <td class="col-ncc text-center booking-ncc-cell" rowspan="${rowCount}">
-                            <strong>${booking.sttNCC || '-'}</strong>
+                            ${nccDisplay}
                         </td>
                         <td class="col-stt text-center">${productIdx + 1}</td>
                         <td class="col-products">

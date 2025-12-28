@@ -60,6 +60,12 @@ function renderOrderBookingForm(booking) {
             </div>
         </div>
 
+        <div class="form-group">
+            <label>Tên NCC (tùy chọn)</label>
+            <input type="text" id="bookingTenNCC" class="form-input" value="${booking?.tenNCC || ''}" placeholder="VD: Công ty ABC">
+            <div class="form-hint">Tên NCC sẽ được gợi ý tự động khi nhập số NCC</div>
+        </div>
+
         <div class="form-section">
             <h4><i data-lucide="package"></i> Sản Phẩm</h4>
             <div class="form-group">
@@ -148,6 +154,21 @@ function setupOrderBookingFormListeners() {
 
     if (imageInput) {
         imageInput.addEventListener('change', handleBookingImageSelect);
+    }
+
+    // Auto-fill tenNCC when sttNCC changes
+    const nccInput = document.getElementById('bookingNCC');
+    const tenNCCInput = document.getElementById('bookingTenNCC');
+    if (nccInput && tenNCCInput) {
+        nccInput.addEventListener('change', () => {
+            const sttNCC = parseInt(nccInput.value, 10);
+            if (sttNCC && typeof getSuggestedTenNCC === 'function') {
+                const suggestedName = getSuggestedTenNCC(sttNCC);
+                if (suggestedName && !tenNCCInput.value) {
+                    tenNCCInput.value = suggestedName;
+                }
+            }
+        });
     }
 }
 
@@ -297,6 +318,7 @@ function parseProductLine(line) {
 async function saveOrderBooking() {
     const dateInput = document.getElementById('bookingDate');
     const nccInput = document.getElementById('bookingNCC');
+    const tenNCCInput = document.getElementById('bookingTenNCC');
     const productsInput = document.getElementById('bookingProducts');
     const noteInput = document.getElementById('bookingNote');
 
@@ -319,6 +341,7 @@ async function saveOrderBooking() {
     const bookingData = {
         ngayDatHang: dateInput.value,
         sttNCC: parseInt(nccInput.value, 10),
+        tenNCC: tenNCCInput?.value?.trim() || '',
         sanPham: products,
         tongTienHD,
         tongMon,

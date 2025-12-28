@@ -1,6 +1,7 @@
 // =====================================================
 // FINANCE MANAGER - INVENTORY TRACKING
-// Phase 4: Tab 2 - Cong No / Quan Ly Tai Chinh
+// Tab 3 - Công Nợ / Quản Lý Tài Chính
+// Note: Uses flattened shipments from nccList (backward compatible)
 // =====================================================
 
 /**
