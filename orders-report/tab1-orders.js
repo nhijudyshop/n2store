@@ -25329,10 +25329,10 @@ async function saveFastSaleOrders(isApprove = false) {
             return;
         }
 
-        // Show loading notification
+        // Show loading notification with timeout
         const loadingNotif = window.notificationManager.info(
             `Đang ${isApprove ? 'lưu và xác nhận' : 'lưu'} ${models.length} đơn hàng...`,
-            'Đang xử lý'
+            3000 // Auto-dismiss after 3 seconds
         );
 
         // Build request body
@@ -25577,21 +25577,23 @@ function renderSuccessOrdersTable() {
             <thead>
                 <tr>
                     <th style="width: 40px;">#</th>
+                    <th style="width: 40px;"><input type="checkbox" id="selectAllSuccess" onchange="toggleAllSuccessOrders(this.checked)"></th>
                     <th>Mã</th>
                     <th>Số phiếu</th>
-                    <th>Khách hàng</th>
                     <th>Trạng thái</th>
-                    <th>Tracking</th>
+                    <th>Khách hàng</th>
+                    <th>Mã vận đơn</th>
                 </tr>
             </thead>
             <tbody>
                 ${fastSaleResultsData.success.map((order, index) => `
                     <tr>
                         <td>${index + 1}</td>
+                        <td><input type="checkbox" class="success-order-checkbox" value="${index}" data-order-id="${order.Id}"></td>
                         <td>${order.Reference || 'N/A'}</td>
                         <td>${order.Number || ''}</td>
+                        <td><span style="color: #10b981; font-weight: 600;">✓ ${order.ShowState || 'Nhập'}</span></td>
                         <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
-                        <td><span style="color: #10b981; font-weight: 600;">✓ ${order.ShowState || 'Thành công'}</span></td>
                         <td>${order.TrackingRef || ''}</td>
                     </tr>
                 `).join('')}
@@ -25637,7 +25639,10 @@ async function createForcedOrders() {
             model: selectedOrders
         };
 
-        const loadingNotif = window.notificationManager.info(`Đang tạo cưỡng bức ${selectedIndexes.length} đơn hàng...`, 'Đang xử lý');
+        const loadingNotif = window.notificationManager.info(
+            `Đang tạo cưỡng bức ${selectedIndexes.length} đơn hàng...`,
+            3000 // Auto-dismiss after 3 seconds
+        );
 
         const response = await API_CONFIG.smartFetch(url, {
             method: 'POST',
@@ -25687,6 +25692,137 @@ async function createForcedOrders() {
     }
 }
 
+/**
+ * Toggle all success orders checkboxes
+ * @param {boolean} checked
+ */
+function toggleAllSuccessOrders(checked) {
+    document.querySelectorAll('.success-order-checkbox').forEach(cb => {
+        cb.checked = checked;
+    });
+}
+
+/**
+ * Print success orders (In hóa đơn, In phiếu ship, In soạn hàng)
+ * @param {string} type - 'invoice', 'shipping', or 'picking'
+ */
+async function printSuccessOrders(type) {
+    const selectedIndexes = Array.from(document.querySelectorAll('.success-order-checkbox:checked'))
+        .map(cb => parseInt(cb.value));
+
+    if (selectedIndexes.length === 0) {
+        window.notificationManager.warning('Vui lòng chọn ít nhất 1 đơn hàng để in', 'Thông báo');
+        return;
+    }
+
+    const selectedOrders = selectedIndexes.map(i => fastSaleResultsData.success[i]);
+    const orderIds = selectedOrders.map(o => o.Id).filter(id => id);
+
+    if (orderIds.length === 0) {
+        window.notificationManager.error('Không tìm thấy ID đơn hàng để in', 'Lỗi');
+        return;
+    }
+
+    console.log(`[FAST-SALE] Printing ${type} for ${orderIds.length} orders:`, orderIds);
+
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const idsParam = orderIds.join(',');
+
+        let printEndpoint = '';
+        let printLabel = '';
+
+        // Determine endpoint based on print type
+        if (type === 'invoice') {
+            printEndpoint = 'print1'; // In hóa đơn
+            printLabel = 'hóa đơn';
+        } else if (type === 'shipping') {
+            printEndpoint = 'print2'; // In phiếu ship
+            printLabel = 'phiếu ship';
+        } else if (type === 'picking') {
+            printEndpoint = 'print3'; // In soạn hàng
+            printLabel = 'soạn hàng';
+        }
+
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fastsaleorder/${printEndpoint}?ids=${idsParam}`;
+
+        console.log(`[FAST-SALE] Fetching print HTML from: ${url}`);
+
+        // Show loading notification
+        const loadingNotif = window.notificationManager.info(
+            `Đang chuẩn bị in ${printLabel}...`,
+            3000
+        );
+
+        // Fetch the print HTML
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'GET',
+            headers: {
+                ...headers,
+                'Accept': 'application/json, text/javascript, */*; q=0.01'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('[FAST-SALE] Print response:', result);
+
+        // Close loading notification
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
+            loadingNotif.close();
+        }
+
+        // Check for errors
+        if (result.listErrors && result.listErrors.length > 0) {
+            window.notificationManager.error(
+                `Lỗi khi in: ${result.listErrors.join(', ')}`,
+                'Lỗi'
+            );
+            return;
+        }
+
+        // Open new window and write HTML
+        if (result.html) {
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(result.html);
+                printWindow.document.close();
+
+                // Wait for content to load then trigger print
+                printWindow.onload = function() {
+                    printWindow.focus();
+                    printWindow.print();
+                };
+
+                window.notificationManager.success(
+                    `Đã mở cửa sổ in ${printLabel} cho ${orderIds.length} đơn hàng`,
+                    2000
+                );
+            } else {
+                window.notificationManager.error(
+                    'Không thể mở cửa sổ in. Vui lòng kiểm tra popup blocker',
+                    'Lỗi'
+                );
+            }
+        } else {
+            window.notificationManager.error(
+                'Không nhận được HTML để in',
+                'Lỗi'
+            );
+        }
+
+    } catch (error) {
+        console.error('[FAST-SALE] Error printing orders:', error);
+        window.notificationManager.error(
+            `Lỗi khi in: ${error.message}`,
+            'Lỗi'
+        );
+    }
+}
+
 // Make functions globally accessible
 window.showFastSaleModal = showFastSaleModal;
 window.closeFastSaleModal = closeFastSaleModal;
@@ -25697,6 +25833,8 @@ window.showFastSaleResultsModal = showFastSaleResultsModal;
 window.closeFastSaleResultsModal = closeFastSaleResultsModal;
 window.switchResultsTab = switchResultsTab;
 window.toggleAllForcedOrders = toggleAllForcedOrders;
+window.toggleAllSuccessOrders = toggleAllSuccessOrders;
 window.createForcedOrders = createForcedOrders;
+window.printSuccessOrders = printSuccessOrders;
 
 // #endregion FAST SALE MODAL
