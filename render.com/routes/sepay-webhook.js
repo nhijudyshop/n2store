@@ -530,11 +530,12 @@ async function logWebhook(db, sepayId, req, statusCode, responseBody, errorMessa
  * Extract customer identifier from transaction content
  * Priority:
  * 1. QR Code N2 (starts with N2, 18 chars) - if found, skip phone extraction
- * 2. Partial phone number (>= 5 digits) - will search TPOS to get full phone
+ * 2. Exact 10-digit phone (0xxxxxxxxx) - direct match, no TPOS needed
+ * 3. Partial phone number (>= 5 digits) - will search TPOS to get full phone
  *
  * Returns:
  * {
- *   type: 'qr_code' | 'partial_phone' | 'none',
+ *   type: 'qr_code' | 'exact_phone' | 'partial_phone' | 'none',
  *   value: string | null,
  *   uniqueCode: string | null (only for QR),
  *   note: string
@@ -572,7 +573,23 @@ function extractPhoneFromContent(content) {
         };
     }
 
-    // Step 3: Extract partial phone number (>= 5 digits)
+    // Step 3: Check for EXACT 10-digit phone (0xxxxxxxxx)
+    // This avoids unnecessary TPOS API calls when we already have the full phone
+    const exactPhonePattern = /\b0\d{9}\b/g;
+    const exactPhones = textToParse.match(exactPhonePattern);
+
+    if (exactPhones && exactPhones.length > 0) {
+        const exactPhone = exactPhones[exactPhones.length - 1]; // Take last match
+        console.log('[EXTRACT] ✅ Found EXACT 10-digit phone:', exactPhone);
+        return {
+            type: 'exact_phone',
+            value: exactPhone,
+            uniqueCode: `PHONE${exactPhone}`, // Direct unique code
+            note: exactPhones.length > 1 ? 'MULTIPLE_EXACT_PHONES_FOUND' : 'EXACT_PHONE_EXTRACTED'
+        };
+    }
+
+    // Step 4: Extract partial phone number (>= 5 digits)
     // Will search TPOS to get full 10-digit phone
     const partialPhonePattern = /\d{5,}/g;
     const allNumbers = textToParse.match(partialPhonePattern);
@@ -836,7 +853,74 @@ async function processDebtUpdate(db, transactionId) {
 
     const amount = parseInt(tx.transfer_amount) || 0;
 
-    // 9. Search TPOS with partial phone
+    // 9. Handle exact 10-digit phone (no TPOS search needed for matching)
+    if (extractResult.type === 'exact_phone') {
+        const exactPhone = extractResult.value;
+        const uniqueCode = extractResult.uniqueCode; // Already PHONE{phone}
+
+        console.log('[DEBT-UPDATE] Exact 10-digit phone found:', exactPhone);
+
+        // Try to get customer name from TPOS (optional, for enrichment)
+        let customerName = null;
+        try {
+            const tposResult = await searchTPOSByPartialPhone(exactPhone);
+
+            if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                // Find matching phone data
+                const phoneData = tposResult.uniquePhones.find(p => p.phone === exactPhone);
+                if (phoneData && phoneData.customers.length > 0) {
+                    customerName = phoneData.customers[0].name;
+                    console.log('[DEBT-UPDATE] Found customer name from TPOS:', customerName);
+                }
+            }
+        } catch (error) {
+            console.error('[DEBT-UPDATE] Error fetching from TPOS:', error.message);
+            // Continue without name - we still have the phone
+        }
+
+        // Save to balance_customer_info
+        await db.query(
+            `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (unique_code) DO UPDATE SET
+                 customer_phone = EXCLUDED.customer_phone,
+                 customer_name = EXCLUDED.customer_name,
+                 extraction_note = EXCLUDED.extraction_note,
+                 name_fetch_status = EXCLUDED.name_fetch_status,
+                 updated_at = CURRENT_TIMESTAMP`,
+            [
+                uniqueCode,
+                exactPhone,
+                customerName,
+                extractResult.note,
+                customerName ? 'SUCCESS' : 'PENDING'
+            ]
+        );
+
+        // Mark transaction as processed
+        await db.query(
+            `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
+            [transactionId]
+        );
+
+        console.log('[DEBT-UPDATE] ✅ Success (exact phone method):', {
+            transactionId,
+            exactPhone,
+            customerName,
+            amount
+        });
+
+        return {
+            success: true,
+            method: 'exact_phone',
+            transactionId,
+            fullPhone: exactPhone,
+            customerName,
+            amount
+        };
+    }
+
+    // 10. Search TPOS with partial phone
     if (extractResult.type === 'partial_phone') {
         const partialPhone = extractResult.value;
         console.log('[DEBT-UPDATE] Searching TPOS with partial phone:', partialPhone);
