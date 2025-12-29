@@ -218,6 +218,14 @@ function setupEventListeners() {
         });
     }
 
+    // Fetch names from TPOS button
+    const fetchNamesBtn = document.getElementById('fetchNamesBtn');
+    if (fetchNamesBtn) {
+        fetchNamesBtn.addEventListener('click', async () => {
+            await fetchCustomerNamesFromTPOS();
+        });
+    }
+
     // Batch update phones button
     const updatePhonesBtn = document.getElementById('updatePhonesBtn');
     if (updatePhonesBtn) {
@@ -2637,6 +2645,145 @@ async function fetchMissingTransaction(referenceCode) {
         if (window.NotificationManager) {
             window.NotificationManager.showNotification(`Không thể lấy GD ${referenceCode}: ${error.message}`, 'error');
         }
+    }
+}
+
+/**
+ * Fetch customer names from TPOS Partner API for phones without names
+ */
+async function fetchCustomerNamesFromTPOS() {
+    try {
+        // Get TPOS token from localStorage
+        const authData = localStorage.getItem('loginindex_auth');
+        if (!authData) {
+            alert('❌ Không tìm thấy TPOS token!\n\nVui lòng đăng nhập vào TPOS trước.');
+            return;
+        }
+
+        const auth = JSON.parse(authData);
+        const token = auth.access_token;
+
+        if (!token) {
+            alert('❌ TPOS token không hợp lệ!');
+            return;
+        }
+
+        // Fetch phone data from database
+        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=500`);
+        const result = await response.json();
+
+        if (!result.success || !result.data) {
+            throw new Error('Failed to fetch phone data');
+        }
+
+        // Filter phones without names (10 digits only)
+        const phonesWithoutNames = result.data.filter(row => {
+            const phone = row.customer_phone || '';
+            return !row.customer_name && phone.length === 10 && /^\d{10}$/.test(phone);
+        });
+
+        if (phonesWithoutNames.length === 0) {
+            alert('✅ Tất cả phone numbers đã có tên!');
+            return;
+        }
+
+        if (!confirm(`Tìm thấy ${phonesWithoutNames.length} phone numbers chưa có tên.\n\nGọi TPOS API để lấy tên?`)) {
+            return;
+        }
+
+        console.log(`[FETCH-NAMES] Processing ${phonesWithoutNames.length} phones...`);
+
+        let success = 0;
+        let failed = 0;
+        let skipped = 0;
+
+        // Process each phone
+        for (const row of phonesWithoutNames) {
+            try {
+                const phone = row.customer_phone;
+                console.log(`[FETCH-NAMES] Fetching name for: ${phone}`);
+
+                // Call TPOS API via Cloudflare Worker
+                const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${phone}&$top=50&$orderby=DateCreated+desc&$count=true`;
+                const headers = JSON.stringify({
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                });
+
+                const proxyUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/proxy?url=${encodeURIComponent(tposUrl)}&headers=${encodeURIComponent(headers)}`;
+
+                const tposResponse = await fetch(proxyUrl);
+                const tposData = await tposResponse.json();
+
+                if (!tposData.value || tposData.value.length === 0) {
+                    console.log(`[FETCH-NAMES] No customer found for ${phone}`);
+                    skipped++;
+                    continue;
+                }
+
+                // Group by unique 10-digit phone
+                const uniqueCustomers = [];
+                const seenPhones = new Set();
+
+                for (const customer of tposData.value) {
+                    const custPhone = customer.Phone?.replace(/\D/g, '').slice(-10);
+                    if (custPhone && custPhone.length === 10 && !seenPhones.has(custPhone)) {
+                        seenPhones.add(custPhone);
+                        uniqueCustomers.push(customer);
+                    }
+                }
+
+                if (uniqueCustomers.length === 0) {
+                    console.log(`[FETCH-NAMES] No valid customers for ${phone}`);
+                    skipped++;
+                    continue;
+                }
+
+                // Take first match (or show modal if multiple - for now just take first)
+                const customer = uniqueCustomers[0];
+                const customerName = customer.Name || customer.FullName || 'Unknown';
+
+                console.log(`[FETCH-NAMES] Found: ${customerName} (${uniqueCustomers.length} matches)`);
+
+                // Update database
+                const updateResponse = await fetch(`${API_BASE_URL}/api/sepay/customer-info/${row.unique_code}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        customer_name: customerName
+                    })
+                });
+
+                const updateResult = await updateResponse.json();
+
+                if (updateResult.success) {
+                    console.log(`[FETCH-NAMES] ✅ Updated ${row.unique_code} → ${customerName}`);
+                    success++;
+                } else {
+                    console.error(`[FETCH-NAMES] Failed to update ${row.unique_code}`);
+                    failed++;
+                }
+
+                // Small delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+            } catch (error) {
+                console.error(`[FETCH-NAMES] Error for ${row.customer_phone}:`, error);
+                failed++;
+            }
+        }
+
+        alert(`✅ Hoàn thành!\n\nThành công: ${success}\nBỏ qua: ${skipped}\nLỗi: ${failed}`);
+
+        // Reload data
+        loadData();
+        showPhoneDataModal(); // Refresh phone data modal if open
+
+    } catch (error) {
+        console.error('[FETCH-NAMES] Error:', error);
+        alert('❌ Lỗi: ' + error.message);
     }
 }
 
