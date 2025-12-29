@@ -2661,29 +2661,31 @@ async function fetchCustomerNamesFromTPOS() {
             throw new Error('Failed to fetch phone data');
         }
 
-        // Filter phones without names (10 digits only)
-        const phonesWithoutNames = result.data.filter(row => {
+        // Filter phones that are PENDING (valid 10-digit phones without names)
+        const phonesToFetch = result.data.filter(row => {
             const phone = row.customer_phone || '';
-            return !row.customer_name && phone.length === 10 && /^\d{10}$/.test(phone);
+            const status = row.name_fetch_status || '';
+            // Only fetch if: has valid 10-digit phone AND status is PENDING
+            return phone.length === 10 && /^0\d{9}$/.test(phone) && status === 'PENDING';
         });
 
-        if (phonesWithoutNames.length === 0) {
-            alert('✅ Tất cả phone numbers đã có tên!');
+        if (phonesToFetch.length === 0) {
+            alert('✅ Không có phone nào cần fetch!\n\nTất cả phone hợp lệ đã được xử lý.');
             return;
         }
 
-        if (!confirm(`Tìm thấy ${phonesWithoutNames.length} phone numbers chưa có tên.\n\nGọi TPOS API để lấy tên?`)) {
+        if (!confirm(`Tìm thấy ${phonesToFetch.length} phone numbers chưa có tên.\n\nGọi TPOS API để lấy tên?`)) {
             return;
         }
 
-        console.log(`[FETCH-NAMES] Processing ${phonesWithoutNames.length} phones...`);
+        console.log(`[FETCH-NAMES] Processing ${phonesToFetch.length} phones...`);
 
         let success = 0;
+        let notFound = 0;
         let failed = 0;
-        let skipped = 0;
 
         // Process each phone
-        for (const row of phonesWithoutNames) {
+        for (const row of phonesToFetch) {
             try {
                 const phone = row.customer_phone;
                 console.log(`[FETCH-NAMES] Fetching name for: ${phone}`);
@@ -2694,7 +2696,18 @@ async function fetchCustomerNamesFromTPOS() {
 
                 if (!tposData.success || !tposData.data || tposData.data.length === 0) {
                     console.log(`[FETCH-NAMES] No customer found for ${phone}`);
-                    skipped++;
+
+                    // Mark as NOT_FOUND_IN_TPOS
+                    await fetch(`${API_BASE_URL}/api/sepay/customer-info/${row.unique_code}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            customer_name: null,
+                            name_fetch_status: 'NOT_FOUND_IN_TPOS'
+                        })
+                    });
+
+                    notFound++;
                     continue;
                 }
 
@@ -2734,7 +2747,7 @@ async function fetchCustomerNamesFromTPOS() {
             }
         }
 
-        alert(`✅ Hoàn thành!\n\nThành công: ${success}\nBỏ qua: ${skipped}\nLỗi: ${failed}`);
+        alert(`✅ Hoàn thành!\n\nThành công: ${success}\nKhông tìm thấy: ${notFound}\nLỗi: ${failed}`);
 
         // Reload data
         loadData();
@@ -2801,14 +2814,54 @@ async function showPhoneDataModal() {
             const updatedAt = new Date(row.updated_at).toLocaleString('vi-VN');
             const customerName = row.customer_name || '<em style="color: #9ca3af;">Chưa có</em>';
 
+            // Format extraction_note with color coding
+            const extractionNote = row.extraction_note || '-';
+            let noteColor = '#6b7280';
+            let noteIcon = '';
+            if (extractionNote.startsWith('PHONE_EXTRACTED')) {
+                noteColor = '#10b981';
+                noteIcon = '✓';
+            } else if (extractionNote.startsWith('QR_CODE_FOUND')) {
+                noteColor = '#3b82f6';
+                noteIcon = '🔗';
+            } else if (extractionNote.startsWith('INVALID_PHONE_LENGTH')) {
+                noteColor = '#f59e0b';
+                noteIcon = '⚠️';
+            } else if (extractionNote.startsWith('NO_PHONE_FOUND')) {
+                noteColor = '#9ca3af';
+                noteIcon = '✗';
+            } else if (extractionNote.startsWith('MULTIPLE_PHONES_FOUND')) {
+                noteColor = '#8b5cf6';
+                noteIcon = '📞';
+            }
+
+            // Format name_fetch_status with badges
+            const fetchStatus = row.name_fetch_status || '-';
+            let statusBadge = '';
+            if (fetchStatus === 'SUCCESS') {
+                statusBadge = `<span style="background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">✓ SUCCESS</span>`;
+            } else if (fetchStatus === 'PENDING') {
+                statusBadge = `<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">⏳ PENDING</span>`;
+            } else if (fetchStatus === 'NOT_FOUND_IN_TPOS') {
+                statusBadge = `<span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">✗ NOT FOUND</span>`;
+            } else if (fetchStatus === 'INVALID_PHONE') {
+                statusBadge = `<span style="background: #fed7aa; color: #9a3412; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">⚠ INVALID</span>`;
+            } else if (fetchStatus === 'NO_PHONE_TO_FETCH') {
+                statusBadge = `<span style="background: #e5e7eb; color: #4b5563; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">- N/A</span>`;
+            } else {
+                statusBadge = `<span style="color: #9ca3af;">${fetchStatus}</span>`;
+            }
+
             return `
                 <tr>
                     <td>${index + 1}</td>
-                    <td><code style="font-size: 12px; background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">${row.unique_code}</code></td>
+                    <td><code style="font-size: 11px; background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">${row.unique_code}</code></td>
                     <td><strong style="color: #3b82f6;">${row.customer_phone || '-'}</strong></td>
                     <td>${customerName}</td>
-                    <td style="font-size: 13px; color: #6b7280;">${createdAt}</td>
-                    <td style="font-size: 13px; color: #6b7280;">${updatedAt}</td>
+                    <td style="font-size: 12px; color: ${noteColor};">${noteIcon} ${extractionNote}</td>
+                    <td>${statusBadge}</td>
+                    <td style="font-size: 12px; color: #6b7280;">${createdAt}</td>
+                    <td style="font-size: 12px; color: #6b7280;">${updatedAt}</td>
                 </tr>
             `;
         }).join('');

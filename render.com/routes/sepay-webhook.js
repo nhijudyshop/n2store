@@ -512,8 +512,29 @@ async function logWebhook(db, sepayId, req, statusCode, responseBody, errorMessa
  * Step 1: If content has "GD" or "-GD", take text BEFORE it
  * Step 2: Find first sequence of 5+ digits
  */
+/**
+ * Extract customer identifier from transaction content
+ * Priority:
+ * 1. QR Code N2 (starts with N2, 18 chars) - if found, skip phone extraction
+ * 2. Phone number (exactly 10 digits, starts with 0)
+ *
+ * Returns:
+ * {
+ *   type: 'qr_code' | 'phone' | 'none',
+ *   value: string | null,
+ *   uniqueCode: string | null,
+ *   note: string
+ * }
+ */
 function extractPhoneFromContent(content) {
-    if (!content) return null;
+    if (!content) {
+        return {
+            type: 'none',
+            value: null,
+            uniqueCode: null,
+            note: 'NO_CONTENT'
+        };
+    }
 
     let textToParse = content;
 
@@ -521,19 +542,58 @@ function extractPhoneFromContent(content) {
     const gdMatch = content.match(/^(.*?)(?:\s*-?\s*GD)/i);
     if (gdMatch) {
         textToParse = gdMatch[1].trim();
-        console.log('[EXTRACT-PHONE] Found GD, parsing before GD:', textToParse);
+        console.log('[EXTRACT] Found GD, parsing before GD:', textToParse);
     }
 
-    // Step 2: Find sequence of 5+ digits (take the LAST occurrence)
-    const allMatches = textToParse.match(/\d{5,}/g);
-    if (allMatches && allMatches.length > 0) {
-        const phone = allMatches[allMatches.length - 1]; // Take last match
-        console.log('[EXTRACT-PHONE] Found phone (last occurrence):', phone);
-        return phone;
+    // Step 2: Check for QR Code N2 (starts with N2, exactly 18 chars)
+    const qrCodeMatch = textToParse.match(/\bN2[A-Z0-9]{16}\b/);
+    if (qrCodeMatch) {
+        const qrCode = qrCodeMatch[0];
+        console.log('[EXTRACT] ✅ Found QR Code N2:', qrCode);
+        return {
+            type: 'qr_code',
+            value: qrCode,
+            uniqueCode: qrCode, // Use QR code as unique code
+            note: 'QR_CODE_FOUND'
+        };
     }
 
-    console.log('[EXTRACT-PHONE] No phone found in:', textToParse);
-    return null;
+    // Step 3: Extract phone number (exactly 10 digits, must start with 0)
+    // Find all 10-digit sequences that start with 0
+    const phonePattern = /\b0\d{9}\b/g;
+    const allPhones = textToParse.match(phonePattern);
+
+    if (allPhones && allPhones.length > 0) {
+        const phone = allPhones[allPhones.length - 1]; // Take last match
+        console.log('[EXTRACT] ✅ Found phone (10 digits, last occurrence):', phone);
+        return {
+            type: 'phone',
+            value: phone,
+            uniqueCode: `PHONE${phone}`,
+            note: allPhones.length > 1 ? 'MULTIPLE_PHONES_FOUND' : 'PHONE_EXTRACTED'
+        };
+    }
+
+    // Step 4: Check if there are any number sequences (for debugging)
+    const anyNumbers = textToParse.match(/\d{5,}/g);
+    if (anyNumbers) {
+        const invalidPhone = anyNumbers[anyNumbers.length - 1];
+        console.log('[EXTRACT] ⚠️ Found number sequence but invalid (not 10 digits):', invalidPhone);
+        return {
+            type: 'none',
+            value: null,
+            uniqueCode: null,
+            note: `INVALID_PHONE_LENGTH:${invalidPhone.length}`
+        };
+    }
+
+    console.log('[EXTRACT] ❌ No phone or QR found in:', textToParse);
+    return {
+        type: 'none',
+        value: null,
+        uniqueCode: null,
+        note: 'NO_PHONE_FOUND'
+    };
 }
 
 /**
@@ -657,36 +717,51 @@ async function processDebtUpdate(db, transactionId) {
     }
 
     // 8. FALLBACK: No QR code or QR not linked to phone -> Try to extract phone from content
-    console.log('[DEBT-UPDATE] No QR code linked to phone, trying phone extraction...');
+    console.log('[DEBT-UPDATE] No QR code linked to phone, trying extraction...');
 
-    const extractedPhone = extractPhoneFromContent(content);
+    const extractResult = extractPhoneFromContent(content);
 
-    if (!extractedPhone) {
-        console.log('[DEBT-UPDATE] No phone extracted from content:', content);
-        return { success: false, reason: 'No phone found in content' };
+    console.log('[DEBT-UPDATE] Extract result:', extractResult);
+
+    // Only accept QR code or phone type
+    if (extractResult.type === 'none') {
+        console.log('[DEBT-UPDATE] No valid identifier found:', extractResult.note);
+        return {
+            success: false,
+            reason: 'No valid identifier found',
+            note: extractResult.note
+        };
     }
 
-    // 9. Save directly to balance_customer_info (no customer search needed)
-    console.log('[DEBT-UPDATE] Phone extracted:', extractedPhone);
-
     const amount = parseInt(tx.transfer_amount) || 0;
-
-    // Generate unique code: PHONE + phone number
-    // This allows multiple transactions from same phone to have same unique_code
-    const uniqueCode = `PHONE${extractedPhone}`;
+    const uniqueCode = extractResult.uniqueCode;
+    const value = extractResult.value;
+    const extractionNote = extractResult.note;
 
     try {
-        // Save to balance_customer_info
+        // Save to balance_customer_info with extraction tracking
         await db.query(
-            `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name)
-             VALUES ($1, $2, $3)
+            `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+             VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (unique_code) DO UPDATE SET
-                 customer_phone = EXCLUDED.customer_phone,
+                 customer_phone = CASE WHEN EXCLUDED.customer_phone IS NOT NULL THEN EXCLUDED.customer_phone ELSE balance_customer_info.customer_phone END,
+                 extraction_note = COALESCE(EXCLUDED.extraction_note, balance_customer_info.extraction_note),
                  updated_at = CURRENT_TIMESTAMP`,
-            [uniqueCode, extractedPhone, null]
+            [
+                uniqueCode,
+                extractResult.type === 'phone' ? value : null, // Only save phone if type is phone
+                null, // customer_name - will be fetched later
+                extractionNote,
+                extractResult.type === 'phone' ? 'PENDING' : 'NO_PHONE_TO_FETCH'
+            ]
         );
 
-        console.log('[DEBT-UPDATE] Saved to balance_customer_info:', uniqueCode, extractedPhone);
+        console.log('[DEBT-UPDATE] Saved to balance_customer_info:', {
+            uniqueCode,
+            type: extractResult.type,
+            value,
+            note: extractionNote
+        });
 
         // Mark transaction as processed
         await db.query(
@@ -694,20 +769,24 @@ async function processDebtUpdate(db, transactionId) {
             [transactionId]
         );
 
-        console.log('[DEBT-UPDATE] ✅ Success (phone extraction - auto save):', {
+        console.log('[DEBT-UPDATE] ✅ Success (extraction - auto save):', {
             transactionId,
-            extractedPhone,
+            type: extractResult.type,
+            value,
             uniqueCode,
-            amount
+            amount,
+            note: extractionNote
         });
 
         return {
             success: true,
-            method: 'phone_extraction_auto',
+            method: 'extraction_auto',
+            type: extractResult.type,
             transactionId,
-            extractedPhone,
+            value,
             uniqueCode,
-            amount
+            amount,
+            note: extractionNote
         };
     } catch (error) {
         console.error('[DEBT-UPDATE] Error saving to balance_customer_info:', error.message);
@@ -2298,6 +2377,8 @@ router.get('/phone-data', async (req, res) => {
                 unique_code,
                 customer_name,
                 customer_phone,
+                extraction_note,
+                name_fetch_status,
                 created_at,
                 updated_at
              FROM balance_customer_info
@@ -2331,31 +2412,57 @@ router.get('/phone-data', async (req, res) => {
 
 /**
  * PUT /api/sepay/customer-info/:unique_code
- * Update customer name for a specific unique code
- * Body: { customer_name: string }
+ * Update customer name and/or fetch status for a specific unique code
+ * Body: {
+ *   customer_name?: string,
+ *   name_fetch_status?: string
+ * }
  */
 router.put('/customer-info/:unique_code', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { unique_code } = req.params;
-    const { customer_name } = req.body;
+    const { customer_name, name_fetch_status } = req.body;
 
     try {
-        if (!customer_name) {
+        // Build dynamic update query
+        const updates = [];
+        const values = [];
+        let paramIndex = 1;
+
+        if (customer_name !== undefined) {
+            updates.push(`customer_name = $${paramIndex++}`);
+            values.push(customer_name);
+        }
+
+        if (name_fetch_status !== undefined) {
+            updates.push(`name_fetch_status = $${paramIndex++}`);
+            values.push(name_fetch_status);
+        } else if (customer_name !== undefined && customer_name !== null) {
+            // Auto-set SUCCESS if setting a name without explicit status
+            updates.push(`name_fetch_status = $${paramIndex++}`);
+            values.push('SUCCESS');
+        }
+
+        if (updates.length === 0) {
             return res.status(400).json({
                 success: false,
-                error: 'customer_name is required'
+                error: 'No fields to update (customer_name or name_fetch_status required)'
             });
         }
 
-        console.log(`[UPDATE-CUSTOMER-NAME] Updating ${unique_code} with name: ${customer_name}`);
+        updates.push('updated_at = CURRENT_TIMESTAMP');
+        values.push(unique_code);
 
-        const result = await db.query(
-            `UPDATE balance_customer_info
-             SET customer_name = $1, updated_at = CURRENT_TIMESTAMP
-             WHERE unique_code = $2
-             RETURNING *`,
-            [customer_name, unique_code]
-        );
+        const query = `
+            UPDATE balance_customer_info
+            SET ${updates.join(', ')}
+            WHERE unique_code = $${paramIndex}
+            RETURNING *
+        `;
+
+        console.log(`[UPDATE-CUSTOMER-INFO] ${unique_code}:`, { customer_name, name_fetch_status });
+
+        const result = await db.query(query, values);
 
         if (result.rows.length === 0) {
             return res.status(404).json({
@@ -2498,29 +2605,40 @@ router.post('/batch-update-phones', async (req, res) => {
             results.processed++;
 
             try {
-                const extractedPhone = extractPhoneFromContent(tx.content);
+                const extractResult = extractPhoneFromContent(tx.content);
 
-                if (!extractedPhone) {
+                // Skip if no valid identifier found
+                if (extractResult.type === 'none') {
                     results.skipped++;
                     results.details.push({
                         transaction_id: tx.id,
                         status: 'skipped',
-                        reason: 'No phone found'
+                        reason: extractResult.note,
+                        content_preview: tx.content?.substring(0, 50)
                     });
                     continue;
                 }
 
-                // Generate unique code
-                const uniqueCode = `PHONE${extractedPhone}`;
+                const uniqueCode = extractResult.uniqueCode;
+                const value = extractResult.value;
+                const extractionNote = extractResult.note;
 
-                // Save to balance_customer_info
+                // Save to balance_customer_info with extraction tracking
                 await db.query(
-                    `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name)
-                     VALUES ($1, $2, $3)
+                    `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+                     VALUES ($1, $2, $3, $4, $5)
                      ON CONFLICT (unique_code) DO UPDATE SET
-                         customer_phone = EXCLUDED.customer_phone,
+                         customer_phone = CASE WHEN EXCLUDED.customer_phone IS NOT NULL THEN EXCLUDED.customer_phone ELSE balance_customer_info.customer_phone END,
+                         extraction_note = COALESCE(EXCLUDED.extraction_note, balance_customer_info.extraction_note),
+                         name_fetch_status = COALESCE(balance_customer_info.name_fetch_status, EXCLUDED.name_fetch_status),
                          updated_at = CURRENT_TIMESTAMP`,
-                    [uniqueCode, extractedPhone, null]
+                    [
+                        uniqueCode,
+                        extractResult.type === 'phone' ? value : null,
+                        null, // customer_name - will be fetched later
+                        extractionNote,
+                        extractResult.type === 'phone' ? 'PENDING' : 'NO_PHONE_TO_FETCH'
+                    ]
                 );
 
                 // Mark transaction as processed
@@ -2533,11 +2651,13 @@ router.post('/batch-update-phones', async (req, res) => {
                 results.details.push({
                     transaction_id: tx.id,
                     status: 'success',
-                    extracted_phone: extractedPhone,
-                    unique_code: uniqueCode
+                    type: extractResult.type,
+                    value: value,
+                    unique_code: uniqueCode,
+                    extraction_note: extractionNote
                 });
 
-                console.log(`[BATCH-UPDATE] ✅ Transaction ${tx.id}: ${extractedPhone}`);
+                console.log(`[BATCH-UPDATE] ✅ Transaction ${tx.id}: ${extractResult.type} = ${value} (${extractionNote})`);
 
             } catch (error) {
                 results.failed++;
