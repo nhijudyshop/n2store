@@ -318,15 +318,29 @@ router.get('/history', async (req, res) => {
         const countResult = await db.query(countQuery, queryParams);
         const total = parseInt(countResult.rows[0].count);
 
-        // Get paginated data
+        // Get paginated data with customer info
         const dataQuery = `
             SELECT
-                id, sepay_id, gateway, transaction_date, account_number,
-                code, content, transfer_type, transfer_amount, accumulated,
-                sub_account, reference_code, description, created_at
-            FROM balance_history
+                bh.id, bh.sepay_id, bh.gateway, bh.transaction_date, bh.account_number,
+                bh.code, bh.content, bh.transfer_type, bh.transfer_amount, bh.accumulated,
+                bh.sub_account, bh.reference_code, bh.description, bh.created_at,
+                bci.customer_phone,
+                bci.customer_name,
+                bci.unique_code as qr_code
+            FROM balance_history bh
+            LEFT JOIN balance_customer_info bci ON (
+                -- Match by QR code (N2...) in content
+                (bh.content ~* 'N2[A-Z0-9]{16}' AND bci.unique_code = (regexp_match(UPPER(bh.content), 'N2[A-Z0-9]{16}'))[1])
+                OR
+                -- Match by partial phone search
+                (bci.extraction_note LIKE 'AUTO_MATCHED_FROM_PARTIAL:%'
+                 AND bh.content LIKE '%' || SUBSTRING(bci.extraction_note FROM 'AUTO_MATCHED_FROM_PARTIAL:(.*)') || '%')
+                OR
+                -- Match by exact phone
+                (bci.unique_code LIKE 'PHONE%' AND bh.content LIKE '%' || bci.customer_phone || '%')
+            )
             ${whereClause}
-            ORDER BY transaction_date DESC
+            ORDER BY bh.transaction_date DESC
             LIMIT $${paramCounter} OFFSET $${paramCounter + 1}
         `;
 
