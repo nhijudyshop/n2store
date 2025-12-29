@@ -628,21 +628,7 @@ async function processDebtUpdate(db, transactionId) {
 
             console.log('[DEBT-UPDATE] Phone from QR:', phone, 'Amount:', amount);
 
-            // 6. Update customer debt (UPSERT)
-            const updateResult = await db.query(
-                `INSERT INTO customers (phone, name, debt, status, active)
-                 VALUES ($1, $2, $3, 'Bình thường', true)
-                 ON CONFLICT (phone) DO UPDATE SET
-                     debt = COALESCE(customers.debt, 0) + $3,
-                     updated_at = CURRENT_TIMESTAMP
-                 RETURNING id, phone, debt`,
-                [phone, customerName || phone, amount]
-            );
-
-            const customer = updateResult.rows[0];
-            console.log('[DEBT-UPDATE] Customer updated from QR:', customer);
-
-            // 7. Mark transaction as processed
+            // 6. Mark transaction as processed (no customer table update)
             await db.query(
                 `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
                 [transactionId]
@@ -652,8 +638,8 @@ async function processDebtUpdate(db, transactionId) {
                 transactionId,
                 qrCode,
                 phone,
-                amount,
-                newDebt: customer.debt
+                customerName,
+                amount
             });
 
             return {
@@ -662,8 +648,8 @@ async function processDebtUpdate(db, transactionId) {
                 transactionId,
                 qrCode,
                 phone,
-                amount,
-                newDebt: customer.debt
+                customerName,
+                amount
             };
         }
     }
@@ -678,50 +664,27 @@ async function processDebtUpdate(db, transactionId) {
         return { success: false, reason: 'No phone found in content' };
     }
 
-    // 9. Search for customer by phone
-    const matchedCustomers = await searchCustomerByPhone(db, extractedPhone);
+    // 9. Save directly to balance_customer_info (no customer search needed)
+    console.log('[DEBT-UPDATE] Phone extracted:', extractedPhone);
 
-    if (matchedCustomers.length === 0) {
-        console.log('[DEBT-UPDATE] No customers found for phone:', extractedPhone);
-        return { success: false, reason: 'No customers found', extractedPhone };
-    }
+    const amount = parseInt(tx.transfer_amount) || 0;
 
-    // 10. Handle different match scenarios
-    if (matchedCustomers.length === 1) {
-        // Single match - Auto save to balance_customer_info
-        const customer = matchedCustomers[0];
-        const amount = parseInt(tx.transfer_amount) || 0;
+    // Generate unique code: PHONE + phone number
+    // This allows multiple transactions from same phone to have same unique_code
+    const uniqueCode = `PHONE${extractedPhone}`;
 
-        console.log('[DEBT-UPDATE] Single match found:', customer.phone, customer.name);
-
-        // Generate unique code if not exists (fallback case)
-        // Format: PHONE + timestamp last 6 digits
-        const uniqueCode = `PHONE${extractedPhone}${Date.now().toString().slice(-6)}`;
-
+    try {
         // Save to balance_customer_info
         await db.query(
-            `INSERT INTO balance_customer_info (unique_code, customer_name, customer_phone)
+            `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name)
              VALUES ($1, $2, $3)
              ON CONFLICT (unique_code) DO UPDATE SET
-                 customer_name = EXCLUDED.customer_name,
                  customer_phone = EXCLUDED.customer_phone,
                  updated_at = CURRENT_TIMESTAMP`,
-            [uniqueCode, customer.name, customer.phone]
+            [uniqueCode, extractedPhone, null]
         );
 
-        // Update customer debt
-        const updateResult = await db.query(
-            `INSERT INTO customers (phone, name, debt, status, active)
-             VALUES ($1, $2, $3, 'Bình thường', true)
-             ON CONFLICT (phone) DO UPDATE SET
-                 debt = COALESCE(customers.debt, 0) + $3,
-                 updated_at = CURRENT_TIMESTAMP
-             RETURNING id, phone, debt`,
-            [customer.phone, customer.name, amount]
-        );
-
-        const updatedCustomer = updateResult.rows[0];
-        console.log('[DEBT-UPDATE] Customer updated from phone extraction:', updatedCustomer);
+        console.log('[DEBT-UPDATE] Saved to balance_customer_info:', uniqueCode, extractedPhone);
 
         // Mark transaction as processed
         await db.query(
@@ -729,12 +692,11 @@ async function processDebtUpdate(db, transactionId) {
             [transactionId]
         );
 
-        console.log('[DEBT-UPDATE] ✅ Success (phone extraction - single match):', {
+        console.log('[DEBT-UPDATE] ✅ Success (phone extraction - auto save):', {
             transactionId,
             extractedPhone,
-            phone: customer.phone,
-            amount,
-            newDebt: updatedCustomer.debt
+            uniqueCode,
+            amount
         });
 
         return {
@@ -742,13 +704,16 @@ async function processDebtUpdate(db, transactionId) {
             method: 'phone_extraction_auto',
             transactionId,
             extractedPhone,
-            phone: customer.phone,
-            amount,
-            newDebt: updatedCustomer.debt
+            uniqueCode,
+            amount
         };
+    } catch (error) {
+        console.error('[DEBT-UPDATE] Error saving to balance_customer_info:', error.message);
+        return { success: false, reason: 'Database error', error: error.message };
     }
 
-    // 11. Multiple matches - Save to pending_customer_matches for admin review
+    // OLD CODE - Multiple matches handling (no longer needed)
+    /*
     console.log('[DEBT-UPDATE] Multiple matches found:', matchedCustomers.length);
 
     try {
