@@ -2757,12 +2757,20 @@ async function reprocessOldTransactions() {
         return;
     }
 
-    if (!confirm(`Xử lý lại ${limitNum} giao dịch cũ?\n\nHệ thống sẽ:\n- Extract phone từ nội dung (>= 5 số)\n- Tìm kiếm TPOS để lấy SĐT đầy đủ\n- Lưu thông tin khách hàng\n\nContinue?`)) {
-        return;
-    }
+    // Ask if user wants to force reprocess (including already processed transactions)
+    const forceReprocess = confirm(
+        `Xử lý lại ${limitNum} giao dịch cũ?\n\n` +
+        `✅ BẤM "OK" = Xử lý LẠI TẤT CẢ (kể cả đã xử lý trước đó)\n` +
+        `⏭️ BẤM "Cancel" = Chỉ xử lý GD chưa được xử lý\n\n` +
+        `Hệ thống sẽ:\n` +
+        `- Extract phone từ nội dung (>= 5 số hoặc 10 số)\n` +
+        `- Tìm kiếm TPOS để lấy SĐT đầy đủ + tên KH\n` +
+        `- Lưu thông tin khách hàng\n` +
+        `- Hiển thị trong bảng`
+    );
 
     try {
-        console.log(`[REPROCESS] Starting batch reprocess for ${limitNum} transactions...`);
+        console.log(`[REPROCESS] Starting batch reprocess for ${limitNum} transactions (force: ${forceReprocess})...`);
 
         // Show loading indicator (reuse the button as status)
         const btn = document.getElementById('reprocessOldTransactionsBtn');
@@ -2778,7 +2786,7 @@ async function reprocessOldTransactions() {
             },
             body: JSON.stringify({
                 limit: limitNum,
-                force: false  // Only process transactions where debt_added = FALSE
+                force: forceReprocess  // TRUE = reprocess all, FALSE = only unprocessed
             })
         });
 
