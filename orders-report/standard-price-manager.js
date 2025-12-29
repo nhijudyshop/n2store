@@ -1,6 +1,6 @@
 // =====================================================
 // STANDARD PRICE MANAGER
-// Fetch và cache giá vốn từ API ExportFileWithStandardPriceV2
+// Fetch và cache giá vốn từ API ExportProductV2
 // =====================================================
 
 class StandardPriceManager {
@@ -10,9 +10,9 @@ class StandardPriceManager {
         this.isLoaded = false;
         this.isLoading = false;
         this.lastFetchTime = null;
-        this.storageKey = "standard_price_cache_v1";
+        this.storageKey = "standard_price_cache_v2"; // Changed v1 -> v2 for new endpoint
         this.CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
-        this.API_ENDPOINT = "https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithStandardPriceV2";
+        this.API_ENDPOINT = "https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportProductV2?Active=true";
 
         this.init();
     }
@@ -129,8 +129,25 @@ class StandardPriceManager {
             // Get auth headers
             const headers = await window.tokenManager.getAuthHeader();
 
-            // POST request to get Excel file
-            // Sử dụng đúng headers như các TPOS API khác để tránh 403
+            // POST request to get Excel file from ExportProductV2
+            // Request format theo ExportProductV2.txt
+            const requestBody = {
+                data: JSON.stringify({
+                    Filter: {
+                        logic: "and",
+                        filters: [
+                            {
+                                field: "Active",
+                                operator: "eq",
+                                value: true,
+                                Clear: "Clear"
+                            }
+                        ]
+                    }
+                }),
+                ids: []
+            };
+
             const response = await fetch(this.API_ENDPOINT, {
                 method: "POST",
                 headers: {
@@ -140,10 +157,7 @@ class StandardPriceManager {
                     "tposappversion": "5.11.16.1",
                     "x-tpos-lang": "vi",
                 },
-                body: JSON.stringify({
-                    model: { Active: "true" },
-                    ids: "",
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             if (!response.ok) {
