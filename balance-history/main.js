@@ -602,10 +602,24 @@ function renderTransactionRow(row) {
     const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
     const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
 
-    // Get customer info if unique code exists
+    // Get customer info - PRIORITY:
+    // 1. From backend JOIN (row.customer_phone, row.customer_name) - NEW!
+    // 2. From CustomerInfoManager (QR code fallback)
     let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
-    if (uniqueCode && window.CustomerInfoManager) {
+
+    // Priority 1: Use data from backend LEFT JOIN (partial phone match)
+    if (row.customer_phone || row.customer_name) {
+        customerDisplay = {
+            name: row.customer_name || 'N/A',
+            phone: row.customer_phone || 'N/A',
+            hasInfo: !!(row.customer_phone || row.customer_name)
+        };
+        console.log('[RENDER] Using backend JOIN data:', customerDisplay);
+    }
+    // Priority 2: Fallback to CustomerInfoManager (QR code)
+    else if (uniqueCode && window.CustomerInfoManager) {
         customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+        console.log('[RENDER] Using CustomerInfoManager:', customerDisplay);
     }
 
     return `
