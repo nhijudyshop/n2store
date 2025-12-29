@@ -522,11 +522,11 @@ function extractPhoneFromContent(content) {
         console.log('[EXTRACT-PHONE] Found GD, parsing before GD:', textToParse);
     }
 
-    // Step 2: Find sequence of 5+ digits
-    const phoneMatch = textToParse.match(/\d{5,}/);
-    if (phoneMatch) {
-        const phone = phoneMatch[0];
-        console.log('[EXTRACT-PHONE] Found phone:', phone);
+    // Step 2: Find sequence of 5+ digits (take the LAST occurrence)
+    const allMatches = textToParse.match(/\d{5,}/g);
+    if (allMatches && allMatches.length > 0) {
+        const phone = allMatches[allMatches.length - 1]; // Take last match
+        console.log('[EXTRACT-PHONE] Found phone (last occurrence):', phone);
         return phone;
     }
 
