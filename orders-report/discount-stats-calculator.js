@@ -214,10 +214,12 @@ class DiscountStatsCalculator {
                 }
             }
 
-            // Lấy giá vốn
+            // Lấy giá vốn và thông tin sản phẩm từ standardPriceManager
             let costPrice = 0;
+            let productInfo = null;
             if (window.standardPriceManager) {
-                costPrice = window.standardPriceManager.getCostPrice(productId) || 0;
+                productInfo = window.standardPriceManager.getById(productId);
+                costPrice = productInfo?.CostPrice || 0;
             }
 
             // Tính discount nếu có
@@ -227,6 +229,12 @@ class DiscountStatsCalculator {
                 // Thêm thông tin đơn hàng vào sản phẩm để hiển thị trong tab Chi Tiết SP
                 discountData.orderId = order.Id;
                 discountData.orderSTT = order.SessionIndex || null;
+
+                // Lấy productCode và productName từ nhiều nguồn (ưu tiên standardPriceManager > detail)
+                // detail có thể có: ProductName, ProductCode, Name, Code
+                discountData.productCode = productInfo?.Code || detail.ProductCode || detail.Code || '';
+                discountData.productName = productInfo?.Name || detail.ProductName || detail.Name || detail.ProductNameGet || '';
+
                 products.push(discountData);
                 totalListPrice += listPrice * quantity;
                 totalCostPrice += costPrice * quantity;
