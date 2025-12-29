@@ -2298,9 +2298,9 @@
                     <i class="fas fa-save"></i> Lưu báo cáo
                 </button>
                 <button class="btn-action" onclick="downloadProductPriceExcel()" id="btnDownloadExcel"
-                    style="margin-top: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" 
-                    title="Tải file Excel danh sách sản phẩm với giá mua/giá vốn">
-                    <i class="fas fa-file-excel"></i> Excel Giá Mua
+                    style="margin-top: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);"
+                    title="Tải và cache giá vốn sản phẩm vào localStorage (dùng cho thống kê giảm giá)">
+                    <i class="fas fa-sync-alt"></i> Tải Giá Vốn
                 </button>
                 <button class="btn-action-icon" onclick="openManageReportsModal()" id="btnManageReports"
                     style="margin-top: 20px;" title="Quản lý bản lưu">
@@ -6511,91 +6511,36 @@
         }
 
         // =====================================================
-        // DOWNLOAD EXCEL PRODUCT PRICE
+        // REFRESH STANDARD PRICE CACHE
         // =====================================================
         async function downloadProductPriceExcel() {
-            const btn = document.getElementById('btnDownloadExcel');
-            if (!btn) return;
-
-            const originalText = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải...';
-
             try {
-                console.log('[EXCEL] Starting product export Excel download...');
+                console.log('[STANDARD-PRICE] Refreshing standard price cache...');
 
-                // Get auth headers from tokenManager
-                let headers = {};
-                if (window.tokenManager && typeof window.tokenManager.getAuthHeader === 'function') {
-                    headers = await window.tokenManager.getAuthHeader();
-                } else if (window.parent && window.parent.tokenManager) {
-                    headers = await window.parent.tokenManager.getAuthHeader();
-                } else {
-                    throw new Error('TokenManager not available. Please login first.');
+                // Check if standardPriceManager is available
+                if (!window.standardPriceManager) {
+                    throw new Error('StandardPriceManager not initialized');
                 }
 
-                // Build request body (format from ExportProductV2.txt)
-                const requestBody = {
-                    data: JSON.stringify({
-                        Filter: {
-                            logic: "and",
-                            filters: [
-                                {
-                                    field: "Active",
-                                    operator: "eq",
-                                    value: true,
-                                    Clear: "Clear"
-                                }
-                            ]
-                        }
-                    }),
-                    ids: []
-                };
+                // Fetch products (force refresh cache)
+                // standardPriceManager.fetchProducts() sẽ tự động:
+                // 1. Show loading notification
+                // 2. Fetch Excel từ API
+                // 3. Parse và cache vào localStorage
+                // 4. Show success/error notification
+                await window.standardPriceManager.fetchProducts(true);
 
-                console.log('[EXCEL] Request body:', requestBody);
-
-                // Use Cloudflare Worker Proxy to call ExportProductV2
-                const url = `${window.API_CONFIG.WORKER_URL}/api/Product/ExportProductV2?Active=true`;
-                console.log('[EXCEL] Calling via Cloudflare Worker:', url);
-
-                const response = await window.API_CONFIG.smartFetch(url, {
-                    method: 'POST',
-                    headers: {
-                        ...headers,
-                        'Content-Type': 'application/json',
-                        'Accept': '*/*'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                // Get blob and download
-                const blob = await response.blob();
-                const fileSize = (blob.size / 1024).toFixed(2);
-                console.log(`[EXCEL] Downloaded file: ${fileSize} KB`);
-
-                // Create download link
-                const blobUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = blobUrl;
-                const timestamp = new Date().toISOString().slice(0, 10);
-                a.download = `SanPham_Export_${timestamp}.xlsx`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(blobUrl);
-
-                console.log('[EXCEL] Download completed successfully!');
+                console.log('[STANDARD-PRICE] Cache refresh completed successfully!');
 
             } catch (error) {
-                console.error('[EXCEL] Download error:', error);
-                alert('Lỗi tải file Excel: ' + error.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
+                console.error('[STANDARD-PRICE] Cache refresh error:', error);
+                if (window.notificationManager) {
+                    window.notificationManager.error(
+                        `Không thể tải giá vốn: ${error.message}`,
+                        4000,
+                        'Lỗi'
+                    );
+                }
             }
         }
 
