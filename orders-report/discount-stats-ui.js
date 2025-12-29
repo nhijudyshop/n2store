@@ -270,6 +270,7 @@ class DiscountStatsUI {
                 <table class="discount-table" id="discountProductsTable">
                     <thead>
                         <tr>
+                            <th>STT</th>
                             <th>Mã SP</th>
                             <th>Tên sản phẩm</th>
                             <th>SL</th>
@@ -285,6 +286,7 @@ class DiscountStatsUI {
                     <tbody id="discountProductsBody">
                         ${sorted.map(p => `
                             <tr class="risk-${p.riskStatus}" data-risk="${p.riskStatus}">
+                                <td class="stt clickable" onclick="window.openEditModal && window.openEditModal('${p.orderId}')" title="Click để xem chi tiết đơn hàng">${p.orderSTT || '-'}</td>
                                 <td class="code">${p.productCode || '-'}</td>
                                 <td class="name" title="${p.productName}">${this.truncate(p.productName, 30)}</td>
                                 <td class="qty">${p.quantity}</td>
@@ -349,11 +351,12 @@ class DiscountStatsUI {
                 <table class="discount-table" id="discountOrdersTable">
                     <thead>
                         <tr>
-                            <th>Mã đơn</th>
+                            <th>STT</th>
                             <th>Khách hàng</th>
                             <th>SP giảm</th>
-                            <th>Tổng gốc</th>
+                            <th>Tổng Giá Bán</th>
                             <th>Tổng sau giảm</th>
+                            <th>Tổng Giá Vốn</th>
                             <th>Tiền giảm</th>
                             <th>Lợi nhuận</th>
                             <th>Margin</th>
@@ -363,11 +366,12 @@ class DiscountStatsUI {
                     <tbody id="discountOrdersBody">
                         ${sorted.map(o => `
                             <tr class="risk-${o.summary.riskStatus}" data-risk="${o.summary.riskStatus}">
-                                <td class="code">${o.orderCode || '-'}</td>
+                                <td class="stt clickable" onclick="window.openEditModal && window.openEditModal('${o.orderId}')" title="Click để xem chi tiết đơn hàng">${o.orderSTT || '-'}</td>
                                 <td class="name">${this.truncate(o.customerName, 20)}</td>
                                 <td class="qty">${o.summary.discountedProductCount}</td>
                                 <td class="price">${calc.formatCurrency(o.summary.totalListPrice)}</td>
                                 <td class="discount-price">${calc.formatCurrency(o.summary.totalDiscountPrice)}</td>
+                                <td class="cost">${calc.formatCurrency(o.summary.totalCostPrice)}</td>
                                 <td class="discount-amount negative">-${calc.formatCurrency(o.summary.totalDiscountAmount)}</td>
                                 <td class="profit ${o.summary.totalProfit >= 0 ? 'positive' : 'negative'}">${calc.formatCurrency(o.summary.totalProfit)}</td>
                                 <td class="margin ${o.summary.averageMarginPercent >= 20 ? 'positive' : o.summary.averageMarginPercent >= 10 ? 'warning' : 'negative'}">${calc.formatPercent(o.summary.averageMarginPercent)}</td>
