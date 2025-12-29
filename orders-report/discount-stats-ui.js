@@ -127,6 +127,9 @@ class DiscountStatsUI {
             return;
         }
 
+        // Store stats for later use (export, etc.)
+        this.stats = stats;
+
         // Show section
         const section = document.getElementById('discountStatsSection');
         if (section) {
