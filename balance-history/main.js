@@ -2789,15 +2789,51 @@ async function reprocessOldTransactions() {
         console.log('[REPROCESS] Complete:', result.data);
 
         const summary = result.data;
-        alert(
-            `✅ Xử lý hoàn tất!\n\n` +
+
+        // Build detailed message
+        let message = `✅ Xử lý hoàn tất!\n\n` +
             `Tổng số: ${summary.total}\n` +
             `Thành công: ${summary.success}\n` +
             `Pending (nhiều SĐT): ${summary.pending_matches}\n` +
             `Không tìm thấy TPOS: ${summary.not_found}\n` +
             `Bỏ qua: ${summary.skipped}\n` +
-            `Lỗi: ${summary.failed}`
-        );
+            `Lỗi: ${summary.failed}`;
+
+        // If there are not_found items, show details
+        if (summary.not_found > 0 && summary.details) {
+            const notFoundItems = summary.details.filter(d => d.status === 'not_found');
+
+            if (notFoundItems.length > 0) {
+                message += `\n\n━━━━━━━━━━━━━━━━━━━━\n📋 Chi tiết KHÔNG TÌM THẤY TPOS (${notFoundItems.length}):\n━━━━━━━━━━━━━━━━━━━━\n`;
+
+                // Show first 10 items in alert (to avoid too long message)
+                const itemsToShow = notFoundItems.slice(0, 10);
+                itemsToShow.forEach((item, index) => {
+                    const contentPreview = item.content ?
+                        (item.content.length > 40 ? item.content.substring(0, 40) + '...' : item.content) :
+                        'N/A';
+                    message += `\n${index + 1}. GD #${item.transaction_id}\n   Phone: ${item.partial_phone || 'N/A'}\n   ND: "${contentPreview}"\n`;
+                });
+
+                if (notFoundItems.length > 10) {
+                    message += `\n... và ${notFoundItems.length - 10} giao dịch khác`;
+                }
+
+                // Also log full details to console
+                console.group('[REPROCESS] Chi tiết KHÔNG TÌM THẤY TPOS:');
+                console.table(notFoundItems.map(item => ({
+                    'GD #': item.transaction_id,
+                    'Partial Phone': item.partial_phone || 'N/A',
+                    'Nội dung': item.content || '',
+                    'Lý do': item.reason
+                })));
+                console.groupEnd();
+
+                message += `\n\n💡 Xem console (F12) để thấy danh sách đầy đủ`;
+            }
+        }
+
+        alert(message);
 
         // Reload data to show updated customer info
         loadData();

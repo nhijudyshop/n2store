@@ -2834,6 +2834,7 @@ router.post('/batch-update-phones', async (req, res) => {
                             transaction_id: tx.id,
                             status: 'not_found',
                             partial_phone: updateResult.partialPhone,
+                            content: tx.content || '',
                             reason: updateResult.reason
                         });
                         console.log(`[BATCH-UPDATE] ⚠️  Transaction ${tx.id}: no TPOS matches for ${updateResult.partialPhone}`);
@@ -2842,6 +2843,7 @@ router.post('/batch-update-phones', async (req, res) => {
                         results.details.push({
                             transaction_id: tx.id,
                             status: 'skipped',
+                            content: tx.content || '',
                             reason: updateResult.reason,
                             note: updateResult.note
                         });
