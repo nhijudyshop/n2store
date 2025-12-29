@@ -29,22 +29,37 @@ Khi webhook nhận được giao dịch mới (transfer_type = 'in'):
 "0901234567 thanh toan" → "0901234567 thanh toan"
 ```
 
-### Bước 2: Extract Phone (5+ chữ số)
+### Bước 2: Extract Phone (5+ chữ số - lấy số cuối cùng)
 ```javascript
 "0901234567 thanh toan" → "0901234567"
 "Nguyen Van A 0912345678" → "0912345678"
 "ABC 12345 DEF" → "12345"
+"CT DEN:0123456789 ND:0901234567" → "0901234567" (số cuối)
 ```
 
+**Lưu ý**: Nếu có nhiều chuỗi số, sẽ lấy **số cuối cùng** (rightmost).
+
 ### Bước 3: Search Customer
-Sử dụng query tương tự `/api/customers/search`:
+Search bao quát: số extracted chỉ cần **có chứa trong** SĐT đầy đủ của customer:
 ```sql
 SELECT id, phone, name, email, status, debt
 FROM customers
-WHERE phone LIKE '0901234567%' OR phone LIKE '%0901234567'
-ORDER BY priority DESC
+WHERE phone LIKE '%0901234567%'  -- Contains anywhere
+ORDER BY
+    CASE
+        WHEN phone = '0901234567' THEN 100      -- Exact match (ưu tiên cao nhất)
+        WHEN phone LIKE '0901234567%' THEN 95   -- Starts with
+        WHEN phone LIKE '%0901234567' THEN 90   -- Ends with
+        ELSE 85                                  -- Contains anywhere
+    END DESC
 LIMIT 10
 ```
+
+**Ví dụ matching:**
+- Extracted: `56789` (>4 chữ số)
+- Customer phone: `0901256789` → ✅ MATCH (chứa "56789")
+- Customer phone: `0956789012` → ✅ MATCH (chứa "56789")
+- Customer phone: `0912345678` → ❌ NO MATCH (không chứa "56789")
 
 ### Bước 4: Xử lý kết quả
 
@@ -234,7 +249,7 @@ Bỏ qua/skip pending match
 - Extract phone: `0901234567`
 - Parse toàn bộ content
 
-### Test Case 4: Multiple numbers - lấy số đầu tiên >= 5 chữ số
+### Test Case 4: Multiple numbers - lấy số cuối cùng >= 5 chữ số
 **Input:**
 ```json
 {
@@ -244,7 +259,7 @@ Bỏ qua/skip pending match
 ```
 
 **Expected:**
-- Extract phone: `0901234567` (số đầu tiên có >= 5 chữ số)
+- Extract phone: `98765` (số cuối cùng có >= 5 chữ số)
 
 ### Test Case 5: Single match - Auto save
 **Setup:**
@@ -364,12 +379,13 @@ grep "EXTRACT-PHONE\|SEARCH-CUSTOMER\|PENDING-MATCHES" logs.txt
 ### Issue: Phone không được extract
 **Check:**
 1. Content có >= 5 chữ số liền kề không?
-2. Regex `/\d{5,}/` có match không?
+2. Regex `/\d{5,}/g` có match không?
 
 **Debug:**
 ```javascript
 const content = "...";
 console.log(extractPhoneFromContent(content));
+// Kiểm tra: hệ thống sẽ lấy số CUỐI CÙNG có >= 5 chữ số
 ```
 
 ### Issue: Multiple matches luôn xảy ra

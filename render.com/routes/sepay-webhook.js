@@ -522,11 +522,11 @@ function extractPhoneFromContent(content) {
         console.log('[EXTRACT-PHONE] Found GD, parsing before GD:', textToParse);
     }
 
-    // Step 2: Find sequence of 5+ digits
-    const phoneMatch = textToParse.match(/\d{5,}/);
-    if (phoneMatch) {
-        const phone = phoneMatch[0];
-        console.log('[EXTRACT-PHONE] Found phone:', phone);
+    // Step 2: Find sequence of 5+ digits (take the LAST occurrence)
+    const allMatches = textToParse.match(/\d{5,}/g);
+    if (allMatches && allMatches.length > 0) {
+        const phone = allMatches[allMatches.length - 1]; // Take last match
+        console.log('[EXTRACT-PHONE] Found phone (last occurrence):', phone);
         return phone;
     }
 
@@ -544,22 +544,24 @@ async function searchCustomerByPhone(db, phone) {
     console.log('[SEARCH-CUSTOMER] Searching for phone:', phone);
 
     try {
-        // Search in customers table using same logic as /api/customers/search
+        // Search in customers table - match if extracted number is CONTAINED in customer phone
+        // More comprehensive: checks if extracted digits exist anywhere in the full phone number
         const query = `
             SELECT id, phone, name, email, address, status, debt, tpos_id
             FROM customers
-            WHERE phone LIKE $1 || '%' OR phone LIKE '%' || $1
+            WHERE phone LIKE '%' || $1 || '%'
             ORDER BY
                 CASE
-                    WHEN phone = $1 THEN 100
-                    WHEN phone LIKE $1 || '%' THEN 95
-                    ELSE 90
+                    WHEN phone = $1 THEN 100              -- Exact match
+                    WHEN phone LIKE $1 || '%' THEN 95     -- Starts with
+                    WHEN phone LIKE '%' || $1 THEN 90     -- Ends with
+                    ELSE 85                                -- Contains anywhere
                 END DESC
             LIMIT 10
         `;
 
         const result = await db.query(query, [phone]);
-        console.log('[SEARCH-CUSTOMER] Found', result.rows.length, 'customers');
+        console.log('[SEARCH-CUSTOMER] Found', result.rows.length, 'customers for phone pattern:', phone);
 
         return result.rows;
     } catch (error) {
