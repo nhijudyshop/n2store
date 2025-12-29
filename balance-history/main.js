@@ -2800,6 +2800,11 @@ async function showPhoneDataModal() {
                 noteIcon = '📞';
             }
 
+            // Format total amount
+            const totalAmount = parseFloat(row.total_amount) || 0;
+            const transactionCount = parseInt(row.transaction_count) || 0;
+            const totalAmountFormatted = formatCurrency(totalAmount);
+
             // Format name_fetch_status with badges
             const fetchStatus = row.name_fetch_status || '-';
             let statusBadge = '';
@@ -2823,6 +2828,12 @@ async function showPhoneDataModal() {
                     <td><code style="font-size: 11px; background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">${row.unique_code}</code></td>
                     <td><strong style="color: #3b82f6;">${row.customer_phone || '-'}</strong></td>
                     <td>${customerName}</td>
+                    <td>
+                        <div style="text-align: right;">
+                            <strong style="color: #10b981; font-size: 13px;">${totalAmountFormatted}</strong>
+                            ${transactionCount > 0 ? `<div style="font-size: 10px; color: #6b7280;">(${transactionCount} GD)</div>` : ''}
+                        </div>
+                    </td>
                     <td style="font-size: 12px; color: ${noteColor};">${noteIcon} ${extractionNote}</td>
                     <td>${statusBadge}</td>
                     <td style="font-size: 12px; color: #6b7280;">${createdAt}</td>
