@@ -2620,13 +2620,14 @@ router.post('/pending-matches/:id/skip', async (req, res) => {
  */
 router.get('/phone-data', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { limit = 100, offset = 0 } = req.query;
+    const { limit = 50, offset = 0, include_totals = 'false' } = req.query;
 
     try {
-        const limitCount = Math.min(parseInt(limit) || 100, 500);
+        const limitCount = Math.min(parseInt(limit) || 50, 200); // Reduced from 500 to 200
         const offsetCount = parseInt(offset) || 0;
+        const includeTotals = include_totals === 'true';
 
-        console.log(`[PHONE-DATA] Fetching phone data: limit=${limitCount}, offset=${offsetCount}`);
+        console.log(`[PHONE-DATA] Fetching phone data: limit=${limitCount}, offset=${offsetCount}, include_totals=${includeTotals}`);
 
         // Get total count
         const countResult = await db.query(
@@ -2634,39 +2635,63 @@ router.get('/phone-data', async (req, res) => {
         );
         const total = parseInt(countResult.rows[0]?.total || 0);
 
-        // Get phone data with total transaction amount
-        const dataResult = await db.query(
-            `SELECT
-                bci.id,
-                bci.unique_code,
-                bci.customer_name,
-                bci.customer_phone,
-                bci.extraction_note,
-                bci.name_fetch_status,
-                bci.created_at,
-                bci.updated_at,
-                COALESCE(SUM(CASE WHEN bh.transfer_type = 'in' THEN bh.transfer_amount ELSE 0 END), 0) as total_amount,
-                COUNT(bh.id) as transaction_count
-             FROM balance_customer_info bci
-             LEFT JOIN balance_history bh ON (
-                 bh.transfer_type = 'in' AND (
-                     -- Match by QR code in content
-                     (bci.unique_code ~* '^N2[A-Z0-9]{16}$' AND bh.content ~* bci.unique_code)
-                     OR
-                     -- Match by partial phone from extraction note
-                     (bci.extraction_note LIKE 'AUTO_MATCHED_FROM_PARTIAL:%'
-                      AND bh.content LIKE '%' || SUBSTRING(bci.extraction_note FROM 'AUTO_MATCHED_FROM_PARTIAL:(.*)') || '%')
-                     OR
-                     -- Match by exact phone in content
-                     (bci.customer_phone IS NOT NULL AND bh.content LIKE '%' || bci.customer_phone || '%')
+        // Get phone data - WITH or WITHOUT transaction totals based on parameter
+        let dataResult;
+
+        if (includeTotals) {
+            // SLOW query with SUM/COUNT aggregation
+            dataResult = await db.query(
+                `SELECT
+                    bci.id,
+                    bci.unique_code,
+                    bci.customer_name,
+                    bci.customer_phone,
+                    bci.extraction_note,
+                    bci.name_fetch_status,
+                    bci.created_at,
+                    bci.updated_at,
+                    COALESCE(SUM(CASE WHEN bh.transfer_type = 'in' THEN bh.transfer_amount ELSE 0 END), 0) as total_amount,
+                    COUNT(bh.id) as transaction_count
+                 FROM balance_customer_info bci
+                 LEFT JOIN balance_history bh ON (
+                     bh.transfer_type = 'in' AND (
+                         -- Match by QR code in content
+                         (bci.unique_code ~* '^N2[A-Z0-9]{16}$' AND bh.content ~* bci.unique_code)
+                         OR
+                         -- Match by partial phone from extraction note
+                         (bci.extraction_note LIKE 'AUTO_MATCHED_FROM_PARTIAL:%'
+                          AND bh.content LIKE '%' || SUBSTRING(bci.extraction_note FROM 'AUTO_MATCHED_FROM_PARTIAL:(.*)') || '%')
+                         OR
+                         -- Match by exact phone in content
+                         (bci.customer_phone IS NOT NULL AND bh.content LIKE '%' || bci.customer_phone || '%')
+                     )
                  )
-             )
-             GROUP BY bci.id, bci.unique_code, bci.customer_name, bci.customer_phone,
-                      bci.extraction_note, bci.name_fetch_status, bci.created_at, bci.updated_at
-             ORDER BY bci.created_at DESC
-             LIMIT $1 OFFSET $2`,
-            [limitCount, offsetCount]
-        );
+                 GROUP BY bci.id, bci.unique_code, bci.customer_name, bci.customer_phone,
+                          bci.extraction_note, bci.name_fetch_status, bci.created_at, bci.updated_at
+                 ORDER BY bci.created_at DESC
+                 LIMIT $1 OFFSET $2`,
+                [limitCount, offsetCount]
+            );
+        } else {
+            // FAST query without JOIN - just get customer info
+            dataResult = await db.query(
+                `SELECT
+                    id,
+                    unique_code,
+                    customer_name,
+                    customer_phone,
+                    extraction_note,
+                    name_fetch_status,
+                    created_at,
+                    updated_at,
+                    0 as total_amount,
+                    0 as transaction_count
+                 FROM balance_customer_info
+                 ORDER BY created_at DESC
+                 LIMIT $1 OFFSET $2`,
+                [limitCount, offsetCount]
+            );
+        }
 
         console.log(`[PHONE-DATA] Found ${dataResult.rows.length} records (total: ${total})`);
 

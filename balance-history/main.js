@@ -2630,8 +2630,8 @@ async function fetchMissingTransaction(referenceCode) {
  */
 async function fetchCustomerNamesFromTPOS() {
     try {
-        // Fetch phone data from database
-        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=500`);
+        // Fetch phone data from database (without totals for speed)
+        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=500&include_totals=false`);
         const result = await response.json();
 
         if (!result.success || !result.data) {
@@ -2889,7 +2889,8 @@ async function showPhoneDataModal() {
     try {
         console.log('[PHONE-DATA] Fetching phone data...');
 
-        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=500`);
+        // Reduced limit to 100 with totals enabled for better performance
+        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=100&include_totals=true`);
         const result = await response.json();
 
         if (!result.success) {
