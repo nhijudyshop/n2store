@@ -2266,4 +2266,116 @@ router.post('/pending-matches/:id/skip', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/sepay/batch-update-phones
+ * Batch update phone numbers for existing transactions
+ * This is useful for retroactively extracting phone numbers from old transactions
+ */
+router.post('/batch-update-phones', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { limit = 100, force = false } = req.body;
+
+    try {
+        console.log('[BATCH-UPDATE] Starting batch phone update...');
+
+        // Get transactions that need phone extraction
+        const filter = force ? '' : 'AND debt_added = FALSE';
+        const query = `
+            SELECT id, content, transfer_type
+            FROM balance_history
+            WHERE transfer_type = 'in'
+            ${filter}
+            ORDER BY transaction_date DESC
+            LIMIT $1
+        `;
+
+        const result = await db.query(query, [Math.min(limit, 500)]);
+        const transactions = result.rows;
+
+        console.log(`[BATCH-UPDATE] Found ${transactions.length} transactions to process`);
+
+        const results = {
+            total: transactions.length,
+            processed: 0,
+            success: 0,
+            failed: 0,
+            skipped: 0,
+            details: []
+        };
+
+        // Process each transaction
+        for (const tx of transactions) {
+            results.processed++;
+
+            try {
+                const extractedPhone = extractPhoneFromContent(tx.content);
+
+                if (!extractedPhone) {
+                    results.skipped++;
+                    results.details.push({
+                        transaction_id: tx.id,
+                        status: 'skipped',
+                        reason: 'No phone found'
+                    });
+                    continue;
+                }
+
+                // Generate unique code
+                const uniqueCode = `PHONE${extractedPhone}`;
+
+                // Save to balance_customer_info
+                await db.query(
+                    `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name)
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (unique_code) DO UPDATE SET
+                         customer_phone = EXCLUDED.customer_phone,
+                         updated_at = CURRENT_TIMESTAMP`,
+                    [uniqueCode, extractedPhone, null]
+                );
+
+                // Mark transaction as processed
+                await db.query(
+                    `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
+                    [tx.id]
+                );
+
+                results.success++;
+                results.details.push({
+                    transaction_id: tx.id,
+                    status: 'success',
+                    extracted_phone: extractedPhone,
+                    unique_code: uniqueCode
+                });
+
+                console.log(`[BATCH-UPDATE] ✅ Transaction ${tx.id}: ${extractedPhone}`);
+
+            } catch (error) {
+                results.failed++;
+                results.details.push({
+                    transaction_id: tx.id,
+                    status: 'failed',
+                    error: error.message
+                });
+                console.error(`[BATCH-UPDATE] ❌ Transaction ${tx.id}:`, error.message);
+            }
+        }
+
+        console.log('[BATCH-UPDATE] Complete:', results);
+
+        res.json({
+            success: true,
+            message: `Batch update completed: ${results.success} success, ${results.failed} failed, ${results.skipped} skipped`,
+            data: results
+        });
+
+    } catch (error) {
+        console.error('[BATCH-UPDATE] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to batch update phones',
+            message: error.message
+        });
+    }
+});
+
 module.exports = router;
