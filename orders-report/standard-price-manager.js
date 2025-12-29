@@ -1,6 +1,6 @@
 // =====================================================
 // STANDARD PRICE MANAGER
-// Fetch và cache giá vốn từ API ExportFileWithStandardPriceV2
+// Fetch và cache giá vốn từ API ExportProductV2
 // =====================================================
 
 class StandardPriceManager {
@@ -10,9 +10,9 @@ class StandardPriceManager {
         this.isLoaded = false;
         this.isLoading = false;
         this.lastFetchTime = null;
-        this.storageKey = "standard_price_cache_v1";
+        this.storageKey = "standard_price_cache_v2"; // v2 for ExportProductV2
         this.CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
-        this.API_ENDPOINT = "https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithStandardPriceV2";
+        this.API_ENDPOINT = "https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportProductV2?Active=true";
 
         this.init();
     }
@@ -129,19 +129,32 @@ class StandardPriceManager {
             // Get auth headers
             const headers = await window.tokenManager.getAuthHeader();
 
-            // POST request to get Excel file
-            // Sử dụng headers đơn giản giống ExportFileWithVariantPrice (hoạt động OK)
+            // POST request to get Excel file from ExportProductV2
+            // Request body format: {data: JSON.stringify({Filter...}), ids: []}
+            const requestBody = {
+                data: JSON.stringify({
+                    Filter: {
+                        logic: "and",
+                        filters: [
+                            {
+                                field: "Active",
+                                operator: "eq",
+                                value: true,
+                                Clear: "Clear"
+                            }
+                        ]
+                    }
+                }),
+                ids: []
+            };
+
             const response = await fetch(this.API_ENDPOINT, {
                 method: "POST",
                 headers: {
                     ...headers,
                     "Content-Type": "application/json",
-                    "Accept": "*/*",
                 },
-                body: JSON.stringify({
-                    model: { Active: "true" },
-                    ids: "",
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             if (!response.ok) {
