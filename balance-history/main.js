@@ -2653,21 +2653,6 @@ async function fetchMissingTransaction(referenceCode) {
  */
 async function fetchCustomerNamesFromTPOS() {
     try {
-        // Get TPOS token from localStorage
-        const authData = localStorage.getItem('loginindex_auth');
-        if (!authData) {
-            alert('❌ Không tìm thấy TPOS token!\n\nVui lòng đăng nhập vào TPOS trước.');
-            return;
-        }
-
-        const auth = JSON.parse(authData);
-        const token = auth.access_token;
-
-        if (!token) {
-            alert('❌ TPOS token không hợp lệ!');
-            return;
-        }
-
         // Fetch phone data from database
         const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=500`);
         const result = await response.json();
@@ -2703,47 +2688,21 @@ async function fetchCustomerNamesFromTPOS() {
                 const phone = row.customer_phone;
                 console.log(`[FETCH-NAMES] Fetching name for: ${phone}`);
 
-                // Call TPOS API via Cloudflare Worker
-                const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${phone}&$top=50&$orderby=DateCreated+desc&$count=true`;
-                const headers = JSON.stringify({
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                });
-
-                const proxyUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/proxy?url=${encodeURIComponent(tposUrl)}&headers=${encodeURIComponent(headers)}`;
-
-                const tposResponse = await fetch(proxyUrl);
+                // Call backend API (uses automatic TPOS token from environment)
+                const tposResponse = await fetch(`${API_BASE_URL}/api/sepay/tpos/customer/${phone}`);
                 const tposData = await tposResponse.json();
 
-                if (!tposData.value || tposData.value.length === 0) {
+                if (!tposData.success || !tposData.data || tposData.data.length === 0) {
                     console.log(`[FETCH-NAMES] No customer found for ${phone}`);
                     skipped++;
                     continue;
                 }
 
-                // Group by unique 10-digit phone
-                const uniqueCustomers = [];
-                const seenPhones = new Set();
+                // Take first match
+                const customer = tposData.data[0];
+                const customerName = customer.name || 'Unknown';
 
-                for (const customer of tposData.value) {
-                    const custPhone = customer.Phone?.replace(/\D/g, '').slice(-10);
-                    if (custPhone && custPhone.length === 10 && !seenPhones.has(custPhone)) {
-                        seenPhones.add(custPhone);
-                        uniqueCustomers.push(customer);
-                    }
-                }
-
-                if (uniqueCustomers.length === 0) {
-                    console.log(`[FETCH-NAMES] No valid customers for ${phone}`);
-                    skipped++;
-                    continue;
-                }
-
-                // Take first match (or show modal if multiple - for now just take first)
-                const customer = uniqueCustomers[0];
-                const customerName = customer.Name || customer.FullName || 'Unknown';
-
-                console.log(`[FETCH-NAMES] Found: ${customerName} (${uniqueCustomers.length} matches)`);
+                console.log(`[FETCH-NAMES] Found: ${customerName} (${tposData.count} matches)`);
 
                 // Update database
                 const updateResponse = await fetch(`${API_BASE_URL}/api/sepay/customer-info/${row.unique_code}`, {
@@ -2779,7 +2738,9 @@ async function fetchCustomerNamesFromTPOS() {
 
         // Reload data
         loadData();
-        showPhoneDataModal(); // Refresh phone data modal if open
+        if (document.getElementById('phoneDataModal').style.display === 'flex') {
+            showPhoneDataModal(); // Refresh phone data modal if open
+        }
 
     } catch (error) {
         console.error('[FETCH-NAMES] Error:', error);
