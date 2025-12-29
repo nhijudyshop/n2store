@@ -177,6 +177,7 @@ class DiscountStatsCalculator {
             return {
                 orderId: order.Id,
                 orderCode: order.Code,
+                orderSTT: order.SessionIndex || null,
                 customerName: order.Name,
                 products: [],
                 summary: {
@@ -223,6 +224,9 @@ class DiscountStatsCalculator {
             const discountData = this.calculateProductDiscount(detail, listPrice, costPrice);
 
             if (discountData) {
+                // Thêm thông tin đơn hàng vào sản phẩm để hiển thị trong tab Chi Tiết SP
+                discountData.orderId = order.Id;
+                discountData.orderSTT = order.SessionIndex || null;
                 products.push(discountData);
                 totalListPrice += listPrice * quantity;
                 totalCostPrice += costPrice * quantity;
@@ -269,6 +273,7 @@ class DiscountStatsCalculator {
         return {
             orderId: order.Id,
             orderCode: order.Code,
+            orderSTT: order.SessionIndex || null,
             customerName: order.Name,
             products: products,
             summary: {
