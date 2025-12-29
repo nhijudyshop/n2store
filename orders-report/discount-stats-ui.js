@@ -356,6 +356,9 @@ class DiscountStatsUI {
                         <option value="danger">🔴 Nguy hiểm</option>
                         <option value="loss">⚫ Lỗ vốn</option>
                     </select>
+                    <button class="btn-export-excel" onclick="window.discountStatsUI.exportOrdersToExcel()">
+                        <i class="fas fa-file-excel"></i> Xuất Excel
+                    </button>
                 </div>
             </div>
             <div class="discount-table-wrapper">
@@ -406,6 +409,78 @@ class DiscountStatsUI {
                 row.style.display = 'none';
             }
         });
+    }
+
+    exportOrdersToExcel() {
+        if (!this.stats || !this.stats.orders) {
+            alert('Không có dữ liệu để xuất');
+            return;
+        }
+
+        try {
+            const calc = window.discountStatsCalculator;
+            const orders = this.stats.orders.filter(o => o.summary.discountedProductCount > 0);
+            const sorted = [...orders].sort((a, b) => b.summary.totalDiscountAmount - a.summary.totalDiscountAmount);
+
+            // Prepare data
+            const data = [];
+
+            // Header
+            data.push(['THỐNG KÊ GIẢM GIÁ - CHI TIẾT ĐƠN']);
+            data.push(['Xuất ngày:', new Date().toLocaleString('vi-VN')]);
+            data.push(['Tổng đơn:', orders.length]);
+            data.push([]);
+
+            // Column headers
+            data.push(['STT', 'Khách hàng', 'Tổng Giá Bán', 'Tổng Sau Giảm', 'Tiền Giảm']);
+
+            // Data rows
+            sorted.forEach(o => {
+                data.push([
+                    o.orderSTT || '-',
+                    o.customerName || '-',
+                    o.summary.totalListPrice || 0,
+                    o.summary.totalDiscountPrice || 0,
+                    o.summary.totalDiscountAmount || 0
+                ]);
+            });
+
+            // Totals
+            data.push([]);
+            const totals = sorted.reduce((acc, o) => {
+                acc.listPrice += o.summary.totalListPrice || 0;
+                acc.discountPrice += o.summary.totalDiscountPrice || 0;
+                acc.discountAmount += o.summary.totalDiscountAmount || 0;
+                return acc;
+            }, { listPrice: 0, discountPrice: 0, discountAmount: 0 });
+
+            data.push(['TỔNG', '', totals.listPrice, totals.discountPrice, totals.discountAmount]);
+
+            // Create worksheet
+            const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // Set column widths
+            ws['!cols'] = [
+                { wch: 10 },  // STT
+                { wch: 25 },  // Khách hàng
+                { wch: 15 },  // Tổng Giá Bán
+                { wch: 15 },  // Tổng Sau Giảm
+                { wch: 15 }   // Tiền Giảm
+            ];
+
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Chi Tiết Đơn');
+
+            // Save file
+            const fileName = `ThongKe_GiamGia_ChiTietDon_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+            alert('Đã xuất Excel thành công!');
+        } catch (error) {
+            console.error('Error exporting to Excel:', error);
+            alert('Lỗi xuất Excel: ' + error.message);
+        }
     }
 
     // ========================================
