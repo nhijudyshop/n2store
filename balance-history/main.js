@@ -202,6 +202,14 @@ function setupEventListeners() {
         });
     }
 
+    // Reprocess old transactions button
+    const reprocessOldTransactionsBtn = document.getElementById('reprocessOldTransactionsBtn');
+    if (reprocessOldTransactionsBtn) {
+        reprocessOldTransactionsBtn.addEventListener('click', async () => {
+            await reprocessOldTransactions();
+        });
+    }
+
     // Close phone data modal button
     const closePhoneDataModalBtn = document.getElementById('closePhoneDataModalBtn');
     if (closePhoneDataModalBtn) {
@@ -2723,6 +2731,89 @@ async function fetchCustomerNamesFromTPOS() {
     } catch (error) {
         console.error('[FETCH-NAMES] Error:', error);
         alert('❌ Lỗi: ' + error.message);
+    }
+}
+
+/**
+ * Reprocess old transactions to extract phones and fetch from TPOS
+ */
+async function reprocessOldTransactions() {
+    const limit = prompt('Nhập số lượng giao dịch cần xử lý (tối đa 500):', '100');
+
+    if (!limit) {
+        return; // User cancelled
+    }
+
+    const limitNum = parseInt(limit);
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 500) {
+        alert('❌ Số lượng không hợp lệ! Vui lòng nhập từ 1-500.');
+        return;
+    }
+
+    if (!confirm(`Xử lý lại ${limitNum} giao dịch cũ?\n\nHệ thống sẽ:\n- Extract phone từ nội dung (>= 5 số)\n- Tìm kiếm TPOS để lấy SĐT đầy đủ\n- Lưu thông tin khách hàng\n\nContinue?`)) {
+        return;
+    }
+
+    try {
+        console.log(`[REPROCESS] Starting batch reprocess for ${limitNum} transactions...`);
+
+        // Show loading indicator (reuse the button as status)
+        const btn = document.getElementById('reprocessOldTransactionsBtn');
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader"></i> Đang xử lý...';
+        lucide.createIcons();
+
+        const response = await fetch(`${API_BASE_URL}/api/sepay/batch-update-phones`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                limit: limitNum,
+                force: false  // Only process transactions where debt_added = FALSE
+            })
+        });
+
+        const result = await response.json();
+
+        // Restore button
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+        lucide.createIcons();
+
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to reprocess transactions');
+        }
+
+        console.log('[REPROCESS] Complete:', result.data);
+
+        const summary = result.data;
+        alert(
+            `✅ Xử lý hoàn tất!\n\n` +
+            `Tổng số: ${summary.total}\n` +
+            `Thành công: ${summary.success}\n` +
+            `Pending (nhiều SĐT): ${summary.pending_matches}\n` +
+            `Không tìm thấy TPOS: ${summary.not_found}\n` +
+            `Bỏ qua: ${summary.skipped}\n` +
+            `Lỗi: ${summary.failed}`
+        );
+
+        // Reload data to show updated customer info
+        loadData();
+        loadStatistics();
+
+    } catch (error) {
+        console.error('[REPROCESS] Error:', error);
+        alert('❌ Lỗi: ' + error.message);
+
+        // Restore button
+        const btn = document.getElementById('reprocessOldTransactionsBtn');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="rotate-cw"></i> Xử lý lại GD cũ';
+            lucide.createIcons();
+        }
     }
 }
 
