@@ -712,48 +712,6 @@ async function processDebtUpdate(db, transactionId) {
         return { success: false, reason: 'Database error', error: error.message };
     }
 
-    // OLD CODE - Multiple matches handling (no longer needed)
-    /*
-    console.log('[DEBT-UPDATE] Multiple matches found:', matchedCustomers.length);
-
-    try {
-        await db.query(
-            `INSERT INTO pending_customer_matches
-             (transaction_id, extracted_phone, matched_customers, status)
-             VALUES ($1, $2, $3, 'pending')
-             ON CONFLICT (transaction_id) WHERE status = 'pending' DO NOTHING`,
-            [
-                transactionId,
-                extractedPhone,
-                JSON.stringify(matchedCustomers.map(c => ({
-                    id: c.id,
-                    phone: c.phone,
-                    name: c.name,
-                    email: c.email,
-                    status: c.status,
-                    debt: c.debt
-                })))
-            ]
-        );
-
-        console.log('[DEBT-UPDATE] ⚠️  Saved to pending matches (multiple customers found)');
-
-        return {
-            success: false,
-            reason: 'Multiple customers found - pending admin review',
-            method: 'pending_match',
-            transactionId,
-            extractedPhone,
-            matchCount: matchedCustomers.length
-        };
-    } catch (pendingError) {
-        console.error('[DEBT-UPDATE] Failed to save pending match:', pendingError.message);
-        return {
-            success: false,
-            reason: 'Failed to save pending match',
-            error: pendingError.message
-        };
-    }
 }
 
 /**
