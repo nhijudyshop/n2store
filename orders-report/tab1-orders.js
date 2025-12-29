@@ -8155,6 +8155,9 @@ async function openEditModal(orderId) {
     }
 }
 
+// Export to window for use in discount stats UI
+window.openEditModal = openEditModal;
+
 async function fetchOrderData(orderId) {
     const headers = await window.tokenManager.getAuthHeader();
     const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
