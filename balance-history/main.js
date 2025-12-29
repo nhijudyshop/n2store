@@ -226,55 +226,6 @@ function setupEventListeners() {
         });
     }
 
-    // Batch update phones button
-    const updatePhonesBtn = document.getElementById('updatePhonesBtn');
-    if (updatePhonesBtn) {
-        updatePhonesBtn.addEventListener('click', async () => {
-            if (!confirm('Cập nhật phone cho tất cả transactions chưa xử lý?\n\nĐiều này sẽ extract phone từ nội dung chuyển khoản và lưu vào database.')) {
-                return;
-            }
-
-            updatePhonesBtn.disabled = true;
-            updatePhonesBtn.innerHTML = '<i data-lucide="loader-2"></i> Đang xử lý...';
-            lucide.createIcons();
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/sepay/batch-update-phones`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        limit: 100,
-                        force: false
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    alert(`✅ Cập nhật thành công!\n\n` +
-                        `Tổng: ${result.data.total}\n` +
-                        `Thành công: ${result.data.success}\n` +
-                        `Bỏ qua: ${result.data.skipped}\n` +
-                        `Lỗi: ${result.data.failed}`);
-
-                    // Reload data to show updated phones
-                    loadData();
-                } else {
-                    alert('❌ Lỗi: ' + result.message);
-                }
-            } catch (error) {
-                console.error('[UPDATE-PHONES] Error:', error);
-                alert('❌ Lỗi khi cập nhật: ' + error.message);
-            } finally {
-                updatePhonesBtn.disabled = false;
-                updatePhonesBtn.innerHTML = '<i data-lucide="phone"></i> Cập nhật Phone';
-                lucide.createIcons();
-            }
-        });
-    }
-
     applyFiltersBtn.addEventListener('click', () => {
         currentPage = 1;
         applyFilters();
