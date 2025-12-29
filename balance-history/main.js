@@ -581,30 +581,51 @@ function renderTable(data, skipGapDetection = false) {
 /**
  * Render a single transaction row
  */
+/**
+ * Generate unique QR code for transaction without existing QR code
+ * Format: N2TX{paddedTransactionId} (18 chars total)
+ * Example: N2TX000000002734 for transaction ID 2734
+ */
+function generateUniqueCodeForTransaction(transactionId) {
+    // Pad transaction ID to 14 digits (N2 + TX + 14 digits = 18 chars)
+    const paddedId = String(transactionId).padStart(14, '0');
+    return `N2TX${paddedId}`;
+}
+
 function renderTransactionRow(row) {
     // Extract unique code from content (look for N2 prefix pattern - exactly 18 chars)
     const content = row.content || '';
     const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
-    const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
+
+    // Use existing QR code from content, OR from row.qr_code (backend JOIN), OR generate new one
+    let uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : (row.qr_code || null);
+
+    // If still no unique code, generate one based on transaction ID
+    if (!uniqueCode) {
+        uniqueCode = generateUniqueCodeForTransaction(row.id);
+    }
 
     // Get customer info - PRIORITY:
     // 1. From backend JOIN (row.customer_phone, row.customer_name) - NEW!
     // 2. From CustomerInfoManager (QR code fallback)
-    let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
+    let customerDisplay = { name: 'Chưa có', phone: 'Chưa có', hasInfo: false };
 
     // Priority 1: Use data from backend LEFT JOIN (partial phone match)
     if (row.customer_phone || row.customer_name) {
         customerDisplay = {
-            name: row.customer_name || 'N/A',
-            phone: row.customer_phone || 'N/A',
+            name: row.customer_name || 'Chưa có',
+            phone: row.customer_phone || 'Chưa có',
             hasInfo: !!(row.customer_phone || row.customer_name)
         };
         console.log('[RENDER] Using backend JOIN data:', customerDisplay);
     }
     // Priority 2: Fallback to CustomerInfoManager (QR code)
-    else if (uniqueCode && window.CustomerInfoManager) {
-        customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
-        console.log('[RENDER] Using CustomerInfoManager:', customerDisplay);
+    else if (window.CustomerInfoManager) {
+        const managerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+        if (managerDisplay.hasInfo) {
+            customerDisplay = managerDisplay;
+            console.log('[RENDER] Using CustomerInfoManager:', customerDisplay);
+        }
     }
 
     return `
@@ -624,43 +645,30 @@ function renderTransactionRow(row) {
         <td>${truncateText(content || 'N/A', 50)}</td>
         <td>${row.reference_code || 'N/A'}</td>
         <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-            ${uniqueCode ? `
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <span>${customerDisplay.name}</span>
-                    ${hasPermission(2) ? `
-                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
-                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
-                        </button>
-                    ` : ''}
-                </div>
-            ` : `
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <span style="color: #999;">N/A</span>
-                    ${hasPermission(2) ? `
-                        <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('tx_${row.id}')" title="Thêm thông tin khách hàng" style="padding: 4px 6px;">
-                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
-                        </button>
-                    ` : ''}
-                </div>
-            `}
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <span style="${!customerDisplay.hasInfo ? 'color: #999; font-style: italic;' : ''}">${customerDisplay.name}</span>
+                ${hasPermission(2) ? `
+                    <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="${customerDisplay.hasInfo ? 'Chỉnh sửa thông tin' : 'Thêm thông tin khách hàng'}" style="padding: 4px 6px;">
+                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                    </button>
+                ` : ''}
+            </div>
         </td>
         <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-            ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
+            ${customerDisplay.hasInfo && customerDisplay.phone !== 'Chưa có' ? `
                 <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
                     ${customerDisplay.phone}
                     <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
                 </a>
-            ` : '<span style="color: #999;">N/A</span>'}
+            ` : `<span style="color: #999; font-style: italic;">${customerDisplay.phone}</span>`}
         </td>
         <td class="text-center">
-            ${uniqueCode ? `
-                <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
-                    <i data-lucide="qr-code"></i>
-                </button>
-                <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
-                    <i data-lucide="copy"></i>
-                </button>
-            ` : '<span style="color: #999;">N/A</span>'}
+            <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
+                <i data-lucide="qr-code"></i>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
+                <i data-lucide="copy"></i>
+            </button>
         </td>
         <td class="text-center">
             <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
