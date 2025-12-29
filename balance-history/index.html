@@ -83,6 +83,9 @@
                             </div>
                         </div>
 
+                        <button id="viewPhoneDataBtn" class="btn btn-info">
+                            <i data-lucide="phone-outgoing"></i> Xem Phone Data
+                        </button>
                         <button id="updatePhonesBtn" class="btn btn-warning">
                             <i data-lucide="phone"></i> Cập nhật Phone
                         </button>
@@ -487,6 +490,61 @@
             </div>
             <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeGapsModal()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phone Data Modal -->
+    <div id="phoneDataModal" class="modal">
+        <div class="modal-content" style="max-width: 1000px; max-height: 90vh;">
+            <div class="modal-header">
+                <h2><i data-lucide="phone-outgoing"></i> Dữ liệu Phone từ Balance Customer Info</h2>
+                <button class="modal-close" id="closePhoneDataModalBtn">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <!-- Loading State -->
+                <div id="phoneDataLoading" style="text-align: center; padding: 40px;">
+                    <i data-lucide="loader-2" class="animate-spin" style="width: 48px; height: 48px; color: #3b82f6;"></i>
+                    <p style="margin-top: 15px; color: #6b7280;">Đang tải dữ liệu...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div id="phoneDataEmpty" style="text-align: center; padding: 40px; display: none;">
+                    <i data-lucide="inbox" style="width: 48px; height: 48px; color: #9ca3af;"></i>
+                    <p style="margin-top: 15px; color: #6b7280;">Chưa có dữ liệu phone nào!</p>
+                    <p style="color: #9ca3af; font-size: 14px;">Click nút "Cập nhật Phone" để extract phone từ transactions.</p>
+                </div>
+
+                <!-- Phone Data Table -->
+                <div id="phoneDataContent" style="display: none;">
+                    <div style="margin-bottom: 15px; padding: 12px; background: #e0f2fe; border-left: 4px solid #3b82f6; border-radius: 4px;">
+                        <i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i>
+                        <span>Tổng: <strong id="phoneDataTotal">0</strong> records | Hiển thị: <strong id="phoneDataShown">0</strong></span>
+                    </div>
+
+                    <table class="data-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th style="width: 200px;">Unique Code</th>
+                                <th style="width: 150px;">Phone</th>
+                                <th style="width: 250px;">Customer Name</th>
+                                <th style="width: 180px;">Created At</th>
+                                <th style="width: 180px;">Updated At</th>
+                            </tr>
+                        </thead>
+                        <tbody id="phoneDataTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between;">
+                <div>
+                    <button id="refreshPhoneDataBtn" class="btn btn-primary btn-sm">
+                        <i data-lucide="refresh-cw"></i> Làm mới
+                    </button>
+                </div>
+                <button class="btn btn-secondary" onclick="closePhoneDataModal()">Đóng</button>
             </div>
         </div>
     </div>
