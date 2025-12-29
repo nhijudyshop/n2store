@@ -198,7 +198,8 @@ function setupEventListeners() {
     const viewPhoneDataBtn = document.getElementById('viewPhoneDataBtn');
     if (viewPhoneDataBtn) {
         viewPhoneDataBtn.addEventListener('click', () => {
-            showPhoneDataModal();
+            phoneDataCurrentPage = 1; // Reset to first page
+            showPhoneDataModal(1);
         });
     }
 
@@ -226,7 +227,28 @@ function setupEventListeners() {
     const refreshPhoneDataBtn = document.getElementById('refreshPhoneDataBtn');
     if (refreshPhoneDataBtn) {
         refreshPhoneDataBtn.addEventListener('click', () => {
-            showPhoneDataModal(); // Reload data
+            phoneDataCurrentPage = 1; // Reset to first page
+            showPhoneDataModal(1); // Reload data from first page
+        });
+    }
+
+    // Phone data pagination buttons
+    const phoneDataPrevBtn = document.getElementById('phoneDataPrevBtn');
+    if (phoneDataPrevBtn) {
+        phoneDataPrevBtn.addEventListener('click', () => {
+            if (phoneDataCurrentPage > 1) {
+                showPhoneDataModal(phoneDataCurrentPage - 1);
+            }
+        });
+    }
+
+    const phoneDataNextBtn = document.getElementById('phoneDataNextBtn');
+    if (phoneDataNextBtn) {
+        phoneDataNextBtn.addEventListener('click', () => {
+            const totalPages = Math.ceil(phoneDataTotalRecords / phoneDataPageSize);
+            if (phoneDataCurrentPage < totalPages) {
+                showPhoneDataModal(phoneDataCurrentPage + 1);
+            }
         });
     }
 
@@ -2729,7 +2751,7 @@ async function fetchCustomerNamesFromTPOS() {
         // Reload data
         loadData();
         if (document.getElementById('phoneDataModal').style.display === 'flex') {
-            showPhoneDataModal(); // Refresh phone data modal if open
+            showPhoneDataModal(phoneDataCurrentPage); // Refresh phone data modal at current page
         }
 
     } catch (error) {
@@ -2868,10 +2890,15 @@ async function reprocessOldTransactions() {
     }
 }
 
+// Phone data modal pagination state
+let phoneDataCurrentPage = 1;
+let phoneDataPageSize = 50; // Records per page
+let phoneDataTotalRecords = 0;
+
 /**
  * Show phone data modal with data from balance_customer_info
  */
-async function showPhoneDataModal() {
+async function showPhoneDataModal(page = 1) {
     const modal = document.getElementById('phoneDataModal');
     const loading = document.getElementById('phoneDataLoading');
     const empty = document.getElementById('phoneDataEmpty');
@@ -2887,10 +2914,13 @@ async function showPhoneDataModal() {
     content.style.display = 'none';
 
     try {
-        console.log('[PHONE-DATA] Fetching phone data...');
+        console.log(`[PHONE-DATA] Fetching phone data... (page ${page}, size ${phoneDataPageSize})`);
 
-        // Reduced limit to 100 with totals enabled for better performance
-        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=100&include_totals=true`);
+        // Calculate offset
+        const offset = (page - 1) * phoneDataPageSize;
+
+        // Fetch with pagination and totals enabled
+        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=${phoneDataPageSize}&offset=${offset}&include_totals=true`);
         const result = await response.json();
 
         if (!result.success) {
@@ -2902,11 +2932,15 @@ async function showPhoneDataModal() {
 
         console.log(`[PHONE-DATA] Loaded ${data.length} records (total: ${total})`);
 
+        // Update pagination state
+        phoneDataCurrentPage = page;
+        phoneDataTotalRecords = total;
+
         // Hide loading
         loading.style.display = 'none';
 
-        if (data.length === 0) {
-            // Show empty state
+        if (data.length === 0 && page === 1) {
+            // Show empty state (only on first page)
             empty.style.display = 'block';
             return;
         }
@@ -2914,13 +2948,18 @@ async function showPhoneDataModal() {
         // Show content
         content.style.display = 'block';
         totalSpan.textContent = total;
-        shownSpan.textContent = data.length;
+
+        // Calculate range
+        const startRecord = offset + 1;
+        const endRecord = Math.min(offset + data.length, total);
+        shownSpan.textContent = `${startRecord}-${endRecord}`;
 
         // Render table
         tableBody.innerHTML = data.map((row, index) => {
             const createdAt = new Date(row.created_at).toLocaleString('vi-VN');
             const updatedAt = new Date(row.updated_at).toLocaleString('vi-VN');
             const customerName = row.customer_name || '<em style="color: #9ca3af;">Chưa có</em>';
+            const rowNumber = offset + index + 1; // Correct row number with pagination
 
             // Format extraction_note with color coding
             const extractionNote = row.extraction_note || '-';
@@ -2967,7 +3006,7 @@ async function showPhoneDataModal() {
 
             return `
                 <tr>
-                    <td>${index + 1}</td>
+                    <td>${rowNumber}</td>
                     <td><code style="font-size: 11px; background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">${row.unique_code}</code></td>
                     <td><strong style="color: #3b82f6;">${row.customer_phone || '-'}</strong></td>
                     <td>${customerName}</td>
@@ -2984,6 +3023,9 @@ async function showPhoneDataModal() {
                 </tr>
             `;
         }).join('');
+
+        // Render pagination controls
+        renderPhoneDataPagination();
 
         // Initialize Lucide icons
         if (window.lucide) {
@@ -3006,11 +3048,64 @@ async function showPhoneDataModal() {
 }
 
 /**
+ * Render pagination controls for phone data modal
+ */
+function renderPhoneDataPagination() {
+    const paginationContainer = document.getElementById('phoneDataPagination');
+    const pageInfo = document.getElementById('phoneDataPageInfo');
+    const prevBtn = document.getElementById('phoneDataPrevBtn');
+    const nextBtn = document.getElementById('phoneDataNextBtn');
+
+    if (!paginationContainer || !pageInfo || !prevBtn || !nextBtn) {
+        console.error('[PHONE-DATA] Pagination elements not found');
+        return;
+    }
+
+    // Calculate total pages
+    const totalPages = Math.ceil(phoneDataTotalRecords / phoneDataPageSize);
+
+    // Show/hide pagination based on total pages
+    if (totalPages <= 1) {
+        paginationContainer.style.display = 'none';
+        return;
+    }
+
+    paginationContainer.style.display = 'flex';
+
+    // Update page info
+    pageInfo.textContent = `Trang ${phoneDataCurrentPage} / ${totalPages}`;
+
+    // Enable/disable buttons
+    prevBtn.disabled = phoneDataCurrentPage <= 1;
+    nextBtn.disabled = phoneDataCurrentPage >= totalPages;
+
+    // Update button styles
+    if (prevBtn.disabled) {
+        prevBtn.style.opacity = '0.5';
+        prevBtn.style.cursor = 'not-allowed';
+    } else {
+        prevBtn.style.opacity = '1';
+        prevBtn.style.cursor = 'pointer';
+    }
+
+    if (nextBtn.disabled) {
+        nextBtn.style.opacity = '0.5';
+        nextBtn.style.cursor = 'not-allowed';
+    } else {
+        nextBtn.style.opacity = '1';
+        nextBtn.style.cursor = 'pointer';
+    }
+}
+
+/**
  * Close phone data modal
  */
 function closePhoneDataModal() {
     const modal = document.getElementById('phoneDataModal');
     modal.style.display = 'none';
+
+    // Reset pagination state
+    phoneDataCurrentPage = 1;
 }
 
 // Export functions for global access
