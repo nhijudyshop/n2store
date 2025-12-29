@@ -194,6 +194,30 @@ function setupEventListeners() {
         loadStatistics();
     });
 
+    // View phone data button
+    const viewPhoneDataBtn = document.getElementById('viewPhoneDataBtn');
+    if (viewPhoneDataBtn) {
+        viewPhoneDataBtn.addEventListener('click', () => {
+            showPhoneDataModal();
+        });
+    }
+
+    // Close phone data modal button
+    const closePhoneDataModalBtn = document.getElementById('closePhoneDataModalBtn');
+    if (closePhoneDataModalBtn) {
+        closePhoneDataModalBtn.addEventListener('click', () => {
+            closePhoneDataModal();
+        });
+    }
+
+    // Refresh phone data button
+    const refreshPhoneDataBtn = document.getElementById('refreshPhoneDataBtn');
+    if (refreshPhoneDataBtn) {
+        refreshPhoneDataBtn.addEventListener('click', () => {
+            showPhoneDataModal(); // Reload data
+        });
+    }
+
     // Batch update phones button
     const updatePhonesBtn = document.getElementById('updatePhonesBtn');
     if (updatePhonesBtn) {
@@ -2616,6 +2640,99 @@ async function fetchMissingTransaction(referenceCode) {
     }
 }
 
+/**
+ * Show phone data modal with data from balance_customer_info
+ */
+async function showPhoneDataModal() {
+    const modal = document.getElementById('phoneDataModal');
+    const loading = document.getElementById('phoneDataLoading');
+    const empty = document.getElementById('phoneDataEmpty');
+    const content = document.getElementById('phoneDataContent');
+    const tableBody = document.getElementById('phoneDataTableBody');
+    const totalSpan = document.getElementById('phoneDataTotal');
+    const shownSpan = document.getElementById('phoneDataShown');
+
+    // Show modal and loading state
+    modal.style.display = 'flex';
+    loading.style.display = 'block';
+    empty.style.display = 'none';
+    content.style.display = 'none';
+
+    try {
+        console.log('[PHONE-DATA] Fetching phone data...');
+
+        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=500`);
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to fetch phone data');
+        }
+
+        const data = result.data || [];
+        const total = result.pagination?.total || 0;
+
+        console.log(`[PHONE-DATA] Loaded ${data.length} records (total: ${total})`);
+
+        // Hide loading
+        loading.style.display = 'none';
+
+        if (data.length === 0) {
+            // Show empty state
+            empty.style.display = 'block';
+            return;
+        }
+
+        // Show content
+        content.style.display = 'block';
+        totalSpan.textContent = total;
+        shownSpan.textContent = data.length;
+
+        // Render table
+        tableBody.innerHTML = data.map((row, index) => {
+            const createdAt = new Date(row.created_at).toLocaleString('vi-VN');
+            const updatedAt = new Date(row.updated_at).toLocaleString('vi-VN');
+            const customerName = row.customer_name || '<em style="color: #9ca3af;">Chưa có</em>';
+
+            return `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td><code style="font-size: 12px; background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">${row.unique_code}</code></td>
+                    <td><strong style="color: #3b82f6;">${row.customer_phone || '-'}</strong></td>
+                    <td>${customerName}</td>
+                    <td style="font-size: 13px; color: #6b7280;">${createdAt}</td>
+                    <td style="font-size: 13px; color: #6b7280;">${updatedAt}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // Initialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+
+    } catch (error) {
+        console.error('[PHONE-DATA] Error:', error);
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+        empty.innerHTML = `
+            <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: #ef4444;"></i>
+            <p style="margin-top: 15px; color: #ef4444;">Lỗi khi tải dữ liệu!</p>
+            <p style="color: #9ca3af; font-size: 14px;">${error.message}</p>
+        `;
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+}
+
+/**
+ * Close phone data modal
+ */
+function closePhoneDataModal() {
+    const modal = document.getElementById('phoneDataModal');
+    modal.style.display = 'none';
+}
+
 // Export functions for global access
 window.showGapsModal = showGapsModal;
 window.closeGapsModal = closeGapsModal;
@@ -2623,6 +2740,8 @@ window.ignoreGap = ignoreGap;
 window.rescanGaps = rescanGaps;
 window.retryFailedQueue = retryFailedQueue;
 window.fetchMissingTransaction = fetchMissingTransaction;
+window.showPhoneDataModal = showPhoneDataModal;
+window.closePhoneDataModal = closePhoneDataModal;
 
 // Disconnect when page unloads
 window.addEventListener('beforeunload', () => {

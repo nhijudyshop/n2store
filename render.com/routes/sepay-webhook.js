@@ -2267,6 +2267,67 @@ router.post('/pending-matches/:id/skip', async (req, res) => {
 });
 
 /**
+ * GET /api/sepay/phone-data
+ * Get all phone data from balance_customer_info table
+ * Query params:
+ *   - limit: max results (default: 100, max: 500)
+ *   - offset: pagination offset (default: 0)
+ */
+router.get('/phone-data', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { limit = 100, offset = 0 } = req.query;
+
+    try {
+        const limitCount = Math.min(parseInt(limit) || 100, 500);
+        const offsetCount = parseInt(offset) || 0;
+
+        console.log(`[PHONE-DATA] Fetching phone data: limit=${limitCount}, offset=${offsetCount}`);
+
+        // Get total count
+        const countResult = await db.query(
+            `SELECT COUNT(*) as total FROM balance_customer_info`
+        );
+        const total = parseInt(countResult.rows[0]?.total || 0);
+
+        // Get phone data
+        const dataResult = await db.query(
+            `SELECT
+                id,
+                unique_code,
+                customer_name,
+                customer_phone,
+                created_at,
+                updated_at
+             FROM balance_customer_info
+             ORDER BY created_at DESC
+             LIMIT $1 OFFSET $2`,
+            [limitCount, offsetCount]
+        );
+
+        console.log(`[PHONE-DATA] Found ${dataResult.rows.length} records (total: ${total})`);
+
+        res.json({
+            success: true,
+            data: dataResult.rows,
+            pagination: {
+                total,
+                limit: limitCount,
+                offset: offsetCount,
+                returned: dataResult.rows.length
+            }
+        });
+
+    } catch (error) {
+        console.error('[PHONE-DATA] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch phone data',
+            message: error.message
+        });
+    }
+});
+
+/**
  * POST /api/sepay/batch-update-phones
  * Batch update phone numbers for existing transactions
  * This is useful for retroactively extracting phone numbers from old transactions
