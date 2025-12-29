@@ -770,8 +770,9 @@ function updateBookingFilterCount(filtered, total) {
     }
 }
 
-// Initialize booking filters on DOM ready
+// Initialize all filters on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
+    initFilters();
     initBookingFilters();
 });
 

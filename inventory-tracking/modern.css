@@ -317,7 +317,7 @@ body {
 }
 
 /* Tab 1 - Đặt hàng (Green) */
-.tab-btn[data-tab="tab1"].active {
+.tab-btn[data-tab="booking"].active {
     color: white;
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     border-bottom-color: #047857;
@@ -325,7 +325,7 @@ body {
 }
 
 /* Tab 2 - Theo dõi đơn hàng (Blue) */
-.tab-btn[data-tab="tab2"].active {
+.tab-btn[data-tab="tracking"].active {
     color: white;
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     border-bottom-color: #1d4ed8;
@@ -333,7 +333,7 @@ body {
 }
 
 /* Tab 3 - Công nợ (Purple) */
-.tab-btn[data-tab="tab3"].active {
+.tab-btn[data-tab="finance"].active {
     color: white;
     background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
     border-bottom-color: #6d28d9;
