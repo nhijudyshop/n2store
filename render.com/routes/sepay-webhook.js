@@ -516,13 +516,13 @@ async function logWebhook(db, sepayId, req, statusCode, responseBody, errorMessa
  * Extract customer identifier from transaction content
  * Priority:
  * 1. QR Code N2 (starts with N2, 18 chars) - if found, skip phone extraction
- * 2. Phone number (exactly 10 digits, starts with 0)
+ * 2. Partial phone number (>= 5 digits) - will search TPOS to get full phone
  *
  * Returns:
  * {
- *   type: 'qr_code' | 'phone' | 'none',
+ *   type: 'qr_code' | 'partial_phone' | 'none',
  *   value: string | null,
- *   uniqueCode: string | null,
+ *   uniqueCode: string | null (only for QR),
  *   note: string
  * }
  */
@@ -558,32 +558,19 @@ function extractPhoneFromContent(content) {
         };
     }
 
-    // Step 3: Extract phone number (exactly 10 digits, must start with 0)
-    // Find all 10-digit sequences that start with 0
-    const phonePattern = /\b0\d{9}\b/g;
-    const allPhones = textToParse.match(phonePattern);
+    // Step 3: Extract partial phone number (>= 5 digits)
+    // Will search TPOS to get full 10-digit phone
+    const partialPhonePattern = /\d{5,}/g;
+    const allNumbers = textToParse.match(partialPhonePattern);
 
-    if (allPhones && allPhones.length > 0) {
-        const phone = allPhones[allPhones.length - 1]; // Take last match
-        console.log('[EXTRACT] ✅ Found phone (10 digits, last occurrence):', phone);
+    if (allNumbers && allNumbers.length > 0) {
+        const partialPhone = allNumbers[allNumbers.length - 1]; // Take last match
+        console.log('[EXTRACT] ✅ Found partial phone (>= 5 digits, last occurrence):', partialPhone);
         return {
-            type: 'phone',
-            value: phone,
-            uniqueCode: `PHONE${phone}`,
-            note: allPhones.length > 1 ? 'MULTIPLE_PHONES_FOUND' : 'PHONE_EXTRACTED'
-        };
-    }
-
-    // Step 4: Check if there are any number sequences (for debugging)
-    const anyNumbers = textToParse.match(/\d{5,}/g);
-    if (anyNumbers) {
-        const invalidPhone = anyNumbers[anyNumbers.length - 1];
-        console.log('[EXTRACT] ⚠️ Found number sequence but invalid (not 10 digits):', invalidPhone);
-        return {
-            type: 'none',
-            value: null,
-            uniqueCode: null,
-            note: `INVALID_PHONE_LENGTH:${invalidPhone.length}`
+            type: 'partial_phone',
+            value: partialPhone,
+            uniqueCode: null, // Will be determined after TPOS search
+            note: allNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED'
         };
     }
 
@@ -594,6 +581,106 @@ function extractPhoneFromContent(content) {
         uniqueCode: null,
         note: 'NO_PHONE_FOUND'
     };
+}
+
+/**
+ * Search TPOS Partner API by partial phone number
+ * Returns grouped unique customers by 10-digit phone
+ *
+ * @param {string} partialPhone - Partial phone (>= 5 digits)
+ * @returns {Promise<{
+ *   success: boolean,
+ *   uniquePhones: Array<{phone: string, customers: Array}>,
+ *   totalResults: number
+ * }>}
+ */
+async function searchTPOSByPartialPhone(partialPhone) {
+    try {
+        console.log(`[TPOS-SEARCH] Searching for partial phone: ${partialPhone}`);
+
+        // Get TPOS token
+        const token = await tposTokenManager.getToken();
+
+        // Call TPOS Partner API
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${partialPhone}&$top=50&$orderby=DateCreated+desc&$count=true`;
+
+        const response = await fetch(tposUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const totalResults = data['@odata.count'] || 0;
+
+        console.log(`[TPOS-SEARCH] Found ${totalResults} total results for ${partialPhone}`);
+
+        if (!data.value || !Array.isArray(data.value) || data.value.length === 0) {
+            return {
+                success: true,
+                uniquePhones: [],
+                totalResults: 0
+            };
+        }
+
+        // Group by unique 10-digit phone
+        const phoneMap = new Map();
+
+        for (const customer of data.value) {
+            const phone = customer.Phone?.replace(/\D/g, '').slice(-10);
+
+            // Only accept valid 10-digit phones starting with 0
+            if (phone && phone.length === 10 && phone.startsWith('0')) {
+                if (!phoneMap.has(phone)) {
+                    phoneMap.set(phone, []);
+                }
+                phoneMap.get(phone).push({
+                    id: customer.Id,
+                    name: customer.Name || customer.DisplayName,
+                    phone: phone,
+                    email: customer.Email,
+                    address: customer.FullAddress || customer.Street,
+                    network: customer.NameNetwork,
+                    status: customer.Status,
+                    credit: customer.Credit,
+                    debit: customer.Debit
+                });
+            }
+        }
+
+        // Convert map to array
+        const uniquePhones = Array.from(phoneMap.entries()).map(([phone, customers]) => ({
+            phone,
+            customers, // Array of customers with this phone (sorted by DateCreated desc from TPOS)
+            count: customers.length
+        }));
+
+        console.log(`[TPOS-SEARCH] Grouped into ${uniquePhones.length} unique phones:`);
+        uniquePhones.forEach(({phone, count}) => {
+            console.log(`  - ${phone}: ${count} customer(s)`);
+        });
+
+        return {
+            success: true,
+            uniquePhones,
+            totalResults
+        };
+
+    } catch (error) {
+        console.error('[TPOS-SEARCH] Error:', error);
+        return {
+            success: false,
+            error: error.message,
+            uniquePhones: [],
+            totalResults: 0
+        };
+    }
 }
 
 /**
@@ -716,14 +803,14 @@ async function processDebtUpdate(db, transactionId) {
         }
     }
 
-    // 8. FALLBACK: No QR code or QR not linked to phone -> Try to extract phone from content
+    // 8. FALLBACK: No QR code or QR not linked to phone -> Try to extract partial phone from content
     console.log('[DEBT-UPDATE] No QR code linked to phone, trying extraction...');
 
     const extractResult = extractPhoneFromContent(content);
 
     console.log('[DEBT-UPDATE] Extract result:', extractResult);
 
-    // Only accept QR code or phone type
+    // Check extraction result
     if (extractResult.type === 'none') {
         console.log('[DEBT-UPDATE] No valid identifier found:', extractResult.note);
         return {
@@ -734,64 +821,143 @@ async function processDebtUpdate(db, transactionId) {
     }
 
     const amount = parseInt(tx.transfer_amount) || 0;
-    const uniqueCode = extractResult.uniqueCode;
-    const value = extractResult.value;
-    const extractionNote = extractResult.note;
 
-    try {
-        // Save to balance_customer_info with extraction tracking
-        await db.query(
-            `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (unique_code) DO UPDATE SET
-                 customer_phone = CASE WHEN EXCLUDED.customer_phone IS NOT NULL THEN EXCLUDED.customer_phone ELSE balance_customer_info.customer_phone END,
-                 extraction_note = COALESCE(EXCLUDED.extraction_note, balance_customer_info.extraction_note),
-                 updated_at = CURRENT_TIMESTAMP`,
-            [
-                uniqueCode,
-                extractResult.type === 'phone' ? value : null, // Only save phone if type is phone
-                null, // customer_name - will be fetched later
-                extractionNote,
-                extractResult.type === 'phone' ? 'PENDING' : 'NO_PHONE_TO_FETCH'
-            ]
-        );
+    // 9. Search TPOS with partial phone
+    if (extractResult.type === 'partial_phone') {
+        const partialPhone = extractResult.value;
+        console.log('[DEBT-UPDATE] Searching TPOS with partial phone:', partialPhone);
 
-        console.log('[DEBT-UPDATE] Saved to balance_customer_info:', {
-            uniqueCode,
-            type: extractResult.type,
-            value,
-            note: extractionNote
-        });
+        const tposResult = await searchTPOSByPartialPhone(partialPhone);
 
-        // Mark transaction as processed
-        await db.query(
-            `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
-            [transactionId]
-        );
+        if (!tposResult.success || tposResult.uniquePhones.length === 0) {
+            console.log('[DEBT-UPDATE] No customers found in TPOS for:', partialPhone);
 
-        console.log('[DEBT-UPDATE] ✅ Success (extraction - auto save):', {
-            transactionId,
-            type: extractResult.type,
-            value,
-            uniqueCode,
-            amount,
-            note: extractionNote
-        });
+            // Save to balance_customer_info with note
+            await db.query(
+                `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+                 VALUES ($1, $2, $3, $4, $5)
+                 ON CONFLICT (unique_code) DO UPDATE SET
+                     extraction_note = EXCLUDED.extraction_note,
+                     name_fetch_status = EXCLUDED.name_fetch_status,
+                     updated_at = CURRENT_TIMESTAMP`,
+                [
+                    `PARTIAL${partialPhone}`,
+                    null,
+                    null,
+                    `PARTIAL_PHONE_NO_TPOS_MATCH:${partialPhone}`,
+                    'NOT_FOUND_IN_TPOS'
+                ]
+            );
 
-        return {
-            success: true,
-            method: 'extraction_auto',
-            type: extractResult.type,
-            transactionId,
-            value,
-            uniqueCode,
-            amount,
-            note: extractionNote
-        };
-    } catch (error) {
-        console.error('[DEBT-UPDATE] Error saving to balance_customer_info:', error.message);
-        return { success: false, reason: 'Database error', error: error.message };
+            return {
+                success: false,
+                reason: 'No TPOS matches',
+                partialPhone,
+                note: 'NOT_FOUND_IN_TPOS'
+            };
+        }
+
+        // 10. Check if single unique phone or multiple
+        if (tposResult.uniquePhones.length === 1) {
+            // AUTO SAVE: Only 1 unique phone found
+            const phoneData = tposResult.uniquePhones[0];
+            const fullPhone = phoneData.phone;
+            const firstCustomer = phoneData.customers[0]; // Take first customer with this phone
+
+            console.log(`[DEBT-UPDATE] ✅ Single phone found: ${fullPhone} (${phoneData.count} customer(s))`);
+            console.log(`[DEBT-UPDATE] Auto-selecting: ${firstCustomer.name} (ID: ${firstCustomer.id})`);
+
+            // Save to balance_customer_info
+            const uniqueCode = `PHONE${fullPhone}`;
+            await db.query(
+                `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+                 VALUES ($1, $2, $3, $4, $5)
+                 ON CONFLICT (unique_code) DO UPDATE SET
+                     customer_phone = EXCLUDED.customer_phone,
+                     customer_name = EXCLUDED.customer_name,
+                     extraction_note = EXCLUDED.extraction_note,
+                     name_fetch_status = EXCLUDED.name_fetch_status,
+                     updated_at = CURRENT_TIMESTAMP`,
+                [
+                    uniqueCode,
+                    fullPhone,
+                    firstCustomer.name,
+                    `AUTO_MATCHED_FROM_PARTIAL:${partialPhone}`,
+                    'SUCCESS'
+                ]
+            );
+
+            // Mark transaction as processed
+            await db.query(
+                `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
+                [transactionId]
+            );
+
+            console.log('[DEBT-UPDATE] ✅ Success (auto-matched from TPOS):', {
+                transactionId,
+                partialPhone,
+                fullPhone,
+                customerName: firstCustomer.name,
+                amount
+            });
+
+            return {
+                success: true,
+                method: 'tpos_auto_match',
+                transactionId,
+                partialPhone,
+                fullPhone,
+                customerName: firstCustomer.name,
+                amount
+            };
+
+        } else {
+            // MULTIPLE PHONES: Create pending match for admin to choose
+            console.log(`[DEBT-UPDATE] ⚠️ Multiple phones found (${tposResult.uniquePhones.length}), creating pending match...`);
+
+            // Format matched_customers JSONB
+            const matchedCustomers = tposResult.uniquePhones.map(phoneData => ({
+                phone: phoneData.phone,
+                count: phoneData.count,
+                customers: phoneData.customers
+            }));
+
+            // Create pending match
+            await db.query(
+                `INSERT INTO pending_customer_matches (transaction_id, extracted_phone, matched_customers, status)
+                 VALUES ($1, $2, $3, $4)`,
+                [
+                    transactionId,
+                    partialPhone,
+                    JSON.stringify(matchedCustomers),
+                    'pending'
+                ]
+            );
+
+            console.log('[DEBT-UPDATE] 📋 Created pending match for transaction:', transactionId);
+            console.log(`[DEBT-UPDATE] Found ${tposResult.uniquePhones.length} unique phones:`);
+            tposResult.uniquePhones.forEach(({phone, count}) => {
+                console.log(`  - ${phone}: ${count} customer(s)`);
+            });
+
+            return {
+                success: true,
+                method: 'pending_match_created',
+                transactionId,
+                partialPhone,
+                uniquePhonesCount: tposResult.uniquePhones.length,
+                pendingMatch: true
+            };
+        }
     }
+
+    // Should not reach here
+    console.error('[DEBT-UPDATE] Unexpected extraction type:', extractResult.type);
+    return {
+        success: false,
+        reason: 'Unexpected extraction type',
+        type: extractResult.type
+    };
 
 }
 
@@ -2595,69 +2761,62 @@ router.post('/batch-update-phones', async (req, res) => {
             total: transactions.length,
             processed: 0,
             success: 0,
-            failed: 0,
+            pending_matches: 0,
+            not_found: 0,
             skipped: 0,
+            failed: 0,
             details: []
         };
 
-        // Process each transaction
+        // Process each transaction using processDebtUpdate()
         for (const tx of transactions) {
             results.processed++;
 
             try {
-                const extractResult = extractPhoneFromContent(tx.content);
+                const updateResult = await processDebtUpdate(db, tx.id);
 
-                // Skip if no valid identifier found
-                if (extractResult.type === 'none') {
-                    results.skipped++;
-                    results.details.push({
-                        transaction_id: tx.id,
-                        status: 'skipped',
-                        reason: extractResult.note,
-                        content_preview: tx.content?.substring(0, 50)
-                    });
-                    continue;
+                if (updateResult.success) {
+                    if (updateResult.method === 'pending_match_created') {
+                        results.pending_matches++;
+                        results.details.push({
+                            transaction_id: tx.id,
+                            status: 'pending_match',
+                            partial_phone: updateResult.partialPhone,
+                            unique_phones_count: updateResult.uniquePhonesCount
+                        });
+                        console.log(`[BATCH-UPDATE] 📋 Transaction ${tx.id}: pending match (${updateResult.uniquePhonesCount} phones)`);
+                    } else {
+                        results.success++;
+                        results.details.push({
+                            transaction_id: tx.id,
+                            status: 'success',
+                            method: updateResult.method,
+                            phone: updateResult.fullPhone || updateResult.qrCode,
+                            customer_name: updateResult.customerName
+                        });
+                        console.log(`[BATCH-UPDATE] ✅ Transaction ${tx.id}: ${updateResult.method}`);
+                    }
+                } else {
+                    if (updateResult.reason === 'No TPOS matches' || updateResult.note === 'NOT_FOUND_IN_TPOS') {
+                        results.not_found++;
+                        results.details.push({
+                            transaction_id: tx.id,
+                            status: 'not_found',
+                            partial_phone: updateResult.partialPhone,
+                            reason: updateResult.reason
+                        });
+                        console.log(`[BATCH-UPDATE] ⚠️  Transaction ${tx.id}: no TPOS matches for ${updateResult.partialPhone}`);
+                    } else {
+                        results.skipped++;
+                        results.details.push({
+                            transaction_id: tx.id,
+                            status: 'skipped',
+                            reason: updateResult.reason,
+                            note: updateResult.note
+                        });
+                        console.log(`[BATCH-UPDATE] ⊘ Transaction ${tx.id}: ${updateResult.reason}`);
+                    }
                 }
-
-                const uniqueCode = extractResult.uniqueCode;
-                const value = extractResult.value;
-                const extractionNote = extractResult.note;
-
-                // Save to balance_customer_info with extraction tracking
-                await db.query(
-                    `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
-                     VALUES ($1, $2, $3, $4, $5)
-                     ON CONFLICT (unique_code) DO UPDATE SET
-                         customer_phone = CASE WHEN EXCLUDED.customer_phone IS NOT NULL THEN EXCLUDED.customer_phone ELSE balance_customer_info.customer_phone END,
-                         extraction_note = COALESCE(EXCLUDED.extraction_note, balance_customer_info.extraction_note),
-                         name_fetch_status = COALESCE(balance_customer_info.name_fetch_status, EXCLUDED.name_fetch_status),
-                         updated_at = CURRENT_TIMESTAMP`,
-                    [
-                        uniqueCode,
-                        extractResult.type === 'phone' ? value : null,
-                        null, // customer_name - will be fetched later
-                        extractionNote,
-                        extractResult.type === 'phone' ? 'PENDING' : 'NO_PHONE_TO_FETCH'
-                    ]
-                );
-
-                // Mark transaction as processed
-                await db.query(
-                    `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
-                    [tx.id]
-                );
-
-                results.success++;
-                results.details.push({
-                    transaction_id: tx.id,
-                    status: 'success',
-                    type: extractResult.type,
-                    value: value,
-                    unique_code: uniqueCode,
-                    extraction_note: extractionNote
-                });
-
-                console.log(`[BATCH-UPDATE] ✅ Transaction ${tx.id}: ${extractResult.type} = ${value} (${extractionNote})`);
 
             } catch (error) {
                 results.failed++;
@@ -2674,7 +2833,7 @@ router.post('/batch-update-phones', async (req, res) => {
 
         res.json({
             success: true,
-            message: `Batch update completed: ${results.success} success, ${results.failed} failed, ${results.skipped} skipped`,
+            message: `Batch update completed: ${results.success} success, ${results.pending_matches} pending matches, ${results.not_found} not found, ${results.skipped} skipped, ${results.failed} failed`,
             data: results
         });
 
