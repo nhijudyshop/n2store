@@ -205,9 +205,13 @@ function setupEventListeners() {
     // Reprocess old transactions button
     const reprocessOldTransactionsBtn = document.getElementById('reprocessOldTransactionsBtn');
     if (reprocessOldTransactionsBtn) {
+        console.log('[INIT] ✅ Reprocess button found and event listener attached');
         reprocessOldTransactionsBtn.addEventListener('click', async () => {
+            console.log('[REPROCESS] Button clicked!');
             await reprocessOldTransactions();
         });
+    } else {
+        console.error('[INIT] ❌ Reprocess button NOT FOUND in DOM');
     }
 
     // Close phone data modal button
@@ -2738,9 +2742,12 @@ async function fetchCustomerNamesFromTPOS() {
  * Reprocess old transactions to extract phones and fetch from TPOS
  */
 async function reprocessOldTransactions() {
+    console.log('[REPROCESS] Function called');
+
     const limit = prompt('Nhập số lượng giao dịch cần xử lý (tối đa 500):', '100');
 
     if (!limit) {
+        console.log('[REPROCESS] User cancelled prompt');
         return; // User cancelled
     }
 
