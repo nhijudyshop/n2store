@@ -544,22 +544,24 @@ async function searchCustomerByPhone(db, phone) {
     console.log('[SEARCH-CUSTOMER] Searching for phone:', phone);
 
     try {
-        // Search in customers table using same logic as /api/customers/search
+        // Search in customers table - match if extracted number is CONTAINED in customer phone
+        // More comprehensive: checks if extracted digits exist anywhere in the full phone number
         const query = `
             SELECT id, phone, name, email, address, status, debt, tpos_id
             FROM customers
-            WHERE phone LIKE $1 || '%' OR phone LIKE '%' || $1
+            WHERE phone LIKE '%' || $1 || '%'
             ORDER BY
                 CASE
-                    WHEN phone = $1 THEN 100
-                    WHEN phone LIKE $1 || '%' THEN 95
-                    ELSE 90
+                    WHEN phone = $1 THEN 100              -- Exact match
+                    WHEN phone LIKE $1 || '%' THEN 95     -- Starts with
+                    WHEN phone LIKE '%' || $1 THEN 90     -- Ends with
+                    ELSE 85                                -- Contains anywhere
                 END DESC
             LIMIT 10
         `;
 
         const result = await db.query(query, [phone]);
-        console.log('[SEARCH-CUSTOMER] Found', result.rows.length, 'customers');
+        console.log('[SEARCH-CUSTOMER] Found', result.rows.length, 'customers for phone pattern:', phone);
 
         return result.rows;
     } catch (error) {

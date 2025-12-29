@@ -40,14 +40,26 @@ Khi webhook nhận được giao dịch mới (transfer_type = 'in'):
 **Lưu ý**: Nếu có nhiều chuỗi số, sẽ lấy **số cuối cùng** (rightmost).
 
 ### Bước 3: Search Customer
-Sử dụng query tương tự `/api/customers/search`:
+Search bao quát: số extracted chỉ cần **có chứa trong** SĐT đầy đủ của customer:
 ```sql
 SELECT id, phone, name, email, status, debt
 FROM customers
-WHERE phone LIKE '0901234567%' OR phone LIKE '%0901234567'
-ORDER BY priority DESC
+WHERE phone LIKE '%0901234567%'  -- Contains anywhere
+ORDER BY
+    CASE
+        WHEN phone = '0901234567' THEN 100      -- Exact match (ưu tiên cao nhất)
+        WHEN phone LIKE '0901234567%' THEN 95   -- Starts with
+        WHEN phone LIKE '%0901234567' THEN 90   -- Ends with
+        ELSE 85                                  -- Contains anywhere
+    END DESC
 LIMIT 10
 ```
+
+**Ví dụ matching:**
+- Extracted: `56789` (>4 chữ số)
+- Customer phone: `0901256789` → ✅ MATCH (chứa "56789")
+- Customer phone: `0956789012` → ✅ MATCH (chứa "56789")
+- Customer phone: `0912345678` → ❌ NO MATCH (không chứa "56789")
 
 ### Bước 4: Xử lý kết quả
 
