@@ -1711,9 +1711,19 @@ async function saveEditCustomerInfo(event) {
 
     if (!window.CustomerInfoManager) return;
 
-    const uniqueCode = event.target.dataset.uniqueCode;
+    // Get form element (not event.target which could be button or icon)
+    const form = document.getElementById('editCustomerForm');
+    const uniqueCode = form.dataset.uniqueCode;
     const name = document.getElementById('editCustomerName').value;
     const phone = document.getElementById('editCustomerPhone').value;
+
+    console.log('[EDIT-CUSTOMER] Saving:', { uniqueCode, name, phone });
+
+    if (!uniqueCode) {
+        console.error('[EDIT-CUSTOMER] No uniqueCode found in form dataset');
+        alert('❌ Lỗi: Không tìm thấy mã giao dịch!');
+        return;
+    }
 
     const success = await window.CustomerInfoManager.saveCustomerInfo(uniqueCode, { name, phone });
 
