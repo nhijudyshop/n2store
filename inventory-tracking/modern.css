@@ -285,37 +285,56 @@ body {
 
 /* ===== TABS ===== */
 .tabs-container {
-    background: white;
+    background: linear-gradient(180deg, #f8fafc 0%, white 100%);
     border-bottom: 1px solid var(--gray-200);
     padding: 0 24px;
 }
 
 .tabs-nav {
     display: flex;
-    gap: 8px;
+    gap: 4px;
 }
 
 .tab-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 16px 20px;
+    padding: 14px 24px;
     border: none;
     background: transparent;
     color: var(--gray-500);
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 15px;
     cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: 0.2s;
+    border-bottom: 3px solid transparent;
+    border-radius: var(--radius) var(--radius) 0 0;
+    transition: all 0.2s ease;
 }
 
 .tab-btn:hover {
     color: var(--gray-700);
+    background: rgba(99, 102, 241, 0.05);
 }
 
-.tab-btn.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
+/* Tab 1 - Đặt hàng (Green) */
+.tab-btn[data-tab="tab1"].active {
+    color: #059669;
+    background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+    border-bottom-color: #10b981;
+}
+
+/* Tab 2 - Theo dõi đơn hàng (Blue) */
+.tab-btn[data-tab="tab2"].active {
+    color: #2563eb;
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+    border-bottom-color: #3b82f6;
+}
+
+/* Tab 3 - Công nợ (Purple) */
+.tab-btn[data-tab="tab3"].active {
+    color: #7c3aed;
+    background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%);
+    border-bottom-color: #8b5cf6;
 }
 
 .tab-btn.disabled {
@@ -324,8 +343,8 @@ body {
 }
 
 .tab-btn i {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
 }
 
 .tab-lock {
@@ -768,6 +787,12 @@ body {
     margin-bottom: 16px;
     overflow: hidden;
     font-size: 1.4em;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.2s ease;
+}
+
+.shipment-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .shipment-header {
@@ -775,7 +800,8 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    background: var(--gray-50);
+    background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 50%, #ede9fe 100%);
+    border-left: 4px solid var(--info);
     border-bottom: 1px solid var(--gray-200);
 }
 
@@ -952,12 +978,13 @@ body {
 }
 
 .invoice-table th {
-    background: var(--gray-100);
+    background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
     font-weight: 700;
     font-size: 14px;
     color: var(--gray-700);
     text-transform: uppercase;
     white-space: nowrap;
+    border-bottom: 2px solid var(--gray-300);
 }
 
 .invoice-table .text-right {
@@ -1105,11 +1132,12 @@ body {
 
 /* Total row */
 .invoice-table .total-row {
-    background: var(--gray-100) !important;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
 }
 
 .invoice-table .total-row td {
-    border-top: 2px solid var(--gray-400);
+    border-top: 3px solid var(--gray-400);
+    padding: 10px 12px;
 }
 
 /* Note text */
@@ -2119,6 +2147,12 @@ body {
     margin-bottom: 16px;
     overflow: hidden;
     font-size: 1.4em;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.2s ease;
+}
+
+.booking-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 /* Booking Header */
@@ -2177,9 +2211,10 @@ body {
 }
 
 .booking-table-detailed th {
-    background: var(--gray-100);
+    background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
     font-weight: 700;
     font-size: 14px;
+    border-bottom: 2px solid var(--gray-300);
 }
 
 .booking-table-detailed .col-ncc {

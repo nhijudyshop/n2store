@@ -143,7 +143,7 @@ function createShipmentCard(shipment) {
         <div class="shipment-header">
             <div class="shipment-date-packages">
                 <i data-lucide="calendar"></i>
-                <span class="shipment-date-text">${formatDateDisplay(shipment.ngayDiHang)}</span>
+                <span class="shipment-date-text">Ngày giao: ${formatDateDisplay(shipment.ngayDiHang)}</span>
                 <span class="shipment-separator">-</span>
                 <span class="shipment-packages-badge">
                     <i data-lucide="box"></i>
