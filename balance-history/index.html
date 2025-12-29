@@ -544,12 +544,26 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between;">
+            <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <button id="refreshPhoneDataBtn" class="btn btn-primary btn-sm">
                         <i data-lucide="refresh-cw"></i> Làm mới
                     </button>
                 </div>
+
+                <!-- Pagination Controls -->
+                <div id="phoneDataPagination" style="display: none; gap: 8px; align-items: center;">
+                    <button id="phoneDataPrevBtn" class="btn btn-secondary btn-sm" style="padding: 6px 12px;">
+                        <i data-lucide="chevron-left" style="width: 16px; height: 16px;"></i>
+                    </button>
+                    <span id="phoneDataPageInfo" style="font-size: 14px; color: #6b7280; min-width: 120px; text-align: center;">
+                        Page 1 / 1
+                    </span>
+                    <button id="phoneDataNextBtn" class="btn btn-secondary btn-sm" style="padding: 6px 12px;">
+                        <i data-lucide="chevron-right" style="width: 16px; height: 16px;"></i>
+                    </button>
+                </div>
+
                 <button class="btn btn-secondary" onclick="closePhoneDataModal()">Đóng</button>
             </div>
         </div>
