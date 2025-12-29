@@ -6516,14 +6516,14 @@
         async function downloadProductPriceExcel() {
             const btn = document.getElementById('btnDownloadExcel');
             if (!btn) return;
-            
+
             const originalText = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải...';
-            
+
             try {
-                console.log('[EXCEL] Starting product price Excel download...');
-                
+                console.log('[EXCEL] Starting product export Excel download...');
+
                 // Get auth headers from tokenManager
                 let headers = {};
                 if (window.tokenManager && typeof window.tokenManager.getAuthHeader === 'function') {
@@ -6533,48 +6533,63 @@
                 } else {
                     throw new Error('TokenManager not available. Please login first.');
                 }
-                
-                // Build request
-                const response = await fetch(
-                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithStandardPriceV2',
-                    {
-                        method: 'POST',
-                        headers: {
-                            ...headers,
-                            'Content-Type': 'application/json',
-                            'Accept': '*/*',
-                            'tposappversion': '5.11.16.1',
-                            'x-tpos-lang': 'vi'
-                        },
-                        body: JSON.stringify({
-                            model: { Active: "true" },
-                            ids: ""
-                        })
-                    }
-                );
-                
+
+                // Build request body (format from ExportProductV2.txt)
+                const requestBody = {
+                    data: JSON.stringify({
+                        Filter: {
+                            logic: "and",
+                            filters: [
+                                {
+                                    field: "Active",
+                                    operator: "eq",
+                                    value: true,
+                                    Clear: "Clear"
+                                }
+                            ]
+                        }
+                    }),
+                    ids: []
+                };
+
+                console.log('[EXCEL] Request body:', requestBody);
+
+                // Use Cloudflare Worker Proxy to call ExportProductV2
+                const url = `${window.API_CONFIG.WORKER_URL}/api/Product/ExportProductV2?Active=true`;
+                console.log('[EXCEL] Calling via Cloudflare Worker:', url);
+
+                const response = await window.API_CONFIG.smartFetch(url, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        'Accept': '*/*'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-                
+
                 // Get blob and download
                 const blob = await response.blob();
                 const fileSize = (blob.size / 1024).toFixed(2);
                 console.log(`[EXCEL] Downloaded file: ${fileSize} KB`);
-                
+
                 // Create download link
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
                 const timestamp = new Date().toISOString().slice(0, 10);
-                a.download = `SanPham_GiaMua_${timestamp}.xlsx`;
+                a.download = `SanPham_Export_${timestamp}.xlsx`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
-                
+
                 console.log('[EXCEL] Download completed successfully!');
-                
+
             } catch (error) {
                 console.error('[EXCEL] Download error:', error);
                 alert('Lỗi tải file Excel: ' + error.message);
