@@ -218,4 +218,138 @@ function buildShipmentDetailData(shipment) {
     return rows;
 }
 
+/**
+ * Export order tracking data to Excel (non-admin version)
+ * Columns: NCC, STT, CHI TIẾT SẢN PHẨM, TIỀN HĐ, TỔNG MÓN, THIẾU
+ */
+async function exportTrackingToExcel() {
+    try {
+        toast.loading('Đang tạo file Excel...');
+
+        const { filteredShipments } = globalState;
+
+        if (!filteredShipments || filteredShipments.length === 0) {
+            toast.error('Không có dữ liệu để xuất');
+            return;
+        }
+
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+
+        // Build tracking export data
+        const trackingData = buildTrackingExportData(filteredShipments);
+        const ws = XLSX.utils.aoa_to_sheet(trackingData);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 15 },  // NCC
+            { wch: 6 },   // STT
+            { wch: 50 },  // Chi Tiết Sản Phẩm
+            { wch: 12 },  // Tiền HĐ
+            { wch: 10 },  // Tổng Món
+            { wch: 8 }    // Thiếu
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Theo Doi Don Hang');
+
+        // Generate filename
+        const dateStr = new Date().toISOString().split('T')[0];
+        const filename = `theo_doi_don_hang_${dateStr}.xlsx`;
+
+        // Download
+        XLSX.writeFile(wb, filename);
+
+        toast.success('Đã xuất file Excel');
+
+    } catch (error) {
+        console.error('[EXPORT] Error:', error);
+        toast.error('Không thể xuất file');
+    }
+}
+
+/**
+ * Build order tracking export data
+ * Format: Grouped by date with NCC, STT, product details, amounts
+ */
+function buildTrackingExportData(shipments) {
+    const rows = [];
+
+    // Sort shipments by date
+    const sortedShipments = [...shipments].sort((a, b) =>
+        (b.ngayDiHang || '').localeCompare(a.ngayDiHang || '')
+    );
+
+    sortedShipments.forEach(shipment => {
+        const invoices = shipment.hoaDon || [];
+        if (invoices.length === 0) return;
+
+        // Calculate packages info
+        const packages = shipment.kienHang || [];
+        const packagesCount = packages.length;
+
+        // Add date header row
+        rows.push([`Ngày giao: ${formatDateDisplay(shipment.ngayDiHang)}`, '', `${packagesCount} Kiện`, '', '', '']);
+
+        // Add column headers
+        rows.push(['NCC', 'STT', 'CHI TIẾT SẢN PHẨM', 'TIỀN HĐ', 'TỔNG MÓN', 'THIẾU']);
+
+        // Group products by invoice (NCC)
+        invoices.forEach(hd => {
+            const products = hd.sanPham || [];
+            const nccDisplay = hd.tenNCC ? `${hd.sttNCC}\n${hd.tenNCC}` : String(hd.sttNCC);
+            const tongTienHD = hd.tongTienHD || hd.tongTien || 0;
+            const tongMon = hd.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+            const soMonThieu = hd.soMonThieu || 0;
+
+            if (products.length === 0) {
+                // No products - single row
+                rows.push([
+                    nccDisplay,
+                    '-',
+                    '-',
+                    tongTienHD,
+                    tongMon,
+                    soMonThieu > 0 ? soMonThieu : '-'
+                ]);
+            } else {
+                // Multiple products
+                products.forEach((product, idx) => {
+                    const isFirstRow = idx === 0;
+                    const isVietnamese = globalState.langMode === 'vi';
+
+                    // Get product text
+                    let productText = '-';
+                    if (isVietnamese) {
+                        if (product.rawText_vi) {
+                            productText = product.rawText_vi;
+                        } else if (product.rawText) {
+                            productText = translateToVietnamese(product.rawText);
+                        } else {
+                            const tenSP = product.tenSP_vi || translateToVietnamese(product.tenSP || '');
+                            const soMau = product.soMau_vi || translateToVietnamese(product.soMau || '');
+                            productText = `MA ${product.maSP || ''} ${tenSP} MAU ${soMau} SL ${product.soLuong || 0}`;
+                        }
+                    } else {
+                        productText = product.rawText || `MA ${product.maSP || ''} ${product.tenSP || ''} MAU ${product.soMau || ''} SL ${product.soLuong || 0}`;
+                    }
+
+                    rows.push([
+                        isFirstRow ? nccDisplay : '',
+                        idx + 1,
+                        productText,
+                        isFirstRow ? tongTienHD : '',
+                        isFirstRow ? tongMon : '',
+                        isFirstRow ? (soMonThieu > 0 ? soMonThieu : '-') : ''
+                    ]);
+                });
+            }
+        });
+
+        // Add empty row between shipments
+        rows.push([]);
+    });
+
+    return rows;
+}
+
 console.log('[EXPORT] Export initialized');
