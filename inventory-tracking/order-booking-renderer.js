@@ -251,31 +251,32 @@ function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUp
     let rowsHtml = '';
 
     if (products.length === 0) {
-        // No products - single row
+        // No products - single row (also last row, so add border)
         rowsHtml = `
-            <tr class="${bgClass}" data-booking-id="${booking.id}">
-                <td class="col-ncc text-center booking-ncc-cell">
+            <tr class="${bgClass} booking-group-last" data-booking-id="${booking.id}">
+                <td class="col-ncc text-center booking-ncc-cell booking-border-bottom">
                     ${nccDisplay}
                 </td>
-                <td class="col-stt text-center">-</td>
-                <td class="col-products">
+                <td class="col-stt text-center booking-border-bottom">-</td>
+                <td class="col-products booking-border-bottom">
                     <span class="product-text text-muted">Chưa có sản phẩm</span>
                 </td>
-                <td class="col-amount text-right">
+                <td class="col-amount text-right booking-border-bottom">
                     <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
                 </td>
-                <td class="col-total text-center">
+                <td class="col-total text-center booking-border-bottom">
                     <strong class="total-value">${formatNumber(tongMon)}</strong>
                 </td>
-                <td class="col-image text-center">${imageHtml}</td>
-                <td class="col-status text-center">${statusHtml}</td>
-                <td class="col-actions text-center">${actionsHtml}</td>
+                <td class="col-image text-center booking-border-bottom">${imageHtml}</td>
+                <td class="col-status text-center booking-border-bottom">${statusHtml}</td>
+                <td class="col-actions text-center booking-border-bottom">${actionsHtml}</td>
             </tr>
         `;
     } else {
         // Multiple product rows
         products.forEach((product, productIdx) => {
             const isFirstRow = productIdx === 0;
+            const isLastRow = productIdx === products.length - 1;
 
             // Get product display text
             let productText = '';
@@ -286,34 +287,37 @@ function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUp
                 productText = product.rawText || `${product.maSP || ''} ${product.soMau || ''}`;
             }
 
+            // Border class for last row cells
+            const borderClass = isLastRow ? 'booking-border-bottom' : '';
+
             // First row gets the rowspan cells
             if (isFirstRow) {
                 rowsHtml += `
-                    <tr class="${bgClass}" data-booking-id="${booking.id}">
-                        <td class="col-ncc text-center booking-ncc-cell" rowspan="${rowCount}">
+                    <tr class="${bgClass}${isLastRow ? ' booking-group-last' : ''}" data-booking-id="${booking.id}">
+                        <td class="col-ncc text-center booking-ncc-cell booking-border-bottom" rowspan="${rowCount}">
                             ${nccDisplay}
                         </td>
-                        <td class="col-stt text-center">${productIdx + 1}</td>
-                        <td class="col-products">
+                        <td class="col-stt text-center ${borderClass}">${productIdx + 1}</td>
+                        <td class="col-products ${borderClass}">
                             <span class="product-text">${productText}</span>
                         </td>
-                        <td class="col-amount text-right" rowspan="${rowCount}">
+                        <td class="col-amount text-right booking-border-bottom" rowspan="${rowCount}">
                             <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
                         </td>
-                        <td class="col-total text-center" rowspan="${rowCount}">
+                        <td class="col-total text-center booking-border-bottom" rowspan="${rowCount}">
                             <strong class="total-value">${formatNumber(tongMon)}</strong>
                         </td>
-                        <td class="col-image text-center" rowspan="${rowCount}">${imageHtml}</td>
-                        <td class="col-status text-center" rowspan="${rowCount}">${statusHtml}</td>
-                        <td class="col-actions text-center" rowspan="${rowCount}">${actionsHtml}</td>
+                        <td class="col-image text-center booking-border-bottom" rowspan="${rowCount}">${imageHtml}</td>
+                        <td class="col-status text-center booking-border-bottom" rowspan="${rowCount}">${statusHtml}</td>
+                        <td class="col-actions text-center booking-border-bottom" rowspan="${rowCount}">${actionsHtml}</td>
                     </tr>
                 `;
             } else {
                 // Subsequent rows only have STT and product columns
                 rowsHtml += `
-                    <tr class="${bgClass}" data-booking-id="${booking.id}">
-                        <td class="col-stt text-center">${productIdx + 1}</td>
-                        <td class="col-products">
+                    <tr class="${bgClass}${isLastRow ? ' booking-group-last' : ''}" data-booking-id="${booking.id}">
+                        <td class="col-stt text-center ${borderClass}">${productIdx + 1}</td>
+                        <td class="col-products ${borderClass}">
                             <span class="product-text">${productText}</span>
                         </td>
                     </tr>
