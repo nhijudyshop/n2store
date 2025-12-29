@@ -2550,19 +2550,36 @@ router.get('/phone-data', async (req, res) => {
         );
         const total = parseInt(countResult.rows[0]?.total || 0);
 
-        // Get phone data
+        // Get phone data with total transaction amount
         const dataResult = await db.query(
             `SELECT
-                id,
-                unique_code,
-                customer_name,
-                customer_phone,
-                extraction_note,
-                name_fetch_status,
-                created_at,
-                updated_at
-             FROM balance_customer_info
-             ORDER BY created_at DESC
+                bci.id,
+                bci.unique_code,
+                bci.customer_name,
+                bci.customer_phone,
+                bci.extraction_note,
+                bci.name_fetch_status,
+                bci.created_at,
+                bci.updated_at,
+                COALESCE(SUM(CASE WHEN bh.transfer_type = 'in' THEN bh.transfer_amount ELSE 0 END), 0) as total_amount,
+                COUNT(bh.id) as transaction_count
+             FROM balance_customer_info bci
+             LEFT JOIN balance_history bh ON (
+                 bh.transfer_type = 'in' AND (
+                     -- Match by QR code in content
+                     (bci.unique_code ~* '^N2[A-Z0-9]{16}$' AND bh.content ~* bci.unique_code)
+                     OR
+                     -- Match by partial phone from extraction note
+                     (bci.extraction_note LIKE 'AUTO_MATCHED_FROM_PARTIAL:%'
+                      AND bh.content LIKE '%' || SUBSTRING(bci.extraction_note FROM 'AUTO_MATCHED_FROM_PARTIAL:(.*)') || '%')
+                     OR
+                     -- Match by exact phone in content
+                     (bci.customer_phone IS NOT NULL AND bh.content LIKE '%' || bci.customer_phone || '%')
+                 )
+             )
+             GROUP BY bci.id, bci.unique_code, bci.customer_name, bci.customer_phone,
+                      bci.extraction_note, bci.name_fetch_status, bci.created_at, bci.updated_at
+             ORDER BY bci.created_at DESC
              LIMIT $1 OFFSET $2`,
             [limitCount, offsetCount]
         );
