@@ -6578,15 +6578,15 @@
                 console.log(`[EXCEL] Downloaded file: ${fileSize} KB`);
 
                 // Create download link
-                const url = window.URL.createObjectURL(blob);
+                const blobUrl = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
+                a.href = blobUrl;
                 const timestamp = new Date().toISOString().slice(0, 10);
                 a.download = `SanPham_Export_${timestamp}.xlsx`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
+                window.URL.revokeObjectURL(blobUrl);
 
                 console.log('[EXCEL] Download completed successfully!');
 
