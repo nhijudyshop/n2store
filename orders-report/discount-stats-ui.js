@@ -8,6 +8,17 @@ class DiscountStatsUI {
         this.currentStats = null;
         this.currentSubTab = 'overview';
         this.isLoading = false;
+
+        // Chi phí Livestream
+        this.livestreamCosts = {
+            kpiPerItem: 10000, // 10k/món
+            advertising: 0,    // Chi phí quảng cáo (tự nhập)
+            operation: 0       // Chi phí vận hành (tự nhập)
+        };
+
+        // Lịch sử các đợt Live
+        this.liveSessionsKey = 'discount_live_sessions_history';
+        this.loadLivestreamCosts();
     }
 
     // ========================================
@@ -398,7 +409,7 @@ class DiscountStatsUI {
     }
 
     // ========================================
-    // ANALYSIS TAB
+    // ANALYSIS TAB - DASHBOARD XẢ TỒN KHO
     // ========================================
 
     renderAnalysisTab(stats) {
@@ -408,20 +419,101 @@ class DiscountStatsUI {
         const calc = window.discountStatsCalculator;
         const scenario = stats.scenarioAnalysis;
         const top = stats.topProducts;
+        const s = stats.summary;
+
+        // Tính toán chi phí và hiệu quả xả tồn
+        const totalItemsSold = s.totalDiscountedProducts;
+        const kpiCost = totalItemsSold * this.livestreamCosts.kpiPerItem;
+        const totalLivestreamCost = kpiCost + this.livestreamCosts.advertising + this.livestreamCosts.operation;
+        const capitalRecovered = s.totalDiscountPrice; // Vốn thu hồi từ hàng giảm giá
+        const costPerItemSold = totalItemsSold > 0 ? totalLivestreamCost / totalItemsSold : 0;
+        const clearanceROI = totalLivestreamCost > 0 ? capitalRecovered / totalLivestreamCost : 0;
+
+        // Load lịch sử đợt live
+        const liveHistory = this.getLiveSessionHistory();
 
         container.innerHTML = `
-            <!-- Scenario Comparison -->
+            <!-- Chi phí Livestream -->
+            <div class="analysis-section livestream-costs">
+                <h4><i class="fas fa-broadcast-tower"></i> Chi Phí Livestream</h4>
+                <div class="costs-grid">
+                    <div class="cost-item">
+                        <label>KPI Live (10k/món)</label>
+                        <div class="cost-value auto">
+                            <span>${totalItemsSold}</span> món × 10.000đ = <strong>${calc.formatCurrency(kpiCost)}</strong>
+                        </div>
+                    </div>
+                    <div class="cost-item">
+                        <label>Chi phí Quảng cáo FB</label>
+                        <div class="cost-input-wrapper">
+                            <input type="number" id="costAdvertising" value="${this.livestreamCosts.advertising}"
+                                   placeholder="0" onchange="window.discountStatsUI.updateLivestreamCosts()">
+                            <span class="currency">đ</span>
+                        </div>
+                    </div>
+                    <div class="cost-item">
+                        <label>Chi phí Vận hành</label>
+                        <div class="cost-input-wrapper">
+                            <input type="number" id="costOperation" value="${this.livestreamCosts.operation}"
+                                   placeholder="0" onchange="window.discountStatsUI.updateLivestreamCosts()">
+                            <span class="currency">đ</span>
+                        </div>
+                    </div>
+                    <div class="cost-item total">
+                        <label>TỔNG CHI PHÍ</label>
+                        <div class="cost-value total-value" id="totalLivestreamCost">
+                            <strong>${calc.formatCurrency(totalLivestreamCost)}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hiệu quả Xả Tồn -->
+            <div class="analysis-section clearance-efficiency">
+                <h4><i class="fas fa-box-open"></i> Hiệu Quả Xả Tồn</h4>
+                <div class="clearance-kpi-grid">
+                    <div class="clearance-kpi">
+                        <div class="kpi-icon"><i class="fas fa-boxes"></i></div>
+                        <div class="kpi-value">${totalItemsSold}</div>
+                        <div class="kpi-label">SP Tồn Đã Bán</div>
+                    </div>
+                    <div class="clearance-kpi">
+                        <div class="kpi-icon"><i class="fas fa-money-bill-wave"></i></div>
+                        <div class="kpi-value">${calc.formatCurrency(capitalRecovered)}</div>
+                        <div class="kpi-label">Vốn Thu Hồi</div>
+                    </div>
+                    <div class="clearance-kpi">
+                        <div class="kpi-icon"><i class="fas fa-calculator"></i></div>
+                        <div class="kpi-value" id="costPerItem">${calc.formatCurrency(costPerItemSold)}</div>
+                        <div class="kpi-label">Chi phí/SP đã bán</div>
+                    </div>
+                    <div class="clearance-kpi ${clearanceROI >= 1 ? 'success' : 'warning'}">
+                        <div class="kpi-icon"><i class="fas fa-chart-line"></i></div>
+                        <div class="kpi-value" id="clearanceROI">${clearanceROI.toFixed(2)}x</div>
+                        <div class="kpi-label">ROI Xả Tồn</div>
+                        <div class="kpi-hint">${clearanceROI >= 1 ? '✓ Hiệu quả' : '⚠ Cần tối ưu'}</div>
+                    </div>
+                </div>
+                <div class="clearance-summary">
+                    <div class="summary-box">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Mỗi <strong>${calc.formatCurrency(costPerItemSold)}</strong> chi phí livestream → Thu về <strong>${calc.formatCurrency(costPerItemSold > 0 ? capitalRecovered / (totalLivestreamCost / costPerItemSold) : 0)}</strong> vốn/SP</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- So sánh Kịch bản -->
             <div class="analysis-section">
-                <h4><i class="fas fa-balance-scale"></i> So Sánh Kịch Bản</h4>
+                <h4><i class="fas fa-balance-scale"></i> So Sánh: Giảm Giá vs Không Giảm</h4>
                 <div class="scenario-comparison">
                     <div class="scenario-card no-discount">
-                        <div class="scenario-title">Nếu KHÔNG Giảm Giá</div>
+                        <div class="scenario-title">Không Giảm Giá</div>
                         <div class="scenario-row">
                             <span>Doanh thu:</span>
                             <strong>${calc.formatCurrency(scenario.noDiscount.totalRevenue)}</strong>
                         </div>
                         <div class="scenario-row">
-                            <span>Lợi nhuận gộp:</span>
+                            <span>Lợi nhuận:</span>
                             <strong>${calc.formatCurrency(scenario.noDiscount.totalProfit)}</strong>
                         </div>
                         <div class="scenario-row">
@@ -434,13 +526,13 @@ class DiscountStatsUI {
                         <div class="diff-badge negative">-${calc.formatCurrency(scenario.revenueLoss)}</div>
                     </div>
                     <div class="scenario-card with-discount">
-                        <div class="scenario-title">Với Giảm Giá Hiện Tại</div>
+                        <div class="scenario-title">Với Giảm Giá</div>
                         <div class="scenario-row">
                             <span>Doanh thu:</span>
                             <strong>${calc.formatCurrency(scenario.withDiscount.totalRevenue)}</strong>
                         </div>
                         <div class="scenario-row">
-                            <span>Lợi nhuận gộp:</span>
+                            <span>Lợi nhuận:</span>
                             <strong class="${scenario.withDiscount.totalProfit >= 0 ? 'positive' : 'negative'}">${calc.formatCurrency(scenario.withDiscount.totalProfit)}</strong>
                         </div>
                         <div class="scenario-row">
@@ -465,9 +557,9 @@ class DiscountStatsUI {
                 </div>
             </div>
 
-            <!-- Top Products -->
+            <!-- Top Sản Phẩm -->
             <div class="analysis-section">
-                <h4><i class="fas fa-trophy"></i> Top Sản Phẩm</h4>
+                <h4><i class="fas fa-trophy"></i> Top Sản Phẩm Xả Tồn</h4>
                 <div class="top-products-grid">
                     <div class="top-card">
                         <div class="top-title">🔥 Giảm Nhiều Nhất</div>
@@ -509,11 +601,26 @@ class DiscountStatsUI {
                 </div>
             </div>
 
-            <!-- CFO Insights -->
+            <!-- Lưu & So sánh đợt Live -->
+            <div class="analysis-section live-comparison">
+                <h4><i class="fas fa-history"></i> Lịch Sử Đợt Live Xả Tồn</h4>
+                <div class="save-session-row">
+                    <input type="text" id="liveSessionName" placeholder="Tên đợt live (vd: 28/12 Bé Huyền)"
+                           style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                    <button class="btn-save-session" onclick="window.discountStatsUI.saveCurrentSession()">
+                        <i class="fas fa-save"></i> Lưu đợt Live
+                    </button>
+                </div>
+                <div class="live-history-table" id="liveHistoryTable">
+                    ${this.renderLiveHistoryTable(liveHistory)}
+                </div>
+            </div>
+
+            <!-- Phân tích Xả Tồn -->
             <div class="analysis-section cfo-insights">
-                <h4><i class="fas fa-lightbulb"></i> Phân Tích CFO</h4>
+                <h4><i class="fas fa-lightbulb"></i> Phân Tích Xả Tồn</h4>
                 <div class="insights-list">
-                    ${this.generateCFOInsights(stats)}
+                    ${this.generateClearanceInsights(stats, totalLivestreamCost, clearanceROI)}
                 </div>
             </div>
         `;
@@ -582,6 +689,277 @@ class DiscountStatsUI {
                 type: 'success',
                 icon: '🎉',
                 text: `Đợt sale HIỆU QUẢ: Margin ${s.averageMarginPercent.toFixed(1)}%, ROI ${s.discountROI.toFixed(2)}x, không có đơn lỗ`
+            });
+        }
+
+        return insights.map(i => `
+            <div class="insight-item ${i.type}">
+                <span class="insight-icon">${i.icon}</span>
+                <span class="insight-text">${i.text}</span>
+            </div>
+        `).join('');
+    }
+
+    // ========================================
+    // LIVESTREAM COSTS MANAGEMENT
+    // ========================================
+
+    loadLivestreamCosts() {
+        try {
+            const saved = localStorage.getItem('discount_livestream_costs');
+            if (saved) {
+                const data = JSON.parse(saved);
+                this.livestreamCosts = { ...this.livestreamCosts, ...data };
+            }
+        } catch (e) {
+            console.error('[DISCOUNT-UI] Error loading livestream costs:', e);
+        }
+    }
+
+    saveLivestreamCosts() {
+        try {
+            localStorage.setItem('discount_livestream_costs', JSON.stringify(this.livestreamCosts));
+        } catch (e) {
+            console.error('[DISCOUNT-UI] Error saving livestream costs:', e);
+        }
+    }
+
+    updateLivestreamCosts() {
+        const adCost = parseFloat(document.getElementById('costAdvertising')?.value) || 0;
+        const opCost = parseFloat(document.getElementById('costOperation')?.value) || 0;
+
+        this.livestreamCosts.advertising = adCost;
+        this.livestreamCosts.operation = opCost;
+        this.saveLivestreamCosts();
+
+        // Recalculate and update display
+        if (this.currentStats) {
+            const s = this.currentStats.summary;
+            const totalItemsSold = s.totalDiscountedProducts;
+            const kpiCost = totalItemsSold * this.livestreamCosts.kpiPerItem;
+            const totalCost = kpiCost + adCost + opCost;
+            const capitalRecovered = s.totalDiscountPrice;
+            const costPerItem = totalItemsSold > 0 ? totalCost / totalItemsSold : 0;
+            const clearanceROI = totalCost > 0 ? capitalRecovered / totalCost : 0;
+
+            const calc = window.discountStatsCalculator;
+
+            // Update display
+            const totalEl = document.getElementById('totalLivestreamCost');
+            if (totalEl) totalEl.innerHTML = `<strong>${calc.formatCurrency(totalCost)}</strong>`;
+
+            const costPerItemEl = document.getElementById('costPerItem');
+            if (costPerItemEl) costPerItemEl.textContent = calc.formatCurrency(costPerItem);
+
+            const roiEl = document.getElementById('clearanceROI');
+            if (roiEl) {
+                roiEl.textContent = clearanceROI.toFixed(2) + 'x';
+                roiEl.closest('.clearance-kpi').className = `clearance-kpi ${clearanceROI >= 1 ? 'success' : 'warning'}`;
+            }
+        }
+    }
+
+    // ========================================
+    // LIVE SESSION HISTORY
+    // ========================================
+
+    getLiveSessionHistory() {
+        try {
+            const saved = localStorage.getItem(this.liveSessionsKey);
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            console.error('[DISCOUNT-UI] Error loading live history:', e);
+            return [];
+        }
+    }
+
+    saveCurrentSession() {
+        if (!this.currentStats) {
+            alert('Chưa có dữ liệu để lưu!');
+            return;
+        }
+
+        const nameInput = document.getElementById('liveSessionName');
+        const sessionName = nameInput?.value.trim() || `Live ${new Date().toLocaleDateString('vi-VN')}`;
+
+        const s = this.currentStats.summary;
+        const totalItemsSold = s.totalDiscountedProducts;
+        const kpiCost = totalItemsSold * this.livestreamCosts.kpiPerItem;
+        const totalCost = kpiCost + this.livestreamCosts.advertising + this.livestreamCosts.operation;
+
+        const session = {
+            id: Date.now(),
+            name: sessionName,
+            date: new Date().toISOString(),
+            itemsSold: totalItemsSold,
+            ordersCount: s.ordersWithDiscount,
+            capitalRecovered: s.totalDiscountPrice,
+            totalDiscount: s.totalDiscountAmount,
+            profit: s.totalProfit,
+            livestreamCost: totalCost,
+            kpiCost: kpiCost,
+            adCost: this.livestreamCosts.advertising,
+            opCost: this.livestreamCosts.operation,
+            clearanceROI: totalCost > 0 ? s.totalDiscountPrice / totalCost : 0,
+            costPerItem: totalItemsSold > 0 ? totalCost / totalItemsSold : 0
+        };
+
+        const history = this.getLiveSessionHistory();
+        history.unshift(session); // Add to beginning
+
+        // Keep only last 20 sessions
+        if (history.length > 20) history.pop();
+
+        try {
+            localStorage.setItem(this.liveSessionsKey, JSON.stringify(history));
+
+            // Clear input and refresh table
+            if (nameInput) nameInput.value = '';
+            document.getElementById('liveHistoryTable').innerHTML = this.renderLiveHistoryTable(history);
+
+            if (window.notificationManager) {
+                window.notificationManager.success(`Đã lưu "${sessionName}"`, 2000);
+            } else {
+                alert(`Đã lưu "${sessionName}"`);
+            }
+        } catch (e) {
+            console.error('[DISCOUNT-UI] Error saving session:', e);
+            alert('Lỗi lưu dữ liệu!');
+        }
+    }
+
+    deleteLiveSession(sessionId) {
+        if (!confirm('Xóa đợt live này?')) return;
+
+        let history = this.getLiveSessionHistory();
+        history = history.filter(s => s.id !== sessionId);
+
+        try {
+            localStorage.setItem(this.liveSessionsKey, JSON.stringify(history));
+            document.getElementById('liveHistoryTable').innerHTML = this.renderLiveHistoryTable(history);
+        } catch (e) {
+            console.error('[DISCOUNT-UI] Error deleting session:', e);
+        }
+    }
+
+    renderLiveHistoryTable(history) {
+        if (!history || history.length === 0) {
+            return `<div class="empty-history">Chưa có lịch sử đợt live. Lưu đợt live đầu tiên để so sánh!</div>`;
+        }
+
+        const calc = window.discountStatsCalculator;
+
+        return `
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Đợt Live</th>
+                        <th>SP Bán</th>
+                        <th>Vốn Thu Hồi</th>
+                        <th>Chi Phí Live</th>
+                        <th>Chi phí/SP</th>
+                        <th>ROI</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${history.map(s => `
+                        <tr>
+                            <td>
+                                <div class="session-name">${s.name}</div>
+                                <div class="session-date">${new Date(s.date).toLocaleDateString('vi-VN')}</div>
+                            </td>
+                            <td>${s.itemsSold}</td>
+                            <td>${calc.formatCurrency(s.capitalRecovered)}</td>
+                            <td>
+                                <div>${calc.formatCurrency(s.livestreamCost)}</div>
+                                <div class="cost-breakdown">KPI: ${calc.formatCurrency(s.kpiCost)} | QC: ${calc.formatCurrency(s.adCost)} | VH: ${calc.formatCurrency(s.opCost)}</div>
+                            </td>
+                            <td>${calc.formatCurrency(s.costPerItem)}</td>
+                            <td class="${s.clearanceROI >= 1 ? 'positive' : 'negative'}">${s.clearanceROI.toFixed(2)}x</td>
+                            <td>
+                                <button class="btn-delete-session" onclick="window.discountStatsUI.deleteLiveSession(${s.id})" title="Xóa">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    // ========================================
+    // CLEARANCE INSIGHTS (Xả Tồn Analysis)
+    // ========================================
+
+    generateClearanceInsights(stats, totalLivestreamCost, clearanceROI) {
+        const insights = [];
+        const s = stats.summary;
+        const risk = stats.riskAnalysis;
+
+        // ROI Xả tồn
+        if (clearanceROI < 1) {
+            insights.push({
+                type: 'warning',
+                icon: '⚠️',
+                text: `Chi phí livestream CAO: ROI ${clearanceROI.toFixed(2)}x - Mỗi ${(1/clearanceROI).toFixed(0)}đ chi phí chỉ thu ${(1).toFixed(0)}đ vốn. Cần giảm chi phí QC/vận hành.`
+            });
+        } else if (clearanceROI >= 5) {
+            insights.push({
+                type: 'success',
+                icon: '🎉',
+                text: `Xả tồn RẤT HIỆU QUẢ: ROI ${clearanceROI.toFixed(1)}x - Chi phí livestream thấp so với vốn thu hồi!`
+            });
+        }
+
+        // Phân tích số lượng xả
+        if (s.totalDiscountedProducts >= 100) {
+            insights.push({
+                type: 'success',
+                icon: '📦',
+                text: `Xả được ${s.totalDiscountedProducts} SP tồn trong ${s.ordersWithDiscount} đơn - Tốc độ xả tốt!`
+            });
+        } else if (s.totalDiscountedProducts < 50) {
+            insights.push({
+                type: 'info',
+                icon: '📊',
+                text: `Chỉ xả được ${s.totalDiscountedProducts} SP. Có thể cần giảm sâu hơn hoặc tăng quảng cáo.`
+            });
+        }
+
+        // Phân tích lỗ vốn
+        if (s.ordersWithLoss > 0) {
+            insights.push({
+                type: 'danger',
+                icon: '📉',
+                text: `Có ${s.ordersWithLoss} đơn LỖ VỐN - Chấp nhận được nếu mục tiêu là giải phóng kho. Tổng lỗ: ${Math.abs(s.totalProfit < 0 ? s.totalProfit : 0).toLocaleString()}đ`
+            });
+        }
+
+        // Chi phí cơ hội
+        const holdingCostPerMonth = s.totalCostPrice * 0.015; // 1.5%/tháng
+        insights.push({
+            type: 'info',
+            icon: '💡',
+            text: `Chi phí giữ hàng tồn: ~${holdingCostPerMonth.toLocaleString()}đ/tháng. Nếu xả được, tiết kiệm chi phí lưu kho và vốn "chết".`
+        });
+
+        // Đề xuất
+        if (risk.lossPercent + risk.dangerPercent > 40) {
+            insights.push({
+                type: 'warning',
+                icon: '🎯',
+                text: `${(risk.lossPercent + risk.dangerPercent).toFixed(0)}% SP ở vùng nguy hiểm/lỗ. Với mục tiêu XẢ TỒN, đây là chấp nhận được. Ưu tiên xả nhanh hơn lãi cao.`
+            });
+        }
+
+        // Kết luận
+        if (clearanceROI >= 1 && s.totalDiscountedProducts >= 50) {
+            insights.push({
+                type: 'success',
+                icon: '✅',
+                text: `Tổng kết: Đợt live XẢ TỒN HIỆU QUẢ! Thu hồi ${s.totalDiscountPrice.toLocaleString()}đ vốn với chi phí ${totalLivestreamCost.toLocaleString()}đ.`
             });
         }
 

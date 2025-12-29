@@ -2194,6 +2194,293 @@
             line-height: 1.5;
         }
 
+        .insight-item.info {
+            border-left: 3px solid #3b82f6;
+        }
+
+        /* =====================================================
+           DASHBOARD XẢ TỒN KHO - LIVESTREAM COSTS
+           ===================================================== */
+
+        /* Chi phí Livestream */
+        .livestream-costs {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border: 1px solid #93c5fd;
+        }
+
+        .costs-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .costs-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .cost-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .cost-item label {
+            display: block;
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .cost-item.total {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        }
+
+        .cost-item.total label {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .cost-item.total .total-value {
+            color: white;
+            font-size: 18px;
+        }
+
+        .cost-value.auto {
+            font-size: 13px;
+            color: #374151;
+        }
+
+        .cost-value.auto strong {
+            color: #3b82f6;
+            font-size: 16px;
+        }
+
+        .cost-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .cost-input-wrapper input {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .cost-input-wrapper input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .cost-input-wrapper .currency {
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        /* Hiệu quả Xả Tồn */
+        .clearance-efficiency {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border: 1px solid #6ee7b7;
+        }
+
+        .clearance-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .clearance-kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .clearance-kpi {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .clearance-kpi .kpi-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #10b981;
+        }
+
+        .clearance-kpi .kpi-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .clearance-kpi .kpi-label {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+        }
+
+        .clearance-kpi .kpi-hint {
+            font-size: 11px;
+            margin-top: 5px;
+            color: #6b7280;
+        }
+
+        .clearance-kpi.success {
+            border: 2px solid #10b981;
+        }
+
+        .clearance-kpi.success .kpi-value {
+            color: #10b981;
+        }
+
+        .clearance-kpi.warning {
+            border: 2px solid #f59e0b;
+        }
+
+        .clearance-kpi.warning .kpi-value {
+            color: #f59e0b;
+        }
+
+        .clearance-summary {
+            margin-top: 10px;
+        }
+
+        .clearance-summary .summary-box {
+            background: white;
+            border-radius: 8px;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #374151;
+        }
+
+        .clearance-summary .summary-box i {
+            color: #3b82f6;
+        }
+
+        /* Lịch sử đợt Live */
+        .live-comparison {
+            background: linear-gradient(135deg, #fae8ff 0%, #f5d0fe 100%);
+            border: 1px solid #e879f9;
+        }
+
+        .save-session-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .btn-save-session {
+            background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-save-session:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+        }
+
+        .empty-history {
+            text-align: center;
+            padding: 30px;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .history-table thead {
+            background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+            color: white;
+        }
+
+        .history-table th {
+            padding: 12px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .history-table tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .history-table tbody tr:hover {
+            background: #faf5ff;
+        }
+
+        .history-table td {
+            padding: 12px 10px;
+            color: #374151;
+        }
+
+        .history-table .session-name {
+            font-weight: 600;
+            color: #7c3aed;
+        }
+
+        .history-table .session-date {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        .history-table .cost-breakdown {
+            font-size: 10px;
+            color: #9ca3af;
+            margin-top: 3px;
+        }
+
+        .history-table .positive {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .history-table .negative {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .btn-delete-session {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.2s;
+        }
+
+        .btn-delete-session:hover {
+            color: #ef4444;
+        }
+
         /* Empty/No Discount State */
         .no-discount-state,
         .error-state {
