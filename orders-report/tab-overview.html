@@ -6085,6 +6085,53 @@
             document.getElementById('orderDetailModal').classList.remove('show');
         }
 
+        // Function để mở modal chi tiết đơn hàng chỉ với orderId (cho discount stats UI)
+        async function openOrderDetailById(orderId) {
+            // Tìm order trong allOrders
+            const index = allOrders.findIndex(o => o.orderId === orderId || o.Id === orderId);
+
+            if (index >= 0) {
+                // Tìm thấy trong cache, gọi function cũ
+                openOrderDetail(orderId, index);
+            } else {
+                // Không tìm thấy, fetch từ API và hiển thị
+                const modal = document.getElementById('orderDetailModal');
+                const modalBody = document.getElementById('modalBody');
+
+                modal.classList.add('show');
+                modalBody.innerHTML = `
+                    <div class="loading-state">
+                        <i class="fas fa-spinner"></i>
+                        <h3>Đang tải chi tiết...</h3>
+                    </div>
+                `;
+
+                try {
+                    const fullOrderData = await fetchOrderData(orderId);
+                    // Tạo basicOrder từ fullOrderData
+                    const basicOrder = {
+                        orderId: orderId,
+                        orderCode: fullOrderData?.Code || '',
+                        customerName: fullOrderData?.Name || '',
+                        stt: fullOrderData?.SessionIndex || ''
+                    };
+                    renderOrderDetailModal(basicOrder, fullOrderData);
+                } catch (error) {
+                    console.error('[REPORT] Error loading order detail by ID:', error);
+                    modalBody.innerHTML = `
+                        <div class="error-state">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <h3>Không thể tải chi tiết đơn hàng</h3>
+                            <p>${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Export to window for discount stats UI
+        window.openOrderDetailById = openOrderDetailById;
+
         document.getElementById('orderDetailModal').addEventListener('click', function (e) {
             if (e.target === this) closeOrderDetailModal();
         });

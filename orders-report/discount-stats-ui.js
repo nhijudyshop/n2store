@@ -286,7 +286,7 @@ class DiscountStatsUI {
                     <tbody id="discountProductsBody">
                         ${sorted.map(p => `
                             <tr class="risk-${p.riskStatus}" data-risk="${p.riskStatus}">
-                                <td class="stt clickable" onclick="window.openEditModal && window.openEditModal('${p.orderId}')" title="Click để xem chi tiết đơn hàng">${p.orderSTT || '-'}</td>
+                                <td class="stt clickable" onclick="window.openOrderDetailById && window.openOrderDetailById('${p.orderId}')" title="Click để xem chi tiết đơn hàng">${p.orderSTT || '-'}</td>
                                 <td class="code">${p.productCode || '-'}</td>
                                 <td class="name" title="${p.productName}">${this.truncate(p.productName, 30)}</td>
                                 <td class="qty">${p.quantity}</td>
@@ -366,7 +366,7 @@ class DiscountStatsUI {
                     <tbody id="discountOrdersBody">
                         ${sorted.map(o => `
                             <tr class="risk-${o.summary.riskStatus}" data-risk="${o.summary.riskStatus}">
-                                <td class="stt clickable" onclick="window.openEditModal && window.openEditModal('${o.orderId}')" title="Click để xem chi tiết đơn hàng">${o.orderSTT || '-'}</td>
+                                <td class="stt clickable" onclick="window.openOrderDetailById && window.openOrderDetailById('${o.orderId}')" title="Click để xem chi tiết đơn hàng">${o.orderSTT || '-'}</td>
                                 <td class="name">${this.truncate(o.customerName, 20)}</td>
                                 <td class="qty">${o.summary.discountedProductCount}</td>
                                 <td class="price">${calc.formatCurrency(o.summary.totalListPrice)}</td>
