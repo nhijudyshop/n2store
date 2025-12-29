@@ -5,6 +5,8 @@
 
 const express = require('express');
 const router = express.Router();
+const tposTokenManager = require('../services/tpos-token-manager');
+const fetch = require('node-fetch');
 
 /**
  * GET /api/sepay/ping
@@ -2372,6 +2374,83 @@ router.put('/customer-info/:unique_code', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to update customer name',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sepay/tpos/customer/:phone
+ * Fetch customer info from TPOS Partner API by phone number
+ * Uses automatic TPOS token management from environment variables
+ */
+router.get('/tpos/customer/:phone', async (req, res) => {
+    const { phone } = req.params;
+
+    try {
+        if (!phone || !/^\d{10}$/.test(phone)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid phone number (must be 10 digits)'
+            });
+        }
+
+        console.log(`[TPOS-CUSTOMER] Fetching customer for phone: ${phone}`);
+
+        // Get TPOS token
+        const token = await tposTokenManager.getToken();
+
+        // Call TPOS Partner API
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${phone}&$top=50&$orderby=DateCreated+desc&$count=true`;
+
+        const response = await fetch(tposUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Group by unique 10-digit phone
+        const uniqueCustomers = [];
+        const seenPhones = new Set();
+
+        if (data.value && Array.isArray(data.value)) {
+            for (const customer of data.value) {
+                const custPhone = customer.Phone?.replace(/\D/g, '').slice(-10);
+                if (custPhone && custPhone.length === 10 && !seenPhones.has(custPhone)) {
+                    seenPhones.add(custPhone);
+                    uniqueCustomers.push({
+                        id: customer.Id,
+                        phone: custPhone,
+                        name: customer.Name || customer.FullName,
+                        email: customer.Email,
+                        status: customer.Status,
+                        credit: customer.Credit
+                    });
+                }
+            }
+        }
+
+        console.log(`[TPOS-CUSTOMER] Found ${uniqueCustomers.length} unique customers for ${phone}`);
+
+        res.json({
+            success: true,
+            data: uniqueCustomers,
+            count: uniqueCustomers.length
+        });
+
+    } catch (error) {
+        console.error('[TPOS-CUSTOMER] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch customer from TPOS',
             message: error.message
         });
     }
