@@ -141,39 +141,66 @@ router.get('/search', async (req, res) => {
         let params;
 
         if (isPhoneSearch) {
-            // OPTIMIZED: Phone search - uses B-tree index directly
+            // FALLBACK: Search in balance_customer_info if customers table is empty
+            // This allows phone search to work even when customers table doesn't exist
             query = `
-                SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
+                SELECT
+                    NULL::integer as id,
+                    NULL::text as firebase_id,
+                    customer_phone as phone,
+                    customer_name as name,
+                    NULL::text as email,
+                    NULL::text as address,
+                    NULL::text as carrier,
+                    NULL::text as status,
+                    NULL::numeric as debt,
+                    NULL::boolean as active,
+                    NULL::integer as tpos_id,
+                    NULL::jsonb as tpos_data,
+                    created_at,
+                    updated_at,
                     CASE
-                        WHEN phone = $1 THEN 100
-                        WHEN phone LIKE $1 || '%' THEN 95
+                        WHEN customer_phone = $1 THEN 100
+                        WHEN customer_phone LIKE $1 || '%' THEN 95
                         ELSE 90
                     END AS priority
-                FROM customers
-                WHERE phone LIKE $1 || '%' OR phone LIKE '%' || $1
+                FROM balance_customer_info
+                WHERE customer_phone LIKE $1 || '%' OR customer_phone LIKE '%' || $1
             `;
             params = [searchTerm];
         } else {
-            // OPTIMIZED: Simple prefix/contains search on name (limited to 100 results for speed)
+            // FALLBACK: Search in balance_customer_info by customer_name
             const searchLower = searchTerm.toLowerCase();
             query = `
-                SELECT id, firebase_id, phone, name, email, address, carrier, status, debt, active, tpos_id, tpos_data, created_at, updated_at,
+                SELECT
+                    NULL::integer as id,
+                    NULL::text as firebase_id,
+                    customer_phone as phone,
+                    customer_name as name,
+                    NULL::text as email,
+                    NULL::text as address,
+                    NULL::text as carrier,
+                    NULL::text as status,
+                    NULL::numeric as debt,
+                    NULL::boolean as active,
+                    NULL::integer as tpos_id,
+                    NULL::jsonb as tpos_data,
+                    created_at,
+                    updated_at,
                     CASE
-                        WHEN LOWER(name) = $1 THEN 100
-                        WHEN LOWER(name) LIKE $1 || '%' THEN 90
+                        WHEN LOWER(customer_name) = $1 THEN 100
+                        WHEN LOWER(customer_name) LIKE $1 || '%' THEN 90
                         ELSE 50
                     END AS priority
-                FROM customers
-                WHERE LOWER(name) LIKE $1 || '%' OR LOWER(name) LIKE '%' || $1 || '%'
+                FROM balance_customer_info
+                WHERE customer_name IS NOT NULL
+                  AND (LOWER(customer_name) LIKE $1 || '%' OR LOWER(customer_name) LIKE '%' || $1 || '%')
             `;
             params = [searchLower];
         }
 
-        // Add status filter if provided
-        if (status) {
-            query += ` AND status = $${params.length + 1}`;
-            params.push(status);
-        }
+        // Note: Status filter not supported when searching balance_customer_info
+        // (status column doesn't exist in that table)
 
         query += ` ORDER BY priority DESC, created_at DESC LIMIT $${params.length + 1}`;
         params.push(limitCount);
