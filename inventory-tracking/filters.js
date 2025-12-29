@@ -4,6 +4,9 @@
 // Note: Uses flattened shipments/orderBookings from nccList
 // =====================================================
 
+// Store current date for navigation
+let trackingCurrentDate = new Date();
+
 /**
  * Initialize filters
  */
@@ -19,31 +22,44 @@ function initFilters() {
     const btn15Days = document.getElementById('btn15Days');
     const btn30Days = document.getElementById('btn30Days');
 
-    // Set default date range (last 30 days)
-    if (dateFromInput && !dateFromInput.value) {
-        const now = new Date();
-        const thirtyDaysAgo = new Date(now);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        dateFromInput.value = thirtyDaysAgo.toISOString().split('T')[0];
-    }
-    if (dateToInput && !dateToInput.value) {
-        dateToInput.value = new Date().toISOString().split('T')[0];
-    }
+    // Date selector dropdown
+    const dateSelector = document.getElementById('trackingDateSelector');
+    const dateInput = document.getElementById('filterTrackingDateInput');
+    const btnPrev = document.getElementById('btnTrackingPrevDay');
+    const btnNext = document.getElementById('btnTrackingNextDay');
+
+    // Set default date range (last 7 days)
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    if (dateFromInput) dateFromInput.value = sevenDaysAgo.toISOString().split('T')[0];
+    if (dateToInput) dateToInput.value = now.toISOString().split('T')[0];
+
+    // Update date selector display
+    updateTrackingDateSelectorDisplay();
 
     // Event listeners for quick date buttons
     btn7Days?.addEventListener('click', () => setQuickDateRange(7, btn7Days));
     btn15Days?.addEventListener('click', () => setQuickDateRange(15, btn15Days));
     btn30Days?.addEventListener('click', () => setQuickDateRange(30, btn30Days));
 
+    // Date selector dropdown change
+    dateSelector?.addEventListener('change', handleTrackingDateSelectorChange);
+
+    // Hidden date input change (for single day selection)
+    dateInput?.addEventListener('change', () => {
+        if (dateInput.value) {
+            trackingCurrentDate = new Date(dateInput.value + 'T00:00:00');
+            setTrackingSingleDay(trackingCurrentDate);
+        }
+    });
+
+    // Navigation buttons
+    btnPrev?.addEventListener('click', () => navigateTrackingDate(-1));
+    btnNext?.addEventListener('click', () => navigateTrackingDate(1));
+
     // Event listeners for real-time filtering
-    dateFromInput?.addEventListener('change', () => {
-        clearQuickDateButtonActive();
-        applyFilters();
-    });
-    dateToInput?.addEventListener('change', () => {
-        clearQuickDateButtonActive();
-        applyFilters();
-    });
     nccSelect?.addEventListener('change', applyFilters);
 
     // Product search with debounce
@@ -59,17 +75,133 @@ function initFilters() {
     // Clear button
     btnClear?.addEventListener('click', clearFilters);
 
-    // Auto-apply on enter
-    [dateFromInput, dateToInput, productInput].forEach(input => {
-        input?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                applyFilters();
-            }
-        });
-    });
+    // Initialize with 7N active
+    btn7Days?.classList.add('active');
 
-    // Initialize with 30 days active
-    btn30Days?.classList.add('active');
+    // Apply initial filters
+    applyFilters();
+}
+
+/**
+ * Handle tracking date selector change
+ */
+function handleTrackingDateSelectorChange() {
+    const dateSelector = document.getElementById('trackingDateSelector');
+    const dateInput = document.getElementById('filterTrackingDateInput');
+    const value = dateSelector?.value;
+
+    clearQuickDateButtonActive();
+
+    switch (value) {
+        case 'today':
+            trackingCurrentDate = new Date();
+            setTrackingSingleDay(trackingCurrentDate);
+            break;
+        case '3days':
+            setQuickDateRange(3, null);
+            break;
+        case '7days':
+            setQuickDateRange(7, document.getElementById('btn7Days'));
+            break;
+        case '10days':
+            setQuickDateRange(10, null);
+            break;
+        case 'single':
+            // Open date picker for single day
+            if (dateInput) {
+                dateInput.style.pointerEvents = 'auto';
+                dateInput.showPicker?.() || dateInput.click();
+                dateInput.style.pointerEvents = 'none';
+            }
+            // Reset to current option after selection
+            setTimeout(() => {
+                if (dateSelector) dateSelector.value = 'current';
+            }, 100);
+            break;
+        case 'custom':
+            // Show custom date range picker (use prompt for simplicity)
+            showCustomDateRangePicker('tracking');
+            setTimeout(() => {
+                if (dateSelector) dateSelector.value = 'current';
+            }, 100);
+            break;
+        default:
+            // 'current' - do nothing, just display
+            break;
+    }
+}
+
+/**
+ * Set tracking single day filter
+ */
+function setTrackingSingleDay(date) {
+    const dateFromInput = document.getElementById('filterDateFrom');
+    const dateToInput = document.getElementById('filterDateTo');
+    const dateStr = date.toISOString().split('T')[0];
+
+    if (dateFromInput) dateFromInput.value = dateStr;
+    if (dateToInput) dateToInput.value = dateStr;
+
+    updateTrackingDateSelectorDisplay();
+    applyFilters();
+}
+
+/**
+ * Navigate tracking date by days
+ */
+function navigateTrackingDate(days) {
+    const dateFromInput = document.getElementById('filterDateFrom');
+    const dateToInput = document.getElementById('filterDateTo');
+
+    if (!dateFromInput?.value || !dateToInput?.value) return;
+
+    const fromDate = new Date(dateFromInput.value + 'T00:00:00');
+    const toDate = new Date(dateToInput.value + 'T00:00:00');
+
+    // Calculate range in days
+    const rangeDays = Math.round((toDate - fromDate) / (1000 * 60 * 60 * 24));
+
+    // Move both dates
+    fromDate.setDate(fromDate.getDate() + days);
+    toDate.setDate(toDate.getDate() + days);
+
+    dateFromInput.value = fromDate.toISOString().split('T')[0];
+    dateToInput.value = toDate.toISOString().split('T')[0];
+
+    trackingCurrentDate = fromDate;
+    clearQuickDateButtonActive();
+    updateTrackingDateSelectorDisplay();
+    applyFilters();
+}
+
+/**
+ * Update tracking date selector display text
+ */
+function updateTrackingDateSelectorDisplay() {
+    const dateFromInput = document.getElementById('filterDateFrom');
+    const dateToInput = document.getElementById('filterDateTo');
+    const currentDateOption = document.getElementById('trackingCurrentDateOption');
+
+    if (!currentDateOption || !dateFromInput?.value) return;
+
+    const fromDate = new Date(dateFromInput.value + 'T00:00:00');
+    const toDate = dateToInput?.value ? new Date(dateToInput.value + 'T00:00:00') : fromDate;
+
+    // Check if same day
+    const isSameDay = dateFromInput.value === dateToInput?.value;
+
+    if (isSameDay) {
+        // Format as "Thứ X, DD/MM"
+        const dayNames = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayName = dayNames[fromDate.getDay()];
+        const dateStr = `${fromDate.getDate().toString().padStart(2, '0')}/${(fromDate.getMonth() + 1).toString().padStart(2, '0')}`;
+        currentDateOption.textContent = `${dayName}, ${dateStr}`;
+    } else {
+        // Format as "DD/MM - DD/MM"
+        const fromStr = `${fromDate.getDate().toString().padStart(2, '0')}/${(fromDate.getMonth() + 1).toString().padStart(2, '0')}`;
+        const toStr = `${toDate.getDate().toString().padStart(2, '0')}/${(toDate.getMonth() + 1).toString().padStart(2, '0')}`;
+        currentDateOption.textContent = `${fromStr} → ${toStr}`;
+    }
 }
 
 /**
@@ -94,7 +226,90 @@ function setQuickDateRange(days, activeBtn) {
     clearQuickDateButtonActive();
     activeBtn?.classList.add('active');
 
+    // Update date selector display
+    updateTrackingDateSelectorDisplay();
+
+    // Reset selector to current
+    const dateSelector = document.getElementById('trackingDateSelector');
+    if (dateSelector) dateSelector.value = 'current';
+
     applyFilters();
+}
+
+/**
+ * Show custom date range picker
+ */
+function showCustomDateRangePicker(tab) {
+    const fromInput = tab === 'tracking'
+        ? document.getElementById('filterDateFrom')
+        : document.getElementById('filterBookingDateFrom');
+    const toInput = tab === 'tracking'
+        ? document.getElementById('filterDateTo')
+        : document.getElementById('filterBookingDateTo');
+
+    // Create modal for custom date range
+    const existingModal = document.getElementById('customDateRangeModal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'customDateRangeModal';
+    modal.innerHTML = `
+        <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;">
+            <div style="background:white;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <h3 style="margin:0 0 16px;font-size:18px;color:#1f2937;">Chọn khoảng thời gian</h3>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-weight:600;color:#6b7280;">Từ ngày:</label>
+                        <input type="date" id="customDateFrom" value="${fromInput?.value || ''}" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:16px;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-weight:600;color:#6b7280;">Đến ngày:</label>
+                        <input type="date" id="customDateTo" value="${toInput?.value || ''}" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:16px;">
+                    </div>
+                </div>
+                <div style="display:flex;gap:12px;margin-top:20px;justify-content:flex-end;">
+                    <button onclick="document.getElementById('customDateRangeModal').remove()" style="padding:10px 20px;background:#f3f4f6;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Hủy</button>
+                    <button onclick="applyCustomDateRange('${tab}')" style="padding:10px 20px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Áp dụng</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+/**
+ * Apply custom date range
+ */
+function applyCustomDateRange(tab) {
+    const customFrom = document.getElementById('customDateFrom')?.value;
+    const customTo = document.getElementById('customDateTo')?.value;
+
+    if (!customFrom || !customTo) {
+        alert('Vui lòng chọn đầy đủ ngày bắt đầu và kết thúc');
+        return;
+    }
+
+    const fromInput = tab === 'tracking'
+        ? document.getElementById('filterDateFrom')
+        : document.getElementById('filterBookingDateFrom');
+    const toInput = tab === 'tracking'
+        ? document.getElementById('filterDateTo')
+        : document.getElementById('filterBookingDateTo');
+
+    if (fromInput) fromInput.value = customFrom;
+    if (toInput) toInput.value = customTo;
+
+    document.getElementById('customDateRangeModal')?.remove();
+
+    if (tab === 'tracking') {
+        clearQuickDateButtonActive();
+        updateTrackingDateSelectorDisplay();
+        applyFilters();
+    } else {
+        clearBookingQuickDateButtonActive();
+        updateBookingDateSelectorDisplay();
+        applyBookingFilters();
+    }
 }
 
 /**
@@ -222,6 +437,9 @@ function updateFilterCount(filtered, total) {
 // BOOKING FILTERS - ORDER BOOKING TAB
 // =====================================================
 
+// Store current date for booking navigation
+let bookingCurrentDate = new Date();
+
 /**
  * Initialize booking filters
  */
@@ -238,31 +456,44 @@ function initBookingFilters() {
     const btn15Days = document.getElementById('btnBooking15Days');
     const btn30Days = document.getElementById('btnBooking30Days');
 
-    // Set default date range (last 30 days)
-    if (dateFromInput && !dateFromInput.value) {
-        const now = new Date();
-        const thirtyDaysAgo = new Date(now);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        dateFromInput.value = thirtyDaysAgo.toISOString().split('T')[0];
-    }
-    if (dateToInput && !dateToInput.value) {
-        dateToInput.value = new Date().toISOString().split('T')[0];
-    }
+    // Date selector dropdown
+    const dateSelector = document.getElementById('bookingDateSelector');
+    const dateInput = document.getElementById('filterBookingDateInput');
+    const btnPrev = document.getElementById('btnBookingPrevDay');
+    const btnNext = document.getElementById('btnBookingNextDay');
+
+    // Set default date range (last 7 days)
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    if (dateFromInput) dateFromInput.value = sevenDaysAgo.toISOString().split('T')[0];
+    if (dateToInput) dateToInput.value = now.toISOString().split('T')[0];
+
+    // Update date selector display
+    updateBookingDateSelectorDisplay();
 
     // Event listeners for quick date buttons
     btn7Days?.addEventListener('click', () => setBookingQuickDateRange(7, btn7Days));
     btn15Days?.addEventListener('click', () => setBookingQuickDateRange(15, btn15Days));
     btn30Days?.addEventListener('click', () => setBookingQuickDateRange(30, btn30Days));
 
+    // Date selector dropdown change
+    dateSelector?.addEventListener('change', handleBookingDateSelectorChange);
+
+    // Hidden date input change (for single day selection)
+    dateInput?.addEventListener('change', () => {
+        if (dateInput.value) {
+            bookingCurrentDate = new Date(dateInput.value + 'T00:00:00');
+            setBookingSingleDay(bookingCurrentDate);
+        }
+    });
+
+    // Navigation buttons
+    btnPrev?.addEventListener('click', () => navigateBookingDate(-1));
+    btnNext?.addEventListener('click', () => navigateBookingDate(1));
+
     // Event listeners for real-time filtering
-    dateFromInput?.addEventListener('change', () => {
-        clearBookingQuickDateButtonActive();
-        applyBookingFilters();
-    });
-    dateToInput?.addEventListener('change', () => {
-        clearBookingQuickDateButtonActive();
-        applyBookingFilters();
-    });
     nccSelect?.addEventListener('change', applyBookingFilters);
     statusSelect?.addEventListener('change', applyBookingFilters);
 
@@ -278,8 +509,127 @@ function initBookingFilters() {
     // Clear button
     btnClear?.addEventListener('click', clearBookingFilters);
 
-    // Initialize with 30 days active
-    btn30Days?.classList.add('active');
+    // Initialize with 7N active
+    btn7Days?.classList.add('active');
+}
+
+/**
+ * Handle booking date selector change
+ */
+function handleBookingDateSelectorChange() {
+    const dateSelector = document.getElementById('bookingDateSelector');
+    const dateInput = document.getElementById('filterBookingDateInput');
+    const value = dateSelector?.value;
+
+    clearBookingQuickDateButtonActive();
+
+    switch (value) {
+        case 'today':
+            bookingCurrentDate = new Date();
+            setBookingSingleDay(bookingCurrentDate);
+            break;
+        case '3days':
+            setBookingQuickDateRange(3, null);
+            break;
+        case '7days':
+            setBookingQuickDateRange(7, document.getElementById('btnBooking7Days'));
+            break;
+        case '10days':
+            setBookingQuickDateRange(10, null);
+            break;
+        case 'single':
+            // Open date picker for single day
+            if (dateInput) {
+                dateInput.style.pointerEvents = 'auto';
+                dateInput.showPicker?.() || dateInput.click();
+                dateInput.style.pointerEvents = 'none';
+            }
+            // Reset to current option after selection
+            setTimeout(() => {
+                if (dateSelector) dateSelector.value = 'current';
+            }, 100);
+            break;
+        case 'custom':
+            // Show custom date range picker
+            showCustomDateRangePicker('booking');
+            setTimeout(() => {
+                if (dateSelector) dateSelector.value = 'current';
+            }, 100);
+            break;
+        default:
+            // 'current' - do nothing, just display
+            break;
+    }
+}
+
+/**
+ * Set booking single day filter
+ */
+function setBookingSingleDay(date) {
+    const dateFromInput = document.getElementById('filterBookingDateFrom');
+    const dateToInput = document.getElementById('filterBookingDateTo');
+    const dateStr = date.toISOString().split('T')[0];
+
+    if (dateFromInput) dateFromInput.value = dateStr;
+    if (dateToInput) dateToInput.value = dateStr;
+
+    updateBookingDateSelectorDisplay();
+    applyBookingFilters();
+}
+
+/**
+ * Navigate booking date by days
+ */
+function navigateBookingDate(days) {
+    const dateFromInput = document.getElementById('filterBookingDateFrom');
+    const dateToInput = document.getElementById('filterBookingDateTo');
+
+    if (!dateFromInput?.value || !dateToInput?.value) return;
+
+    const fromDate = new Date(dateFromInput.value + 'T00:00:00');
+    const toDate = new Date(dateToInput.value + 'T00:00:00');
+
+    // Move both dates
+    fromDate.setDate(fromDate.getDate() + days);
+    toDate.setDate(toDate.getDate() + days);
+
+    dateFromInput.value = fromDate.toISOString().split('T')[0];
+    dateToInput.value = toDate.toISOString().split('T')[0];
+
+    bookingCurrentDate = fromDate;
+    clearBookingQuickDateButtonActive();
+    updateBookingDateSelectorDisplay();
+    applyBookingFilters();
+}
+
+/**
+ * Update booking date selector display text
+ */
+function updateBookingDateSelectorDisplay() {
+    const dateFromInput = document.getElementById('filterBookingDateFrom');
+    const dateToInput = document.getElementById('filterBookingDateTo');
+    const currentDateOption = document.getElementById('bookingCurrentDateOption');
+
+    if (!currentDateOption || !dateFromInput?.value) return;
+
+    const fromDate = new Date(dateFromInput.value + 'T00:00:00');
+    const toDate = dateToInput?.value ? new Date(dateToInput.value + 'T00:00:00') : fromDate;
+
+    // Check if same day
+    const isSameDay = dateFromInput.value === dateToInput?.value;
+
+    if (isSameDay) {
+        // Format as "Thứ X, DD/MM"
+        const dayNames = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayName = dayNames[fromDate.getDay()];
+        const dateStr = `${fromDate.getDate().toString().padStart(2, '0')}/${(fromDate.getMonth() + 1).toString().padStart(2, '0')}`;
+        currentDateOption.textContent = `${dayName}, ${dateStr}`;
+    } else {
+        // Format as "DD/MM - DD/MM"
+        const fromStr = `${fromDate.getDate().toString().padStart(2, '0')}/${(fromDate.getMonth() + 1).toString().padStart(2, '0')}`;
+        const toStr = `${toDate.getDate().toString().padStart(2, '0')}/${(toDate.getMonth() + 1).toString().padStart(2, '0')}`;
+        currentDateOption.textContent = `${fromStr} → ${toStr}`;
+    }
 }
 
 /**
@@ -303,6 +653,13 @@ function setBookingQuickDateRange(days, activeBtn) {
     // Update active button state
     clearBookingQuickDateButtonActive();
     activeBtn?.classList.add('active');
+
+    // Update date selector display
+    updateBookingDateSelectorDisplay();
+
+    // Reset selector to current
+    const dateSelector = document.getElementById('bookingDateSelector');
+    if (dateSelector) dateSelector.value = 'current';
 
     applyBookingFilters();
 }

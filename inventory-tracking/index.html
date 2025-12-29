@@ -127,19 +127,33 @@
                         <button class="btn-quick-date" id="btnBooking30Days" title="30 ngày gần nhất">30N</button>
                     </div>
 
-                    <!-- Date From -->
-                    <div class="filter-inline-item">
-                        <i data-lucide="calendar"></i>
-                        <input type="date" id="filterBookingDateFrom" class="filter-inline-input">
+                    <!-- Navigation arrows -->
+                    <button class="btn-icon btn-nav" id="btnBookingPrevDay" title="Ngày trước">
+                        <i data-lucide="chevron-left"></i>
+                    </button>
+
+                    <!-- Date Selector Dropdown -->
+                    <div class="date-selector-container">
+                        <input type="date" id="filterBookingDateInput" class="date-input-hidden" />
+                        <select class="date-selector" id="bookingDateSelector">
+                            <option value="current" id="bookingCurrentDateOption">Hôm nay</option>
+                            <option value="today">Hôm nay</option>
+                            <option value="3days">3 ngày</option>
+                            <option value="7days">7 ngày</option>
+                            <option value="10days">10 ngày</option>
+                            <option value="single">1 ngày...</option>
+                            <option value="custom">Nhiều ngày...</option>
+                        </select>
                     </div>
 
-                    <span class="filter-separator">→</span>
+                    <!-- Navigation arrows -->
+                    <button class="btn-icon btn-nav" id="btnBookingNextDay" title="Ngày sau">
+                        <i data-lucide="chevron-right"></i>
+                    </button>
 
-                    <!-- Date To -->
-                    <div class="filter-inline-item">
-                        <i data-lucide="calendar"></i>
-                        <input type="date" id="filterBookingDateTo" class="filter-inline-input">
-                    </div>
+                    <!-- Hidden date inputs for custom range -->
+                    <input type="date" id="filterBookingDateFrom" class="date-input-hidden">
+                    <input type="date" id="filterBookingDateTo" class="date-input-hidden">
 
                     <!-- NCC Filter -->
                     <div class="filter-inline-item">
@@ -212,19 +226,33 @@
                         <button class="btn-quick-date" id="btn30Days" title="30 ngày gần nhất">30N</button>
                     </div>
 
-                    <!-- Date From -->
-                    <div class="filter-inline-item">
-                        <i data-lucide="calendar"></i>
-                        <input type="date" id="filterDateFrom" class="filter-inline-input">
+                    <!-- Navigation arrows -->
+                    <button class="btn-icon btn-nav" id="btnTrackingPrevDay" title="Ngày trước">
+                        <i data-lucide="chevron-left"></i>
+                    </button>
+
+                    <!-- Date Selector Dropdown -->
+                    <div class="date-selector-container">
+                        <input type="date" id="filterTrackingDateInput" class="date-input-hidden" />
+                        <select class="date-selector" id="trackingDateSelector">
+                            <option value="current" id="trackingCurrentDateOption">Hôm nay</option>
+                            <option value="today">Hôm nay</option>
+                            <option value="3days">3 ngày</option>
+                            <option value="7days">7 ngày</option>
+                            <option value="10days">10 ngày</option>
+                            <option value="single">1 ngày...</option>
+                            <option value="custom">Nhiều ngày...</option>
+                        </select>
                     </div>
 
-                    <span class="filter-separator">→</span>
+                    <!-- Navigation arrows -->
+                    <button class="btn-icon btn-nav" id="btnTrackingNextDay" title="Ngày sau">
+                        <i data-lucide="chevron-right"></i>
+                    </button>
 
-                    <!-- Date To -->
-                    <div class="filter-inline-item">
-                        <i data-lucide="calendar"></i>
-                        <input type="date" id="filterDateTo" class="filter-inline-input">
-                    </div>
+                    <!-- Hidden date inputs for custom range -->
+                    <input type="date" id="filterDateFrom" class="date-input-hidden">
+                    <input type="date" id="filterDateTo" class="date-input-hidden">
 
                     <!-- NCC Filter -->
                     <div class="filter-inline-item">
