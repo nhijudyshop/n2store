@@ -3071,6 +3071,8 @@ function renderPhoneDataPagination() {
     }
 
     paginationContainer.style.display = 'flex';
+    paginationContainer.style.gap = '8px';
+    paginationContainer.style.alignItems = 'center';
 
     // Update page info
     pageInfo.textContent = `Trang ${phoneDataCurrentPage} / ${totalPages}`;
