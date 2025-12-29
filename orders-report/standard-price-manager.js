@@ -1,6 +1,6 @@
 // =====================================================
 // STANDARD PRICE MANAGER
-// Fetch và cache giá vốn từ API ExportProductV2
+// Fetch và cache giá vốn từ API ExportFileWithStandardPriceV2
 // =====================================================
 
 class StandardPriceManager {
@@ -10,9 +10,9 @@ class StandardPriceManager {
         this.isLoaded = false;
         this.isLoading = false;
         this.lastFetchTime = null;
-        this.storageKey = "standard_price_cache_v2"; // Changed v1 -> v2 for new endpoint
+        this.storageKey = "standard_price_cache_v1";
         this.CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
-        this.API_ENDPOINT = "https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportProductV2?Active=true";
+        this.API_ENDPOINT = "https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithStandardPriceV2";
 
         this.init();
     }
@@ -129,35 +129,20 @@ class StandardPriceManager {
             // Get auth headers
             const headers = await window.tokenManager.getAuthHeader();
 
-            // POST request to get Excel file from ExportProductV2
-            // Request format theo ExportProductV2.txt
-            const requestBody = {
-                data: JSON.stringify({
-                    Filter: {
-                        logic: "and",
-                        filters: [
-                            {
-                                field: "Active",
-                                operator: "eq",
-                                value: true,
-                                Clear: "Clear"
-                            }
-                        ]
-                    }
-                }),
-                ids: []
-            };
-
+            // POST request to get Excel file
+            // Sử dụng format CŨ giống product-search-manager.js (dòng 189-192)
+            // KHÔNG dùng ExportProductV2 format vì yêu cầu quyền cao hơn
             const response = await fetch(this.API_ENDPOINT, {
                 method: "POST",
                 headers: {
                     ...headers,
                     "Content-Type": "application/json",
                     Accept: "application/json",
-                    "tposappversion": "5.11.16.1",
-                    "x-tpos-lang": "vi",
                 },
-                body: JSON.stringify(requestBody),
+                body: JSON.stringify({
+                    model: { Active: "true" },
+                    ids: "",
+                }),
             });
 
             if (!response.ok) {
