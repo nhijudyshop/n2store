@@ -274,6 +274,16 @@ class InventoryTrackingApp {
             });
         }
 
+        // Export tracking button (Theo Dõi Đơn Hàng tab)
+        const btnExportTracking = document.getElementById('btnExportTracking');
+        if (btnExportTracking) {
+            btnExportTracking.addEventListener('click', () => {
+                if (typeof exportTrackingToExcel === 'function') {
+                    exportTrackingToExcel();
+                }
+            });
+        }
+
         // Language toggle button
         const langToggleButton = document.getElementById('langToggleButton');
         if (langToggleButton) {
