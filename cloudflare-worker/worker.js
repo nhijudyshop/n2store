@@ -1099,6 +1099,68 @@ export default {
         }
       }
 
+      // ========== TPOS PRODUCT EXCEL EXPORT V2 (ExportProductV2) ==========
+      // POST /api/Product/ExportProductV2
+      // Headers theo request thành công từ tomato.tpos.vn (hình user gửi)
+      if (pathname === '/api/Product/ExportProductV2' && request.method === 'POST') {
+        // Extract query params (e.g., ?Active=true)
+        const queryParams = url.search || '?Active=true';
+        const targetUrl = `https://tomato.tpos.vn/Product/ExportProductV2${queryParams}`;
+
+        console.log('[TPOS-EXPORT-PRODUCT-V2] ========================================');
+        console.log('[TPOS-EXPORT-PRODUCT-V2] Proxying to TPOS:', targetUrl);
+
+        // Build headers giống request thành công (từ hình)
+        const tposHeaders = new Headers();
+
+        // Copy Authorization header from original request
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          tposHeaders.set('Authorization', authHeader);
+        }
+
+        // Set headers theo request thành công
+        tposHeaders.set('Content-Type', 'application/json');
+        tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
+        tposHeaders.set('sec-ch-ua', '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"');
+        tposHeaders.set('sec-ch-ua-mobile', '?0');
+        tposHeaders.set('sec-ch-ua-platform', '"macOS"');
+        tposHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+
+        try {
+          const tposResponse = await fetch(targetUrl, {
+            method: 'POST',
+            headers: tposHeaders,
+            body: await request.text(),
+          });
+
+          console.log('[TPOS-EXPORT-PRODUCT-V2] TPOS Response status:', tposResponse.status);
+          console.log('[TPOS-EXPORT-PRODUCT-V2] Content-Type:', tposResponse.headers.get('Content-Type'));
+          console.log('[TPOS-EXPORT-PRODUCT-V2] ========================================');
+
+          // Clone response and add CORS headers
+          const newResponse = new Response(tposResponse.body, tposResponse);
+          newResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+          newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+
+          return newResponse;
+
+        } catch (error) {
+          console.error('[TPOS-EXPORT-PRODUCT-V2] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Failed to fetch product Excel from TPOS',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== TPOS PRODUCT EXCEL EXPORT (Standard Price V2 - Giá mua/vốn) ==========
       // POST /api/Product/ExportFileWithStandardPriceV2
       // Cần headers đặc biệt giống như request trực tiếp từ tomato.tpos.vn
