@@ -2328,6 +2328,56 @@ router.get('/phone-data', async (req, res) => {
 });
 
 /**
+ * PUT /api/sepay/customer-info/:unique_code
+ * Update customer name for a specific unique code
+ * Body: { customer_name: string }
+ */
+router.put('/customer-info/:unique_code', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { unique_code } = req.params;
+    const { customer_name } = req.body;
+
+    try {
+        if (!customer_name) {
+            return res.status(400).json({
+                success: false,
+                error: 'customer_name is required'
+            });
+        }
+
+        console.log(`[UPDATE-CUSTOMER-NAME] Updating ${unique_code} with name: ${customer_name}`);
+
+        const result = await db.query(
+            `UPDATE balance_customer_info
+             SET customer_name = $1, updated_at = CURRENT_TIMESTAMP
+             WHERE unique_code = $2
+             RETURNING *`,
+            [customer_name, unique_code]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Unique code not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[UPDATE-CUSTOMER-NAME] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update customer name',
+            message: error.message
+        });
+    }
+});
+
+/**
  * POST /api/sepay/batch-update-phones
  * Batch update phone numbers for existing transactions
  * This is useful for retroactively extracting phone numbers from old transactions
