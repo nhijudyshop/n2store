@@ -130,14 +130,13 @@ class StandardPriceManager {
             const headers = await window.tokenManager.getAuthHeader();
 
             // POST request to get Excel file
-            // Sử dụng format CŨ giống product-search-manager.js (dòng 189-192)
-            // KHÔNG dùng ExportProductV2 format vì yêu cầu quyền cao hơn
+            // Sử dụng headers đơn giản giống ExportFileWithVariantPrice (hoạt động OK)
             const response = await fetch(this.API_ENDPOINT, {
                 method: "POST",
                 headers: {
                     ...headers,
                     "Content-Type": "application/json",
-                    Accept: "application/json",
+                    "Accept": "*/*",
                 },
                 body: JSON.stringify({
                     model: { Active: "true" },
