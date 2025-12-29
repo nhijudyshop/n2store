@@ -926,11 +926,12 @@ body {
 .invoice-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 15px;
+    font-weight: 500;
 }
 
 .invoice-table-bordered {
-    border: 2px solid var(--gray-300);
+    border: 2px solid var(--gray-400);
 }
 
 .invoice-table-bordered th,
@@ -938,17 +939,22 @@ body {
     border: 1px solid var(--gray-300);
 }
 
+/* Outer border for booking tables */
+.booking-table-detailed {
+    border: 2px solid var(--gray-400);
+}
+
 .invoice-table th,
 .invoice-table td {
-    padding: 10px 12px;
+    padding: 6px 10px;
     text-align: left;
-    vertical-align: top;
+    vertical-align: middle;
 }
 
 .invoice-table th {
     background: var(--gray-100);
-    font-weight: 600;
-    font-size: 12px;
+    font-weight: 700;
+    font-size: 14px;
     color: var(--gray-700);
     text-transform: uppercase;
     white-space: nowrap;
@@ -981,13 +987,13 @@ body {
 }
 
 .invoice-table tbody tr.invoice-odd {
-    background-color: #f5f5f5;
+    background-color: #e8e8e8;
 }
 
 /* Thicker border between invoices - spans all invoice columns (NCC to Ghi Chú) */
 /* Applied to rowspanned cells (always) and non-rowspanned cells (on last row) */
 .invoice-table tbody td.invoice-border {
-    border-bottom: 2px solid var(--gray-400);
+    border-bottom: 3px solid var(--gray-600);
 }
 
 .invoice-table tbody tr:hover {
@@ -997,8 +1003,9 @@ body {
 /* Product text in table */
 .invoice-table .product-text {
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-    font-size: 12px;
-    color: var(--gray-700);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-800);
 }
 
 /* Bold and larger font for amounts */
@@ -1006,7 +1013,7 @@ body {
 .invoice-table .total-value,
 .invoice-table .shortage-value,
 .invoice-table .cost-value {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--gray-900);
 }
@@ -1018,7 +1025,7 @@ body {
 .invoice-table .total-amount,
 .invoice-table .total-items,
 .invoice-table .total-cost {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 700;
 }
 
@@ -1081,8 +1088,9 @@ body {
 /* Product list full display */
 .product-list-full {
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-    font-size: 12px;
-    line-height: 1.6;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
 }
 
 .product-line {
@@ -2157,19 +2165,21 @@ body {
 /* Detailed Booking Table with rowspan */
 .booking-table-detailed {
     border-collapse: collapse;
+    font-size: 15px;
+    font-weight: 500;
 }
 
 .booking-table-detailed th,
 .booking-table-detailed td {
-    border: 1px solid var(--gray-200);
-    padding: 10px 12px;
+    border: 1px solid var(--gray-300);
+    padding: 8px 10px;
     vertical-align: middle;
 }
 
 .booking-table-detailed th {
     background: var(--gray-100);
-    font-weight: 600;
-    font-size: 13px;
+    font-weight: 700;
+    font-size: 14px;
 }
 
 .booking-table-detailed .col-ncc {
@@ -2209,15 +2219,31 @@ body {
 }
 
 .booking-row-gray {
-    background-color: #f8f9fa;
+    background-color: #e8e8e8;
 }
 
 /* NCC cell styling */
 .booking-ncc-cell {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700 !important;
     color: var(--primary);
     background: inherit;
+}
+
+/* Product text in booking table */
+.booking-table-detailed .product-text {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+/* Amount values in booking table */
+.booking-table-detailed .amount-value,
+.booking-table-detailed .total-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gray-900);
 }
 
 /* Hover effect for rows */
@@ -2228,7 +2254,14 @@ body {
 /* Border between NCC groups */
 .booking-row-white td,
 .booking-row-gray td {
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--gray-300);
+}
+
+/* Thicker border between different NCC orders */
+.booking-table-detailed tbody tr:last-child td,
+.booking-table-detailed tbody tr[data-booking-id] + tr:not([data-booking-id]) td,
+.booking-table-detailed tbody td[rowspan] {
+    border-bottom: 3px solid var(--gray-600);
 }
 
 .booking-count-badge {
