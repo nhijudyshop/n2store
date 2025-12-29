@@ -3,10 +3,15 @@
 ## 📋 Tổng quan
 
 Feature này tự động:
-1. Extract số điện thoại từ nội dung chuyển khoản (>4 chữ số)
-2. Search customer trong database (match bao quát: số chỉ cần **có chứa trong** SĐT đầy đủ)
-3. Tự động cập nhật công nợ nếu tìm được 1 customer duy nhất
-4. Lưu vào pending matches nếu tìm được nhiều customers
+1. Extract số điện thoại từ nội dung chuyển khoản (>4 chữ số, lấy số cuối cùng)
+2. Lưu trực tiếp vào `balance_customer_info` để tracking
+3. Mark transaction là `debt_added = TRUE`
+
+**Lưu ý:**
+- ❌ Không search trong `customers` table
+- ❌ Không cập nhật debt
+- ❌ Không tạo pending matches
+- ✅ Chỉ tracking phone numbers trong `balance_customer_info`
 
 ---
 
@@ -98,52 +103,56 @@ curl -X POST https://your-domain.com/api/sepay/webhook \
 
 ```bash
 # Grep logs để xem phone extraction
-grep "EXTRACT-PHONE\|SEARCH-CUSTOMER\|DEBT-UPDATE" logs.txt
+grep "EXTRACT-PHONE\|DEBT-UPDATE" logs.txt
 
 # Expected output:
-# [EXTRACT-PHONE] Found GD, parsing before GD: CT DEN:0123456789 ND:0901234567 thanh toan
-# [EXTRACT-PHONE] Found phone (last occurrence): 0901234567
-# [SEARCH-CUSTOMER] Searching for phone: 0901234567
-# [SEARCH-CUSTOMER] Found 1 customers for phone pattern: 0901234567
-# [DEBT-UPDATE] ✅ Success (phone extraction - single match)
+# [EXTRACT-PHONE] Found GD, parsing before GD: 456788 tam
+# [EXTRACT-PHONE] Found phone (last occurrence): 456788
+# [DEBT-UPDATE] Phone extracted: 456788
+# [DEBT-UPDATE] Saved to balance_customer_info: PHONE456788 456788
+# [DEBT-UPDATE] ✅ Success (phone extraction - auto save)
 ```
 
-### 3.3. Kiểm tra pending matches
+### 3.3. Kiểm tra balance_customer_info
 
-```bash
-# Lấy danh sách pending matches
-curl https://your-domain.com/api/sepay/pending-matches?status=pending
+```sql
+-- Xem records đã được tạo
+SELECT unique_code, customer_phone, customer_name, created_at
+FROM balance_customer_info
+WHERE unique_code LIKE 'PHONE%'
+ORDER BY created_at DESC
+LIMIT 10;
+
+-- Expected output:
+-- unique_code    | customer_phone | customer_name | created_at
+-- -------------------------------------------------------------
+-- PHONE456788    | 456788         | NULL          | 2025-12-29 10:30:00
 ```
 
 ---
 
-## 📊 Logic Matching (Bao quát)
+## 📊 Logic Mới (Đơn giản)
 
-### Query search customer:
-
-```sql
-SELECT id, phone, name, email, status, debt
-FROM customers
-WHERE phone LIKE '%0901234567%'  -- Số extracted chỉ cần CÓ CHỨA trong SĐT
-ORDER BY
-    CASE
-        WHEN phone = '0901234567' THEN 100      -- Exact match (priority cao nhất)
-        WHEN phone LIKE '0901234567%' THEN 95   -- Starts with
-        WHEN phone LIKE '%0901234567' THEN 90   -- Ends with
-        ELSE 85                                  -- Contains anywhere
-    END DESC
-LIMIT 10
+### Flow:
+```
+1. Extract phone từ content (lấy số cuối cùng >4 chữ số)
+   ↓
+2. Generate unique_code = PHONE{phone}
+   ↓
+3. UPSERT vào balance_customer_info
+   ↓
+4. Mark transaction debt_added = TRUE
+   ↓
+5. Done ✅
 ```
 
-### Ví dụ matching:
+### Ví dụ:
 
-| Extracted | Customer Phone | Match? | Priority |
-|-----------|----------------|--------|----------|
-| `56789`   | `0901256789`   | ✅ Yes | 85 (contains) |
-| `56789`   | `0956789012`   | ✅ Yes | 95 (starts with) |
-| `56789`   | `0912356789`   | ✅ Yes | 90 (ends with) |
-| `56789`   | `56789`        | ✅ Yes | 100 (exact) |
-| `56789`   | `0912345678`   | ❌ No  | - |
+| Content | Extracted | Unique Code | Customer Phone |
+|---------|-----------|-------------|----------------|
+| `456788 tam GD 5363...` | `456788` | `PHONE456788` | `456788` |
+| `CT:0123 ND:0901234567` | `0901234567` | `PHONE0901234567` | `0901234567` |
+| `ABC 12345 XYZ 98765` | `98765` | `PHONE98765` | `98765` |
 
 ---
 
@@ -300,30 +309,33 @@ UPDATE customers SET active = false WHERE id = ...;
 ## ✅ Checklist Deploy
 
 - [ ] Đã chạy SQL setup (SETUP_ALL.sql hoặc từng migration)
-- [ ] Đã verify tables được tạo thành công
+- [ ] Đã verify tables được tạo thành công (`balance_history`, `balance_customer_info`)
 - [ ] Đã push code lên production branch
 - [ ] Đã restart server
 - [ ] Đã test webhook với transaction mẫu
-- [ ] Đã check logs có EXTRACT-PHONE và SEARCH-CUSTOMER
-- [ ] Đã test API endpoints (pending-matches, resolve, skip)
+- [ ] Đã check logs có EXTRACT-PHONE và DEBT-UPDATE
+- [ ] Đã verify records được tạo trong `balance_customer_info`
 
 ---
 
-## 🎯 Expected Flow
+## 🎯 Expected Flow (Simplified)
 
 ```
 1. Webhook nhận transaction → Parse content
                                     ↓
-2. Extract số cuối (>4 chữ số) → "0901234567"
+2. Extract số cuối (>4 chữ số) → "456788"
                                     ↓
-3. Search customers → WHERE phone LIKE '%0901234567%'
+3. Generate unique_code → "PHONE456788"
                                     ↓
-         ┌──────────────────────────┼──────────────────────────┐
-         ↓                          ↓                          ↓
-    0 results               1 result (auto)            Multiple results
-    Skip                    ✅ Save + Update debt      ⚠️  Pending review
-                            Mark debt_added=TRUE        Save to pending_matches
+4. UPSERT vào balance_customer_info
+   (unique_code, customer_phone, customer_name)
+                                    ↓
+5. Mark transaction debt_added = TRUE
+                                    ↓
+                                  Done ✅
 ```
+
+**Không có customer search, không có pending matches, không có debt updates.**
 
 ---
 

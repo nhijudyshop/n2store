@@ -39,67 +39,48 @@ Khi webhook nhận được giao dịch mới (transfer_type = 'in'):
 
 **Lưu ý**: Nếu có nhiều chuỗi số, sẽ lấy **số cuối cùng** (rightmost).
 
-### Bước 3: Search Customer
-Search bao quát: số extracted chỉ cần **có chứa trong** SĐT đầy đủ của customer:
-```sql
-SELECT id, phone, name, email, status, debt
-FROM customers
-WHERE phone LIKE '%0901234567%'  -- Contains anywhere
-ORDER BY
-    CASE
-        WHEN phone = '0901234567' THEN 100      -- Exact match (ưu tiên cao nhất)
-        WHEN phone LIKE '0901234567%' THEN 95   -- Starts with
-        WHEN phone LIKE '%0901234567' THEN 90   -- Ends with
-        ELSE 85                                  -- Contains anywhere
-    END DESC
-LIMIT 10
+### Bước 3: Lưu vào balance_customer_info
+**Không cần search customer**, lưu trực tiếp:
+```javascript
+// Generate unique code
+const uniqueCode = `PHONE${extractedPhone}`;
+
+// Insert/Update balance_customer_info
+INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name)
+VALUES ('PHONE456788', '456788', NULL)
+ON CONFLICT (unique_code) DO UPDATE SET
+    customer_phone = EXCLUDED.customer_phone,
+    updated_at = CURRENT_TIMESTAMP;
+
+// Mark transaction as processed
+UPDATE balance_history SET debt_added = TRUE WHERE id = transaction_id;
 ```
 
-**Ví dụ matching:**
-- Extracted: `56789` (>4 chữ số)
-- Customer phone: `0901256789` → ✅ MATCH (chứa "56789")
-- Customer phone: `0956789012` → ✅ MATCH (chứa "56789")
-- Customer phone: `0912345678` → ❌ NO MATCH (không chứa "56789")
+**Ví dụ:**
+- Content: `"456788 tam GD 5363IBT1fW6EKWXV"`
+- Extracted phone: `456788`
+- Unique code: `PHONE456788`
+- Customer phone: `456788`
+- Customer name: `NULL` (có thể update sau)
 
-### Bước 4: Xử lý kết quả
+**Lưu ý quan trọng:**
+- ❌ Không search trong `customers` table
+- ❌ Không cập nhật debt vào `customers`
+- ✅ Chỉ lưu vào `balance_customer_info` để tracking
+- ✅ Mark transaction `debt_added = TRUE`
 
-#### Case 1: 0 kết quả
-- Skip transaction
-- Log: `No customers found`
-- Transaction không được mark `debt_added = true`
-
-#### Case 2: 1 kết quả (Auto save)
-1. Tạo unique code: `PHONE{phone}{timestamp}`
-   - VD: `PHONE0901234567123456`
-2. Save vào `balance_customer_info`:
-   ```sql
-   INSERT INTO balance_customer_info
-   (unique_code, customer_name, customer_phone)
-   VALUES ('PHONE0901234567123456', 'Nguyen Van A', '0901234567')
-   ```
-3. Update debt vào `customers` table:
-   ```sql
-   INSERT INTO customers (phone, debt)
-   VALUES ('0901234567', 500000)
-   ON CONFLICT (phone) DO UPDATE SET
-       debt = customers.debt + 500000
-   ```
-4. Mark transaction: `debt_added = TRUE`
-
-#### Case 3: Nhiều kết quả (Pending review)
-1. Save vào `pending_customer_matches`:
-   ```sql
-   INSERT INTO pending_customer_matches
-   (transaction_id, extracted_phone, matched_customers, status)
-   VALUES (
-       123,
-       '0901234567',
-       '[{"id": 1, "phone": "0901234567", "name": "Nguyen Van A"}, ...]',
-       'pending'
-   )
-   ```
-2. Transaction chưa được mark `debt_added = TRUE`
-3. Admin sẽ xử lý sau qua UI hoặc API
+### Bước 4: Kết quả
+Mọi transaction có phone (>4 chữ số) đều được lưu vào `balance_customer_info`:
+```json
+{
+  "success": true,
+  "method": "phone_extraction_auto",
+  "transactionId": 123,
+  "extractedPhone": "456788",
+  "uniqueCode": "PHONE456788",
+  "amount": 2000
+}
+```
 
 ## 🔌 API Endpoints
 
