@@ -311,7 +311,9 @@ const PAGES_REGISTRY = {
             viewRevenue: { name: "Xem doanh thu", icon: "dollar-sign", description: "Xem số liệu doanh thu" },
             viewDetails: { name: "Xem chi tiết", icon: "list", description: "Xem báo cáo chi tiết" },
             export: { name: "Xuất báo cáo", icon: "download", description: "Export báo cáo" },
-            compare: { name: "So sánh", icon: "git-compare", description: "So sánh các kỳ báo cáo" }
+            compare: { name: "So sánh", icon: "git-compare", description: "So sánh các kỳ báo cáo" },
+            viewAnalysis: { name: "Xem Phân tích hiệu quả", icon: "trending-up", description: "Truy cập tab Phân tích hiệu quả" },
+            editAnalysis: { name: "Chỉnh sửa Phân tích", icon: "edit", description: "Chỉnh sửa thông số trong tab Phân tích" }
         }
     },
 
