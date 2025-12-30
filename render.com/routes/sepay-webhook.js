@@ -743,41 +743,7 @@ async function searchTPOSByPartialPhone(partialPhone) {
     }
 }
 
-/**
- * Helper: Search customer by phone using internal API
- * Returns array of matching customers
- */
-async function searchCustomerByPhone(db, phone) {
-    if (!phone) return [];
-
-    console.log('[SEARCH-CUSTOMER] Searching for phone:', phone);
-
-    try {
-        // Search in customers table - match if extracted number is CONTAINED in customer phone
-        // More comprehensive: checks if extracted digits exist anywhere in the full phone number
-        const query = `
-            SELECT id, phone, name, email, address, status, debt, tpos_id
-            FROM customers
-            WHERE phone LIKE '%' || $1 || '%'
-            ORDER BY
-                CASE
-                    WHEN phone = $1 THEN 100              -- Exact match
-                    WHEN phone LIKE $1 || '%' THEN 95     -- Starts with
-                    WHEN phone LIKE '%' || $1 THEN 90     -- Ends with
-                    ELSE 85                                -- Contains anywhere
-                END DESC
-            LIMIT 10
-        `;
-
-        const result = await db.query(query, [phone]);
-        console.log('[SEARCH-CUSTOMER] Found', result.rows.length, 'customers for phone pattern:', phone);
-
-        return result.rows;
-    } catch (error) {
-        console.error('[SEARCH-CUSTOMER] Error:', error.message);
-        return [];
-    }
-}
+// REMOVED: searchCustomerByPhone - was using customers table which has been removed
 
 /**
  * Process debt update for a single transaction
@@ -1123,28 +1089,7 @@ router.get('/debt-summary', async (req, res) => {
 
         console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
 
-        // 1. Get customer record with debt and debt_adjusted_at
-        let customerDebt = 0;
-        let debtAdjustedAt = null;
-
-        try {
-            const customerResult = await db.query(
-                `SELECT debt, debt_adjusted_at FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
-                [normalizedPhone, '0' + normalizedPhone]
-            );
-
-            if (customerResult.rows.length > 0) {
-                customerDebt = parseFloat(customerResult.rows[0].debt) || 0;
-                debtAdjustedAt = customerResult.rows[0].debt_adjusted_at;
-            }
-        } catch (customerError) {
-            // Table doesn't exist or query failed - continue without customer data
-            console.log('[DEBT-SUMMARY] Customers table not available:', customerError.message);
-        }
-
-        console.log('[DEBT-SUMMARY] Customer debt:', customerDebt, 'adjusted_at:', debtAdjustedAt);
-
-        // 2. Find all QR codes linked to this phone
+        // 1. Find all QR codes linked to this phone
         const qrResult = await db.query(
             `SELECT unique_code FROM balance_customer_info WHERE customer_phone = $1 OR customer_phone = $2`,
             [normalizedPhone, '0' + normalizedPhone]
@@ -1153,10 +1098,10 @@ router.get('/debt-summary', async (req, res) => {
         const qrCodes = qrResult.rows.map(r => (r.unique_code || '').toUpperCase()).filter(Boolean);
         console.log('[DEBT-SUMMARY] QR codes found:', qrCodes);
 
-        // 3. Calculate transactions
+        // 2. Calculate transactions
         let transactions = [];
-        let transactionsAfterAdjustment = 0;
-        let allTransactionsTotal = 0;
+        let totalDebt = 0;
+        let source = 'no_data';
 
         if (qrCodes.length > 0) {
             const placeholders = qrCodes.map((_, i) => `$${i + 1}`).join(', ');
@@ -1179,37 +1124,11 @@ router.get('/debt-summary', async (req, res) => {
             transactions = txResult.rows;
 
             // Calculate total of ALL transactions
-            allTransactionsTotal = transactions.reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
-
-            // If admin has adjusted, calculate transactions AFTER the adjustment
-            if (debtAdjustedAt) {
-                transactionsAfterAdjustment = transactions
-                    .filter(t => new Date(t.transaction_date) > new Date(debtAdjustedAt))
-                    .reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
-
-                console.log('[DEBT-SUMMARY] Transactions after adjustment:', transactionsAfterAdjustment);
-            }
-        }
-
-        // 4. Calculate total debt
-        let totalDebt;
-        let source;
-
-        if (debtAdjustedAt) {
-            // Admin has adjusted: baseline + new transactions
-            totalDebt = customerDebt + transactionsAfterAdjustment;
-            source = 'admin_adjusted_plus_new';
-            console.log('[DEBT-SUMMARY] Using admin baseline + new transactions:', customerDebt, '+', transactionsAfterAdjustment, '=', totalDebt);
-        } else if (qrCodes.length > 0) {
-            // No adjustment: use all transactions
-            totalDebt = allTransactionsTotal;
+            totalDebt = transactions.reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
             source = 'balance_history';
-            console.log('[DEBT-SUMMARY] Using all transactions:', totalDebt);
+            console.log('[DEBT-SUMMARY] Total debt from transactions:', totalDebt);
         } else {
-            // No QR codes, no adjustment: use customers.debt as fallback
-            totalDebt = customerDebt;
-            source = customerDebt > 0 ? 'customers_table' : 'no_data';
-            console.log('[DEBT-SUMMARY] Fallback to customers.debt:', totalDebt);
+            console.log('[DEBT-SUMMARY] No QR codes found - no debt data');
         }
 
         res.json({
@@ -1217,9 +1136,6 @@ router.get('/debt-summary', async (req, res) => {
             data: {
                 phone,
                 total_debt: totalDebt,
-                baseline_debt: debtAdjustedAt ? customerDebt : null,
-                new_transactions: debtAdjustedAt ? transactionsAfterAdjustment : null,
-                debt_adjusted_at: debtAdjustedAt,
                 transactions: transactions.map(t => ({
                     id: t.id,
                     amount: parseInt(t.transfer_amount) || 0,
@@ -1297,43 +1213,9 @@ router.post('/debt-summary-batch', async (req, res) => {
             return res.json({ success: true, data: {} });
         }
 
-        // 1. Batch query customers table for all phones
+        // 1. Batch query QR codes for all phones
         const phoneConditions = uniquePhones.flatMap(p => [p, '0' + p]);
         const customerPlaceholders = phoneConditions.map((_, i) => `$${i + 1}`).join(', ');
-
-        // Build customer map
-        const customerMap = {};
-
-        // Try to query customers table (may not exist yet)
-        try {
-            const customerQuery = `
-                SELECT phone, debt, debt_adjusted_at
-                FROM customers
-                WHERE phone IN (${customerPlaceholders})
-            `;
-            const customerResult = await db.query(customerQuery, phoneConditions);
-
-            customerResult.rows.forEach(row => {
-                let normalizedPhone = row.phone.replace(/\D/g, '');
-                if (normalizedPhone.startsWith('0')) {
-                    normalizedPhone = normalizedPhone.substring(1);
-                }
-                // Keep the one with higher debt or has adjustment
-                if (!customerMap[normalizedPhone] ||
-                    (row.debt || 0) > (customerMap[normalizedPhone].debt || 0) ||
-                    row.debt_adjusted_at) {
-                    customerMap[normalizedPhone] = {
-                        debt: parseFloat(row.debt) || 0,
-                        debt_adjusted_at: row.debt_adjusted_at
-                    };
-                }
-            });
-        } catch (customerError) {
-            // Table doesn't exist or query failed - continue without customer data
-            console.log('[DEBT-SUMMARY-BATCH] Customers table not available:', customerError.message);
-        }
-
-        // 2. Batch query QR codes for all phones
         const qrQuery = `
             SELECT customer_phone, unique_code
             FROM balance_customer_info
@@ -1382,25 +1264,15 @@ router.post('/debt-summary-batch', async (req, res) => {
 
         // 4. Calculate debt for each phone
         for (const phone of uniquePhones) {
-            const customer = customerMap[phone] || { debt: 0, debt_adjusted_at: null };
             const qrCodes = qrMap[phone] || [];
 
             let totalDebt = 0;
             let source = 'no_data';
 
-            if (customer.debt_adjusted_at) {
-                // Admin adjusted: use customer.debt as baseline
-                // Note: For batch, we simplify and just use customer.debt
-                totalDebt = customer.debt;
-                source = 'admin_adjusted';
-            } else if (qrCodes.length > 0) {
+            if (qrCodes.length > 0) {
                 // Sum transactions from all QR codes
                 totalDebt = qrCodes.reduce((sum, qr) => sum + (transactionMap[qr] || 0), 0);
                 source = totalDebt > 0 ? 'balance_history' : 'no_transactions';
-            } else {
-                // Fallback to customer.debt
-                totalDebt = customer.debt;
-                source = customer.debt > 0 ? 'customers_table' : 'no_data';
             }
 
             results[phone] = {
@@ -1726,118 +1598,19 @@ router.get('/transactions-by-phone', async (req, res) => {
  * Admin endpoint to manually update customer debt
  * This updates the customers.debt field directly
  */
+/**
+ * DEPRECATED: This endpoint relied on customers table which has been removed
+ * Debt is now calculated directly from balance_history transactions
+ */
 router.post('/update-debt', async (req, res) => {
-    const db = req.app.locals.chatDb;
-    const { phone, new_debt, reason } = req.body;
+    console.log('[UPDATE-DEBT] ⚠️  Endpoint called but disabled (customers table removed)');
 
-    if (!phone || new_debt === undefined) {
-        return res.status(400).json({
-            success: false,
-            error: 'Missing required parameters: phone, new_debt'
-        });
-    }
-
-    try {
-        // Normalize phone
-        let normalizedPhone = phone.replace(/\D/g, '');
-        if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
-            normalizedPhone = normalizedPhone.substring(2);
-        }
-        if (normalizedPhone.startsWith('0')) {
-            normalizedPhone = normalizedPhone.substring(1);
-        }
-
-        const newDebtValue = parseFloat(new_debt) || 0;
-
-        console.log('[UPDATE-DEBT] Updating debt for phone:', normalizedPhone, 'to:', newDebtValue, 'reason:', reason);
-
-        // Check if customers table exists, if not return helpful error
-        let oldDebt = 0;
-        let existingCustomerId = null;
-        let existingPhone = null;
-        let updateResult;
-
-        try {
-            // Get current debt first - ORDER BY debt DESC to get the highest value (most relevant record)
-            const currentResult = await db.query(
-                `SELECT id, phone, debt FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
-                [normalizedPhone, '0' + normalizedPhone]
-            );
-            oldDebt = currentResult.rows.length > 0 ? (parseFloat(currentResult.rows[0].debt) || 0) : 0;
-            existingCustomerId = currentResult.rows.length > 0 ? currentResult.rows[0].id : null;
-            existingPhone = currentResult.rows.length > 0 ? currentResult.rows[0].phone : null;
-
-            if (existingCustomerId) {
-                // Customer exists - UPDATE ALL matching records (both phone formats)
-                // Set debt_adjusted_at to mark when admin adjusted (for calculating new transactions after)
-                updateResult = await db.query(`
-                    UPDATE customers
-                    SET debt = $1, updated_at = CURRENT_TIMESTAMP, debt_adjusted_at = CURRENT_TIMESTAMP
-                    WHERE phone = $2 OR phone = $3
-                    RETURNING *
-                `, [newDebtValue, normalizedPhone, '0' + normalizedPhone]);
-                console.log('[UPDATE-DEBT] Updated', updateResult.rowCount, 'customer records');
-            } else {
-                // Customer doesn't exist - INSERT new record with debt_adjusted_at
-                updateResult = await db.query(`
-                    INSERT INTO customers (phone, debt, created_at, updated_at, debt_adjusted_at)
-                    VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    RETURNING *
-                `, [normalizedPhone, newDebtValue]);
-            }
-        } catch (tableError) {
-            // Customers table doesn't exist
-            if (tableError.code === '42P01') { // PostgreSQL error code for "relation does not exist"
-                return res.status(503).json({
-                    success: false,
-                    error: 'Customers table not initialized',
-                    message: 'The customers table needs to be created first. Please run the migration: psql $DATABASE_URL < render.com/migrations/create_customers_table.sql',
-                    details: tableError.message
-                });
-            }
-            throw tableError; // Re-throw other errors
-        }
-
-        // Log the change to debt_adjustment_log table
-        const changeAmount = newDebtValue - oldDebt;
-        try {
-            await db.query(`
-                INSERT INTO debt_adjustment_log (phone, old_debt, new_debt, change_amount, reason, adjusted_by)
-                VALUES ($1, $2, $3, $4, $5, $6)
-            `, [normalizedPhone, oldDebt, newDebtValue, changeAmount, reason || 'Admin manual adjustment', 'admin']);
-            console.log('[UPDATE-DEBT] ✅ History logged to debt_adjustment_log');
-        } catch (logError) {
-            // Table might not exist yet, just log to console
-            console.warn('[UPDATE-DEBT] Could not log to debt_adjustment_log:', logError.message);
-        }
-
-        console.log('[UPDATE-DEBT] ✅ Debt updated:', {
-            phone: normalizedPhone,
-            old_debt: oldDebt,
-            new_debt: newDebtValue,
-            change: changeAmount,
-            reason: reason || 'Admin manual adjustment'
-        });
-
-        res.json({
-            success: true,
-            data: {
-                phone: normalizedPhone,
-                old_debt: oldDebt,
-                new_debt: newDebtValue,
-                change: changeAmount
-            },
-            message: 'Debt updated successfully'
-        });
-
-    } catch (error) {
-        console.error('[UPDATE-DEBT] Error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to update debt',
-            message: error.message
-        });
-    }
+    return res.status(410).json({
+        success: false,
+        error: 'Endpoint no longer supported',
+        message: 'Manual debt adjustment has been removed. Debt is now calculated automatically from transactions in balance_history.',
+        deprecated: true
+    });
 });
 
 // =====================================================
@@ -2507,33 +2280,8 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
             [uniqueCode, selectedCustomer.name, selectedCustomer.phone]
         );
 
-        // 5. Update customer debt
+        // 5. Mark transaction as processed
         const amount = parseInt(match.transfer_amount) || 0;
-        let updatedCustomer;
-
-        try {
-            const debtResult = await db.query(
-                `INSERT INTO customers (phone, name, debt, status, active)
-                 VALUES ($1, $2, $3, 'Bình thường', true)
-                 ON CONFLICT (phone) DO UPDATE SET
-                     debt = COALESCE(customers.debt, 0) + $3,
-                     updated_at = CURRENT_TIMESTAMP
-                 RETURNING id, phone, debt`,
-                [selectedCustomer.phone, selectedCustomer.name, amount]
-            );
-            updatedCustomer = debtResult.rows[0];
-        } catch (tableError) {
-            // Customers table doesn't exist
-            if (tableError.code === '42P01') {
-                console.warn('[RESOLVE-MATCH] Customers table not available, skipping debt update');
-                // Continue without updating customer debt - just log the match as resolved
-                updatedCustomer = { phone: selectedCustomer.phone, debt: null };
-            } else {
-                throw tableError;
-            }
-        }
-
-        // 6. Mark transaction as processed
         await db.query(
             `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
             [match.transaction_id]
@@ -2560,8 +2308,7 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
             match_id: id,
             transaction_id: match.transaction_id,
             customer_phone: selectedCustomer.phone,
-            amount,
-            new_debt: updatedCustomer.debt
+            amount
         });
 
         res.json({
@@ -2571,10 +2318,8 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
                 match_id: id,
                 transaction_id: match.transaction_id,
                 customer: {
-                    id: updatedCustomer.id,
-                    phone: updatedCustomer.phone,
-                    name: selectedCustomer.name,
-                    new_debt: updatedCustomer.debt
+                    phone: selectedCustomer.phone,
+                    name: selectedCustomer.name
                 },
                 amount_added: amount
             }
