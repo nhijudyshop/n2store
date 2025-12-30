@@ -13,19 +13,22 @@
 // =====================================================
 
 // Firebase config (same as user-management-enhanced.js)
-const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com",
-    projectId: "n2shop-69e37",
-    storageBucket: "n2shop-69e37-ne0q1",
-    messagingSenderId: "598906493303",
-    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-};
+// Use window scope to avoid redeclaration errors
+if (!window._MIGRATION_FIREBASE_CONFIG) {
+    window._MIGRATION_FIREBASE_CONFIG = {
+        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+        authDomain: "n2shop-69e37.firebaseapp.com",
+        projectId: "n2shop-69e37",
+        storageBucket: "n2shop-69e37-ne0q1",
+        messagingSenderId: "598906493303",
+        appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+    };
+}
 
 /**
  * Ensure Firebase is connected
  */
-async function ensureFirebaseConnected() {
+window.ensureFirebaseConnected = async function() {
     // Check if already connected
     if (window.db) {
         console.log("[Migration] Firebase already connected");
@@ -43,7 +46,7 @@ async function ensureFirebaseConnected() {
 
         // Initialize if not already
         if (!firebase.apps.length) {
-            firebase.initializeApp(FIREBASE_CONFIG);
+            firebase.initializeApp(window._MIGRATION_FIREBASE_CONFIG);
         }
 
         // Set global db reference
@@ -54,13 +57,13 @@ async function ensureFirebaseConnected() {
         console.error("[Migration] Firebase connection error:", error);
         return false;
     }
-}
+};
 
 /**
  * Generate full detailedPermissions object with all permissions = true
  * Based on PAGES_REGISTRY
  */
-function generateFullAdminPermissions() {
+window.generateFullAdminPermissions = function() {
     // All pages and their permissions
     const fullPermissions = {
         // SALES
@@ -240,37 +243,37 @@ function generateFullAdminPermissions() {
     };
 
     return fullPermissions;
-}
+};
 
 /**
  * Count total permissions
  */
-function countPermissions(perms) {
+window.countPermissions = function(perms) {
     let count = 0;
     Object.values(perms).forEach(pagePerms => {
         count += Object.values(pagePerms).filter(v => v === true).length;
     });
     return count;
-}
+};
 
 /**
  * Migrate all admin users to have full detailedPermissions
  */
-async function migrateAdminUsers() {
+window.migrateAdminUsers = async function() {
     console.log("========================================");
     console.log("MIGRATION: Admin Full Permissions");
     console.log("========================================");
 
     // Auto-connect Firebase if needed
-    const connected = await ensureFirebaseConnected();
+    const connected = await window.ensureFirebaseConnected();
     if (!connected) {
         console.error("Firebase not connected!");
         alert("Firebase not connected! Vui lòng đợi trang load xong hoặc refresh lại.");
         return { success: false, error: "Firebase not connected" };
     }
 
-    const fullPermissions = generateFullAdminPermissions();
-    const totalPerms = countPermissions(fullPermissions);
+    const fullPermissions = window.generateFullAdminPermissions();
+    const totalPerms = window.countPermissions(fullPermissions);
     console.log(`Full permissions object has ${totalPerms} permissions`);
 
     try {
@@ -341,18 +344,18 @@ async function migrateAdminUsers() {
         console.error("Migration error:", error);
         return { success: false, error: error.message };
     }
-}
+};
 
 /**
  * Preview which users will be migrated (dry run)
  */
-async function previewMigration() {
+window.previewMigration = async function() {
     console.log("========================================");
     console.log("PREVIEW: Admin Migration (Dry Run)");
     console.log("========================================");
 
     // Auto-connect Firebase if needed
-    const connected = await ensureFirebaseConnected();
+    const connected = await window.ensureFirebaseConnected();
     if (!connected) {
         console.error("Firebase not connected!");
         return null;
@@ -377,35 +380,35 @@ async function previewMigration() {
         console.log("");
 
         adminUsers.forEach(user => {
-            const currentPerms = user.detailedPermissions ? countPermissions(user.detailedPermissions) : 0;
+            const currentPerms = user.detailedPermissions ? window.countPermissions(user.detailedPermissions) : 0;
             console.log(`  ${user.id}:`);
             console.log(`    - Display Name: ${user.displayName}`);
             console.log(`    - roleTemplate: ${user.roleTemplate || 'N/A'}`);
             console.log(`    - checkLogin: ${user.checkLogin}`);
             console.log(`    - Current permissions: ${currentPerms}`);
-            console.log(`    - Will have: ${countPermissions(generateFullAdminPermissions())} permissions`);
+            console.log(`    - Will have: ${window.countPermissions(window.generateFullAdminPermissions())} permissions`);
         });
 
         return adminUsers;
     } catch (error) {
         console.error("Preview error:", error);
     }
-}
+};
 
 /**
  * Migrate a single user by username
  */
-async function migrateSingleUser(username) {
+window.migrateSingleUser = async function(username) {
     console.log(`Migrating single user: ${username}`);
 
     // Auto-connect Firebase if needed
-    const connected = await ensureFirebaseConnected();
+    const connected = await window.ensureFirebaseConnected();
     if (!connected) {
         console.error("Firebase not connected!");
         return { success: false, error: "Firebase not connected" };
     }
 
-    const fullPermissions = generateFullAdminPermissions();
+    const fullPermissions = window.generateFullAdminPermissions();
 
     try {
         const userRef = window.db.collection("users").doc(username);
@@ -423,21 +426,16 @@ async function migrateSingleUser(username) {
             lastModified: new Date().toISOString()
         });
 
-        console.log(`Successfully migrated ${username} with ${countPermissions(fullPermissions)} permissions`);
-        return { success: true, username, permissionCount: countPermissions(fullPermissions) };
+        console.log(`Successfully migrated ${username} with ${window.countPermissions(fullPermissions)} permissions`);
+        return { success: true, username, permissionCount: window.countPermissions(fullPermissions) };
 
     } catch (error) {
         console.error("Migration error:", error);
         return { success: false, error: error.message };
     }
-}
+};
 
-// Export functions
-window.migrateAdminUsers = migrateAdminUsers;
-window.previewMigration = previewMigration;
-window.migrateSingleUser = migrateSingleUser;
-window.generateFullAdminPermissions = generateFullAdminPermissions;
-
+// Script loaded message
 console.log("========================================");
 console.log("Admin Migration Script Loaded");
 console.log("========================================");
