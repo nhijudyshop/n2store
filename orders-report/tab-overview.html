@@ -3823,9 +3823,9 @@
          * @returns {Promise<Array>} - Merged orders from all campaigns
          */
         async function fetchAllCampaignsExcel() {
-            const campaigns = getCurrentSessionCampaigns();
+            const campaigns = await getCurrentSessionCampaigns();
 
-            if (campaigns.length === 0) {
+            if (!campaigns || campaigns.length === 0) {
                 console.warn('[REPORT] ⚠️ No campaigns found');
                 return [];
             }
