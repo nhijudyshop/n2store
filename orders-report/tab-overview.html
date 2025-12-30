@@ -3652,21 +3652,57 @@
         // TPOS EXCEL AUTO-FETCH FUNCTIONS
         // =====================================================
 
+        // Store campaign info received from Tab1
+        let campaignInfoFromTab1 = null;
+
+        /**
+         * Request campaign info from Tab1 via postMessage
+         * @returns {Promise<Object>} - Campaign manager data from Tab1
+         */
+        function requestCampaignInfoFromTab1() {
+            return new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    console.warn('[REPORT] ⚠️ Timeout waiting for campaign info from Tab1');
+                    resolve(null);
+                }, 3000);
+
+                const handler = (event) => {
+                    if (event.data.type === 'CAMPAIGN_INFO_RESPONSE') {
+                        clearTimeout(timeout);
+                        window.removeEventListener('message', handler);
+                        campaignInfoFromTab1 = event.data.campaignInfo;
+                        console.log('[REPORT] ✅ Received campaign info from Tab1:', campaignInfoFromTab1);
+                        resolve(event.data.campaignInfo);
+                    }
+                };
+
+                window.addEventListener('message', handler);
+
+                // Request campaign info from Tab1 via parent
+                window.parent.postMessage({
+                    type: 'REQUEST_CAMPAIGN_INFO'
+                }, '*');
+            });
+        }
+
         /**
          * Get all campaignIds for the current session
-         * @returns {Array<{id: string, name: string, displayName: string}>} - List of campaigns
+         * @returns {Promise<Array<{id: string, name: string, displayName: string}>>} - List of campaigns
          */
-        function getCurrentSessionCampaigns() {
-            // Try to get from parent window's campaignManager
-            const campaignManager = window.parent?.campaignManager;
+        async function getCurrentSessionCampaigns() {
+            // First, try to get from cached data
+            if (!campaignInfoFromTab1) {
+                console.log('[REPORT] 📡 Requesting campaign info from Tab1...');
+                await requestCampaignInfoFromTab1();
+            }
 
-            if (!campaignManager) {
-                console.warn('[REPORT] ⚠️ campaignManager not found in parent window');
+            if (!campaignInfoFromTab1) {
+                console.warn('[REPORT] ⚠️ campaignManager not available from Tab1');
                 return [];
             }
 
-            const allCampaigns = campaignManager.allCampaigns || {};
-            const activeCampaign = campaignManager.activeCampaign;
+            const allCampaigns = campaignInfoFromTab1.allCampaigns || {};
+            const activeCampaign = campaignInfoFromTab1.activeCampaign;
 
             if (!activeCampaign) {
                 console.warn('[REPORT] ⚠️ No active campaign found');

@@ -9710,6 +9710,26 @@ window.addEventListener("message", function (event) {
             ranges: employeeRanges || []
         }, '*');
     }
+
+    // Handle request for campaign info from overview tab
+    if (event.data.type === "REQUEST_CAMPAIGN_INFO") {
+        console.log('📨 [CAMPAIGN] Nhận request campaign info từ tab Báo Cáo Tổng Hợp');
+
+        // Send campaign info back to overview
+        window.parent.postMessage({
+            type: 'CAMPAIGN_INFO_RESPONSE',
+            campaignInfo: {
+                allCampaigns: window.campaignManager?.allCampaigns || {},
+                activeCampaign: window.campaignManager?.activeCampaign || null,
+                activeCampaignId: window.campaignManager?.activeCampaignId || null
+            }
+        }, '*');
+
+        console.log('✅ [CAMPAIGN] Sent campaign info:', {
+            campaignCount: Object.keys(window.campaignManager?.allCampaigns || {}).length,
+            activeCampaign: window.campaignManager?.activeCampaign?.name
+        });
+    }
 });
 
 // Anti-spam: Track fetched channelIds and debounce requests

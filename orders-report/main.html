@@ -690,6 +690,20 @@
                 if (overviewFrame && overviewFrame.contentWindow) {
                     overviewFrame.contentWindow.postMessage(e.data, "*");
                 }
+            } else if (e.data.type === "REQUEST_CAMPAIGN_INFO") {
+                // Forward request from Overview to Tab1 for campaign info
+                console.log('[MAIN] 📨 Forwarding REQUEST_CAMPAIGN_INFO to Tab1');
+                const ordersFrame = document.getElementById("ordersFrame");
+                if (ordersFrame && ordersFrame.contentWindow) {
+                    ordersFrame.contentWindow.postMessage(e.data, "*");
+                }
+            } else if (e.data.type === "CAMPAIGN_INFO_RESPONSE") {
+                // Forward campaign info response from Tab1 to Overview
+                console.log('[MAIN] 📨 Forwarding CAMPAIGN_INFO_RESPONSE to Overview');
+                const overviewFrame = document.getElementById("overviewFrame");
+                if (overviewFrame && overviewFrame.contentWindow) {
+                    overviewFrame.contentWindow.postMessage(e.data, "*");
+                }
             }
         });
 
