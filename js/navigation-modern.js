@@ -47,6 +47,15 @@ const MENU_CONFIG = [
         permissionRequired: "inventoryTracking",
     },
     {
+        href: "../purchase-orders/index.html",
+        icon: "clipboard-list",
+        text: "Quản Lý Đặt Hàng NCC",
+        shortText: "Đặt Hàng",
+        pageIdentifier: "purchase-orders",
+        adminOnly: true,
+        permissionRequired: "purchase-orders",
+    },
+    {
         href: "../hangrotxa/index.html",
         icon: "clipboard-list",
         text: "Hàng Rớt - Xả",
