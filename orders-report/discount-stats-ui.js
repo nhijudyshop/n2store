@@ -16,9 +16,56 @@ class DiscountStatsUI {
             operation: 0       // Chi phí vận hành (tự nhập)
         };
 
+        // Chi phí cơ hội và lưu kho
+        this.capitalCostRate = 12;  // % chi phí vốn/năm (lãi suất hoặc ROI kỳ vọng)
+        this.storageCostRate = 1;   // % chi phí lưu kho/tháng theo giá vốn
+
         // Lịch sử các đợt Live
         this.liveSessionsKey = 'discount_live_sessions_history';
         this.loadLivestreamCosts();
+        this.loadOpportunityCostSettings();
+    }
+
+    loadOpportunityCostSettings() {
+        try {
+            const saved = localStorage.getItem('discount_opportunity_cost_settings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                this.capitalCostRate = settings.capitalCostRate ?? 12;
+                this.storageCostRate = settings.storageCostRate ?? 1;
+            }
+        } catch (e) {
+            console.warn('[DISCOUNT-UI] Error loading opportunity cost settings:', e);
+        }
+    }
+
+    saveOpportunityCostSettings() {
+        try {
+            localStorage.setItem('discount_opportunity_cost_settings', JSON.stringify({
+                capitalCostRate: this.capitalCostRate,
+                storageCostRate: this.storageCostRate
+            }));
+        } catch (e) {
+            console.warn('[DISCOUNT-UI] Error saving opportunity cost settings:', e);
+        }
+    }
+
+    updateCapitalCostRate() {
+        const input = document.getElementById('capitalCostRate');
+        if (input) {
+            this.capitalCostRate = parseFloat(input.value) || 12;
+            this.saveOpportunityCostSettings();
+            this.refreshStats();
+        }
+    }
+
+    updateStorageCostRate() {
+        const input = document.getElementById('storageCostRate');
+        if (input) {
+            this.storageCostRate = parseFloat(input.value) || 1;
+            this.saveOpportunityCostSettings();
+            this.refreshStats();
+        }
     }
 
     // ========================================
@@ -592,59 +639,31 @@ class DiscountStatsUI {
                 </div>
             </div>
 
-            <!-- So sánh Kịch bản -->
-            <div class="analysis-section">
-                <h4><i class="fas fa-balance-scale"></i> So Sánh: Giảm Giá vs Không Giảm</h4>
-                <div class="scenario-comparison">
-                    <div class="scenario-card no-discount">
-                        <div class="scenario-title">Không Giảm Giá</div>
-                        <div class="scenario-row">
-                            <span>Doanh thu:</span>
-                            <strong>${calc.formatCurrency(scenario.noDiscount.totalRevenue)}</strong>
+            <!-- So sánh Kịch bản - Góc nhìn Tài chính Xả Tồn -->
+            <div class="analysis-section inventory-comparison">
+                <h4><i class="fas fa-balance-scale"></i> Phân Tích Tài Chính: Giữ Hàng vs Xả Tồn</h4>
+
+                <!-- Thông số chi phí cơ hội -->
+                <div class="opportunity-cost-settings">
+                    <div class="setting-row">
+                        <div class="setting-item">
+                            <label><i class="fas fa-percent"></i> Chi phí vốn/năm:</label>
+                            <input type="number" id="capitalCostRate" value="${this.capitalCostRate || 12}" min="0" max="50" step="1"
+                                   onchange="window.discountStatsUI.updateCapitalCostRate()">
+                            <span>%</span>
+                            <small>Lãi suất hoặc ROI kỳ vọng</small>
                         </div>
-                        <div class="scenario-row">
-                            <span>Lợi nhuận:</span>
-                            <strong>${calc.formatCurrency(scenario.noDiscount.totalProfit)}</strong>
-                        </div>
-                        <div class="scenario-row">
-                            <span>Margin:</span>
-                            <strong>${calc.formatPercent(scenario.noDiscount.marginPercent)}</strong>
-                        </div>
-                    </div>
-                    <div class="scenario-arrow">
-                        <i class="fas fa-arrow-right"></i>
-                        <div class="diff-badge negative">-${calc.formatCurrency(scenario.revenueLoss)}</div>
-                    </div>
-                    <div class="scenario-card with-discount">
-                        <div class="scenario-title">Với Giảm Giá</div>
-                        <div class="scenario-row">
-                            <span>Doanh thu:</span>
-                            <strong>${calc.formatCurrency(scenario.withDiscount.totalRevenue)}</strong>
-                        </div>
-                        <div class="scenario-row">
-                            <span>Lợi nhuận:</span>
-                            <strong class="${scenario.withDiscount.totalProfit >= 0 ? 'positive' : 'negative'}">${calc.formatCurrency(scenario.withDiscount.totalProfit)}</strong>
-                        </div>
-                        <div class="scenario-row">
-                            <span>Margin:</span>
-                            <strong>${calc.formatPercent(scenario.withDiscount.marginPercent)}</strong>
+                        <div class="setting-item">
+                            <label><i class="fas fa-warehouse"></i> Chi phí lưu kho/tháng:</label>
+                            <input type="number" id="storageCostRate" value="${this.storageCostRate || 1}" min="0" max="10" step="0.5"
+                                   onchange="window.discountStatsUI.updateStorageCostRate()">
+                            <span>% giá vốn</span>
+                            <small>Kho bãi, bảo quản</small>
                         </div>
                     </div>
                 </div>
-                <div class="scenario-summary">
-                    <div class="summary-item">
-                        <span>Doanh thu mất:</span>
-                        <strong class="negative">-${calc.formatCurrency(scenario.revenueLoss)}</strong>
-                    </div>
-                    <div class="summary-item">
-                        <span>Lợi nhuận giảm:</span>
-                        <strong class="negative">-${calc.formatCurrency(scenario.profitLoss)}</strong>
-                    </div>
-                    <div class="summary-item">
-                        <span>Margin giảm:</span>
-                        <strong class="negative">-${calc.formatPercent(scenario.marginDrop)}</strong>
-                    </div>
-                </div>
+
+                ${this.renderInventoryComparison(stats, scenario, calc)}
             </div>
 
             <!-- Top Sản Phẩm -->
@@ -717,6 +736,180 @@ class DiscountStatsUI {
 
         // Rebind threshold events (moved from renderOverviewTab)
         this.bindEvents();
+    }
+
+    // ========================================
+    // INVENTORY COMPARISON - Phân tích tài chính xả tồn
+    // ========================================
+
+    renderInventoryComparison(stats, scenario, calc) {
+        const s = stats.summary;
+        const costPrice = s.totalCostPrice; // Giá vốn hàng tồn
+        const listPrice = s.totalListPrice; // Giá bán lẻ (không giảm)
+        const discountPrice = s.totalDiscountPrice; // Doanh thu thực (sau giảm)
+        const discountAmount = s.totalDiscountAmount; // Số tiền giảm giá
+
+        // Tính chi phí cơ hội theo tháng
+        const monthlyCapitalCost = costPrice * (this.capitalCostRate / 100 / 12);
+        const monthlyStorageCost = costPrice * (this.storageCostRate / 100);
+        const totalMonthlyCost = monthlyCapitalCost + monthlyStorageCost;
+
+        // Tính điểm hòa vốn (bao nhiêu tháng giữ hàng = thiệt hại do giảm giá)
+        const breakEvenMonths = totalMonthlyCost > 0 ? discountAmount / totalMonthlyCost : 0;
+
+        // Tính chi phí nếu giữ hàng thêm 3, 6, 12 tháng
+        const cost3Months = totalMonthlyCost * 3;
+        const cost6Months = totalMonthlyCost * 6;
+        const cost12Months = totalMonthlyCost * 12;
+
+        // Lợi nhuận thực từ xả tồn
+        const actualProfit = s.totalProfit;
+
+        // Vốn thu hồi có thể tái đầu tư
+        const recoveredCapital = discountPrice;
+        const potentialReinvestReturn = recoveredCapital * (this.capitalCostRate / 100 / 12) * 3; // ROI 3 tháng nếu tái đầu tư
+
+        // Đánh giá hiệu quả
+        const isEffective = discountAmount < cost3Months;
+        const efficiency = totalMonthlyCost > 0 ? (discountAmount / totalMonthlyCost).toFixed(1) : '∞';
+
+        return `
+            <!-- So sánh 2 kịch bản -->
+            <div class="inventory-scenarios">
+                <!-- Kịch bản 1: Giữ hàng tồn -->
+                <div class="inv-scenario hold-inventory">
+                    <div class="inv-scenario-header">
+                        <i class="fas fa-warehouse"></i>
+                        <span>GIỮ HÀNG TỒN</span>
+                        <small>Chờ bán giá gốc</small>
+                    </div>
+                    <div class="inv-scenario-body">
+                        <div class="inv-row">
+                            <span><i class="fas fa-lock"></i> Vốn bị chiếm dụng:</span>
+                            <strong class="negative">${calc.formatCurrency(costPrice)}</strong>
+                        </div>
+                        <div class="inv-row">
+                            <span><i class="fas fa-percentage"></i> Chi phí vốn/tháng:</span>
+                            <strong class="negative">${calc.formatCurrency(monthlyCapitalCost)}</strong>
+                        </div>
+                        <div class="inv-row">
+                            <span><i class="fas fa-boxes"></i> Chi phí lưu kho/tháng:</span>
+                            <strong class="negative">${calc.formatCurrency(monthlyStorageCost)}</strong>
+                        </div>
+                        <div class="inv-row highlight">
+                            <span><i class="fas fa-calculator"></i> Tổng chi phí/tháng:</span>
+                            <strong class="negative">${calc.formatCurrency(totalMonthlyCost)}</strong>
+                        </div>
+                        <div class="inv-divider"></div>
+                        <div class="inv-row sub">
+                            <span>Chi phí sau 3 tháng:</span>
+                            <strong class="negative">${calc.formatCurrency(cost3Months)}</strong>
+                        </div>
+                        <div class="inv-row sub">
+                            <span>Chi phí sau 6 tháng:</span>
+                            <strong class="negative">${calc.formatCurrency(cost6Months)}</strong>
+                        </div>
+                        <div class="inv-row sub">
+                            <span>Chi phí sau 12 tháng:</span>
+                            <strong class="negative">${calc.formatCurrency(cost12Months)}</strong>
+                        </div>
+                        <div class="inv-risks">
+                            <div class="risk-item"><i class="fas fa-exclamation-triangle"></i> Rủi ro lỗi mode, hết trend</div>
+                            <div class="risk-item"><i class="fas fa-exclamation-triangle"></i> Rủi ro hao hụt, hư hỏng</div>
+                            <div class="risk-item"><i class="fas fa-clock"></i> Thời gian bán: Không xác định</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dấu so sánh -->
+                <div class="inv-vs">
+                    <div class="vs-badge">VS</div>
+                    <div class="vs-result ${isEffective ? 'effective' : 'ineffective'}">
+                        ${isEffective ? '<i class="fas fa-check-circle"></i> Xả tồn hiệu quả' : '<i class="fas fa-info-circle"></i> Cân nhắc thêm'}
+                    </div>
+                </div>
+
+                <!-- Kịch bản 2: Xả tồn -->
+                <div class="inv-scenario clear-inventory">
+                    <div class="inv-scenario-header">
+                        <i class="fas fa-bolt"></i>
+                        <span>XẢ TỒN NGAY</span>
+                        <small>Giảm giá thu hồi vốn</small>
+                    </div>
+                    <div class="inv-scenario-body">
+                        <div class="inv-row">
+                            <span><i class="fas fa-money-bill-wave"></i> Vốn thu hồi ngay:</span>
+                            <strong class="positive">${calc.formatCurrency(recoveredCapital)}</strong>
+                        </div>
+                        <div class="inv-row">
+                            <span><i class="fas fa-tags"></i> "Thiệt hại" giảm giá:</span>
+                            <strong class="negative">${calc.formatCurrency(discountAmount)}</strong>
+                        </div>
+                        <div class="inv-row">
+                            <span><i class="fas fa-hand-holding-usd"></i> Lợi nhuận còn lại:</span>
+                            <strong class="${actualProfit >= 0 ? 'positive' : 'negative'}">${calc.formatCurrency(actualProfit)}</strong>
+                        </div>
+                        <div class="inv-row highlight">
+                            <span><i class="fas fa-sync"></i> Tiềm năng tái đầu tư (3T):</span>
+                            <strong class="positive">+${calc.formatCurrency(potentialReinvestReturn)}</strong>
+                        </div>
+                        <div class="inv-divider"></div>
+                        <div class="inv-benefits">
+                            <div class="benefit-item"><i class="fas fa-check"></i> Giải phóng vốn ngay lập tức</div>
+                            <div class="benefit-item"><i class="fas fa-check"></i> Không chi phí lưu kho tiếp</div>
+                            <div class="benefit-item"><i class="fas fa-check"></i> Loại bỏ rủi ro hàng tồn</div>
+                            <div class="benefit-item"><i class="fas fa-check"></i> Vốn có thể quay vòng</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phân tích điểm hòa vốn -->
+            <div class="breakeven-analysis">
+                <h5><i class="fas fa-crosshairs"></i> Phân Tích Điểm Hòa Vốn</h5>
+                <div class="breakeven-content">
+                    <div class="breakeven-main">
+                        <div class="breakeven-value">${breakEvenMonths.toFixed(1)}</div>
+                        <div class="breakeven-unit">tháng</div>
+                    </div>
+                    <div class="breakeven-explain">
+                        <p><strong>Giữ hàng ${breakEvenMonths.toFixed(1)} tháng</strong> = Chi phí cơ hội <strong>${calc.formatCurrency(discountAmount)}</strong></p>
+                        <p class="hint">Sau ${breakEvenMonths.toFixed(1)} tháng, chi phí giữ hàng vượt qua số tiền giảm giá. Xả tồn sớm hơn = tiết kiệm chi phí.</p>
+                    </div>
+                </div>
+                <div class="breakeven-timeline">
+                    <div class="timeline-bar">
+                        <div class="timeline-marker now" style="left: 0%;">
+                            <span>Bây giờ</span>
+                        </div>
+                        <div class="timeline-marker breakeven" style="left: ${Math.min(breakEvenMonths / 12 * 100, 100)}%;">
+                            <span>${breakEvenMonths.toFixed(1)}T</span>
+                        </div>
+                        <div class="timeline-fill" style="width: ${Math.min(breakEvenMonths / 12 * 100, 100)}%;"></div>
+                    </div>
+                    <div class="timeline-labels">
+                        <span>0</span>
+                        <span>3T</span>
+                        <span>6T</span>
+                        <span>9T</span>
+                        <span>12T</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kết luận -->
+            <div class="inventory-conclusion ${isEffective ? 'positive' : 'neutral'}">
+                <div class="conclusion-icon">
+                    ${isEffective ? '<i class="fas fa-thumbs-up"></i>' : '<i class="fas fa-balance-scale"></i>'}
+                </div>
+                <div class="conclusion-text">
+                    ${isEffective
+                        ? `<strong>Xả tồn là quyết định đúng!</strong> Số tiền giảm giá (${calc.formatCurrency(discountAmount)}) ít hơn chi phí giữ hàng 3 tháng (${calc.formatCurrency(cost3Months)}). Bạn tiết kiệm được <strong>${calc.formatCurrency(cost3Months - discountAmount)}</strong> và giải phóng vốn để tái đầu tư.`
+                        : `<strong>Cần cân nhắc thêm.</strong> Số tiền giảm giá (${calc.formatCurrency(discountAmount)}) cao hơn chi phí giữ hàng 3 tháng. Tuy nhiên, hãy xem xét rủi ro hàng tồn và khả năng bán được với giá gốc.`
+                    }
+                </div>
+            </div>
+        `;
     }
 
     generateCFOInsights(stats) {
