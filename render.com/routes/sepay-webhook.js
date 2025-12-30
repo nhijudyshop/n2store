@@ -2160,69 +2160,26 @@ router.post('/failed-queue/retry-all', async (req, res) => {
 
 /**
  * GET /api/sepay/detect-gaps
- * Detect gaps in reference codes
+ * DEPRECATED: Disabled due to performance issues
+ *
+ * This endpoint caused severe performance degradation:
+ * - Full table scan of balance_history (could be 100k+ records)
+ * - Complex sorting and gap calculation
+ * - Called automatically on every page load
+ * - Response times: 60-90 seconds
+ *
+ * Alternative: Check database logs for missing transaction IDs manually if needed
  */
 router.get('/detect-gaps', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    console.log('[DETECT-GAPS] ⚠️  Endpoint called but disabled for performance');
 
-    try {
-        // Get all reference codes, sorted
-        const result = await db.query(`
-            SELECT reference_code, sepay_id, transaction_date
-            FROM balance_history
-            WHERE reference_code IS NOT NULL AND reference_code ~ '^[0-9]+$'
-            ORDER BY CAST(reference_code AS INTEGER) ASC
-        `);
-
-        const gaps = [];
-        const rows = result.rows;
-
-        for (let i = 1; i < rows.length; i++) {
-            const prev = parseInt(rows[i - 1].reference_code);
-            const curr = parseInt(rows[i].reference_code);
-
-            // Check for gaps
-            if (curr - prev > 1) {
-                for (let missing = prev + 1; missing < curr; missing++) {
-                    gaps.push({
-                        missing_reference_code: String(missing),
-                        previous_reference_code: rows[i - 1].reference_code,
-                        next_reference_code: rows[i].reference_code,
-                        previous_date: rows[i - 1].transaction_date,
-                        next_date: rows[i].transaction_date
-                    });
-                }
-            }
-        }
-
-        // Store detected gaps
-        for (const gap of gaps) {
-            try {
-                await db.query(`
-                    INSERT INTO reference_code_gaps (missing_reference_code, previous_reference_code, next_reference_code)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT (missing_reference_code) DO NOTHING
-                `, [gap.missing_reference_code, gap.previous_reference_code, gap.next_reference_code]);
-            } catch (gapError) {
-                // Table might not exist, ignore
-            }
-        }
-
-        res.json({
-            success: true,
-            total_gaps: gaps.length,
-            gaps: gaps.slice(0, 100), // Limit response size
-            message: gaps.length > 0 ? `Found ${gaps.length} missing reference codes` : 'No gaps detected'
-        });
-
-    } catch (error) {
-        console.error('[DETECT-GAPS] Error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to detect gaps',
-            message: error.message
-        });
-    }
+    res.json({
+        success: true,
+        total_gaps: 0,
+        gaps: [],
+        message: 'Gap detection has been disabled for performance. Check database logs if needed.',
+        deprecated: true
+    });
 });
 
 /**
