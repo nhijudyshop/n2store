@@ -83,6 +83,18 @@ class DetailedPermissionsUI {
                     <div class="template-buttons">
                         ${this.renderTemplateButtons()}
                     </div>
+                    <div class="inline-user-assignment" id="${this.prefix}UserAssignment" style="display: none;">
+                        <div class="inline-assignment-header">
+                            <i data-lucide="users"></i>
+                            <span>Nhân viên (<span id="${this.prefix}AssignedCount">0</span>)</span>
+                            <button type="button" class="btn-close-inline" onclick="window.${this.prefix}DetailedPermUI.closeInlineAssignment()">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+                        <div class="inline-user-badges" id="${this.prefix}UserBadges">
+                            <!-- User badges will be rendered here -->
+                        </div>
+                    </div>
                 </div>
 
                 <div class="permissions-summary-bar" id="${this.prefix}permissionsSummary">
@@ -138,27 +150,43 @@ class DetailedPermissionsUI {
 
         let html = '';
 
-        // Built-in templates
+        // Built-in templates with user assignment button
         html += builtInTemplates.map(([id, template]) => `
-            <button type="button" class="template-btn"
-                    style="--template-color: ${template.color || '#6366f1'}"
-                    onclick="window.${this.prefix}DetailedPermUI.applyTemplate('${id}')">
-                <i data-lucide="${template.icon}"></i>
-                <span>${(template.name || id).split(' - ')[0]}</span>
-            </button>
+            <div class="template-btn-group">
+                <button type="button" class="template-btn"
+                        style="--template-color: ${template.color || '#6366f1'}"
+                        onclick="window.${this.prefix}DetailedPermUI.applyTemplate('${id}')">
+                    <i data-lucide="${template.icon}"></i>
+                    <span>${(template.name || id).split(' - ')[0]}</span>
+                </button>
+                <button type="button" class="template-users-btn"
+                        style="--template-color: ${template.color || '#6366f1'}"
+                        onclick="window.${this.prefix}DetailedPermUI.showInlineUserAssignment('${id}')"
+                        title="Gán nhân viên vào template này">
+                    <i data-lucide="users"></i>
+                </button>
+            </div>
         `).join('');
 
         // Custom templates (if any)
         if (customTemplates.length > 0) {
             html += `<span class="template-separator">|</span>`;
             html += customTemplates.map(([id, template]) => `
-                <button type="button" class="template-btn custom-template"
-                        style="--template-color: ${template.color || '#3b82f6'}"
-                        onclick="window.${this.prefix}DetailedPermUI.applyTemplate('${id}', true)"
-                        title="Template tùy chỉnh">
-                    <i data-lucide="${template.icon || 'sliders'}"></i>
-                    <span>${(template.name || id).split(' - ')[0]}</span>
-                </button>
+                <div class="template-btn-group">
+                    <button type="button" class="template-btn custom-template"
+                            style="--template-color: ${template.color || '#3b82f6'}"
+                            onclick="window.${this.prefix}DetailedPermUI.applyTemplate('${id}', true)"
+                            title="Template tùy chỉnh">
+                        <i data-lucide="${template.icon || 'sliders'}"></i>
+                        <span>${(template.name || id).split(' - ')[0]}</span>
+                    </button>
+                    <button type="button" class="template-users-btn"
+                            style="--template-color: ${template.color || '#3b82f6'}"
+                            onclick="window.${this.prefix}DetailedPermUI.showInlineUserAssignment('${id}')"
+                            title="Gán nhân viên vào template này">
+                        <i data-lucide="users"></i>
+                    </button>
+                </div>
             `).join('');
         }
 
@@ -453,6 +481,173 @@ class DetailedPermissionsUI {
         }
     }
 
+    // =====================================================
+    // INLINE USER ASSIGNMENT (trong DetailedPermissionsUI)
+    // =====================================================
+
+    selectedInlineTemplate = null;
+    inlineUsers = [];
+
+    async showInlineUserAssignment(templateId) {
+        // Toggle - if same template clicked, close panel
+        if (this.selectedInlineTemplate === templateId) {
+            this.closeInlineAssignment();
+            return;
+        }
+
+        this.selectedInlineTemplate = templateId;
+
+        // Load users from templateManager or directly
+        if (typeof window.templateManager !== 'undefined') {
+            if (window.templateManager.allUsers.length === 0) {
+                await window.templateManager.loadAllUsers();
+            }
+            this.inlineUsers = window.templateManager.allUsers;
+        } else {
+            // Load directly from Firebase
+            if (typeof db !== 'undefined' && db) {
+                try {
+                    const snapshot = await db.collection('users').get();
+                    this.inlineUsers = [];
+                    snapshot.forEach(doc => {
+                        this.inlineUsers.push({ id: doc.id, ...doc.data() });
+                    });
+                    this.inlineUsers.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+                } catch (e) {
+                    console.error('Error loading users:', e);
+                    this.inlineUsers = [];
+                }
+            }
+        }
+
+        // Show the panel
+        const panel = document.getElementById(`${this.prefix}UserAssignment`);
+        if (panel) {
+            panel.style.display = 'block';
+            this.renderInlineUserBadges(templateId);
+            this.updateInlineAssignedCount(templateId);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    renderInlineUserBadges(templateId) {
+        const container = document.getElementById(`${this.prefix}UserBadges`);
+        if (!container) return;
+
+        if (this.inlineUsers.length === 0) {
+            container.innerHTML = '<div class="no-users-inline">Không có nhân viên nào</div>';
+            return;
+        }
+
+        container.innerHTML = this.inlineUsers.map(user => {
+            const isAssigned = user.roleTemplate === templateId;
+            return `
+                <button type="button" class="inline-user-badge ${isAssigned ? 'assigned' : ''}"
+                        data-user-id="${user.id}"
+                        onclick="window.${this.prefix}DetailedPermUI.toggleInlineUserAssignment('${user.id}', '${templateId}')"
+                        title="${user.displayName} (${user.id})">
+                    ${user.displayName || user.id}
+                </button>
+            `;
+        }).join('');
+    }
+
+    async toggleInlineUserAssignment(userId, templateId) {
+        const user = this.inlineUsers.find(u => u.id === userId);
+        if (!user) return;
+
+        const isCurrentlyAssigned = user.roleTemplate === templateId;
+        const badge = document.querySelector(`#${this.prefix}UserBadges .inline-user-badge[data-user-id="${userId}"]`);
+
+        if (badge) {
+            badge.classList.add('loading');
+            badge.disabled = true;
+        }
+
+        try {
+            const userRef = db.collection('users').doc(userId);
+
+            if (isCurrentlyAssigned) {
+                // Remove from template
+                await userRef.update({
+                    roleTemplate: 'custom',
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'unknown'
+                });
+                user.roleTemplate = 'custom';
+
+                if (badge) badge.classList.remove('assigned');
+
+                if (window.notify) {
+                    window.notify.info(`Đã bỏ gán "${user.displayName}" khỏi template`);
+                }
+            } else {
+                // Assign to template
+                let permissions = {};
+                if (typeof window.templateManager !== 'undefined') {
+                    permissions = window.templateManager.getTemplatePermissions(templateId, !!window.templateManager.customTemplates[templateId]);
+                } else if (typeof PermissionsRegistry !== 'undefined') {
+                    const data = PermissionsRegistry.generateTemplatePermissions(templateId);
+                    permissions = data.detailedPermissions || {};
+                }
+
+                await userRef.update({
+                    roleTemplate: templateId,
+                    detailedPermissions: permissions,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'unknown'
+                });
+                user.roleTemplate = templateId;
+                user.detailedPermissions = permissions;
+
+                if (badge) badge.classList.add('assigned');
+
+                const templates = typeof PERMISSION_TEMPLATES !== 'undefined' ? PERMISSION_TEMPLATES : {};
+                if (window.notify) {
+                    window.notify.success(`Đã gán "${user.displayName}" vào template "${templates[templateId]?.name || templateId}"`);
+                }
+            }
+
+            // Also update templateManager cache if available
+            if (typeof window.templateManager !== 'undefined') {
+                const tmUser = window.templateManager.allUsers.find(u => u.id === userId);
+                if (tmUser) {
+                    tmUser.roleTemplate = user.roleTemplate;
+                    tmUser.detailedPermissions = user.detailedPermissions;
+                }
+            }
+
+            this.updateInlineAssignedCount(templateId);
+
+        } catch (error) {
+            console.error('Error toggling user assignment:', error);
+            if (window.notify) {
+                window.notify.error('Lỗi cập nhật: ' + error.message);
+            }
+        } finally {
+            if (badge) {
+                badge.classList.remove('loading');
+                badge.disabled = false;
+            }
+        }
+    }
+
+    updateInlineAssignedCount(templateId) {
+        const count = this.inlineUsers.filter(u => u.roleTemplate === templateId).length;
+        const countEl = document.getElementById(`${this.prefix}AssignedCount`);
+        if (countEl) {
+            countEl.textContent = count;
+        }
+    }
+
+    closeInlineAssignment() {
+        this.selectedInlineTemplate = null;
+        const panel = document.getElementById(`${this.prefix}UserAssignment`);
+        if (panel) {
+            panel.style.display = 'none';
+        }
+    }
+
     updateCardCount(pageId) {
         const card = document.querySelector(`[data-page-id="${pageId}"]`);
         if (!card) return;
@@ -697,6 +892,178 @@ detailedPermissionsStyle.textContent = `
     font-weight: 300;
     margin: 0 4px;
     align-self: center;
+}
+
+/* Template Button Group - with user assignment button */
+.template-btn-group {
+    display: inline-flex;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.template-btn-group .template-btn {
+    border: none;
+    border-radius: 0;
+    border-right: 1px solid var(--border-color, #e5e7eb);
+}
+
+.template-btn-group .template-btn:hover {
+    border-color: var(--border-color, #e5e7eb);
+}
+
+.template-users-btn {
+    padding: 8px 10px;
+    background: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    color: var(--text-tertiary, #9ca3af);
+}
+
+.template-users-btn:hover {
+    background: var(--template-color, #6366f1);
+    color: white;
+}
+
+.template-users-btn i {
+    width: 14px;
+    height: 14px;
+}
+
+/* Inline User Assignment Panel */
+.inline-user-assignment {
+    margin-top: 16px;
+    padding: 16px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px;
+    border: 2px solid var(--accent-color, #6366f1);
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.inline-assignment-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+}
+
+.inline-assignment-header i {
+    width: 18px;
+    height: 18px;
+    color: var(--accent-color, #6366f1);
+}
+
+.btn-close-inline {
+    margin-left: auto;
+    width: 24px;
+    height: 24px;
+    background: white;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-close-inline:hover {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+}
+
+.btn-close-inline i {
+    width: 14px;
+    height: 14px;
+    color: inherit;
+}
+
+.inline-user-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e5e7eb);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.no-users-inline {
+    width: 100%;
+    text-align: center;
+    color: var(--text-tertiary, #9ca3af);
+    padding: 16px;
+}
+
+.inline-user-badge {
+    padding: 6px 14px;
+    background: white;
+    border: 2px solid var(--border-color, #e5e7eb);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary, #6b7280);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.inline-user-badge:hover {
+    border-color: var(--accent-color, #6366f1);
+    background: color-mix(in srgb, var(--accent-color, #6366f1) 5%, white);
+    color: var(--accent-color, #6366f1);
+}
+
+.inline-user-badge.assigned {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-color: #059669;
+    color: white;
+}
+
+.inline-user-badge.assigned:hover {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border-color: #dc2626;
+}
+
+.inline-user-badge.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.inline-user-badge.loading::after {
+    content: '';
+    width: 10px;
+    height: 10px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    margin-left: 6px;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 /* Summary Bar */
