@@ -144,111 +144,12 @@ class DiscountStatsUI {
     }
 
     // ========================================
-    // OVERVIEW TAB
+    // OVERVIEW TAB (deprecated - content moved to Analysis tab)
     // ========================================
 
     renderOverviewTab(stats) {
-        const container = document.getElementById('discountOverviewContent');
-        if (!container) return;
-
-        const s = stats.summary;
-        const calc = window.discountStatsCalculator;
-
-        container.innerHTML = `
-            <!-- KPI Cards -->
-            <div class="discount-kpi-grid">
-                <div class="discount-kpi-card red">
-                    <div class="kpi-icon"><i class="fas fa-tags"></i></div>
-                    <div class="kpi-value">${calc.formatCurrency(s.totalDiscountAmount)}</div>
-                    <div class="kpi-label">Tổng Tiền Giảm</div>
-                    <div class="kpi-sub">${calc.formatPercent(s.averageDiscountPercent)} trung bình</div>
-                </div>
-                <div class="discount-kpi-card ${s.totalProfit >= 0 ? 'green' : 'black'}">
-                    <div class="kpi-icon"><i class="fas fa-hand-holding-usd"></i></div>
-                    <div class="kpi-value">${calc.formatCurrency(s.totalProfit)}</div>
-                    <div class="kpi-label">Tổng Lợi Nhuận Còn</div>
-                    <div class="kpi-sub">Margin ${calc.formatPercent(s.averageMarginPercent)}</div>
-                </div>
-                <div class="discount-kpi-card blue">
-                    <div class="kpi-icon"><i class="fas fa-box-open"></i></div>
-                    <div class="kpi-value">${s.totalDiscountedProducts}</div>
-                    <div class="kpi-label">SP Giảm Giá</div>
-                    <div class="kpi-sub">trong ${s.ordersWithDiscount} đơn</div>
-                </div>
-                <div class="discount-kpi-card ${s.ordersWithLoss > 0 ? 'warning' : 'purple'}">
-                    <div class="kpi-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                    <div class="kpi-value">${s.ordersWithLoss}</div>
-                    <div class="kpi-label">Đơn Lỗ Vốn</div>
-                    <div class="kpi-sub">${s.ordersWithDiscount > 0 ? calc.formatPercent((s.ordersWithLoss / s.ordersWithDiscount) * 100) : '0%'} đơn có giảm</div>
-                </div>
-            </div>
-
-            <!-- Risk Distribution -->
-            <div class="discount-risk-section">
-                <h4><i class="fas fa-chart-pie"></i> Phân Bổ Rủi Ro Sản Phẩm</h4>
-                <div class="risk-distribution">
-                    <div class="risk-bar">
-                        <div class="risk-segment safe" style="width: ${stats.riskAnalysis.safePercent}%"></div>
-                        <div class="risk-segment warning" style="width: ${stats.riskAnalysis.warningPercent}%"></div>
-                        <div class="risk-segment danger" style="width: ${stats.riskAnalysis.dangerPercent}%"></div>
-                        <div class="risk-segment loss" style="width: ${stats.riskAnalysis.lossPercent}%"></div>
-                    </div>
-                    <div class="risk-legend">
-                        <span class="risk-item safe">🟢 An toàn: ${stats.riskAnalysis.categories.safe.count} (${calc.formatPercent(stats.riskAnalysis.safePercent)})</span>
-                        <span class="risk-item warning">🟡 Cảnh báo: ${stats.riskAnalysis.categories.warning.count} (${calc.formatPercent(stats.riskAnalysis.warningPercent)})</span>
-                        <span class="risk-item danger">🔴 Nguy hiểm: ${stats.riskAnalysis.categories.danger.count} (${calc.formatPercent(stats.riskAnalysis.dangerPercent)})</span>
-                        <span class="risk-item loss">⚫ Lỗ vốn: ${stats.riskAnalysis.categories.loss.count} (${calc.formatPercent(stats.riskAnalysis.lossPercent)})</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Metrics -->
-            <div class="discount-metrics-row">
-                <div class="metric-box">
-                    <div class="metric-label">Discount ROI</div>
-                    <div class="metric-value ${s.discountROI >= 1 ? 'positive' : 'negative'}">${s.discountROI.toFixed(2)}x</div>
-                    <div class="metric-hint">${s.discountROI >= 1 ? '✓ Có lời' : '✗ Lỗ'}</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-label">Ngưỡng Hòa Vốn</div>
-                    <div class="metric-value">${calc.formatPercent(s.breakEvenDiscountPercent)}</div>
-                    <div class="metric-hint">Giảm tối đa để không lỗ</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-label">Giảm Trung Bình</div>
-                    <div class="metric-value">${calc.formatPercent(s.averageDiscountPercent)}</div>
-                    <div class="metric-hint">${s.averageDiscountPercent <= s.breakEvenDiscountPercent ? '✓ Trong ngưỡng' : '⚠ Vượt ngưỡng'}</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-label">Margin Còn Lại</div>
-                    <div class="metric-value ${s.averageMarginPercent >= 20 ? 'positive' : s.averageMarginPercent >= 10 ? 'warning' : 'negative'}">${calc.formatPercent(s.averageMarginPercent)}</div>
-                    <div class="metric-hint">Mục tiêu: ≥20%</div>
-                </div>
-            </div>
-
-            <!-- Threshold Settings -->
-            <div class="threshold-settings">
-                <h4><i class="fas fa-sliders-h"></i> Cài Đặt Ngưỡng Cảnh Báo</h4>
-                <div class="threshold-controls">
-                    <div class="threshold-item">
-                        <label>Ngưỡng An toàn (🟢):</label>
-                        <input type="number" id="thresholdSafe" value="${stats.thresholds.safe}" min="0" max="100" step="1">
-                        <span>%</span>
-                    </div>
-                    <div class="threshold-item">
-                        <label>Ngưỡng Cảnh báo (🟡):</label>
-                        <input type="number" id="thresholdWarning" value="${stats.thresholds.warning}" min="0" max="100" step="1">
-                        <span>%</span>
-                    </div>
-                    <button class="btn-apply-threshold" onclick="window.discountStatsUI.updateThresholds()">
-                        <i class="fas fa-check"></i> Áp dụng
-                    </button>
-                </div>
-            </div>
-        `;
-
-        // Rebind threshold events
-        this.bindEvents();
+        // Content has been moved to renderAnalysisTab
+        // This function is kept for backward compatibility
     }
 
     // ========================================
@@ -511,6 +412,105 @@ class DiscountStatsUI {
         const liveHistory = this.getLiveSessionHistory();
 
         container.innerHTML = `
+            <!-- ========================================
+                 PHẦN TỔNG QUAN - từ Overview Tab
+                 ======================================== -->
+
+            <!-- KPI Cards -->
+            <div class="discount-kpi-grid">
+                <div class="discount-kpi-card red">
+                    <div class="kpi-icon"><i class="fas fa-tags"></i></div>
+                    <div class="kpi-value">${calc.formatCurrency(s.totalDiscountAmount)}</div>
+                    <div class="kpi-label">Tổng Tiền Giảm</div>
+                    <div class="kpi-sub">${calc.formatPercent(s.averageDiscountPercent)} trung bình</div>
+                </div>
+                <div class="discount-kpi-card ${s.totalProfit >= 0 ? 'green' : 'black'}">
+                    <div class="kpi-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                    <div class="kpi-value">${calc.formatCurrency(s.totalProfit)}</div>
+                    <div class="kpi-label">Tổng Lợi Nhuận Còn</div>
+                    <div class="kpi-sub">Margin ${calc.formatPercent(s.averageMarginPercent)}</div>
+                </div>
+                <div class="discount-kpi-card blue">
+                    <div class="kpi-icon"><i class="fas fa-box-open"></i></div>
+                    <div class="kpi-value">${s.totalDiscountedProducts}</div>
+                    <div class="kpi-label">SP Giảm Giá</div>
+                    <div class="kpi-sub">trong ${s.ordersWithDiscount} đơn</div>
+                </div>
+                <div class="discount-kpi-card ${s.ordersWithLoss > 0 ? 'warning' : 'purple'}">
+                    <div class="kpi-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="kpi-value">${s.ordersWithLoss}</div>
+                    <div class="kpi-label">Đơn Lỗ Vốn</div>
+                    <div class="kpi-sub">${s.ordersWithDiscount > 0 ? calc.formatPercent((s.ordersWithLoss / s.ordersWithDiscount) * 100) : '0%'} đơn có giảm</div>
+                </div>
+            </div>
+
+            <!-- Risk Distribution -->
+            <div class="discount-risk-section">
+                <h4><i class="fas fa-chart-pie"></i> Phân Bổ Rủi Ro Sản Phẩm</h4>
+                <div class="risk-distribution">
+                    <div class="risk-bar">
+                        <div class="risk-segment safe" style="width: ${stats.riskAnalysis.safePercent}%"></div>
+                        <div class="risk-segment warning" style="width: ${stats.riskAnalysis.warningPercent}%"></div>
+                        <div class="risk-segment danger" style="width: ${stats.riskAnalysis.dangerPercent}%"></div>
+                        <div class="risk-segment loss" style="width: ${stats.riskAnalysis.lossPercent}%"></div>
+                    </div>
+                    <div class="risk-legend">
+                        <span class="risk-item safe">🟢 An toàn: ${stats.riskAnalysis.categories.safe.count} (${calc.formatPercent(stats.riskAnalysis.safePercent)})</span>
+                        <span class="risk-item warning">🟡 Cảnh báo: ${stats.riskAnalysis.categories.warning.count} (${calc.formatPercent(stats.riskAnalysis.warningPercent)})</span>
+                        <span class="risk-item danger">🔴 Nguy hiểm: ${stats.riskAnalysis.categories.danger.count} (${calc.formatPercent(stats.riskAnalysis.dangerPercent)})</span>
+                        <span class="risk-item loss">⚫ Lỗ vốn: ${stats.riskAnalysis.categories.loss.count} (${calc.formatPercent(stats.riskAnalysis.lossPercent)})</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Metrics -->
+            <div class="discount-metrics-row">
+                <div class="metric-box">
+                    <div class="metric-label">Discount ROI</div>
+                    <div class="metric-value ${s.discountROI >= 1 ? 'positive' : 'negative'}">${s.discountROI.toFixed(2)}x</div>
+                    <div class="metric-hint">${s.discountROI >= 1 ? '✓ Có lời' : '✗ Lỗ'}</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Ngưỡng Hòa Vốn</div>
+                    <div class="metric-value">${calc.formatPercent(s.breakEvenDiscountPercent)}</div>
+                    <div class="metric-hint">Giảm tối đa để không lỗ</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Giảm Trung Bình</div>
+                    <div class="metric-value">${calc.formatPercent(s.averageDiscountPercent)}</div>
+                    <div class="metric-hint">${s.averageDiscountPercent <= s.breakEvenDiscountPercent ? '✓ Trong ngưỡng' : '⚠ Vượt ngưỡng'}</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Margin Còn Lại</div>
+                    <div class="metric-value ${s.averageMarginPercent >= 20 ? 'positive' : s.averageMarginPercent >= 10 ? 'warning' : 'negative'}">${calc.formatPercent(s.averageMarginPercent)}</div>
+                    <div class="metric-hint">Mục tiêu: ≥20%</div>
+                </div>
+            </div>
+
+            <!-- Threshold Settings -->
+            <div class="threshold-settings">
+                <h4><i class="fas fa-sliders-h"></i> Cài Đặt Ngưỡng Cảnh Báo</h4>
+                <div class="threshold-controls">
+                    <div class="threshold-item">
+                        <label>Ngưỡng An toàn (🟢):</label>
+                        <input type="number" id="thresholdSafe" value="${stats.thresholds.safe}" min="0" max="100" step="1">
+                        <span>%</span>
+                    </div>
+                    <div class="threshold-item">
+                        <label>Ngưỡng Cảnh báo (🟡):</label>
+                        <input type="number" id="thresholdWarning" value="${stats.thresholds.warning}" min="0" max="100" step="1">
+                        <span>%</span>
+                    </div>
+                    <button class="btn-apply-threshold" onclick="window.discountStatsUI.updateThresholds()">
+                        <i class="fas fa-check"></i> Áp dụng
+                    </button>
+                </div>
+            </div>
+
+            <!-- ========================================
+                 PHẦN PHÂN TÍCH CHI TIẾT
+                 ======================================== -->
+
             <!-- Chi phí Livestream -->
             <div class="analysis-section livestream-costs">
                 <h4><i class="fas fa-broadcast-tower"></i> Chi Phí Livestream</h4>
@@ -702,6 +702,9 @@ class DiscountStatsUI {
                 </div>
             </div>
         `;
+
+        // Rebind threshold events (moved from renderOverviewTab)
+        this.bindEvents();
     }
 
     generateCFOInsights(stats) {
