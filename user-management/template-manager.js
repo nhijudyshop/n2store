@@ -18,6 +18,8 @@ class TemplateManager {
         this.customTemplates = {};
         this.allTemplates = {};
         this.isLoading = false;
+        this.allUsers = [];
+        this.selectedTemplateId = null;
     }
 
     /**
@@ -195,6 +197,10 @@ class TemplateManager {
 
         // Action buttons based on template type
         let actionsHtml = `
+            <button class="btn btn-sm btn-success" onclick="templateManager.showUserAssignment('${id}', ${isCustom})" title="Gán nhân viên vào template này">
+                <i data-lucide="users"></i>
+                Gán NV
+            </button>
             <button class="btn btn-sm btn-secondary" onclick="templateManager.previewTemplate('${id}', ${isCustom})" title="Xem chi tiết">
                 <i data-lucide="eye"></i>
                 Xem
@@ -747,6 +753,229 @@ class TemplateManager {
         }
     }
 
+    // =====================================================
+    // USER ASSIGNMENT FEATURE - Gán nhân viên vào template
+    // =====================================================
+
+    /**
+     * Load all users từ Firebase
+     */
+    async loadAllUsers() {
+        if (!db) return [];
+
+        try {
+            const snapshot = await db.collection('users').get();
+            this.allUsers = [];
+            snapshot.forEach(doc => {
+                this.allUsers.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            // Sort by displayName
+            this.allUsers.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+
+            console.log('[TemplateManager] Loaded', this.allUsers.length, 'users');
+            return this.allUsers;
+        } catch (error) {
+            console.error('[TemplateManager] Error loading users:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Show user assignment panel for a template
+     */
+    async showUserAssignment(templateId, isCustom = false) {
+        // Toggle - if same template clicked, close panel
+        if (this.selectedTemplateId === templateId) {
+            this.closeUserAssignment();
+            return;
+        }
+
+        this.selectedTemplateId = templateId;
+
+        // Load users if not already loaded
+        if (this.allUsers.length === 0) {
+            await this.loadAllUsers();
+        }
+
+        const template = isCustom
+            ? this.customTemplates[templateId]
+            : this.builtInTemplates[templateId];
+
+        if (!template) {
+            alert('Không tìm thấy template!');
+            return;
+        }
+
+        // Remove existing panel
+        this.closeUserAssignment();
+
+        // Mark selected card
+        document.querySelectorAll('.template-card').forEach(card => card.classList.remove('active'));
+        const selectedCard = document.querySelector(`.template-card[data-template-id="${templateId}"]`);
+        if (selectedCard) selectedCard.classList.add('active');
+
+        // Create assignment panel
+        const panelHtml = `
+            <div class="user-assignment-panel" id="userAssignmentPanel">
+                <div class="assignment-header">
+                    <div class="assignment-title">
+                        <i data-lucide="users"></i>
+                        <span>Gán Nhân Viên cho Template: <strong>${template.name}</strong></span>
+                    </div>
+                    <button class="btn-close-panel" onclick="templateManager.closeUserAssignment()">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <p class="assignment-desc">
+                    Click vào nhân viên để <strong style="color: #10b981">gán</strong> hoặc <strong style="color: #ef4444">bỏ gán</strong> template này.
+                    Nhân viên đang sử dụng template này sẽ hiển thị màu xanh.
+                </p>
+                <div class="assignment-stats">
+                    <span id="assignedCount">0</span> / ${this.allUsers.length} nhân viên đang sử dụng template này
+                </div>
+                <div class="user-badges-container" id="userBadgesContainer">
+                    ${this.renderUserBadges(templateId)}
+                </div>
+            </div>
+        `;
+
+        // Insert after the templates-section
+        const container = document.getElementById('templatesList');
+        if (container) {
+            container.insertAdjacentHTML('beforeend', panelHtml);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            this.updateAssignedCount(templateId);
+        }
+    }
+
+    /**
+     * Render user badges
+     */
+    renderUserBadges(templateId) {
+        if (this.allUsers.length === 0) {
+            return '<div class="no-users">Không có nhân viên nào</div>';
+        }
+
+        return this.allUsers.map(user => {
+            const isAssigned = user.roleTemplate === templateId;
+            const badgeClass = isAssigned ? 'assigned' : '';
+
+            return `
+                <button class="user-badge ${badgeClass}"
+                        data-user-id="${user.id}"
+                        data-assigned="${isAssigned}"
+                        onclick="templateManager.toggleUserAssignment('${user.id}', '${templateId}')"
+                        title="${user.displayName} (${user.id})${isAssigned ? ' - Click để bỏ gán' : ' - Click để gán'}">
+                    ${user.displayName || user.id}
+                </button>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Toggle user assignment to template
+     */
+    async toggleUserAssignment(userId, templateId) {
+        const user = this.allUsers.find(u => u.id === userId);
+        if (!user) return;
+
+        const isCurrentlyAssigned = user.roleTemplate === templateId;
+        const badge = document.querySelector(`.user-badge[data-user-id="${userId}"]`);
+
+        // Show loading state
+        if (badge) {
+            badge.classList.add('loading');
+            badge.disabled = true;
+        }
+
+        try {
+            const userRef = db.collection('users').doc(userId);
+
+            if (isCurrentlyAssigned) {
+                // Remove from template - set to custom
+                await userRef.update({
+                    roleTemplate: 'custom',
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'unknown'
+                });
+
+                // Update local cache
+                user.roleTemplate = 'custom';
+
+                if (badge) {
+                    badge.classList.remove('assigned');
+                    badge.dataset.assigned = 'false';
+                }
+
+                if (window.notify) {
+                    window.notify.info(`Đã bỏ gán "${user.displayName}" khỏi template`);
+                }
+            } else {
+                // Assign to template - get template permissions and apply
+                const template = this.allTemplates[templateId] || this.builtInTemplates[templateId];
+                const permissions = this.getTemplatePermissions(templateId, !!this.customTemplates[templateId]);
+
+                await userRef.update({
+                    roleTemplate: templateId,
+                    detailedPermissions: permissions,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'unknown'
+                });
+
+                // Update local cache
+                user.roleTemplate = templateId;
+                user.detailedPermissions = permissions;
+
+                if (badge) {
+                    badge.classList.add('assigned');
+                    badge.dataset.assigned = 'true';
+                }
+
+                if (window.notify) {
+                    window.notify.success(`Đã gán "${user.displayName}" vào template "${template?.name || templateId}"`);
+                }
+            }
+
+            this.updateAssignedCount(templateId);
+
+        } catch (error) {
+            console.error('[TemplateManager] Error toggling user assignment:', error);
+            if (window.notify) {
+                window.notify.error('Lỗi cập nhật: ' + error.message);
+            }
+        } finally {
+            if (badge) {
+                badge.classList.remove('loading');
+                badge.disabled = false;
+            }
+        }
+    }
+
+    /**
+     * Update assigned count display
+     */
+    updateAssignedCount(templateId) {
+        const count = this.allUsers.filter(u => u.roleTemplate === templateId).length;
+        const countEl = document.getElementById('assignedCount');
+        if (countEl) {
+            countEl.textContent = count;
+        }
+    }
+
+    /**
+     * Close user assignment panel
+     */
+    closeUserAssignment() {
+        this.selectedTemplateId = null;
+        const panel = document.getElementById('userAssignmentPanel');
+        if (panel) panel.remove();
+        document.querySelectorAll('.template-card').forEach(card => card.classList.remove('active'));
+    }
+
     /**
      * Refresh template buttons trong tất cả DetailedPermissionsUI instances
      */
@@ -1177,6 +1406,210 @@ templateManagerStyle.textContent = `
 
     .template-card-actions {
         flex-wrap: wrap;
+    }
+}
+
+/* =====================================================
+   USER ASSIGNMENT PANEL & BADGES
+   ===================================================== */
+
+/* Success button style */
+.template-card-actions .btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+}
+
+.template-card-actions .btn-success:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+/* Active template card */
+.template-card.active {
+    border: 2px solid var(--accent-color, #6366f1);
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
+}
+
+/* User Assignment Panel */
+.user-assignment-panel {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 2px solid var(--accent-color, #6366f1);
+    border-radius: 16px;
+    padding: 24px;
+    margin-top: 24px;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.assignment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.assignment-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+}
+
+.assignment-title i {
+    width: 22px;
+    height: 22px;
+    color: var(--accent-color, #6366f1);
+}
+
+.btn-close-panel {
+    width: 32px;
+    height: 32px;
+    background: white;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-close-panel:hover {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+}
+
+.assignment-desc {
+    color: var(--text-secondary, #6b7280);
+    font-size: 13px;
+    margin: 0 0 12px 0;
+    line-height: 1.5;
+}
+
+.assignment-stats {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    color: var(--text-secondary, #6b7280);
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.assignment-stats span {
+    font-weight: 700;
+    color: var(--accent-color, #6366f1);
+}
+
+/* User Badges Container */
+.user-badges-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e5e7eb);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.no-users {
+    width: 100%;
+    text-align: center;
+    color: var(--text-tertiary, #9ca3af);
+    padding: 20px;
+}
+
+/* User Badge Button */
+.user-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: white;
+    border: 2px solid var(--border-color, #e5e7eb);
+    border-radius: 25px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary, #6b7280);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.user-badge:hover {
+    border-color: var(--accent-color, #6366f1);
+    background: color-mix(in srgb, var(--accent-color, #6366f1) 5%, white);
+    color: var(--accent-color, #6366f1);
+    transform: translateY(-1px);
+}
+
+/* Assigned state - green */
+.user-badge.assigned {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-color: #059669;
+    color: white;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.user-badge.assigned:hover {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border-color: #dc2626;
+    color: white;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+/* Loading state */
+.user-badge.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.user-badge.loading::after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    margin-left: 8px;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .user-assignment-panel {
+        padding: 16px;
+    }
+
+    .user-badges-container {
+        max-height: 250px;
+    }
+
+    .user-badge {
+        padding: 6px 12px;
+        font-size: 12px;
     }
 }
 `;

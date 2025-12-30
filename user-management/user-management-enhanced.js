@@ -160,6 +160,201 @@ async function loadUsers() {
     }
 }
 
+// =====================================================
+// BULK SELECTION MANAGEMENT
+// =====================================================
+const selectedUsers = new Set();
+
+function toggleUserSelection(userId, checkbox) {
+    if (checkbox.checked) {
+        selectedUsers.add(userId);
+    } else {
+        selectedUsers.delete(userId);
+    }
+    updateBulkToolbar();
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById("selectAllCheckbox");
+    const checkboxes = document.querySelectorAll(".user-select-checkbox");
+
+    if (selectAllCheckbox.checked) {
+        checkboxes.forEach(cb => {
+            cb.checked = true;
+            selectedUsers.add(cb.dataset.userId);
+        });
+    } else {
+        checkboxes.forEach(cb => {
+            cb.checked = false;
+        });
+        selectedUsers.clear();
+    }
+    updateBulkToolbar();
+}
+
+function clearSelection() {
+    selectedUsers.clear();
+    document.querySelectorAll(".user-select-checkbox").forEach(cb => cb.checked = false);
+    const selectAllCheckbox = document.getElementById("selectAllCheckbox");
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    updateBulkToolbar();
+}
+
+function updateBulkToolbar() {
+    const toolbar = document.getElementById("bulkActionToolbar");
+    const count = selectedUsers.size;
+
+    if (toolbar) {
+        if (count > 0) {
+            toolbar.style.display = "flex";
+            document.getElementById("selectedCount").textContent = count;
+        } else {
+            toolbar.style.display = "none";
+        }
+    }
+}
+
+function showBulkTemplateModal() {
+    if (selectedUsers.size === 0) {
+        showError("Vui lòng chọn ít nhất 1 user!");
+        return;
+    }
+
+    // Get list of selected users for preview
+    const selectedUsersList = Array.from(selectedUsers).map(uid => {
+        const user = users.find(u => u.id === uid);
+        return user ? `<li>${user.displayName} (${user.id})</li>` : '';
+    }).join('');
+
+    // Build template options
+    const templates = typeof PERMISSION_TEMPLATES !== 'undefined' ? PERMISSION_TEMPLATES : {};
+    let templateOptions = '';
+    Object.entries(templates).forEach(([id, template]) => {
+        if (id !== 'custom') {
+            templateOptions += `
+                <label class="template-option" data-template="${id}">
+                    <input type="radio" name="bulkTemplate" value="${id}">
+                    <div class="template-option-content" style="border-color: ${template.color}20">
+                        <i data-lucide="${template.icon || 'sliders'}" style="color: ${template.color}"></i>
+                        <span class="template-name">${template.name}</span>
+                        <span class="template-desc">${template.description || ''}</span>
+                    </div>
+                </label>
+            `;
+        }
+    });
+
+    const modalHtml = `
+        <div class="modal-overlay" id="bulkTemplateModal" onclick="if(event.target === this) closeBulkTemplateModal()">
+            <div class="modal-content bulk-template-modal">
+                <div class="modal-header">
+                    <h3><i data-lucide="users"></i> Áp dụng Template cho ${selectedUsers.size} Users</h3>
+                    <button class="modal-close" onclick="closeBulkTemplateModal()">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="bulk-template-section">
+                        <h4><i data-lucide="layout-template"></i> Chọn Template</h4>
+                        <div class="template-options-grid">
+                            ${templateOptions}
+                        </div>
+                    </div>
+                    <div class="bulk-template-section">
+                        <h4><i data-lucide="users"></i> Users sẽ được cập nhật</h4>
+                        <div class="selected-users-preview">
+                            <ul>${selectedUsersList}</ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeBulkTemplateModal()">
+                        <i data-lucide="x"></i> Hủy
+                    </button>
+                    <button class="btn btn-primary" onclick="executeBulkApplyTemplate()">
+                        <i data-lucide="check"></i> Áp dụng Template
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    lucide.createIcons();
+}
+
+function closeBulkTemplateModal() {
+    const modal = document.getElementById("bulkTemplateModal");
+    if (modal) modal.remove();
+}
+
+async function executeBulkApplyTemplate() {
+    const selectedTemplate = document.querySelector('input[name="bulkTemplate"]:checked');
+
+    if (!selectedTemplate) {
+        showError("Vui lòng chọn một template!");
+        return;
+    }
+
+    const templateId = selectedTemplate.value;
+    const templateName = PERMISSION_TEMPLATES[templateId]?.name || templateId;
+
+    // Confirm
+    if (!confirm(`Bạn có chắc chắn muốn áp dụng template "${templateName}" cho ${selectedUsers.size} users?\n\nHành động này sẽ ghi đè toàn bộ quyền hiện tại của các users đã chọn.`)) {
+        return;
+    }
+
+    // Get permissions from registry
+    let permissions = {};
+    if (typeof PermissionsRegistry !== 'undefined') {
+        const templateData = PermissionsRegistry.generateTemplatePermissions(templateId);
+        permissions = templateData.detailedPermissions || {};
+    }
+
+    // Show loading
+    const applyBtn = document.querySelector('.bulk-template-modal .btn-primary');
+    const originalText = applyBtn.innerHTML;
+    applyBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Đang xử lý...';
+    applyBtn.disabled = true;
+
+    try {
+        // Get current user info
+        const authData = JSON.parse(localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}");
+        const updatedBy = authData.username || 'unknown';
+
+        // Batch update all selected users
+        const batch = db.batch();
+        selectedUsers.forEach(userId => {
+            const userRef = db.collection('users').doc(userId);
+            batch.update(userRef, {
+                detailedPermissions: permissions,
+                roleTemplate: templateId,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: updatedBy
+            });
+        });
+
+        await batch.commit();
+
+        showSuccess(`Đã áp dụng template "${templateName}" cho ${selectedUsers.size} users!`);
+        closeBulkTemplateModal();
+        clearSelection();
+
+        // Refresh user list
+        await loadUsers();
+
+    } catch (error) {
+        console.error("Bulk apply error:", error);
+        showError("Lỗi khi áp dụng template: " + error.message);
+        applyBtn.innerHTML = originalText;
+        applyBtn.disabled = false;
+    }
+}
+
+// =====================================================
+// USER LIST RENDERING (Updated with checkboxes)
+// =====================================================
+
 // Render user list
 function renderUserList(users) {
     const userList = document.getElementById("userList");
@@ -172,7 +367,32 @@ function renderUserList(users) {
 
     if (emptyState) emptyState.classList.remove("show");
 
-    let html = "";
+    // Build bulk action toolbar and header
+    let html = `
+        <div class="user-list-header">
+            <div class="user-select-cell">
+                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" title="Chọn tất cả">
+            </div>
+            <div class="user-list-header-info">
+                <span class="user-count">${users.length} users</span>
+            </div>
+            <div id="bulkActionToolbar" class="bulk-action-toolbar" style="display: none;">
+                <span class="selected-info">
+                    <i data-lucide="check-square"></i>
+                    Đã chọn <strong id="selectedCount">0</strong> users
+                </span>
+                <button class="btn btn-primary btn-sm" onclick="showBulkTemplateModal()">
+                    <i data-lucide="layout-template"></i>
+                    Áp dụng Template
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="clearSelection()">
+                    <i data-lucide="x"></i>
+                    Bỏ chọn
+                </button>
+            </div>
+        </div>
+    `;
+
     users.forEach((user) => {
         // NEW: Get role info from roleTemplate instead of checkLogin
         const roleInfo = getRoleTemplateInfo(user.roleTemplate);
@@ -207,8 +427,15 @@ function renderUserList(users) {
               )
             : "";
 
+        const isSelected = selectedUsers.has(user.id);
         html += `
-            <div class="user-list-item">
+            <div class="user-list-item ${isSelected ? 'selected' : ''}">
+                <div class="user-select-cell">
+                    <input type="checkbox" class="user-select-checkbox"
+                           data-user-id="${user.id}"
+                           ${isSelected ? 'checked' : ''}
+                           onchange="toggleUserSelection('${user.id}', this)">
+                </div>
                 <div class="user-list-info">
                     <div class="user-avatar-large">
                         <i data-lucide="user"></i>
