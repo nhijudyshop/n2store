@@ -42,6 +42,292 @@
     let pendingAttachments = [];
 
     // =========================================================
+    // PAGE CONTEXT DETECTION
+    // =========================================================
+
+    /**
+     * Detect current page type based on URL and DOM
+     */
+    function detectPageType() {
+        const path = window.location.pathname;
+        const url = window.location.href;
+
+        if (path.includes('order-management') || path.includes('order-list') || url.includes('hangdat')) {
+            return 'order';
+        }
+        if (path.includes('sanphamlive') || path.includes('product') || path.includes('soluong-live')) {
+            return 'product';
+        }
+        if (path.includes('customer-management')) {
+            return 'customer';
+        }
+        if (path.includes('inventory') || path.includes('bangkiemhang')) {
+            return 'inventory';
+        }
+        if (path.includes('livestream') || path.includes('live')) {
+            return 'livestream';
+        }
+        if (path.includes('orders-report')) {
+            return 'report';
+        }
+        if (path === '/' || path.includes('index.html')) {
+            return 'dashboard';
+        }
+        return 'general';
+    }
+
+    /**
+     * Extract product data from page
+     */
+    function extractProductData() {
+        const data = {
+            products: [],
+            totalCount: 0
+        };
+
+        try {
+            // Try to get from table rows
+            const rows = document.querySelectorAll('table tbody tr, .product-item, .product-row');
+            data.totalCount = rows.length;
+
+            // Extract first few products as sample
+            rows.forEach((row, index) => {
+                if (index < 5) { // Only first 5 products
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length > 0) {
+                        data.products.push({
+                            name: cells[0]?.textContent?.trim() || cells[1]?.textContent?.trim(),
+                            info: Array.from(cells).slice(0, 4).map(c => c.textContent?.trim()).join(' | ')
+                        });
+                    }
+                }
+            });
+
+            // Try to get selected product if any
+            const selectedRow = document.querySelector('tr.selected, .product-item.active');
+            if (selectedRow) {
+                data.selectedProduct = selectedRow.textContent?.trim();
+            }
+        } catch (e) {
+            console.warn('[Context] Failed to extract product data:', e);
+        }
+
+        return data;
+    }
+
+    /**
+     * Extract order data from page
+     */
+    function extractOrderData() {
+        const data = {
+            orders: [],
+            totalCount: 0,
+            stats: {}
+        };
+
+        try {
+            const rows = document.querySelectorAll('table tbody tr, .order-item, .order-row');
+            data.totalCount = rows.length;
+
+            // Extract stats if available
+            const statElements = document.querySelectorAll('.stat-card, .summary-card, .metric');
+            statElements.forEach(el => {
+                const label = el.querySelector('.label, .stat-label')?.textContent?.trim();
+                const value = el.querySelector('.value, .stat-value')?.textContent?.trim();
+                if (label && value) {
+                    data.stats[label] = value;
+                }
+            });
+
+            // Sample orders
+            rows.forEach((row, index) => {
+                if (index < 3) {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length > 0) {
+                        data.orders.push({
+                            info: Array.from(cells).slice(0, 3).map(c => c.textContent?.trim()).join(' | ')
+                        });
+                    }
+                }
+            });
+        } catch (e) {
+            console.warn('[Context] Failed to extract order data:', e);
+        }
+
+        return data;
+    }
+
+    /**
+     * Extract customer data from page
+     */
+    function extractCustomerData() {
+        const data = {
+            totalCount: 0,
+            customers: []
+        };
+
+        try {
+            const rows = document.querySelectorAll('table tbody tr, .customer-item');
+            data.totalCount = rows.length;
+
+            rows.forEach((row, index) => {
+                if (index < 3) {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length > 0) {
+                        data.customers.push({
+                            info: Array.from(cells).slice(0, 3).map(c => c.textContent?.trim()).join(' | ')
+                        });
+                    }
+                }
+            });
+        } catch (e) {
+            console.warn('[Context] Failed to extract customer data:', e);
+        }
+
+        return data;
+    }
+
+    /**
+     * Extract general page data (stats, filters, search terms, etc.)
+     */
+    function extractGeneralPageData() {
+        const data = {
+            filters: {},
+            search: '',
+            user: {}
+        };
+
+        try {
+            // Get search input value
+            const searchInput = document.querySelector('input[type="search"], input[placeholder*="Tìm"], input[name*="search"]');
+            if (searchInput) {
+                data.search = searchInput.value?.trim();
+            }
+
+            // Get active filters
+            const filterSelects = document.querySelectorAll('select, .filter-select');
+            filterSelects.forEach(select => {
+                if (select.value && select.value !== '' && select.value !== 'all') {
+                    const label = select.previousElementSibling?.textContent || select.getAttribute('name') || 'filter';
+                    data.filters[label] = select.options[select.selectedIndex]?.text || select.value;
+                }
+            });
+
+            // Try to get user info from localStorage or global
+            if (window.currentUser) {
+                data.user = {
+                    name: window.currentUser.name || window.currentUser.username,
+                    role: window.currentUser.role
+                };
+            } else if (localStorage.getItem('user')) {
+                try {
+                    const user = JSON.parse(localStorage.getItem('user'));
+                    data.user = {
+                        name: user.name || user.username,
+                        role: user.role
+                    };
+                } catch (e) {}
+            }
+
+            // Get page heading/title
+            const heading = document.querySelector('h1, h2, .page-title, .header-title');
+            if (heading) {
+                data.pageHeading = heading.textContent?.trim();
+            }
+        } catch (e) {
+            console.warn('[Context] Failed to extract general data:', e);
+        }
+
+        return data;
+    }
+
+    /**
+     * Get complete page context to send to AI
+     */
+    function getPageContext() {
+        const pageType = detectPageType();
+        const generalData = extractGeneralPageData();
+
+        const context = {
+            pageType,
+            url: window.location.href,
+            pathname: window.location.pathname,
+            title: document.title,
+            ...generalData
+        };
+
+        // Add page-specific data
+        switch (pageType) {
+            case 'product':
+                context.productData = extractProductData();
+                break;
+            case 'order':
+                context.orderData = extractOrderData();
+                break;
+            case 'customer':
+                context.customerData = extractCustomerData();
+                break;
+        }
+
+        return context;
+    }
+
+    /**
+     * Format context into readable text for AI
+     */
+    function formatContextForAI(context) {
+        let text = `[CONTEXT - Trang hiện tại]\n`;
+        text += `- Loại trang: ${context.pageType}\n`;
+        text += `- Tiêu đề: ${context.title}\n`;
+
+        if (context.pageHeading) {
+            text += `- Heading: ${context.pageHeading}\n`;
+        }
+
+        if (context.user?.name) {
+            text += `- User: ${context.user.name}${context.user.role ? ' (' + context.user.role + ')' : ''}\n`;
+        }
+
+        if (context.search) {
+            text += `- Đang tìm kiếm: "${context.search}"\n`;
+        }
+
+        if (Object.keys(context.filters).length > 0) {
+            text += `- Filters đang áp dụng: ${JSON.stringify(context.filters)}\n`;
+        }
+
+        // Add page-specific context
+        if (context.productData) {
+            text += `\n[Sản phẩm]\n`;
+            text += `- Tổng số: ${context.productData.totalCount}\n`;
+            if (context.productData.selectedProduct) {
+                text += `- Đang chọn: ${context.productData.selectedProduct}\n`;
+            }
+            if (context.productData.products.length > 0) {
+                text += `- Một số sản phẩm trên trang:\n`;
+                context.productData.products.forEach((p, i) => {
+                    text += `  ${i + 1}. ${p.name || p.info}\n`;
+                });
+            }
+        }
+
+        if (context.orderData) {
+            text += `\n[Đơn hàng]\n`;
+            text += `- Tổng số: ${context.orderData.totalCount}\n`;
+            if (Object.keys(context.orderData.stats).length > 0) {
+                text += `- Thống kê: ${JSON.stringify(context.orderData.stats)}\n`;
+            }
+        }
+
+        if (context.customerData) {
+            text += `\n[Khách hàng]\n`;
+            text += `- Tổng số: ${context.customerData.totalCount}\n`;
+        }
+
+        return text;
+    }
+
+    // =========================================================
     // CSS STYLES
     // =========================================================
 
@@ -692,6 +978,15 @@
                 return;
             }
 
+            // 🆕 GET PAGE CONTEXT
+            const pageContext = getPageContext();
+            const contextText = formatContextForAI(pageContext);
+
+            // Combine user message with page context
+            const userMessageWithContext = `${contextText}\n\n[CÂUHỎI CỦA USER]\n${text}`;
+
+            console.log('[AI Chat] Sending with context:', pageContext);
+
             let response, data, aiText;
 
             if (isDeepSeek) {
@@ -700,7 +995,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         model: currentModel,
-                        messages: [{ role: 'user', content: text }],
+                        messages: [{ role: 'user', content: userMessageWithContext }],
                         max_tokens: 4096,
                         temperature: 0.7
                     })
@@ -709,7 +1004,10 @@
                 aiText = data.choices?.[0]?.message?.content || 'Không có phản hồi';
             } else {
                 const parts = [];
-                if (text) parts.push({ text });
+                // Add context + user message as text
+                if (text) parts.push({ text: userMessageWithContext });
+
+                // Add attachments
                 attachmentsToSend.forEach(a => {
                     parts.push({ inline_data: { mime_type: a.type, data: a.data } });
                 });
