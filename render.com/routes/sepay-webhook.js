@@ -7,6 +7,35 @@ const express = require('express');
 const router = express.Router();
 const tposTokenManager = require('../services/tpos-token-manager');
 const fetch = require('node-fetch');
+// AbortController is global in Node.js 18+, but fallback for older versions
+const AbortController = globalThis.AbortController || require('abort-controller');
+
+/**
+ * Fetch with timeout to prevent hanging requests
+ * @param {string} url - URL to fetch
+ * @param {object} options - Fetch options
+ * @param {number} timeout - Timeout in milliseconds (default: 10000ms = 10s)
+ * @returns {Promise<Response>}
+ */
+async function fetchWithTimeout(url, options = {}, timeout = 10000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeout}ms`);
+        }
+        throw error;
+    }
+}
 
 /**
  * GET /api/sepay/ping
@@ -635,13 +664,13 @@ async function searchTPOSByPartialPhone(partialPhone) {
         // Call TPOS Partner API
         const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${partialPhone}&$top=50&$orderby=DateCreated+desc&$count=true`;
 
-        const response = await fetch(tposUrl, {
+        const response = await fetchWithTimeout(tposUrl, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
-        });
+        }, 15000); // 15 second timeout for TPOS API
 
         if (!response.ok) {
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
@@ -1095,17 +1124,23 @@ router.get('/debt-summary', async (req, res) => {
         console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
 
         // 1. Get customer record with debt and debt_adjusted_at
-        const customerResult = await db.query(
-            `SELECT debt, debt_adjusted_at FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
-            [normalizedPhone, '0' + normalizedPhone]
-        );
+        let customerDebt = 0;
+        let debtAdjustedAt = null;
 
-        const customerDebt = customerResult.rows.length > 0
-            ? (parseFloat(customerResult.rows[0].debt) || 0)
-            : 0;
-        const debtAdjustedAt = customerResult.rows.length > 0
-            ? customerResult.rows[0].debt_adjusted_at
-            : null;
+        try {
+            const customerResult = await db.query(
+                `SELECT debt, debt_adjusted_at FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
+                [normalizedPhone, '0' + normalizedPhone]
+            );
+
+            if (customerResult.rows.length > 0) {
+                customerDebt = parseFloat(customerResult.rows[0].debt) || 0;
+                debtAdjustedAt = customerResult.rows[0].debt_adjusted_at;
+            }
+        } catch (customerError) {
+            // Table doesn't exist or query failed - continue without customer data
+            console.log('[DEBT-SUMMARY] Customers table not available:', customerError.message);
+        }
 
         console.log('[DEBT-SUMMARY] Customer debt:', customerDebt, 'adjusted_at:', debtAdjustedAt);
 
@@ -1266,30 +1301,37 @@ router.post('/debt-summary-batch', async (req, res) => {
         const phoneConditions = uniquePhones.flatMap(p => [p, '0' + p]);
         const customerPlaceholders = phoneConditions.map((_, i) => `$${i + 1}`).join(', ');
 
-        const customerQuery = `
-            SELECT phone, debt, debt_adjusted_at
-            FROM customers
-            WHERE phone IN (${customerPlaceholders})
-        `;
-        const customerResult = await db.query(customerQuery, phoneConditions);
-
         // Build customer map
         const customerMap = {};
-        customerResult.rows.forEach(row => {
-            let normalizedPhone = row.phone.replace(/\D/g, '');
-            if (normalizedPhone.startsWith('0')) {
-                normalizedPhone = normalizedPhone.substring(1);
-            }
-            // Keep the one with higher debt or has adjustment
-            if (!customerMap[normalizedPhone] ||
-                (row.debt || 0) > (customerMap[normalizedPhone].debt || 0) ||
-                row.debt_adjusted_at) {
-                customerMap[normalizedPhone] = {
-                    debt: parseFloat(row.debt) || 0,
-                    debt_adjusted_at: row.debt_adjusted_at
-                };
-            }
-        });
+
+        // Try to query customers table (may not exist yet)
+        try {
+            const customerQuery = `
+                SELECT phone, debt, debt_adjusted_at
+                FROM customers
+                WHERE phone IN (${customerPlaceholders})
+            `;
+            const customerResult = await db.query(customerQuery, phoneConditions);
+
+            customerResult.rows.forEach(row => {
+                let normalizedPhone = row.phone.replace(/\D/g, '');
+                if (normalizedPhone.startsWith('0')) {
+                    normalizedPhone = normalizedPhone.substring(1);
+                }
+                // Keep the one with higher debt or has adjustment
+                if (!customerMap[normalizedPhone] ||
+                    (row.debt || 0) > (customerMap[normalizedPhone].debt || 0) ||
+                    row.debt_adjusted_at) {
+                    customerMap[normalizedPhone] = {
+                        debt: parseFloat(row.debt) || 0,
+                        debt_adjusted_at: row.debt_adjusted_at
+                    };
+                }
+            });
+        } catch (customerError) {
+            // Table doesn't exist or query failed - continue without customer data
+            console.log('[DEBT-SUMMARY-BATCH] Customers table not available:', customerError.message);
+        }
 
         // 2. Batch query QR codes for all phones
         const qrQuery = `
@@ -1709,33 +1751,51 @@ router.post('/update-debt', async (req, res) => {
 
         console.log('[UPDATE-DEBT] Updating debt for phone:', normalizedPhone, 'to:', newDebtValue, 'reason:', reason);
 
-        // Get current debt first - ORDER BY debt DESC to get the highest value (most relevant record)
-        const currentResult = await db.query(
-            `SELECT id, phone, debt FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
-            [normalizedPhone, '0' + normalizedPhone]
-        );
-        const oldDebt = currentResult.rows.length > 0 ? (parseFloat(currentResult.rows[0].debt) || 0) : 0;
-        const existingCustomerId = currentResult.rows.length > 0 ? currentResult.rows[0].id : null;
-        const existingPhone = currentResult.rows.length > 0 ? currentResult.rows[0].phone : null;
-
+        // Check if customers table exists, if not return helpful error
+        let oldDebt = 0;
+        let existingCustomerId = null;
+        let existingPhone = null;
         let updateResult;
-        if (existingCustomerId) {
-            // Customer exists - UPDATE ALL matching records (both phone formats)
-            // Set debt_adjusted_at to mark when admin adjusted (for calculating new transactions after)
-            updateResult = await db.query(`
-                UPDATE customers
-                SET debt = $1, updated_at = CURRENT_TIMESTAMP, debt_adjusted_at = CURRENT_TIMESTAMP
-                WHERE phone = $2 OR phone = $3
-                RETURNING *
-            `, [newDebtValue, normalizedPhone, '0' + normalizedPhone]);
-            console.log('[UPDATE-DEBT] Updated', updateResult.rowCount, 'customer records');
-        } else {
-            // Customer doesn't exist - INSERT new record with debt_adjusted_at
-            updateResult = await db.query(`
-                INSERT INTO customers (phone, debt, created_at, updated_at, debt_adjusted_at)
-                VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                RETURNING *
-            `, [normalizedPhone, newDebtValue]);
+
+        try {
+            // Get current debt first - ORDER BY debt DESC to get the highest value (most relevant record)
+            const currentResult = await db.query(
+                `SELECT id, phone, debt FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
+                [normalizedPhone, '0' + normalizedPhone]
+            );
+            oldDebt = currentResult.rows.length > 0 ? (parseFloat(currentResult.rows[0].debt) || 0) : 0;
+            existingCustomerId = currentResult.rows.length > 0 ? currentResult.rows[0].id : null;
+            existingPhone = currentResult.rows.length > 0 ? currentResult.rows[0].phone : null;
+
+            if (existingCustomerId) {
+                // Customer exists - UPDATE ALL matching records (both phone formats)
+                // Set debt_adjusted_at to mark when admin adjusted (for calculating new transactions after)
+                updateResult = await db.query(`
+                    UPDATE customers
+                    SET debt = $1, updated_at = CURRENT_TIMESTAMP, debt_adjusted_at = CURRENT_TIMESTAMP
+                    WHERE phone = $2 OR phone = $3
+                    RETURNING *
+                `, [newDebtValue, normalizedPhone, '0' + normalizedPhone]);
+                console.log('[UPDATE-DEBT] Updated', updateResult.rowCount, 'customer records');
+            } else {
+                // Customer doesn't exist - INSERT new record with debt_adjusted_at
+                updateResult = await db.query(`
+                    INSERT INTO customers (phone, debt, created_at, updated_at, debt_adjusted_at)
+                    VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    RETURNING *
+                `, [normalizedPhone, newDebtValue]);
+            }
+        } catch (tableError) {
+            // Customers table doesn't exist
+            if (tableError.code === '42P01') { // PostgreSQL error code for "relation does not exist"
+                return res.status(503).json({
+                    success: false,
+                    error: 'Customers table not initialized',
+                    message: 'The customers table needs to be created first. Please run the migration: psql $DATABASE_URL < render.com/migrations/create_customers_table.sql',
+                    details: tableError.message
+                });
+            }
+            throw tableError; // Re-throw other errors
         }
 
         // Log the change to debt_adjustment_log table
@@ -2255,13 +2315,13 @@ router.post('/fetch-by-reference/:referenceCode', async (req, res) => {
 
         console.log('[FETCH-BY-REF] Calling Sepay API:', sepayUrl);
 
-        const sepayResponse = await fetch(sepayUrl, {
+        const sepayResponse = await fetchWithTimeout(sepayUrl, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${SEPAY_API_KEY}`,
                 'Content-Type': 'application/json'
             }
-        });
+        }, 15000); // 15 second timeout for SePay API
 
         if (!sepayResponse.ok) {
             const errorText = await sepayResponse.text();
@@ -2492,18 +2552,29 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
 
         // 5. Update customer debt
         const amount = parseInt(match.transfer_amount) || 0;
+        let updatedCustomer;
 
-        const debtResult = await db.query(
-            `INSERT INTO customers (phone, name, debt, status, active)
-             VALUES ($1, $2, $3, 'Bình thường', true)
-             ON CONFLICT (phone) DO UPDATE SET
-                 debt = COALESCE(customers.debt, 0) + $3,
-                 updated_at = CURRENT_TIMESTAMP
-             RETURNING id, phone, debt`,
-            [selectedCustomer.phone, selectedCustomer.name, amount]
-        );
-
-        const updatedCustomer = debtResult.rows[0];
+        try {
+            const debtResult = await db.query(
+                `INSERT INTO customers (phone, name, debt, status, active)
+                 VALUES ($1, $2, $3, 'Bình thường', true)
+                 ON CONFLICT (phone) DO UPDATE SET
+                     debt = COALESCE(customers.debt, 0) + $3,
+                     updated_at = CURRENT_TIMESTAMP
+                 RETURNING id, phone, debt`,
+                [selectedCustomer.phone, selectedCustomer.name, amount]
+            );
+            updatedCustomer = debtResult.rows[0];
+        } catch (tableError) {
+            // Customers table doesn't exist
+            if (tableError.code === '42P01') {
+                console.warn('[RESOLVE-MATCH] Customers table not available, skipping debt update');
+                // Continue without updating customer debt - just log the match as resolved
+                updatedCustomer = { phone: selectedCustomer.phone, debt: null };
+            } else {
+                throw tableError;
+            }
+        }
 
         // 6. Mark transaction as processed
         await db.query(
@@ -2816,13 +2887,13 @@ router.get('/tpos/customer/:phone', async (req, res) => {
         // Call TPOS Partner API
         const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${phone}&$top=50&$orderby=DateCreated+desc&$count=true`;
 
-        const response = await fetch(tposUrl, {
+        const response = await fetchWithTimeout(tposUrl, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
-        });
+        }, 15000); // 15 second timeout for TPOS API
 
         if (!response.ok) {
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
