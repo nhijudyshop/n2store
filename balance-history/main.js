@@ -2293,10 +2293,11 @@ document.addEventListener('DOMContentLoaded', () => {
         connectRealtimeUpdates();
     }, 1000);
 
-    // Load gap detection data
-    setTimeout(() => {
-        loadGapData();
-    }, 2000);
+    // DISABLED: Gap detection was causing severe performance issues (60-90s response times)
+    // Uncomment only if you need manual gap detection
+    // setTimeout(() => {
+    //     loadGapData();
+    // }, 2000);
 });
 
 // =====================================================
@@ -2479,8 +2480,8 @@ async function ignoreGap(referenceCode) {
                 window.NotificationManager.showNotification(`Đã bỏ qua mã ${referenceCode}`, 'success');
             }
 
-            // Reload gaps data
-            await loadGapData();
+            // DISABLED: Gap detection (performance issue)
+            // await loadGapData();
 
             // Refresh modal if open
             const modal = document.getElementById('gapsModal');
@@ -2510,10 +2511,11 @@ async function rescanGaps() {
     }
 
     try {
-        await loadGapData();
+        // DISABLED: Gap detection (performance issue)
+        // await loadGapData();
 
         if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Đã quét lại gaps', 'success');
+            window.NotificationManager.showNotification('Gap detection đã bị tắt để tối ưu hiệu suất', 'info');
         }
 
         // Refresh modal
@@ -2551,8 +2553,8 @@ async function retryFailedQueue() {
                 window.NotificationManager.showNotification(result.message, 'success');
             }
 
-            // Reload gaps after retry
-            await loadGapData();
+            // DISABLED: Gap detection (performance issue)
+            // await loadGapData();
 
             // Reload main data
             loadData();
@@ -2649,8 +2651,8 @@ async function fetchMissingTransaction(referenceCode) {
                 window.NotificationManager.showNotification(`Đã lấy được giao dịch ${referenceCode}!`, 'success');
             }
 
-            // Reload data to show the new transaction
-            await loadGapData();
+            // DISABLED: Gap detection (performance issue)
+            // await loadGapData();
             loadData();
             loadStatistics();
         } else {
