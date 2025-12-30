@@ -3648,6 +3648,175 @@
             }
         }
 
+        // =====================================================
+        // TPOS EXCEL AUTO-FETCH FUNCTIONS
+        // =====================================================
+
+        /**
+         * Get all campaignIds for the current session
+         * @returns {Array<{id: string, name: string, displayName: string}>} - List of campaigns
+         */
+        function getCurrentSessionCampaigns() {
+            // Try to get from parent window's campaignManager
+            const campaignManager = window.parent?.campaignManager;
+
+            if (!campaignManager) {
+                console.warn('[REPORT] ⚠️ campaignManager not found in parent window');
+                return [];
+            }
+
+            const allCampaigns = campaignManager.allCampaigns || {};
+            const activeCampaign = campaignManager.activeCampaign;
+
+            if (!activeCampaign) {
+                console.warn('[REPORT] ⚠️ No active campaign found');
+                return [];
+            }
+
+            // Get the date of the active campaign
+            const activeDate = activeCampaign.customStartDate?.split('T')[0];
+            if (!activeDate) {
+                console.log('[REPORT] No customStartDate found, returning only active campaign');
+                return [{
+                    id: activeCampaign.id,
+                    name: activeCampaign.name,
+                    displayName: activeCampaign.displayName || activeCampaign.name
+                }];
+            }
+
+            // Find all campaigns with the same date
+            const sameDayCampaigns = [];
+            for (const [id, campaign] of Object.entries(allCampaigns)) {
+                const campaignDate = campaign.customStartDate?.split('T')[0];
+                if (campaignDate === activeDate) {
+                    sameDayCampaigns.push({
+                        id: id,
+                        name: campaign.name,
+                        displayName: campaign.displayName || campaign.name
+                    });
+                }
+            }
+
+            console.log(`[REPORT] 📊 Found ${sameDayCampaigns.length} campaigns for date ${activeDate}:`,
+                sameDayCampaigns.map(c => c.name));
+
+            return sameDayCampaigns;
+        }
+
+        /**
+         * Fetch order details from TPOS ExportFile API
+         * @param {string} campaignId - Campaign/table ID
+         * @returns {Promise<Array>} - Array of parsed orders
+         */
+        async function fetchOrdersFromTPOS(campaignId) {
+            const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const endpoint = `/api/SaleOnline_Order/ExportFile?campaignId=${campaignId}&sort=date`;
+
+            // Get token from parent window's tokenManager
+            let token;
+            try {
+                if (window.parent?.tokenManager) {
+                    token = await window.parent.tokenManager.getToken();
+                } else if (window.tokenManager) {
+                    token = await window.tokenManager.getToken();
+                } else {
+                    throw new Error('tokenManager not found');
+                }
+            } catch (error) {
+                console.error('[REPORT] ❌ Error getting token:', error);
+                throw new Error('Could not get authentication token');
+            }
+
+            console.log(`[REPORT] 📥 Fetching Excel from TPOS for campaign: ${campaignId}`);
+
+            const response = await fetch(`${WORKER_URL}${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ data: '{}' })
+            });
+
+            if (!response.ok) {
+                throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
+            }
+
+            // Parse Excel from response
+            const arrayBuffer = await response.arrayBuffer();
+
+            // Check if XLSX is available
+            if (typeof XLSX === 'undefined') {
+                throw new Error('XLSX library not loaded');
+            }
+
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+
+            // Get the first sheet
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+
+            // Convert to JSON
+            const orders = XLSX.utils.sheet_to_json(worksheet);
+
+            console.log(`[REPORT] ✅ Fetched ${orders.length} orders from TPOS Excel`);
+            return orders;
+        }
+
+        /**
+         * Parse and normalize data from TPOS Excel
+         * @param {Array} orders - Raw orders from Excel
+         * @returns {Array} - Normalized order data
+         */
+        function parseExcelOrderData(orders) {
+            return orders.map(row => ({
+                orderNumber: row['Số đơn hàng'] || row['Order ID'] || row['orderNumber'] || '',
+                customerName: row['Tên khách'] || row['Customer'] || row['customerName'] || '',
+                amount: parseFloat(row['Tổng tiền'] || row['Total'] || row['amount'] || 0),
+                status: row['Trạng thái'] || row['Status'] || row['status'] || '',
+                date: row['Ngày tạo'] || row['Created Date'] || row['date'] || '',
+                products: row['Sản phẩm'] || row['Products'] || row['products'] || '',
+                notes: row['Ghi chú'] || row['Notes'] || row['notes'] || '',
+                // Keep original row for debugging
+                _originalRow: row
+            }));
+        }
+
+        /**
+         * Fetch and merge orders from all campaigns in the current session
+         * @returns {Promise<Array>} - Merged orders from all campaigns
+         */
+        async function fetchAllCampaignsExcel() {
+            const campaigns = getCurrentSessionCampaigns();
+
+            if (campaigns.length === 0) {
+                console.warn('[REPORT] ⚠️ No campaigns found');
+                return [];
+            }
+
+            console.log(`[REPORT] 📊 Fetching Excel from ${campaigns.length} campaigns...`);
+
+            // Fetch from all campaigns in parallel
+            const fetchPromises = campaigns.map(campaign =>
+                fetchOrdersFromTPOS(campaign.id)
+                    .then(orders => orders.map(o => ({ ...o, _campaign: campaign.name })))
+                    .catch(err => {
+                        console.error(`[REPORT] ❌ Error fetching ${campaign.name}:`, err);
+                        return [];
+                    })
+            );
+
+            const results = await Promise.allSettled(fetchPromises);
+
+            // Merge all orders
+            const allOrders = results
+                .filter(r => r.status === 'fulfilled')
+                .flatMap(r => r.value);
+
+            console.log(`[REPORT] ✅ Fetched total ${allOrders.length} orders from ${campaigns.length} campaigns`);
+            return allOrders;
+        }
+
         // Broadcast table status to parent (main.html)
         function broadcastTableStatus() {
             const isMatching = currentTableName && firebaseTableName &&
@@ -6232,19 +6401,79 @@
                 return;
             }
 
-            if (allOrders.length === 0) {
-                alert('Chưa có dữ liệu đơn hàng. Vui lòng nhấn "Làm mới" trước.');
-                return;
-            }
-
             if (!currentTableName) {
                 alert('Không xác định được tên bảng.');
                 return;
             }
 
-            // Confirm before fetching - show exact number of orders
-            const confirmMsg = `Sẽ lấy chi tiết cho ${allOrders.length} đơn hàng và lưu vào bảng "${currentTableName}".\n\nBạn có muốn tiếp tục?`;
-            if (!confirm(confirmMsg)) {
+            // =====================================================
+            // NEW: Dialog to choose between Firebase or API fetch
+            // =====================================================
+
+            // Check if Firebase data exists for current table
+            const firebaseData = await loadFromFirebase(currentTableName);
+            const hasFirebaseData = firebaseData && firebaseData.orders && firebaseData.orders.length > 0;
+
+            let userChoice;
+            if (hasFirebaseData) {
+                // Show dialog with 2 options
+                const choice = confirm(
+                    `Bạn muốn:\n\n` +
+                    `✅ OK = Tải dữ liệu từ Firebase (${firebaseData.orders.length} đơn hàng, lưu lúc ${new Date(firebaseData.fetchedAt).toLocaleString('vi-VN')})\n\n` +
+                    `🔄 Cancel = Lấy dữ liệu mới từ API (${allOrders.length} đơn hàng)`
+                );
+
+                userChoice = choice ? 'firebase' : 'api';
+            } else {
+                // No Firebase data, ask to confirm API fetch
+                if (allOrders.length === 0) {
+                    alert('Chưa có dữ liệu đơn hàng. Vui lòng nhấn "Làm mới" trước.');
+                    return;
+                }
+
+                const confirmMsg = `Không tìm thấy dữ liệu Firebase cho "${currentTableName}".\n\nSẽ lấy chi tiết cho ${allOrders.length} đơn hàng từ API.\n\nBạn có muốn tiếp tục?`;
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+                userChoice = 'api';
+            }
+
+            // =====================================================
+            // OPTION 1: Load from Firebase
+            // =====================================================
+            if (userChoice === 'firebase') {
+                console.log('[REPORT] 📦 User chose to load from Firebase');
+
+                try {
+                    // Update cache
+                    cachedOrderDetails[currentTableName] = firebaseData;
+                    saveCachedData();
+
+                    // Update UI
+                    updateCachedCountBadge();
+                    renderCachedDetailsTab();
+
+                    // Update statistics
+                    await loadEmployeeRanges();
+                    renderStatistics();
+
+                    // Show success message
+                    alert(`✅ Đã tải dữ liệu từ Firebase!\n- Số đơn hàng: ${firebaseData.orders.length}\n- Lưu lúc: ${new Date(firebaseData.fetchedAt).toLocaleString('vi-VN')}\n- Bảng: ${currentTableName}`);
+
+                    // Switch to details tab
+                    switchMainTab('details');
+                } catch (error) {
+                    console.error('[REPORT] ❌ Error loading from Firebase:', error);
+                    alert(`Lỗi khi tải từ Firebase: ${error.message}`);
+                }
+                return;
+            }
+
+            // =====================================================
+            // OPTION 2: Fetch from API (existing logic)
+            // =====================================================
+            if (allOrders.length === 0) {
+                alert('Chưa có dữ liệu đơn hàng. Vui lòng nhấn "Làm mới" trước.');
                 return;
             }
 
@@ -7401,6 +7630,59 @@
             }
 
             console.log(`[REPORT] 🎉 Firebase init complete. cachedOrders for "${currentTableName}": ${cachedOrderDetails[currentTableName]?.orders?.length || 0}`);
+
+            // =====================================================
+            // AUTO-FETCH EXCEL FROM TPOS (NEW FEATURE)
+            // =====================================================
+            // Try to auto-fetch basic data from TPOS Excel on page load
+            // This provides quick fallback data without needing Firebase
+            try {
+                // Check if we have cached data in sessionStorage
+                const sessionCache = sessionStorage.getItem('reportOrdersExcelCache');
+                let hasQuickData = false;
+
+                if (sessionCache) {
+                    try {
+                        const cached = JSON.parse(sessionCache);
+                        // Check if cache is fresh (less than 5 minutes old)
+                        const cacheAge = Date.now() - (cached.timestamp || 0);
+                        if (cacheAge < 5 * 60 * 1000) {
+                            console.log('[REPORT] 📦 Using cached Excel data from sessionStorage');
+                            hasQuickData = true;
+                        }
+                    } catch (e) {
+                        console.warn('[REPORT] Failed to parse session cache:', e);
+                    }
+                }
+
+                // If no fresh cache, auto-fetch from TPOS
+                if (!hasQuickData) {
+                    console.log('[REPORT] 🔄 Auto-fetching basic data from TPOS Excel...');
+                    try {
+                        const allExcelOrders = await fetchAllCampaignsExcel();
+                        if (allExcelOrders.length > 0) {
+                            const parsedOrders = parseExcelOrderData(allExcelOrders);
+
+                            // Save to sessionStorage for quick access on refresh
+                            sessionStorage.setItem('reportOrdersExcelCache', JSON.stringify({
+                                orders: parsedOrders,
+                                timestamp: Date.now()
+                            }));
+
+                            console.log(`[REPORT] ✅ Auto-fetched ${parsedOrders.length} orders from TPOS Excel (basic data)`);
+
+                            // Note: We don't display this data yet because Tab1 data is more complete
+                            // This is just a fallback if Tab1 fails to load
+                        } else {
+                            console.log('[REPORT] ℹ️ No orders found in Excel auto-fetch');
+                        }
+                    } catch (error) {
+                        console.warn('[REPORT] ⚠️ Auto-fetch from TPOS failed (this is OK, will use Tab1 data):', error);
+                    }
+                }
+            } catch (error) {
+                console.error('[REPORT] ❌ Error in auto-fetch logic:', error);
+            }
 
             // ALWAYS request data from Tab1 for Tổng quan tab
             // allOrders MUST come from Tab1, NOT from Firebase
