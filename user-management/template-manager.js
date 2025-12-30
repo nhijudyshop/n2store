@@ -216,8 +216,9 @@ class TemplateManager {
                     <i data-lucide="trash-2"></i>
                 </button>
             `;
-        } else if (!isAdmin) {
-            // Built-in templates (except admin): can edit
+        } else {
+            // ALL built-in templates (including admin): can edit
+            // Note: Admin template không còn đặc quyền - chỉ là template có sẵn full permissions
             actionsHtml += `
                 <button class="btn btn-sm btn-primary" onclick="templateManager.editTemplate('${id}', false)" title="Tùy chỉnh template này">
                     <i data-lucide="edit"></i>
