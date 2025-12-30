@@ -25,6 +25,23 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Purchase Orders collection
+    match /purchase_orders/{orderId} {
+      // Anyone authenticated can read
+      allow read: if isAuthenticated();
+
+      // Anyone authenticated can create
+      allow create: if isAuthenticated();
+
+      // Can update if authenticated and order is not COMPLETED
+      allow update: if isAuthenticated()
+        && resource.data.status != 'COMPLETED';
+
+      // Can delete if authenticated and order is DRAFT or CANCELLED
+      allow delete: if isAuthenticated()
+        && resource.data.status in ['DRAFT', 'CANCELLED'];
+    }
+
     // Default: deny all other access
     match /{document=**} {
       allow read, write: if false;
