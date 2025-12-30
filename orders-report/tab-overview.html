@@ -2644,6 +2644,9 @@
                 <i class="fas fa-database"></i> Chi tiết đã tải
                 <span class="badge" id="cachedCountBadge">0</span>
             </button>
+            <button class="main-tab-btn" onclick="switchMainTab('analysis')" data-tab="analysis" id="analysisTabBtn" style="display: none;">
+                <i class="fas fa-chart-line"></i> Phân tích hiệu quả
+            </button>
         </div>
 
         <!-- Progress Bar (outside tabs - always visible when loading) -->
@@ -2749,6 +2752,30 @@
                     </div>
                 </div>
 
+            </div>
+
+            <!-- Empty state when no cached data -->
+            <div id="statsEmptyState" class="content-section">
+                <div class="empty-state">
+                    <i class="fas fa-chart-bar"></i>
+                    <h3>Chưa có dữ liệu thống kê</h3>
+                    <p>Nhấn <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu và xem thống kê chi tiết</p>
+                </div>
+            </div>
+        </div>
+        <div class="main-tab-content" id="tabDetails">
+            <div id="cachedDetailsArea">
+                <div class="empty-state">
+                    <i class="fas fa-database"></i>
+                    <h3>Chưa có dữ liệu chi tiết</h3>
+                    <p>Nhấn "Lấy chi tiết đơn hàng" để tải dữ liệu đầy đủ từ API</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Phân tích hiệu quả -->
+        <div class="main-tab-content" id="tabAnalysis">
+            <div id="analysisContent">
                 <!-- ================================================
                      DISCOUNT STATS SECTION - Thống Kê Giảm Giá
                      ================================================ -->
@@ -2810,23 +2837,14 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Empty state when no cached data -->
-            <div id="statsEmptyState" class="content-section">
-                <div class="empty-state">
-                    <i class="fas fa-chart-bar"></i>
-                    <h3>Chưa có dữ liệu thống kê</h3>
-                    <p>Nhấn <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu và xem thống kê chi tiết</p>
-                </div>
-            </div>
-        </div>
-        <div class="main-tab-content" id="tabDetails">
-            <div id="cachedDetailsArea">
-                <div class="empty-state">
-                    <i class="fas fa-database"></i>
-                    <h3>Chưa có dữ liệu chi tiết</h3>
-                    <p>Nhấn "Lấy chi tiết đơn hàng" để tải dữ liệu đầy đủ từ API</p>
+                <!-- Empty state when no data -->
+                <div id="analysisEmptyState" class="content-section">
+                    <div class="empty-state">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>Phân Tích Hiệu Quả</h3>
+                        <p>Nhấn <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu và xem phân tích</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3013,6 +3031,49 @@
         const TABLE_NAME_SETTINGS_PATH = 'settings/table_name'; // Path to default table name (same as tab1)
         const BATCH_SIZE = 10;
         const BATCH_DELAY = 1000; // 1 second
+
+        // =====================================================
+        // PERMISSION HELPER
+        // =====================================================
+        function getAuthData() {
+            try {
+                let authData = sessionStorage.getItem("loginindex_auth");
+                if (!authData) {
+                    authData = localStorage.getItem("loginindex_auth");
+                }
+                return authData ? JSON.parse(authData) : null;
+            } catch (e) {
+                console.error('[PERMISSION] Error reading auth data:', e);
+                return null;
+            }
+        }
+
+        function hasDetailedPermission(pageId, action) {
+            const authData = getAuthData();
+            if (!authData?.detailedPermissions?.[pageId]) return false;
+            return authData.detailedPermissions[pageId][action] === true;
+        }
+
+        function canViewAnalysis() {
+            return hasDetailedPermission('baocaosaleonline', 'viewAnalysis');
+        }
+
+        function canEditAnalysis() {
+            return hasDetailedPermission('baocaosaleonline', 'editAnalysis');
+        }
+
+        function initAnalysisTabVisibility() {
+            const analysisTabBtn = document.getElementById('analysisTabBtn');
+            if (analysisTabBtn) {
+                if (canViewAnalysis()) {
+                    analysisTabBtn.style.display = '';
+                    console.log('[PERMISSION] Analysis tab enabled');
+                } else {
+                    analysisTabBtn.style.display = 'none';
+                    console.log('[PERMISSION] Analysis tab hidden - no permission');
+                }
+            }
+        }
 
         // Firebase cached data info
         let firebaseTableName = null;
@@ -5724,6 +5785,12 @@
             } else if (tabName === 'details') {
                 document.getElementById('tabDetails').classList.add('active');
                 renderCachedDetailsTab();
+            } else if (tabName === 'analysis') {
+                document.getElementById('tabAnalysis').classList.add('active');
+                // Trigger discount stats calculation if data is available
+                if (cachedOrderDetails.length > 0 && window.discountStatsUI) {
+                    window.discountStatsUI.refreshStats();
+                }
             }
         }
 
@@ -6923,6 +6990,9 @@
         document.addEventListener('DOMContentLoaded', async function () {
             console.log('[REPORT] Page loaded, initializing...');
 
+            // Initialize analysis tab visibility based on permissions
+            initAnalysisTabVisibility();
+
             // Reset fetching state on page load (in case it was stuck from previous session)
             isFetching = false;
             const fetchBtn = document.getElementById('btnBatchFetch');
@@ -6987,6 +7057,10 @@
 
         // Expose for discount stats
         window.cachedOrderDetails = cachedOrderDetails;
+
+        // Expose permission functions
+        window.canViewAnalysis = canViewAnalysis;
+        window.canEditAnalysis = canEditAnalysis;
         window.currentTableName = currentTableName;
     </script>
 
