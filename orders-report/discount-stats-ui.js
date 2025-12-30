@@ -418,6 +418,18 @@ class DiscountStatsUI {
 
             <!-- KPI Cards -->
             <div class="discount-kpi-grid">
+                <div class="discount-kpi-card teal">
+                    <div class="kpi-icon"><i class="fas fa-cash-register"></i></div>
+                    <div class="kpi-value">${calc.formatCurrency(s.totalDiscountPrice)}</div>
+                    <div class="kpi-label">Tổng Doanh Thu</div>
+                    <div class="kpi-sub">Sau giảm giá</div>
+                </div>
+                <div class="discount-kpi-card orange">
+                    <div class="kpi-icon"><i class="fas fa-boxes"></i></div>
+                    <div class="kpi-value">${calc.formatCurrency(s.totalCostPrice)}</div>
+                    <div class="kpi-label">Tổng Vốn Hàng</div>
+                    <div class="kpi-sub">Giá vốn ${s.totalDiscountedProducts} SP</div>
+                </div>
                 <div class="discount-kpi-card red">
                     <div class="kpi-icon"><i class="fas fa-tags"></i></div>
                     <div class="kpi-value">${calc.formatCurrency(s.totalDiscountAmount)}</div>
