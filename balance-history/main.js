@@ -35,6 +35,208 @@ const detailModal = document.getElementById('detailModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const modalBody = document.getElementById('modalBody');
 
+// =====================================================
+// PENDING MATCH FUNCTIONS - Xử lý chọn khách hàng từ dropdown
+// =====================================================
+
+/**
+ * Check if user has detailed permission
+ * @param {string} pageId - Page ID (e.g., 'balance-history')
+ * @param {string} permissionKey - Permission key (e.g., 'undoSkip')
+ * @returns {boolean}
+ */
+function hasDetailedPermission(pageId, permissionKey) {
+    // Get current user's detailed permissions from localStorage or global state
+    const currentUser = JSON.parse(localStorage.getItem('n2shop_current_user') || '{}');
+    const detailedPerms = currentUser.detailedPermissions || {};
+
+    // Admin always has permission
+    if (currentUser.role === 'admin' || currentUser.isAdmin) {
+        return true;
+    }
+
+    return detailedPerms[pageId]?.[permissionKey] === true;
+}
+
+/**
+ * Resolve a pending match by selecting a customer
+ * Called when user selects an option from dropdown
+ * @param {number} pendingMatchId - ID of pending_customer_matches record
+ * @param {HTMLSelectElement} selectElement - The dropdown element
+ */
+async function resolvePendingMatch(pendingMatchId, selectElement) {
+    const selectedValue = selectElement.value;
+
+    if (!selectedValue) {
+        return; // User selected placeholder option
+    }
+
+    // Check permission
+    if (!hasDetailedPermission('balance-history', 'resolveMatch') && !hasPermission(2)) {
+        showNotification('Bạn không có quyền thực hiện thao tác này', 'error');
+        selectElement.value = '';
+        return;
+    }
+
+    const transactionId = selectElement.dataset.transactionId;
+
+    // Handle skip option
+    if (selectedValue === 'skip') {
+        await skipPendingMatch(pendingMatchId, selectElement);
+        return;
+    }
+
+    // Get selected customer info from data attributes
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    const customerName = selectedOption.dataset.name;
+    const customerPhone = selectedOption.dataset.phone;
+
+    try {
+        // Disable dropdown while processing
+        selectElement.disabled = true;
+        selectElement.style.opacity = '0.5';
+
+        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/resolve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                customer_id: parseInt(selectedValue),
+                resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification(`Đã chọn khách hàng: ${customerName} (${customerPhone})`, 'success');
+
+            // Refresh table to show updated data
+            loadData();
+        } else {
+            showNotification(`Lỗi: ${result.error || 'Không thể lưu'}`, 'error');
+            selectElement.disabled = false;
+            selectElement.style.opacity = '1';
+            selectElement.value = '';
+        }
+    } catch (error) {
+        console.error('[RESOLVE-MATCH] Error:', error);
+        showNotification(`Lỗi kết nối: ${error.message}`, 'error');
+        selectElement.disabled = false;
+        selectElement.style.opacity = '1';
+        selectElement.value = '';
+    }
+}
+
+/**
+ * Skip a pending match
+ * @param {number} pendingMatchId - ID of pending_customer_matches record
+ * @param {HTMLSelectElement} selectElement - The dropdown element
+ */
+async function skipPendingMatch(pendingMatchId, selectElement) {
+    // Check permission
+    if (!hasDetailedPermission('balance-history', 'skipMatch') && !hasPermission(2)) {
+        showNotification('Bạn không có quyền bỏ qua', 'error');
+        selectElement.value = '';
+        return;
+    }
+
+    try {
+        selectElement.disabled = true;
+        selectElement.style.opacity = '0.5';
+
+        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/skip`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                reason: 'Skipped by user via dropdown',
+                resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification('Đã bỏ qua giao dịch này', 'info');
+            loadData();
+        } else {
+            showNotification(`Lỗi: ${result.error || 'Không thể bỏ qua'}`, 'error');
+            selectElement.disabled = false;
+            selectElement.style.opacity = '1';
+            selectElement.value = '';
+        }
+    } catch (error) {
+        console.error('[SKIP-MATCH] Error:', error);
+        showNotification(`Lỗi kết nối: ${error.message}`, 'error');
+        selectElement.disabled = false;
+        selectElement.style.opacity = '1';
+        selectElement.value = '';
+    }
+}
+
+/**
+ * Undo a skipped pending match
+ * @param {number} pendingMatchId - ID of pending_customer_matches record
+ */
+async function undoSkipMatch(pendingMatchId) {
+    // Check permission
+    if (!hasDetailedPermission('balance-history', 'undoSkip')) {
+        showNotification('Bạn không có quyền hoàn tác', 'error');
+        return;
+    }
+
+    if (!confirm('Bạn có chắc muốn hoàn tác trạng thái "Đã bỏ qua" cho giao dịch này?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/undo-skip`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification('Đã hoàn tác - có thể chọn lại khách hàng', 'success');
+            loadData();
+        } else {
+            showNotification(`Lỗi: ${result.error || 'Không thể hoàn tác'}`, 'error');
+        }
+    } catch (error) {
+        console.error('[UNDO-SKIP] Error:', error);
+        showNotification(`Lỗi kết nối: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Show notification (uses existing notification system or creates simple one)
+ */
+function showNotification(message, type = 'info') {
+    // Try to use existing notification system
+    if (window.NotificationSystem?.show) {
+        window.NotificationSystem.show(message, type);
+        return;
+    }
+
+    // Fallback: simple alert
+    if (type === 'error') {
+        alert('❌ ' + message);
+    } else if (type === 'success') {
+        alert('✅ ' + message);
+    } else {
+        alert('ℹ️ ' + message);
+    }
+}
+
 // Set Default Current Month
 function setDefaultCurrentMonth() {
     const now = new Date();
@@ -628,8 +830,81 @@ function renderTransactionRow(row) {
         }
     }
 
+    // Check for pending match status
+    const hasPendingMatch = row.has_pending_match === true;
+    const isSkipped = row.pending_match_skipped === true;
+    const pendingMatchOptions = row.pending_match_options || [];
+    const pendingMatchId = row.pending_match_id;
+
+    // Determine row class for highlighting
+    const rowClass = hasPendingMatch ? 'row-pending-match' : (isSkipped ? 'row-skipped-match' : '');
+
+    // Build customer name cell content
+    let customerNameCell = '';
+    if (hasPendingMatch && pendingMatchOptions.length > 0) {
+        // PENDING MATCH: Show dropdown to select customer
+        const optionsHtml = pendingMatchOptions.map(opt => {
+            // opt can be: { phone, count, customers: [...] }
+            return opt.customers.map(c =>
+                `<option value="${c.id}" data-phone="${c.phone}" data-name="${c.name}">${c.name} - ${c.phone}</option>`
+            ).join('');
+        }).join('');
+
+        customerNameCell = `
+            <div class="pending-match-selector">
+                <select class="pending-match-dropdown" onchange="resolvePendingMatch(${pendingMatchId}, this)" data-transaction-id="${row.id}">
+                    <option value="">-- Chọn KH (${row.pending_extracted_phone}) --</option>
+                    ${optionsHtml}
+                    <option value="skip">❌ Bỏ qua</option>
+                </select>
+            </div>
+        `;
+    } else if (isSkipped) {
+        // SKIPPED: Show "Đã bỏ qua" with undo option
+        customerNameCell = `
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <span style="color: #9ca3af; font-style: italic;">Đã bỏ qua</span>
+                ${hasDetailedPermission('balance-history', 'undoSkip') ? `
+                    <button class="btn btn-warning btn-sm" onclick="undoSkipMatch(${pendingMatchId})" title="Hoàn tác" style="padding: 2px 6px;">
+                        <i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i>
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    } else {
+        // NORMAL: Show customer name or "Chưa có"
+        customerNameCell = `
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <span style="${!customerDisplay.hasInfo ? 'color: #999; font-style: italic;' : ''}">${customerDisplay.name}</span>
+                ${hasPermission(2) ? `
+                    <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="${customerDisplay.hasInfo ? 'Chỉnh sửa thông tin' : 'Thêm thông tin khách hàng'}" style="padding: 4px 6px;">
+                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    // Build phone cell content
+    let phoneCell = '';
+    if (hasPendingMatch) {
+        // Show extracted phone hint
+        phoneCell = `<span style="color: #f59e0b; font-style: italic;">Tìm: ${row.pending_extracted_phone || '?'}</span>`;
+    } else if (isSkipped) {
+        phoneCell = `<span style="color: #9ca3af;">-</span>`;
+    } else if (customerDisplay.hasInfo && customerDisplay.phone !== 'Chưa có') {
+        phoneCell = `
+            <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                ${customerDisplay.phone}
+                <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
+            </a>
+        `;
+    } else {
+        phoneCell = `<span style="color: #999; font-style: italic;">${customerDisplay.phone}</span>`;
+    }
+
     return `
-    <tr>
+    <tr class="${rowClass}">
         <td>${formatDateTime(row.transaction_date)}</td>
         <td>${row.gateway}</td>
         <td>
@@ -644,23 +919,11 @@ function renderTransactionRow(row) {
         <td>${formatCurrency(row.accumulated)}</td>
         <td>${truncateText(content || 'N/A', 50)}</td>
         <td>${row.reference_code || 'N/A'}</td>
-        <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-            <div style="display: flex; align-items: center; gap: 5px;">
-                <span style="${!customerDisplay.hasInfo ? 'color: #999; font-style: italic;' : ''}">${customerDisplay.name}</span>
-                ${hasPermission(2) ? `
-                    <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="${customerDisplay.hasInfo ? 'Chỉnh sửa thông tin' : 'Thêm thông tin khách hàng'}" style="padding: 4px 6px;">
-                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
-                    </button>
-                ` : ''}
-            </div>
+        <td class="customer-info-cell ${hasPendingMatch ? 'pending-match' : (customerDisplay.hasInfo ? '' : 'no-info')}">
+            ${customerNameCell}
         </td>
         <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-            ${customerDisplay.hasInfo && customerDisplay.phone !== 'Chưa có' ? `
-                <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
-                    ${customerDisplay.phone}
-                    <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
-                </a>
-            ` : `<span style="color: #999; font-style: italic;">${customerDisplay.phone}</span>`}
+            ${phoneCell}
         </td>
         <td class="text-center">
             <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">

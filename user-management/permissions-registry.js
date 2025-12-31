@@ -371,7 +371,10 @@ const PAGES_REGISTRY = {
             view: { name: "Xem lịch sử", icon: "eye", description: "Xem biến động số dư" },
             viewDetails: { name: "Xem chi tiết", icon: "list", description: "Xem chi tiết giao dịch" },
             export: { name: "Xuất báo cáo", icon: "download", description: "Export lịch sử" },
-            adjust: { name: "Điều chỉnh", icon: "sliders", description: "Điều chỉnh số dư" }
+            adjust: { name: "Điều chỉnh", icon: "sliders", description: "Điều chỉnh số dư" },
+            resolveMatch: { name: "Chọn khách hàng", icon: "user-check", description: "Chọn KH từ danh sách nhiều SĐT khớp" },
+            skipMatch: { name: "Bỏ qua match", icon: "user-x", description: "Bỏ qua khi không khớp KH" },
+            undoSkip: { name: "Hoàn tác bỏ qua", icon: "rotate-ccw", description: "Hoàn tác các match đã bỏ qua" }
         }
     },
 
