@@ -808,6 +808,93 @@ async function searchTPOSByPartialPhone(partialPhone) {
 // REMOVED: searchCustomerByPhone - was using customers table which has been removed
 
 /**
+ * Search TPOS Partner API by FULL phone number (10 digits)
+ * Returns customer info without endsWith filtering
+ * Used for QR code customer name lookup
+ *
+ * @param {string} fullPhone - Full 10-digit phone (0xxxxxxxxx)
+ * @returns {Promise<{success: boolean, customer: Object|null}>}
+ */
+async function searchTPOSByPhone(fullPhone) {
+    try {
+        console.log(`[TPOS-PHONE] Searching for full phone: ${fullPhone}`);
+
+        // Get TPOS token
+        const token = await tposTokenManager.getToken();
+
+        // Call TPOS Partner API with full phone
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${fullPhone}&$top=10&$orderby=DateCreated+desc&$count=true`;
+
+        const response = await fetchWithTimeout(tposUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        }, 15000);
+
+        if (!response.ok) {
+            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const totalResults = data['@odata.count'] || 0;
+
+        console.log(`[TPOS-PHONE] Found ${totalResults} total results for ${fullPhone}`);
+
+        if (!data.value || !Array.isArray(data.value) || data.value.length === 0) {
+            return {
+                success: true,
+                customer: null,
+                totalResults: 0
+            };
+        }
+
+        // Find EXACT match with full phone (no endsWith filter)
+        for (const customer of data.value) {
+            const phone = customer.Phone?.replace(/\D/g, '').slice(-10);
+
+            // Check for exact match
+            if (phone === fullPhone) {
+                console.log(`[TPOS-PHONE] ✅ Found exact match: ${customer.Name || customer.DisplayName}`);
+                return {
+                    success: true,
+                    customer: {
+                        id: customer.Id,
+                        name: customer.Name || customer.DisplayName,
+                        phone: phone,
+                        email: customer.Email,
+                        address: customer.FullAddress || customer.Street,
+                        network: customer.NameNetwork,
+                        status: customer.Status,
+                        credit: customer.Credit,
+                        debit: customer.Debit
+                    },
+                    totalResults
+                };
+            }
+        }
+
+        // No exact match found
+        console.log(`[TPOS-PHONE] No exact match for ${fullPhone}`);
+        return {
+            success: true,
+            customer: null,
+            totalResults
+        };
+
+    } catch (error) {
+        console.error('[TPOS-PHONE] Error:', error);
+        return {
+            success: false,
+            error: error.message,
+            customer: null,
+            totalResults: 0
+        };
+    }
+}
+
+/**
  * Process debt update for a single transaction
  * @param {Object} db - Database connection
  * @param {number} transactionId - The ID of the transaction in balance_history
@@ -865,39 +952,31 @@ async function processDebtUpdate(db, transactionId) {
 
             console.log('[DEBT-UPDATE] Phone from QR:', phone, 'Amount:', amount);
 
-            // 5.5 NEW: If QR has phone but NO name, fetch from TPOS
+            // 5.5 NEW: If QR has phone but NO name, fetch from TPOS using full phone
             if (!customerName) {
                 console.log('[DEBT-UPDATE] QR has phone but no name, fetching from TPOS...');
 
                 try {
-                    // Use last 6 digits for TPOS search (matching existing partial phone logic)
-                    const partialForSearch = phone.slice(-6);
-                    const tposResult = await searchTPOSByPartialPhone(partialForSearch);
+                    // Use new searchTPOSByPhone for full phone lookup
+                    const tposResult = await searchTPOSByPhone(phone);
 
-                    if (tposResult.success && tposResult.uniquePhones.length > 0) {
-                        // Find exact phone match from filtered results
-                        const phoneData = tposResult.uniquePhones.find(p => p.phone === phone);
+                    if (tposResult.success && tposResult.customer) {
+                        // Got customer directly (newest match from TPOS)
+                        customerName = tposResult.customer.name;
 
-                        if (phoneData && phoneData.customers.length > 0) {
-                            // Take first customer (newest - already sorted by DateCreated desc from TPOS)
-                            customerName = phoneData.customers[0].name;
+                        // Update balance_customer_info with fetched name
+                        await db.query(
+                            `UPDATE balance_customer_info
+                             SET customer_name = $1,
+                                 name_fetch_status = 'SUCCESS',
+                                 updated_at = CURRENT_TIMESTAMP
+                             WHERE UPPER(unique_code) = $2`,
+                            [customerName, qrCode]
+                        );
 
-                            // Update balance_customer_info with fetched name
-                            await db.query(
-                                `UPDATE balance_customer_info
-                                 SET customer_name = $1,
-                                     name_fetch_status = 'SUCCESS',
-                                     updated_at = CURRENT_TIMESTAMP
-                                 WHERE UPPER(unique_code) = $2`,
-                                [customerName, qrCode]
-                            );
-
-                            console.log('[DEBT-UPDATE] ✅ Updated customer name from TPOS:', customerName);
-                        } else {
-                            console.log('[DEBT-UPDATE] Phone not found in TPOS results');
-                        }
+                        console.log('[DEBT-UPDATE] ✅ Updated customer name from TPOS:', customerName);
                     } else {
-                        console.log('[DEBT-UPDATE] No TPOS results for phone:', phone);
+                        console.log('[DEBT-UPDATE] No TPOS match for phone:', phone);
                     }
                 } catch (error) {
                     console.error('[DEBT-UPDATE] Error fetching name from TPOS:', error.message);
