@@ -2293,13 +2293,28 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
         const matchedCustomers = match.matched_customers;
 
         // 2. Verify customer_id is in matched list
-        const selectedCustomer = matchedCustomers.find(c => c.id === parseInt(customer_id));
+        // matchedCustomers structure: [{phone, count, customers: [{id, name, phone}]}]
+        // Need to search within nested customers arrays
+        let selectedCustomer = null;
+        for (const phoneGroup of matchedCustomers) {
+            if (phoneGroup.customers && Array.isArray(phoneGroup.customers)) {
+                const found = phoneGroup.customers.find(c => c.id === parseInt(customer_id));
+                if (found) {
+                    selectedCustomer = found;
+                    break;
+                }
+            }
+        }
 
         if (!selectedCustomer) {
+            // Collect all customer IDs for debugging
+            const allCustomerIds = matchedCustomers.flatMap(pg =>
+                (pg.customers || []).map(c => c.id)
+            );
             return res.status(400).json({
                 success: false,
                 error: 'Selected customer not in matched list',
-                matched_customer_ids: matchedCustomers.map(c => c.id)
+                matched_customer_ids: allCustomerIds
             });
         }
 
