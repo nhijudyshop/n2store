@@ -1270,23 +1270,70 @@ router.get('/debt-summary', async (req, res) => {
 
         console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
 
-        // 1. Find all QR codes linked to this phone
-        const qrResult = await db.query(
-            `SELECT unique_code FROM balance_customer_info WHERE customer_phone = $1 OR customer_phone = $2`,
+        // 1. Find all customer info linked to this phone (including extraction_note for partial phone match)
+        const customerInfoResult = await db.query(
+            `SELECT unique_code, extraction_note FROM balance_customer_info
+             WHERE customer_phone = $1 OR customer_phone = $2`,
             [normalizedPhone, '0' + normalizedPhone]
         );
 
-        const qrCodes = qrResult.rows.map(r => (r.unique_code || '').toUpperCase()).filter(Boolean);
-        console.log('[DEBT-SUMMARY] QR codes found:', qrCodes);
+        // Separate QR codes (N2...) and partial phones (from extraction_note)
+        const qrCodes = [];
+        const partialPhones = [];
 
-        // 2. Calculate transactions
+        customerInfoResult.rows.forEach(row => {
+            const uniqueCode = (row.unique_code || '').toUpperCase();
+            const extractionNote = row.extraction_note || '';
+
+            // QR code starts with N2
+            if (uniqueCode.startsWith('N2')) {
+                qrCodes.push(uniqueCode);
+            }
+
+            // Extract partial phone from extraction_note (AUTO_MATCHED_FROM_PARTIAL:xxxxx)
+            const partialMatch = extractionNote.match(/AUTO_MATCHED_FROM_PARTIAL:(\d+)/);
+            if (partialMatch) {
+                partialPhones.push(partialMatch[1]);
+            }
+        });
+
+        // Also add full phone for direct matching
+        const fullPhone = '0' + normalizedPhone;
+
+        console.log('[DEBT-SUMMARY] QR codes found:', qrCodes);
+        console.log('[DEBT-SUMMARY] Partial phones found:', partialPhones);
+        console.log('[DEBT-SUMMARY] Full phone:', fullPhone);
+
+        // 2. Calculate transactions - match by QR code OR partial phone OR full phone
         let transactions = [];
         let totalDebt = 0;
         let source = 'no_data';
 
-        if (qrCodes.length > 0) {
-            const placeholders = qrCodes.map((_, i) => `$${i + 1}`).join(', ');
+        // Build dynamic query conditions
+        const conditions = [];
+        const params = [];
+        let paramIndex = 1;
 
+        // Condition 1: Match by QR codes (N2...)
+        if (qrCodes.length > 0) {
+            const qrPlaceholders = qrCodes.map(() => `$${paramIndex++}`).join(', ');
+            conditions.push(`UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) IN (${qrPlaceholders})`);
+            params.push(...qrCodes);
+        }
+
+        // Condition 2: Match by partial phones in content
+        partialPhones.forEach(partialPhone => {
+            conditions.push(`content LIKE $${paramIndex++}`);
+            params.push(`%${partialPhone}%`);
+        });
+
+        // Condition 3: Match by full phone in content (if no QR codes and no partial phones already match)
+        if (qrCodes.length === 0 && partialPhones.length === 0) {
+            conditions.push(`content LIKE $${paramIndex++}`);
+            params.push(`%${fullPhone}%`);
+        }
+
+        if (conditions.length > 0) {
             // Get ALL transactions for display
             const txQuery = `
                 SELECT
@@ -1297,11 +1344,15 @@ router.get('/debt-summary', async (req, res) => {
                     debt_added
                 FROM balance_history
                 WHERE transfer_type = 'in'
-                  AND UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) IN (${placeholders})
+                  AND (${conditions.join(' OR ')})
                 ORDER BY transaction_date DESC
                 LIMIT 100
             `;
-            const txResult = await db.query(txQuery, qrCodes);
+
+            console.log('[DEBT-SUMMARY] Query:', txQuery);
+            console.log('[DEBT-SUMMARY] Params:', params);
+
+            const txResult = await db.query(txQuery, params);
             transactions = txResult.rows;
 
             // Calculate total of ALL transactions
@@ -1309,7 +1360,7 @@ router.get('/debt-summary', async (req, res) => {
             source = 'balance_history';
             console.log('[DEBT-SUMMARY] Total debt from transactions:', totalDebt);
         } else {
-            console.log('[DEBT-SUMMARY] No QR codes found - no debt data');
+            console.log('[DEBT-SUMMARY] No matching criteria found - no debt data');
         }
 
         res.json({
@@ -1394,35 +1445,52 @@ router.post('/debt-summary-batch', async (req, res) => {
             return res.json({ success: true, data: {} });
         }
 
-        // 1. Batch query QR codes for all phones
+        // 1. Batch query customer info for all phones (including extraction_note for partial phone match)
         const phoneConditions = uniquePhones.flatMap(p => [p, '0' + p]);
         const customerPlaceholders = phoneConditions.map((_, i) => `$${i + 1}`).join(', ');
-        const qrQuery = `
-            SELECT customer_phone, unique_code
+        const customerInfoQuery = `
+            SELECT customer_phone, unique_code, extraction_note
             FROM balance_customer_info
             WHERE customer_phone IN (${customerPlaceholders})
         `;
-        const qrResult = await db.query(qrQuery, phoneConditions);
+        const customerInfoResult = await db.query(customerInfoQuery, phoneConditions);
 
-        // Build QR map: phone -> [qr_codes]
+        // Build maps: phone -> [qr_codes], phone -> [partial_phones]
         const qrMap = {};
-        qrResult.rows.forEach(row => {
+        const partialPhoneMap = {};
+
+        customerInfoResult.rows.forEach(row => {
             let normalizedPhone = (row.customer_phone || '').replace(/\D/g, '');
             if (normalizedPhone.startsWith('0')) {
                 normalizedPhone = normalizedPhone.substring(1);
             }
+
             if (!qrMap[normalizedPhone]) {
                 qrMap[normalizedPhone] = [];
             }
-            if (row.unique_code) {
-                qrMap[normalizedPhone].push(row.unique_code.toUpperCase());
+            if (!partialPhoneMap[normalizedPhone]) {
+                partialPhoneMap[normalizedPhone] = [];
+            }
+
+            const uniqueCode = (row.unique_code || '').toUpperCase();
+            const extractionNote = row.extraction_note || '';
+
+            // QR code starts with N2
+            if (uniqueCode.startsWith('N2')) {
+                qrMap[normalizedPhone].push(uniqueCode);
+            }
+
+            // Extract partial phone from extraction_note (AUTO_MATCHED_FROM_PARTIAL:xxxxx)
+            const partialMatch = extractionNote.match(/AUTO_MATCHED_FROM_PARTIAL:(\d+)/);
+            if (partialMatch) {
+                partialPhoneMap[normalizedPhone].push(partialMatch[1]);
             }
         });
 
-        // 3. Get all unique QR codes and batch query transactions
-        const allQRCodes = [...new Set(Object.values(qrMap).flat())];
+        // 2. Get all unique QR codes and batch query transactions by QR
+        const allQRCodes = [...new Set(Object.values(qrMap).flat())].filter(qr => qr.startsWith('N2'));
 
-        let transactionMap = {}; // qrCode -> total_amount
+        let qrTransactionMap = {}; // qrCode -> total_amount
         if (allQRCodes.length > 0) {
             const qrPlaceholders = allQRCodes.map((_, i) => `$${i + 1}`).join(', ');
             const txQuery = `
@@ -1438,7 +1506,44 @@ router.post('/debt-summary-batch', async (req, res) => {
 
             txResult.rows.forEach(row => {
                 if (row.qr_code) {
-                    transactionMap[row.qr_code] = parseInt(row.total_amount) || 0;
+                    qrTransactionMap[row.qr_code] = parseInt(row.total_amount) || 0;
+                }
+            });
+        }
+
+        // 3. Get all unique partial phones and batch query transactions by partial phone
+        const allPartialPhones = [...new Set(Object.values(partialPhoneMap).flat())];
+
+        let partialPhoneTransactionMap = {}; // partialPhone -> total_amount
+        if (allPartialPhones.length > 0) {
+            // Build LIKE conditions for each partial phone
+            const likeConditions = allPartialPhones.map((_, i) => `content LIKE $${i + 1}`).join(' OR ');
+            const likeParams = allPartialPhones.map(p => `%${p}%`);
+
+            const partialTxQuery = `
+                SELECT
+                    content,
+                    transfer_amount
+                FROM balance_history
+                WHERE transfer_type = 'in'
+                  AND (${likeConditions})
+            `;
+            const partialTxResult = await db.query(partialTxQuery, likeParams);
+
+            // Map each transaction to its matching partial phone
+            partialTxResult.rows.forEach(row => {
+                const content = row.content || '';
+                const amount = parseInt(row.transfer_amount) || 0;
+
+                // Find which partial phone matches this content
+                for (const partialPhone of allPartialPhones) {
+                    if (content.includes(partialPhone)) {
+                        if (!partialPhoneTransactionMap[partialPhone]) {
+                            partialPhoneTransactionMap[partialPhone] = 0;
+                        }
+                        partialPhoneTransactionMap[partialPhone] += amount;
+                        break; // Only count once per transaction
+                    }
                 }
             });
         }
@@ -1446,14 +1551,33 @@ router.post('/debt-summary-batch', async (req, res) => {
         // 4. Calculate debt for each phone
         for (const phone of uniquePhones) {
             const qrCodes = qrMap[phone] || [];
+            const partialPhones = partialPhoneMap[phone] || [];
 
             let totalDebt = 0;
             let source = 'no_data';
 
+            // Sum transactions from QR codes
             if (qrCodes.length > 0) {
-                // Sum transactions from all QR codes
-                totalDebt = qrCodes.reduce((sum, qr) => sum + (transactionMap[qr] || 0), 0);
-                source = totalDebt > 0 ? 'balance_history' : 'no_transactions';
+                const qrDebt = qrCodes.reduce((sum, qr) => sum + (qrTransactionMap[qr] || 0), 0);
+                totalDebt += qrDebt;
+                if (qrDebt > 0) source = 'balance_history';
+            }
+
+            // Sum transactions from partial phones
+            if (partialPhones.length > 0) {
+                const partialDebt = partialPhones.reduce((sum, pp) => sum + (partialPhoneTransactionMap[pp] || 0), 0);
+                totalDebt += partialDebt;
+                if (partialDebt > 0) source = 'balance_history';
+            }
+
+            // If still no data, try full phone match
+            if (totalDebt === 0 && qrCodes.length === 0 && partialPhones.length === 0) {
+                // Will be handled in a separate query if needed (optimization: skip for now)
+                source = 'no_data';
+            }
+
+            if (source === 'no_data' && (qrCodes.length > 0 || partialPhones.length > 0)) {
+                source = 'no_transactions';
             }
 
             results[phone] = {
