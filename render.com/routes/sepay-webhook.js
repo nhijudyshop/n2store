@@ -1277,9 +1277,9 @@ router.get('/debt-summary', async (req, res) => {
             [normalizedPhone, '0' + normalizedPhone]
         );
 
-        // Separate QR codes (N2...) and partial phones (from extraction_note)
+        // Separate QR codes (N2...) and track if we have partial phone matches
         const qrCodes = [];
-        const partialPhones = [];
+        let hasPartialPhoneMatch = false;
 
         customerInfoResult.rows.forEach(row => {
             const uniqueCode = (row.unique_code || '').toUpperCase();
@@ -1290,20 +1290,24 @@ router.get('/debt-summary', async (req, res) => {
                 qrCodes.push(uniqueCode);
             }
 
-            // Extract partial phone from extraction_note
-            // Supports both: AUTO_MATCHED_FROM_PARTIAL:xxxxx and RESOLVED_FROM_PENDING:xxxxx
+            // Check if this was a partial phone match (AUTO_MATCHED or RESOLVED_FROM_PENDING)
+            // NOTE: We NO LONGER use the partial phone for LIKE query - this was causing the bug!
+            // Instead, we use the FULL phone number (already in customer_phone) for exact matching
             const partialMatch = extractionNote.match(/(?:AUTO_MATCHED_FROM_PARTIAL|RESOLVED_FROM_PENDING):(\d+)/);
             if (partialMatch) {
-                partialPhones.push(partialMatch[1]);
+                hasPartialPhoneMatch = true;
+                console.log('[DEBT-SUMMARY] Found partial phone match record (will use FULL phone for query):', partialMatch[1]);
             }
         });
 
-        // Also add full phone for direct matching
+        // Always use full phone for matching (NOT partial phone)
+        // This fixes the bug where two customers with same phone suffix (e.g., 81118)
+        // would have their debts counted together
         const fullPhone = '0' + normalizedPhone;
 
         console.log('[DEBT-SUMMARY] QR codes found:', qrCodes);
-        console.log('[DEBT-SUMMARY] Partial phones found:', partialPhones);
-        console.log('[DEBT-SUMMARY] Full phone:', fullPhone);
+        console.log('[DEBT-SUMMARY] Has partial phone match records:', hasPartialPhoneMatch);
+        console.log('[DEBT-SUMMARY] Full phone for matching:', fullPhone);
 
         // 2. Calculate transactions - match by QR code OR partial phone OR full phone
         let transactions = [];
@@ -1322,14 +1326,11 @@ router.get('/debt-summary', async (req, res) => {
             params.push(...qrCodes);
         }
 
-        // Condition 2: Match by partial phones in content
-        partialPhones.forEach(partialPhone => {
-            conditions.push(`content LIKE $${paramIndex++}`);
-            params.push(`%${partialPhone}%`);
-        });
-
-        // Condition 3: Match by full phone in content (if no QR codes and no partial phones already match)
-        if (qrCodes.length === 0 && partialPhones.length === 0) {
+        // Condition 2: Always match by FULL phone in content
+        // FIX: Previously used partial phones which caused duplicate counting
+        // when multiple customers had the same phone suffix (e.g., 0971881118 and 0989481118 both end with 81118)
+        // Now we always use the full 10-digit phone for precise matching
+        if (qrCodes.length === 0 || hasPartialPhoneMatch) {
             conditions.push(`content LIKE $${paramIndex++}`);
             params.push(`%${fullPhone}%`);
         }
@@ -1456,9 +1457,11 @@ router.post('/debt-summary-batch', async (req, res) => {
         `;
         const customerInfoResult = await db.query(customerInfoQuery, phoneConditions);
 
-        // Build maps: phone -> [qr_codes], phone -> [partial_phones]
+        // Build maps: phone -> [qr_codes], phone -> hasPartialMatch
+        // FIX: No longer use partial phones for LIKE query - this was causing duplicate counting
+        // when multiple customers had the same phone suffix (e.g., 0971881118 and 0989481118 both end with 81118)
         const qrMap = {};
-        const partialPhoneMap = {};
+        const hasPartialMatchMap = {}; // phone -> boolean (has partial match records)
 
         customerInfoResult.rows.forEach(row => {
             let normalizedPhone = (row.customer_phone || '').replace(/\D/g, '');
@@ -1469,9 +1472,6 @@ router.post('/debt-summary-batch', async (req, res) => {
             if (!qrMap[normalizedPhone]) {
                 qrMap[normalizedPhone] = [];
             }
-            if (!partialPhoneMap[normalizedPhone]) {
-                partialPhoneMap[normalizedPhone] = [];
-            }
 
             const uniqueCode = (row.unique_code || '').toUpperCase();
             const extractionNote = row.extraction_note || '';
@@ -1481,11 +1481,11 @@ router.post('/debt-summary-batch', async (req, res) => {
                 qrMap[normalizedPhone].push(uniqueCode);
             }
 
-            // Extract partial phone from extraction_note
-            // Supports both: AUTO_MATCHED_FROM_PARTIAL:xxxxx and RESOLVED_FROM_PENDING:xxxxx
+            // Check if this was a partial phone match (for logging only)
+            // NOTE: We NO LONGER use partial phone for LIKE query - use FULL phone instead
             const partialMatch = extractionNote.match(/(?:AUTO_MATCHED_FROM_PARTIAL|RESOLVED_FROM_PENDING):(\d+)/);
             if (partialMatch) {
-                partialPhoneMap[normalizedPhone].push(partialMatch[1]);
+                hasPartialMatchMap[normalizedPhone] = true;
             }
         });
 
@@ -1513,16 +1513,24 @@ router.post('/debt-summary-batch', async (req, res) => {
             });
         }
 
-        // 3. Get all unique partial phones and batch query transactions by partial phone
-        const allPartialPhones = [...new Set(Object.values(partialPhoneMap).flat())];
+        // 3. Get transactions by FULL phone number (not partial!)
+        // FIX: Use full 10-digit phone for precise matching instead of partial phone suffix
+        // This prevents counting transactions for multiple customers with same phone suffix
 
-        let partialPhoneTransactionMap = {}; // partialPhone -> total_amount
-        if (allPartialPhones.length > 0) {
-            // Build LIKE conditions for each partial phone
-            const likeConditions = allPartialPhones.map((_, i) => `content LIKE $${i + 1}`).join(' OR ');
-            const likeParams = allPartialPhones.map(p => `%${p}%`);
+        // Get phones that need full phone matching (not covered by QR codes)
+        const phonesNeedingFullMatch = uniquePhones.filter(phone => {
+            const qrCodes = qrMap[phone] || [];
+            return qrCodes.length === 0 || hasPartialMatchMap[phone];
+        });
 
-            const partialTxQuery = `
+        let fullPhoneTransactionMap = {}; // fullPhone -> total_amount
+        if (phonesNeedingFullMatch.length > 0) {
+            // Build LIKE conditions for each FULL phone
+            const fullPhones = phonesNeedingFullMatch.map(p => '0' + p);
+            const likeConditions = fullPhones.map((_, i) => `content LIKE $${i + 1}`).join(' OR ');
+            const likeParams = fullPhones.map(p => `%${p}%`);
+
+            const fullPhoneTxQuery = `
                 SELECT
                     content,
                     transfer_amount
@@ -1530,20 +1538,22 @@ router.post('/debt-summary-batch', async (req, res) => {
                 WHERE transfer_type = 'in'
                   AND (${likeConditions})
             `;
-            const partialTxResult = await db.query(partialTxQuery, likeParams);
+            const fullPhoneTxResult = await db.query(fullPhoneTxQuery, likeParams);
 
-            // Map each transaction to its matching partial phone
-            partialTxResult.rows.forEach(row => {
+            // Map each transaction to its matching FULL phone
+            fullPhoneTxResult.rows.forEach(row => {
                 const content = row.content || '';
                 const amount = parseInt(row.transfer_amount) || 0;
 
-                // Find which partial phone matches this content
-                for (const partialPhone of allPartialPhones) {
-                    if (content.includes(partialPhone)) {
-                        if (!partialPhoneTransactionMap[partialPhone]) {
-                            partialPhoneTransactionMap[partialPhone] = 0;
+                // Find which full phone matches this content (use FULL phone, not partial)
+                for (const fullPhone of fullPhones) {
+                    if (content.includes(fullPhone)) {
+                        // Convert back to normalized phone (without leading 0) for the map key
+                        const normalizedPhone = fullPhone.substring(1);
+                        if (!fullPhoneTransactionMap[normalizedPhone]) {
+                            fullPhoneTransactionMap[normalizedPhone] = 0;
                         }
-                        partialPhoneTransactionMap[partialPhone] += amount;
+                        fullPhoneTransactionMap[normalizedPhone] += amount;
                         break; // Only count once per transaction
                     }
                 }
@@ -1553,7 +1563,7 @@ router.post('/debt-summary-batch', async (req, res) => {
         // 4. Calculate debt for each phone
         for (const phone of uniquePhones) {
             const qrCodes = qrMap[phone] || [];
-            const partialPhones = partialPhoneMap[phone] || [];
+            const hasPartialMatch = hasPartialMatchMap[phone] || false;
 
             let totalDebt = 0;
             let source = 'no_data';
@@ -1565,20 +1575,20 @@ router.post('/debt-summary-batch', async (req, res) => {
                 if (qrDebt > 0) source = 'balance_history';
             }
 
-            // Sum transactions from partial phones
-            if (partialPhones.length > 0) {
-                const partialDebt = partialPhones.reduce((sum, pp) => sum + (partialPhoneTransactionMap[pp] || 0), 0);
-                totalDebt += partialDebt;
-                if (partialDebt > 0) source = 'balance_history';
+            // Sum transactions from FULL phone matching
+            // FIX: Use full phone transaction map instead of partial phone map
+            const fullPhoneDebt = fullPhoneTransactionMap[phone] || 0;
+            if (fullPhoneDebt > 0) {
+                totalDebt += fullPhoneDebt;
+                source = 'balance_history';
             }
 
-            // If still no data, try full phone match
-            if (totalDebt === 0 && qrCodes.length === 0 && partialPhones.length === 0) {
-                // Will be handled in a separate query if needed (optimization: skip for now)
+            // If still no data
+            if (totalDebt === 0 && qrCodes.length === 0 && !hasPartialMatch) {
                 source = 'no_data';
             }
 
-            if (source === 'no_data' && (qrCodes.length > 0 || partialPhones.length > 0)) {
+            if (source === 'no_data' && (qrCodes.length > 0 || hasPartialMatch)) {
                 source = 'no_transactions';
             }
 
