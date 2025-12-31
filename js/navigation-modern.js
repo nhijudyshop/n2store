@@ -335,6 +335,45 @@ window.MenuNameUtils = {
     CUSTOM_MENU_NAMES_KEY
 };
 
+/**
+ * Generate default admin permissions for all pages
+ * Used to auto-fill missing permissions for admin template users
+ */
+function getDefaultAdminPermissions() {
+    const defaultPerms = {};
+    MENU_CONFIG.forEach(item => {
+        if (item.permissionRequired) {
+            // Default admin permissions for each page
+            defaultPerms[item.permissionRequired] = {
+                view: true,
+                create: true,
+                edit: true,
+                delete: true,
+                export: true
+            };
+        }
+    });
+    return defaultPerms;
+}
+
+/**
+ * Merge missing permissions for admin template users
+ * Ensures admins have access to all pages even if their stored permissions are outdated
+ */
+function mergeAdminPermissions(existingPerms) {
+    const defaultPerms = getDefaultAdminPermissions();
+    const merged = { ...existingPerms };
+
+    Object.keys(defaultPerms).forEach(pageId => {
+        if (!merged[pageId]) {
+            merged[pageId] = defaultPerms[pageId];
+            console.log(`[Admin Merge] Added missing permission for: ${pageId}`);
+        }
+    });
+
+    return merged;
+}
+
 class UnifiedNavigationManager {
     constructor() {
         this.currentPage = null;
@@ -445,9 +484,20 @@ class UnifiedNavigationManager {
 
                 // Load detailedPermissions (only system now)
                 if (userAuth.detailedPermissions && Object.keys(userAuth.detailedPermissions).length > 0) {
-                    this.userDetailedPermissions = userAuth.detailedPermissions;
+                    let permissions = userAuth.detailedPermissions;
+
+                    // Auto-merge missing permissions for admin template users
+                    if (userAuth.roleTemplate === 'admin') {
+                        permissions = mergeAdminPermissions(permissions);
+                        // Update stored auth data with merged permissions
+                        userAuth.detailedPermissions = permissions;
+                        const storage = localStorage.getItem("loginindex_auth") ? localStorage : sessionStorage;
+                        storage.setItem("loginindex_auth", JSON.stringify(userAuth));
+                    }
+
+                    this.userDetailedPermissions = permissions;
                     // Derive userPermissions from detailedPermissions for menu display
-                    this.userPermissions = this._getAccessiblePagesFromDetailed(userAuth.detailedPermissions);
+                    this.userPermissions = this._getAccessiblePagesFromDetailed(permissions);
                     console.log(
                         "[Permission Load] Loaded detailedPermissions:",
                         Object.keys(this.userDetailedPermissions).length, "pages configured"
@@ -486,12 +536,20 @@ class UnifiedNavigationManager {
 
                     // Load detailedPermissions
                     if (userData.detailedPermissions && Object.keys(userData.detailedPermissions).length > 0) {
-                        this.userDetailedPermissions = userData.detailedPermissions;
-                        this.userPermissions = this._getAccessiblePagesFromDetailed(userData.detailedPermissions);
+                        let permissions = userData.detailedPermissions;
+                        const roleTemplate = userData.roleTemplate || 'custom';
+
+                        // Auto-merge missing permissions for admin template users
+                        if (roleTemplate === 'admin') {
+                            permissions = mergeAdminPermissions(permissions);
+                        }
+
+                        this.userDetailedPermissions = permissions;
+                        this.userPermissions = this._getAccessiblePagesFromDetailed(permissions);
 
                         // Cache to localStorage
-                        authData.detailedPermissions = this.userDetailedPermissions;
-                        authData.roleTemplate = userData.roleTemplate || 'custom';
+                        authData.detailedPermissions = permissions;
+                        authData.roleTemplate = roleTemplate;
                         localStorage.setItem(
                             "loginindex_auth",
                             JSON.stringify(authData),
