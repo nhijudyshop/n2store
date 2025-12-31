@@ -984,16 +984,19 @@ async function processDebtUpdate(db, transactionId) {
                 }
             }
 
-            // 6. Mark transaction as processed (no customer table update)
+            // 6. Mark transaction as processed AND link to customer phone
             await db.query(
-                `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
-                [transactionId]
+                `UPDATE balance_history
+                 SET debt_added = TRUE, linked_customer_phone = $2
+                 WHERE id = $1 AND linked_customer_phone IS NULL`,
+                [transactionId, phone]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (QR method):', {
                 transactionId,
                 qrCode,
                 phone,
+                linkedPhone: phone,
                 customerName,
                 amount
             });
@@ -1073,15 +1076,18 @@ async function processDebtUpdate(db, transactionId) {
             ]
         );
 
-        // Mark transaction as processed
+        // Mark transaction as processed AND link to customer phone
         await db.query(
-            `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
-            [transactionId]
+            `UPDATE balance_history
+             SET debt_added = TRUE, linked_customer_phone = $2
+             WHERE id = $1 AND linked_customer_phone IS NULL`,
+            [transactionId, exactPhone]
         );
 
         console.log('[DEBT-UPDATE] ✅ Success (exact phone method):', {
             transactionId,
             exactPhone,
+            linkedPhone: exactPhone,
             customerName,
             amount
         });
@@ -1091,6 +1097,7 @@ async function processDebtUpdate(db, transactionId) {
             method: 'exact_phone',
             transactionId,
             fullPhone: exactPhone,
+            linkedPhone: exactPhone,
             customerName,
             amount
         };
@@ -1161,16 +1168,19 @@ async function processDebtUpdate(db, transactionId) {
                 ]
             );
 
-            // Mark transaction as processed
+            // Mark transaction as processed AND link to customer phone
             await db.query(
-                `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
-                [transactionId]
+                `UPDATE balance_history
+                 SET debt_added = TRUE, linked_customer_phone = $2
+                 WHERE id = $1 AND linked_customer_phone IS NULL`,
+                [transactionId, fullPhone]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (auto-matched from TPOS):', {
                 transactionId,
                 partialPhone,
                 fullPhone,
+                linkedPhone: fullPhone,
                 customerName: firstCustomer.name,
                 amount
             });
@@ -1181,6 +1191,7 @@ async function processDebtUpdate(db, transactionId) {
                 transactionId,
                 partialPhone,
                 fullPhone,
+                linkedPhone: fullPhone,
                 customerName: firstCustomer.name,
                 amount
             };
@@ -1259,110 +1270,44 @@ router.get('/debt-summary', async (req, res) => {
     }
 
     try {
-        // Normalize phone: remove non-digits, handle Vietnam country code, remove leading 0
+        // Normalize phone to full 10-digit format (0xxxxxxxxx)
         let normalizedPhone = phone.replace(/\D/g, '');
         if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
             normalizedPhone = normalizedPhone.substring(2); // Remove country code 84
         }
-        if (normalizedPhone.startsWith('0')) {
-            normalizedPhone = normalizedPhone.substring(1); // Remove leading 0
+        if (!normalizedPhone.startsWith('0') && normalizedPhone.length === 9) {
+            normalizedPhone = '0' + normalizedPhone; // Add leading 0
         }
 
         console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
 
-        // 1. Find all customer info linked to this phone (including extraction_note for partial phone match)
-        const customerInfoResult = await db.query(
-            `SELECT unique_code, extraction_note FROM balance_customer_info
-             WHERE customer_phone = $1 OR customer_phone = $2`,
-            [normalizedPhone, '0' + normalizedPhone]
-        );
+        // NEW SIMPLE LOGIC: Query directly by linked_customer_phone
+        // This ensures 1 transaction belongs to exactly 1 customer
+        const txQuery = `
+            SELECT
+                id,
+                transfer_amount,
+                transaction_date,
+                content,
+                debt_added,
+                linked_customer_phone
+            FROM balance_history
+            WHERE transfer_type = 'in'
+              AND linked_customer_phone = $1
+            ORDER BY transaction_date DESC
+            LIMIT 100
+        `;
 
-        // Separate QR codes (N2...) and partial phones (from extraction_note)
-        const qrCodes = [];
-        const partialPhones = [];
+        console.log('[DEBT-SUMMARY] Query by linked_customer_phone:', normalizedPhone);
 
-        customerInfoResult.rows.forEach(row => {
-            const uniqueCode = (row.unique_code || '').toUpperCase();
-            const extractionNote = row.extraction_note || '';
+        const txResult = await db.query(txQuery, [normalizedPhone]);
+        const transactions = txResult.rows;
 
-            // QR code starts with N2
-            if (uniqueCode.startsWith('N2')) {
-                qrCodes.push(uniqueCode);
-            }
+        // Calculate total debt
+        const totalDebt = transactions.reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
+        const source = transactions.length > 0 ? 'balance_history' : 'no_data';
 
-            // Extract partial phone from extraction_note
-            // Supports both: AUTO_MATCHED_FROM_PARTIAL:xxxxx and RESOLVED_FROM_PENDING:xxxxx
-            const partialMatch = extractionNote.match(/(?:AUTO_MATCHED_FROM_PARTIAL|RESOLVED_FROM_PENDING):(\d+)/);
-            if (partialMatch) {
-                partialPhones.push(partialMatch[1]);
-            }
-        });
-
-        // Also add full phone for direct matching
-        const fullPhone = '0' + normalizedPhone;
-
-        console.log('[DEBT-SUMMARY] QR codes found:', qrCodes);
-        console.log('[DEBT-SUMMARY] Partial phones found:', partialPhones);
-        console.log('[DEBT-SUMMARY] Full phone:', fullPhone);
-
-        // 2. Calculate transactions - match by QR code OR partial phone OR full phone
-        let transactions = [];
-        let totalDebt = 0;
-        let source = 'no_data';
-
-        // Build dynamic query conditions
-        const conditions = [];
-        const params = [];
-        let paramIndex = 1;
-
-        // Condition 1: Match by QR codes (N2...)
-        if (qrCodes.length > 0) {
-            const qrPlaceholders = qrCodes.map(() => `$${paramIndex++}`).join(', ');
-            conditions.push(`UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) IN (${qrPlaceholders})`);
-            params.push(...qrCodes);
-        }
-
-        // Condition 2: Match by partial phones in content
-        partialPhones.forEach(partialPhone => {
-            conditions.push(`content LIKE $${paramIndex++}`);
-            params.push(`%${partialPhone}%`);
-        });
-
-        // Condition 3: Match by full phone in content (if no QR codes and no partial phones already match)
-        if (qrCodes.length === 0 && partialPhones.length === 0) {
-            conditions.push(`content LIKE $${paramIndex++}`);
-            params.push(`%${fullPhone}%`);
-        }
-
-        if (conditions.length > 0) {
-            // Get ALL transactions for display
-            const txQuery = `
-                SELECT
-                    id,
-                    transfer_amount,
-                    transaction_date,
-                    content,
-                    debt_added
-                FROM balance_history
-                WHERE transfer_type = 'in'
-                  AND (${conditions.join(' OR ')})
-                ORDER BY transaction_date DESC
-                LIMIT 100
-            `;
-
-            console.log('[DEBT-SUMMARY] Query:', txQuery);
-            console.log('[DEBT-SUMMARY] Params:', params);
-
-            const txResult = await db.query(txQuery, params);
-            transactions = txResult.rows;
-
-            // Calculate total of ALL transactions
-            totalDebt = transactions.reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
-            source = 'balance_history';
-            console.log('[DEBT-SUMMARY] Total debt from transactions:', totalDebt);
-        } else {
-            console.log('[DEBT-SUMMARY] No matching criteria found - no debt data');
-        }
+        console.log('[DEBT-SUMMARY] Found', transactions.length, 'transactions, total:', totalDebt);
 
         res.json({
             success: true,
@@ -1428,17 +1373,17 @@ router.post('/debt-summary-batch', async (req, res) => {
     try {
         const results = {};
 
-        // Normalize all phones
+        // Normalize all phones to full 10-digit format (0xxxxxxxxx)
         const normalizedPhones = phones.map(phone => {
             let normalized = (phone || '').replace(/\D/g, '');
             if (normalized.startsWith('84') && normalized.length > 9) {
                 normalized = normalized.substring(2);
             }
-            if (normalized.startsWith('0')) {
-                normalized = normalized.substring(1);
+            if (!normalized.startsWith('0') && normalized.length === 9) {
+                normalized = '0' + normalized; // Add leading 0
             }
             return normalized;
-        }).filter(p => p.length >= 9);
+        }).filter(p => p.length === 10);
 
         const uniquePhones = [...new Set(normalizedPhones)];
 
@@ -1446,150 +1391,47 @@ router.post('/debt-summary-batch', async (req, res) => {
             return res.json({ success: true, data: {} });
         }
 
-        // 1. Batch query customer info for all phones (including extraction_note for partial phone match)
-        const phoneConditions = uniquePhones.flatMap(p => [p, '0' + p]);
-        const customerPlaceholders = phoneConditions.map((_, i) => `$${i + 1}`).join(', ');
-        const customerInfoQuery = `
-            SELECT customer_phone, unique_code, extraction_note
-            FROM balance_customer_info
-            WHERE customer_phone IN (${customerPlaceholders})
+        // NEW SIMPLE LOGIC: Query directly by linked_customer_phone
+        // This ensures 1 transaction belongs to exactly 1 customer
+        const phonePlaceholders = uniquePhones.map((_, i) => `$${i + 1}`).join(', ');
+        const txQuery = `
+            SELECT
+                linked_customer_phone,
+                SUM(transfer_amount) as total_amount,
+                COUNT(*) as transaction_count
+            FROM balance_history
+            WHERE transfer_type = 'in'
+              AND linked_customer_phone IN (${phonePlaceholders})
+            GROUP BY linked_customer_phone
         `;
-        const customerInfoResult = await db.query(customerInfoQuery, phoneConditions);
 
-        // Build maps: phone -> [qr_codes], phone -> [partial_phones]
-        const qrMap = {};
-        const partialPhoneMap = {};
+        const txResult = await db.query(txQuery, uniquePhones);
 
-        customerInfoResult.rows.forEach(row => {
-            let normalizedPhone = (row.customer_phone || '').replace(/\D/g, '');
-            if (normalizedPhone.startsWith('0')) {
-                normalizedPhone = normalizedPhone.substring(1);
-            }
-
-            if (!qrMap[normalizedPhone]) {
-                qrMap[normalizedPhone] = [];
-            }
-            if (!partialPhoneMap[normalizedPhone]) {
-                partialPhoneMap[normalizedPhone] = [];
-            }
-
-            const uniqueCode = (row.unique_code || '').toUpperCase();
-            const extractionNote = row.extraction_note || '';
-
-            // QR code starts with N2
-            if (uniqueCode.startsWith('N2')) {
-                qrMap[normalizedPhone].push(uniqueCode);
-            }
-
-            // Extract partial phone from extraction_note
-            // Supports both: AUTO_MATCHED_FROM_PARTIAL:xxxxx and RESOLVED_FROM_PENDING:xxxxx
-            const partialMatch = extractionNote.match(/(?:AUTO_MATCHED_FROM_PARTIAL|RESOLVED_FROM_PENDING):(\d+)/);
-            if (partialMatch) {
-                partialPhoneMap[normalizedPhone].push(partialMatch[1]);
+        // Build result map from query
+        const debtMap = {};
+        txResult.rows.forEach(row => {
+            if (row.linked_customer_phone) {
+                debtMap[row.linked_customer_phone] = {
+                    total_debt: parseInt(row.total_amount) || 0,
+                    transaction_count: parseInt(row.transaction_count) || 0
+                };
             }
         });
 
-        // 2. Get all unique QR codes and batch query transactions by QR
-        const allQRCodes = [...new Set(Object.values(qrMap).flat())].filter(qr => qr.startsWith('N2'));
-
-        let qrTransactionMap = {}; // qrCode -> total_amount
-        if (allQRCodes.length > 0) {
-            const qrPlaceholders = allQRCodes.map((_, i) => `$${i + 1}`).join(', ');
-            const txQuery = `
-                SELECT
-                    UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) as qr_code,
-                    SUM(transfer_amount) as total_amount
-                FROM balance_history
-                WHERE transfer_type = 'in'
-                  AND UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) IN (${qrPlaceholders})
-                GROUP BY UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}'))
-            `;
-            const txResult = await db.query(txQuery, allQRCodes);
-
-            txResult.rows.forEach(row => {
-                if (row.qr_code) {
-                    qrTransactionMap[row.qr_code] = parseInt(row.total_amount) || 0;
-                }
-            });
-        }
-
-        // 3. Get all unique partial phones and batch query transactions by partial phone
-        const allPartialPhones = [...new Set(Object.values(partialPhoneMap).flat())];
-
-        let partialPhoneTransactionMap = {}; // partialPhone -> total_amount
-        if (allPartialPhones.length > 0) {
-            // Build LIKE conditions for each partial phone
-            const likeConditions = allPartialPhones.map((_, i) => `content LIKE $${i + 1}`).join(' OR ');
-            const likeParams = allPartialPhones.map(p => `%${p}%`);
-
-            const partialTxQuery = `
-                SELECT
-                    content,
-                    transfer_amount
-                FROM balance_history
-                WHERE transfer_type = 'in'
-                  AND (${likeConditions})
-            `;
-            const partialTxResult = await db.query(partialTxQuery, likeParams);
-
-            // Map each transaction to its matching partial phone
-            partialTxResult.rows.forEach(row => {
-                const content = row.content || '';
-                const amount = parseInt(row.transfer_amount) || 0;
-
-                // Find which partial phone matches this content
-                for (const partialPhone of allPartialPhones) {
-                    if (content.includes(partialPhone)) {
-                        if (!partialPhoneTransactionMap[partialPhone]) {
-                            partialPhoneTransactionMap[partialPhone] = 0;
-                        }
-                        partialPhoneTransactionMap[partialPhone] += amount;
-                        break; // Only count once per transaction
-                    }
-                }
-            });
-        }
-
-        // 4. Calculate debt for each phone
+        // Build results for all phones (including those with 0 debt)
         for (const phone of uniquePhones) {
-            const qrCodes = qrMap[phone] || [];
-            const partialPhones = partialPhoneMap[phone] || [];
+            const data = debtMap[phone];
+            // Also check without leading 0 for backwards compatibility
+            const phoneWithout0 = phone.startsWith('0') ? phone.substring(1) : phone;
 
-            let totalDebt = 0;
-            let source = 'no_data';
-
-            // Sum transactions from QR codes
-            if (qrCodes.length > 0) {
-                const qrDebt = qrCodes.reduce((sum, qr) => sum + (qrTransactionMap[qr] || 0), 0);
-                totalDebt += qrDebt;
-                if (qrDebt > 0) source = 'balance_history';
-            }
-
-            // Sum transactions from partial phones
-            if (partialPhones.length > 0) {
-                const partialDebt = partialPhones.reduce((sum, pp) => sum + (partialPhoneTransactionMap[pp] || 0), 0);
-                totalDebt += partialDebt;
-                if (partialDebt > 0) source = 'balance_history';
-            }
-
-            // If still no data, try full phone match
-            if (totalDebt === 0 && qrCodes.length === 0 && partialPhones.length === 0) {
-                // Will be handled in a separate query if needed (optimization: skip for now)
-                source = 'no_data';
-            }
-
-            if (source === 'no_data' && (qrCodes.length > 0 || partialPhones.length > 0)) {
-                source = 'no_transactions';
-            }
-
-            results[phone] = {
-                total_debt: totalDebt,
-                source: source
+            results[phoneWithout0] = {
+                total_debt: data ? data.total_debt : 0,
+                source: data && data.total_debt > 0 ? 'balance_history' : 'no_data'
             };
         }
 
         // Log summary (not individual phones to reduce noise)
-        console.log(`[DEBT-SUMMARY-BATCH] Processed ${uniquePhones.length} phones`);
+        console.log(`[DEBT-SUMMARY-BATCH] Processed ${uniquePhones.length} phones, found debt for ${txResult.rows.length}`);
 
         res.json({
             success: true,
@@ -2626,12 +2468,16 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
 
         console.log('[RESOLVE-MATCH] Resolving match', id, 'with customer:', selectedCustomer.phone);
 
-        // 3. Mark transaction as processed (debt_added = TRUE)
+        // 3. Mark transaction as processed AND link to customer phone
         const amount = parseInt(match.transfer_amount) || 0;
         await db.query(
-            `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
-            [match.transaction_id]
+            `UPDATE balance_history
+             SET debt_added = TRUE, linked_customer_phone = $2
+             WHERE id = $1 AND linked_customer_phone IS NULL`,
+            [match.transaction_id, selectedCustomer.phone]
         );
+
+        console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone);
 
         // 4. Update pending match status with selected customer info as JSON
         const selectedCustomerJson = JSON.stringify({
