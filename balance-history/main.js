@@ -88,26 +88,37 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
 
     // Get selected customer info from data attributes
     const selectedOption = selectElement.options[selectElement.selectedIndex];
-    const customerName = selectedOption.dataset.name;
-    const customerPhone = selectedOption.dataset.phone;
+    const customerName = selectedOption.dataset.name || 'Unknown';
+    const customerPhone = selectedOption.dataset.phone || 'Unknown';
+
+    console.log('[RESOLVE-MATCH] Resolving:', {
+        pendingMatchId,
+        customer_id: selectedValue,
+        customerName,
+        customerPhone
+    });
 
     try {
         // Disable dropdown while processing
         selectElement.disabled = true;
         selectElement.style.opacity = '0.5';
 
+        const requestBody = {
+            customer_id: parseInt(selectedValue),
+            resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
+        };
+        console.log('[RESOLVE-MATCH] Request body:', requestBody);
+
         const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/resolve`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                customer_id: parseInt(selectedValue),
-                resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
-            })
+            body: JSON.stringify(requestBody)
         });
 
         const result = await response.json();
+        console.log('[RESOLVE-MATCH] Response:', result);
 
         if (result.success) {
             showNotification(`Đã chọn khách hàng: ${customerName} (${customerPhone})`, 'success');
@@ -115,13 +126,15 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
             // Refresh table to show updated data
             loadData();
         } else {
-            showNotification(`Lỗi: ${result.error || 'Không thể lưu'}`, 'error');
+            console.error('[RESOLVE-MATCH] Error response:', result);
+            const errorMsg = result.message || result.error || 'Không thể lưu';
+            showNotification(`Lỗi: ${errorMsg}`, 'error');
             selectElement.disabled = false;
             selectElement.style.opacity = '1';
             selectElement.value = '';
         }
     } catch (error) {
-        console.error('[RESOLVE-MATCH] Error:', error);
+        console.error('[RESOLVE-MATCH] Network error:', error);
         showNotification(`Lỗi kết nối: ${error.message}`, 'error');
         selectElement.disabled = false;
         selectElement.style.opacity = '1';
@@ -843,11 +856,20 @@ function renderTransactionRow(row) {
     let customerNameCell = '';
     if (hasPendingMatch && pendingMatchOptions.length > 0) {
         // PENDING MATCH: Show dropdown to select customer
+        // Structure: [{phone, count, customers: [{id, name, phone}]}]
         const optionsHtml = pendingMatchOptions.map(opt => {
-            // opt can be: { phone, count, customers: [...] }
-            return opt.customers.map(c =>
-                `<option value="${c.id}" data-phone="${c.phone}" data-name="${c.name}">${c.name} - ${c.phone}</option>`
-            ).join('');
+            const customers = opt.customers || [];
+            return customers.map(c => {
+                // Ensure we have required fields
+                const customerId = c.id || c.customer_id || '';
+                const customerName = c.name || c.customer_name || 'N/A';
+                const customerPhone = c.phone || c.customer_phone || 'N/A';
+                if (!customerId) {
+                    console.warn('[RENDER] Customer missing ID:', c);
+                    return '';
+                }
+                return `<option value="${customerId}" data-phone="${customerPhone}" data-name="${customerName}">${customerName} - ${customerPhone}</option>`;
+            }).join('');
         }).join('');
 
         customerNameCell = `

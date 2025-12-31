@@ -2290,31 +2290,69 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
         }
 
         const match = matchResult.rows[0];
-        const matchedCustomers = match.matched_customers;
 
-        // 2. Verify customer_id is in matched list
-        // matchedCustomers structure: [{phone, count, customers: [{id, name, phone}]}]
-        // Need to search within nested customers arrays
+        // 2. Parse matched_customers (handle both string and object)
+        let matchedCustomers = match.matched_customers;
+        if (typeof matchedCustomers === 'string') {
+            try {
+                matchedCustomers = JSON.parse(matchedCustomers);
+            } catch (parseErr) {
+                console.error('[RESOLVE-MATCH] Failed to parse matched_customers:', parseErr);
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid matched_customers data format'
+                });
+            }
+        }
+
+        // Validate matchedCustomers is an array
+        if (!Array.isArray(matchedCustomers)) {
+            console.error('[RESOLVE-MATCH] matched_customers is not an array:', typeof matchedCustomers);
+            return res.status(400).json({
+                success: false,
+                error: 'matched_customers is not an array',
+                debug_type: typeof matchedCustomers
+            });
+        }
+
+        console.log('[RESOLVE-MATCH] Looking for customer_id:', customer_id, 'in', matchedCustomers.length, 'phone groups');
+
+        // 3. Find customer in nested structure
+        // Structure: [{phone, count, customers: [{id, name, phone}]}]
         let selectedCustomer = null;
+        const targetId = parseInt(customer_id);
+
         for (const phoneGroup of matchedCustomers) {
-            if (phoneGroup.customers && Array.isArray(phoneGroup.customers)) {
-                const found = phoneGroup.customers.find(c => c.id === parseInt(customer_id));
-                if (found) {
-                    selectedCustomer = found;
+            const customers = phoneGroup.customers || [];
+            if (!Array.isArray(customers)) continue;
+
+            for (const c of customers) {
+                // Compare both as int and string for safety
+                if (c.id === targetId || String(c.id) === String(customer_id)) {
+                    selectedCustomer = c;
+                    console.log('[RESOLVE-MATCH] ✓ Found customer:', c.name, c.phone);
                     break;
                 }
             }
+            if (selectedCustomer) break;
         }
 
         if (!selectedCustomer) {
             // Collect all customer IDs for debugging
-            const allCustomerIds = matchedCustomers.flatMap(pg =>
-                (pg.customers || []).map(c => c.id)
-            );
+            const allCustomerIds = [];
+            for (const pg of matchedCustomers) {
+                if (pg.customers && Array.isArray(pg.customers)) {
+                    for (const c of pg.customers) {
+                        allCustomerIds.push({ id: c.id, name: c.name, phone: c.phone });
+                    }
+                }
+            }
+            console.error('[RESOLVE-MATCH] Customer not found. Target:', customer_id, 'Available:', allCustomerIds);
             return res.status(400).json({
                 success: false,
                 error: 'Selected customer not in matched list',
-                matched_customer_ids: allCustomerIds
+                requested_id: customer_id,
+                available_customers: allCustomerIds
             });
         }
 
