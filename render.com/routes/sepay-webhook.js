@@ -322,8 +322,11 @@ router.get('/history', async (req, res) => {
         }
 
         if (endDate) {
+            // Add time to end of day (23:59:59) for proper comparison
+            // Without this, "2025-12-31" is treated as "2025-12-31 00:00:00"
+            // which excludes all transactions on that day after midnight
             queryConditions.push(`transaction_date <= $${paramCounter}`);
-            queryParams.push(endDate);
+            queryParams.push(`${endDate} 23:59:59`);
             paramCounter++;
         }
 
@@ -438,8 +441,9 @@ router.get('/statistics', async (req, res) => {
         }
 
         if (endDate) {
+            // Add time to end of day (23:59:59) for proper comparison
             queryConditions.push(`transaction_date <= $${paramCounter}`);
-            queryParams.push(endDate);
+            queryParams.push(`${endDate} 23:59:59`);
             paramCounter++;
         }
 

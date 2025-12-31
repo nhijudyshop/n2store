@@ -1642,8 +1642,13 @@ function transactionMatchesFilters(transaction) {
     if (filters.startDate && transactionDate < new Date(filters.startDate)) {
         return false;
     }
-    if (filters.endDate && transactionDate > new Date(filters.endDate)) {
-        return false;
+    if (filters.endDate) {
+        // Set endDate to end of day (23:59:59.999) for proper comparison
+        const endOfDay = new Date(filters.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (transactionDate > endOfDay) {
+            return false;
+        }
     }
 
     // Search filter
