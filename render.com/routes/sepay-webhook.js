@@ -1290,8 +1290,9 @@ router.get('/debt-summary', async (req, res) => {
                 qrCodes.push(uniqueCode);
             }
 
-            // Extract partial phone from extraction_note (AUTO_MATCHED_FROM_PARTIAL:xxxxx)
-            const partialMatch = extractionNote.match(/AUTO_MATCHED_FROM_PARTIAL:(\d+)/);
+            // Extract partial phone from extraction_note
+            // Supports both: AUTO_MATCHED_FROM_PARTIAL:xxxxx and RESOLVED_FROM_PENDING:xxxxx
+            const partialMatch = extractionNote.match(/(?:AUTO_MATCHED_FROM_PARTIAL|RESOLVED_FROM_PENDING):(\d+)/);
             if (partialMatch) {
                 partialPhones.push(partialMatch[1]);
             }
@@ -1480,8 +1481,9 @@ router.post('/debt-summary-batch', async (req, res) => {
                 qrMap[normalizedPhone].push(uniqueCode);
             }
 
-            // Extract partial phone from extraction_note (AUTO_MATCHED_FROM_PARTIAL:xxxxx)
-            const partialMatch = extractionNote.match(/AUTO_MATCHED_FROM_PARTIAL:(\d+)/);
+            // Extract partial phone from extraction_note
+            // Supports both: AUTO_MATCHED_FROM_PARTIAL:xxxxx and RESOLVED_FROM_PENDING:xxxxx
+            const partialMatch = extractionNote.match(/(?:AUTO_MATCHED_FROM_PARTIAL|RESOLVED_FROM_PENDING):(\d+)/);
             if (partialMatch) {
                 partialPhoneMap[normalizedPhone].push(partialMatch[1]);
             }
