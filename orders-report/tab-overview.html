@@ -3917,56 +3917,52 @@
         // STATISTICS FUNCTIONS
         // =====================================================
 
-        /**
-         * Helper function to convert Firebase object to array if needed
-         */
-        function normalizeEmployeeRanges(data) {
-            if (!data) return [];
-
-            // If already an array, return it
-            if (Array.isArray(data)) {
-                return data;
-            }
-
-            // If it's an object, convert to array
-            if (typeof data === 'object') {
-                const result = [];
-                // Get all numeric keys and sort them
-                const keys = Object.keys(data).filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
-                for (const key of keys) {
-                    result.push(data[key]);
-                }
-                console.log(`[REPORT] Converted object with ${keys.length} keys to array`);
-                return result;
-            }
-
-            return [];
-        }
+        // NOTE: normalizeEmployeeRanges() removed - Firestore always returns array, no normalization needed
 
         /**
-         * Load employee ranges from Firebase
+         * Load employee ranges from Firestore
          */
         async function loadEmployeeRanges() {
-            if (!database) return;
+            if (!firebase || !firebase.firestore) return;
 
             try {
-                // Try campaign-specific first
-                if (currentTableName) {
-                    const safeName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
-                    const campaignSnapshot = await database.ref(`settings/employee_ranges_by_campaign/${safeName}`).once('value');
-                    if (campaignSnapshot.exists()) {
-                        employeeRanges = normalizeEmployeeRanges(campaignSnapshot.val());
-                        console.log('[REPORT] ✅ Loaded campaign-specific employee ranges:', employeeRanges.length);
-                        return;
-                    }
+                const firestore = firebase.firestore();
+                let query;
+                const campaignId = currentTableName; // Use currentTableName as campaignId
+
+                if (campaignId) {
+                    // Try campaign-specific first
+                    console.log('[REPORT] Loading campaign-specific employee ranges for:', campaignId);
+                    query = firestore.collection('employeeRanges')
+                        .where('campaignId', '==', campaignId)
+                        .orderBy('start');
+                } else {
+                    // Load general ranges
+                    console.log('[REPORT] Loading general employee ranges');
+                    query = firestore.collection('employeeRanges')
+                        .where('isGeneral', '==', true)
+                        .orderBy('start');
                 }
 
-                // Fallback to general
-                const snapshot = await database.ref(EMPLOYEE_RANGES_PATH).once('value');
-                employeeRanges = normalizeEmployeeRanges(snapshot.val());
-                console.log('[REPORT] ✅ Loaded general employee ranges:', employeeRanges.length);
+                const snapshot = await query.get();
+
+                if (snapshot.empty && campaignId) {
+                    // Fallback to general if no campaign-specific ranges found
+                    console.log('[REPORT] No campaign-specific ranges found, falling back to general');
+                    const generalSnapshot = await firestore.collection('employeeRanges')
+                        .where('isGeneral', '==', true)
+                        .orderBy('start')
+                        .get();
+
+                    employeeRanges = generalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    console.log('[REPORT] ✅ Loaded general employee ranges (fallback):', employeeRanges.length);
+                } else {
+                    employeeRanges = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    console.log('[REPORT] ✅ Loaded employee ranges:', employeeRanges.length);
+                }
+
             } catch (error) {
-                console.error('[REPORT] ❌ Error loading employee ranges:', error);
+                console.error('[REPORT] ❌ Error loading employee ranges from Firestore:', error);
                 employeeRanges = [];
             }
         }
@@ -4623,7 +4619,7 @@
                 H = H - duplicateOrders.length;
 
                 employeeStats.push({
-                    name: emp.name,
+                    name: emp.employeeName || emp.name, // Support both old and new field names
                     start: emp.start,
                     end: emp.end,
                     totalOrders: totalOrders,
@@ -6309,7 +6305,7 @@
                 // Detect campaign name from first order (for backward compatibility)
                 if (allOrders.length > 0) {
                     const rawCampaign = allOrders[0].LiveCampaignName || allOrders[0].liveCampaignName || 'Unknown';
-                    currentCampaignName = rawCampaign.replace(/[.$#\[\]\/]/g, '_').trim();
+                    currentCampaignName = rawCampaign.trim(); // No sanitization needed with Firestore
                     console.log('[REPORT] Current campaign:', currentCampaignName);
                 }
 
