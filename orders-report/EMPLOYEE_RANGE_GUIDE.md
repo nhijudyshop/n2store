@@ -214,8 +214,8 @@ function normalizeEmployeeRanges(data) {
 ```javascript
 function sanitizeCampaignName(campaignName) {
     if (!campaignName) return null;
-    // Replace invalid Firebase key chars: . $ # [ ]
-    return campaignName.replace(/[.$#\[\]]/g, '_').trim();
+    // Replace invalid Firebase key chars: . $ # [ ] /
+    return campaignName.replace(/[.$#\[\]\/]/g, '_').trim();
 }
 ```
 
@@ -264,7 +264,7 @@ Nếu 2 nhân viên có range trùng nhau, đơn sẽ được tính cho nhân v
 
 ### 4. Campaign Name Sanitization
 Tên chiến dịch được sanitize trước khi lưu vào Firebase:
-- Ký tự `.` `$` `#` `[` `]` → `_`
+- Ký tự `.` `$` `#` `[` `]` `/` → `_`
 
 ---
 

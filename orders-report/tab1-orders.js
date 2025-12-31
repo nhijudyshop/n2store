@@ -1263,9 +1263,9 @@ function renderEmployeeTable(users) {
 function sanitizeCampaignName(campaignName) {
     if (!campaignName) return null;
     // Replace invalid Firebase key characters with underscore
-    // Note: Forward slash (/) is allowed in Firebase keys
+    // Note: Forward slash (/) must be replaced to match tab-overview.html sanitization
     return campaignName
-        .replace(/[.$#\[\]]/g, '_')
+        .replace(/[.$#\[\]\/]/g, '_')
         .trim();
 }
 
