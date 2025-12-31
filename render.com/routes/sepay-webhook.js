@@ -860,10 +860,48 @@ async function processDebtUpdate(db, transactionId) {
 
         if (infoResult.rows.length > 0 && infoResult.rows[0].customer_phone) {
             const phone = infoResult.rows[0].customer_phone;
-            const customerName = infoResult.rows[0].customer_name;
+            let customerName = infoResult.rows[0].customer_name;
             const amount = parseInt(tx.transfer_amount) || 0;
 
             console.log('[DEBT-UPDATE] Phone from QR:', phone, 'Amount:', amount);
+
+            // 5.5 NEW: If QR has phone but NO name, fetch from TPOS
+            if (!customerName) {
+                console.log('[DEBT-UPDATE] QR has phone but no name, fetching from TPOS...');
+
+                try {
+                    const tposResult = await searchTPOSByPartialPhone(phone);
+
+                    if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                        // Find exact phone match
+                        const phoneData = tposResult.uniquePhones.find(p => p.phone === phone);
+
+                        if (phoneData && phoneData.customers.length > 0) {
+                            // Take first customer (newest - already sorted by DateCreated desc from TPOS)
+                            customerName = phoneData.customers[0].name;
+
+                            // Update balance_customer_info with fetched name
+                            await db.query(
+                                `UPDATE balance_customer_info
+                                 SET customer_name = $1,
+                                     name_fetch_status = 'SUCCESS',
+                                     updated_at = CURRENT_TIMESTAMP
+                                 WHERE UPPER(unique_code) = $2`,
+                                [customerName, qrCode]
+                            );
+
+                            console.log('[DEBT-UPDATE] ✅ Updated customer name from TPOS:', customerName);
+                        } else {
+                            console.log('[DEBT-UPDATE] Phone not found in TPOS results');
+                        }
+                    } else {
+                        console.log('[DEBT-UPDATE] No TPOS results for phone:', phone);
+                    }
+                } catch (error) {
+                    console.error('[DEBT-UPDATE] Error fetching name from TPOS:', error.message);
+                    // Continue processing - phone is enough for debt tracking
+                }
+            }
 
             // 6. Mark transaction as processed (no customer table update)
             await db.query(
@@ -2410,6 +2448,29 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
                 selectedCustomerJson
             ]
         );
+
+        // 5. NEW: Save resolved customer to balance_customer_info for debt tracking
+        const uniqueCode = `PHONE${selectedCustomer.phone}`;
+        await db.query(
+            `INSERT INTO balance_customer_info
+             (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (unique_code) DO UPDATE SET
+                 customer_phone = EXCLUDED.customer_phone,
+                 customer_name = EXCLUDED.customer_name,
+                 extraction_note = EXCLUDED.extraction_note,
+                 name_fetch_status = EXCLUDED.name_fetch_status,
+                 updated_at = CURRENT_TIMESTAMP`,
+            [
+                uniqueCode,
+                selectedCustomer.phone,
+                selectedCustomer.name,
+                `RESOLVED_FROM_PENDING:${match.extracted_phone}`,
+                'SUCCESS'
+            ]
+        );
+
+        console.log('[RESOLVE-MATCH] ✅ Saved to balance_customer_info:', uniqueCode);
 
         console.log('[RESOLVE-MATCH] ✅ Match resolved:', {
             match_id: id,
