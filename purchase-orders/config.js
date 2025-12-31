@@ -5,6 +5,22 @@
  */
 
 // ========================================
+// FIREBASE CONFIGURATION
+// ========================================
+// Ensure Firebase config is available before service initialization
+if (!window.FIREBASE_CONFIG) {
+    window.FIREBASE_CONFIG = {
+        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+        authDomain: "n2shop-69e37.firebaseapp.com",
+        projectId: "n2shop-69e37",
+        storageBucket: "n2shop-69e37-ne0q1",
+        messagingSenderId: "598906493303",
+        appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+        measurementId: "G-TEJH3S2T1D",
+    };
+}
+
+// ========================================
 // ORDER STATUS - Constants
 // ========================================
 const OrderStatus = {
