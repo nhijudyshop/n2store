@@ -1216,12 +1216,11 @@ async function loadAndRenderEmployeeTable() {
 function renderEmployeeTable(users) {
     const tbody = document.getElementById('employeeAssignmentBody');
 
-    // Use global employeeRanges which is synced from Firestore
+    // Use global employeeRanges which is synced from Firebase
     let savedRanges = {};
     if (employeeRanges && employeeRanges.length > 0) {
         employeeRanges.forEach(range => {
-            const empName = range.employeeName || range.name; // Support both old and new field names
-            savedRanges[empName] = { start: range.start, end: range.end };
+            savedRanges[range.name] = { start: range.start, end: range.end };
         });
     }
 
@@ -1260,10 +1259,17 @@ function renderEmployeeTable(users) {
     tbody.innerHTML = html;
 }
 
-// NOTE: sanitizeCampaignName() removed - no longer needed with Firestore
-// Firestore allows special characters in document IDs and can query by campaignId directly
+// Sanitize campaign name for Firebase path (remove invalid chars: . $ # [ ] /)
+function sanitizeCampaignName(campaignName) {
+    if (!campaignName) return null;
+    // Replace invalid Firebase key characters with underscore
+    // Note: Forward slash (/) must be replaced to match tab-overview.html sanitization
+    return campaignName
+        .replace(/[.$#\[\]\/]/g, '_')
+        .trim();
+}
 
-async function applyEmployeeRanges() {
+function applyEmployeeRanges() {
     const inputs = document.querySelectorAll('.employee-range-input');
     const rangesMap = {};
 
@@ -1293,8 +1299,8 @@ async function applyEmployeeRanges() {
             const userId = input ? input.getAttribute('data-user-id') : null;
 
             newRanges.push({
-                employeeId: userId,
-                employeeName: userName,
+                id: userId,
+                name: userName,
                 start: range.start,
                 end: range.end
             });
@@ -1304,75 +1310,65 @@ async function applyEmployeeRanges() {
     // Determine save logic based on selected campaign
     const campaignSelector = document.getElementById('employeeCampaignSelector');
     let campaignInfo = '(cấu hình chung)';
-    let campaignId = null;
-    let campaignName = null;
 
     if (campaignSelector && campaignSelector.value) {
         // Get selected campaign data
         const selectedOption = campaignSelector.options[campaignSelector.selectedIndex];
         if (selectedOption && selectedOption.dataset.campaign) {
             const campaign = JSON.parse(selectedOption.dataset.campaign);
-            campaignId = campaign.name || campaign.displayName; // Use original name as ID
-            campaignName = campaign.displayName;
-            campaignInfo = `cho chiến dịch "${campaignName}"`;
+            const sanitizedName = sanitizeCampaignName(campaign.displayName);
+            campaignInfo = `cho chiến dịch "${campaign.displayName}"`;
 
-            console.log(`[EMPLOYEE] Saving ranges for campaign: ${campaignName} (ID: ${campaignId})`);
+            console.log(`[EMPLOYEE] Saving ranges for campaign: ${campaign.displayName} (key: ${sanitizedName})`);
+
+            // Load current campaign configs, update the specific campaign, then save
+            if (database) {
+                database.ref('settings/employee_ranges_by_campaign').once('value')
+                    .then((snapshot) => {
+                        const allCampaignRanges = snapshot.val() || {};
+
+                        // Update this campaign's ranges
+                        allCampaignRanges[sanitizedName] = newRanges;
+
+                        // Save back to Firebase
+                        return database.ref('settings/employee_ranges_by_campaign').set(allCampaignRanges);
+                    })
+                    .then(() => {
+                        if (window.notificationManager) {
+                            window.notificationManager.show(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`, 'success');
+                        } else {
+                            alert(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`);
+                        }
+                        toggleEmployeeDrawer();
+                    })
+                    .catch((error) => {
+                        console.error('[EMPLOYEE] Error saving ranges to Firebase:', error);
+                        alert('❌ Lỗi khi lưu lên Firebase: ' + error.message);
+                    });
+            } else {
+                alert('❌ Lỗi: Không thể kết nối Firebase');
+            }
+            return; // Exit early for campaign-specific save
         }
     }
 
-    // Save to Firestore
-    if (!firebase || !firebase.firestore) {
-        alert('❌ Lỗi: Không thể kết nối Firestore');
-        return;
-    }
-
-    try {
-        const firestore = firebase.firestore();
-
-        // Delete existing ranges for this campaign/general config
-        const existingQuery = campaignId
-            ? firestore.collection('employeeRanges').where('campaignId', '==', campaignId)
-            : firestore.collection('employeeRanges').where('isGeneral', '==', true);
-
-        const existingSnapshot = await existingQuery.get();
-        const deleteBatch = firestore.batch();
-        existingSnapshot.docs.forEach(doc => {
-            deleteBatch.delete(doc.ref);
-        });
-        await deleteBatch.commit();
-        console.log(`[EMPLOYEE] Deleted ${existingSnapshot.size} existing ranges`);
-
-        // Insert new ranges
-        const insertBatch = firestore.batch();
-        newRanges.forEach(range => {
-            const docRef = firestore.collection('employeeRanges').doc();
-            insertBatch.set(docRef, {
-                ...range,
-                campaignId: campaignId,
-                campaignName: campaignName,
-                isGeneral: !campaignId,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    // Save general config (default path)
+    if (database) {
+        database.ref('settings/employee_ranges').set(newRanges)
+            .then(() => {
+                if (window.notificationManager) {
+                    window.notificationManager.show(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`, 'success');
+                } else {
+                    alert(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`);
+                }
+                toggleEmployeeDrawer();
+            })
+            .catch((error) => {
+                console.error('[EMPLOYEE] Error saving ranges to Firebase:', error);
+                alert('❌ Lỗi khi lưu lên Firebase: ' + error.message);
             });
-        });
-        await insertBatch.commit();
-
-        console.log(`[EMPLOYEE] ✅ Saved ${newRanges.length} ranges to Firestore`);
-
-        if (window.notificationManager) {
-            window.notificationManager.show(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`, 'success');
-        } else {
-            alert(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`);
-        }
-
-        // Reload ranges to reflect changes
-        await loadEmployeeRangesForCampaign(campaignName);
-
-        toggleEmployeeDrawer();
-
-    } catch (error) {
-        console.error('[EMPLOYEE] Error saving ranges to Firestore:', error);
-        alert('❌ Lỗi khi lưu lên Firestore: ' + error.message);
+    } else {
+        alert('❌ Lỗi: Không thể kết nối Firebase');
     }
 }
 
@@ -1384,8 +1380,7 @@ function getEmployeeName(stt) {
 
     for (const range of employeeRanges) {
         if (sttNum >= range.start && sttNum <= range.end) {
-            // Support both old (name) and new (employeeName) field names
-            return range.employeeName || range.name;
+            return range.name;
         }
     }
 
@@ -1478,84 +1473,102 @@ function checkAdminPermission() {
     }
 }
 
-// NOTE: normalizeEmployeeRanges() removed - Firestore always returns array, no normalization needed
+// Helper function to convert Firebase object to array if needed
+function normalizeEmployeeRanges(data) {
+    if (!data) return [];
 
-async function loadEmployeeRangesForCampaign(campaignName = null) {
-    if (!firebase || !firebase.firestore) {
-        console.log('[EMPLOYEE] Firestore not initialized');
+    // If already an array, return it
+    if (Array.isArray(data)) {
+        return data;
+    }
+
+    // If it's an object, convert to array
+    if (typeof data === 'object') {
+        const result = [];
+        // Get all numeric keys and sort them
+        const keys = Object.keys(data).filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
+        for (const key of keys) {
+            result.push(data[key]);
+        }
+        console.log(`[EMPLOYEE] Converted object with ${keys.length} keys to array`);
+        return result;
+    }
+
+    return [];
+}
+
+function loadEmployeeRangesForCampaign(campaignName = null) {
+    if (!database) {
+        console.log('[EMPLOYEE] Database not initialized');
         return Promise.resolve();
     }
 
-    try {
-        const firestore = firebase.firestore();
-        let query;
-        let campaignId = campaignName; // Use campaignName as campaignId
+    if (campaignName) {
+        // Load from campaign-specific config (object with campaign names as keys)
+        const sanitizedName = sanitizeCampaignName(campaignName);
+        console.log(`[EMPLOYEE] Loading ranges for campaign: ${campaignName} (key: ${sanitizedName})`);
 
-        if (campaignId) {
-            // Load campaign-specific ranges
-            console.log(`[EMPLOYEE] Loading ranges for campaign: ${campaignId}`);
-            query = firestore.collection('employeeRanges')
-                .where('campaignId', '==', campaignId)
-                .orderBy('start');
-        } else {
-            // Load general ranges
-            console.log('[EMPLOYEE] Loading general employee ranges');
-            query = firestore.collection('employeeRanges')
-                .where('isGeneral', '==', true)
-                .orderBy('start');
-        }
+        return database.ref('settings/employee_ranges_by_campaign').once('value')
+            .then((snapshot) => {
+                const allCampaignRanges = snapshot.val() || {};
+                const data = allCampaignRanges[sanitizedName];
+                const normalized = normalizeEmployeeRanges(data);
 
-        const snapshot = await query.get();
+                if (normalized.length > 0) {
+                    employeeRanges = normalized;
+                    console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`);
+                } else {
+                    // If no campaign-specific ranges found, fall back to general config
+                    console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
+                    return database.ref('settings/employee_ranges').once('value')
+                        .then((snapshot) => {
+                            employeeRanges = normalizeEmployeeRanges(snapshot.val());
+                            console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`);
+                        });
+                }
 
-        if (snapshot.empty && campaignId) {
-            // Fallback to general config if no campaign-specific ranges found
-            console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
-            const generalSnapshot = await firestore.collection('employeeRanges')
-                .where('isGeneral', '==', true)
-                .orderBy('start')
-                .get();
+                // Update employee table if drawer is open
+                const drawer = document.getElementById('employeeDrawer');
+                if (drawer && drawer.classList.contains('active')) {
+                    loadAndRenderEmployeeTable();
+                }
+            })
+            .catch((error) => {
+                console.error('[EMPLOYEE] Error loading ranges:', error);
+            });
+    } else {
+        // Load general config
+        console.log('[EMPLOYEE] Loading general employee ranges');
 
-            employeeRanges = generalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`);
-        } else {
-            employeeRanges = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges ${campaignId ? 'for campaign: ' + campaignId : 'from general config'}`);
-        }
+        return database.ref('settings/employee_ranges').once('value')
+            .then((snapshot) => {
+                employeeRanges = normalizeEmployeeRanges(snapshot.val());
+                console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config`);
 
-        // Update employee table if drawer is open
-        const drawer = document.getElementById('employeeDrawer');
-        if (drawer && drawer.classList.contains('active')) {
-            loadAndRenderEmployeeTable();
-        }
-
-    } catch (error) {
-        console.error('[EMPLOYEE] Error loading ranges from Firestore:', error);
-        employeeRanges = [];
+                // Update employee table if drawer is open
+                const drawer = document.getElementById('employeeDrawer');
+                if (drawer && drawer.classList.contains('active')) {
+                    loadAndRenderEmployeeTable();
+                }
+            })
+            .catch((error) => {
+                console.error('[EMPLOYEE] Error loading ranges:', error);
+            });
     }
 }
 
 function syncEmployeeRanges() {
-    if (!firebase || !firebase.firestore) return;
+    if (!database) return;
 
-    const firestore = firebase.firestore();
+    const rangesRef = database.ref('settings/employee_ranges');
+    rangesRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        employeeRanges = normalizeEmployeeRanges(data);
+        console.log(`[EMPLOYEE] Synced ${employeeRanges.length} ranges from Firebase`);
 
-    // Listen to general ranges only (for simplicity)
-    // Campaign-specific ranges are loaded on-demand
-    const unsubscribe = firestore.collection('employeeRanges')
-        .where('isGeneral', '==', true)
-        .orderBy('start')
-        .onSnapshot((snapshot) => {
-            employeeRanges = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            console.log(`[EMPLOYEE] Synced ${employeeRanges.length} ranges from Firestore`);
-
-            // Re-apply filter to current view
-            performTableSearch();
-        }, (error) => {
-            console.error('[EMPLOYEE] Error syncing ranges:', error);
-        });
-
-    // Store unsubscribe function for cleanup if needed
-    window.employeeRangesSyncUnsubscribe = unsubscribe;
+        // Re-apply filter to current view
+        performTableSearch();
+    });
 }
 
 // #region ═══════════════════════════════════════════════════════════════════════
