@@ -127,6 +127,16 @@ window.generateFullAdminPermissions = function() {
             edit_shipping_from_finance: true,
             export_data: true
         },
+        "purchase-orders": {
+            view: true,
+            create: true,
+            edit: true,
+            delete: true,
+            status_change: true,
+            copy: true,
+            export: true,
+            upload_images: true
+        },
         hangrotxa: {
             view: true,
             mark: true,

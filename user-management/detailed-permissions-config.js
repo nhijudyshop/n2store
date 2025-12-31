@@ -156,6 +156,22 @@ const DETAILED_PERMISSIONS = {
             export_data: { name: "Xuất Excel", icon: "download" },
         },
     },
+    "purchase-orders": {
+        id: "purchase-orders",
+        icon: "clipboard-list",
+        name: "QUẢN LÝ ĐẶT HÀNG NCC",
+        description: "Quản lý đơn đặt hàng từ nhà cung cấp",
+        subPermissions: {
+            view: { name: "Xem đơn đặt hàng", icon: "eye" },
+            create: { name: "Tạo đơn đặt hàng", icon: "plus-circle" },
+            edit: { name: "Sửa đơn đặt hàng", icon: "edit" },
+            delete: { name: "Xóa đơn đặt hàng", icon: "trash-2" },
+            status_change: { name: "Thay đổi trạng thái", icon: "refresh-cw" },
+            copy: { name: "Sao chép đơn", icon: "copy" },
+            export: { name: "Xuất Excel", icon: "download" },
+            upload_images: { name: "Upload hình ảnh", icon: "upload" },
+        },
+    },
     // "user-management": {
     //     id: "user-management",
     //     icon: "users",

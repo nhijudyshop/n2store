@@ -16,6 +16,8 @@ class PurchaseOrderDataManager {
         this.hasMore = false;
         this.isLoading = false;
         this.error = null;
+        this.currentPage = 1;
+        this.totalItems = 0;
 
         // Statistics
         this.stats = {
@@ -32,7 +34,8 @@ class PurchaseOrderDataManager {
             startDate: null,
             endDate: null,
             searchTerm: '',
-            quickFilter: 'all'
+            quickFilter: 'all',
+            statusFilter: ''
         };
 
         // Cache
@@ -133,6 +136,7 @@ class PurchaseOrderDataManager {
                 this.orders = [];
                 this.lastDoc = null;
                 this.hasMore = false;
+                this.currentPage = 1;
             }
 
             this.currentStatus = status;
@@ -269,6 +273,23 @@ class PurchaseOrderDataManager {
     }
 
     /**
+     * Set status filter
+     * @param {string} status - Status to filter by (empty string for all)
+     */
+    setStatusFilter(status) {
+        this.filters.statusFilter = status;
+        this.emit('filtersChange', this.filters);
+
+        // If status filter is set, load orders for that status
+        // Otherwise reload current tab's orders
+        if (status) {
+            this.loadOrders(status, true);
+        } else {
+            this.loadOrders(this.currentStatus, true);
+        }
+    }
+
+    /**
      * Clear all filters
      */
     clearFilters() {
@@ -276,10 +297,46 @@ class PurchaseOrderDataManager {
             startDate: null,
             endDate: null,
             searchTerm: '',
-            quickFilter: 'all'
+            quickFilter: 'all',
+            statusFilter: ''
         };
         this.emit('filtersChange', this.filters);
         this.loadOrders(this.currentStatus, true);
+    }
+
+    // ========================================
+    // PAGINATION
+    // ========================================
+
+    /**
+     * Set current page (for client-side pagination)
+     * @param {number} page - Page number (1-based)
+     */
+    setCurrentPage(page) {
+        const config = window.PurchaseOrderConfig;
+        const pageSize = config.PAGINATION_CONFIG.pageSize;
+        const totalPages = Math.ceil(this.orders.length / pageSize);
+
+        if (page < 1) page = 1;
+        if (page > totalPages && totalPages > 0) page = totalPages;
+
+        this.currentPage = page;
+        this.emit('pageChange', {
+            currentPage: this.currentPage,
+            totalItems: this.orders.length,
+            pageSize
+        });
+    }
+
+    /**
+     * Get current page of orders
+     * @returns {Array}
+     */
+    getCurrentPageOrders() {
+        const config = window.PurchaseOrderConfig;
+        const pageSize = config.PAGINATION_CONFIG.pageSize;
+        const startIndex = (this.currentPage - 1) * pageSize;
+        return this.orders.slice(startIndex, startIndex + pageSize);
     }
 
     // ========================================
@@ -571,11 +628,14 @@ class PurchaseOrderDataManager {
         this.hasMore = false;
         this.isLoading = false;
         this.error = null;
+        this.currentPage = 1;
+        this.totalItems = 0;
         this.filters = {
             startDate: null,
             endDate: null,
             searchTerm: '',
-            quickFilter: 'all'
+            quickFilter: 'all',
+            statusFilter: ''
         };
         this.selectedIds.clear();
         this.clearCache();
