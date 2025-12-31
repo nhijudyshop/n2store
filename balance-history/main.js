@@ -1606,8 +1606,8 @@ function disconnectRealtimeUpdates() {
 
 // Handle new transaction from SSE
 async function handleNewTransaction(transaction) {
-    // Show notification
-    showNotification(transaction);
+    // Show realtime notification
+    showRealtimeNotification(transaction);
 
     // Check if transaction matches current filters
     if (!transactionMatchesFilters(transaction)) {
@@ -1675,8 +1675,8 @@ function transactionMatchesFilters(transaction) {
     return true;
 }
 
-// Show notification for new transaction
-function showNotification(transaction) {
+// Show notification for new transaction (realtime)
+function showRealtimeNotification(transaction) {
     // Create notification element
     const notification = document.createElement('div');
     notification.className = 'realtime-notification';
