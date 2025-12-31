@@ -819,11 +819,23 @@ async function searchTPOSByPhone(fullPhone) {
     try {
         console.log(`[TPOS-PHONE] Searching for full phone: ${fullPhone}`);
 
+        // Normalize input phone - ensure 10 digits starting with 0
+        let normalizedPhone = fullPhone.replace(/\D/g, '').slice(-10);
+        if (!normalizedPhone.startsWith('0') && normalizedPhone.length === 9) {
+            normalizedPhone = '0' + normalizedPhone;
+        }
+
+        // Use last 9 digits (without leading 0) for TPOS API search
+        // TPOS may store phones without leading 0
+        const searchPhone = normalizedPhone.slice(-9);
+
         // Get TPOS token
         const token = await tposTokenManager.getToken();
 
-        // Call TPOS Partner API with full phone
-        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${fullPhone}&$top=10&$orderby=DateCreated+desc&$count=true`;
+        // Call TPOS Partner API with 9-digit phone (without leading 0)
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${searchPhone}&$top=10&$orderby=DateCreated+desc&$count=true`;
+
+        console.log(`[TPOS-PHONE] API search with: ${searchPhone}`);
 
         const response = await fetchWithTimeout(tposUrl, {
             method: 'GET',
@@ -840,7 +852,7 @@ async function searchTPOSByPhone(fullPhone) {
         const data = await response.json();
         const totalResults = data['@odata.count'] || 0;
 
-        console.log(`[TPOS-PHONE] Found ${totalResults} total results for ${fullPhone}`);
+        console.log(`[TPOS-PHONE] Found ${totalResults} total results for ${searchPhone}`);
 
         if (!data.value || !Array.isArray(data.value) || data.value.length === 0) {
             return {
@@ -850,19 +862,25 @@ async function searchTPOSByPhone(fullPhone) {
             };
         }
 
-        // Find EXACT match with full phone (no endsWith filter)
+        // Find EXACT match with normalized 10-digit phone
         for (const customer of data.value) {
-            const phone = customer.Phone?.replace(/\D/g, '').slice(-10);
+            const customerPhone = customer.Phone?.replace(/\D/g, '').slice(-10);
+
+            // Ensure customer phone starts with 0
+            let normalizedCustomerPhone = customerPhone;
+            if (customerPhone && customerPhone.length === 9) {
+                normalizedCustomerPhone = '0' + customerPhone;
+            }
 
             // Check for exact match
-            if (phone === fullPhone) {
-                console.log(`[TPOS-PHONE] ✅ Found exact match: ${customer.Name || customer.DisplayName}`);
+            if (normalizedCustomerPhone === normalizedPhone) {
+                console.log(`[TPOS-PHONE] ✅ Found exact match: ${customer.Name || customer.DisplayName} (${normalizedCustomerPhone})`);
                 return {
                     success: true,
                     customer: {
                         id: customer.Id,
                         name: customer.Name || customer.DisplayName,
-                        phone: phone,
+                        phone: normalizedCustomerPhone,
                         email: customer.Email,
                         address: customer.FullAddress || customer.Street,
                         network: customer.NameNetwork,
@@ -875,11 +893,28 @@ async function searchTPOSByPhone(fullPhone) {
             }
         }
 
-        // No exact match found
-        console.log(`[TPOS-PHONE] No exact match for ${fullPhone}`);
+        // No exact match found - return first result as fallback (already sorted by DateCreated desc)
+        const firstCustomer = data.value[0];
+        const firstPhone = firstCustomer.Phone?.replace(/\D/g, '').slice(-10);
+        let normalizedFirstPhone = firstPhone;
+        if (firstPhone && firstPhone.length === 9) {
+            normalizedFirstPhone = '0' + firstPhone;
+        }
+
+        console.log(`[TPOS-PHONE] No exact match, using first result: ${firstCustomer.Name || firstCustomer.DisplayName} (${normalizedFirstPhone})`);
         return {
             success: true,
-            customer: null,
+            customer: {
+                id: firstCustomer.Id,
+                name: firstCustomer.Name || firstCustomer.DisplayName,
+                phone: normalizedFirstPhone,
+                email: firstCustomer.Email,
+                address: firstCustomer.FullAddress || firstCustomer.Street,
+                network: firstCustomer.NameNetwork,
+                status: firstCustomer.Status,
+                credit: firstCustomer.Credit,
+                debit: firstCustomer.Debit
+            },
             totalResults
         };
 
