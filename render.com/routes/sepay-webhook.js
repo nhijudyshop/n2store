@@ -364,7 +364,8 @@ router.get('/history', async (req, res) => {
                 pcm.id as pending_match_id,
                 pcm.status as pending_match_status,
                 pcm.extracted_phone as pending_extracted_phone,
-                pcm.matched_customers as pending_match_options
+                pcm.matched_customers as pending_match_options,
+                pcm.resolution_notes as pending_resolution_notes
             FROM balance_history bh
             LEFT JOIN balance_customer_info bci ON (
                 -- Match by QR code (N2...) in content
@@ -389,15 +390,37 @@ router.get('/history', async (req, res) => {
         const dataResult = await db.query(dataQuery, queryParams);
 
         // Transform data to include pending_match flags
-        const transformedData = dataResult.rows.map(row => ({
-            ...row,
-            // Flag: has pending match that needs resolution
-            has_pending_match: row.pending_match_status === 'pending',
-            // Flag: was skipped
-            pending_match_skipped: row.pending_match_status === 'skipped',
-            // Parse JSONB matched_customers if exists
-            pending_match_options: row.pending_match_options || null
-        }));
+        const transformedData = dataResult.rows.map(row => {
+            let customerName = row.customer_name;
+            let customerPhone = row.customer_phone;
+
+            // If resolved from pending match, get customer info from resolution_notes
+            if (row.pending_match_status === 'resolved' && row.pending_resolution_notes) {
+                try {
+                    const resolvedCustomer = JSON.parse(row.pending_resolution_notes);
+                    if (resolvedCustomer && resolvedCustomer.name) {
+                        customerName = resolvedCustomer.name;
+                        customerPhone = resolvedCustomer.phone;
+                    }
+                } catch (e) {
+                    // resolution_notes might be old format (plain text), ignore parse error
+                    console.log('[HISTORY] Could not parse resolution_notes:', row.pending_resolution_notes);
+                }
+            }
+
+            return {
+                ...row,
+                // Override customer info from resolved pending match
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                // Flag: has pending match that needs resolution
+                has_pending_match: row.pending_match_status === 'pending',
+                // Flag: was skipped
+                pending_match_skipped: row.pending_match_status === 'skipped',
+                // Parse JSONB matched_customers if exists
+                pending_match_options: row.pending_match_options || null
+            };
+        });
 
         res.json({
             success: true,
@@ -2358,28 +2381,20 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
 
         console.log('[RESOLVE-MATCH] Resolving match', id, 'with customer:', selectedCustomer.phone);
 
-        // 3. Generate unique code for balance_customer_info
-        const uniqueCode = `PHONE${match.extracted_phone}${Date.now().toString().slice(-6)}`;
-
-        // 4. Save to balance_customer_info
-        await db.query(
-            `INSERT INTO balance_customer_info (unique_code, customer_name, customer_phone)
-             VALUES ($1, $2, $3)
-             ON CONFLICT (unique_code) DO UPDATE SET
-                 customer_name = EXCLUDED.customer_name,
-                 customer_phone = EXCLUDED.customer_phone,
-                 updated_at = CURRENT_TIMESTAMP`,
-            [uniqueCode, selectedCustomer.name, selectedCustomer.phone]
-        );
-
-        // 5. Update transaction with new unique_code AND mark as processed
+        // 3. Mark transaction as processed (debt_added = TRUE)
         const amount = parseInt(match.transfer_amount) || 0;
         await db.query(
-            `UPDATE balance_history SET unique_code = $2, debt_added = TRUE WHERE id = $1`,
-            [match.transaction_id, uniqueCode]
+            `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
+            [match.transaction_id]
         );
 
-        // 7. Update pending match status
+        // 4. Update pending match status with selected customer info as JSON
+        const selectedCustomerJson = JSON.stringify({
+            id: selectedCustomer.id,
+            name: selectedCustomer.name,
+            phone: selectedCustomer.phone
+        });
+
         await db.query(
             `UPDATE pending_customer_matches
              SET status = 'resolved',
@@ -2392,7 +2407,7 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
                 id,
                 customer_id,
                 resolved_by,
-                `Selected customer: ${selectedCustomer.name} (${selectedCustomer.phone})`
+                selectedCustomerJson
             ]
         );
 
