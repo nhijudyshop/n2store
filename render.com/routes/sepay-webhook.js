@@ -347,15 +347,21 @@ router.get('/history', async (req, res) => {
         const countResult = await db.query(countQuery, queryParams);
         const total = parseInt(countResult.rows[0].count);
 
-        // Get paginated data with customer info
+        // Get paginated data with customer info AND pending matches
         const dataQuery = `
             SELECT
                 bh.id, bh.sepay_id, bh.gateway, bh.transaction_date, bh.account_number,
                 bh.code, bh.content, bh.transfer_type, bh.transfer_amount, bh.accumulated,
                 bh.sub_account, bh.reference_code, bh.description, bh.created_at,
+                bh.debt_added,
                 bci.customer_phone,
                 bci.customer_name,
-                bci.unique_code as qr_code
+                bci.unique_code as qr_code,
+                -- Pending match info
+                pcm.id as pending_match_id,
+                pcm.status as pending_match_status,
+                pcm.extracted_phone as pending_extracted_phone,
+                pcm.matched_customers as pending_match_options
             FROM balance_history bh
             LEFT JOIN balance_customer_info bci ON (
                 -- Match by QR code (N2...) in content
@@ -368,6 +374,9 @@ router.get('/history', async (req, res) => {
                 -- Match by exact phone
                 (bci.unique_code LIKE 'PHONE%' AND bh.content LIKE '%' || bci.customer_phone || '%')
             )
+            LEFT JOIN pending_customer_matches pcm ON (
+                pcm.transaction_id = bh.id
+            )
             ${whereClause}
             ORDER BY bh.transaction_date DESC
             LIMIT $${paramCounter} OFFSET $${paramCounter + 1}
@@ -376,9 +385,20 @@ router.get('/history', async (req, res) => {
         queryParams.push(limit, offset);
         const dataResult = await db.query(dataQuery, queryParams);
 
+        // Transform data to include pending_match flags
+        const transformedData = dataResult.rows.map(row => ({
+            ...row,
+            // Flag: has pending match that needs resolution
+            has_pending_match: row.pending_match_status === 'pending',
+            // Flag: was skipped
+            pending_match_skipped: row.pending_match_status === 'skipped',
+            // Parse JSONB matched_customers if exists
+            pending_match_options: row.pending_match_options || null
+        }));
+
         res.json({
             success: true,
-            data: dataResult.rows,
+            data: transformedData,
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
@@ -715,15 +735,30 @@ async function searchTPOSByPartialPhone(partialPhone) {
         }
 
         // Convert map to array
-        const uniquePhones = Array.from(phoneMap.entries()).map(([phone, customers]) => ({
+        const allUniquePhones = Array.from(phoneMap.entries()).map(([phone, customers]) => ({
             phone,
             customers, // Array of customers with this phone (sorted by DateCreated desc from TPOS)
             count: customers.length
         }));
 
-        console.log(`[TPOS-SEARCH] Grouped into ${uniquePhones.length} unique phones:`);
-        uniquePhones.forEach(({phone, count}) => {
+        console.log(`[TPOS-SEARCH] Grouped into ${allUniquePhones.length} unique phones (before filter):`);
+        allUniquePhones.forEach(({phone, count}) => {
             console.log(`  - ${phone}: ${count} customer(s)`);
+        });
+
+        // FILTER: Chỉ giữ SĐT có số cuối KHỚP CHÍNH XÁC với partialPhone
+        // VD: partialPhone="81118" → giữ 0938281118 (endsWith 81118), loại 0938811182
+        const uniquePhones = allUniquePhones.filter(({phone}) => {
+            const matches = phone.endsWith(partialPhone);
+            if (!matches) {
+                console.log(`[TPOS-SEARCH] ❌ Filtered out ${phone} (does not end with ${partialPhone})`);
+            }
+            return matches;
+        });
+
+        console.log(`[TPOS-SEARCH] After endsWith filter: ${uniquePhones.length} phones match:`);
+        uniquePhones.forEach(({phone, count}) => {
+            console.log(`  ✅ ${phone}: ${count} customer(s)`);
         });
 
         return {
@@ -2379,6 +2414,70 @@ router.post('/pending-matches/:id/skip', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to skip match',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/pending-matches/:id/undo-skip
+ * Undo a skipped pending match - reset to pending status
+ * Body:
+ *   - resolved_by: Admin username (optional)
+ */
+router.post('/pending-matches/:id/undo-skip', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { resolved_by = 'admin' } = req.body;
+
+    try {
+        // Check if match exists and is skipped
+        const checkResult = await db.query(
+            `SELECT id, transaction_id, status FROM pending_customer_matches WHERE id = $1`,
+            [id]
+        );
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Pending match not found'
+            });
+        }
+
+        if (checkResult.rows[0].status !== 'skipped') {
+            return res.status(400).json({
+                success: false,
+                error: 'Match is not in skipped status',
+                current_status: checkResult.rows[0].status
+            });
+        }
+
+        // Reset to pending status
+        const result = await db.query(
+            `UPDATE pending_customer_matches
+             SET status = 'pending',
+                 resolved_at = NULL,
+                 resolved_by = NULL,
+                 selected_customer_id = NULL,
+                 resolution_notes = $2
+             WHERE id = $1
+             RETURNING id, transaction_id, extracted_phone, status`,
+            [id, `Undo skip by ${resolved_by} at ${new Date().toISOString()}`]
+        );
+
+        console.log('[UNDO-SKIP] Match reset to pending:', result.rows[0]);
+
+        res.json({
+            success: true,
+            message: 'Match reset to pending successfully',
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[UNDO-SKIP] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to undo skip',
             message: error.message
         });
     }

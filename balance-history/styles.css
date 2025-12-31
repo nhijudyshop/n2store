@@ -1485,3 +1485,151 @@ body {
         transform: rotate(360deg);
     }
 }
+
+/* =====================================================
+   PENDING MATCH - Styles cho chọn khách hàng từ dropdown
+   ===================================================== */
+
+/* Row highlighting for pending matches */
+.row-pending-match {
+    background: linear-gradient(90deg, #FEF3C7 0%, #FFFBEB 50%, #FEF3C7 100%) !important;
+    border-left: 4px solid #F59E0B !important;
+    animation: pendingPulse 2s ease-in-out infinite;
+}
+
+.row-pending-match:hover {
+    background: linear-gradient(90deg, #FDE68A 0%, #FEF3C7 50%, #FDE68A 100%) !important;
+}
+
+@keyframes pendingPulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.85;
+    }
+}
+
+/* Row highlighting for skipped matches */
+.row-skipped-match {
+    background: #F3F4F6 !important;
+    border-left: 4px solid #9CA3AF !important;
+    opacity: 0.8;
+}
+
+.row-skipped-match:hover {
+    opacity: 1;
+    background: #E5E7EB !important;
+}
+
+/* Pending match cell */
+.customer-info-cell.pending-match {
+    background: rgba(245, 158, 11, 0.1);
+}
+
+/* Pending match selector container */
+.pending-match-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Dropdown style */
+.pending-match-dropdown {
+    padding: 6px 10px;
+    border: 2px solid #F59E0B;
+    border-radius: 6px;
+    background: #FFFBEB;
+    color: #92400E;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    min-width: 180px;
+    max-width: 250px;
+    transition: all 0.2s ease;
+}
+
+.pending-match-dropdown:hover {
+    border-color: #D97706;
+    background: #FEF3C7;
+}
+
+.pending-match-dropdown:focus {
+    outline: none;
+    border-color: #D97706;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+.pending-match-dropdown:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Dropdown option styling */
+.pending-match-dropdown option {
+    padding: 8px;
+    background: white;
+    color: #374151;
+}
+
+.pending-match-dropdown option:first-child {
+    font-weight: 600;
+    color: #92400E;
+}
+
+.pending-match-dropdown option:last-child {
+    color: #DC2626;
+    font-weight: 500;
+}
+
+/* Save button (if needed later) */
+.pending-match-save-btn {
+    padding: 6px 12px;
+    background: #10B981;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pending-match-save-btn:hover {
+    background: #059669;
+}
+
+.pending-match-save-btn:disabled {
+    background: #9CA3AF;
+    cursor: not-allowed;
+}
+
+/* Extracted phone hint */
+.pending-extracted-phone {
+    color: #F59E0B;
+    font-style: italic;
+    font-size: 12px;
+}
+
+/* Skipped status text */
+.skipped-status {
+    color: #9CA3AF;
+    font-style: italic;
+}
+
+/* Undo button for skipped */
+.btn-undo-skip {
+    padding: 2px 6px;
+    background: #FEF3C7;
+    color: #92400E;
+    border: 1px solid #F59E0B;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-undo-skip:hover {
+    background: #FDE68A;
+    border-color: #D97706;
+}
