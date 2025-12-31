@@ -123,8 +123,10 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
         if (result.success) {
             showNotification(`Đã chọn khách hàng: ${customerName} (${customerPhone})`, 'success');
 
-            // Refresh table to show updated data
-            loadData();
+            // Small delay to ensure DB is updated, then refresh table
+            setTimeout(async () => {
+                await loadData();
+            }, 300);
         } else {
             console.error('[RESOLVE-MATCH] Error response:', result);
             const errorMsg = result.message || result.error || 'Không thể lưu';
@@ -174,7 +176,10 @@ async function skipPendingMatch(pendingMatchId, selectElement) {
 
         if (result.success) {
             showNotification('Đã bỏ qua giao dịch này', 'info');
-            loadData();
+            // Small delay to ensure DB is updated, then refresh table
+            setTimeout(async () => {
+                await loadData();
+            }, 300);
         } else {
             showNotification(`Lỗi: ${result.error || 'Không thể bỏ qua'}`, 'error');
             selectElement.disabled = false;
@@ -220,7 +225,10 @@ async function undoSkipMatch(pendingMatchId) {
 
         if (result.success) {
             showNotification('Đã hoàn tác - có thể chọn lại khách hàng', 'success');
-            loadData();
+            // Small delay to ensure DB is updated, then refresh table
+            setTimeout(async () => {
+                await loadData();
+            }, 300);
         } else {
             showNotification(`Lỗi: ${result.error || 'Không thể hoàn tác'}`, 'error');
         }
