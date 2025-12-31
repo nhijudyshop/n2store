@@ -870,10 +870,12 @@ async function processDebtUpdate(db, transactionId) {
                 console.log('[DEBT-UPDATE] QR has phone but no name, fetching from TPOS...');
 
                 try {
-                    const tposResult = await searchTPOSByPartialPhone(phone);
+                    // Use last 6 digits for TPOS search (matching existing partial phone logic)
+                    const partialForSearch = phone.slice(-6);
+                    const tposResult = await searchTPOSByPartialPhone(partialForSearch);
 
                     if (tposResult.success && tposResult.uniquePhones.length > 0) {
-                        // Find exact phone match
+                        // Find exact phone match from filtered results
                         const phoneData = tposResult.uniquePhones.find(p => p.phone === phone);
 
                         if (phoneData && phoneData.customers.length > 0) {
