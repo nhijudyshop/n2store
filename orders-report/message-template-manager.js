@@ -133,6 +133,21 @@ class MessageTemplateManager {
                             </div>
                         </div>
 
+                        <!-- API Mode Toggle (T-Page / Pancake) -->
+                        <div style="display: flex; gap: 15px; align-items: center; padding: 8px 12px; background: #f3f4f6; border-radius: 8px;">
+                            <span style="font-size: 13px; color: #6b7280; font-weight: 500;">API:</span>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+                                <input type="radio" name="apiMode" value="tpage" checked id="apiModeTPage" style="cursor: pointer;">
+                                <i class="fas fa-rocket" style="color: #10b981;"></i>
+                                <span>T-Page</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+                                <input type="radio" name="apiMode" value="pancake" id="apiModePancake" style="cursor: pointer;">
+                                <i class="fab fa-facebook-messenger" style="color: #6366f1;"></i>
+                                <span>Pancake</span>
+                            </label>
+                        </div>
+
                         <div style="display: flex; gap: 10px; align-items: center;">
                             <div id="messageProgressContainer" style="display: none; flex: 1; min-width: 200px; margin-right: 10px;">
                                 <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; color: #6b7280;">
@@ -620,6 +635,25 @@ class MessageTemplateManager {
             return;
         }
 
+        // SEND MODE - check API mode (T-Page or Pancake)
+        const apiMode = document.querySelector('input[name="apiMode"]:checked')?.value || 'tpage';
+        this.log('📤 Send mode:', apiMode);
+
+        // T-PAGE MODE - send batch via T-Page API
+        if (apiMode === 'tpage') {
+            this.log('🚀 Using T-Page API (batch mode)');
+            try {
+                await this._sendViaTPage();
+            } catch (error) {
+                this.log('❌ T-Page send failed:', error);
+                // Error already handled in _sendViaTPage
+            }
+            return;
+        }
+
+        // PANCAKE MODE - send via Pancake API (original code)
+        this.log('💬 Using Pancake API (parallel mode)');
+
         // Get send mode (text or image)
         const sendMode = document.querySelector('input[name="sendMode"]:checked')?.value || 'text';
 
@@ -826,6 +860,179 @@ class MessageTemplateManager {
 
         if (sendBtn) {
             sendBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${this.sendingState.completed}/${this.sendingState.total}`;
+        }
+    }
+
+    /**
+     * Send messages via T-Page API (batch mode)
+     * Sends all orders in a single batch request to TPOS CRMActivityCampaign API
+     */
+    async _sendViaTPage() {
+        this.log('📡 [T-PAGE] Starting T-Page batch send...');
+        this.log('  - Orders count:', this.selectedOrders.length);
+
+        try {
+            // Get employee info
+            const auth = window.authManager ? window.authManager.getAuthState() : null;
+            const displayName = auth && auth.displayName ? auth.displayName : null;
+            this.log('  - Employee:', displayName || '(Anonymous)');
+
+            // Get template content
+            const templateContent = this.selectedTemplate.BodyPlain || '';
+            this.log('  - Template:', this.selectedTemplate.Name);
+
+            // Initialize state
+            this.sendingState = {
+                isRunning: true,
+                total: this.selectedOrders.length,
+                completed: 0,
+                success: 0,
+                error: 0,
+                errors: []
+            };
+
+            // Update UI
+            this.updateProgressUI();
+            const sendBtn = document.getElementById('messageBtnSend');
+            if (sendBtn) {
+                sendBtn.disabled = true;
+                sendBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang chuẩn bị...`;
+            }
+
+            // Collect batch data
+            const orderCampaignDetails = [];
+            const successOrders = [];
+            let sttCounter = 0;
+
+            // Process each order
+            for (const order of this.selectedOrders) {
+                sttCounter++;
+                const currentSTT = sttCounter;
+
+                try {
+                    this.log(`\n[${currentSTT}/${this.sendingState.total}] Processing order: ${order.code || order.Id}`);
+
+                    // Fetch full order data with CRMTeam
+                    const fullOrderData = await this._fetchOrderWithCRMTeam(order.Id);
+
+                    // Check if CRMTeam exists
+                    if (!fullOrderData.CRMTeam) {
+                        throw new Error('Thiếu CRMTeam');
+                    }
+
+                    // Prepare order data for template
+                    const orderDataForTemplate = {
+                        Id: fullOrderData.Id,
+                        code: fullOrderData.Code,
+                        customerName: fullOrderData.Partner?.Name || fullOrderData.Name,
+                        phone: fullOrderData.Partner?.Telephone || fullOrderData.Telephone,
+                        address: fullOrderData.Partner?.Address || fullOrderData.Address,
+                        totalAmount: fullOrderData.TotalAmount,
+                        products: fullOrderData.Details?.map(detail => ({
+                            id: detail.ProductId,
+                            name: detail.ProductNameGet || detail.ProductName,
+                            quantity: detail.Quantity || 0,
+                            price: detail.Price || 0,
+                            total: (detail.Quantity || 0) * (detail.Price || 0)
+                        })) || []
+                    };
+
+                    // Replace placeholders
+                    let messageContent = this.replacePlaceholders(templateContent, orderDataForTemplate);
+
+                    // NOTE: Do NOT add employee signature for batch T-Page sending
+                    this.log('  - Message length:', messageContent.length, 'chars');
+
+                    // Add to batch
+                    orderCampaignDetails.push({
+                        rawOrder: fullOrderData,
+                        crmTeam: fullOrderData.CRMTeam,
+                        message: messageContent,
+                        stt: currentSTT
+                    });
+
+                    successOrders.push(fullOrderData.Code);
+                    this.sendingState.success++;
+                    this.log(`  ✅ Order ${currentSTT} prepared successfully`);
+
+                } catch (error) {
+                    this.sendingState.error++;
+                    this.sendingState.errors.push({
+                        stt: currentSTT,
+                        order: order.code || order.Id,
+                        error: error.message
+                    });
+                    this.log(`  ❌ Error processing order ${currentSTT}:`, error.message);
+                } finally {
+                    this.sendingState.completed++;
+                    this.updateProgressUI();
+                }
+            }
+
+            // Send batch if we have any valid orders
+            if (orderCampaignDetails.length > 0) {
+                this.log(`\n📤 Sending batch of ${orderCampaignDetails.length} orders to T-Page API...`);
+
+                if (sendBtn) {
+                    sendBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang gửi batch...`;
+                }
+
+                await this.postOrderCampaign(orderCampaignDetails);
+
+                this.log('✅ Batch sent successfully!');
+            } else {
+                this.log('⚠️ No valid orders to send');
+            }
+
+            // Finished
+            this.sendingState.isRunning = false;
+
+            // Restore UI
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';
+            }
+
+            // Hide progress
+            setTimeout(() => {
+                const container = document.getElementById('messageProgressContainer');
+                if (container) container.style.display = 'none';
+            }, 2000);
+
+            // Show summary
+            this.log('\n📊 T-Page Send Summary:');
+            this.log(`  ✅ Success: ${this.sendingState.success}/${this.sendingState.total}`);
+            this.log(`  ❌ Errors: ${this.sendingState.error}/${this.sendingState.total}`);
+
+            // Show summary modal (will implement next)
+            this.showSendSummary(
+                'tpage',
+                this.selectedTemplate.Name,
+                this.sendingState.success,
+                this.sendingState.error,
+                this.sendingState.errors,
+                successOrders
+            );
+
+        } catch (error) {
+            this.sendingState.isRunning = false;
+            this.log('❌ [T-PAGE] Fatal error:', error);
+
+            // Restore UI
+            const sendBtn = document.getElementById('messageBtnSend');
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';
+            }
+
+            if (window.notificationManager) {
+                window.notificationManager.error(
+                    `Lỗi T-Page: ${error.message}`,
+                    5000
+                );
+            }
+
+            throw error;
         }
     }
 
@@ -1370,6 +1577,51 @@ class MessageTemplateManager {
         }
     }
 
+    /**
+     * Fetch order with CRMTeam data (for T-Page sending)
+     * Used in T-Page mode to get full order + CRMTeam info
+     */
+    async _fetchOrderWithCRMTeam(orderId) {
+        this.log('🌐 [T-PAGE] Fetching order with CRMTeam for ID:', orderId);
+
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+
+            this.log('📡 API URL:', apiUrl);
+
+            const response = await fetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    'accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.log('✅ Order with CRMTeam fetched');
+            this.log('  - Order Code:', data.Code);
+            this.log('  - Partner Name:', data.Partner?.Name);
+            this.log('  - CRMTeamId:', data.CRMTeamId);
+            this.log('  - CRMTeam Name:', data.CRMTeam?.Name);
+            this.log('  - Products count:', data.Details?.length || 0);
+
+            // Check if CRMTeam exists
+            if (!data.CRMTeam) {
+                this.log('⚠️ Warning: No CRMTeam data for order', data.Code);
+            }
+
+            return data; // Return full order data with CRMTeam
+
+        } catch (error) {
+            this.log('❌ Error fetching order with CRMTeam:', error);
+            throw new Error(`Không thể tải thông tin đơn hàng: ${error.message}`);
+        }
+    }
+
     replacePlaceholders(content, orderData) {
         let result = content;
 
@@ -1568,6 +1820,142 @@ class MessageTemplateManager {
         }
     }
 
+    /**
+     * Show send summary modal with results
+     * @param {string} sendMode - 'tpage' or 'pancake'
+     * @param {string} templateName - Name of the template used
+     * @param {number} successCount - Number of successful sends
+     * @param {number} errorCount - Number of failed sends
+     * @param {Array} errors - Array of error objects {stt, order, error}
+     * @param {Array} successOrders - Array of successful order codes
+     */
+    showSendSummary(sendMode, templateName, successCount, errorCount, errors, successOrders) {
+        this.log('📊 Showing send summary...');
+        this.log('  - Mode:', sendMode);
+        this.log('  - Template:', templateName);
+        this.log('  - Success:', successCount);
+        this.log('  - Errors:', errorCount);
+
+        const total = successCount + errorCount;
+        const sendModeText = sendMode === 'tpage' ? 'T-Page' : 'Pancake';
+        const sendModeIcon = sendMode === 'tpage' ? '🚀' : '💬';
+
+        // Build error table HTML
+        let errorTableHTML = '';
+        if (errors && errors.length > 0) {
+            const errorRows = errors.map(err => `
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center;">${err.stt || '-'}</td>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb;">${this.escapeHtml(err.order || '-')}</td>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb; color: #dc2626;">${this.escapeHtml(err.error || 'Unknown error')}</td>
+                </tr>
+            `).join('');
+
+            errorTableHTML = `
+                <div style="margin-top: 20px;">
+                    <h4 style="margin: 0 0 10px 0; color: #dc2626; font-size: 14px;">
+                        <i class="fas fa-exclamation-triangle"></i> Chi tiết đơn lỗi:
+                    </h4>
+                    <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead>
+                                <tr style="background: #f9fafb;">
+                                    <th style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; width: 60px;">STT</th>
+                                    <th style="padding: 8px; border: 1px solid #e5e7eb; width: 120px;">Mã đơn</th>
+                                    <th style="padding: 8px; border: 1px solid #e5e7eb;">Lỗi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${errorRows}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Create modal HTML
+        const modalHTML = `
+            <div class="message-modal-overlay active" id="sendSummaryModal" style="z-index: 10001;">
+                <div class="message-modal" style="max-width: 600px;">
+                    <div class="message-modal-header">
+                        <h3>
+                            <i class="fas fa-chart-bar"></i>
+                            Kết quả gửi tin nhắn
+                        </h3>
+                        <button class="message-modal-close" onclick="document.getElementById('sendSummaryModal').remove(); document.body.style.overflow = 'auto';">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div style="padding: 24px;">
+                        <!-- Summary Stats -->
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+                            <div style="background: #dcfce7; padding: 16px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #16a34a;">${successCount}</div>
+                                <div style="font-size: 12px; color: #15803d; margin-top: 4px;">✅ Thành công</div>
+                            </div>
+                            <div style="background: #fee2e2; padding: 16px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #dc2626;">${errorCount}</div>
+                                <div style="font-size: 12px; color: #b91c1c; margin-top: 4px;">❌ Thất bại</div>
+                            </div>
+                            <div style="background: #e0e7ff; padding: 16px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #4f46e5;">${total}</div>
+                                <div style="font-size: 12px; color: #4338ca; margin-top: 4px;">📊 Tổng cộng</div>
+                            </div>
+                        </div>
+
+                        <!-- Details -->
+                        <div style="background: #f9fafb; padding: 12px; border-radius: 6px; font-size: 13px; margin-bottom: 16px;">
+                            <div style="margin-bottom: 6px;">
+                                <strong>Chế độ:</strong> ${sendModeIcon} ${sendModeText}
+                            </div>
+                            <div>
+                                <strong>Template:</strong> ${this.escapeHtml(templateName)}
+                            </div>
+                        </div>
+
+                        ${errorTableHTML}
+
+                        <!-- Actions -->
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                            <button
+                                onclick="document.getElementById('sendSummaryModal').remove(); document.body.style.overflow = 'auto';"
+                                style="padding: 10px 20px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;"
+                            >
+                                <i class="fas fa-check"></i> Đóng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remove existing summary modal if any
+        const existingModal = document.getElementById('sendSummaryModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Add to DOM
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Save to history
+        this.saveToHistory({
+            timestamp: new Date().toISOString(),
+            sendMode: sendMode,
+            templateName: templateName,
+            successCount: successCount,
+            errorCount: errorCount,
+            errors: errors,
+            successOrders: successOrders
+        });
+
+        // Close main modal
+        this.closeModal();
+
+        this.log('✅ Summary modal displayed');
+    }
+
     getSelectedOrdersFromTable() {
         const selectedOrders = [];
         const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]:checked');
@@ -1664,6 +2052,79 @@ class MessageTemplateManager {
         this.templates = [];
         this.filteredTemplates = [];
         await this.loadTemplates();
+    }
+
+    /**
+     * Save send history to localStorage
+     * @param {Object} historyEntry - History entry object
+     */
+    saveToHistory(historyEntry) {
+        try {
+            const HISTORY_KEY = 'messageSendHistory';
+            const MAX_HISTORY = 100; // Keep last 100 entries
+
+            // Get existing history
+            let history = [];
+            const existingHistory = localStorage.getItem(HISTORY_KEY);
+            if (existingHistory) {
+                history = JSON.parse(existingHistory);
+            }
+
+            // Add new entry at the beginning
+            history.unshift(historyEntry);
+
+            // Limit history size
+            if (history.length > MAX_HISTORY) {
+                history = history.slice(0, MAX_HISTORY);
+            }
+
+            // Save to localStorage
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+
+            this.log('💾 History saved to localStorage');
+            this.log('  - Total entries:', history.length);
+
+        } catch (error) {
+            this.log('❌ Error saving history:', error);
+        }
+    }
+
+    /**
+     * Get send history from localStorage
+     * @returns {Array} Array of history entries
+     */
+    getHistory() {
+        try {
+            const HISTORY_KEY = 'messageSendHistory';
+            const history = localStorage.getItem(HISTORY_KEY);
+            if (!history) {
+                this.log('📋 No history found');
+                return [];
+            }
+
+            const parsed = JSON.parse(history);
+            this.log('📋 History retrieved:', parsed.length, 'entries');
+            return parsed;
+
+        } catch (error) {
+            this.log('❌ Error getting history:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Clear send history from localStorage
+     */
+    clearHistory() {
+        try {
+            const HISTORY_KEY = 'messageSendHistory';
+            localStorage.removeItem(HISTORY_KEY);
+            this.log('🗑️ History cleared');
+            console.log('✅ History cleared successfully');
+
+        } catch (error) {
+            this.log('❌ Error clearing history:', error);
+        }
     }
 }
 
