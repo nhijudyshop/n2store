@@ -23,19 +23,27 @@
     function convertOrderData(fullOrderData) {
         if (!fullOrderData) return null;
 
-        return {
-            code: fullOrderData.Code || '',
-            customerName: fullOrderData.Partner?.Name || fullOrderData.Name || '',
-            phone: fullOrderData.Partner?.Telephone || fullOrderData.Telephone || '',
-            address: fullOrderData.Partner?.Address || fullOrderData.Address || '',
-            totalAmount: fullOrderData.TotalAmount || 0,
-            products: (fullOrderData.Details || []).map(detail => ({
+        // Map products (only non-held products) and calculate totals dynamically
+        const products = (fullOrderData.Details || [])
+            .filter(detail => !detail.IsHeld)  // Only include confirmed products, not held
+            .map(detail => ({
                 name: detail.ProductNameGet || detail.ProductName || 'Sản phẩm',
                 quantity: detail.Quantity || 1,
                 price: detail.Price || 0,
                 total: (detail.Quantity || 1) * (detail.Price || 0),
                 note: detail.Note || ''  // Thêm ghi chú sản phẩm
-            }))
+            }));
+
+        // Calculate totalAmount from products (not from stored TotalAmount which may be stale)
+        const calculatedTotal = products.reduce((sum, p) => sum + p.total, 0);
+
+        return {
+            code: fullOrderData.Code || '',
+            customerName: fullOrderData.Partner?.Name || fullOrderData.Name || '',
+            phone: fullOrderData.Partner?.Telephone || fullOrderData.Telephone || '',
+            address: fullOrderData.Partner?.Address || fullOrderData.Address || '',
+            totalAmount: calculatedTotal,
+            products: products
         };
     }
 
