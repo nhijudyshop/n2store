@@ -199,6 +199,9 @@ class PurchaseOrderUIComponents {
             return `<option value="${filter.id}" ${selected}>${filter.label}</option>`;
         }).join('');
 
+        // Build status filter options based on current tab
+        const statusFilterOptions = this.buildStatusFilterOptions(filters.statusFilter);
+
         container.innerHTML = `
             <div class="filter-bar">
                 <div class="filter-group">
@@ -238,6 +241,13 @@ class PurchaseOrderUIComponents {
                     </div>
                 </div>
 
+                <div class="filter-group">
+                    <label class="filter-label">Trạng thái</label>
+                    <select id="filterStatus" class="filter-select">
+                        ${statusFilterOptions}
+                    </select>
+                </div>
+
                 <div class="filter-group filter-group--actions">
                     <button id="btnClearFilters" class="btn btn-outline" title="Xóa bộ lọc">
                         <i data-lucide="x"></i>
@@ -257,6 +267,30 @@ class PurchaseOrderUIComponents {
     }
 
     /**
+     * Build status filter options
+     * @param {string|null} currentFilter - Currently selected status filter
+     * @returns {string} HTML options string
+     */
+    buildStatusFilterOptions(currentFilter) {
+        const config = window.PurchaseOrderConfig;
+
+        const options = [
+            { value: '', label: 'Tất cả trạng thái' },
+            { value: config.OrderStatus.DRAFT, label: config.STATUS_LABELS[config.OrderStatus.DRAFT] },
+            { value: config.OrderStatus.AWAITING_PURCHASE, label: config.STATUS_LABELS[config.OrderStatus.AWAITING_PURCHASE] },
+            { value: config.OrderStatus.AWAITING_DELIVERY, label: config.STATUS_LABELS[config.OrderStatus.AWAITING_DELIVERY] },
+            { value: config.OrderStatus.RECEIVED, label: config.STATUS_LABELS[config.OrderStatus.RECEIVED] },
+            { value: config.OrderStatus.COMPLETED, label: config.STATUS_LABELS[config.OrderStatus.COMPLETED] },
+            { value: config.OrderStatus.CANCELLED, label: config.STATUS_LABELS[config.OrderStatus.CANCELLED] }
+        ];
+
+        return options.map(opt => {
+            const selected = currentFilter === opt.value ? 'selected' : '';
+            return `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
+        }).join('');
+    }
+
+    /**
      * Bind filter event handlers
      * @param {HTMLElement} container
      * @param {Object} handlers
@@ -266,6 +300,7 @@ class PurchaseOrderUIComponents {
         const endDateInput = container.querySelector('#filterEndDate');
         const quickFilterSelect = container.querySelector('#filterQuick');
         const searchInput = container.querySelector('#filterSearch');
+        const statusFilterSelect = container.querySelector('#filterStatus');
         const clearBtn = container.querySelector('#btnClearFilters');
 
         if (startDateInput && handlers.onDateChange) {
@@ -296,6 +331,12 @@ class PurchaseOrderUIComponents {
             });
         }
 
+        if (statusFilterSelect && handlers.onStatusFilter) {
+            statusFilterSelect.addEventListener('change', (e) => {
+                handlers.onStatusFilter(e.target.value);
+            });
+        }
+
         if (clearBtn && handlers.onClear) {
             clearBtn.addEventListener('click', handlers.onClear);
         }
@@ -320,12 +361,12 @@ class PurchaseOrderUIComponents {
     // ========================================
 
     /**
-     * Render pagination
+     * Render pagination with page numbers
      * @param {Object} options - Pagination options
      * @param {HTMLElement} container - Container element
-     * @param {Function} onPageChange - Page change handler
+     * @param {Object} handlers - Event handlers { onPageChange, onLoadMore }
      */
-    renderPagination(options, container, onPageChange) {
+    renderPagination(options, container, handlers = {}) {
         if (!container) return;
 
         const {
@@ -335,17 +376,50 @@ class PurchaseOrderUIComponents {
             hasMore = false
         } = options;
 
-        const startItem = (currentPage - 1) * pageSize + 1;
+        // Calculate pagination info
+        const totalPages = Math.ceil(totalItems / pageSize);
+        const startItem = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
         const endItem = Math.min(currentPage * pageSize, totalItems);
+
+        // Generate page numbers (show max 5 pages)
+        const pageNumbers = this.generatePageNumbers(currentPage, totalPages, 5);
 
         container.innerHTML = `
             <div class="pagination">
                 <div class="pagination__info">
                     Hiển thị ${startItem} - ${endItem} trong ${totalItems} đơn hàng
                 </div>
-                <div class="pagination__actions">
-                    ${hasMore ? `
-                        <button id="btnLoadMore" class="btn btn-outline">
+                <div class="pagination__controls">
+                    ${totalPages > 1 ? `
+                        <button class="pagination__btn pagination__btn--prev ${currentPage <= 1 ? 'disabled' : ''}"
+                                data-page="${currentPage - 1}"
+                                ${currentPage <= 1 ? 'disabled' : ''}>
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+
+                        ${pageNumbers.map(page => {
+                            if (page === '...') {
+                                return '<span class="pagination__ellipsis">...</span>';
+                            }
+                            const isActive = page === currentPage;
+                            return `
+                                <button class="pagination__btn pagination__btn--page ${isActive ? 'active' : ''}"
+                                        data-page="${page}"
+                                        ${isActive ? 'disabled' : ''}>
+                                    ${page}
+                                </button>
+                            `;
+                        }).join('')}
+
+                        <button class="pagination__btn pagination__btn--next ${currentPage >= totalPages ? 'disabled' : ''}"
+                                data-page="${currentPage + 1}"
+                                ${currentPage >= totalPages ? 'disabled' : ''}>
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                    ` : ''}
+
+                    ${hasMore && currentPage >= totalPages ? `
+                        <button id="btnLoadMore" class="btn btn-outline btn-sm" style="margin-left: 16px;">
                             <i data-lucide="chevrons-down"></i>
                             <span>Tải thêm</span>
                         </button>
@@ -359,10 +433,88 @@ class PurchaseOrderUIComponents {
             lucide.createIcons();
         }
 
-        // Bind load more handler
+        // Bind event handlers
+        this.bindPaginationEvents(container, handlers, pageSize, totalItems);
+    }
+
+    /**
+     * Generate page numbers array for pagination display
+     * @param {number} currentPage - Current page number
+     * @param {number} totalPages - Total number of pages
+     * @param {number} maxVisible - Maximum number of visible page buttons
+     * @returns {Array} Array of page numbers and ellipsis markers
+     */
+    generatePageNumbers(currentPage, totalPages, maxVisible = 5) {
+        if (totalPages <= maxVisible) {
+            return Array.from({ length: totalPages }, (_, i) => i + 1);
+        }
+
+        const pages = [];
+        const half = Math.floor(maxVisible / 2);
+
+        let start = currentPage - half;
+        let end = currentPage + half;
+
+        if (start < 1) {
+            start = 1;
+            end = maxVisible;
+        }
+
+        if (end > totalPages) {
+            end = totalPages;
+            start = totalPages - maxVisible + 1;
+        }
+
+        // Always show first page
+        if (start > 1) {
+            pages.push(1);
+            if (start > 2) {
+                pages.push('...');
+            }
+        }
+
+        // Add middle pages
+        for (let i = start; i <= end; i++) {
+            if (i >= 1 && i <= totalPages && !pages.includes(i)) {
+                pages.push(i);
+            }
+        }
+
+        // Always show last page
+        if (end < totalPages) {
+            if (end < totalPages - 1) {
+                pages.push('...');
+            }
+            if (!pages.includes(totalPages)) {
+                pages.push(totalPages);
+            }
+        }
+
+        return pages;
+    }
+
+    /**
+     * Bind pagination event handlers
+     * @param {HTMLElement} container - Container element
+     * @param {Object} handlers - Event handlers
+     * @param {number} pageSize - Page size
+     * @param {number} totalItems - Total items
+     */
+    bindPaginationEvents(container, handlers, pageSize, totalItems) {
+        // Page buttons
+        container.querySelectorAll('.pagination__btn[data-page]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const page = parseInt(btn.dataset.page, 10);
+                if (!isNaN(page) && handlers.onPageChange) {
+                    handlers.onPageChange(page);
+                }
+            });
+        });
+
+        // Load more button
         const loadMoreBtn = container.querySelector('#btnLoadMore');
-        if (loadMoreBtn && onPageChange) {
-            loadMoreBtn.addEventListener('click', onPageChange);
+        if (loadMoreBtn && handlers.onLoadMore) {
+            loadMoreBtn.addEventListener('click', handlers.onLoadMore);
         }
     }
 

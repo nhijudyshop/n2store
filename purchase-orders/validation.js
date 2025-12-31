@@ -459,6 +459,7 @@ function validateCanEdit(order) {
 
 /**
  * Validate order can be deleted
+ * Only DRAFT and CANCELLED orders can be deleted
  * @param {Object} order - Order data
  * @returns {Object} { canDelete: boolean, error: string|null }
  */
@@ -466,7 +467,11 @@ function validateCanDelete(order) {
     const config = window.PurchaseOrderConfig;
 
     if (!config.canDeleteOrder(order.status)) {
-        return { canDelete: false, error: VALIDATION_MESSAGES.DELETE_COMPLETED_FORBIDDEN };
+        const statusLabel = config.STATUS_LABELS[order.status] || order.status;
+        return {
+            canDelete: false,
+            error: `Không thể xóa đơn hàng ở trạng thái "${statusLabel}". Chỉ có thể xóa đơn Nháp hoặc Đã hủy.`
+        };
     }
 
     return { canDelete: true, error: null };

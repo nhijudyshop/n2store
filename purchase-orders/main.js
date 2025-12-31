@@ -163,6 +163,14 @@ class PurchaseOrderController {
                 this.updateSelectionUI(selectedIds);
             })
         );
+
+        // Page changed
+        this.unsubscribers.push(
+            this.dataManager.on('pageChange', (paginationInfo) => {
+                this.renderPagination(paginationInfo);
+                this.renderTableForCurrentPage();
+            })
+        );
     }
 
     /**
@@ -206,6 +214,7 @@ class PurchaseOrderController {
             onDateChange: (start, end) => this.dataManager.setDateRange(start, end),
             onQuickFilter: (filter) => this.dataManager.setQuickFilter(filter),
             onSearch: (term) => this.dataManager.setSearchTerm(term),
+            onStatusFilter: (status) => this.dataManager.setStatusFilter(status),
             onClear: () => this.dataManager.clearFilters()
         });
     }
@@ -225,20 +234,60 @@ class PurchaseOrderController {
             this.ui.renderEmptyState(this.elements.tableContainer, () => {
                 this.handleCreateOrder();
             });
+            // Clear pagination
+            if (this.elements.paginationContainer) {
+                this.elements.paginationContainer.innerHTML = '';
+            }
             return;
         }
 
-        this.tableRenderer.render(orders, this.dataManager.selectedIds);
+        // Render current page of orders
+        this.renderTableForCurrentPage();
 
         // Render pagination
-        this.ui.renderPagination({
-            currentPage: 1,
+        this.renderPagination({
+            currentPage: this.dataManager.currentPage,
             totalItems: orders.length,
-            pageSize: this.config.PAGINATION_CONFIG.pageSize,
-            hasMore: this.dataManager.hasMore
-        }, this.elements.paginationContainer, () => {
-            this.dataManager.loadMore();
+            pageSize: this.config.PAGINATION_CONFIG.pageSize
         });
+    }
+
+    /**
+     * Render table for current page
+     */
+    renderTableForCurrentPage() {
+        const pageOrders = this.dataManager.getCurrentPageOrders();
+        this.tableRenderer.render(pageOrders, this.dataManager.selectedIds);
+    }
+
+    /**
+     * Render pagination controls
+     * @param {Object} paginationInfo - Pagination info
+     */
+    renderPagination(paginationInfo) {
+        const info = paginationInfo || {
+            currentPage: this.dataManager.currentPage,
+            totalItems: this.dataManager.orders.length,
+            pageSize: this.config.PAGINATION_CONFIG.pageSize
+        };
+
+        this.ui.renderPagination({
+            currentPage: info.currentPage,
+            totalItems: info.totalItems,
+            pageSize: info.pageSize,
+            hasMore: this.dataManager.hasMore
+        }, this.elements.paginationContainer, {
+            onPageChange: (page) => this.handlePageChange(page),
+            onLoadMore: () => this.dataManager.loadMore()
+        });
+    }
+
+    /**
+     * Handle page change
+     * @param {number} page - Target page number
+     */
+    handlePageChange(page) {
+        this.dataManager.setCurrentPage(page);
     }
 
     /**

@@ -134,11 +134,12 @@ function canEditOrder(status) {
 
 /**
  * Check if order can be deleted
+ * Only DRAFT and CANCELLED orders can be deleted (matches Firestore rules)
  * @param {string} status - Order status
  * @returns {boolean}
  */
 function canDeleteOrder(status) {
-    return status !== OrderStatus.COMPLETED;
+    return status === OrderStatus.DRAFT || status === OrderStatus.CANCELLED;
 }
 
 /**
