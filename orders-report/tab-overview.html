@@ -6309,7 +6309,7 @@
                 // Detect campaign name from first order (for backward compatibility)
                 if (allOrders.length > 0) {
                     const rawCampaign = allOrders[0].LiveCampaignName || allOrders[0].liveCampaignName || 'Unknown';
-                    currentCampaignName = rawCampaign.replace(/[.$#\[\]]/g, '_').trim();
+                    currentCampaignName = rawCampaign.replace(/[.$#\[\]\/]/g, '_').trim();
                     console.log('[REPORT] Current campaign:', currentCampaignName);
                 }
 
