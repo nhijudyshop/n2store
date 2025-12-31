@@ -2334,11 +2334,11 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
             [uniqueCode, selectedCustomer.name, selectedCustomer.phone]
         );
 
-        // 5. Mark transaction as processed
+        // 5. Update transaction with new unique_code AND mark as processed
         const amount = parseInt(match.transfer_amount) || 0;
         await db.query(
-            `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
-            [match.transaction_id]
+            `UPDATE balance_history SET unique_code = $2, debt_added = TRUE WHERE id = $1`,
+            [match.transaction_id, uniqueCode]
         );
 
         // 7. Update pending match status
