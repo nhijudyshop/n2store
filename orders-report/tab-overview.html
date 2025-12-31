@@ -3918,6 +3918,32 @@
         // =====================================================
 
         /**
+         * Helper function to convert Firebase object to array if needed
+         */
+        function normalizeEmployeeRanges(data) {
+            if (!data) return [];
+
+            // If already an array, return it
+            if (Array.isArray(data)) {
+                return data;
+            }
+
+            // If it's an object, convert to array
+            if (typeof data === 'object') {
+                const result = [];
+                // Get all numeric keys and sort them
+                const keys = Object.keys(data).filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
+                for (const key of keys) {
+                    result.push(data[key]);
+                }
+                console.log(`[REPORT] Converted object with ${keys.length} keys to array`);
+                return result;
+            }
+
+            return [];
+        }
+
+        /**
          * Load employee ranges from Firebase
          */
         async function loadEmployeeRanges() {
@@ -3929,7 +3955,7 @@
                     const safeName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
                     const campaignSnapshot = await database.ref(`settings/employee_ranges_by_campaign/${safeName}`).once('value');
                     if (campaignSnapshot.exists()) {
-                        employeeRanges = campaignSnapshot.val() || [];
+                        employeeRanges = normalizeEmployeeRanges(campaignSnapshot.val());
                         console.log('[REPORT] ✅ Loaded campaign-specific employee ranges:', employeeRanges.length);
                         return;
                     }
@@ -3937,7 +3963,7 @@
 
                 // Fallback to general
                 const snapshot = await database.ref(EMPLOYEE_RANGES_PATH).once('value');
-                employeeRanges = snapshot.val() || [];
+                employeeRanges = normalizeEmployeeRanges(snapshot.val());
                 console.log('[REPORT] ✅ Loaded general employee ranges:', employeeRanges.length);
             } catch (error) {
                 console.error('[REPORT] ❌ Error loading employee ranges:', error);

@@ -1473,6 +1473,30 @@ function checkAdminPermission() {
     }
 }
 
+// Helper function to convert Firebase object to array if needed
+function normalizeEmployeeRanges(data) {
+    if (!data) return [];
+
+    // If already an array, return it
+    if (Array.isArray(data)) {
+        return data;
+    }
+
+    // If it's an object, convert to array
+    if (typeof data === 'object') {
+        const result = [];
+        // Get all numeric keys and sort them
+        const keys = Object.keys(data).filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
+        for (const key of keys) {
+            result.push(data[key]);
+        }
+        console.log(`[EMPLOYEE] Converted object with ${keys.length} keys to array`);
+        return result;
+    }
+
+    return [];
+}
+
 function loadEmployeeRangesForCampaign(campaignName = null) {
     if (!database) {
         console.log('[EMPLOYEE] Database not initialized');
@@ -1488,16 +1512,17 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
             .then((snapshot) => {
                 const allCampaignRanges = snapshot.val() || {};
                 const data = allCampaignRanges[sanitizedName];
+                const normalized = normalizeEmployeeRanges(data);
 
-                if (data && data.length > 0) {
-                    employeeRanges = data;
+                if (normalized.length > 0) {
+                    employeeRanges = normalized;
                     console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`);
                 } else {
                     // If no campaign-specific ranges found, fall back to general config
                     console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
                     return database.ref('settings/employee_ranges').once('value')
                         .then((snapshot) => {
-                            employeeRanges = snapshot.val() || [];
+                            employeeRanges = normalizeEmployeeRanges(snapshot.val());
                             console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`);
                         });
                 }
@@ -1517,7 +1542,7 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
 
         return database.ref('settings/employee_ranges').once('value')
             .then((snapshot) => {
-                employeeRanges = snapshot.val() || [];
+                employeeRanges = normalizeEmployeeRanges(snapshot.val());
                 console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config`);
 
                 // Update employee table if drawer is open
@@ -1538,7 +1563,7 @@ function syncEmployeeRanges() {
     const rangesRef = database.ref('settings/employee_ranges');
     rangesRef.on('value', (snapshot) => {
         const data = snapshot.val();
-        employeeRanges = data || [];
+        employeeRanges = normalizeEmployeeRanges(data);
         console.log(`[EMPLOYEE] Synced ${employeeRanges.length} ranges from Firebase`);
 
         // Re-apply filter to current view
