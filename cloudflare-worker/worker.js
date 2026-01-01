@@ -1228,6 +1228,70 @@ export default {
         }
       }
 
+      // ========== TPOS LIVE CAMPAIGN API (for Orders Report) ==========
+      // GET /api/odata/SaleOnline_LiveCampaign?$filter=contains(Name,'30/12/2025')
+      // Returns list of campaigns matching the date filter
+      if (pathname === '/api/odata/SaleOnline_LiveCampaign' && request.method === 'GET') {
+        const targetUrl = `https://tomato.tpos.vn/odata/SaleOnline_LiveCampaign${url.search}`;
+
+        console.log('[TPOS-LIVE-CAMPAIGN] ========================================');
+        console.log('[TPOS-LIVE-CAMPAIGN] Proxying to TPOS:', targetUrl);
+
+        // Build headers giống request từ browser
+        const tposHeaders = new Headers();
+
+        // Copy Authorization header from original request
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          tposHeaders.set('Authorization', authHeader);
+        }
+
+        // Set headers theo request thành công
+        tposHeaders.set('Accept', 'application/json, text/javascript, */*; q=0.01');
+        tposHeaders.set('Accept-Language', 'vi-VN,vi;q=0.9,en-US;q=0.6,en;q=0.5');
+        tposHeaders.set('Cache-Control', 'no-cache');
+        tposHeaders.set('Pragma', 'no-cache');
+        tposHeaders.set('Origin', 'https://tomato.tpos.vn');
+        tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
+        tposHeaders.set('tposappversion', '5.12.29.1');
+        tposHeaders.set('x-requested-with', 'XMLHttpRequest');
+        tposHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+
+        try {
+          const tposResponse = await fetch(targetUrl, {
+            method: 'GET',
+            headers: tposHeaders,
+          });
+
+          console.log('[TPOS-LIVE-CAMPAIGN] TPOS Response status:', tposResponse.status);
+          console.log('[TPOS-LIVE-CAMPAIGN] ========================================');
+
+          // Clone response and add CORS headers
+          const responseBody = await tposResponse.text();
+          return new Response(responseBody, {
+            status: tposResponse.status,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization, tposappversion',
+            },
+          });
+        } catch (error) {
+          console.error('[TPOS-LIVE-CAMPAIGN] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Failed to fetch live campaigns from TPOS',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
       let isTPOSRequest = false;
