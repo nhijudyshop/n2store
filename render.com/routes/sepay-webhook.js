@@ -237,13 +237,14 @@ router.post('/webhook', async (req, res) => {
                 const debtResult = await processDebtUpdate(db, insertedId);
                 console.log('[SEPAY-WEBHOOK] Debt update result:', debtResult);
 
-                // Broadcast customer-info-updated if phone match was successful
-                // This allows frontend to update customer info without F5
+                // Broadcast updates based on debt result
+                // This allows frontend to update without F5
                 if (debtResult.success) {
                     const customerPhone = debtResult.phone || debtResult.linkedPhone || debtResult.fullPhone;
                     const customerName = debtResult.customerName;
 
                     if (customerPhone || customerName) {
+                        // Case 1: Single match - broadcast customer info
                         broadcastBalanceUpdate(req.app, 'customer-info-updated', {
                             transaction_id: insertedId,
                             customer_phone: customerPhone || null,
@@ -251,6 +252,14 @@ router.post('/webhook', async (req, res) => {
                             match_method: debtResult.method // 'qr_code', 'exact_phone', 'single_match'
                         });
                         console.log('[SEPAY-WEBHOOK] Broadcasted customer-info-updated for transaction:', insertedId);
+                    } else if (debtResult.method === 'pending_match_created') {
+                        // Case 2: Multiple phones found - broadcast pending match
+                        broadcastBalanceUpdate(req.app, 'pending-match-created', {
+                            transaction_id: insertedId,
+                            partial_phone: debtResult.partialPhone,
+                            unique_phones_count: debtResult.uniquePhonesCount
+                        });
+                        console.log('[SEPAY-WEBHOOK] Broadcasted pending-match-created for transaction:', insertedId);
                     }
                 }
             } catch (debtError) {
