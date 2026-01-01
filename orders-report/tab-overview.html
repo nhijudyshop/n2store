@@ -3686,8 +3686,87 @@
         }
 
         /**
-         * Get all campaignIds for the current session
-         * @returns {Promise<Array<{id: string, name: string, displayName: string}>>} - List of campaigns
+         * Extract date (dd/mm/yyyy) from campaign name
+         * @param {string} campaignName - e.g., "Live 30/12/2025", "Session 01/01/2026 Morning"
+         * @returns {string|null} - Date string like "30/12/2025" or null if not found
+         */
+        function extractDateFromCampaignName(campaignName) {
+            if (!campaignName) return null;
+            // Match pattern: dd/mm/yyyy (1-2 digits for day/month, 4 digits for year)
+            const match = campaignName.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+            return match ? match[1] : null;
+        }
+
+        /**
+         * Fetch campaigns from TPOS OData API by date filter
+         * @param {string} dateFilter - Date string like "30/12/2025"
+         * @returns {Promise<Array<{id: number, name: string}>>} - List of campaigns from TPOS
+         */
+        async function fetchCampaignsFromTPOS(dateFilter) {
+            const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+            // Get token from parent window's tokenManager
+            let token;
+            try {
+                if (window.parent?.tokenManager) {
+                    token = await window.parent.tokenManager.getToken();
+                } else if (window.tokenManager) {
+                    token = await window.tokenManager.getToken();
+                } else {
+                    throw new Error('tokenManager not found');
+                }
+            } catch (error) {
+                console.error('[REPORT] ❌ Error getting token:', error);
+                throw new Error('Could not get authentication token');
+            }
+
+            // Build OData URL with filter
+            // Encode date for URL (30/12/2025 → 30%2F12%2F2025)
+            const dateEncoded = encodeURIComponent(dateFilter);
+            const url = `${WORKER_URL}/api/odata/SaleOnline_LiveCampaign?` +
+                `$top=20&` +
+                `$orderby=DateCreated+desc&` +
+                `$filter=contains(Name%2C%27${dateEncoded}%27)&` +
+                `$count=true`;
+
+            console.log(`[REPORT] 📡 Fetching campaigns from TPOS with date filter: ${dateFilter}`);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                    'tposappversion': '5.12.29.1'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`TPOS OData API error: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // Map response to campaign objects
+            const campaigns = (data.value || []).map(c => ({
+                id: c.Id,           // TPOS Campaign ID (number)
+                name: c.Name,       // Campaign name
+                dateCreated: c.DateCreated
+            }));
+
+            console.log(`[REPORT] ✅ Found ${campaigns.length} campaigns from TPOS for date ${dateFilter}:`,
+                campaigns.map(c => `${c.name} (ID: ${c.id})`));
+
+            return campaigns;
+        }
+
+        /**
+         * Get all campaignIds for the current session from TPOS API
+         * Flow:
+         * 1. Get active campaign name from Tab1
+         * 2. Extract date (dd/mm/yyyy) from campaign name
+         * 3. Call TPOS OData API to get all campaigns with same date in name
+         * 4. Return campaign list with TPOS IDs
+         * @returns {Promise<Array<{id: number, name: string}>>} - List of campaigns
          */
         async function getCurrentSessionCampaigns() {
             // First, try to get from cached data
@@ -3701,7 +3780,6 @@
                 return [];
             }
 
-            const allCampaigns = campaignInfoFromTab1.allCampaigns || {};
             const activeCampaign = campaignInfoFromTab1.activeCampaign;
 
             if (!activeCampaign) {
@@ -3709,34 +3787,34 @@
                 return [];
             }
 
-            // Get the date of the active campaign
-            const activeDate = activeCampaign.customStartDate?.split('T')[0];
-            if (!activeDate) {
-                console.log('[REPORT] No customStartDate found, returning only active campaign');
-                return [{
-                    id: activeCampaign.id,
-                    name: activeCampaign.name,
-                    displayName: activeCampaign.displayName || activeCampaign.name
-                }];
-            }
+            // Step 1: Extract date from active campaign name
+            const dateFilter = extractDateFromCampaignName(activeCampaign.name);
 
-            // Find all campaigns with the same date
-            const sameDayCampaigns = [];
-            for (const [id, campaign] of Object.entries(allCampaigns)) {
-                const campaignDate = campaign.customStartDate?.split('T')[0];
-                if (campaignDate === activeDate) {
-                    sameDayCampaigns.push({
-                        id: id,
-                        name: campaign.name,
-                        displayName: campaign.displayName || campaign.name
-                    });
+            if (!dateFilter) {
+                console.warn('[REPORT] ⚠️ Could not extract date from campaign name:', activeCampaign.name);
+                // Fallback: try to use customStartDate if available
+                const fallbackDate = activeCampaign.customStartDate?.split('T')[0];
+                if (fallbackDate) {
+                    // Convert YYYY-MM-DD to DD/MM/YYYY
+                    const [year, month, day] = fallbackDate.split('-');
+                    const convertedDate = `${day}/${month}/${year}`;
+                    console.log(`[REPORT] Using fallback date from customStartDate: ${convertedDate}`);
+                    return await fetchCampaignsFromTPOS(convertedDate);
                 }
+                console.error('[REPORT] ❌ No date available for campaign lookup');
+                return [];
             }
 
-            console.log(`[REPORT] 📊 Found ${sameDayCampaigns.length} campaigns for date ${activeDate}:`,
-                sameDayCampaigns.map(c => c.name));
+            console.log(`[REPORT] 📅 Extracted date from campaign name: ${dateFilter}`);
 
-            return sameDayCampaigns;
+            // Step 2: Fetch campaigns from TPOS API
+            try {
+                const campaigns = await fetchCampaignsFromTPOS(dateFilter);
+                return campaigns;
+            } catch (error) {
+                console.error('[REPORT] ❌ Error fetching campaigns from TPOS:', error);
+                return [];
+            }
         }
 
         /**

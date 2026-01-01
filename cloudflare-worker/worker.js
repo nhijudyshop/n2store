@@ -1228,6 +1228,77 @@ export default {
         }
       }
 
+      // ========== TPOS ODATA API (SaleOnline_LiveCampaign, etc.) ==========
+      // GET /api/odata/SaleOnline_LiveCampaign?$filter=contains(Name,'30/12/2025')&$top=20&$orderby=DateCreated desc
+      // Used for fetching campaign list by date filter
+      if (pathname.startsWith('/api/odata/')) {
+        const odataPath = pathname.replace(/^\/api\/odata\//, '');
+        const targetUrl = `https://tomato.tpos.vn/odata/${odataPath}${url.search}`;
+
+        console.log('[TPOS-ODATA] ========================================');
+        console.log('[TPOS-ODATA] Proxying to TPOS:', targetUrl);
+
+        // Build headers for TPOS OData API
+        const tposHeaders = new Headers();
+
+        // Copy Authorization header from original request
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          tposHeaders.set('Authorization', authHeader);
+        }
+
+        // Set required headers for TPOS OData (matching browser request)
+        tposHeaders.set('Accept', 'application/json, text/javascript, */*; q=0.01');
+        tposHeaders.set('Accept-Language', 'vi-VN,vi;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6,en;q=0.5');
+        tposHeaders.set('Cache-Control', 'no-cache');
+        tposHeaders.set('Pragma', 'no-cache');
+        tposHeaders.set('tposappversion', '5.12.29.1');
+        tposHeaders.set('x-requested-with', 'XMLHttpRequest');
+        tposHeaders.set('Origin', 'https://tomato.tpos.vn');
+        tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
+        tposHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+        tposHeaders.set('sec-ch-ua', '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"');
+        tposHeaders.set('sec-ch-ua-mobile', '?0');
+        tposHeaders.set('sec-ch-ua-platform', '"Windows"');
+        tposHeaders.set('sec-fetch-dest', 'empty');
+        tposHeaders.set('sec-fetch-mode', 'cors');
+        tposHeaders.set('sec-fetch-site', 'same-origin');
+
+        try {
+          const odataResponse = await fetch(targetUrl, {
+            method: request.method,
+            headers: tposHeaders,
+            body: request.method !== 'GET' && request.method !== 'HEAD'
+              ? await request.arrayBuffer()
+              : null,
+          });
+
+          console.log('[TPOS-ODATA] Response status:', odataResponse.status);
+          console.log('[TPOS-ODATA] ========================================');
+
+          // Clone response and add CORS headers
+          const newResponse = new Response(odataResponse.body, odataResponse);
+          newResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+          newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, tposappversion, x-tpos-lang, x-requested-with');
+
+          return newResponse;
+
+        } catch (error) {
+          console.error('[TPOS-ODATA] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'TPOS OData API failed',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
       let isTPOSRequest = false;
