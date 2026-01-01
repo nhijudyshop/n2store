@@ -239,6 +239,15 @@ router.post('/webhook', async (req, res) => {
 
                 // Broadcast updates based on debt result
                 // This allows frontend to update without F5
+                console.log('[SEPAY-WEBHOOK] Debt result details:', JSON.stringify({
+                    success: debtResult.success,
+                    method: debtResult.method,
+                    hasPhone: !!(debtResult.phone || debtResult.linkedPhone || debtResult.fullPhone),
+                    hasName: !!debtResult.customerName,
+                    partialPhone: debtResult.partialPhone,
+                    uniquePhonesCount: debtResult.uniquePhonesCount
+                }));
+
                 if (debtResult.success) {
                     const customerPhone = debtResult.phone || debtResult.linkedPhone || debtResult.fullPhone;
                     const customerName = debtResult.customerName;
@@ -249,9 +258,9 @@ router.post('/webhook', async (req, res) => {
                             transaction_id: insertedId,
                             customer_phone: customerPhone || null,
                             customer_name: customerName || null,
-                            match_method: debtResult.method // 'qr_code', 'exact_phone', 'single_match'
+                            match_method: debtResult.method
                         });
-                        console.log('[SEPAY-WEBHOOK] Broadcasted customer-info-updated for transaction:', insertedId);
+                        console.log('[SEPAY-WEBHOOK] ✅ Broadcasted customer-info-updated for transaction:', insertedId);
                     } else if (debtResult.method === 'pending_match_created') {
                         // Case 2: Multiple phones found - broadcast pending match
                         broadcastBalanceUpdate(req.app, 'pending-match-created', {
@@ -259,8 +268,12 @@ router.post('/webhook', async (req, res) => {
                             partial_phone: debtResult.partialPhone,
                             unique_phones_count: debtResult.uniquePhonesCount
                         });
-                        console.log('[SEPAY-WEBHOOK] Broadcasted pending-match-created for transaction:', insertedId);
+                        console.log('[SEPAY-WEBHOOK] ✅ Broadcasted pending-match-created for transaction:', insertedId);
+                    } else {
+                        console.log('[SEPAY-WEBHOOK] ⚠️ No broadcast needed - method:', debtResult.method);
                     }
+                } else {
+                    console.log('[SEPAY-WEBHOOK] ⚠️ Debt result not successful:', debtResult.reason);
                 }
             } catch (debtError) {
                 console.error('[SEPAY-WEBHOOK] Debt update error (non-critical):', debtError.message);
