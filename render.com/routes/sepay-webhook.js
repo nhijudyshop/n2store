@@ -236,6 +236,23 @@ router.post('/webhook', async (req, res) => {
             try {
                 const debtResult = await processDebtUpdate(db, insertedId);
                 console.log('[SEPAY-WEBHOOK] Debt update result:', debtResult);
+
+                // Broadcast customer-info-updated if phone match was successful
+                // This allows frontend to update customer info without F5
+                if (debtResult.success) {
+                    const customerPhone = debtResult.phone || debtResult.linkedPhone || debtResult.fullPhone;
+                    const customerName = debtResult.customerName;
+
+                    if (customerPhone || customerName) {
+                        broadcastBalanceUpdate(req.app, 'customer-info-updated', {
+                            transaction_id: insertedId,
+                            customer_phone: customerPhone || null,
+                            customer_name: customerName || null,
+                            match_method: debtResult.method // 'qr_code', 'exact_phone', 'single_match'
+                        });
+                        console.log('[SEPAY-WEBHOOK] Broadcasted customer-info-updated for transaction:', insertedId);
+                    }
+                }
             } catch (debtError) {
                 console.error('[SEPAY-WEBHOOK] Debt update error (non-critical):', debtError.message);
             }

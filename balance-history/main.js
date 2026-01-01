@@ -1593,6 +1593,14 @@ function connectRealtimeUpdates() {
             handleNewTransaction(transaction);
         });
 
+        // Customer info updated (phone match completed after transaction)
+        eventSource.addEventListener('customer-info-updated', (e) => {
+            const data = JSON.parse(e.data);
+            console.log('[REALTIME] Customer info updated:', data);
+
+            handleCustomerInfoUpdated(data);
+        });
+
         // Connection error
         eventSource.onerror = (error) => {
             console.error('[REALTIME] SSE Error:', error);
@@ -1652,6 +1660,28 @@ async function handleNewTransaction(transaction) {
     } else {
         // Show a notification that there's new data
         showNewDataBanner();
+    }
+}
+
+// Handle customer info updated from SSE (phone match completed)
+async function handleCustomerInfoUpdated(data) {
+    console.log('[REALTIME] Processing customer-info-updated:', data);
+
+    // Update CustomerInfoManager with new data if phone exists
+    if (window.CustomerInfoManager && data.customer_phone) {
+        const uniqueCode = `PHONE${data.customer_phone}`;
+        window.CustomerInfoManager.saveCustomerInfo(uniqueCode, {
+            name: data.customer_name || null,
+            phone: data.customer_phone
+        });
+        console.log('[REALTIME] Updated CustomerInfoManager for:', uniqueCode);
+    }
+
+    // Reload data to reflect customer info changes
+    // Only reload if on first page to avoid disrupting pagination
+    if (currentPage === 1) {
+        console.log('[REALTIME] Reloading data to show updated customer info...');
+        loadData();
     }
 }
 
