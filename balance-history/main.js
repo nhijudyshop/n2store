@@ -1570,6 +1570,21 @@ window.saveQRCustomerInfo = saveQRCustomerInfo;
 let eventSource = null;
 let reconnectTimeout = null;
 let isManualClose = false;
+let sseReloadDebounceTimer = null;
+
+// Debounced reload to prevent race conditions when multiple SSE events arrive
+function debouncedReloadData(delay = 300) {
+    if (sseReloadDebounceTimer) {
+        clearTimeout(sseReloadDebounceTimer);
+    }
+    sseReloadDebounceTimer = setTimeout(() => {
+        console.log('[REALTIME] Debounced reload executing...');
+        if (currentPage === 1) {
+            loadData();
+        }
+        sseReloadDebounceTimer = null;
+    }, delay);
+}
 
 // Connect to SSE endpoint for realtime updates
 function connectRealtimeUpdates() {
@@ -1685,24 +1700,18 @@ async function handleCustomerInfoUpdated(data) {
         console.log('[REALTIME] Updated CustomerInfoManager for:', uniqueCode);
     }
 
-    // Reload data to reflect customer info changes
-    // Only reload if on first page to avoid disrupting pagination
-    if (currentPage === 1) {
-        console.log('[REALTIME] Reloading data to show updated customer info...');
-        loadData();
-    }
+    // Use debounced reload to prevent race conditions
+    console.log('[REALTIME] Scheduling debounced reload for customer info update...');
+    debouncedReloadData(500);
 }
 
 // Handle pending match created from SSE (multiple phones found, need user selection)
 async function handlePendingMatchCreated(data) {
     console.log('[REALTIME] Processing pending-match-created:', data);
 
-    // Reload data to show the dropdown selector for pending match
-    // Only reload if on first page to avoid disrupting pagination
-    if (currentPage === 1) {
-        console.log('[REALTIME] Reloading data to show pending match dropdown...');
-        loadData();
-    }
+    // Use debounced reload to show the dropdown selector
+    console.log('[REALTIME] Scheduling debounced reload for pending match...');
+    debouncedReloadData(500);
 }
 
 // Check if transaction matches current filters
