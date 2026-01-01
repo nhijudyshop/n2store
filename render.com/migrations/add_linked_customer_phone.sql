@@ -49,7 +49,7 @@ WHERE bh.linked_customer_phone IS NULL
   AND LENGTH(bci.customer_phone) = 10
   AND bh.content LIKE '%' || bci.customer_phone || '%';
 
--- Backfill from resolved pending matches
+-- Backfill from resolved pending matches (only if resolution_notes is valid JSON)
 UPDATE balance_history bh
 SET linked_customer_phone = (pcm.resolution_notes::jsonb->>'phone')
 FROM pending_customer_matches pcm
@@ -58,7 +58,9 @@ WHERE bh.linked_customer_phone IS NULL
   AND pcm.transaction_id = bh.id
   AND pcm.status = 'resolved'
   AND pcm.resolution_notes IS NOT NULL
-  AND pcm.resolution_notes != '';
+  AND pcm.resolution_notes != ''
+  AND pcm.resolution_notes LIKE '{%'  -- Only process valid JSON (starts with {)
+  AND (pcm.resolution_notes::jsonb->>'phone') IS NOT NULL;
 
 -- Log results
 DO $$

@@ -1281,8 +1281,8 @@ router.get('/debt-summary', async (req, res) => {
 
         console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
 
-        // NEW SIMPLE LOGIC: Query directly by linked_customer_phone
-        // This ensures 1 transaction belongs to exactly 1 customer
+        // HYBRID LOGIC: Query by linked_customer_phone + fallback for legacy data
+        // This ensures accurate debt for new transactions while supporting old data
         const txQuery = `
             SELECT
                 id,
@@ -1293,12 +1293,27 @@ router.get('/debt-summary', async (req, res) => {
                 linked_customer_phone
             FROM balance_history
             WHERE transfer_type = 'in'
-              AND linked_customer_phone = $1
+              AND (
+                -- New transactions: exact match on linked_customer_phone
+                linked_customer_phone = $1
+                OR
+                -- Legacy transactions: QR code match (via balance_customer_info)
+                (linked_customer_phone IS NULL AND debt_added = TRUE AND EXISTS (
+                    SELECT 1 FROM balance_customer_info bci
+                    WHERE bci.customer_phone = $1
+                    AND bci.unique_code ~* '^N2[A-Z0-9]{16}$'
+                    AND balance_history.content ~* bci.unique_code
+                ))
+                OR
+                -- Legacy transactions: FULL phone in content (10 digits)
+                (linked_customer_phone IS NULL AND debt_added = TRUE
+                 AND content LIKE '%' || $1 || '%')
+              )
             ORDER BY transaction_date DESC
             LIMIT 100
         `;
 
-        console.log('[DEBT-SUMMARY] Query by linked_customer_phone:', normalizedPhone);
+        console.log('[DEBT-SUMMARY] Query by linked_customer_phone + fallback:', normalizedPhone);
 
         const txResult = await db.query(txQuery, [normalizedPhone]);
         const transactions = txResult.rows;
@@ -1391,12 +1406,13 @@ router.post('/debt-summary-batch', async (req, res) => {
             return res.json({ success: true, data: {} });
         }
 
-        // NEW SIMPLE LOGIC: Query directly by linked_customer_phone
-        // This ensures 1 transaction belongs to exactly 1 customer
+        // HYBRID LOGIC: Query linked_customer_phone + fallback for legacy data
         const phonePlaceholders = uniquePhones.map((_, i) => `$${i + 1}`).join(', ');
-        const txQuery = `
+
+        // Step 1: Query by linked_customer_phone (new transactions)
+        const linkedQuery = `
             SELECT
-                linked_customer_phone,
+                linked_customer_phone as phone,
                 SUM(transfer_amount) as total_amount,
                 COUNT(*) as transaction_count
             FROM balance_history
@@ -1404,19 +1420,77 @@ router.post('/debt-summary-batch', async (req, res) => {
               AND linked_customer_phone IN (${phonePlaceholders})
             GROUP BY linked_customer_phone
         `;
+        const linkedResult = await db.query(linkedQuery, uniquePhones);
 
-        const txResult = await db.query(txQuery, uniquePhones);
+        // Step 2: Query legacy transactions (QR code match via balance_customer_info)
+        const legacyQRQuery = `
+            SELECT
+                bci.customer_phone as phone,
+                SUM(bh.transfer_amount) as total_amount,
+                COUNT(*) as transaction_count
+            FROM balance_history bh
+            JOIN balance_customer_info bci ON (
+                bci.unique_code ~* '^N2[A-Z0-9]{16}$'
+                AND bh.content ~* bci.unique_code
+            )
+            WHERE bh.transfer_type = 'in'
+              AND bh.debt_added = TRUE
+              AND bh.linked_customer_phone IS NULL
+              AND bci.customer_phone IN (${phonePlaceholders})
+            GROUP BY bci.customer_phone
+        `;
+        const legacyQRResult = await db.query(legacyQRQuery, uniquePhones);
 
-        // Build result map from query
+        // Step 3: Query legacy transactions (FULL phone in content)
+        const legacyPhoneQuery = `
+            SELECT
+                $1 as phone,
+                SUM(transfer_amount) as total_amount,
+                COUNT(*) as transaction_count
+            FROM balance_history
+            WHERE transfer_type = 'in'
+              AND debt_added = TRUE
+              AND linked_customer_phone IS NULL
+              AND content LIKE '%' || $1 || '%'
+        `;
+
+        // Build result map combining all sources
         const debtMap = {};
-        txResult.rows.forEach(row => {
-            if (row.linked_customer_phone) {
-                debtMap[row.linked_customer_phone] = {
+
+        // Add linked results
+        linkedResult.rows.forEach(row => {
+            if (row.phone) {
+                debtMap[row.phone] = {
                     total_debt: parseInt(row.total_amount) || 0,
                     transaction_count: parseInt(row.transaction_count) || 0
                 };
             }
         });
+
+        // Add legacy QR results (merge with existing)
+        legacyQRResult.rows.forEach(row => {
+            if (row.phone) {
+                const existing = debtMap[row.phone] || { total_debt: 0, transaction_count: 0 };
+                debtMap[row.phone] = {
+                    total_debt: existing.total_debt + (parseInt(row.total_amount) || 0),
+                    transaction_count: existing.transaction_count + (parseInt(row.transaction_count) || 0)
+                };
+            }
+        });
+
+        // For phones not found yet, try full phone match
+        for (const phone of uniquePhones) {
+            if (!debtMap[phone] || debtMap[phone].total_debt === 0) {
+                const legacyPhoneResult = await db.query(legacyPhoneQuery, [phone]);
+                if (legacyPhoneResult.rows[0] && parseInt(legacyPhoneResult.rows[0].total_amount) > 0) {
+                    const existing = debtMap[phone] || { total_debt: 0, transaction_count: 0 };
+                    debtMap[phone] = {
+                        total_debt: existing.total_debt + (parseInt(legacyPhoneResult.rows[0].total_amount) || 0),
+                        transaction_count: existing.transaction_count + (parseInt(legacyPhoneResult.rows[0].transaction_count) || 0)
+                    };
+                }
+            }
+        }
 
         // Build results for all phones (including those with 0 debt)
         for (const phone of uniquePhones) {
@@ -1431,7 +1505,8 @@ router.post('/debt-summary-batch', async (req, res) => {
         }
 
         // Log summary (not individual phones to reduce noise)
-        console.log(`[DEBT-SUMMARY-BATCH] Processed ${uniquePhones.length} phones, found debt for ${txResult.rows.length}`);
+        const phonesWithDebt = Object.values(debtMap).filter(d => d.total_debt > 0).length;
+        console.log(`[DEBT-SUMMARY-BATCH] Processed ${uniquePhones.length} phones, found debt for ${phonesWithDebt}`);
 
         res.json({
             success: true,
