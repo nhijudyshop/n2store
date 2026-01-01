@@ -1601,6 +1601,14 @@ function connectRealtimeUpdates() {
             handleCustomerInfoUpdated(data);
         });
 
+        // Pending match created (multiple phones found, need user selection)
+        eventSource.addEventListener('pending-match-created', (e) => {
+            const data = JSON.parse(e.data);
+            console.log('[REALTIME] Pending match created:', data);
+
+            handlePendingMatchCreated(data);
+        });
+
         // Connection error
         eventSource.onerror = (error) => {
             console.error('[REALTIME] SSE Error:', error);
@@ -1681,6 +1689,18 @@ async function handleCustomerInfoUpdated(data) {
     // Only reload if on first page to avoid disrupting pagination
     if (currentPage === 1) {
         console.log('[REALTIME] Reloading data to show updated customer info...');
+        loadData();
+    }
+}
+
+// Handle pending match created from SSE (multiple phones found, need user selection)
+async function handlePendingMatchCreated(data) {
+    console.log('[REALTIME] Processing pending-match-created:', data);
+
+    // Reload data to show the dropdown selector for pending match
+    // Only reload if on first page to avoid disrupting pagination
+    if (currentPage === 1) {
+        console.log('[REALTIME] Reloading data to show pending match dropdown...');
         loadData();
     }
 }
