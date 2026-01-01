@@ -3890,22 +3890,156 @@
         }
 
         /**
-         * Parse and normalize data from TPOS Excel
-         * @param {Array} orders - Raw orders from Excel
-         * @returns {Array} - Normalized order data
+         * Parse products string from Excel column "Sản phẩm" into Details array
+         * Example input: "[LLQU51A1] A16 QUẦN SUÔNG LƯNG M2 2 DÂY 90151(1) SL: 1 Giá: 230.000"
+         * Can have multiple products separated by newlines
+         * @param {string} productsStr - Raw products string from Excel
+         * @returns {Array} - Array of product detail objects
+         */
+        function parseProductsFromExcel(productsStr) {
+            if (!productsStr || typeof productsStr !== 'string') {
+                return [];
+            }
+
+            const details = [];
+            // Split by newlines or common separators
+            const productLines = productsStr.split(/[\n\r]+/).filter(line => line.trim());
+
+            for (const line of productLines) {
+                try {
+                    // Extract ProductCode from [CODE] pattern
+                    const codeMatch = line.match(/\[([^\]]+)\]/);
+                    const productCode = codeMatch ? codeMatch[1] : '';
+
+                    // Extract quantity from "SL: X" or "SL:X" pattern
+                    const qtyMatch = line.match(/SL:\s*(\d+)/i);
+                    const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+
+                    // Extract price from "Giá: X" or "Giá:X" pattern (handles 230.000 format)
+                    const priceMatch = line.match(/Giá:\s*([\d.,]+)/i);
+                    let price = 0;
+                    if (priceMatch) {
+                        // Remove dots (thousand separator) and parse
+                        price = parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.')) || 0;
+                    }
+
+                    // ProductNameGet is everything before "SL:" (or the whole line if no SL:)
+                    const slIndex = line.search(/SL:/i);
+                    const productNameGet = slIndex > 0 ? line.substring(0, slIndex).trim() : line.trim();
+
+                    // ProductName is ProductNameGet without the [CODE] part
+                    const productName = productNameGet.replace(/\[[^\]]+\]\s*/, '').trim();
+
+                    details.push({
+                        ProductCode: productCode,
+                        ProductName: productName,
+                        ProductNameGet: productNameGet,
+                        Quantity: quantity,
+                        Price: price,
+                        Note: null,
+                        // Additional fields set to null for compatibility
+                        ProductId: null,
+                        UOMId: null,
+                        UOMName: null,
+                        Discount: 0,
+                        DiscountPercent: 0
+                    });
+                } catch (e) {
+                    console.warn('[REPORT] Error parsing product line:', line, e);
+                }
+            }
+
+            return details;
+        }
+
+        /**
+         * Parse date string from Excel to ISO format
+         * Input format: "30/12/2025 22:06" → "2025-12-30T22:06:00.000Z"
+         * @param {string} dateStr - Date string from Excel
+         * @returns {string} - ISO date string
+         */
+        function parseDateToISO(dateStr) {
+            if (!dateStr) return null;
+
+            // Try to parse "dd/mm/yyyy HH:mm" format
+            const match = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2})?:?(\d{1,2})?/);
+            if (match) {
+                const [, day, month, year, hour = '00', minute = '00'] = match;
+                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00.000Z`;
+            }
+
+            // Return original if can't parse
+            return dateStr;
+        }
+
+        /**
+         * Parse and normalize data from TPOS Excel to Firebase-compatible format
+         * Maps Excel columns to Firebase order structure
+         * @param {Array} orders - Raw orders from Excel (sheet_to_json output)
+         * @returns {Array} - Normalized order data matching Firebase structure
          */
         function parseExcelOrderData(orders) {
-            return orders.map(row => ({
-                orderNumber: row['Số đơn hàng'] || row['Order ID'] || row['orderNumber'] || '',
-                customerName: row['Tên khách'] || row['Customer'] || row['customerName'] || '',
-                amount: parseFloat(row['Tổng tiền'] || row['Total'] || row['amount'] || 0),
-                status: row['Trạng thái'] || row['Status'] || row['status'] || '',
-                date: row['Ngày tạo'] || row['Created Date'] || row['date'] || '',
-                products: row['Sản phẩm'] || row['Products'] || row['products'] || '',
-                notes: row['Ghi chú'] || row['Notes'] || row['notes'] || '',
-                // Keep original row for debugging
-                _originalRow: row
-            }));
+            return orders.map((row, index) => {
+                // Parse products column into Details array
+                const productsStr = row['Sản phẩm'] || row['Products'] || '';
+                const details = parseProductsFromExcel(productsStr);
+
+                // Calculate total from Details if TotalAmount is missing
+                const totalFromDetails = details.reduce((sum, d) => sum + (d.Price * d.Quantity), 0);
+                const totalAmount = parseFloat(String(row['Tổng tiền'] || row['Total'] || 0).replace(/\./g, '').replace(',', '.')) || totalFromDetails;
+
+                return {
+                    // Core order fields - mapped from Excel columns
+                    Id: row['Mã'] || row['###'] || index + 1,  // Use Mã (D) or ### (B) as ID
+                    Code: String(row['Mã'] || ''),              // Cột D - Mã đơn hàng
+                    FullAddress: row['Địa chỉ'] || '',         // Cột K - Địa chỉ
+                    Phone: String(row['Điện thoại'] || ''),    // Cột I - Điện thoại
+                    TotalAmount: totalAmount,                   // Cột L - Tổng tiền
+                    StatusText: row['Trạng thái'] || '',       // Cột M - Trạng thái
+                    DateCreated: parseDateToISO(row['Ngày tạo']), // Cột N - Ngày tạo
+                    Note: row['Ghi chú'] || '',                // Cột R - Ghi chú
+
+                    // Facebook fields
+                    Facebook_UserName: row['Tên'] || '',       // Cột G - Tên khách
+                    Facebook_ASUserId: String(row['Facebook'] || ''), // Cột E - Facebook ID
+
+                    // Customer status
+                    CustomerStatus: row['Trạng thái khách hàng'] || '', // Cột H
+
+                    // Carrier info
+                    Carrier: row['Nhà mạng'] || '',            // Cột J
+
+                    // Product details - parsed from Cột O
+                    Details: details,
+
+                    // Quantity summary
+                    QuantityTotal: parseInt(row['Tổng số lượng SP'] || 0) || details.reduce((sum, d) => sum + d.Quantity, 0), // Cột P
+
+                    // User/Employee - Cột Q
+                    User: {
+                        Name: row['Nhân viên'] || ''
+                    },
+
+                    // CRMTeam/Channel - Cột C
+                    CRMTeam: {
+                        Name: row['Kênh'] || ''
+                    },
+
+                    // Tags - Cột S (Nhân/Nhãn)
+                    Tags: row['Nhân'] || '',
+
+                    // Session index - Cột A (STT) or Cột B (###)
+                    SessionIndex: parseInt(row['STT'] || row['###'] || index + 1) || index + 1,
+
+                    // Email - Cột F
+                    Email: row['Email'] || '',
+
+                    // Source marker
+                    _source: 'excel',
+                    _campaign: row._campaign || '',
+                    _originalRow: row
+                };
+            });
         }
 
         /**
@@ -7809,7 +7943,7 @@
 
                 // If no fresh cache, auto-fetch from TPOS
                 if (!hasQuickData) {
-                    console.log('[REPORT] 🔄 Auto-fetching basic data from TPOS Excel...');
+                    console.log('[REPORT] 🔄 Auto-fetching data from TPOS Excel...');
                     try {
                         const allExcelOrders = await fetchAllCampaignsExcel();
                         if (allExcelOrders.length > 0) {
@@ -7821,15 +7955,57 @@
                                 timestamp: Date.now()
                             }));
 
-                            console.log(`[REPORT] ✅ Auto-fetched ${parsedOrders.length} orders from TPOS Excel (basic data)`);
+                            console.log(`[REPORT] ✅ Auto-fetched ${parsedOrders.length} orders from TPOS Excel`);
 
-                            // Note: We don't display this data yet because Tab1 data is more complete
-                            // This is just a fallback if Tab1 fails to load
+                            // =====================================================
+                            // NEW: Save Excel data to Firebase and display in "Chi tiết đã tải"
+                            // =====================================================
+                            if (currentTableName) {
+                                const cacheData = {
+                                    tableName: currentTableName,
+                                    orders: parsedOrders,
+                                    fetchedAt: new Date().toISOString(),
+                                    totalOrders: parsedOrders.length,
+                                    successCount: parsedOrders.length,
+                                    errorCount: 0,
+                                    _source: 'excel_auto_fetch'
+                                };
+
+                                // Save to local cache
+                                cachedOrderDetails[currentTableName] = cacheData;
+                                saveCachedData();
+
+                                // Save to Firebase
+                                try {
+                                    const firebaseSaved = await saveToFirebase(currentTableName, cacheData);
+                                    if (firebaseSaved) {
+                                        console.log(`[REPORT] ✅ Excel data saved to Firebase for "${currentTableName}"`);
+                                    }
+                                } catch (fbError) {
+                                    console.warn('[REPORT] ⚠️ Failed to save Excel data to Firebase:', fbError);
+                                }
+
+                                // Update UI
+                                updateCachedCountBadge();
+                                renderCachedDetailsTab();
+
+                                // Update statistics
+                                try {
+                                    await loadEmployeeRanges();
+                                    renderStatistics();
+                                } catch (statError) {
+                                    console.warn('[REPORT] ⚠️ Failed to render statistics:', statError);
+                                }
+
+                                console.log(`[REPORT] ✅ Excel data loaded into "Chi tiết đã tải" for "${currentTableName}"`);
+                            } else {
+                                console.warn('[REPORT] ⚠️ No currentTableName, skipping Firebase save');
+                            }
                         } else {
                             console.log('[REPORT] ℹ️ No orders found in Excel auto-fetch');
                         }
                     } catch (error) {
-                        console.warn('[REPORT] ⚠️ Auto-fetch from TPOS failed (this is OK, will use Tab1 data):', error);
+                        console.warn('[REPORT] ⚠️ Auto-fetch from TPOS failed:', error);
                     }
                 }
             } catch (error) {
