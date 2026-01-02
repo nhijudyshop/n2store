@@ -1,11 +1,26 @@
 /* =====================================================
    TRẢ HÀNG - RETURN PRODUCT FUNCTIONALITY
-   Simple Excel Import & Display
+   Excel Import & Firebase Storage
    ===================================================== */
 
-// Trả Hàng Module - Simple version
+// Trả Hàng Module - Firebase version
 const TraHangModule = (function() {
     'use strict';
+
+    // Firebase Configuration (same as hanghoan.js)
+    const firebaseConfig = {
+        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+        authDomain: "n2shop-69e37.firebaseapp.com",
+        projectId: "n2shop-69e37",
+        storageBucket: "n2shop-69e37-ne0q1",
+        messagingSenderId: "598906493303",
+        appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+        measurementId: "G-TEJH3S2T1D",
+    };
+
+    // Firebase references (use existing app if available)
+    let db = null;
+    let traHangCollectionRef = null;
 
     // State
     let traHangData = [];
@@ -26,12 +41,32 @@ const TraHangModule = (function() {
         statDraft: null
     };
 
+    // Initialize Firebase
+    function initFirebase() {
+        try {
+            // Check if Firebase is already initialized
+            if (firebase.apps.length === 0) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            db = firebase.firestore();
+            traHangCollectionRef = db.collection("tra_hang");
+            console.log('✅ TraHang Firebase initialized');
+            return true;
+        } catch (error) {
+            console.error('❌ Error initializing Firebase for TraHang:', error);
+            return false;
+        }
+    }
+
     // Initialize
     function init() {
+        initFirebase();
         cacheElements();
         bindEvents();
         setDefaultDates();
-        console.log('TraHangModule initialized (Simple version)');
+        // Load data from Firebase on init
+        loadFromFirebase();
+        console.log('TraHangModule initialized (Firebase version)');
     }
 
     // Cache DOM elements
@@ -157,6 +192,75 @@ const TraHangModule = (function() {
         const year = date.getFullYear();
 
         return `${day}/${month}/${year}`;
+    }
+
+    /**
+     * Load data from Firebase on page init
+     */
+    async function loadFromFirebase() {
+        if (!traHangCollectionRef) {
+            console.error('Firebase not initialized');
+            return;
+        }
+
+        showLoading();
+        if (typeof showNotification === 'function') {
+            showNotification('Đang tải dữ liệu từ Firebase...', 'info');
+        }
+
+        try {
+            const doc = await traHangCollectionRef.doc('data').get();
+
+            if (doc.exists) {
+                const data = doc.data();
+                traHangData = data.orders || [];
+                filteredData = [...traHangData];
+
+                console.log(`✅ Loaded ${traHangData.length} records from Firebase`);
+
+                hideLoading();
+                renderTable(traHangData);
+                updateStats();
+
+                if (typeof showNotification === 'function' && traHangData.length > 0) {
+                    showNotification(`Đã tải ${traHangData.length} đơn hàng từ Firebase`, 'success');
+                }
+            } else {
+                console.log('No data in Firebase yet');
+                hideLoading();
+                showEmptyState();
+            }
+        } catch (error) {
+            console.error('Error loading from Firebase:', error);
+            hideLoading();
+
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi tải dữ liệu: ' + error.message, 'error');
+            }
+        }
+    }
+
+    /**
+     * Save data to Firebase
+     */
+    async function saveToFirebase(data) {
+        if (!traHangCollectionRef) {
+            console.error('Firebase not initialized');
+            return false;
+        }
+
+        try {
+            await traHangCollectionRef.doc('data').set({
+                orders: data,
+                lastUpdated: new Date().toISOString(),
+                count: data.length
+            });
+            console.log(`✅ Saved ${data.length} records to Firebase`);
+            return true;
+        } catch (error) {
+            console.error('Error saving to Firebase:', error);
+            return false;
+        }
     }
 
     // Get status class
@@ -294,7 +398,7 @@ const TraHangModule = (function() {
     }
 
     /**
-     * Import Excel file
+     * Import Excel file and save to Firebase
      */
     async function importExcel(file) {
         if (!file) return;
@@ -340,10 +444,11 @@ const TraHangModule = (function() {
             // Map Excel rows - match exact column names from Excel file
             // Excel structure: ST, Khách hàng, Facebook, Điện thoại, Địa chỉ, Số, Tham chiếu, Ngày bán, Tổng tiền, Còn nợ, Trạng thái, Công ty
             const importedData = rows.map((row, index) => ({
+                id: `${Date.now()}_${index}`, // Unique ID for each record
                 stt: row['ST'] || index + 1,
                 khachHang: row['Khách hàng'] || '',
                 facebook: row['Facebook'] || '',
-                dienThoai: row['Điện thoại'] || '',
+                dienThoai: String(row['Điện thoại'] || ''),
                 diaChi: row['Địa chỉ'] || '',
                 so: row['Số'] || '',
                 thamChieu: row['Tham chiếu'] || '',
@@ -351,19 +456,47 @@ const TraHangModule = (function() {
                 tongTien: parseFloat(row['Tổng tiền'] || 0),
                 conNo: parseFloat(row['Còn nợ'] || 0),
                 trangThai: row['Trạng thái'] || 'Nháp',
-                congTy: row['Công ty'] || ''
+                congTy: row['Công ty'] || '',
+                importedAt: new Date().toISOString()
             }));
 
-            // Load data
-            traHangData = importedData;
-            filteredData = [...traHangData];
-
-            hideLoading();
-            renderTable(traHangData);
-            updateStats();
-
             if (typeof showNotification === 'function') {
-                showNotification(`Đã nhập ${importedData.length} đơn hàng từ Excel`, 'success');
+                showNotification('Đang lưu lên Firebase...', 'info');
+            }
+
+            // Merge with existing data (avoid duplicates by checking 'so' - invoice number)
+            const existingInvoices = new Set(traHangData.map(item => item.so));
+            const newData = importedData.filter(item => !existingInvoices.has(item.so) || !item.so);
+            const duplicateCount = importedData.length - newData.length;
+
+            // Merge: new data first, then existing
+            const mergedData = [...newData, ...traHangData];
+
+            // Save to Firebase
+            const saveSuccess = await saveToFirebase(mergedData);
+
+            if (saveSuccess) {
+                // Update local state
+                traHangData = mergedData;
+                filteredData = [...traHangData];
+
+                hideLoading();
+                renderTable(traHangData);
+                updateStats();
+
+                let message = `Đã nhập ${newData.length} đơn hàng từ Excel và lưu lên Firebase`;
+                if (duplicateCount > 0) {
+                    message += ` (bỏ qua ${duplicateCount} đơn trùng)`;
+                }
+
+                if (typeof showNotification === 'function') {
+                    showNotification(message, 'success');
+                }
+            } else {
+                hideLoading();
+                if (typeof showNotification === 'function') {
+                    showNotification('Lỗi khi lưu lên Firebase', 'error');
+                }
             }
 
         } catch (error) {
@@ -376,10 +509,82 @@ const TraHangModule = (function() {
         }
     }
 
+    /**
+     * Refresh data from Firebase
+     */
+    async function refreshData() {
+        await loadFromFirebase();
+    }
+
+    /**
+     * Delete a record by ID
+     */
+    async function deleteRecord(id) {
+        if (!id) return false;
+
+        try {
+            const updatedData = traHangData.filter(item => item.id !== id);
+            const saveSuccess = await saveToFirebase(updatedData);
+
+            if (saveSuccess) {
+                traHangData = updatedData;
+                filteredData = [...traHangData];
+                renderTable(traHangData);
+                updateStats();
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Đã xóa thành công', 'success');
+                }
+                return true;
+            }
+        } catch (error) {
+            console.error('Error deleting record:', error);
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi xóa: ' + error.message, 'error');
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Clear all data
+     */
+    async function clearAllData() {
+        if (!confirm('Bạn có chắc chắn muốn xóa TẤT CẢ dữ liệu trả hàng?')) {
+            return false;
+        }
+
+        try {
+            const saveSuccess = await saveToFirebase([]);
+
+            if (saveSuccess) {
+                traHangData = [];
+                filteredData = [];
+                renderTable([]);
+                updateStats();
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Đã xóa tất cả dữ liệu', 'success');
+                }
+                return true;
+            }
+        } catch (error) {
+            console.error('Error clearing data:', error);
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi xóa dữ liệu: ' + error.message, 'error');
+            }
+        }
+        return false;
+    }
+
     // Public API
     return {
         init,
         importExcel,
+        refreshData,
+        loadFromFirebase,
+        deleteRecord,
+        clearAllData,
         getData: () => traHangData,
         getFilteredData: () => filteredData
     };
@@ -414,6 +619,33 @@ document.addEventListener('DOMContentLoaded', function() {
                             lucide.createIcons();
                         }
                     }
+                }
+            });
+        }
+
+        // Refresh button
+        const btnRefreshTraHang = document.getElementById('btnRefreshTraHang');
+        if (btnRefreshTraHang) {
+            btnRefreshTraHang.addEventListener('click', async () => {
+                btnRefreshTraHang.disabled = true;
+                try {
+                    await TraHangModule.refreshData();
+                } finally {
+                    btnRefreshTraHang.disabled = false;
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }
+            });
+        }
+
+        // Clear all button
+        const btnClearTraHang = document.getElementById('btnClearTraHang');
+        if (btnClearTraHang) {
+            btnClearTraHang.addEventListener('click', async () => {
+                await TraHangModule.clearAllData();
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
                 }
             });
         }

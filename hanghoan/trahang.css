@@ -389,6 +389,27 @@
     cursor: not-allowed;
 }
 
+.trahang-actions .btn-secondary {
+    background: var(--gray-100);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.trahang-actions .btn-secondary:hover {
+    background: var(--gray-200);
+}
+
+.trahang-actions .btn-outline-danger {
+    background: transparent;
+    color: #dc2626;
+    border: 1px solid #dc2626;
+}
+
+.trahang-actions .btn-outline-danger:hover {
+    background: #dc2626;
+    color: white;
+}
+
 /* =====================================================
    TRẢ HÀNG FILTERS
    ===================================================== */
