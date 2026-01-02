@@ -6538,9 +6538,11 @@
                             totalOrders: parsedOrders.length,
                             successCount: parsedOrders.length,
                             errorCount: 0,
-                            _source: 'tpos_campaign_fetch'
+                            _fetchSource: 'auto_campaign_fetch_logic',
+                            _fetchedVia: 'CAMPAIGN_FETCH_LOGIC'
                         };
 
+                        console.log(`[REPORT] 📍 Fetch Source: ${cacheData._fetchSource} via ${cacheData._fetchedVia}`);
                         // Save to local cache
                         cachedOrderDetails[tableName] = cacheData;
                         saveCachedData();
@@ -6891,7 +6893,10 @@
                 console.log('[REPORT] 📦 User chose to load from Firebase');
 
                 try {
-                    // Update cache
+                    // Update cache with fetch source marker
+                    firebaseData._fetchSource = 'manual_firebase_load';
+                    firebaseData._fetchedVia = 'btnBatchFetch';
+                    console.log(`[REPORT] 📍 Fetch Source: ${firebaseData._fetchSource} via ${firebaseData._fetchedVia}`);
                     cachedOrderDetails[currentTableName] = firebaseData;
                     saveCachedData();
 
@@ -7005,16 +7010,19 @@
                     }
                 }
 
-                // Save to cache with timestamp
+                // Save to cache with timestamp and fetch source marker
                 const cacheData = {
                     tableName: currentTableName, // Include table name
                     orders: fetchedOrders,
                     fetchedAt: new Date().toISOString(),
                     totalOrders: total,
                     successCount: fetchedOrders.length,
-                    errorCount: errors
+                    errorCount: errors,
+                    _fetchSource: 'manual_api_batch_fetch',
+                    _fetchedVia: 'btnBatchFetch'
                 };
 
+                console.log(`[REPORT] 📍 Fetch Source: ${cacheData._fetchSource} via ${cacheData._fetchedVia}`);
                 cachedOrderDetails[currentTableName] = cacheData;
                 saveCachedData();
 
@@ -8123,9 +8131,11 @@
                                     totalOrders: cached.orders.length,
                                     successCount: cached.orders.length,
                                     errorCount: 0,
-                                    _source: 'session_cache'
+                                    _fetchSource: 'auto_page_load',
+                                    _fetchedVia: 'sessionStorage_cache'
                                 };
 
+                                console.log(`[REPORT] 📍 Fetch Source: ${cacheData._fetchSource} via ${cacheData._fetchedVia}`);
                                 // Load into local cache
                                 cachedOrderDetails[currentTableName] = cacheData;
                                 saveCachedData();
@@ -8173,9 +8183,11 @@
                                     totalOrders: parsedOrders.length,
                                     successCount: parsedOrders.length,
                                     errorCount: 0,
-                                    _source: 'excel_auto_fetch'
+                                    _fetchSource: 'auto_page_load',
+                                    _fetchedVia: 'CAMPAIGN_FETCH_LOGIC'
                                 };
 
+                                console.log(`[REPORT] 📍 Fetch Source: ${cacheData._fetchSource} via ${cacheData._fetchedVia}`);
                                 // Save to local cache
                                 cachedOrderDetails[currentTableName] = cacheData;
                                 saveCachedData();
