@@ -64,6 +64,24 @@
     white-space: nowrap;
 }
 
+/* Note columns */
+.banhang-table .col-note {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Make table scrollable */
+.banhang-table {
+    min-width: 2500px;
+}
+
+.banhang-table th,
+.banhang-table td {
+    white-space: nowrap;
+}
+
 /* Phone link */
 .banhang-table .phone-link {
     color: var(--primary);
