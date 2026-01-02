@@ -4099,8 +4099,8 @@
                     // Tags - Cột S (Nhãn)
                     Tags: row['Nhãn'] || row['Tags'] || '',
 
-                    // Session index - Cột B (###) is the correct order number, not Cột A (STT)
-                    SessionIndex: parseInt(row['###'] || row['STT'] || index + 1) || index + 1,
+                    // Session index - Cột A (STT) or Cột B (###)
+                    SessionIndex: parseInt(row['STT'] || row['###'] || index + 1) || index + 1,
 
                     // Email - Cột F
                     Email: row['Email'] || '',
@@ -6473,103 +6473,14 @@
                 populateCacheFromFirebaseData(tableName, firebaseData);
                 console.log(`[REPORT] ✅ Loaded ${firebaseData.orders?.length || 0} orders from Firebase for: ${tableName}`);
             } else {
-                console.log(`[REPORT] ⚠️ No Firebase data for table: ${tableName} - fetching from TPOS using CAMPAIGN_FETCH_LOGIC`);
+                console.log(`[REPORT] ⚠️ No Firebase data for table: ${tableName} - need to fetch`);
+                // Clear cache for this table (Chi tiết đã tải will show empty message)
+                delete cachedOrderDetails[tableName];
 
-                // =====================================================
-                // CAMPAIGN_FETCH_LOGIC: Fetch from TPOS when no Firebase data
-                // =====================================================
-                try {
-                    // Step 1: Extract date from campaign name (e.g., "Live 30/12/2025" → "30/12/2025")
-                    const dateFilter = extractDateFromCampaignName(tableName);
-
-                    if (!dateFilter) {
-                        console.warn(`[REPORT] ⚠️ Could not extract date from table name: ${tableName}`);
-                        // Clear cache and show empty
-                        delete cachedOrderDetails[tableName];
-                        firebaseTableName = null;
-                        firebaseDataFetchedAt = null;
-                        updateTableHelperUI(true);
-                        return;
-                    }
-
-                    console.log(`[REPORT] 📅 Extracted date: ${dateFilter}, fetching campaigns from TPOS...`);
-
-                    // Step 2: Fetch campaigns from TPOS by date filter
-                    const campaigns = await fetchCampaignsFromTPOS(dateFilter);
-
-                    if (!campaigns || campaigns.length === 0) {
-                        console.warn(`[REPORT] ⚠️ No campaigns found for date: ${dateFilter}`);
-                        delete cachedOrderDetails[tableName];
-                        firebaseTableName = null;
-                        firebaseDataFetchedAt = null;
-                        updateTableHelperUI(true);
-                        return;
-                    }
-
-                    console.log(`[REPORT] 📊 Found ${campaigns.length} campaigns, fetching orders...`);
-
-                    // Step 3: Fetch orders from all campaigns in parallel
-                    const fetchPromises = campaigns.map(campaign =>
-                        fetchOrdersFromTPOS(campaign.id)
-                            .then(orders => orders.map(o => ({ ...o, _campaign: campaign.name })))
-                            .catch(err => {
-                                console.error(`[REPORT] ❌ Error fetching ${campaign.name}:`, err);
-                                return [];
-                            })
-                    );
-
-                    const results = await Promise.allSettled(fetchPromises);
-
-                    // Step 4: Merge all orders
-                    const allExcelOrders = results
-                        .filter(r => r.status === 'fulfilled')
-                        .flatMap(r => r.value);
-
-                    console.log(`[REPORT] ✅ Fetched ${allExcelOrders.length} orders from ${campaigns.length} campaigns`);
-
-                    if (allExcelOrders.length > 0) {
-                        // Step 5: Parse and save to cache
-                        const parsedOrders = parseExcelOrderData(allExcelOrders);
-
-                        const cacheData = {
-                            tableName: tableName,
-                            orders: parsedOrders,
-                            fetchedAt: new Date().toISOString(),
-                            totalOrders: parsedOrders.length,
-                            successCount: parsedOrders.length,
-                            errorCount: 0,
-                            _source: 'tpos_campaign_fetch'
-                        };
-
-                        // Save to local cache
-                        cachedOrderDetails[tableName] = cacheData;
-                        saveCachedData();
-
-                        // Save to Firebase
-                        try {
-                            const firebaseSaved = await saveToFirebase(tableName, cacheData);
-                            if (firebaseSaved) {
-                                console.log(`[REPORT] ✅ Saved ${parsedOrders.length} orders to Firebase for "${tableName}"`);
-                                firebaseTableName = tableName;
-                                firebaseDataFetchedAt = cacheData.fetchedAt;
-                            }
-                        } catch (fbError) {
-                            console.warn('[REPORT] ⚠️ Failed to save to Firebase:', fbError);
-                        }
-
-                        console.log(`[REPORT] ✅ Campaign fetch complete for "${tableName}"`);
-                    } else {
-                        console.log('[REPORT] ℹ️ No orders found from campaigns');
-                        delete cachedOrderDetails[tableName];
-                    }
-
-                } catch (error) {
-                    console.error('[REPORT] ❌ Error in CAMPAIGN_FETCH_LOGIC:', error);
-                    delete cachedOrderDetails[tableName];
-                    firebaseTableName = null;
-                    firebaseDataFetchedAt = null;
-                    updateTableHelperUI(true);
-                }
+                // Update Firebase status - show helper that this campaign needs fetching
+                firebaseTableName = null;
+                firebaseDataFetchedAt = null;
+                updateTableHelperUI(true);
             }
 
             // Update UI for Chi tiết đã tải tab
@@ -7572,30 +7483,16 @@
                 let tags = tagsData;
                 let html = '';
 
+                // Parse JSON string if needed
+                if (typeof tagsData === 'string') {
+                    tags = JSON.parse(tagsData);
+                }
+
                 // Add virtual "ĐÃ RA ĐƠN" tag if order has matched 'ordered' key (for TAG TRÙNG display)
                 if (order && order._matchedTagKeys && order._matchedTagKeys.includes('ordered')) {
                     html += `<span class="order-tag" style="background-color: #22c55e; border: 2px dashed #15803d;" title="Tag ảo - Trạng thái Đơn hàng">✓ ĐÃ RA ĐƠN</span>`;
                 }
 
-                // Handle string input
-                if (typeof tagsData === 'string' && tagsData.trim()) {
-                    // Try to parse as JSON first (for API data with [{Name, Color}] format)
-                    try {
-                        tags = JSON.parse(tagsData);
-                    } catch (e) {
-                        // Not JSON - treat as plain text from Excel (comma-separated tag names)
-                        // Display as simple tags with default color
-                        const tagNames = tagsData.split(',').map(t => t.trim()).filter(t => t);
-                        if (tagNames.length > 0) {
-                            html += tagNames.map(name =>
-                                `<span class="order-tag" style="background-color: #6366f1;" title="${name}">${name}</span>`
-                            ).join('');
-                        }
-                        return html;
-                    }
-                }
-
-                // Handle array of tag objects [{Name, Color}]
                 if (Array.isArray(tags) && tags.length > 0) {
                     html += tags.map(tag =>
                         `<span class="order-tag" style="background-color: ${tag.Color || '#6b7280'};" title="${tag.Name || ''}">${tag.Name || ''}</span>`
