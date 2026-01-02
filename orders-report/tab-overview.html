@@ -6473,14 +6473,103 @@
                 populateCacheFromFirebaseData(tableName, firebaseData);
                 console.log(`[REPORT] ✅ Loaded ${firebaseData.orders?.length || 0} orders from Firebase for: ${tableName}`);
             } else {
-                console.log(`[REPORT] ⚠️ No Firebase data for table: ${tableName} - need to fetch`);
-                // Clear cache for this table (Chi tiết đã tải will show empty message)
-                delete cachedOrderDetails[tableName];
+                console.log(`[REPORT] ⚠️ No Firebase data for table: ${tableName} - fetching from TPOS using CAMPAIGN_FETCH_LOGIC`);
 
-                // Update Firebase status - show helper that this campaign needs fetching
-                firebaseTableName = null;
-                firebaseDataFetchedAt = null;
-                updateTableHelperUI(true);
+                // =====================================================
+                // CAMPAIGN_FETCH_LOGIC: Fetch from TPOS when no Firebase data
+                // =====================================================
+                try {
+                    // Step 1: Extract date from campaign name (e.g., "Live 30/12/2025" → "30/12/2025")
+                    const dateFilter = extractDateFromCampaignName(tableName);
+
+                    if (!dateFilter) {
+                        console.warn(`[REPORT] ⚠️ Could not extract date from table name: ${tableName}`);
+                        // Clear cache and show empty
+                        delete cachedOrderDetails[tableName];
+                        firebaseTableName = null;
+                        firebaseDataFetchedAt = null;
+                        updateTableHelperUI(true);
+                        return;
+                    }
+
+                    console.log(`[REPORT] 📅 Extracted date: ${dateFilter}, fetching campaigns from TPOS...`);
+
+                    // Step 2: Fetch campaigns from TPOS by date filter
+                    const campaigns = await fetchCampaignsFromTPOS(dateFilter);
+
+                    if (!campaigns || campaigns.length === 0) {
+                        console.warn(`[REPORT] ⚠️ No campaigns found for date: ${dateFilter}`);
+                        delete cachedOrderDetails[tableName];
+                        firebaseTableName = null;
+                        firebaseDataFetchedAt = null;
+                        updateTableHelperUI(true);
+                        return;
+                    }
+
+                    console.log(`[REPORT] 📊 Found ${campaigns.length} campaigns, fetching orders...`);
+
+                    // Step 3: Fetch orders from all campaigns in parallel
+                    const fetchPromises = campaigns.map(campaign =>
+                        fetchOrdersFromTPOS(campaign.id)
+                            .then(orders => orders.map(o => ({ ...o, _campaign: campaign.name })))
+                            .catch(err => {
+                                console.error(`[REPORT] ❌ Error fetching ${campaign.name}:`, err);
+                                return [];
+                            })
+                    );
+
+                    const results = await Promise.allSettled(fetchPromises);
+
+                    // Step 4: Merge all orders
+                    const allExcelOrders = results
+                        .filter(r => r.status === 'fulfilled')
+                        .flatMap(r => r.value);
+
+                    console.log(`[REPORT] ✅ Fetched ${allExcelOrders.length} orders from ${campaigns.length} campaigns`);
+
+                    if (allExcelOrders.length > 0) {
+                        // Step 5: Parse and save to cache
+                        const parsedOrders = parseExcelOrderData(allExcelOrders);
+
+                        const cacheData = {
+                            tableName: tableName,
+                            orders: parsedOrders,
+                            fetchedAt: new Date().toISOString(),
+                            totalOrders: parsedOrders.length,
+                            successCount: parsedOrders.length,
+                            errorCount: 0,
+                            _source: 'tpos_campaign_fetch'
+                        };
+
+                        // Save to local cache
+                        cachedOrderDetails[tableName] = cacheData;
+                        saveCachedData();
+
+                        // Save to Firebase
+                        try {
+                            const firebaseSaved = await saveToFirebase(tableName, cacheData);
+                            if (firebaseSaved) {
+                                console.log(`[REPORT] ✅ Saved ${parsedOrders.length} orders to Firebase for "${tableName}"`);
+                                firebaseTableName = tableName;
+                                firebaseDataFetchedAt = cacheData.fetchedAt;
+                            }
+                        } catch (fbError) {
+                            console.warn('[REPORT] ⚠️ Failed to save to Firebase:', fbError);
+                        }
+
+                        console.log(`[REPORT] ✅ Campaign fetch complete for "${tableName}"`);
+                    } else {
+                        console.log('[REPORT] ℹ️ No orders found from campaigns');
+                        delete cachedOrderDetails[tableName];
+                    }
+
+                } catch (error) {
+                    console.error('[REPORT] ❌ Error in CAMPAIGN_FETCH_LOGIC:', error);
+                    delete cachedOrderDetails[tableName];
+                    firebaseTableName = null;
+                    firebaseDataFetchedAt = null;
+                    updateTableHelperUI(true);
+                }
             }
 
             // Update UI for Chi tiết đã tải tab
