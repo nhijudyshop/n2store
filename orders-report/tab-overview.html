@@ -7041,8 +7041,21 @@
                 return;
             }
 
+            // =====================================================
+            // VALIDATION: Check for duplicates and missing STT
+            // =====================================================
+            const validation = validateOrderData(orders);
+
             // Filter orders by product name if filter is set
-            const filteredOrders = filterOrdersByProduct(orders, currentProductFilter);
+            let filteredOrders = filterOrdersByProduct(orders, currentProductFilter);
+
+            // Sort by STT descending (high to low)
+            filteredOrders.sort((a, b) => {
+                const sttA = parseInt(a.order.SessionIndex) || 0;
+                const sttB = parseInt(b.order.SessionIndex) || 0;
+                return sttB - sttA;
+            });
+
             const fetchedAt = new Date(cached.fetchedAt);
 
             // Build filter badge HTML if filter is active
@@ -7052,6 +7065,48 @@
                     <button class="clear-btn" onclick="clearProductFilter()" title="Xóa bộ lọc">×</button>
                 </span>
             ` : '';
+
+            // Build validation warning HTML
+            let validationHtml = '';
+            if (validation.hasErrors) {
+                validationHtml = `
+                    <div class="validation-errors" style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border: 2px solid #ef4444; border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <i class="fas fa-exclamation-triangle" style="color: #dc2626; font-size: 24px;"></i>
+                            <strong style="color: #dc2626; font-size: 16px;">Phát hiện lỗi dữ liệu!</strong>
+                        </div>
+                        ${validation.duplicateSTT.length > 0 ? `
+                            <div style="background: white; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #ef4444;">
+                                <strong style="color: #dc2626;"><i class="fas fa-copy"></i> STT trùng (${validation.duplicateSTT.length}):</strong>
+                                <span style="color: #991b1b;">${validation.duplicateSTT.slice(0, 20).join(', ')}${validation.duplicateSTT.length > 20 ? '...' : ''}</span>
+                            </div>
+                        ` : ''}
+                        ${validation.duplicateCodes.length > 0 ? `
+                            <div style="background: white; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #ef4444;">
+                                <strong style="color: #dc2626;"><i class="fas fa-barcode"></i> Mã đơn trùng (${validation.duplicateCodes.length}):</strong>
+                                <span style="color: #991b1b;">${validation.duplicateCodes.slice(0, 10).join(', ')}${validation.duplicateCodes.length > 10 ? '...' : ''}</span>
+                            </div>
+                        ` : ''}
+                        ${validation.missingSTT.length > 0 ? `
+                            <div style="background: white; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #f97316;">
+                                <strong style="color: #c2410c;"><i class="fas fa-search-minus"></i> Thiếu STT (${validation.missingSTT.length}):</strong>
+                                <span style="color: #9a3412;">${formatMissingSTT(validation.missingSTT)}</span>
+                            </div>
+                        ` : ''}
+                        ${validation.extraSTT > 0 ? `
+                            <div style="background: white; padding: 10px; border-radius: 8px; border-left: 4px solid #f97316;">
+                                <strong style="color: #c2410c;"><i class="fas fa-search-plus"></i> Thừa đơn:</strong>
+                                <span style="color: #9a3412;">Có ${validation.extraSTT} đơn thừa so với STT cao nhất (${validation.maxSTT})</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            // Build info section with conditional error styling
+            const infoClass = validation.hasErrors ? 'cached-info error' : 'cached-info';
+            const infoStyle = validation.hasErrors ? 'background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-color: #ef4444;' : '';
+            const textColor = validation.hasErrors ? 'color: #dc2626;' : '';
 
             let html = `
                 <!-- Table Info -->
@@ -7066,21 +7121,24 @@
                 </div>
 
                 <!-- Cached Info -->
-                <div class="cached-info">
-                    <div class="info-text">
-                        <i class="fas fa-check-circle"></i>
+                <div class="${infoClass}" style="${infoStyle}">
+                    <div class="info-text" style="${textColor}">
+                        ${validation.hasErrors ? '<i class="fas fa-exclamation-circle"></i>' : '<i class="fas fa-check-circle"></i>'}
                         <strong>${orders.length}</strong> đơn hàng đã được lưu |
                         Thành công: <strong>${cached.successCount || orders.length}</strong> |
                         Lỗi: <strong>${cached.errorCount || 0}</strong>
+                        ${validation.hasErrors ? `| <strong style="color: #dc2626;">⚠️ Có lỗi dữ liệu</strong>` : ''}
                     </div>
                     <button class="btn-clear-cache" onclick="clearCacheForTable()">
                         <i class="fas fa-trash"></i> Xóa cache
                     </button>
                 </div>
 
+                ${validationHtml}
+
                 <!-- Orders Table -->
                 <div class="content-section">
-                    <h2><i class="fas fa-list"></i> Danh sách chi tiết (${filteredOrders.length}${currentProductFilter ? '/' + orders.length : ''})</h2>
+                    <h2><i class="fas fa-list"></i> Danh sách chi tiết (${filteredOrders.length}${currentProductFilter ? '/' + orders.length : ''}) <span style="font-size: 12px; color: #888; font-weight: normal;">- Sắp xếp STT giảm dần</span></h2>
 
                     <!-- Product Search -->
                     <div class="product-search-container">
@@ -7116,10 +7174,19 @@
                 const originalIndex = item.originalIndex;
                 const productCount = order.Details?.length || 0;
                 const tagsHtml = parseOrderTagsHtml(order.Tags);
+                const stt = order.SessionIndex || originalIndex + 1;
+
+                // Highlight duplicate STT or Code
+                const isDuplicateSTT = validation.duplicateSTTSet && validation.duplicateSTTSet.has(parseInt(stt));
+                const isDuplicateCode = validation.duplicateCodesSet && validation.duplicateCodesSet.has(order.Code);
+                const rowStyle = (isDuplicateSTT || isDuplicateCode) ? 'background: #fef2f2; border-left: 3px solid #ef4444;' : '';
+                const sttStyle = isDuplicateSTT ? 'color: #dc2626; font-weight: bold;' : '';
+                const codeStyle = isDuplicateCode ? 'color: #dc2626; font-weight: bold;' : '';
+
                 html += `
-                    <tr onclick="openCachedOrderDetail(${originalIndex})">
-                        <td>${order.SessionIndex || originalIndex + 1}</td>
-                        <td class="order-code">${order.Code || ''}</td>
+                    <tr onclick="openCachedOrderDetail(${originalIndex})" style="${rowStyle}">
+                        <td style="${sttStyle}">${stt}${isDuplicateSTT ? ' <i class="fas fa-exclamation-circle" style="color: #ef4444;" title="STT trùng"></i>' : ''}</td>
+                        <td class="order-code" style="${codeStyle}">${order.Code || ''}${isDuplicateCode ? ' <i class="fas fa-exclamation-circle" style="color: #ef4444;" title="Mã đơn trùng"></i>' : ''}</td>
                         <td><div class="tags-cell">${tagsHtml}</div></td>
                         <td>${order.Name || order.PartnerName || ''}</td>
                         <td>${order.Telephone || ''}</td>
@@ -7139,6 +7206,110 @@
             `;
 
             area.innerHTML = html;
+        }
+
+        /**
+         * Validate order data for duplicates and missing STT
+         */
+        function validateOrderData(orders) {
+            const result = {
+                hasErrors: false,
+                duplicateSTT: [],
+                duplicateSTTSet: new Set(),
+                duplicateCodes: [],
+                duplicateCodesSet: new Set(),
+                missingSTT: [],
+                extraSTT: 0,
+                maxSTT: 0
+            };
+
+            if (!orders || orders.length === 0) return result;
+
+            // Collect all STT and Codes
+            const sttCount = new Map();
+            const codeCount = new Map();
+            let maxSTT = 0;
+
+            orders.forEach(order => {
+                const stt = parseInt(order.SessionIndex) || 0;
+                const code = order.Code || '';
+
+                if (stt > 0) {
+                    sttCount.set(stt, (sttCount.get(stt) || 0) + 1);
+                    if (stt > maxSTT) maxSTT = stt;
+                }
+
+                if (code) {
+                    codeCount.set(code, (codeCount.get(code) || 0) + 1);
+                }
+            });
+
+            result.maxSTT = maxSTT;
+
+            // Find duplicate STT
+            sttCount.forEach((count, stt) => {
+                if (count > 1) {
+                    result.duplicateSTT.push(stt);
+                    result.duplicateSTTSet.add(stt);
+                }
+            });
+
+            // Find duplicate Codes
+            codeCount.forEach((count, code) => {
+                if (count > 1) {
+                    result.duplicateCodes.push(code);
+                    result.duplicateCodesSet.add(code);
+                }
+            });
+
+            // Find missing STT (gaps in sequence from 1 to maxSTT)
+            if (maxSTT > 0) {
+                for (let i = 1; i <= maxSTT; i++) {
+                    if (!sttCount.has(i)) {
+                        result.missingSTT.push(i);
+                    }
+                }
+
+                // Check for extra orders (more orders than maxSTT)
+                const uniqueSTTCount = sttCount.size;
+                if (orders.length > maxSTT) {
+                    result.extraSTT = orders.length - maxSTT;
+                }
+            }
+
+            // Mark if has errors
+            result.hasErrors = result.duplicateSTT.length > 0 ||
+                               result.duplicateCodes.length > 0 ||
+                               result.missingSTT.length > 0 ||
+                               result.extraSTT > 0;
+
+            return result;
+        }
+
+        /**
+         * Format missing STT numbers into ranges for display
+         */
+        function formatMissingSTT(missingSTT) {
+            if (missingSTT.length === 0) return '';
+            if (missingSTT.length <= 10) return missingSTT.join(', ');
+
+            // Group consecutive numbers into ranges
+            const ranges = [];
+            let start = missingSTT[0];
+            let end = missingSTT[0];
+
+            for (let i = 1; i < missingSTT.length; i++) {
+                if (missingSTT[i] === end + 1) {
+                    end = missingSTT[i];
+                } else {
+                    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+                    start = end = missingSTT[i];
+                }
+            }
+            ranges.push(start === end ? `${start}` : `${start}-${end}`);
+
+            const rangeStr = ranges.slice(0, 10).join(', ');
+            return ranges.length > 10 ? `${rangeStr}... (+${ranges.length - 10} khác)` : rangeStr;
         }
 
         // Filter orders by product (ProductCode, ProductName)
