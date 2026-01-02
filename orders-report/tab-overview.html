@@ -3980,10 +3980,17 @@
         /**
          * Parse and normalize data from TPOS Excel to Firebase-compatible format
          * Maps Excel columns to Firebase order structure
+         * IMPORTANT: Field names must match what renderCachedDetailsTab() expects!
          * @param {Array} orders - Raw orders from Excel (sheet_to_json output)
          * @returns {Array} - Normalized order data matching Firebase structure
          */
         function parseExcelOrderData(orders) {
+            console.log('[REPORT] 📊 parseExcelOrderData called with', orders.length, 'orders');
+            if (orders.length > 0) {
+                console.log('[REPORT] 📋 Sample Excel row keys:', Object.keys(orders[0]));
+                console.log('[REPORT] 📋 Sample Excel row:', orders[0]);
+            }
+
             return orders.map((row, index) => {
                 // Parse products column into Details array
                 const productsStr = row['Sản phẩm'] || row['Products'] || '';
@@ -3993,19 +4000,48 @@
                 const totalFromDetails = details.reduce((sum, d) => sum + (d.Price * d.Quantity), 0);
                 const totalAmount = parseFloat(String(row['Tổng tiền'] || row['Total'] || 0).replace(/\./g, '').replace(',', '.')) || totalFromDetails;
 
+                // Get customer name from various possible columns
+                const customerName = row['Tên'] || row['Tên khách'] || row['Customer'] || '';
+
+                // Get phone from various possible columns
+                const phone = String(row['Điện thoại'] || row['Phone'] || row['SĐT'] || '');
+
+                // Get status from various possible columns
+                const status = row['Trạng thái'] || row['Status'] || '';
+
                 return {
                     // Core order fields - mapped from Excel columns
-                    Id: row['Mã'] || row['###'] || index + 1,  // Use Mã (D) or ### (B) as ID
+                    Id: row['Mã'] || row['###'] || index + 1,
                     Code: String(row['Mã'] || ''),              // Cột D - Mã đơn hàng
+
+                    // Customer name - MUST use "Name" for render compatibility
+                    Name: customerName,                         // Cột G - Tên khách (render uses this!)
+                    PartnerName: customerName,                  // Alias for compatibility
+
+                    // Phone - MUST use "Telephone" for render compatibility
+                    Phone: phone,                               // Cột I
+                    Telephone: phone,                           // Alias (render uses this!)
+
+                    // Address
                     FullAddress: row['Địa chỉ'] || '',         // Cột K - Địa chỉ
-                    Phone: String(row['Điện thoại'] || ''),    // Cột I - Điện thoại
+
+                    // Amount
                     TotalAmount: totalAmount,                   // Cột L - Tổng tiền
-                    StatusText: row['Trạng thái'] || '',       // Cột M - Trạng thái
+                    CashOnDelivery: totalAmount,                // Same as TotalAmount for Excel data
+
+                    // Status - MUST use "Status" for render compatibility
+                    StatusText: status,                         // Cột M - Trạng thái
+                    Status: status,                             // Alias (render uses this!)
+                    State: status,                              // Alias for compatibility
+
+                    // Date
                     DateCreated: parseDateToISO(row['Ngày tạo']), // Cột N - Ngày tạo
+
+                    // Note
                     Note: row['Ghi chú'] || '',                // Cột R - Ghi chú
 
                     // Facebook fields
-                    Facebook_UserName: row['Tên'] || '',       // Cột G - Tên khách
+                    Facebook_UserName: customerName,            // Cột G - Tên khách
                     Facebook_ASUserId: String(row['Facebook'] || ''), // Cột E - Facebook ID
 
                     // Customer status
