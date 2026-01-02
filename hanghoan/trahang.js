@@ -952,19 +952,42 @@ const TraHangModule = (function() {
 
                 console.log(`TraHang: Loaded ${mappedData.length} items from PostgreSQL`);
 
-                if (typeof showNotification === 'function') {
+                if (mappedData.length > 0 && typeof showNotification === 'function') {
                     showNotification(`Đã tải ${mappedData.length} đơn trả hàng từ database`, 'success');
+                }
+            } else {
+                // PostgreSQL is empty, fallback to TPOS
+                console.log('PostgreSQL is empty, falling back to TPOS');
+                hideLoading();
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Database trống. Click "Fetch TPOS" để tải dữ liệu từ TPOS', 'info');
                 }
             }
 
         } catch (error) {
             console.error('Error fetching from PostgreSQL:', error);
             hideLoading();
-            showEmptyState();
+
+            // Show helpful error message
+            let errorMsg = 'Database chưa sẵn sàng. ';
+
+            if (error.message.includes('Failed to fetch')) {
+                errorMsg += 'Vui lòng:\n1. Kiểm tra server đã chạy migration\n2. Click "Fetch TPOS" để tải dữ liệu từ TPOS';
+            } else if (error.message.includes('404')) {
+                errorMsg += 'API endpoint chưa được deploy. Click "Fetch TPOS" để tải từ TPOS';
+            } else if (error.message.includes('500')) {
+                errorMsg += 'Lỗi server. Có thể bảng chưa được tạo. Click "Fetch TPOS" để tải từ TPOS';
+            } else {
+                errorMsg += error.message;
+            }
 
             if (typeof showNotification === 'function') {
-                showNotification('Lỗi khi tải dữ liệu từ database: ' + error.message, 'error');
+                showNotification(errorMsg, 'warning');
             }
+
+            // Show empty state but don't prevent user from using Fetch TPOS button
+            showEmptyState();
         }
     }
 
