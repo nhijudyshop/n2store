@@ -641,17 +641,32 @@
         }
 
         .btn-clear-cache {
-            background: #ef5350;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 13px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s ease;
         }
 
         .btn-clear-cache:hover {
-            background: #e53935;
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+            transform: scale(1.02);
+        }
+
+        .btn-clear-cache:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-clear-cache i.fa-spin {
+            animation: fa-spin 1s infinite linear;
         }
 
         /* Highlight effect for fetch button when new table detected */
@@ -7129,8 +7144,8 @@
                         Lỗi: <strong>${cached.errorCount || 0}</strong>
                         ${validation.hasErrors ? `| <strong style="color: #dc2626;">⚠️ Có lỗi dữ liệu</strong>` : ''}
                     </div>
-                    <button class="btn-clear-cache" onclick="clearCacheForTable()">
-                        <i class="fas fa-trash"></i> Xóa cache
+                    <button class="btn-clear-cache" onclick="reloadFromExcel()" title="Xóa cache và tải lại từ file Excel">
+                        <i class="fas fa-sync-alt"></i> Tải lại từ Excel
                     </button>
                 </div>
 
@@ -7354,14 +7369,96 @@
             renderCachedDetailsTab();
         }
 
-        function clearCacheForTable() {
-            if (!currentTableName) return;
-
-            if (confirm(`Xóa cache cho bảng "${currentTableName}"?`)) {
-                delete cachedOrderDetails[currentTableName];
-                saveCachedData();
-                renderCachedDetailsTab();
+        /**
+         * Reload orders from Excel files and save to Firebase
+         * This replaces the old clearCacheForTable function
+         */
+        async function reloadFromExcel() {
+            if (!currentTableName) {
+                alert('Chưa chọn chiến dịch!');
+                return;
             }
+
+            if (!confirm(`Tải lại dữ liệu từ file Excel cho "${currentTableName}"?\n\nThao tác này sẽ:\n1. Xóa cache hiện tại\n2. Tải lại từ file Excel\n3. Lưu lên Firebase`)) {
+                return;
+            }
+
+            // Get button and show loading state
+            const btn = document.querySelector('.btn-clear-cache');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+            btn.disabled = true;
+
+            try {
+                console.log('[REPORT] 🔄 Reloading from Excel for:', currentTableName);
+
+                // Step 1: Clear current cache
+                delete cachedOrderDetails[currentTableName];
+                console.log('[REPORT] 🗑️ Cache cleared');
+
+                // Step 2: Fetch Excel data from campaigns
+                const rawOrders = await fetchAllCampaignsExcel();
+
+                if (!rawOrders || rawOrders.length === 0) {
+                    throw new Error('Không tìm thấy dữ liệu Excel từ các chiến dịch');
+                }
+
+                console.log(`[REPORT] 📊 Fetched ${rawOrders.length} raw orders from Excel`);
+
+                // Step 3: Parse Excel data to Firebase format
+                const orders = parseExcelOrderData(rawOrders);
+                console.log(`[REPORT] 📋 Parsed ${orders.length} orders`);
+
+                // Step 4: Create cache data structure
+                const cacheData = {
+                    tableName: currentTableName,
+                    orders: orders,
+                    fetchedAt: new Date().toISOString(),
+                    totalOrders: orders.length,
+                    successCount: orders.length,
+                    errorCount: 0,
+                    _source: 'excel_reload'
+                };
+
+                // Step 5: Save to cache
+                cachedOrderDetails[currentTableName] = cacheData;
+                saveCachedData();
+                console.log('[REPORT] 💾 Saved to local cache');
+
+                // Step 6: Save to Firebase
+                const firebaseSaved = await saveToFirebase(currentTableName, cacheData);
+                console.log('[REPORT] ☁️ Firebase save result:', firebaseSaved);
+
+                // Step 7: Update UI
+                updateCachedCountBadge();
+                renderCachedDetailsTab();
+
+                // Step 8: Reload statistics
+                await loadEmployeeRanges();
+                renderStatistics();
+
+                // Show success message
+                const firebaseMsg = firebaseSaved ? '✅ Đã lưu Firebase' : '❌ Lỗi lưu Firebase';
+                alert(`✅ Tải lại thành công!\n\n- Số đơn hàng: ${orders.length}\n- Bảng: ${currentTableName}\n- ${firebaseMsg}`);
+
+            } catch (error) {
+                console.error('[REPORT] ❌ Error reloading from Excel:', error);
+                alert(`❌ Lỗi tải lại từ Excel:\n${error.message}`);
+
+                // Restore UI
+                renderCachedDetailsTab();
+            } finally {
+                // Restore button state
+                if (btn) {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        // Keep old function name for backward compatibility
+        function clearCacheForTable() {
+            reloadFromExcel();
         }
 
         function openCachedOrderDetail(index) {
