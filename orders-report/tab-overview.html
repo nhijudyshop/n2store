@@ -4094,8 +4094,8 @@
                     // Tags - Cột S (Nhãn)
                     Tags: row['Nhãn'] || row['Tags'] || '',
 
-                    // Session index - Cột A (STT) or Cột B (###)
-                    SessionIndex: parseInt(row['STT'] || row['###'] || index + 1) || index + 1,
+                    // Session index - Cột B (###) is the correct order number, not Cột A (STT)
+                    SessionIndex: parseInt(row['###'] || row['STT'] || index + 1) || index + 1,
 
                     // Email - Cột F
                     Email: row['Email'] || '',
@@ -7478,16 +7478,30 @@
                 let tags = tagsData;
                 let html = '';
 
-                // Parse JSON string if needed
-                if (typeof tagsData === 'string') {
-                    tags = JSON.parse(tagsData);
-                }
-
                 // Add virtual "ĐÃ RA ĐƠN" tag if order has matched 'ordered' key (for TAG TRÙNG display)
                 if (order && order._matchedTagKeys && order._matchedTagKeys.includes('ordered')) {
                     html += `<span class="order-tag" style="background-color: #22c55e; border: 2px dashed #15803d;" title="Tag ảo - Trạng thái Đơn hàng">✓ ĐÃ RA ĐƠN</span>`;
                 }
 
+                // Handle string input
+                if (typeof tagsData === 'string' && tagsData.trim()) {
+                    // Try to parse as JSON first (for API data with [{Name, Color}] format)
+                    try {
+                        tags = JSON.parse(tagsData);
+                    } catch (e) {
+                        // Not JSON - treat as plain text from Excel (comma-separated tag names)
+                        // Display as simple tags with default color
+                        const tagNames = tagsData.split(',').map(t => t.trim()).filter(t => t);
+                        if (tagNames.length > 0) {
+                            html += tagNames.map(name =>
+                                `<span class="order-tag" style="background-color: #6366f1;" title="${name}">${name}</span>`
+                            ).join('');
+                        }
+                        return html;
+                    }
+                }
+
+                // Handle array of tag objects [{Name, Color}]
                 if (Array.isArray(tags) && tags.length > 0) {
                     html += tags.map(tag =>
                         `<span class="order-tag" style="background-color: ${tag.Color || '#6b7280'};" title="${tag.Name || ''}">${tag.Name || ''}</span>`
