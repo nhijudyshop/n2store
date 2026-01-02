@@ -337,10 +337,10 @@ const TraHangModule = (function() {
                 return;
             }
 
-            // Map Excel rows - match exact column names
-            // Excel structure: STT, Khách hàng, Facebook, Điện thoại, Địa chỉ, Số, Tham chiếu, Ngày bán, Tổng tiền, Còn nợ, Trạng thái, Công ty
+            // Map Excel rows - match exact column names from Excel file
+            // Excel structure: ST, Khách hàng, Facebook, Điện thoại, Địa chỉ, Số, Tham chiếu, Ngày bán, Tổng tiền, Còn nợ, Trạng thái, Công ty
             const importedData = rows.map((row, index) => ({
-                stt: row['STT'] || index + 1,
+                stt: row['ST'] || index + 1,
                 khachHang: row['Khách hàng'] || '',
                 facebook: row['Facebook'] || '',
                 dienThoai: row['Điện thoại'] || '',
