@@ -4,6 +4,33 @@
 -- Migration Date: 2026-01-02
 -- =====================================================
 
+-- 0. Bảng lưu tin nhắn/bình luận mới từ Pancake WebSocket
+-- Dùng cho notification và query recent updates
+CREATE TABLE IF NOT EXISTS realtime_updates (
+    id SERIAL PRIMARY KEY,
+    conversation_id VARCHAR(500) NOT NULL,
+    type VARCHAR(50) DEFAULT 'INBOX',
+    snippet TEXT,
+    unread_count INTEGER DEFAULT 0,
+    page_id VARCHAR(255),
+    psid VARCHAR(255),
+    customer_name VARCHAR(255),
+    seen BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_realtime_updates_created ON realtime_updates(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_realtime_updates_type ON realtime_updates(type);
+CREATE INDEX IF NOT EXISTS idx_realtime_updates_psid ON realtime_updates(psid);
+CREATE INDEX IF NOT EXISTS idx_realtime_updates_page ON realtime_updates(page_id);
+CREATE INDEX IF NOT EXISTS idx_realtime_updates_seen ON realtime_updates(seen, created_at DESC);
+
+COMMENT ON TABLE realtime_updates IS 'Pancake WebSocket updates (messages/comments) for notifications';
+COMMENT ON COLUMN realtime_updates.conversation_id IS 'Pancake conversation ID';
+COMMENT ON COLUMN realtime_updates.type IS 'INBOX or COMMENT';
+COMMENT ON COLUMN realtime_updates.snippet IS 'Preview text of message/comment';
+
+-- =====================================================
 -- 1. Bảng chung cho key-value data (tokens, settings, etc.)
 -- Thay thế: firebase.database().ref('key').set(value)
 CREATE TABLE IF NOT EXISTS realtime_kv (
