@@ -6,6 +6,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { Pool } = require('pg');
 
 const app = express();
@@ -26,6 +27,9 @@ app.use(cors({
 
 // Body parsing - increased limit for large customer imports (80k+ records)
 app.use(express.json({ limit: '100mb' }));
+
+// Serve static files from public folder (merged from /api)
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Request logging
@@ -167,6 +171,13 @@ const geminiRoutes = require('./routes/gemini');
 const deepseekRoutes = require('./routes/deepseek');
 const telegramBotRoutes = require('./routes/telegram-bot');
 
+// === ROUTES MERGED FROM /api ===
+const uploadRoutes = require('./routes/upload.routes');
+const productsRoutes = require('./routes/products.routes');
+const attributeRoutes = require('./routes/attribute.routes');
+const facebookRoutes = require('./routes/facebook.routes');
+const dynamicHeadersRoutes = require('./routes/dynamic-headers.routes');
+
 // Mount routes
 app.use('/api/token', tokenRoutes);
 app.use('/api/odata', odataRoutes);
@@ -181,6 +192,13 @@ app.use('/api/telegram', telegramBotRoutes);
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
 app.use('/api', cloudflareBackupRoutes);
+
+// === ROUTES MERGED FROM /api ===
+app.use(uploadRoutes);       // /upload, /upload-batch
+app.use(productsRoutes);     // /products
+app.use(attributeRoutes);    // /attributes
+app.use(facebookRoutes);     // /facebook/*
+app.use(dynamicHeadersRoutes); // /dynamic-headers/*
 // =====================================================
 // WEBSOCKET SERVER & CLIENT (REALTIME)
 // =====================================================
