@@ -172,6 +172,10 @@ const geminiRoutes = require('./routes/gemini');
 const deepseekRoutes = require('./routes/deepseek');
 const telegramBotRoutes = require('./routes/telegram-bot');
 
+// === FIREBASE REPLACEMENT ROUTES (SSE + PostgreSQL) ===
+const realtimeSseRoutes = require('./routes/realtime-sse');
+const realtimeDbRoutes = require('./routes/realtime-db');
+
 // === ROUTES MERGED FROM /api ===
 const uploadRoutes = require('./routes/upload.routes');
 const productsRoutes = require('./routes/products.routes');
@@ -191,6 +195,19 @@ app.use('/api/realtime', realtimeRoutes);
 app.use('/api/gemini', geminiRoutes);
 app.use('/api/deepseek', deepseekRoutes);
 app.use('/api/telegram', telegramBotRoutes);
+
+// === FIREBASE REPLACEMENT ROUTES ===
+// SSE for realtime updates (replaces Firebase listeners)
+app.use('/api/realtime', realtimeSseRoutes);
+// REST API for CRUD operations (replaces Firebase database operations)
+app.use('/api/realtime', realtimeDbRoutes);
+
+// Initialize SSE notifiers in realtime-db routes
+const { initializeNotifiers } = require('./routes/realtime-db');
+initializeNotifiers(
+    realtimeSseRoutes.notifyClients,
+    realtimeSseRoutes.notifyClientsWildcard
+);
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
 app.use('/api', cloudflareBackupRoutes);
