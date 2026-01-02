@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="modern.css" />
     <link rel="stylesheet" href="hanghoan.css" />
     <link rel="stylesheet" href="trahang.css" />
+    <link rel="stylesheet" href="banhang.css" />
 
     <!-- Navigation Manager -->
     <!-- N2Store Optimization: Core Utilities Loader -->
@@ -148,6 +149,10 @@
             <button class="main-tab-btn" data-tab="traHangTab">
                 <i data-lucide="rotate-ccw"></i>
                 <span>Trả Hàng</span>
+            </button>
+            <button class="main-tab-btn" data-tab="banHangTab">
+                <i data-lucide="shopping-cart"></i>
+                <span>Bán Hàng</span>
             </button>
         </div>
 
@@ -453,6 +458,141 @@
         </div>
         <!-- End Trả Hàng Tab Content -->
 
+        <!-- Bán Hàng Tab Content -->
+        <div class="tab-content" id="banHangTab">
+            <section class="banhang-section">
+                <!-- Stats -->
+                <div class="banhang-stats">
+                    <div class="banhang-stat-card">
+                        <div class="stat-icon blue">
+                            <i data-lucide="file-text"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="banhangStatTotal">0</div>
+                            <div class="stat-label">Tổng đơn</div>
+                        </div>
+                    </div>
+                    <div class="banhang-stat-card">
+                        <div class="stat-icon green">
+                            <i data-lucide="check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="banhangStatConfirmed">0</div>
+                            <div class="stat-label">Đã xác nhận</div>
+                        </div>
+                    </div>
+                    <div class="banhang-stat-card">
+                        <div class="stat-icon purple">
+                            <i data-lucide="credit-card"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="banhangStatPaid">0</div>
+                            <div class="stat-label">Đã thanh toán</div>
+                        </div>
+                    </div>
+                    <div class="banhang-stat-card">
+                        <div class="stat-icon orange">
+                            <i data-lucide="banknote"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="banhangStatTotalAmount">0</div>
+                            <div class="stat-label">Tổng tiền</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="banhang-actions">
+                    <button class="btn btn-primary" id="btnImportExcelBanHang">
+                        <i data-lucide="upload"></i>
+                        <span>Import Excel</span>
+                    </button>
+                    <button class="btn btn-secondary" id="btnRefreshBanHang" title="Làm mới dữ liệu từ Firebase">
+                        <i data-lucide="refresh-cw"></i>
+                        <span>Làm mới</span>
+                    </button>
+                    <button class="btn btn-outline-danger" id="btnClearBanHang" title="Xóa tất cả dữ liệu">
+                        <i data-lucide="trash-2"></i>
+                        <span>Xóa tất cả</span>
+                    </button>
+                    <input type="file" id="excelFileInputBanHang" accept=".xlsx,.xls" style="display: none;">
+                </div>
+
+                <!-- Filters -->
+                <div class="banhang-filters">
+                    <div class="banhang-filter-group">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="banhangSearchInput" placeholder="Tìm kiếm khách hàng, SĐT, mã HĐ...">
+                    </div>
+                    <div class="banhang-filter-group">
+                        <i data-lucide="filter"></i>
+                        <select id="banhangStatusFilter">
+                            <option value="all">Tất cả trạng thái</option>
+                            <option value="confirmed">Đã xác nhận</option>
+                            <option value="paid">Đã thanh toán</option>
+                            <option value="draft">Nháp</option>
+                        </select>
+                    </div>
+                    <div class="banhang-filter-group">
+                        <i data-lucide="calendar"></i>
+                        <input type="date" id="banhangStartDate">
+                        <span>đến</span>
+                        <input type="date" id="banhangEndDate">
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i data-lucide="table"></i>
+                            <h2>Danh Sách Bán Hàng</h2>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="banhang-table">
+                                <thead>
+                                    <tr>
+                                        <th>STT</th>
+                                        <th>Khách hàng</th>
+                                        <th>Điện thoại</th>
+                                        <th>Địa chỉ</th>
+                                        <th>Số HĐ</th>
+                                        <th>Ngày bán</th>
+                                        <th>Tổng tiền</th>
+                                        <th>COD</th>
+                                        <th>Còn nợ</th>
+                                        <th>Trạng thái</th>
+                                        <th>Đối tác GH</th>
+                                        <th>Mã vận đơn</th>
+                                        <th>Trạng thái GH</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="banhangTableBody">
+                                    <!-- Data rows will be rendered here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div class="banhang-loading" id="banhangLoadingState">
+                            <i data-lucide="loader-2"></i>
+                            <p>Đang tải dữ liệu...</p>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div class="banhang-empty" id="banhangEmptyState">
+                            <i data-lucide="inbox"></i>
+                            <h3>Chưa có dữ liệu</h3>
+                            <p>Dữ liệu bán hàng sẽ hiển thị ở đây</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <!-- End Bán Hàng Tab Content -->
+
     </main>
 
     <!-- Edit Modal -->
@@ -742,6 +882,7 @@
     <script src="notification-system.js"></script>
     <script src="hanghoan.js"></script>
     <script src="trahang.js"></script>
+    <script src="banhang.js"></script>
 </body>
 
 </html>

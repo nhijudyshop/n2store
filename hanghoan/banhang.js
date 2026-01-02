@@ -1,0 +1,698 @@
+/* =====================================================
+   BÁN HÀNG - SALES FUNCTIONALITY
+   Excel Import & Firebase Storage
+   ===================================================== */
+
+// Bán Hàng Module - Firebase version
+const BanHangModule = (function() {
+    'use strict';
+
+    // Firebase Configuration (same as hanghoan.js)
+    const firebaseConfig = {
+        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+        authDomain: "n2shop-69e37.firebaseapp.com",
+        projectId: "n2shop-69e37",
+        storageBucket: "n2shop-69e37-ne0q1",
+        messagingSenderId: "598906493303",
+        appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+        measurementId: "G-TEJH3S2T1D",
+    };
+
+    // Firebase references (use existing app if available)
+    let db = null;
+    let banHangCollectionRef = null;
+
+    // State
+    let banHangData = [];
+    let filteredData = [];
+    let isLoading = false;
+
+    // DOM Elements cache
+    const elements = {
+        tableBody: null,
+        emptyState: null,
+        loadingState: null,
+        searchInput: null,
+        statusFilter: null,
+        startDate: null,
+        endDate: null,
+        statTotal: null,
+        statConfirmed: null,
+        statPaid: null,
+        statTotalAmount: null
+    };
+
+    // Initialize Firebase
+    function initFirebase() {
+        try {
+            // Check if Firebase is already initialized
+            if (firebase.apps.length === 0) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            db = firebase.firestore();
+            banHangCollectionRef = db.collection("ban_hang");
+            console.log('✅ BanHang Firebase initialized');
+            return true;
+        } catch (error) {
+            console.error('❌ Error initializing Firebase for BanHang:', error);
+            return false;
+        }
+    }
+
+    // Initialize
+    function init() {
+        initFirebase();
+        cacheElements();
+        bindEvents();
+        setDefaultDates();
+        // Load data from Firebase on init
+        loadFromFirebase();
+        console.log('BanHangModule initialized (Firebase version)');
+    }
+
+    // Cache DOM elements
+    function cacheElements() {
+        elements.tableBody = document.getElementById('banhangTableBody');
+        elements.emptyState = document.getElementById('banhangEmptyState');
+        elements.loadingState = document.getElementById('banhangLoadingState');
+        elements.searchInput = document.getElementById('banhangSearchInput');
+        elements.statusFilter = document.getElementById('banhangStatusFilter');
+        elements.startDate = document.getElementById('banhangStartDate');
+        elements.endDate = document.getElementById('banhangEndDate');
+        elements.statTotal = document.getElementById('banhangStatTotal');
+        elements.statConfirmed = document.getElementById('banhangStatConfirmed');
+        elements.statPaid = document.getElementById('banhangStatPaid');
+        elements.statTotalAmount = document.getElementById('banhangStatTotalAmount');
+    }
+
+    // Set default dates (1 month ago to today)
+    function setDefaultDates() {
+        const today = new Date();
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+        if (elements.startDate) {
+            elements.startDate.value = formatDateForInput(oneMonthAgo);
+        }
+        if (elements.endDate) {
+            elements.endDate.value = formatDateForInput(today);
+        }
+    }
+
+    // Format date for input[type="date"]
+    function formatDateForInput(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // Bind events
+    function bindEvents() {
+        // Search input
+        if (elements.searchInput) {
+            elements.searchInput.addEventListener('input', debounce(handleSearch, 300));
+        }
+
+        // Status filter
+        if (elements.statusFilter) {
+            elements.statusFilter.addEventListener('change', applyFilters);
+        }
+
+        // Date filters
+        if (elements.startDate) {
+            elements.startDate.addEventListener('change', applyFilters);
+        }
+        if (elements.endDate) {
+            elements.endDate.addEventListener('change', applyFilters);
+        }
+    }
+
+    // Debounce utility
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Show loading state
+    function showLoading() {
+        isLoading = true;
+        if (elements.loadingState) {
+            elements.loadingState.classList.add('show');
+        }
+        if (elements.tableBody) {
+            elements.tableBody.innerHTML = '';
+        }
+        if (elements.emptyState) {
+            elements.emptyState.classList.remove('show');
+        }
+    }
+
+    // Hide loading state
+    function hideLoading() {
+        isLoading = false;
+        if (elements.loadingState) {
+            elements.loadingState.classList.remove('show');
+        }
+    }
+
+    // Show empty state
+    function showEmptyState() {
+        if (elements.emptyState) {
+            elements.emptyState.classList.add('show');
+        }
+    }
+
+    // Hide empty state
+    function hideEmptyState() {
+        if (elements.emptyState) {
+            elements.emptyState.classList.remove('show');
+        }
+    }
+
+    // Format currency
+    function formatCurrency(amount) {
+        if (!amount && amount !== 0) return '';
+        return new Intl.NumberFormat('vi-VN').format(amount);
+    }
+
+    // Format date for display
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+
+        return `${day}/${month}/${year}`;
+    }
+
+    /**
+     * Load data from Firebase on page init
+     */
+    async function loadFromFirebase() {
+        if (!banHangCollectionRef) {
+            console.error('Firebase not initialized');
+            return;
+        }
+
+        showLoading();
+        if (typeof showNotification === 'function') {
+            showNotification('Đang tải dữ liệu từ Firebase...', 'info');
+        }
+
+        try {
+            const doc = await banHangCollectionRef.doc('data').get();
+
+            if (doc.exists) {
+                const data = doc.data();
+                banHangData = data.orders || [];
+                filteredData = [...banHangData];
+
+                console.log(`✅ Loaded ${banHangData.length} records from Firebase`);
+
+                hideLoading();
+                renderTable(banHangData);
+                updateStats();
+
+                if (typeof showNotification === 'function' && banHangData.length > 0) {
+                    showNotification(`Đã tải ${banHangData.length} đơn hàng từ Firebase`, 'success');
+                }
+            } else {
+                console.log('No data in Firebase yet');
+                hideLoading();
+                showEmptyState();
+            }
+        } catch (error) {
+            console.error('Error loading from Firebase:', error);
+            hideLoading();
+
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi tải dữ liệu: ' + error.message, 'error');
+            }
+        }
+    }
+
+    /**
+     * Save data to Firebase
+     */
+    async function saveToFirebase(data) {
+        if (!banHangCollectionRef) {
+            console.error('Firebase not initialized');
+            return false;
+        }
+
+        try {
+            await banHangCollectionRef.doc('data').set({
+                orders: data,
+                lastUpdated: new Date().toISOString(),
+                count: data.length
+            });
+            console.log(`✅ Saved ${data.length} records to Firebase`);
+            return true;
+        } catch (error) {
+            console.error('Error saving to Firebase:', error);
+            return false;
+        }
+    }
+
+    // Get status class
+    function getStatusClass(status) {
+        const statusLower = (status || '').toLowerCase();
+        if (statusLower.includes('thanh toán') || statusLower === 'paid') {
+            return 'paid';
+        } else if (statusLower.includes('xác nhận') || statusLower === 'confirmed') {
+            return 'confirmed';
+        } else if (statusLower.includes('nháp') || statusLower === 'draft') {
+            return 'draft';
+        } else if (statusLower.includes('hủy') || statusLower === 'cancelled') {
+            return 'cancelled';
+        }
+        return 'draft';
+    }
+
+    // Render table - match Excel structure
+    function renderTable(data) {
+        if (!elements.tableBody) return;
+
+        if (!data || data.length === 0) {
+            elements.tableBody.innerHTML = '';
+            showEmptyState();
+            return;
+        }
+
+        hideEmptyState();
+
+        const html = data.map((item, index) => `
+            <tr data-index="${index}" data-id="${item.id || ''}">
+                <td class="text-center">${item.stt || index + 1}</td>
+                <td>${escapeHtml(item.khachHang || '')}</td>
+                <td><a href="tel:${item.dienThoai || ''}" class="phone-link">${escapeHtml(item.dienThoai || '')}</a></td>
+                <td class="col-address">${escapeHtml(item.diaChi || '')}</td>
+                <td>${escapeHtml(item.so || '')}</td>
+                <td class="text-center">${formatDate(item.ngayBan)}</td>
+                <td class="text-right">${formatCurrency(item.tongTien)}</td>
+                <td class="text-right">${formatCurrency(item.cod)}</td>
+                <td class="text-right">${formatCurrency(item.conNo)}</td>
+                <td class="text-center">
+                    <span class="banhang-status ${getStatusClass(item.trangThai)}">${escapeHtml(item.trangThai || '')}</span>
+                </td>
+                <td>${escapeHtml(item.doiTacGH || '')}</td>
+                <td>${escapeHtml(item.maVanDon || '')}</td>
+                <td class="text-center">
+                    <span class="banhang-status-gh ${getDeliveryStatusClass(item.trangThaiGH)}">${escapeHtml(item.trangThaiGH || '')}</span>
+                </td>
+            </tr>
+        `).join('');
+
+        elements.tableBody.innerHTML = html;
+
+        // Re-initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    // Get delivery status class
+    function getDeliveryStatusClass(status) {
+        const statusLower = (status || '').toLowerCase();
+        if (statusLower.includes('giao thành công') || statusLower.includes('hoàn tất')) {
+            return 'delivered';
+        } else if (statusLower.includes('đang giao') || statusLower.includes('đã tiếp nhận')) {
+            return 'shipping';
+        } else if (statusLower.includes('chưa tiếp nhận')) {
+            return 'pending';
+        } else if (statusLower.includes('hoàn') || statusLower.includes('thất bại')) {
+            return 'failed';
+        }
+        return 'pending';
+    }
+
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Handle search
+    function handleSearch() {
+        applyFilters();
+    }
+
+    // Apply filters
+    function applyFilters() {
+        let result = [...banHangData];
+
+        // Search filter
+        const searchTerm = elements.searchInput?.value?.toLowerCase()?.trim() || '';
+        if (searchTerm) {
+            result = result.filter(item => {
+                return (
+                    (item.khachHang || '').toLowerCase().includes(searchTerm) ||
+                    (item.dienThoai || '').toLowerCase().includes(searchTerm) ||
+                    (item.so || '').toLowerCase().includes(searchTerm) ||
+                    (item.maVanDon || '').toLowerCase().includes(searchTerm) ||
+                    (item.diaChi || '').toLowerCase().includes(searchTerm)
+                );
+            });
+        }
+
+        // Status filter
+        const statusValue = elements.statusFilter?.value || 'all';
+        if (statusValue !== 'all') {
+            result = result.filter(item => {
+                const statusClass = getStatusClass(item.trangThai);
+                return statusClass === statusValue;
+            });
+        }
+
+        // Date range filter
+        const startDate = elements.startDate?.value;
+        const endDate = elements.endDate?.value;
+
+        if (startDate || endDate) {
+            result = result.filter(item => {
+                if (!item.ngayBan) return false;
+
+                const itemDate = new Date(item.ngayBan);
+                if (isNaN(itemDate.getTime())) return false;
+
+                if (startDate) {
+                    const start = new Date(startDate);
+                    if (itemDate < start) return false;
+                }
+
+                if (endDate) {
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    if (itemDate > end) return false;
+                }
+
+                return true;
+            });
+        }
+
+        filteredData = result;
+        renderTable(result);
+        updateStats();
+    }
+
+    // Update stats
+    function updateStats() {
+        const total = filteredData.length;
+        const confirmed = filteredData.filter(item => getStatusClass(item.trangThai) === 'confirmed').length;
+        const paid = filteredData.filter(item => getStatusClass(item.trangThai) === 'paid').length;
+        const totalAmount = filteredData.reduce((sum, item) => sum + (parseFloat(item.tongTien) || 0), 0);
+
+        if (elements.statTotal) elements.statTotal.textContent = total;
+        if (elements.statConfirmed) elements.statConfirmed.textContent = confirmed;
+        if (elements.statPaid) elements.statPaid.textContent = paid;
+        if (elements.statTotalAmount) elements.statTotalAmount.textContent = formatCurrency(totalAmount);
+    }
+
+    /**
+     * Import Excel file and save to Firebase
+     */
+    async function importExcel(file) {
+        if (!file) return;
+
+        showLoading();
+        if (typeof showNotification === 'function') {
+            showNotification('Đang đọc file Excel...', 'info');
+        }
+
+        try {
+            // Load XLSX library if not already loaded
+            if (typeof XLSX === 'undefined') {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+                document.head.appendChild(script);
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = reject;
+                });
+            }
+
+            // Read Excel file
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+
+            // Read with header row starting at row 3 (skip title rows)
+            const rows = XLSX.utils.sheet_to_json(firstSheet, {
+                range: 2, // Start from row 3 (0-indexed, so 2)
+                defval: null // Default value for empty cells
+            });
+
+            console.log(`Read ${rows.length} rows from Excel`);
+
+            if (rows.length === 0) {
+                hideLoading();
+                if (typeof showNotification === 'function') {
+                    showNotification('File Excel không có dữ liệu', 'warning');
+                }
+                return;
+            }
+
+            // Map Excel rows - match exact column names from Excel file
+            // Excel structure: STT, Khách hàng, Email, Facebook, Điện thoại, Địa chỉ, Số, Ngày bán, Ngày xác nhận, Tổng tiền, Còn nợ, Trạng thái, Đối tác giao hàng, Mã vận đơn, COD, ...
+            const importedData = rows.map((row, index) => ({
+                id: `${Date.now()}_${index}`, // Unique ID for each record
+                stt: row['STT'] || index + 1,
+                khachHang: row['Khách hàng'] || '',
+                email: row['Email'] || '',
+                facebook: row['Facebook'] || '',
+                dienThoai: String(row['Điện thoại'] || ''),
+                diaChi: row['Địa chỉ'] || '',
+                so: row['Số'] || '',
+                ngayBan: row['Ngày bán'] || null,
+                ngayXacNhan: row['Ngày xác nhận'] || null,
+                tongTien: parseFloat(row['Tổng tiền'] || 0),
+                conNo: parseFloat(row['Còn nợ'] || 0),
+                trangThai: row['Trạng thái'] || 'Nháp',
+                doiTacGH: row['Đối tác giao hàng'] || '',
+                maVanDon: row['Mã vận đơn'] || '',
+                cod: parseFloat(row['COD'] || 0),
+                phiShip: row['Phí ship giao hàng'] || '',
+                tienCoc: parseFloat(row['Tiền cọc'] || 0),
+                traTruoc: parseFloat(row['Trả trước'] || 0),
+                khoiLuongShip: row['Khối lượng ship (g)'] || '',
+                trangThaiGH: row['Trạng thái GH'] || '',
+                doiSoatGH: row['Đối soát GH'] || '',
+                ghiChuGH: row['Ghi chú giao hàng'] || '',
+                ghiChu: row['Ghi chú'] || '',
+                nguoiBan: row['Người bán'] || '',
+                nguon: row['Nguồn'] || '',
+                kenh: row['Kênh'] || '',
+                congTy: row['Công ty'] || '',
+                thamChieu: row['Tham chiếu'] || '',
+                phiGiaoHang: row['Phí giao hàng'] || '',
+                nhan: row['Nhãn'] || '',
+                tienGiam: parseFloat(row['Tiền giảm'] || 0),
+                chietKhau: parseFloat(row['Chiết khấu (%)'] || 0),
+                thanhTienChietKhau: parseFloat(row['Thành tiền chiết khấu'] || 0),
+                importedAt: new Date().toISOString()
+            }));
+
+            if (typeof showNotification === 'function') {
+                showNotification('Đang lưu lên Firebase...', 'info');
+            }
+
+            // Merge with existing data (avoid duplicates by checking 'so' - invoice number)
+            const existingInvoices = new Set(banHangData.map(item => item.so));
+            const newData = importedData.filter(item => !existingInvoices.has(item.so) || !item.so);
+            const duplicateCount = importedData.length - newData.length;
+
+            // Merge: new data first, then existing
+            const mergedData = [...newData, ...banHangData];
+
+            // Save to Firebase
+            const saveSuccess = await saveToFirebase(mergedData);
+
+            if (saveSuccess) {
+                // Update local state
+                banHangData = mergedData;
+                filteredData = [...banHangData];
+
+                hideLoading();
+                renderTable(banHangData);
+                updateStats();
+
+                let message = `Đã nhập ${newData.length} đơn hàng từ Excel và lưu lên Firebase`;
+                if (duplicateCount > 0) {
+                    message += ` (bỏ qua ${duplicateCount} đơn trùng)`;
+                }
+
+                if (typeof showNotification === 'function') {
+                    showNotification(message, 'success');
+                }
+            } else {
+                hideLoading();
+                if (typeof showNotification === 'function') {
+                    showNotification('Lỗi khi lưu lên Firebase', 'error');
+                }
+            }
+
+        } catch (error) {
+            console.error('Error importing Excel:', error);
+            hideLoading();
+
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi nhập Excel: ' + error.message, 'error');
+            }
+        }
+    }
+
+    /**
+     * Refresh data from Firebase
+     */
+    async function refreshData() {
+        await loadFromFirebase();
+    }
+
+    /**
+     * Delete a record by ID
+     */
+    async function deleteRecord(id) {
+        if (!id) return false;
+
+        try {
+            const updatedData = banHangData.filter(item => item.id !== id);
+            const saveSuccess = await saveToFirebase(updatedData);
+
+            if (saveSuccess) {
+                banHangData = updatedData;
+                filteredData = [...banHangData];
+                renderTable(banHangData);
+                updateStats();
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Đã xóa thành công', 'success');
+                }
+                return true;
+            }
+        } catch (error) {
+            console.error('Error deleting record:', error);
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi xóa: ' + error.message, 'error');
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Clear all data
+     */
+    async function clearAllData() {
+        if (!confirm('Bạn có chắc chắn muốn xóa TẤT CẢ dữ liệu bán hàng?')) {
+            return false;
+        }
+
+        try {
+            const saveSuccess = await saveToFirebase([]);
+
+            if (saveSuccess) {
+                banHangData = [];
+                filteredData = [];
+                renderTable([]);
+                updateStats();
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Đã xóa tất cả dữ liệu', 'success');
+                }
+                return true;
+            }
+        } catch (error) {
+            console.error('Error clearing data:', error);
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi xóa dữ liệu: ' + error.message, 'error');
+            }
+        }
+        return false;
+    }
+
+    // Public API
+    return {
+        init,
+        importExcel,
+        refreshData,
+        loadFromFirebase,
+        deleteRecord,
+        clearAllData,
+        getData: () => banHangData,
+        getFilteredData: () => filteredData
+    };
+})();
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Only initialize if we're on the correct page
+    if (document.getElementById('banhangTableBody')) {
+        BanHangModule.init();
+
+        // Import Excel button
+        const btnImportExcel = document.getElementById('btnImportExcelBanHang');
+        const excelFileInput = document.getElementById('excelFileInputBanHang');
+
+        if (btnImportExcel && excelFileInput) {
+            btnImportExcel.addEventListener('click', () => {
+                excelFileInput.click();
+            });
+
+            excelFileInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    btnImportExcel.disabled = true;
+                    try {
+                        await BanHangModule.importExcel(file);
+                    } finally {
+                        btnImportExcel.disabled = false;
+                        excelFileInput.value = ''; // Reset file input
+                        // Reinitialize Lucide icons
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                    }
+                }
+            });
+        }
+
+        // Refresh button
+        const btnRefreshBanHang = document.getElementById('btnRefreshBanHang');
+        if (btnRefreshBanHang) {
+            btnRefreshBanHang.addEventListener('click', async () => {
+                btnRefreshBanHang.disabled = true;
+                try {
+                    await BanHangModule.refreshData();
+                } finally {
+                    btnRefreshBanHang.disabled = false;
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }
+            });
+        }
+
+        // Clear all button
+        const btnClearBanHang = document.getElementById('btnClearBanHang');
+        if (btnClearBanHang) {
+            btnClearBanHang.addEventListener('click', async () => {
+                await BanHangModule.clearAllData();
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            });
+        }
+    }
+});
