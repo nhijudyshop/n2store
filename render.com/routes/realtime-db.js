@@ -564,6 +564,384 @@ router.put('/kpi-statistics/:userId/:date', async (req, res) => {
 });
 
 // =====================================================
+// TAG UPDATES API (Multi-User Realtime Tag Sync)
+// =====================================================
+
+/**
+ * GET /api/realtime/tag-updates/:orderId
+ * Get latest tag update for an order
+ */
+router.get('/tag-updates/:orderId', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const result = await pool.query(
+            'SELECT * FROM tag_updates WHERE order_id = $1 ORDER BY updated_at DESC LIMIT 1',
+            [orderId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ exists: false, data: null });
+        }
+
+        const row = result.rows[0];
+        res.json({
+            exists: true,
+            data: {
+                orderId: row.order_id,
+                orderCode: row.order_code,
+                stt: row.stt,
+                tags: row.tags,
+                updatedBy: row.updated_by,
+                timestamp: row.updated_at
+            }
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /tag-updates error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/realtime/tag-updates/:orderId
+ * Update tags for an order
+ */
+router.put('/tag-updates/:orderId', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { orderCode, stt, tags, updatedBy } = req.body;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        if (!tags || !Array.isArray(tags)) {
+            return res.status(400).json({ error: 'tags must be an array' });
+        }
+
+        await pool.query(`
+            INSERT INTO tag_updates (order_id, order_code, stt, tags, updated_by, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `, [orderId, orderCode, stt, JSON.stringify(tags), updatedBy]);
+
+        // Notify SSE clients
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`tag_updates/${orderId}`, {
+                orderId,
+                orderCode,
+                stt,
+                tags,
+                updatedBy,
+                timestamp: Date.now()
+            }, 'update');
+        }
+
+        console.log(`[REALTIME-DB] Tag update for order: ${orderId} by ${updatedBy}`);
+
+        res.json({ success: true, orderId });
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /tag-updates error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/realtime/tag-updates/since/:timestamp
+ * Get all tag updates since a timestamp (for polling)
+ */
+router.get('/tag-updates/since/:timestamp', async (req, res) => {
+    try {
+        const { timestamp } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const sinceDate = new Date(parseInt(timestamp));
+        const result = await pool.query(
+            'SELECT * FROM tag_updates WHERE updated_at > $1 ORDER BY updated_at DESC LIMIT 100',
+            [sinceDate]
+        );
+
+        res.json({
+            success: true,
+            updates: result.rows.map(row => ({
+                orderId: row.order_id,
+                orderCode: row.order_code,
+                stt: row.stt,
+                tags: row.tags,
+                updatedBy: row.updated_by,
+                timestamp: row.updated_at
+            }))
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /tag-updates/since error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// DROPPED PRODUCTS API (Multi-User Collaboration)
+// =====================================================
+
+/**
+ * GET /api/realtime/dropped-products
+ * Get all dropped products (optionally filtered by user)
+ */
+router.get('/dropped-products', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        let query, params;
+        if (userId) {
+            query = 'SELECT * FROM dropped_products WHERE user_id = $1 ORDER BY created_at DESC';
+            params = [userId];
+        } else {
+            query = 'SELECT * FROM dropped_products ORDER BY created_at DESC LIMIT 100';
+            params = [];
+        }
+
+        const result = await pool.query(query, params);
+
+        // Convert to Firebase-like structure
+        const products = {};
+        result.rows.forEach(row => {
+            products[row.id] = {
+                productCode: row.product_code,
+                productName: row.product_name,
+                size: row.size,
+                quantity: row.quantity,
+                userId: row.user_id,
+                userName: row.user_name,
+                orderId: row.order_id,
+                isDraft: row.is_draft,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            };
+        });
+
+        res.json(products);
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /dropped-products error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/realtime/dropped-products/:id
+ * Add or update a dropped product
+ */
+router.put('/dropped-products/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { productCode, productName, size, quantity, userId, userName, orderId, isDraft } = req.body;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        await pool.query(`
+            INSERT INTO dropped_products (id, product_code, product_name, size, quantity, user_id, user_name, order_id, is_draft, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT (id) DO UPDATE SET
+                product_code = $2,
+                product_name = $3,
+                size = $4,
+                quantity = $5,
+                user_id = $6,
+                user_name = $7,
+                order_id = $8,
+                is_draft = $9,
+                updated_at = CURRENT_TIMESTAMP
+        `, [id, productCode, productName, size, quantity || 1, userId, userName, orderId, isDraft || false]);
+
+        // Notify SSE clients
+        if (notifyClients) {
+            notifyClients('dropped_products', {
+                id,
+                productCode,
+                productName,
+                size,
+                quantity,
+                userId,
+                userName,
+                orderId,
+                isDraft
+            }, 'update');
+        }
+
+        console.log(`[REALTIME-DB] Dropped product added/updated: ${id} by ${userName}`);
+
+        res.json({ success: true, id });
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /dropped-products error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/realtime/dropped-products/:id
+ * Remove a dropped product
+ */
+router.delete('/dropped-products/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const result = await pool.query(
+            'DELETE FROM dropped_products WHERE id = $1 RETURNING *',
+            [id]
+        );
+
+        // Notify SSE clients
+        if (notifyClients) {
+            notifyClients('dropped_products', {
+                id,
+                deleted: true
+            }, 'deleted');
+        }
+
+        console.log(`[REALTIME-DB] Dropped product deleted: ${id}`);
+
+        res.json({
+            success: true,
+            deleted: result.rowCount > 0
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] DELETE /dropped-products error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// NOTE SNAPSHOTS API (Note Edit Tracking)
+// =====================================================
+
+/**
+ * GET /api/realtime/note-snapshots/:orderId
+ * Get note snapshot for an order
+ */
+router.get('/note-snapshots/:orderId', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const result = await pool.query(
+            'SELECT * FROM note_snapshots WHERE order_id = $1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)',
+            [orderId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ exists: false, data: null });
+        }
+
+        const row = result.rows[0];
+        res.json({
+            exists: true,
+            data: {
+                orderId: row.order_id,
+                noteText: row.note_text,
+                encodedProducts: row.encoded_products,
+                snapshotHash: row.snapshot_hash,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+                expiresAt: row.expires_at
+            }
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /note-snapshots error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/realtime/note-snapshots/:orderId
+ * Save note snapshot (auto-expire after 7 days)
+ */
+router.put('/note-snapshots/:orderId', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { noteText, encodedProducts, snapshotHash } = req.body;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        // Set expiration to 7 days from now
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7);
+
+        await pool.query(`
+            INSERT INTO note_snapshots (order_id, note_text, encoded_products, snapshot_hash, created_at, updated_at, expires_at)
+            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $5)
+            ON CONFLICT (order_id) DO UPDATE SET
+                note_text = $2,
+                encoded_products = $3,
+                snapshot_hash = $4,
+                updated_at = CURRENT_TIMESTAMP,
+                expires_at = $5
+        `, [orderId, noteText, encodedProducts, snapshotHash, expiresAt]);
+
+        console.log(`[REALTIME-DB] Note snapshot saved for order: ${orderId}`);
+
+        res.json({ success: true, orderId, expiresAt });
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /note-snapshots error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/realtime/note-snapshots/cleanup
+ * Cleanup expired snapshots
+ */
+router.delete('/note-snapshots/cleanup', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const result = await pool.query(
+            'DELETE FROM note_snapshots WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP RETURNING order_id'
+        );
+
+        console.log(`[REALTIME-DB] Cleaned up ${result.rowCount} expired note snapshots`);
+
+        res.json({
+            success: true,
+            deletedCount: result.rowCount
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] DELETE /note-snapshots/cleanup error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
 // EXPORTS
 // =====================================================
 

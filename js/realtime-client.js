@@ -512,6 +512,206 @@ class RealtimeClient {
     }
 
     // =====================================================
+    // TAG UPDATES OPERATIONS
+    // =====================================================
+
+    /**
+     * Get latest tag update for an order
+     * @param {string} orderId - Order ID
+     * @returns {Promise<Object>} Tag update data or null
+     */
+    async getTagUpdate(orderId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/realtime/tag-updates/${encodeURIComponent(orderId)}`);
+            const result = await response.json();
+            return result.exists ? result.data : null;
+        } catch (error) {
+            console.error('[RealtimeClient] GET tag update error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Update tags for an order
+     * @param {string} orderId - Order ID
+     * @param {Object} data - { orderCode, stt, tags, updatedBy }
+     * @returns {Promise<Object>} Response object
+     */
+    async updateTags(orderId, data) {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/realtime/tag-updates/${encodeURIComponent(orderId)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return response.json();
+        } catch (error) {
+            console.error('[RealtimeClient] UPDATE tags error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Listen to tag updates
+     * @param {Function} callback - Callback(data) when tags updated
+     * @returns {Function} Unsubscribe function
+     */
+    onTagUpdate(callback) {
+        return this.on('tag_updates', callback);
+    }
+
+    // =====================================================
+    // DROPPED PRODUCTS OPERATIONS
+    // =====================================================
+
+    /**
+     * Get all dropped products (optionally filtered by user)
+     * @param {string} userId - User ID (optional)
+     * @returns {Promise<Object>} Dropped products object
+     */
+    async getDroppedProducts(userId = null) {
+        try {
+            let url = `${this.baseUrl}/api/realtime/dropped-products`;
+            if (userId) {
+                url += `?userId=${encodeURIComponent(userId)}`;
+            }
+
+            const response = await fetch(url);
+            return response.json();
+        } catch (error) {
+            console.error('[RealtimeClient] GET dropped products error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Add or update a dropped product
+     * @param {string} id - Firebase-style ID (e.g., "-OhNkGnH6dnGuTpLhHsX")
+     * @param {Object} data - { productCode, productName, size, quantity, userId, userName, orderId, isDraft }
+     * @returns {Promise<Object>} Response object
+     */
+    async setDroppedProduct(id, data) {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/realtime/dropped-products/${encodeURIComponent(id)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return response.json();
+        } catch (error) {
+            console.error('[RealtimeClient] SET dropped product error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Remove a dropped product
+     * @param {string} id - Product ID
+     * @returns {Promise<Object>} Response object
+     */
+    async removeDroppedProduct(id) {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/realtime/dropped-products/${encodeURIComponent(id)}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return response.json();
+        } catch (error) {
+            console.error('[RealtimeClient] REMOVE dropped product error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Listen to dropped products updates
+     * @param {Function} callback - Callback(data) when products updated
+     * @returns {Function} Unsubscribe function
+     */
+    onDroppedProducts(callback) {
+        return this.on('dropped_products', callback);
+    }
+
+    // =====================================================
+    // NOTE SNAPSHOTS OPERATIONS
+    // =====================================================
+
+    /**
+     * Get note snapshot for an order
+     * @param {string} orderId - Order ID
+     * @returns {Promise<Object>} Note snapshot data or null
+     */
+    async getNoteSnapshot(orderId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/realtime/note-snapshots/${encodeURIComponent(orderId)}`);
+            const result = await response.json();
+            return result.exists ? result.data : null;
+        } catch (error) {
+            console.error('[RealtimeClient] GET note snapshot error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Save note snapshot (auto-expire after 7 days)
+     * @param {string} orderId - Order ID
+     * @param {Object} data - { noteText, encodedProducts, snapshotHash }
+     * @returns {Promise<Object>} Response object
+     */
+    async saveNoteSnapshot(orderId, data) {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/realtime/note-snapshots/${encodeURIComponent(orderId)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return response.json();
+        } catch (error) {
+            console.error('[RealtimeClient] SAVE note snapshot error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Cleanup expired note snapshots
+     * @returns {Promise<Object>} Cleanup result
+     */
+    async cleanupNoteSnapshots() {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/realtime/note-snapshots/cleanup`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return response.json();
+        } catch (error) {
+            console.error('[RealtimeClient] CLEANUP note snapshots error:', error);
+            throw error;
+        }
+    }
+
+    // =====================================================
     // UTILITY
     // =====================================================
 

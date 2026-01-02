@@ -195,19 +195,122 @@ CREATE TRIGGER update_soluong_meta_timestamp
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 -- =====================================================
+-- 8. Tag Updates (Realtime Tag Sync)
+-- Replaces: firebase.database().ref('tag_updates')
+-- =====================================================
+CREATE TABLE IF NOT EXISTS tag_updates (
+    id SERIAL PRIMARY KEY,
+    order_id VARCHAR(255) NOT NULL,
+    order_code VARCHAR(100),
+    stt INTEGER,
+    tags JSONB NOT NULL,
+    updated_by VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_tag_updates_order ON tag_updates(order_id);
+CREATE INDEX IF NOT EXISTS idx_tag_updates_updated ON tag_updates(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tag_updates_user ON tag_updates(updated_by);
+
+COMMENT ON TABLE tag_updates IS 'Realtime tag updates for orders (multi-user sync)';
+COMMENT ON COLUMN tag_updates.tags IS 'Array of tag objects: [{Id, Name, Color}]';
+
+-- =====================================================
+-- 9. Dropped Products (Multi-User Sync)
+-- Replaces: firebase.database().ref('dropped_products')
+-- =====================================================
+CREATE TABLE IF NOT EXISTS dropped_products (
+    id VARCHAR(255) PRIMARY KEY,
+    product_code VARCHAR(255),
+    product_name TEXT,
+    size VARCHAR(50),
+    quantity INTEGER DEFAULT 1,
+    user_id VARCHAR(255),
+    user_name VARCHAR(255),
+    order_id VARCHAR(255),
+    is_draft BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_dropped_products_user ON dropped_products(user_id);
+CREATE INDEX IF NOT EXISTS idx_dropped_products_order ON dropped_products(order_id);
+CREATE INDEX IF NOT EXISTS idx_dropped_products_code ON dropped_products(product_code);
+CREATE INDEX IF NOT EXISTS idx_dropped_products_updated ON dropped_products(updated_at DESC);
+
+COMMENT ON TABLE dropped_products IS 'Dropped products for multi-user collaboration';
+COMMENT ON COLUMN dropped_products.id IS 'Firebase-style ID (e.g., "-OhNkGnH6dnGuTpLhHsX")';
+
+-- =====================================================
+-- 10. Note Snapshots (Note Edit Tracking)
+-- Replaces: firebase.database().ref('note_snapshots')
+-- =====================================================
+CREATE TABLE IF NOT EXISTS note_snapshots (
+    order_id VARCHAR(255) PRIMARY KEY,
+    note_text TEXT,
+    encoded_products TEXT,
+    snapshot_hash VARCHAR(64),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_note_snapshots_expires ON note_snapshots(expires_at);
+CREATE INDEX IF NOT EXISTS idx_note_snapshots_updated ON note_snapshots(updated_at DESC);
+
+COMMENT ON TABLE note_snapshots IS 'Note snapshots for edit detection (auto-expire after 7 days)';
+COMMENT ON COLUMN note_snapshots.snapshot_hash IS 'MD5 hash of note content for quick comparison';
+
+-- Apply triggers to new tables
+DROP TRIGGER IF EXISTS update_tag_updates_timestamp ON tag_updates;
+CREATE TRIGGER update_tag_updates_timestamp
+    BEFORE UPDATE ON tag_updates
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+DROP TRIGGER IF EXISTS update_dropped_products_timestamp ON dropped_products;
+CREATE TRIGGER update_dropped_products_timestamp
+    BEFORE UPDATE ON dropped_products
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+DROP TRIGGER IF EXISTS update_note_snapshots_timestamp ON note_snapshots;
+CREATE TRIGGER update_note_snapshots_timestamp
+    BEFORE UPDATE ON note_snapshots
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+-- =====================================================
 -- VERIFICATION QUERIES
 -- Run these to verify migration success
 -- =====================================================
 
 -- Check all tables created
--- SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE '%kpi%' OR table_name LIKE '%held%' OR table_name LIKE '%realtime_kv%';
+-- SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND (table_name LIKE '%kpi%' OR table_name LIKE '%held%' OR table_name LIKE '%tag%' OR table_name LIKE '%dropped%' OR table_name = 'realtime_kv') ORDER BY table_name;
 
 -- Check all indexes
--- SELECT tablename, indexname FROM pg_indexes WHERE schemaname = 'public' AND (tablename LIKE '%kpi%' OR tablename LIKE '%held%' OR tablename = 'realtime_kv');
+-- SELECT tablename, indexname FROM pg_indexes WHERE schemaname = 'public' ORDER BY tablename, indexname;
 
 -- Check all triggers
--- SELECT trigger_name, event_object_table FROM information_schema.triggers WHERE trigger_schema = 'public';
+-- SELECT trigger_name, event_object_table FROM information_schema.triggers WHERE trigger_schema = 'public' ORDER BY event_object_table;
+
+-- Count records in each table
+-- SELECT 'realtime_kv' as table_name, COUNT(*) as count FROM realtime_kv
+-- UNION ALL SELECT 'kpi_base', COUNT(*) FROM kpi_base
+-- UNION ALL SELECT 'held_products', COUNT(*) FROM held_products
+-- UNION ALL SELECT 'tag_updates', COUNT(*) FROM tag_updates
+-- UNION ALL SELECT 'dropped_products', COUNT(*) FROM dropped_products
+-- UNION ALL SELECT 'note_snapshots', COUNT(*) FROM note_snapshots;
 
 -- =====================================================
 -- MIGRATION COMPLETE
+-- Total Tables: 10
+-- - realtime_kv
+-- - kpi_base
+-- - kpi_statistics
+-- - held_products
+-- - report_order_details
+-- - soluong_products
+-- - soluong_meta
+-- - tag_updates
+-- - dropped_products
+-- - note_snapshots
 -- =====================================================
