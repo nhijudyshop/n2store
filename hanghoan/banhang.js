@@ -444,21 +444,41 @@ const BanHangModule = (function() {
             <tr data-index="${startIndex + index}" data-id="${item.id || ''}">
                 <td class="text-center">${startIndex + index + 1}</td>
                 <td>${escapeHtml(item.khachHang || '')}</td>
+                <td>${escapeHtml(item.email || '')}</td>
+                <td>${escapeHtml(item.facebook || '')}</td>
                 <td><a href="tel:${item.dienThoai || ''}" class="phone-link">${escapeHtml(item.dienThoai || '')}</a></td>
                 <td class="col-address">${escapeHtml(item.diaChi || '')}</td>
                 <td>${escapeHtml(item.so || '')}</td>
                 <td class="text-center">${formatDate(item.ngayBan)}</td>
+                <td class="text-center">${formatDate(item.ngayXacNhan)}</td>
                 <td class="text-right">${formatCurrency(item.tongTien)}</td>
-                <td class="text-right">${formatCurrency(item.cod)}</td>
                 <td class="text-right">${formatCurrency(item.conNo)}</td>
                 <td class="text-center">
                     <span class="banhang-status ${getStatusClass(item.trangThai)}">${escapeHtml(item.trangThai || '')}</span>
                 </td>
                 <td>${escapeHtml(item.doiTacGH || '')}</td>
                 <td>${escapeHtml(item.maVanDon || '')}</td>
+                <td class="text-right">${formatCurrency(item.cod)}</td>
+                <td class="text-right">${escapeHtml(item.phiShipGH || '')}</td>
+                <td class="text-right">${formatCurrency(item.tienCoc)}</td>
+                <td class="text-right">${formatCurrency(item.traTruoc)}</td>
+                <td class="text-center">${escapeHtml(item.khoiLuongShip || '')}</td>
                 <td class="text-center">
                     <span class="banhang-status-gh ${getDeliveryStatusClass(item.trangThaiGH)}">${escapeHtml(item.trangThaiGH || '')}</span>
                 </td>
+                <td>${escapeHtml(item.doiSoatGH || '')}</td>
+                <td class="col-note">${escapeHtml(item.ghiChuGH || '')}</td>
+                <td class="col-note">${escapeHtml(item.ghiChu || '')}</td>
+                <td>${escapeHtml(item.nguoiBan || '')}</td>
+                <td>${escapeHtml(item.nguon || '')}</td>
+                <td>${escapeHtml(item.kenh || '')}</td>
+                <td>${escapeHtml(item.congTy || '')}</td>
+                <td>${escapeHtml(item.thamChieu || '')}</td>
+                <td class="text-right">${escapeHtml(item.phiGiaoHang || '')}</td>
+                <td>${escapeHtml(item.nhan || '')}</td>
+                <td class="text-right">${formatCurrency(item.tienGiam)}</td>
+                <td class="text-right">${item.chietKhau || 0}%</td>
+                <td class="text-right">${formatCurrency(item.thanhTienChietKhau)}</td>
             </tr>
         `).join('');
 
@@ -633,7 +653,7 @@ const BanHangModule = (function() {
                 doiTacGH: row['Đối tác giao hàng'] || '',
                 maVanDon: row['Mã vận đơn'] || '',
                 cod: parseFloat(row['COD'] || 0),
-                phiShip: row['Phí ship giao hàng'] || '',
+                phiShipGH: row['Phí ship giao hàng'] || '',
                 tienCoc: parseFloat(row['Tiền cọc'] || 0),
                 traTruoc: parseFloat(row['Trả trước'] || 0),
                 khoiLuongShip: row['Khối lượng ship (g)'] || '',
