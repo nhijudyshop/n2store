@@ -3772,11 +3772,15 @@
          * @returns {Promise<Array<{id: number, name: string}>>} - List of campaigns with TPOS Ids
          */
         async function getCurrentSessionCampaigns() {
+            console.log('[REPORT] 🔍 getCurrentSessionCampaigns() called');
+
             // First, try to get campaign info from Tab1
             if (!campaignInfoFromTab1) {
                 console.log('[REPORT] 📡 Requesting campaign info from Tab1...');
                 await requestCampaignInfoFromTab1();
             }
+
+            console.log('[REPORT] 📋 campaignInfoFromTab1:', campaignInfoFromTab1 ? 'exists' : 'null');
 
             if (!campaignInfoFromTab1) {
                 console.warn('[REPORT] ⚠️ campaignManager not available from Tab1');
@@ -3784,6 +3788,7 @@
             }
 
             const activeCampaign = campaignInfoFromTab1.activeCampaign;
+            console.log('[REPORT] 📋 activeCampaign:', activeCampaign ? `"${activeCampaign.name}"` : 'null');
 
             if (!activeCampaign) {
                 console.warn('[REPORT] ⚠️ No active campaign found');
@@ -7930,11 +7935,40 @@
                 if (sessionCache) {
                     try {
                         const cached = JSON.parse(sessionCache);
-                        // Check if cache is fresh (less than 5 minutes old)
+                        // Check if cache is fresh (less than 5 minutes old) AND has orders
                         const cacheAge = Date.now() - (cached.timestamp || 0);
-                        if (cacheAge < 5 * 60 * 1000) {
-                            console.log('[REPORT] 📦 Using cached Excel data from sessionStorage');
+                        const hasValidOrders = cached.orders && cached.orders.length > 0;
+
+                        if (cacheAge < 5 * 60 * 1000 && hasValidOrders) {
+                            console.log(`[REPORT] 📦 Using cached Excel data from sessionStorage (${cached.orders.length} orders)`);
                             hasQuickData = true;
+
+                            // =====================================================
+                            // IMPORTANT: Load cached data into cachedOrderDetails for display
+                            // =====================================================
+                            if (currentTableName) {
+                                const cacheData = {
+                                    tableName: currentTableName,
+                                    orders: cached.orders,
+                                    fetchedAt: new Date(cached.timestamp).toISOString(),
+                                    totalOrders: cached.orders.length,
+                                    successCount: cached.orders.length,
+                                    errorCount: 0,
+                                    _source: 'session_cache'
+                                };
+
+                                // Load into local cache
+                                cachedOrderDetails[currentTableName] = cacheData;
+                                saveCachedData();
+
+                                // Update UI
+                                updateCachedCountBadge();
+                                renderCachedDetailsTab();
+
+                                console.log(`[REPORT] ✅ Session cache loaded into "Chi tiết đã tải" for "${currentTableName}"`);
+                            }
+                        } else if (!hasValidOrders) {
+                            console.log('[REPORT] ⚠️ Session cache exists but has no orders, will fetch fresh');
                         }
                     } catch (e) {
                         console.warn('[REPORT] Failed to parse session cache:', e);
@@ -7944,8 +7978,10 @@
                 // If no fresh cache, auto-fetch from TPOS
                 if (!hasQuickData) {
                     console.log('[REPORT] 🔄 Auto-fetching data from TPOS Excel...');
+                    console.log(`[REPORT] 📋 currentTableName = "${currentTableName}"`);
                     try {
                         const allExcelOrders = await fetchAllCampaignsExcel();
+                        console.log(`[REPORT] 📊 fetchAllCampaignsExcel returned ${allExcelOrders.length} orders`);
                         if (allExcelOrders.length > 0) {
                             const parsedOrders = parseExcelOrderData(allExcelOrders);
 
