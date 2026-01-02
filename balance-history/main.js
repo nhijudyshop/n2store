@@ -12,7 +12,7 @@ const API_BASE_URL = window.CONFIG?.API_BASE_URL || (
 // State
 let currentPage = 1;
 let totalPages = 1;
-let currentQuickFilter = 'thisMonth'; // Default quick filter
+let currentQuickFilter = 'last30days'; // Default quick filter
 let filters = {
     type: '',
     gateway: '',
@@ -260,24 +260,30 @@ function showNotification(message, type = 'info') {
 
 // Set Default Current Month
 function setDefaultCurrentMonth() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const today = new Date();
 
-    // First day of current month
-    const firstDay = `${year}-${month}-01`;
+    // Calculate 30 days ago (last30days)
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 29);
 
-    // Last day of current month
-    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-    const lastDayFormatted = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+    // Format dates
+    const startYear = startDate.getFullYear();
+    const startMonth = String(startDate.getMonth() + 1).padStart(2, '0');
+    const startDay = String(startDate.getDate()).padStart(2, '0');
+    const firstDay = `${startYear}-${startMonth}-${startDay}`;
+
+    const endYear = today.getFullYear();
+    const endMonth = String(today.getMonth() + 1).padStart(2, '0');
+    const endDay = String(today.getDate()).padStart(2, '0');
+    const lastDay = `${endYear}-${endMonth}-${endDay}`;
 
     // Set input values
     document.getElementById('filterStartDate').value = firstDay;
-    document.getElementById('filterEndDate').value = lastDayFormatted;
+    document.getElementById('filterEndDate').value = lastDay;
 
     // Update filters state
     filters.startDate = firstDay;
-    filters.endDate = lastDayFormatted;
+    filters.endDate = lastDay;
 }
 
 // Quick Filter Date Ranges
@@ -593,15 +599,15 @@ function resetFilters() {
     document.getElementById('filterSearch').value = '';
     document.getElementById('filterAmount').value = '';
 
-    // Reset dates to current month
+    // Reset dates to last 30 days
     setDefaultCurrentMonth();
 
-    // Reset quick filter to "thisMonth"
+    // Reset quick filter to "last30days"
     document.querySelectorAll('.btn-quick-filter').forEach(btn => {
         btn.classList.remove('active');
     });
-    document.querySelector('[data-filter="thisMonth"]')?.classList.add('active');
-    currentQuickFilter = 'thisMonth';
+    document.querySelector('[data-filter="last30days"]')?.classList.add('active');
+    currentQuickFilter = 'last30days';
 
     filters.type = '';
     filters.gateway = '';
