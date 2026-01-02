@@ -1128,7 +1128,12 @@ const TraHangModule = (function() {
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(firstSheet);
+
+            // Read with header row starting at row 3 (skip title rows)
+            const rows = XLSX.utils.sheet_to_json(firstSheet, {
+                range: 2, // Start from row 3 (0-indexed, so 2)
+                defval: null // Default value for empty cells
+            });
 
             console.log(`Read ${rows.length} rows from Excel`);
 
@@ -1141,16 +1146,17 @@ const TraHangModule = (function() {
             }
 
             // Map Excel rows to PostgreSQL schema
+            // Excel structure: STT, Khách hàng, Facebook, Điện thoại, Địa chỉ, Số, Tham chiếu, Ngày bán, Tổng tiền, Còn nợ, Trạng thái, Công ty
             const orders = rows.map(row => ({
-                customer_name: row['Khách hàng'] || row['Tên khách hàng'] || '',
-                phone: row['Số điện thoại'] || row['SĐT'] || row['Phone'] || '',
-                invoice_number: row['Số hóa đơn'] || row['Mã HĐ'] || row['Invoice Number'] || '',
-                reference: row['Tham chiếu'] || row['Reference'] || '',
-                invoice_date: row['Ngày hóa đơn'] || row['Invoice Date'] || null,
-                total_amount: parseFloat(row['Tổng tiền'] || row['Total Amount'] || 0),
-                remaining_debt: parseFloat(row['Còn nợ'] || row['Remaining Debt'] || 0),
-                status: row['Trạng thái'] || row['Status'] || 'Đã xác nhận',
-                return_reason: row['Lý do'] || row['Return Reason'] || '',
+                customer_name: row['Khách hàng'] || '',
+                phone: row['Điện thoại'] || row['Số điện thoại'] || '',
+                invoice_number: row['Số'] || row['Số hóa đơn'] || '',
+                reference: row['Tham chiếu'] || '',
+                invoice_date: row['Ngày bán'] || row['Ngày hóa đơn'] || null,
+                total_amount: parseFloat(row['Tổng tiền'] || 0),
+                remaining_debt: parseFloat(row['Còn nợ'] || 0),
+                status: row['Trạng thái'] || 'Đã xác nhận',
+                return_reason: row['Công ty'] || '', // Use company as return reason
                 is_returned: false,
                 source: 'Excel'
             }));
@@ -1205,29 +1211,36 @@ const TraHangModule = (function() {
      * Download Excel template
      */
     function downloadExcelTemplate() {
-        // Template data
+        // Template data matching the actual Excel structure
+        // Structure: STT, Khách hàng, Facebook, Điện thoại, Địa chỉ, Số, Tham chiếu, Ngày bán, Tổng tiền, Còn nợ, Trạng thái, Công ty
         const template = [
             {
+                'STT': 1,
                 'Khách hàng': 'Nguyễn Văn A',
-                'Số điện thoại': '0123456789',
-                'Số hóa đơn': 'TH001',
-                'Tham chiếu': 'REF001',
-                'Ngày hóa đơn': '2025-01-01',
+                'Facebook': '',
+                'Điện thoại': '0123456789',
+                'Địa chỉ': 'Hà Nội',
+                'Số': 'RINV/2026/0001',
+                'Tham chiếu': 'REF/2026/0001',
+                'Ngày bán': '2026-01-02',
                 'Tổng tiền': 500000,
                 'Còn nợ': 0,
                 'Trạng thái': 'Đã xác nhận',
-                'Lý do': 'Hàng lỗi'
+                'Công ty': 'NJD Live'
             },
             {
+                'STT': 2,
                 'Khách hàng': 'Trần Thị B',
-                'Số điện thoại': '0987654321',
-                'Số hóa đơn': 'TH002',
-                'Tham chiếu': 'REF002',
-                'Ngày hóa đơn': '2025-01-02',
+                'Facebook': '',
+                'Điện thoại': '0987654321',
+                'Địa chỉ': 'TP.HCM',
+                'Số': 'RINV/2026/0002',
+                'Tham chiếu': 'REF/2026/0002',
+                'Ngày bán': '2026-01-02',
                 'Tổng tiền': 300000,
                 'Còn nợ': 100000,
                 'Trạng thái': 'Đã xác nhận',
-                'Lý do': 'Đổi size'
+                'Công ty': 'NJD Live'
             }
         ];
 
@@ -1253,21 +1266,31 @@ const TraHangModule = (function() {
         }
 
         function createAndDownload() {
-            const worksheet = XLSX.utils.json_to_sheet(template);
             const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, 'Trả Hàng');
+            const worksheet = XLSX.utils.json_to_sheet(template);
 
-            // Set column widths
+            // Add title row at the top
+            XLSX.utils.sheet_add_aoa(worksheet, [['DANH SÁCH TRẢ HÀNG']], { origin: 'A1' });
+
+            // Merge title cells
+            worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }];
+
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Trả hàng');
+
+            // Set column widths to match actual file
             worksheet['!cols'] = [
+                { wch: 5 },  // STT
                 { wch: 20 }, // Khách hàng
-                { wch: 15 }, // Số điện thoại
-                { wch: 15 }, // Số hóa đơn
-                { wch: 15 }, // Tham chiếu
-                { wch: 15 }, // Ngày hóa đơn
+                { wch: 15 }, // Facebook
+                { wch: 15 }, // Điện thoại
+                { wch: 40 }, // Địa chỉ
+                { wch: 18 }, // Số
+                { wch: 18 }, // Tham chiếu
+                { wch: 20 }, // Ngày bán
                 { wch: 12 }, // Tổng tiền
                 { wch: 12 }, // Còn nợ
                 { wch: 15 }, // Trạng thái
-                { wch: 30 }  // Lý do
+                { wch: 15 }  // Công ty
             ];
 
             // Download
