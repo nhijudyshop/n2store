@@ -71,9 +71,14 @@ function renderShipmentForm(shipment) {
             <div id="invoicesContainer">
                 ${invoices.length > 0 ? invoices.map((inv, i) => renderInvoiceForm(inv, i)).join('') : renderInvoiceForm(null, 0)}
             </div>
-            <button type="button" class="btn btn-sm btn-outline" id="btnAddInvoice">
-                <i data-lucide="plus"></i> Thêm hóa đơn NCC mới
-            </button>
+            <div class="invoice-buttons">
+                <button type="button" class="btn btn-sm btn-outline" id="btnAddInvoice">
+                    <i data-lucide="plus"></i> Thêm hóa đơn NCC mới
+                </button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnAddInvoiceAI">
+                    <i data-lucide="sparkles"></i> Tạo hóa đơn từ ảnh bằng AI
+                </button>
+            </div>
         </div>
 
         ${canEditCost ? `
@@ -155,6 +160,9 @@ function renderInvoiceForm(invoice, index) {
 function setupShipmentFormListeners() {
     // Add invoice
     document.getElementById('btnAddInvoice')?.addEventListener('click', addInvoiceForm);
+
+    // Add invoice with AI
+    document.getElementById('btnAddInvoiceAI')?.addEventListener('click', openAIImageUploader);
 
     // Add cost
     document.getElementById('btnAddCost')?.addEventListener('click', addCostRow);
@@ -474,4 +482,73 @@ async function saveShipment() {
     }
 }
 
-console.log('[MODAL] Shipment modal initialized');
+// =====================================================
+// AI IMAGE UPLOAD FUNCTIONS
+// =====================================================
+
+/**
+ * Open file picker for AI image upload
+ */
+function openAIImageUploader() {
+    console.log('[MODAL] Opening AI image uploader');
+
+    // Create hidden file input
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'image/*';
+
+    input.addEventListener('change', (e) => {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            handleAIImageUpload(files);
+        }
+    });
+
+    input.click();
+}
+
+/**
+ * Handle AI image upload
+ * @param {FileList} files - Selected image files
+ */
+async function handleAIImageUpload(files) {
+    console.log(`[MODAL] Handling ${files.length} images for AI processing`);
+
+    // Validate files
+    for (const file of files) {
+        if (!APP_CONFIG.ALLOWED_IMAGE_TYPES.includes(file.type)) {
+            toast.error(`File ${file.name} không hợp lệ. Chỉ chấp nhận ảnh JPG, PNG, GIF, WebP.`);
+            return;
+        }
+        if (file.size > APP_CONFIG.MAX_IMAGE_SIZE) {
+            toast.error(`File ${file.name} quá lớn. Kích thước tối đa 5MB.`);
+            return;
+        }
+    }
+
+    toast.info(`Đang xử lý ${files.length} ảnh bằng AI...`);
+
+    // Setup queue callbacks
+    aiQueueManager.onProgress = (current, total, status) => {
+        console.log(`[AI] Processing image ${current}/${total} - ${status}`);
+    };
+
+    aiQueueManager.onComplete = (index, result) => {
+        console.log(`[AI] Image ${index} processed:`, result.success ? 'SUCCESS' : 'FAILED');
+
+        // Show first preview immediately
+        if (index === 1) {
+            openAIPreviewModal(result, index, files.length);
+        }
+    };
+
+    aiQueueManager.onAllComplete = (results) => {
+        console.log('[AI] All images processed:', results.size);
+    };
+
+    // Start processing
+    await aiQueueManager.addBatch(files);
+}
+
+console.log('[MODAL] Shipment modal initialized with AI support');

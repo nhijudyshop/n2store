@@ -566,6 +566,29 @@
         </div>
     </div>
 
+    <!-- Modal: AI Invoice Preview -->
+    <div class="modal" id="modalAIPreview">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-xl">
+            <div class="modal-header">
+                <h3>Xem trước hóa đơn AI</h3>
+                <button class="modal-close" id="btnCloseAIPreviewModal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalAIPreviewBody">
+                <!-- Content rendered by modal-ai-preview.js -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btnCancelAIPreview">Bỏ qua</button>
+                <button class="btn btn-outline" id="btnEditManually">Nhập thủ công</button>
+                <button class="btn btn-primary" id="btnConfirmAIPreview">
+                    <i data-lucide="check"></i> Xác nhận
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Add/Edit Order Booking -->
     <div class="modal" id="modalOrderBooking">
         <div class="modal-overlay"></div>
@@ -660,6 +683,12 @@
     <script src="order-booking-crud.js"></script>
     <script src="modal-order-booking.js"></script>
     <script src="modal-compare.js"></script>
+
+    <!-- AI Invoice Processing -->
+    <script src="ai-invoice-processor.js"></script>
+    <script src="ai-queue-manager.js"></script>
+    <script src="modal-ai-preview.js"></script>
+
     <script src="main.js"></script>
 </body>
 </html>
