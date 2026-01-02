@@ -889,12 +889,419 @@ const TraHangModule = (function() {
         }
     }
 
+    // =====================================================
+    // POSTGRESQL API INTEGRATION
+    // =====================================================
+
+    // API base URL (using fallback server)
+    const PG_API_BASE = 'https://n2store-api-fallback.onrender.com/api/return-orders';
+
+    /**
+     * Fetch return orders from PostgreSQL
+     */
+    async function fetchFromPostgreSQL() {
+        showLoading();
+
+        try {
+            const startDate = elements.startDate?.value;
+            const endDate = elements.endDate?.value;
+
+            // Build query params
+            const params = new URLSearchParams({
+                page: 1,
+                limit: 500,
+                sort: 'invoice_date',
+                order: 'desc'
+            });
+
+            if (startDate) {
+                params.set('start_date', startDate + 'T00:00:00');
+            }
+            if (endDate) {
+                params.set('end_date', endDate + 'T23:59:59');
+            }
+
+            const url = `${PG_API_BASE}?${params.toString()}`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                // Map PostgreSQL data to our format
+                const mappedData = result.data.map(item => ({
+                    id: item.id,
+                    customerName: item.customer_name,
+                    phone: item.phone,
+                    invoiceDate: item.invoice_date,
+                    invoiceNumber: item.invoice_number,
+                    reference: item.reference,
+                    totalAmount: item.total_amount,
+                    remainingDebt: item.remaining_debt,
+                    status: item.status,
+                    isReturned: item.is_returned,
+                    // Keep original data for reference
+                    _original: item
+                }));
+
+                loadData(mappedData);
+                hasLoadedOnce = true;
+
+                console.log(`TraHang: Loaded ${mappedData.length} items from PostgreSQL`);
+
+                if (typeof showNotification === 'function') {
+                    showNotification(`Đã tải ${mappedData.length} đơn trả hàng từ database`, 'success');
+                }
+            }
+
+        } catch (error) {
+            console.error('Error fetching from PostgreSQL:', error);
+            hideLoading();
+            showEmptyState();
+
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi tải dữ liệu từ database: ' + error.message, 'error');
+            }
+        }
+    }
+
+    /**
+     * Fetch from TPOS and save to PostgreSQL
+     */
+    async function fetchTPOSAndSave() {
+        const token = API_CONFIG.getToken();
+
+        if (!token) {
+            if (typeof showNotification === 'function') {
+                showNotification('Vui lòng đăng nhập TPOS để tải dữ liệu', 'warning');
+            }
+            return;
+        }
+
+        // Show loading with custom message
+        showLoading();
+        if (typeof showNotification === 'function') {
+            showNotification('Đang tải dữ liệu từ TPOS...', 'info');
+        }
+
+        try {
+            // 1. Fetch from TPOS API (use existing buildApiUrl function)
+            const url = buildApiUrl();
+            let response;
+
+            if (typeof window.tokenManager !== 'undefined' && window.tokenManager.authenticatedFetch) {
+                response = await window.tokenManager.authenticatedFetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+            } else {
+                response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+            }
+
+            if (!response.ok) {
+                throw new Error(`TPOS API error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const items = data.value || [];
+
+            if (items.length === 0) {
+                hideLoading();
+                if (typeof showNotification === 'function') {
+                    showNotification('Không có đơn trả hàng mới từ TPOS', 'info');
+                }
+                return;
+            }
+
+            console.log(`Fetched ${items.length} orders from TPOS`);
+
+            // 2. Map TPOS data to PostgreSQL schema
+            const orders = items.map(item => ({
+                customer_name: item.PartnerDisplayName || item.PartnerName || '',
+                phone: item.Phone || '',
+                invoice_number: item.Number || '',
+                reference: item.ReferenceNumber || item.InvoiceReference || '',
+                invoice_date: item.DateInvoice || null,
+                total_amount: item.AmountTotal || 0,
+                remaining_debt: item.Residual || 0,
+                status: mapStatus(item.State, item.ShowState),
+                return_reason: item.Comment || item.Note || '',
+                is_returned: false,
+                tpos_id: item.Id?.toString() || null,
+                tpos_data: item,
+                source: 'TPOS'
+            }));
+
+            // 3. Save to PostgreSQL using batch endpoint
+            const saveResponse = await fetch(`${PG_API_BASE}/batch`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ orders })
+            });
+
+            if (!saveResponse.ok) {
+                throw new Error(`Database save error! status: ${saveResponse.status}`);
+            }
+
+            const saveResult = await saveResponse.json();
+
+            console.log(`Saved to PostgreSQL: ${saveResult.inserted} inserted, ${saveResult.skipped} skipped`);
+
+            // 4. Reload data from PostgreSQL
+            await fetchFromPostgreSQL();
+
+            // Show success notification
+            if (typeof showNotification === 'function') {
+                showNotification(saveResult.message || `Đã lưu ${saveResult.inserted} đơn hàng vào database`, 'success');
+            }
+
+        } catch (error) {
+            console.error('Error in fetchTPOSAndSave:', error);
+            hideLoading();
+
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi: ' + error.message, 'error');
+            }
+        }
+    }
+
+    /**
+     * Import Excel file
+     */
+    async function importExcel(file) {
+        if (!file) return;
+
+        showLoading();
+        if (typeof showNotification === 'function') {
+            showNotification('Đang đọc file Excel...', 'info');
+        }
+
+        try {
+            // Load XLSX library if not already loaded
+            if (typeof XLSX === 'undefined') {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+                document.head.appendChild(script);
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = reject;
+                });
+            }
+
+            // Read Excel file
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(firstSheet);
+
+            console.log(`Read ${rows.length} rows from Excel`);
+
+            if (rows.length === 0) {
+                hideLoading();
+                if (typeof showNotification === 'function') {
+                    showNotification('File Excel không có dữ liệu', 'warning');
+                }
+                return;
+            }
+
+            // Map Excel rows to PostgreSQL schema
+            const orders = rows.map(row => ({
+                customer_name: row['Khách hàng'] || row['Tên khách hàng'] || '',
+                phone: row['Số điện thoại'] || row['SĐT'] || row['Phone'] || '',
+                invoice_number: row['Số hóa đơn'] || row['Mã HĐ'] || row['Invoice Number'] || '',
+                reference: row['Tham chiếu'] || row['Reference'] || '',
+                invoice_date: row['Ngày hóa đơn'] || row['Invoice Date'] || null,
+                total_amount: parseFloat(row['Tổng tiền'] || row['Total Amount'] || 0),
+                remaining_debt: parseFloat(row['Còn nợ'] || row['Remaining Debt'] || 0),
+                status: row['Trạng thái'] || row['Status'] || 'Đã xác nhận',
+                return_reason: row['Lý do'] || row['Return Reason'] || '',
+                is_returned: false,
+                source: 'Excel'
+            }));
+
+            // Filter out rows without invoice_number
+            const validOrders = orders.filter(order => order.invoice_number && order.customer_name);
+
+            if (validOrders.length === 0) {
+                hideLoading();
+                if (typeof showNotification === 'function') {
+                    showNotification('File Excel không có dữ liệu hợp lệ (thiếu số hóa đơn hoặc tên khách hàng)', 'warning');
+                }
+                return;
+            }
+
+            // Save to PostgreSQL using batch endpoint
+            const saveResponse = await fetch(`${PG_API_BASE}/batch`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ orders: validOrders })
+            });
+
+            if (!saveResponse.ok) {
+                throw new Error(`Database save error! status: ${saveResponse.status}`);
+            }
+
+            const saveResult = await saveResponse.json();
+
+            console.log(`Saved Excel data: ${saveResult.inserted} inserted, ${saveResult.skipped} skipped`);
+
+            // Reload data from PostgreSQL
+            await fetchFromPostgreSQL();
+
+            // Show success notification
+            if (typeof showNotification === 'function') {
+                showNotification(saveResult.message || `Đã nhập ${saveResult.inserted} đơn hàng từ Excel`, 'success');
+            }
+
+        } catch (error) {
+            console.error('Error importing Excel:', error);
+            hideLoading();
+
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi nhập Excel: ' + error.message, 'error');
+            }
+        }
+    }
+
+    /**
+     * Download Excel template
+     */
+    function downloadExcelTemplate() {
+        // Template data
+        const template = [
+            {
+                'Khách hàng': 'Nguyễn Văn A',
+                'Số điện thoại': '0123456789',
+                'Số hóa đơn': 'TH001',
+                'Tham chiếu': 'REF001',
+                'Ngày hóa đơn': '2025-01-01',
+                'Tổng tiền': 500000,
+                'Còn nợ': 0,
+                'Trạng thái': 'Đã xác nhận',
+                'Lý do': 'Hàng lỗi'
+            },
+            {
+                'Khách hàng': 'Trần Thị B',
+                'Số điện thoại': '0987654321',
+                'Số hóa đơn': 'TH002',
+                'Tham chiếu': 'REF002',
+                'Ngày hóa đơn': '2025-01-02',
+                'Tổng tiền': 300000,
+                'Còn nợ': 100000,
+                'Trạng thái': 'Đã xác nhận',
+                'Lý do': 'Đổi size'
+            }
+        ];
+
+        try {
+            // Load XLSX library if not already loaded
+            if (typeof XLSX === 'undefined') {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+                document.head.appendChild(script);
+                script.onload = function() {
+                    createAndDownload();
+                };
+                return;
+            }
+
+            createAndDownload();
+
+        } catch (error) {
+            console.error('Error downloading template:', error);
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi khi tải template: ' + error.message, 'error');
+            }
+        }
+
+        function createAndDownload() {
+            const worksheet = XLSX.utils.json_to_sheet(template);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Trả Hàng');
+
+            // Set column widths
+            worksheet['!cols'] = [
+                { wch: 20 }, // Khách hàng
+                { wch: 15 }, // Số điện thoại
+                { wch: 15 }, // Số hóa đơn
+                { wch: 15 }, // Tham chiếu
+                { wch: 15 }, // Ngày hóa đơn
+                { wch: 12 }, // Tổng tiền
+                { wch: 12 }, // Còn nợ
+                { wch: 15 }, // Trạng thái
+                { wch: 30 }  // Lý do
+            ];
+
+            // Download
+            XLSX.writeFile(workbook, 'Template_Tra_Hang.xlsx');
+
+            if (typeof showNotification === 'function') {
+                showNotification('Đã tải template thành công', 'success');
+            }
+        }
+    }
+
+    /**
+     * Update return status (is_returned checkbox)
+     */
+    async function updateReturnStatus(orderId, isReturned) {
+        try {
+            const response = await fetch(`${PG_API_BASE}/${orderId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ is_returned: isReturned })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Update error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            console.log(`Updated order ${orderId} return status to ${isReturned}`);
+
+            // Update local data
+            const order = traHangData.find(o => o.id === orderId);
+            if (order) {
+                order.isReturned = isReturned;
+            }
+
+            return result;
+
+        } catch (error) {
+            console.error('Error updating return status:', error);
+            throw error;
+        }
+    }
+
     // Public API
     return {
         init,
         loadData,
         setDataSource,
         fetchFromAPI,
+        fetchFromPostgreSQL,
+        fetchTPOSAndSave,
+        importExcel,
+        downloadExcelTemplate,
+        updateReturnStatus,
         editItem,
         deleteItem,
         refresh,
@@ -915,6 +1322,92 @@ document.addEventListener('DOMContentLoaded', function() {
     // Only initialize if we're on the correct page
     if (document.getElementById('trahangTableBody')) {
         TraHangModule.init();
+
+        // =====================================================
+        // BUTTON EVENT HANDLERS
+        // =====================================================
+
+        // Fetch TPOS button
+        const btnFetchTPOS = document.getElementById('btnFetchTPOS');
+        if (btnFetchTPOS) {
+            btnFetchTPOS.addEventListener('click', async () => {
+                btnFetchTPOS.disabled = true;
+                try {
+                    await TraHangModule.fetchTPOSAndSave();
+                } finally {
+                    btnFetchTPOS.disabled = false;
+                    // Reinitialize Lucide icons
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }
+            });
+        }
+
+        // Import Excel button
+        const btnImportExcel = document.getElementById('btnImportExcel');
+        const excelFileInput = document.getElementById('excelFileInput');
+
+        if (btnImportExcel && excelFileInput) {
+            btnImportExcel.addEventListener('click', () => {
+                excelFileInput.click();
+            });
+
+            excelFileInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    btnImportExcel.disabled = true;
+                    try {
+                        await TraHangModule.importExcel(file);
+                    } finally {
+                        btnImportExcel.disabled = false;
+                        excelFileInput.value = ''; // Reset file input
+                        // Reinitialize Lucide icons
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                    }
+                }
+            });
+        }
+
+        // Download Template button
+        const btnDownloadTemplate = document.getElementById('btnDownloadTemplate');
+        if (btnDownloadTemplate) {
+            btnDownloadTemplate.addEventListener('click', () => {
+                TraHangModule.downloadExcelTemplate();
+            });
+        }
+
+        // Handle "is_returned" checkbox changes
+        document.addEventListener('change', async (e) => {
+            if (e.target.classList.contains('returned-checkbox')) {
+                const checkbox = e.target;
+                const orderId = parseInt(checkbox.dataset.id);
+                const isReturned = checkbox.checked;
+
+                checkbox.disabled = true;
+                try {
+                    await TraHangModule.updateReturnStatus(orderId, isReturned);
+
+                    if (typeof showNotification === 'function') {
+                        showNotification(
+                            isReturned ? 'Đã đánh dấu đơn hàng là đã trả' : 'Đã bỏ đánh dấu đơn hàng',
+                            'success'
+                        );
+                    }
+                } catch (error) {
+                    // Revert checkbox state on error
+                    checkbox.checked = !isReturned;
+
+                    if (typeof showNotification === 'function') {
+                        showNotification('Lỗi khi cập nhật trạng thái: ' + error.message, 'error');
+                    }
+                } finally {
+                    checkbox.disabled = false;
+                }
+            }
+        });
     }
 
     // Modal overlay click handler - close on click outside
@@ -966,7 +1459,8 @@ function initMainTabs() {
 
             // Auto-fetch data when switching to Trả Hàng tab
             if (targetTab === 'traHangTab' && !TraHangModule.hasLoaded()) {
-                TraHangModule.fetchFromAPI();
+                // Load from PostgreSQL first (faster), fallback to TPOS if empty
+                TraHangModule.fetchFromPostgreSQL();
             }
         });
     });
