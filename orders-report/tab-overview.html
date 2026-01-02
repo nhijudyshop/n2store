@@ -4099,8 +4099,8 @@
                     // Tags - Cột S (Nhãn)
                     Tags: row['Nhãn'] || row['Tags'] || '',
 
-                    // Session index - Cột A (STT) or Cột B (###)
-                    SessionIndex: parseInt(row['STT'] || row['###'] || index + 1) || index + 1,
+                    // Session index - Cột B (###) or Cột A (STT)
+                    SessionIndex: parseInt(row['###'] || row['STT'] || index + 1) || index + 1,
 
                     // Email - Cột F
                     Email: row['Email'] || '',
@@ -4398,15 +4398,27 @@
         }
 
         /**
-         * Parse order tags
+         * Parse order tags from JSON or comma-separated string
          */
         function parseOrderTags(tagsData) {
             try {
                 if (!tagsData) return [];
+                if (Array.isArray(tagsData)) return tagsData;
+
                 if (typeof tagsData === 'string') {
-                    return JSON.parse(tagsData);
+                    // Try to parse as JSON first
+                    try {
+                        const parsed = JSON.parse(tagsData);
+                        if (Array.isArray(parsed)) return parsed;
+                    } catch (e) {
+                        // Not JSON - treat as comma-separated string (from Excel)
+                        return tagsData.split(',').map(t => t.trim()).filter(t => t).map(name => ({
+                            Name: name,
+                            name: name
+                        }));
+                    }
                 }
-                return Array.isArray(tagsData) ? tagsData : [];
+                return [];
             } catch (e) {
                 return [];
             }
@@ -7474,35 +7486,71 @@
         // =====================================================
 
         /**
-         * Parse order tags from JSON and render as HTML
-         * @param {string|Array} tagsData - Tags JSON string or array
+         * Parse order tags from JSON or comma-separated string and render as HTML
+         * @param {string|Array} tagsData - Tags JSON string, comma-separated string, or array
          * @returns {string} HTML string for displaying tags
          */
         function parseOrderTagsHtml(tagsData, order = null) {
             try {
-                let tags = tagsData;
+                let tags = [];
                 let html = '';
-
-                // Parse JSON string if needed
-                if (typeof tagsData === 'string') {
-                    tags = JSON.parse(tagsData);
-                }
 
                 // Add virtual "ĐÃ RA ĐƠN" tag if order has matched 'ordered' key (for TAG TRÙNG display)
                 if (order && order._matchedTagKeys && order._matchedTagKeys.includes('ordered')) {
                     html += `<span class="order-tag" style="background-color: #22c55e; border: 2px dashed #15803d;" title="Tag ảo - Trạng thái Đơn hàng">✓ ĐÃ RA ĐƠN</span>`;
                 }
 
-                if (Array.isArray(tags) && tags.length > 0) {
-                    html += tags.map(tag =>
-                        `<span class="order-tag" style="background-color: ${tag.Color || '#6b7280'};" title="${tag.Name || ''}">${tag.Name || ''}</span>`
-                    ).join('');
+                if (!tagsData) return html;
+
+                if (Array.isArray(tagsData)) {
+                    tags = tagsData;
+                } else if (typeof tagsData === 'string') {
+                    // Try to parse as JSON first
+                    try {
+                        const parsed = JSON.parse(tagsData);
+                        if (Array.isArray(parsed)) {
+                            tags = parsed;
+                        }
+                    } catch (e) {
+                        // Not JSON - treat as comma-separated string (from Excel)
+                        tags = tagsData.split(',').map(t => t.trim()).filter(t => t).map(name => ({
+                            Name: name,
+                            Color: getTagColor(name)
+                        }));
+                    }
+                }
+
+                if (tags.length > 0) {
+                    html += tags.map(tag => {
+                        const tagName = tag.Name || tag.name || tag;
+                        const tagColor = tag.Color || tag.color || getTagColor(tagName);
+                        return `<span class="order-tag" style="background-color: ${tagColor};" title="${tagName}">${tagName}</span>`;
+                    }).join('');
                 }
 
                 return html;
             } catch (e) {
                 return '';
             }
+        }
+
+        /**
+         * Get color for tag based on LIVE_STAT_TAGS or default
+         */
+        function getTagColor(tagName) {
+            if (!tagName) return '#6b7280';
+            const normalizedName = tagName.toLowerCase().trim();
+
+            for (const liveTag of LIVE_STAT_TAGS) {
+                if (liveTag.patterns) {
+                    for (const pattern of liveTag.patterns) {
+                        if (normalizedName.startsWith(pattern.toLowerCase())) {
+                            return liveTag.color;
+                        }
+                    }
+                }
+            }
+            return '#6b7280'; // Default gray
         }
 
         function formatDate(dateStr) {
