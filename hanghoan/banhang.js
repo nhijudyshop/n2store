@@ -196,6 +196,9 @@ const BanHangModule = (function() {
         return `${day}/${month}/${year}`;
     }
 
+    // Constants
+    const MAX_RECORDS_PER_DOC = 500; // Firebase document size limit workaround
+
     /**
      * Load data from Firebase on page init
      */
@@ -211,25 +214,31 @@ const BanHangModule = (function() {
         }
 
         try {
-            const doc = await banHangCollectionRef.doc('data').get();
+            // Load all chunks
+            const snapshot = await banHangCollectionRef.get();
+            let allOrders = [];
 
-            if (doc.exists) {
+            snapshot.forEach(doc => {
                 const data = doc.data();
-                banHangData = data.orders || [];
-                filteredData = [...banHangData];
-
-                console.log(`✅ Loaded ${banHangData.length} records from Firebase`);
-
-                hideLoading();
-                renderTable(banHangData);
-                updateStats();
-
-                if (typeof showNotification === 'function' && banHangData.length > 0) {
-                    showNotification(`Đã tải ${banHangData.length} đơn hàng từ Firebase`, 'success');
+                if (data.orders && Array.isArray(data.orders)) {
+                    allOrders = allOrders.concat(data.orders);
                 }
-            } else {
-                console.log('No data in Firebase yet');
-                hideLoading();
+            });
+
+            banHangData = allOrders;
+            filteredData = [...banHangData];
+
+            console.log(`✅ Loaded ${banHangData.length} records from Firebase`);
+
+            hideLoading();
+            renderTable(banHangData);
+            updateStats();
+
+            if (typeof showNotification === 'function' && banHangData.length > 0) {
+                showNotification(`Đã tải ${banHangData.length} đơn hàng từ Firebase`, 'success');
+            }
+
+            if (banHangData.length === 0) {
                 showEmptyState();
             }
         } catch (error) {
@@ -243,7 +252,7 @@ const BanHangModule = (function() {
     }
 
     /**
-     * Save data to Firebase
+     * Save data to Firebase - split into chunks to avoid size limit
      */
     async function saveToFirebase(data) {
         if (!banHangCollectionRef) {
@@ -252,12 +261,39 @@ const BanHangModule = (function() {
         }
 
         try {
-            await banHangCollectionRef.doc('data').set({
-                orders: data,
-                lastUpdated: new Date().toISOString(),
-                count: data.length
+            // Delete all existing documents first
+            const snapshot = await banHangCollectionRef.get();
+            const deletePromises = [];
+            snapshot.forEach(doc => {
+                deletePromises.push(doc.ref.delete());
             });
-            console.log(`✅ Saved ${data.length} records to Firebase`);
+            await Promise.all(deletePromises);
+
+            // Split data into chunks
+            const chunks = [];
+            for (let i = 0; i < data.length; i += MAX_RECORDS_PER_DOC) {
+                chunks.push(data.slice(i, i + MAX_RECORDS_PER_DOC));
+            }
+
+            // Save each chunk as a separate document
+            const savePromises = chunks.map((chunk, index) => {
+                return banHangCollectionRef.doc(`chunk_${index}`).set({
+                    orders: chunk,
+                    chunkIndex: index,
+                    lastUpdated: new Date().toISOString(),
+                    count: chunk.length
+                });
+            });
+
+            // Also save metadata
+            savePromises.push(banHangCollectionRef.doc('_metadata').set({
+                totalCount: data.length,
+                chunkCount: chunks.length,
+                lastUpdated: new Date().toISOString()
+            }));
+
+            await Promise.all(savePromises);
+            console.log(`✅ Saved ${data.length} records to Firebase in ${chunks.length} chunks`);
             return true;
         } catch (error) {
             console.error('Error saving to Firebase:', error);
