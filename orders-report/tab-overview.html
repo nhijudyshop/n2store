@@ -3965,23 +3965,41 @@
         }
 
         /**
-         * Parse date string from Excel to ISO format
-         * Input format: "30/12/2025 22:06" → "2025-12-30T22:06:00.000Z"
-         * @param {string} dateStr - Date string from Excel
+         * Parse date from Excel to ISO format
+         * Input can be: "30/12/2025 22:06" string or Excel serial number (e.g. 45656.123)
+         * @param {string|number|Date} dateValue - Date from Excel (can be string, number serial, or Date)
          * @returns {string} - ISO date string
          */
-        function parseDateToISO(dateStr) {
-            if (!dateStr) return null;
+        function parseDateToISO(dateValue) {
+            if (!dateValue) return null;
 
-            // Try to parse "dd/mm/yyyy HH:mm" format
-            const match = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2})?:?(\d{1,2})?/);
-            if (match) {
-                const [, day, month, year, hour = '00', minute = '00'] = match;
-                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00.000Z`;
+            // Handle Excel serial date (number)
+            // Excel dates are number of days since 1900-01-01 (with 1900 leap year bug)
+            if (typeof dateValue === 'number') {
+                // Excel epoch is Jan 1, 1900, but JavaScript epoch is Jan 1, 1970
+                // Also Excel incorrectly treats 1900 as a leap year
+                const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899 (Excel's day 0)
+                const jsDate = new Date(excelEpoch.getTime() + dateValue * 24 * 60 * 60 * 1000);
+                return jsDate.toISOString();
             }
 
-            // Return original if can't parse
-            return dateStr;
+            // Handle Date object
+            if (dateValue instanceof Date) {
+                return dateValue.toISOString();
+            }
+
+            // Handle string - try to parse "dd/mm/yyyy HH:mm" format
+            if (typeof dateValue === 'string') {
+                const match = dateValue.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2})?:?(\d{1,2})?/);
+                if (match) {
+                    const [, day, month, year, hour = '00', minute = '00'] = match;
+                    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00.000Z`;
+                }
+                return dateValue;
+            }
+
+            // Return null for unknown types
+            return null;
         }
 
         /**
