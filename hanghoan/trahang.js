@@ -1417,14 +1417,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Download Template button
-        const btnDownloadTemplate = document.getElementById('btnDownloadTemplate');
-        if (btnDownloadTemplate) {
-            btnDownloadTemplate.addEventListener('click', () => {
-                TraHangModule.downloadExcelTemplate();
-            });
-        }
-
         // Handle "is_returned" checkbox changes
         document.addEventListener('change', async (e) => {
             if (e.target.classList.contains('returned-checkbox')) {
