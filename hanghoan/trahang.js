@@ -1497,8 +1497,9 @@ function initMainTabs() {
 
             // Auto-fetch data when switching to Trả Hàng tab
             if (targetTab === 'traHangTab' && !TraHangModule.hasLoaded()) {
-                // Load from PostgreSQL first (faster), fallback to TPOS if empty
-                TraHangModule.fetchFromPostgreSQL();
+                // TEMPORARY: Load from TPOS directly until backend is deployed
+                // TODO: Change back to fetchFromPostgreSQL() after backend deployment
+                TraHangModule.fetchFromAPI();
             }
         });
     });
