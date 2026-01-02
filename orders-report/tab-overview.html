@@ -3887,14 +3887,16 @@
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
 
-            // Convert to JSON - IMPORTANT: Use range:1 to skip the first row "DANH SÁCH SALE ONLINE"
-            // Row 1 is the merged title "DANH SÁCH SALE ONLINE"
-            // Row 2 has the actual headers: STT, ###, Kênh, Mã, Facebook, Email, Tên, etc.
-            const orders = XLSX.utils.sheet_to_json(worksheet, { range: 1 });
+            // Convert to JSON - IMPORTANT: Use range:2 to skip the first 2 empty rows
+            // Row 1: Empty (with "DANH SÁCH SALE ONLINE" text at far right)
+            // Row 2: Empty
+            // Row 3: Headers (STT, ###, Kênh, Mã, Facebook, Email, Tên, etc.)
+            // Row 4+: Data
+            const orders = XLSX.utils.sheet_to_json(worksheet, { range: 2 });
 
             console.log(`[REPORT] ✅ Fetched ${orders.length} orders from TPOS Excel`);
             if (orders.length > 0) {
-                console.log('[REPORT] 📋 Excel headers (after skip row 1):', Object.keys(orders[0]));
+                console.log('[REPORT] 📋 Excel headers (row 3):', Object.keys(orders[0]));
             }
             return orders;
         }
