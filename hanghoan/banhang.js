@@ -27,6 +27,10 @@ const BanHangModule = (function() {
     let filteredData = [];
     let isLoading = false;
 
+    // Pagination state
+    let currentPage = 1;
+    let pageSize = 50;
+
     // DOM Elements cache
     const elements = {
         tableBody: null,
@@ -36,10 +40,22 @@ const BanHangModule = (function() {
         statusFilter: null,
         startDate: null,
         endDate: null,
+        pageSize: null,
         statTotal: null,
         statConfirmed: null,
         statPaid: null,
-        statTotalAmount: null
+        statTotalAmount: null,
+        // Pagination elements
+        pagination: null,
+        showingFrom: null,
+        showingTo: null,
+        totalRecords: null,
+        currentPageEl: null,
+        totalPages: null,
+        firstPage: null,
+        prevPage: null,
+        nextPage: null,
+        lastPage: null
     };
 
     // Initialize Firebase
@@ -79,10 +95,22 @@ const BanHangModule = (function() {
         elements.statusFilter = document.getElementById('banhangStatusFilter');
         elements.startDate = document.getElementById('banhangStartDate');
         elements.endDate = document.getElementById('banhangEndDate');
+        elements.pageSize = document.getElementById('banhangPageSize');
         elements.statTotal = document.getElementById('banhangStatTotal');
         elements.statConfirmed = document.getElementById('banhangStatConfirmed');
         elements.statPaid = document.getElementById('banhangStatPaid');
         elements.statTotalAmount = document.getElementById('banhangStatTotalAmount');
+        // Pagination elements
+        elements.pagination = document.getElementById('banhangPagination');
+        elements.showingFrom = document.getElementById('banhangShowingFrom');
+        elements.showingTo = document.getElementById('banhangShowingTo');
+        elements.totalRecords = document.getElementById('banhangTotalRecords');
+        elements.currentPageEl = document.getElementById('banhangCurrentPage');
+        elements.totalPages = document.getElementById('banhangTotalPages');
+        elements.firstPage = document.getElementById('banhangFirstPage');
+        elements.prevPage = document.getElementById('banhangPrevPage');
+        elements.nextPage = document.getElementById('banhangNextPage');
+        elements.lastPage = document.getElementById('banhangLastPage');
     }
 
     // Set default dates (1 month ago to today)
@@ -116,16 +144,97 @@ const BanHangModule = (function() {
 
         // Status filter
         if (elements.statusFilter) {
-            elements.statusFilter.addEventListener('change', applyFilters);
+            elements.statusFilter.addEventListener('change', () => {
+                currentPage = 1;
+                applyFilters();
+            });
         }
 
         // Date filters
         if (elements.startDate) {
-            elements.startDate.addEventListener('change', applyFilters);
+            elements.startDate.addEventListener('change', () => {
+                currentPage = 1;
+                applyFilters();
+            });
         }
         if (elements.endDate) {
-            elements.endDate.addEventListener('change', applyFilters);
+            elements.endDate.addEventListener('change', () => {
+                currentPage = 1;
+                applyFilters();
+            });
         }
+
+        // Page size
+        if (elements.pageSize) {
+            elements.pageSize.addEventListener('change', (e) => {
+                pageSize = parseInt(e.target.value) || 50;
+                currentPage = 1;
+                renderCurrentPage();
+            });
+        }
+
+        // Pagination buttons
+        if (elements.firstPage) {
+            elements.firstPage.addEventListener('click', () => goToPage(1));
+        }
+        if (elements.prevPage) {
+            elements.prevPage.addEventListener('click', () => goToPage(currentPage - 1));
+        }
+        if (elements.nextPage) {
+            elements.nextPage.addEventListener('click', () => goToPage(currentPage + 1));
+        }
+        if (elements.lastPage) {
+            elements.lastPage.addEventListener('click', () => goToPage(getTotalPages()));
+        }
+    }
+
+    // Get total pages
+    function getTotalPages() {
+        return Math.ceil(filteredData.length / pageSize) || 1;
+    }
+
+    // Go to specific page
+    function goToPage(page) {
+        const totalPages = getTotalPages();
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+        currentPage = page;
+        renderCurrentPage();
+    }
+
+    // Render current page
+    function renderCurrentPage() {
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, filteredData.length);
+        const pageData = filteredData.slice(startIndex, endIndex);
+
+        renderTable(pageData, startIndex);
+        updatePagination();
+
+        // Re-initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    // Update pagination UI
+    function updatePagination() {
+        const totalPages = getTotalPages();
+        const totalRecords = filteredData.length;
+        const startIndex = (currentPage - 1) * pageSize + 1;
+        const endIndex = Math.min(currentPage * pageSize, totalRecords);
+
+        if (elements.showingFrom) elements.showingFrom.textContent = totalRecords > 0 ? startIndex : 0;
+        if (elements.showingTo) elements.showingTo.textContent = endIndex;
+        if (elements.totalRecords) elements.totalRecords.textContent = totalRecords;
+        if (elements.currentPageEl) elements.currentPageEl.textContent = currentPage;
+        if (elements.totalPages) elements.totalPages.textContent = totalPages;
+
+        // Update button states
+        if (elements.firstPage) elements.firstPage.disabled = currentPage <= 1;
+        if (elements.prevPage) elements.prevPage.disabled = currentPage <= 1;
+        if (elements.nextPage) elements.nextPage.disabled = currentPage >= totalPages;
+        if (elements.lastPage) elements.lastPage.disabled = currentPage >= totalPages;
     }
 
     // Debounce utility
@@ -231,7 +340,8 @@ const BanHangModule = (function() {
             console.log(`✅ Loaded ${banHangData.length} records from Firebase`);
 
             hideLoading();
-            renderTable(banHangData);
+            currentPage = 1;
+            renderCurrentPage();
             updateStats();
 
             if (typeof showNotification === 'function' && banHangData.length > 0) {
@@ -317,20 +427,22 @@ const BanHangModule = (function() {
     }
 
     // Render table - match Excel structure
-    function renderTable(data) {
+    function renderTable(data, startIndex = 0) {
         if (!elements.tableBody) return;
 
         if (!data || data.length === 0) {
             elements.tableBody.innerHTML = '';
-            showEmptyState();
+            if (filteredData.length === 0) {
+                showEmptyState();
+            }
             return;
         }
 
         hideEmptyState();
 
         const html = data.map((item, index) => `
-            <tr data-index="${index}" data-id="${item.id || ''}">
-                <td class="text-center">${item.stt || index + 1}</td>
+            <tr data-index="${startIndex + index}" data-id="${item.id || ''}">
+                <td class="text-center">${startIndex + index + 1}</td>
                 <td>${escapeHtml(item.khachHang || '')}</td>
                 <td><a href="tel:${item.dienThoai || ''}" class="phone-link">${escapeHtml(item.dienThoai || '')}</a></td>
                 <td class="col-address">${escapeHtml(item.diaChi || '')}</td>
@@ -383,6 +495,7 @@ const BanHangModule = (function() {
 
     // Handle search
     function handleSearch() {
+        currentPage = 1;
         applyFilters();
     }
 
@@ -440,7 +553,7 @@ const BanHangModule = (function() {
         }
 
         filteredData = result;
-        renderTable(result);
+        renderCurrentPage();
         updateStats();
     }
 
@@ -562,7 +675,8 @@ const BanHangModule = (function() {
                 filteredData = [...banHangData];
 
                 hideLoading();
-                renderTable(banHangData);
+                currentPage = 1;
+                renderCurrentPage();
                 updateStats();
 
                 let message = `Đã nhập ${newData.length} đơn hàng từ Excel và lưu lên Firebase`;
@@ -610,7 +724,7 @@ const BanHangModule = (function() {
             if (saveSuccess) {
                 banHangData = updatedData;
                 filteredData = [...banHangData];
-                renderTable(banHangData);
+                renderCurrentPage();
                 updateStats();
 
                 if (typeof showNotification === 'function') {
