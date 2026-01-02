@@ -305,6 +305,80 @@
 }
 
 /* =====================================================
+   BÁN HÀNG PAGINATION
+   ===================================================== */
+
+.banhang-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+}
+
+.banhang-pagination .pagination-info {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.banhang-pagination .pagination-info strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.banhang-pagination .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.banhang-pagination .page-info {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    padding: 0 var(--spacing-md);
+}
+
+.banhang-pagination .page-info strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.banhang-pagination .btn-page {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    color: var(--text-primary);
+}
+
+.banhang-pagination .btn-page:hover:not(:disabled) {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.banhang-pagination .btn-page:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.banhang-pagination .btn-page i {
+    width: 18px;
+    height: 18px;
+}
+
+/* =====================================================
    BÁN HÀNG EMPTY STATE
    ===================================================== */
 

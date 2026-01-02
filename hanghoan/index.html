@@ -539,6 +539,38 @@
                         <span>đến</span>
                         <input type="date" id="banhangEndDate">
                     </div>
+                    <div class="banhang-filter-group">
+                        <i data-lucide="list"></i>
+                        <select id="banhangPageSize">
+                            <option value="20">20 dòng</option>
+                            <option value="50" selected>50 dòng</option>
+                            <option value="100">100 dòng</option>
+                            <option value="200">200 dòng</option>
+                            <option value="1000">1000 dòng</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <div class="banhang-pagination" id="banhangPagination">
+                    <div class="pagination-info">
+                        <span>Hiển thị <strong id="banhangShowingFrom">0</strong> - <strong id="banhangShowingTo">0</strong> / <strong id="banhangTotalRecords">0</strong> đơn</span>
+                    </div>
+                    <div class="pagination-controls">
+                        <button class="btn-page" id="banhangFirstPage" title="Trang đầu">
+                            <i data-lucide="chevrons-left"></i>
+                        </button>
+                        <button class="btn-page" id="banhangPrevPage" title="Trang trước">
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        <span class="page-info">Trang <strong id="banhangCurrentPage">1</strong> / <strong id="banhangTotalPages">1</strong></span>
+                        <button class="btn-page" id="banhangNextPage" title="Trang sau">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                        <button class="btn-page" id="banhangLastPage" title="Trang cuối">
+                            <i data-lucide="chevrons-right"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Table -->
