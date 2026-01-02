@@ -4091,8 +4091,8 @@
                         Name: row['Kênh'] || ''
                     },
 
-                    // Tags - Cột S (Nhân/Nhãn)
-                    Tags: row['Nhân'] || '',
+                    // Tags - Cột S (Nhãn)
+                    Tags: row['Nhãn'] || row['Tags'] || '',
 
                     // Session index - Cột A (STT) or Cột B (###)
                     SessionIndex: parseInt(row['STT'] || row['###'] || index + 1) || index + 1,
