@@ -175,6 +175,7 @@ const telegramBotRoutes = require('./routes/telegram-bot');
 // === FIREBASE REPLACEMENT ROUTES (SSE + PostgreSQL) ===
 const realtimeSseRoutes = require('./routes/realtime-sse');
 const realtimeDbRoutes = require('./routes/realtime-db');
+const adminMigrationRoutes = require('./routes/admin-migration');
 
 // === ROUTES MERGED FROM /api ===
 const uploadRoutes = require('./routes/upload.routes');
@@ -201,6 +202,8 @@ app.use('/api/telegram', telegramBotRoutes);
 app.use('/api/realtime', realtimeSseRoutes);
 // REST API for CRUD operations (replaces Firebase database operations)
 app.use('/api/realtime', realtimeDbRoutes);
+// Admin migration endpoint
+app.use('/api/admin', adminMigrationRoutes);
 
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');
