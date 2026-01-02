@@ -351,6 +351,48 @@
    TRẢ HÀNG FILTERS
    ===================================================== */
 
+/* =====================================================
+   TRẢ HÀNG ACTION BUTTONS
+   ===================================================== */
+
+.trahang-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-lg);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+
+.trahang-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: var(--radius);
+    transition: var(--transition-fast);
+    cursor: pointer;
+    border: none;
+}
+
+.trahang-actions .btn i {
+    width: 16px;
+    height: 16px;
+}
+
+.trahang-actions .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* =====================================================
+   TRẢ HÀNG FILTERS
+   ===================================================== */
+
 .trahang-filters {
     display: flex;
     flex-wrap: wrap;
