@@ -267,6 +267,122 @@ async function addOrUpdateDotHang(invoiceData, imageUrl, chatId, userId) {
 }
 
 /**
+ * Force save to Tab 2 (dotHang) with custom delivery date
+ * Used when user sends photo with /2 DD.MM.YYYY command
+ * NCC is extracted from image analysis, date is from caption
+ */
+async function saveInvoiceToDotHangWithDate(invoiceData, imageUrl, chatId, userId, deliveryDate) {
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+        throw new Error('Firebase không khả dụng');
+    }
+
+    const sttNCC = parseInt(invoiceData.ncc, 10);
+    const docId = `ncc_${sttNCC}`;
+
+    // Check if NCC exists
+    const nccExists = await checkNCCExists(invoiceData.ncc);
+    if (!nccExists) {
+        throw new Error(`NCC ${invoiceData.ncc} chưa tồn tại trong hệ thống. Vui lòng gửi ảnh không có caption trước để tạo NCC mới.`);
+    }
+
+    // Get NCC document
+    const docRef = firestore.collection('inventory_tracking').doc(docId);
+    const doc = await docRef.get();
+    const data = doc.data();
+
+    const dotHang = data.dotHang || [];
+    const datHang = data.datHang || [];
+    const sanPham = convertProducts(invoiceData.products);
+    const tongMon = sanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0);
+
+    // Calculate soMonThieu
+    const soMonThieu = calculateSoMonThieu(datHang, tongMon);
+
+    // Find existing dotHang with same date
+    const existingIndex = dotHang.findIndex(d => d.ngayDiHang === deliveryDate);
+
+    let isUpdate = false;
+    let entryId = '';
+
+    if (existingIndex !== -1) {
+        // UPDATE existing dotHang with same delivery date
+        isUpdate = true;
+        entryId = dotHang[existingIndex].id;
+
+        // Merge sanPham arrays
+        const existingSanPham = dotHang[existingIndex].sanPham || [];
+        const mergedSanPham = [...existingSanPham, ...sanPham];
+
+        // Merge anhHoaDon arrays
+        const existingImages = dotHang[existingIndex].anhHoaDon || [];
+        const mergedImages = imageUrl ? [...existingImages, imageUrl] : existingImages;
+
+        // Update the entry
+        dotHang[existingIndex] = {
+            ...dotHang[existingIndex],
+            sanPham: mergedSanPham,
+            tongTienHD: (dotHang[existingIndex].tongTienHD || 0) + (invoiceData.totalAmount || 0),
+            tongMon: mergedSanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0),
+            soMonThieu: calculateSoMonThieu(datHang, mergedSanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0)),
+            anhHoaDon: mergedImages,
+            ghiChu: dotHang[existingIndex].ghiChu
+                ? `${dotHang[existingIndex].ghiChu}\n${invoiceData.notes || ''}`.trim()
+                : (invoiceData.notes || ''),
+            updatedAt: new Date().toISOString(),
+            updatedBy: `telegram_${userId}`
+        };
+
+        console.log(`[FIREBASE] Updated dotHang for NCC ${sttNCC}, delivery date ${deliveryDate}`);
+    } else {
+        // ADD new dotHang with custom delivery date
+        entryId = generateId('dot');
+
+        const newDotHang = {
+            id: entryId,
+            ngayDiHang: deliveryDate,
+            tenNCC: invoiceData.supplier || data.datHang?.[0]?.tenNCC || '',
+            sanPham: sanPham,
+            tongTienHD: invoiceData.totalAmount || 0,
+            tongMon: tongMon,
+            soMonThieu: soMonThieu,
+            ghiChuThieu: '',
+            anhHoaDon: imageUrl ? [imageUrl] : [],
+            ghiChu: invoiceData.notes || '',
+            source: 'telegram_bot',
+            telegramChatId: chatId,
+            createdAt: new Date().toISOString(),
+            createdBy: `telegram_${userId}`,
+            updatedAt: new Date().toISOString(),
+            updatedBy: `telegram_${userId}`
+        };
+
+        dotHang.push(newDotHang);
+        console.log(`[FIREBASE] Added new dotHang for NCC ${sttNCC}, delivery date ${deliveryDate}`);
+    }
+
+    // Update Firestore
+    await docRef.update({
+        dotHang: dotHang,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return {
+        docId: docId,
+        entryId: entryId,
+        type: 'dotHang',
+        isUpdate: isUpdate,
+        deliveryDate: deliveryDate,
+        soMonThieu: isUpdate
+            ? dotHang[existingIndex].soMonThieu
+            : soMonThieu,
+        tongMon: isUpdate
+            ? dotHang[existingIndex].tongMon
+            : tongMon
+    };
+}
+
+/**
  * Main function: Save invoice with new NCC-based structure
  * - NCC doesn't exist: Create datHang (Tab 1 - Đặt hàng)
  * - NCC exists: Add/Update dotHang (Tab 2 - Theo dõi đơn hàng)
@@ -1787,6 +1903,98 @@ router.post('/webhook', async (req, res) => {
                 const nccMatch = caption.match(/^\/(\d+)$/);
 
                 // ==========================================
+                // CASE 0: Photo with /2 DD.MM.YYYY - Save to Tab 2 with delivery date
+                // Example: /2 28.12.2025 - saves to Tab 2 (Theo dõi đơn hàng)
+                // NCC is extracted from image, date is from caption
+                // ==========================================
+                const tab2Match = caption.match(/^\/2\s+(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+                if (tab2Match) {
+                    const day = tab2Match[1].padStart(2, '0');
+                    const month = tab2Match[2].padStart(2, '0');
+                    const year = tab2Match[3];
+                    const deliveryDate = `${day}/${month}/${year}`;
+
+                    console.log(`[TELEGRAM] Photo with /2 command - Save to Tab 2 with delivery date: ${deliveryDate}`);
+
+                    await sendChatAction(chatId, 'typing');
+                    await sendTelegramMessage(chatId, `🔍 Đang phân tích hóa đơn...\n📅 Ngày giao: ${deliveryDate}`, messageId);
+
+                    try {
+                        // Get the largest photo
+                        const photo = message.photo[message.photo.length - 1];
+                        const { base64, mimeType } = await getTelegramFileAsBase64(photo.file_id);
+
+                        // Analyze with Gemini Vision
+                        const invoiceData = await analyzeInvoiceImage(base64, mimeType);
+
+                        if (!invoiceData.success) {
+                            await sendTelegramMessage(chatId,
+                                `❌ Không thể phân tích hóa đơn:\n${invoiceData.error || 'Lỗi không xác định'}`,
+                                messageId
+                            );
+                            return;
+                        }
+
+                        if (!invoiceData.ncc) {
+                            await sendTelegramMessage(chatId,
+                                `❌ Không tìm thấy mã NCC trong ảnh.\n💡 Đảm bảo hóa đơn có ghi số NCC.`,
+                                messageId
+                            );
+                            return;
+                        }
+
+                        // Upload image to Firebase Storage
+                        let imageUrl = null;
+                        try {
+                            const { buffer, mimeType: fileMimeType } = await downloadTelegramFile(photo.file_id);
+                            const timestamp = Date.now();
+                            const extension = fileMimeType.split('/')[1] || 'jpg';
+                            const fileName = `invoice_${invoiceData.ncc}_${timestamp}.${extension}`;
+                            imageUrl = await firebaseStorageService.uploadImageBuffer(buffer, fileName, 'invoices', fileMimeType);
+                        } catch (error) {
+                            console.error('[FIREBASE] Image upload error:', error.message);
+                        }
+
+                        // Save directly to Tab 2 with custom delivery date
+                        const result = await saveInvoiceToDotHangWithDate(invoiceData, imageUrl, chatId, userId, deliveryDate);
+
+                        // Format products summary
+                        const productsList = invoiceData.products.slice(0, 5)
+                            .map(p => `  • ${p.sku || ''} ${p.name || ''}: ${p.quantity || 0}`)
+                            .join('\n');
+                        const moreProducts = invoiceData.products.length > 5
+                            ? `\n  ... và ${invoiceData.products.length - 5} sản phẩm khác`
+                            : '';
+
+                        const successMsg = result.isUpdate
+                            ? `✅ ĐÃ CẬP NHẬT THEO DÕI ĐƠN HÀNG!\n\n`
+                            : `✅ ĐÃ TẠO THEO DÕI ĐƠN HÀNG MỚI!\n\n`;
+
+                        await sendTelegramMessage(chatId,
+                            successMsg +
+                            `📋 Document: ${result.docId}\n` +
+                            `🔢 Mã NCC: ${invoiceData.ncc}\n` +
+                            `🏪 Tên NCC: ${translateToVietnamese(invoiceData.supplier) || 'N/A'}\n` +
+                            `📅 Ngày giao: ${deliveryDate}\n` +
+                            `📦 Tổng món: ${result.tongMon}\n` +
+                            `⚠️ Còn thiếu: ${result.soMonThieu}\n\n` +
+                            `📝 Sản phẩm:\n${productsList}${moreProducts}\n\n` +
+                            `🔗 Tab 2 - Theo dõi đơn hàng\n` +
+                            `Xem tại: https://nhijudyshop.github.io/n2store/inventory-tracking/`,
+                            messageId
+                        );
+
+                    } catch (error) {
+                        console.error('[TELEGRAM] Tab 2 save error:', error.message);
+                        await sendTelegramMessage(chatId,
+                            `❌ Lỗi lưu vào Tab 2:\n${error.message}`,
+                            messageId
+                        );
+                    }
+                    return;
+                }
+
+                // ==========================================
                 // CASE 1: Photo with /NCC command - Add image to NCC
                 // Example: /15 with photo attached
                 // ==========================================
@@ -1980,6 +2188,11 @@ router.post('/webhook', async (req, res) => {
                     `- Gửi ảnh hóa đơn viết tay\n` +
                     `- Bot sẽ phân tích và trích xuất dữ liệu\n` +
                     `- Xác nhận để lưu vào hệ thống\n\n` +
+                    `📦 THEO DÕI ĐƠN HÀNG (Tab 2):\n` +
+                    `- Gửi ảnh + caption "/2 DD.MM.YYYY"\n` +
+                    `- VD: /2 28.12.2025\n` +
+                    `- NCC lấy từ ảnh, ngày giao từ caption\n` +
+                    `- Lưu trực tiếp vào Tab 2\n\n` +
                     `📋 XEM CHI TIẾT HÓA ĐƠN:\n` +
                     `- Gửi /NCC (VD: /15)\n` +
                     `- Hiển thị chi tiết hóa đơn của NCC đó\n\n` +
