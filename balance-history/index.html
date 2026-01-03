@@ -91,13 +91,13 @@
                         <button id="viewPhoneDataBtn" class="btn btn-info">
                             <i data-lucide="phone-outgoing"></i> Xem Phone Data
                         </button>
-                        <button id="reprocessOldTransactionsBtn" class="btn btn-warning">
+                        <button id="reprocessOldTransactionsBtn" class="btn btn-warning" style="display: none;">
                             <i data-lucide="rotate-cw"></i> Xử lý lại GD cũ
                         </button>
-                        <button id="fetchNamesBtn" class="btn btn-success">
+                        <button id="fetchNamesBtn" class="btn btn-success" style="display: none;">
                             <i data-lucide="user-check"></i> Lấy Tên từ TPOS
                         </button>
-                        <button id="viewRawDataBtn" class="btn btn-secondary">
+                        <button id="viewRawDataBtn" class="btn btn-secondary" style="display: none;">
                             <i data-lucide="database"></i> Xem Raw Data
                         </button>
                         <button id="refreshBtn" class="btn btn-primary">
@@ -182,7 +182,8 @@
                     <i data-lucide="rotate-ccw"></i> Đặt lại
                 </button>
 
-                <button id="filterGapsOnlyBtn" class="btn btn-warning" style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b;">
+                <button id="filterGapsOnlyBtn" class="btn btn-warning"
+                    style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b;">
                     <i data-lucide="alert-triangle"></i> Chỉ GD thiếu
                 </button>
             </div>
@@ -391,7 +392,8 @@
             <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                 <!-- Loading State -->
                 <div id="gapsLoading" style="text-align: center; padding: 40px;">
-                    <i data-lucide="loader-2" class="animate-spin" style="width: 48px; height: 48px; color: #d97706;"></i>
+                    <i data-lucide="loader-2" class="animate-spin"
+                        style="width: 48px; height: 48px; color: #d97706;"></i>
                     <p style="margin-top: 15px; color: #6b7280;">Đang phân tích mã tham chiếu...</p>
                 </div>
 
@@ -404,7 +406,8 @@
 
                 <!-- Gaps List -->
                 <div id="gapsContent" style="display: none;">
-                    <div id="gapsInfo" style="margin-bottom: 15px; padding: 12px; background: #fef3c7; border-left: 4px solid #d97706; border-radius: 4px;">
+                    <div id="gapsInfo"
+                        style="margin-bottom: 15px; padding: 12px; background: #fef3c7; border-left: 4px solid #d97706; border-radius: 4px;">
                         <i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i>
                         <span>Phát hiện <strong id="gapsTotal">0</strong> mã tham chiếu bị thiếu trong hệ thống.</span>
                         <p style="margin-top: 8px; font-size: 13px; color: #92400e;">
@@ -437,7 +440,8 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end;">
+            <div class="modal-footer"
+                style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeGapsModal()">Đóng</button>
             </div>
         </div>
@@ -453,7 +457,8 @@
             <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                 <!-- Loading State -->
                 <div id="phoneDataLoading" style="text-align: center; padding: 40px;">
-                    <i data-lucide="loader-2" class="animate-spin" style="width: 48px; height: 48px; color: #3b82f6;"></i>
+                    <i data-lucide="loader-2" class="animate-spin"
+                        style="width: 48px; height: 48px; color: #3b82f6;"></i>
                     <p style="margin-top: 15px; color: #6b7280;">Đang tải dữ liệu...</p>
                 </div>
 
@@ -461,14 +466,17 @@
                 <div id="phoneDataEmpty" style="text-align: center; padding: 40px; display: none;">
                     <i data-lucide="inbox" style="width: 48px; height: 48px; color: #9ca3af;"></i>
                     <p style="margin-top: 15px; color: #6b7280;">Chưa có dữ liệu phone nào!</p>
-                    <p style="color: #9ca3af; font-size: 14px;">Click nút "Cập nhật Phone" để extract phone từ transactions.</p>
+                    <p style="color: #9ca3af; font-size: 14px;">Click nút "Cập nhật Phone" để extract phone từ
+                        transactions.</p>
                 </div>
 
                 <!-- Phone Data Table -->
                 <div id="phoneDataContent" style="display: none;">
-                    <div style="margin-bottom: 15px; padding: 12px; background: #e0f2fe; border-left: 4px solid #3b82f6; border-radius: 4px;">
+                    <div
+                        style="margin-bottom: 15px; padding: 12px; background: #e0f2fe; border-left: 4px solid #3b82f6; border-radius: 4px;">
                         <i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-                        <span>Tổng: <strong id="phoneDataTotal">0</strong> records | Hiển thị: <strong id="phoneDataShown">0</strong></span>
+                        <span>Tổng: <strong id="phoneDataTotal">0</strong> records | Hiển thị: <strong
+                                id="phoneDataShown">0</strong></span>
                     </div>
 
                     <table class="data-table" style="width: 100%;">
@@ -490,7 +498,8 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+            <div class="modal-footer"
+                style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <button id="refreshPhoneDataBtn" class="btn btn-primary btn-sm">
                         <i data-lucide="refresh-cw"></i> Làm mới
@@ -502,7 +511,8 @@
                     <button id="phoneDataPrevBtn" class="btn btn-secondary btn-sm" style="padding: 6px 12px;">
                         <i data-lucide="chevron-left" style="width: 16px; height: 16px;"></i>
                     </button>
-                    <span id="phoneDataPageInfo" style="font-size: 14px; color: #6b7280; min-width: 120px; text-align: center; margin: 0 8px;">
+                    <span id="phoneDataPageInfo"
+                        style="font-size: 14px; color: #6b7280; min-width: 120px; text-align: center; margin: 0 8px;">
                         Page 1 / 1
                     </span>
                     <button id="phoneDataNextBtn" class="btn btn-secondary btn-sm" style="padding: 6px 12px;">
