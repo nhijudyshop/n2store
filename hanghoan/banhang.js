@@ -309,6 +309,253 @@ const BanHangModule = (function() {
     const MAX_RECORDS_PER_DOC = 500; // Firebase document size limit workaround
 
     /**
+     * Map TPOS API response item to internal format
+     */
+    function mapTPOSToInternal(item, index) {
+        return {
+            id: `tpos_${item.Id || Date.now()}_${index}`,
+            tposId: item.Id, // Keep TPOS ID for reference
+            stt: index + 1,
+            khachHang: item.PartnerDisplayName || item.FacebookName || '',
+            email: item.PartnerEmail || '',
+            facebook: item.FacebookName || item.DisplayFacebookName || '',
+            dienThoai: String(item.Phone || ''),
+            diaChi: item.FullAddress || item.Address || '',
+            so: item.Number || '', // Invoice number - used for duplicate detection
+            ngayBan: item.DateInvoice || null,
+            ngayXacNhan: item.DateCreated || null,
+            tongTien: parseFloat(item.AmountTotal || 0),
+            conNo: parseFloat(item.Residual || 0),
+            trangThai: item.ShowState || '',
+            doiTacGH: item.CarrierName || '',
+            maVanDon: item.TrackingRef || '',
+            cod: parseFloat(item.CashOnDelivery || 0),
+            phiShipGH: item.DeliveryPrice ? formatCurrency(item.DeliveryPrice) : '',
+            tienCoc: parseFloat(item.AmountDeposit || 0),
+            traTruoc: parseFloat(item.PaymentAmount || 0),
+            khoiLuongShip: item.ShipWeight || '',
+            trangThaiGH: item.ShowShipStatus || '',
+            doiSoatGH: item.ShipPaymentStatus || '',
+            ghiChuGH: item.DeliveryNote || '',
+            ghiChu: item.Comment || '',
+            nguoiBan: item.UserName || item.CreateByName || '',
+            nguon: item.Source || '',
+            kenh: item.CRMTeamName || '',
+            congTy: item.CompanyName || '',
+            thamChieu: item.Reference || '',
+            phiGiaoHang: item.CustomerDeliveryPrice ? formatCurrency(item.CustomerDeliveryPrice) : '',
+            nhan: item.Tags || '',
+            tienGiam: parseFloat(item.DecreaseAmount || 0),
+            chietKhau: parseFloat(item.Discount || 0),
+            thanhTienChietKhau: parseFloat(item.DiscountAmount || 0),
+            importedAt: new Date().toISOString(),
+            source: 'tpos' // Mark source for tracking
+        };
+    }
+
+    /**
+     * Merge new data with existing data, handling duplicates
+     * Strategy: Use invoice number (so) as unique key
+     * - If duplicate found: UPDATE the existing record with new data
+     * - If new: ADD to the list
+     */
+    function mergeDataWithDedup(newData, existingData) {
+        // Create a map of existing data by invoice number (so)
+        const existingMap = new Map();
+        existingData.forEach(item => {
+            if (item.so) {
+                existingMap.set(item.so, item);
+            }
+        });
+
+        let updatedCount = 0;
+        let newCount = 0;
+        const resultMap = new Map(existingMap);
+
+        // Process new data
+        newData.forEach(item => {
+            if (item.so) {
+                if (existingMap.has(item.so)) {
+                    // Duplicate found - update with new data but keep original id
+                    const existing = existingMap.get(item.so);
+                    resultMap.set(item.so, {
+                        ...item,
+                        id: existing.id, // Keep original ID
+                        importedAt: existing.importedAt // Keep original import time
+                    });
+                    updatedCount++;
+                } else {
+                    // New record
+                    resultMap.set(item.so, item);
+                    newCount++;
+                }
+            } else {
+                // No invoice number - add with unique key
+                const uniqueKey = `no_invoice_${item.id || Date.now()}_${Math.random()}`;
+                resultMap.set(uniqueKey, item);
+                newCount++;
+            }
+        });
+
+        // Also add existing items without invoice number
+        existingData.forEach(item => {
+            if (!item.so) {
+                const uniqueKey = `existing_no_invoice_${item.id || Date.now()}_${Math.random()}`;
+                if (!resultMap.has(uniqueKey)) {
+                    resultMap.set(uniqueKey, item);
+                }
+            }
+        });
+
+        return {
+            data: Array.from(resultMap.values()),
+            updatedCount,
+            newCount,
+            duplicateCount: updatedCount
+        };
+    }
+
+    /**
+     * Fetch data from TPOS API
+     * @param {string} authToken - Bearer token for authentication
+     * @param {Date} startDate - Start date filter
+     * @param {Date} endDate - End date filter
+     */
+    async function fetchFromTPOS(authToken, startDate, endDate) {
+        if (!authToken) {
+            throw new Error('Cần token xác thực để fetch từ TPOS');
+        }
+
+        // Format dates for API
+        const formatDateForAPI = (date) => {
+            return date.toISOString().replace('.000Z', '+00:00');
+        };
+
+        const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default: 30 days ago
+        const end = endDate || new Date();
+        end.setHours(23, 59, 59, 999);
+
+        const startISO = formatDateForAPI(start);
+        const endISO = formatDateForAPI(end);
+
+        const apiUrl = `https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.GetView?&$top=1000&$orderby=DateInvoice+desc&$filter=(Type+eq+'invoice'+and+DateInvoice+ge+${startISO}+and+DateInvoice+le+${endISO}+and+IsMergeCancel+ne+true)&$count=true`;
+
+        console.log('Fetching from TPOS:', apiUrl);
+
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json',
+                'authorization': `Bearer ${authToken}`,
+                'x-requested-with': 'XMLHttpRequest'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log(`TPOS returned ${result['@odata.count'] || 0} total records, fetched ${result.value?.length || 0}`);
+
+        return result.value || [];
+    }
+
+    /**
+     * Refresh data from TPOS API and merge with existing
+     */
+    async function refreshFromTPOS() {
+        showLoading();
+
+        // Prompt for token if not stored
+        let authToken = localStorage.getItem('tpos_auth_token');
+        if (!authToken) {
+            authToken = prompt('Nhập TPOS Bearer Token (lấy từ Developer Tools > Network > Headers):');
+            if (!authToken) {
+                hideLoading();
+                if (typeof showNotification === 'function') {
+                    showNotification('Cần token để fetch dữ liệu từ TPOS', 'warning');
+                }
+                return;
+            }
+            localStorage.setItem('tpos_auth_token', authToken);
+        }
+
+        if (typeof showNotification === 'function') {
+            showNotification('Đang fetch dữ liệu từ TPOS...', 'info');
+        }
+
+        try {
+            // Get date range from filters
+            const startDate = elements.startDate?.value ? new Date(elements.startDate.value) : null;
+            const endDate = elements.endDate?.value ? new Date(elements.endDate.value) : null;
+
+            // Fetch from TPOS
+            const tposData = await fetchFromTPOS(authToken, startDate, endDate);
+
+            if (tposData.length === 0) {
+                hideLoading();
+                if (typeof showNotification === 'function') {
+                    showNotification('Không có dữ liệu mới từ TPOS', 'info');
+                }
+                return;
+            }
+
+            // Map to internal format
+            const mappedData = tposData.map((item, index) => mapTPOSToInternal(item, index));
+
+            // Merge with existing data, handling duplicates
+            const mergeResult = mergeDataWithDedup(mappedData, banHangData);
+
+            if (typeof showNotification === 'function') {
+                showNotification('Đang lưu lên Firebase...', 'info');
+            }
+
+            // Save to Firebase
+            const saveSuccess = await saveToFirebase(mergeResult.data);
+
+            if (saveSuccess) {
+                // Update local state
+                banHangData = mergeResult.data;
+                filteredData = [...banHangData];
+
+                hideLoading();
+                currentPage = 1;
+                renderCurrentPage();
+                updateStats();
+
+                let message = `TPOS: +${mergeResult.newCount} mới`;
+                if (mergeResult.duplicateCount > 0) {
+                    message += `, cập nhật ${mergeResult.duplicateCount} trùng`;
+                }
+                message += `. Tổng: ${banHangData.length} đơn`;
+
+                if (typeof showNotification === 'function') {
+                    showNotification(message, 'success');
+                }
+            } else {
+                hideLoading();
+                if (typeof showNotification === 'function') {
+                    showNotification('Lỗi khi lưu lên Firebase', 'error');
+                }
+            }
+
+        } catch (error) {
+            console.error('Error fetching from TPOS:', error);
+            hideLoading();
+
+            // Clear token if auth error
+            if (error.message.includes('401') || error.message.includes('403')) {
+                localStorage.removeItem('tpos_auth_token');
+            }
+
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi fetch TPOS: ' + error.message, 'error');
+            }
+        }
+    }
+
+    /**
      * Load data from Firebase on page init
      */
     async function loadFromFirebase() {
@@ -678,20 +925,15 @@ const BanHangModule = (function() {
                 showNotification('Đang lưu lên Firebase...', 'info');
             }
 
-            // Merge with existing data (avoid duplicates by checking 'so' - invoice number)
-            const existingInvoices = new Set(banHangData.map(item => item.so));
-            const newData = importedData.filter(item => !existingInvoices.has(item.so) || !item.so);
-            const duplicateCount = importedData.length - newData.length;
-
-            // Merge: new data first, then existing
-            const mergedData = [...newData, ...banHangData];
+            // Merge with existing data using dedup function
+            const mergeResult = mergeDataWithDedup(importedData, banHangData);
 
             // Save to Firebase
-            const saveSuccess = await saveToFirebase(mergedData);
+            const saveSuccess = await saveToFirebase(mergeResult.data);
 
             if (saveSuccess) {
                 // Update local state
-                banHangData = mergedData;
+                banHangData = mergeResult.data;
                 filteredData = [...banHangData];
 
                 hideLoading();
@@ -699,10 +941,11 @@ const BanHangModule = (function() {
                 renderCurrentPage();
                 updateStats();
 
-                let message = `Đã nhập ${newData.length} đơn hàng từ Excel và lưu lên Firebase`;
-                if (duplicateCount > 0) {
-                    message += ` (bỏ qua ${duplicateCount} đơn trùng)`;
+                let message = `Excel: +${mergeResult.newCount} mới`;
+                if (mergeResult.duplicateCount > 0) {
+                    message += `, cập nhật ${mergeResult.duplicateCount} trùng`;
                 }
+                message += `. Tổng: ${banHangData.length} đơn`;
 
                 if (typeof showNotification === 'function') {
                     showNotification(message, 'success');
@@ -797,6 +1040,7 @@ const BanHangModule = (function() {
         init,
         importExcel,
         refreshData,
+        refreshFromTPOS,
         loadFromFirebase,
         deleteRecord,
         clearAllData,
@@ -861,6 +1105,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 await BanHangModule.clearAllData();
                 if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
+                }
+            });
+        }
+
+        // Fetch TPOS button
+        const btnFetchTPOS = document.getElementById('btnFetchTPOS');
+        if (btnFetchTPOS) {
+            btnFetchTPOS.addEventListener('click', async () => {
+                btnFetchTPOS.disabled = true;
+                try {
+                    await BanHangModule.refreshFromTPOS();
+                } finally {
+                    btnFetchTPOS.disabled = false;
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
                 }
             });
         }
