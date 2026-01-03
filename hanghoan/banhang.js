@@ -416,14 +416,64 @@ const BanHangModule = (function() {
     }
 
     /**
-     * Fetch data from TPOS API via Cloudflare Worker proxy
-     * @param {Date} startDate - Start date filter
-     * @param {Date} endDate - End date filter
+     * Fetch new TPOS token using credentials (same as TokenManager)
      */
-    async function fetchFromTPOS(startDate, endDate) {
-        // Get token from localStorage (same key as TokenManager in other modules)
+    async function fetchNewTPOSToken() {
+        const TOKEN_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/token';
+        const credentials = {
+            grant_type: 'password',
+            username: 'nvkt',
+            password: 'Aa@123456789',
+            client_id: 'tmtWebApp'
+        };
+
+        console.log('[BANHANG] Fetching new TPOS token...');
+
+        const formData = new URLSearchParams();
+        formData.append('grant_type', credentials.grant_type);
+        formData.append('username', credentials.username);
+        formData.append('password', credentials.password);
+        formData.append('client_id', credentials.client_id);
+
+        const response = await fetch(TOKEN_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: formData.toString()
+        });
+
+        if (!response.ok) {
+            throw new Error(`Token API error: ${response.status} ${response.statusText}`);
+        }
+
+        const tokenData = await response.json();
+
+        if (!tokenData.access_token) {
+            throw new Error('Invalid token response: missing access_token');
+        }
+
+        // Calculate expiry and save to localStorage (same format as TokenManager)
+        const expiresAt = Date.now() + (tokenData.expires_in * 1000);
+        const dataToSave = {
+            access_token: tokenData.access_token,
+            token_type: tokenData.token_type || 'Bearer',
+            expires_in: tokenData.expires_in,
+            expires_at: expiresAt,
+            issued_at: Date.now()
+        };
+
+        localStorage.setItem('bearer_token_data', JSON.stringify(dataToSave));
+        console.log('[BANHANG] ✅ New token saved, expires:', new Date(expiresAt).toLocaleString());
+
+        return tokenData.access_token;
+    }
+
+    /**
+     * Get valid TPOS token (from localStorage or fetch new one)
+     */
+    async function getTPOSToken() {
         const tokenData = localStorage.getItem('bearer_token_data');
-        let authToken = null;
 
         if (tokenData) {
             try {
@@ -431,16 +481,26 @@ const BanHangModule = (function() {
                 // Check if token is still valid (with 5 min buffer)
                 const bufferTime = 5 * 60 * 1000;
                 if (parsed.access_token && parsed.expires_at && Date.now() < (parsed.expires_at - bufferTime)) {
-                    authToken = parsed.access_token;
+                    return parsed.access_token;
                 }
+                console.log('[BANHANG] Token expired, fetching new one...');
             } catch (e) {
                 console.warn('[BANHANG] Error parsing token data:', e);
             }
         }
 
-        if (!authToken) {
-            throw new Error('Chưa có token TPOS. Vui lòng đăng nhập vào trang Orders Report trước để lấy token.');
-        }
+        // No valid token, fetch new one
+        return await fetchNewTPOSToken();
+    }
+
+    /**
+     * Fetch data from TPOS API via Cloudflare Worker proxy
+     * @param {Date} startDate - Start date filter
+     * @param {Date} endDate - End date filter
+     */
+    async function fetchFromTPOS(startDate, endDate) {
+        // Get or fetch token
+        const authToken = await getTPOSToken();
 
         // Format dates for API
         const formatDateForAPI = (date) => {
