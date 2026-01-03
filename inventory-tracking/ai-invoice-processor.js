@@ -145,9 +145,27 @@ const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia kiểm kê hàng hóa t
    |----------|------|------|------|------|------|
    | 835#/T恤衫 | 黑色 | 均码 | 10 | 64 | 640 |
    | 835#/T恤衫 | 白色 | 均码 | 10 | 64 | 640 |
-   | 小计 |  |  | 50 |  | 3,200 |
+   | 835#/T恤衫 | 灰色 | 均码 | 10 | 64 | 640 |
+   | 小计 |  |  | 30 |  | 1,920 |
 
-   **CÁCH ĐỌC TỪNG DÒNG:**
+   **QUAN TRỌNG - NHÓM SẢN PHẨM THEO MÃ:**
+   - Các dòng có cùng款号 (mã sản phẩm) = 1 SẢN PHẨM DUY NHẤT
+   - Gộp các màu khác nhau vào mảng colors[]
+   - VD: 3 dòng "835#/T恤衫" với màu khác nhau = 1 object duy nhất với 3 màu
+
+   **CẤU TRÚC NHÓM:**
+   {
+     "sku": "835",
+     "name": "Áo thun",
+     "colors": [
+       {"color": "Đen", "quantity": 10},
+       {"color": "Trắng", "quantity": 10},
+       {"color": "Xám", "quantity": 10}
+     ],
+     "price": 64
+   }
+
+   **CÁCH ĐỌC VÀ NHÓM:**
 
    a) **sku** (Mã hàng):
       - Lấy từ cột "款号/商品" (phần số trước dấu /)
@@ -162,32 +180,31 @@ const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia kiểm kê hàng hóa t
       - VD: "连衣裙" → "Váy liền"
       - VD: "打底衫" → "Áo lót"
       - VD: "针织衫" → "Áo len"
+      - VD: "两件套" → "Bộ hai mảnh"
+      - VD: "三件套" → "Bộ ba mảnh"
       - Nếu không có tên → dùng "Sản phẩm [mã]"
 
-   c) **color** (Màu sắc):
-      - Lấy từ cột "颜色"
-      - DỊCH HOÀN TOÀN sang tiếng Việt theo TỪ ĐIỂN
-      - KHÔNG để sót ký tự Trung Quốc
-      - VD: "黑色" → "Đen" (KHÔNG "黑色")
-      - VD: "卡其色" → "Khaki" (KHÔNG "卡其")
-      - VD: "藏青色" → "Xanh than" (KHÔNG "藏青")
+   c) **colors** (Mảng màu sắc):
+      - MỖI MÀU = 1 OBJECT trong colors[]
+      - Với mỗi object:
+        * **color**: DỊCH HOÀN TOÀN sang tiếng Việt theo TỪ ĐIỂN
+          - VD: "黑色" → "Đen" (KHÔNG "黑色")
+          - VD: "卡其色" → "Khaki" (KHÔNG "卡其")
+          - VD: "藏青色" → "Xanh than" (KHÔNG "藏青")
+        * **quantity**: Số lượng của màu đó
+          - Lấy từ cột "数量" của dòng tương ứng
+          - VD: 10, 20, 5, 13
 
-   d) **quantity** (Số lượng):
-      - Lấy từ cột "数量"
-      - ĐẾM CHÍNH XÁC từng dòng sản phẩm
-      - VD: 10, 20, 5, 13
-      - BỎ QUA dòng "小计" (tổng nhỏ)
-
-   e) **price** (Đơn giá):
-      - Lấy từ cột "单价"
-      - Giá của 1 sản phẩm (số nguyên hoặc thập phân)
+   d) **price** (Đơn giá):
+      - Giá của 1 sản phẩm (áp dụng cho TẤT CẢ màu)
+      - Lấy từ cột "单价" (số nguyên hoặc thập phân)
       - VD: 64, 67.5, 66
 
    **LƯU Ý QUAN TRỌNG:**
-   - MỖI DÒNG trong hóa đơn = 1 OBJECT trong products[]
-   - MỖI MÀU khác nhau = 1 DÒNG RIÊNG
+   - NHÓM theo款号: Cùng mã SP → 1 object duy nhất
+   - Màu khác nhau → Thêm vào colors[] của object đó
    - BỎ QUA dòng "小计" (tổng nhỏ của nhóm)
-   - Hóa đơn có nhiều NHÓM SẢN PHẨM → Đọc hết tất cả
+   - Hóa đơn có nhiều款号 → Nhiều objects trong products[]
 
 **5. TỔNG SỐ MÓN (totalItems):**
    - Cộng tất cả quantity của từng product
@@ -202,11 +219,11 @@ const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia kiểm kê hàng hóa t
    - Nếu không có → Tính = SUM(quantity * price)
 
 **7. KIỂM TRA VÀ CẢNH BÁO:**
-   - Với mỗi nhóm sản phẩm (款号), cộng quantity của các màu
-   - So sánh với số "Tổng cộng" hoặc dòng "小计"
+   - Với mỗi sản phẩm trong products[], cộng quantity của các colors[]
+   - So sánh với số "Tổng cộng" hoặc dòng "小计" của nhóm đó
    - Nếu KHỚP → OK
    - Nếu CHÊNH LỆCH → Thêm vào notes:
-     "⚠️ CẢNH BÁO: Nhóm [mã SP] - Tổng màu ([X]) ≠ Tổng ghi ([Y]) - Chênh lệch [Z] món"
+     "⚠️ CẢNH BÁO: Sản phẩm [sku] [name] - Tổng màu ([X]) ≠ Tổng ghi ([Y]) - Chênh lệch [Z] món"
 
 === FORMAT JSON OUTPUT ===
 
@@ -218,12 +235,30 @@ Trả về JSON CHÍNH XÁC (không markdown, không dấu \`\`\`):
   "supplier": "伊芙诺",
   "date": "08/12/2025",
   "products": [
-    {"sku": "835", "name": "Áo thun", "color": "Đen", "quantity": 10, "price": 64},
-    {"sku": "835", "name": "Áo thun", "color": "Trắng", "quantity": 10, "price": 64},
-    {"sku": "835", "name": "Áo thun", "color": "Xám", "quantity": 10, "price": 64}
+    {
+      "sku": "835",
+      "name": "Áo thun",
+      "colors": [
+        {"color": "Đen", "quantity": 10},
+        {"color": "Trắng", "quantity": 10},
+        {"color": "Xám", "quantity": 10},
+        {"color": "Đỏ", "quantity": 7},
+        {"color": "Khaki", "quantity": 13}
+      ],
+      "price": 64
+    },
+    {
+      "sku": "9151-1",
+      "name": "Váy liền",
+      "colors": [
+        {"color": "Xanh than", "quantity": 20},
+        {"color": "Đen", "quantity": 15}
+      ],
+      "price": 72
+    }
   ],
-  "totalItems": 330,
-  "totalAmount": 21520,
+  "totalItems": 85,
+  "totalAmount": 5720,
   "notes": "Ngày in: 2025-12-08. Đã kiểm tra: Tất cả nhóm sản phẩm khớp số lượng."
 }
 
@@ -338,32 +373,64 @@ async function callGeminiVisionAPI(base64Image, mimeType) {
 }
 
 /**
- * Extract invoice data from AI response and convert to invoice form format
- * @param {Object} aiResponse - Response from Gemini API
- * @returns {Object} Invoice data formatted for invoice form
+ * Extract invoice data from AI response and convert to structured format
+ * @param {Object} aiResponse - Response from Gemini API (NEW FORMAT with grouped products)
+ * @returns {Object} Invoice data with structured productsData array
  */
 function extractInvoiceData(aiResponse) {
     if (!aiResponse.success) {
         throw new Error(aiResponse.error || 'AI không thể xử lý ảnh');
     }
 
-    // Convert AI products to text format for invoice-products textarea
-    // Format: MA [sku] [soMau] MÀU [qty]X[price]
-    const productLines = (aiResponse.products || []).map(p => {
-        // AI doesn't provide soMau (number of colors), default to 1
-        const soMau = 1;
-        return `MA ${p.sku || '?'} ${soMau} MÀU ${p.quantity || 0}X${p.price || 0}`;
-    }).join('\n');
+    // NEW: Process grouped products with color details
+    const productsData = (aiResponse.products || []).map(product => {
+        const colors = product.colors || [];
+        const tongSoLuong = colors.reduce((sum, c) => sum + (c.quantity || 0), 0);
+
+        return {
+            maSP: product.sku || '?',
+            moTa: product.name || '',           // NEW: Product description
+            mauSac: colors.map(c => ({          // NEW: Color breakdown
+                mau: c.color || '',
+                soLuong: c.quantity || 0
+            })),
+            tongSoLuong: tongSoLuong,           // NEW: Computed total
+            soMau: colors.length,                // Computed from array
+            giaDonVi: product.price || 0,
+            thanhTien: tongSoLuong * (product.price || 0),
+
+            // Legacy/metadata
+            rawText: buildRawText(product),     // Generate for display
+            aiExtracted: true,
+            dataSource: 'ai'
+        };
+    });
 
     return {
         sttNCC: parseInt(aiResponse.ncc, 10) || null,
         tenNCC: aiResponse.supplier || '',
-        productText: productLines,
+        productsData: productsData,             // NEW: Rich structured data
         totalAmount: aiResponse.totalAmount || 0,
         totalItems: aiResponse.totalItems || 0,
         notes: aiResponse.notes || '',
         date: aiResponse.date || ''
     };
+}
+
+/**
+ * Build rawText for display purposes from structured product data
+ * @param {Object} product - AI product object with colors array
+ * @returns {string} Raw text representation
+ */
+function buildRawText(product) {
+    const sku = product.sku || '?';
+    const name = product.name || '';
+    const colorCount = (product.colors || []).length;
+    const totalQty = (product.colors || []).reduce((sum, c) => sum + (c.quantity || 0), 0);
+    const price = product.price || 0;
+
+    // Format: "MA 835 Áo thun 5 MÀU 50X64"
+    return `MA ${sku}${name ? ' ' + name : ''} ${colorCount} MÀU ${totalQty}X${price}`;
 }
 
 /**
