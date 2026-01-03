@@ -21,94 +21,9 @@ const AI_CONFIG = {
 };
 
 // =====================================================
-// CHINESE TO VIETNAMESE TRANSLATION DICTIONARY
-// Copied from telegram-bot.js lines 723-776
+// CHINESE TO VIETNAMESE TRANSLATION
+// Uses CHINESE_TO_VIETNAMESE dictionary from table-renderer.js
 // =====================================================
-
-const CHINESE_TO_VIETNAMESE = {
-    // Colors - Màu sắc
-    '黑色': 'Đen', '黑': 'Đen',
-    '白色': 'Trắng', '白': 'Trắng',
-    '红色': 'Đỏ', '红': 'Đỏ',
-    '蓝色': 'Xanh dương', '蓝': 'Xanh dương',
-    '绿色': 'Xanh lá cây', '绿': 'Xanh lá',
-    '黄色': 'Vàng', '黄': 'Vàng',
-    '紫色': 'Tím', '紫': 'Tím',
-    '粉色': 'Hồng', '粉红色': 'Hồng phấn', '粉': 'Hồng',
-    '灰色': 'Xám', '灰': 'Xám',
-    '棕色': 'Nâu', '棕': 'Nâu',
-    '咖色': 'Nâu cà phê', '咖啡色': 'Cà phê', '咖': 'Cà phê',
-    '米色': 'Kem', '米白色': 'Trắng kem', '米': 'Kem',
-    '杏色': 'Hồng mơ', '杏': 'Mơ',
-    '橙色': 'Cam', '橙': 'Cam',
-    '酱色': 'Nâu đậm', '酱红色': 'Đỏ nâu', '酱': 'Nâu đậm',
-    '卡其色': 'Khaki', '卡其': 'Khaki',
-    '驼色': 'Nâu lạc đà', '驼': 'Lạc đà',
-    '藏青色': 'Xanh than', '藏青': 'Xanh than',
-    '酒红色': 'Đỏ rượu vang', '酒红': 'Đỏ rượu',
-    '墨绿色': 'Xanh rêu', '墨绿': 'Xanh rêu',
-    '军绿色': 'Xanh quân đội', '军绿': 'Xanh lính',
-    '浅': 'Nhạt',
-    '深': 'Đậm',
-    '色': '',
-    '浅灰': 'Xám nhạt',
-    '深灰': 'Xám đậm',
-    '浅蓝': 'Xanh nhạt',
-    '深蓝': 'Xanh đậm',
-
-    // Patterns - Họa tiết
-    '条': 'Sọc', '条纹': 'Sọc',
-    '纹': 'Vân',
-    '格': 'Caro', '格子': 'Caro',
-    '花': 'Hoa',
-    '点': 'Chấm',
-    '印': 'In',
-
-    // Product types - Loại sản phẩm
-    '上衣': 'Áo',
-    '裤子': 'Quần', '裤': 'Quần',
-    '裙子': 'Váy', '裙': 'Váy',
-    '外套': 'Áo khoác',
-    '衬衫': 'Áo sơ mi',
-    'T恤': 'Áo thun', 'T恤衫': 'Áo thun',
-    '连衣裙': 'Váy liền',
-    '针织衫': 'Áo len',
-    '毛衣': 'Áo len',
-    '卫衣': 'Áo nỉ',
-    '打底衫': 'Áo lót',
-    '马甲': 'Áo gile',
-    '背心': 'Áo ba lỗ',
-    '吊带': 'Dây đeo',
-    '短裤': 'Quần short',
-    '长裤': 'Quần dài',
-    '牛仔裤': 'Quần jean',
-
-    // Details - Chi tiết
-    '领': 'Cổ', '袖': 'Tay áo',
-    '长袖': 'Tay dài', '短袖': 'Tay ngắn',
-    '交叉': 'Chéo', '斜角': 'Xéo góc',
-    '圆领': 'Cổ tròn', 'V领': 'Cổ V',
-    '高领': 'Cổ cao', '翻领': 'Cổ lật',
-    '纽扣': 'Khuy', '拉链': 'Khoá kéo',
-    '铆钉': 'Đinh tán', '印花': 'In hoa',
-    '绣花': 'Thêu hoa', '蕾丝': 'Ren',
-    '网纱': 'Lưới', '荷叶边': 'Viền lượn sóng',
-
-    // Materials - Chất liệu
-    '棉': 'Cotton', '麻': 'Lanh', '丝': 'Lụa',
-    '绒': 'Nhung', '毛': 'Len', '皮': 'Da',
-    '革': 'Da thuộc', '牛仔': 'Vải jean',
-    '雪纺': 'Voan', '涤纶': 'Polyester',
-    '锦纶': 'Nylon', '氨纶': 'Spandex',
-
-    // Size
-    '均码': 'Size chung',
-    'S码': 'Size S', 'M码': 'Size M',
-    'L码': 'Size L', 'XL码': 'Size XL',
-
-    // Common terms
-    '款': 'Kiểu', '苏': 'Tô'
-};
 
 /**
  * Translate Chinese text to Vietnamese
@@ -117,6 +32,12 @@ const CHINESE_TO_VIETNAMESE = {
  */
 function translateToVietnamese(text) {
     if (!text) return text;
+
+    // CHINESE_TO_VIETNAMESE is defined globally in table-renderer.js
+    if (typeof CHINESE_TO_VIETNAMESE === 'undefined') {
+        console.warn('[AI] CHINESE_TO_VIETNAMESE dictionary not found');
+        return text;
+    }
 
     let result = text;
 
