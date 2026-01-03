@@ -268,6 +268,7 @@ async function deleteOrderBooking(bookingId) {
 
 /**
  * Upload images for order booking
+ * Uses server endpoint to bypass CORS
  */
 async function uploadBookingImages(files) {
     const uploadedUrls = [];
@@ -291,12 +292,33 @@ async function uploadBookingImages(files) {
             const ext = file.name.split('.').pop();
             const filename = `order_booking_${timestamp}_${randomStr}.${ext}`;
 
-            // Upload to Firebase Storage
-            const storageRef = storage.ref(`order_bookings/${filename}`);
-            const snapshot = await storageRef.put(file);
-            const url = await snapshot.ref.getDownloadURL();
+            // Convert file to base64
+            const base64 = await fileToBase64(file);
 
-            uploadedUrls.push(url);
+            // Upload via dedicated upload endpoint (uses shared Firebase Storage service)
+            const serverUrl = 'https://n2shop.onrender.com/api/upload/image';
+
+            const response = await fetch(serverUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    image: base64,
+                    fileName: filename,
+                    folderPath: 'order_bookings',
+                    mimeType: file.type
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Upload failed');
+            }
+
+            console.log('[ORDER-BOOKING-CRUD] Image uploaded via server:', result.url);
+            uploadedUrls.push(result.url);
         } catch (error) {
             console.error('Error uploading image:', error);
             toast.error(`Lỗi upload ${file.name}`);
@@ -304,6 +326,20 @@ async function uploadBookingImages(files) {
     }
 
     return uploadedUrls;
+}
+
+/**
+ * Convert File to base64 string (helper for uploadBookingImages)
+ * @param {File} file - File to convert
+ * @returns {Promise<string>} Base64 string
+ */
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
 
 /**

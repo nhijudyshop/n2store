@@ -4,16 +4,12 @@
 // =====================================================
 
 /**
- * Upload image to Firebase Storage
+ * Upload image to Firebase Storage via server endpoint (bypasses CORS)
  * @param {File} file - Image file
- * @param {string} path - Storage path
+ * @param {string} path - Storage path (e.g., "invoices")
  * @returns {Promise<string>} Download URL
  */
 async function uploadImage(file, path) {
-    if (!storage) {
-        throw new Error('Firebase Storage not initialized');
-    }
-
     // Validate file
     if (!APP_CONFIG.ALLOWED_IMAGE_TYPES.includes(file.type)) {
         throw new Error('Loai file khong hop le');
@@ -25,16 +21,51 @@ async function uploadImage(file, path) {
 
     // Generate unique filename
     const timestamp = Date.now();
-    const filename = `${timestamp}_${file.name}`;
-    const fullPath = `${path}/${filename}`;
+    const random = Math.random().toString(36).substring(2, 8);
+    const extension = file.name.split('.').pop() || 'jpg';
+    const filename = `${timestamp}_${random}.${extension}`;
 
-    // Upload
-    const ref = storage.ref(fullPath);
-    const snapshot = await ref.put(file);
-    const downloadURL = await snapshot.ref.getDownloadURL();
+    // Convert file to base64
+    const base64 = await fileToBase64(file);
 
-    console.log('[UPLOAD] Image uploaded:', downloadURL);
-    return downloadURL;
+    // Upload via dedicated upload endpoint (uses shared Firebase Storage service)
+    const serverUrl = 'https://n2shop.onrender.com/api/upload/image';
+
+    const response = await fetch(serverUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            image: base64,
+            fileName: filename,
+            folderPath: path || 'uploads',
+            mimeType: file.type
+        })
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+        throw new Error(result.error || 'Upload failed');
+    }
+
+    console.log('[UPLOAD] Image uploaded via server:', result.url);
+    return result.url;
+}
+
+/**
+ * Convert File to base64 string
+ * @param {File} file - File to convert
+ * @returns {Promise<string>} Base64 string
+ */
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
 
 /**

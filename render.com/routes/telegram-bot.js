@@ -7,6 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const admin = require('firebase-admin');
+const firebaseStorageService = require('../services/firebase-storage-service');
 
 // API Keys from environment variables (set on Render)
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -14,145 +15,18 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = 'gemini-3-flash-preview'; // Latest Gemini 3 Flash model
 
 // =====================================================
-// FIREBASE INITIALIZATION
+// FIREBASE INITIALIZATION (using shared service)
 // =====================================================
 
-const FIREBASE_STORAGE_BUCKET = 'n2shop-69e37-ne0q1';
-let db = null;
-let bucket = null;
-
 function getFirestoreDb() {
-    if (db) return db;
-
-    try {
-        // Check if Firebase is already initialized
-        if (admin.apps.length === 0) {
-            const projectId = process.env.FIREBASE_PROJECT_ID;
-            const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-            const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-            if (!projectId || !clientEmail || !privateKey) {
-                console.log('[FIREBASE] Missing credentials, Firebase disabled');
-                return null;
-            }
-
-            admin.initializeApp({
-                credential: admin.credential.cert({
-                    projectId,
-                    clientEmail,
-                    privateKey
-                }),
-                storageBucket: FIREBASE_STORAGE_BUCKET
-            });
-            console.log('[FIREBASE] Initialized for project:', projectId);
-        }
-
-        db = admin.firestore();
-        return db;
-    } catch (error) {
-        console.error('[FIREBASE] Init error:', error.message);
-        return null;
-    }
-}
-
-function getStorageBucket() {
-    if (bucket) return bucket;
-
-    // Ensure Firebase is initialized
-    getFirestoreDb();
-
-    try {
-        // Explicitly specify bucket name
-        bucket = admin.storage().bucket(FIREBASE_STORAGE_BUCKET);
-        return bucket;
-    } catch (error) {
-        console.error('[FIREBASE] Storage init error:', error.message);
-        return null;
-    }
+    return firebaseStorageService.getFirestore();
 }
 
 /**
- * Upload image to Firebase Storage
- * @param {Buffer} imageBuffer - Image data as buffer
- * @param {string} fileName - File name for storage
- * @param {string} mimeType - MIME type of the image
- * @returns {Promise<string>} Public URL of the uploaded image
- */
-async function uploadImageToStorage(imageBuffer, fileName, mimeType = 'image/jpeg') {
-    const storageBucket = getStorageBucket();
-    if (!storageBucket) {
-        throw new Error('Firebase Storage không khả dụng');
-    }
-
-    const filePath = `inventory-tracking/invoices/${fileName}`;
-    const file = storageBucket.file(filePath);
-
-    // Generate a download token
-    const uuid = require('crypto').randomUUID();
-
-    // Upload the file with metadata including download token
-    await file.save(imageBuffer, {
-        metadata: {
-            contentType: mimeType,
-            metadata: {
-                firebaseStorageDownloadTokens: uuid
-            }
-        }
-    });
-
-    // Make the file publicly accessible
-    await file.makePublic();
-
-    // Generate Firebase Storage download URL format
-    const encodedPath = encodeURIComponent(filePath);
-    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o/${encodedPath}?alt=media&token=${uuid}`;
-
-    console.log('[FIREBASE] Image uploaded:', downloadUrl);
-    return downloadUrl;
-}
-
-/**
- * Delete image from Firebase Storage
- * @param {string} imageUrl - Public URL of the image to delete
+ * Delete image from Firebase Storage (delegates to shared service)
  */
 async function deleteImageFromStorage(imageUrl) {
-    const storageBucket = getStorageBucket();
-    if (!storageBucket) {
-        throw new Error('Firebase Storage không khả dụng');
-    }
-
-    let filePath = null;
-
-    // Handle Firebase Storage download URL format
-    // https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded-path}?alt=media&token={token}
-    const firebaseUrlPattern = /firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/([^?]+)/;
-    const firebaseMatch = imageUrl.match(firebaseUrlPattern);
-    if (firebaseMatch) {
-        filePath = decodeURIComponent(firebaseMatch[1]);
-    }
-
-    // Handle Google Cloud Storage URL format
-    // https://storage.googleapis.com/{bucket}/{path}
-    const gcsBaseUrl = `https://storage.googleapis.com/${FIREBASE_STORAGE_BUCKET}/`;
-    if (!filePath && imageUrl.startsWith(gcsBaseUrl)) {
-        filePath = imageUrl.replace(gcsBaseUrl, '');
-    }
-
-    if (!filePath) {
-        console.log('[FIREBASE] Unknown URL format, skipping delete:', imageUrl);
-        return false;
-    }
-
-    const file = storageBucket.file(filePath);
-
-    try {
-        await file.delete();
-        console.log('[FIREBASE] Image deleted:', filePath);
-        return true;
-    } catch (error) {
-        console.error('[FIREBASE] Delete error:', error.message);
-        return false;
-    }
+    return firebaseStorageService.deleteImage(imageUrl);
 }
 
 /**
@@ -416,7 +290,8 @@ async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
             const timestamp = Date.now();
             const extension = mimeType.split('/')[1] || 'jpg';
             const fileName = `invoice_${nccCode}_${timestamp}.${extension}`;
-            imageUrl = await uploadImageToStorage(buffer, fileName, mimeType);
+            // Use shared Firebase Storage service
+            imageUrl = await firebaseStorageService.uploadImageBuffer(buffer, fileName, 'invoices', mimeType);
             console.log('[FIREBASE] Invoice image uploaded:', imageUrl);
         } catch (error) {
             console.error('[FIREBASE] Image upload error:', error.message);
@@ -500,8 +375,8 @@ async function addImageToNCC(nccCode, fileId, targetType = 'latest') {
     const extension = mimeType.split('/')[1] || 'jpg';
     const fileName = `ncc_${nccCode}_${timestamp}.${extension}`;
 
-    // Upload to Firebase Storage
-    const imageUrl = await uploadImageToStorage(buffer, fileName, mimeType);
+    // Upload to Firebase Storage using shared service
+    const imageUrl = await firebaseStorageService.uploadImageBuffer(buffer, fileName, 'invoices', mimeType);
 
     // Get NCC document
     const docId = `ncc_${nccCode}`;

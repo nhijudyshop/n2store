@@ -171,6 +171,7 @@ const { saveRealtimeUpdate } = require('./routes/realtime');
 const geminiRoutes = require('./routes/gemini');
 const deepseekRoutes = require('./routes/deepseek');
 const telegramBotRoutes = require('./routes/telegram-bot');
+const uploadImageRoutes = require('./routes/upload');
 
 // === FIREBASE REPLACEMENT ROUTES (SSE + PostgreSQL) ===
 const realtimeSseRoutes = require('./routes/realtime-sse');
@@ -196,6 +197,7 @@ app.use('/api/realtime', realtimeRoutes);
 app.use('/api/gemini', geminiRoutes);
 app.use('/api/deepseek', deepseekRoutes);
 app.use('/api/telegram', telegramBotRoutes);
+app.use('/api/upload', uploadImageRoutes);
 
 // === FIREBASE REPLACEMENT ROUTES ===
 // SSE for realtime updates (replaces Firebase listeners)
@@ -760,6 +762,11 @@ app.get('/', (req, res) => {
                 'POST /api/telegram/setWebhook - Set webhook URL',
                 'GET /api/telegram/webhookInfo - Get webhook info',
                 'POST /api/telegram/deleteWebhook - Delete webhook'
+            ],
+            upload: [
+                'POST /api/upload/image - Upload image to Firebase Storage',
+                'DELETE /api/upload/image - Delete image from Firebase Storage',
+                'GET /api/upload/health - Upload service health check'
             ],
             health: [
                 'GET /health - Server health check',
