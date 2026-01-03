@@ -502,9 +502,11 @@ const BanHangModule = (function() {
         // Get or fetch token
         const authToken = await getTPOSToken();
 
-        // Format dates for API
+        // Format dates for API (must match TPOS format exactly)
         const formatDateForAPI = (date) => {
-            return date.toISOString().replace('.000Z', '+00:00');
+            // Format: 2025-12-03T17:00:00+00:00
+            const iso = date.toISOString().replace('.000Z', '+00:00');
+            return iso;
         };
 
         const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default: 30 days ago
@@ -514,17 +516,26 @@ const BanHangModule = (function() {
         const startISO = formatDateForAPI(start);
         const endISO = formatDateForAPI(end);
 
+        // Build filter with proper encoding (match FastSaleOrder.txt format exactly)
+        const filter = `(Type eq 'invoice' and DateInvoice ge ${startISO} and DateInvoice le ${endISO} and IsMergeCancel ne true)`;
+
         // Use Cloudflare Worker proxy to bypass CORS
         const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        const apiUrl = `${PROXY_URL}/api/odata/FastSaleOrder/ODataService.GetView?&$top=1000&$orderby=DateInvoice+desc&$filter=(Type+eq+'invoice'+and+DateInvoice+ge+${startISO}+and+DateInvoice+le+${endISO}+and+IsMergeCancel+ne+true)&$count=true`;
+        const params = new URLSearchParams();
+        params.append('$top', '1000');
+        params.append('$orderby', 'DateInvoice desc');
+        params.append('$filter', filter);
+        params.append('$count', 'true');
+
+        const apiUrl = `${PROXY_URL}/api/odata/FastSaleOrder/ODataService.GetView?${params.toString()}`;
 
         console.log('Fetching from TPOS via proxy:', apiUrl);
 
         const response = await fetch(apiUrl, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'Authorization': `Bearer ${authToken}`
             }
         });
 
