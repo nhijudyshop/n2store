@@ -523,9 +523,8 @@ const BanHangModule = (function() {
         const response = await fetch(apiUrl, {
             method: 'GET',
             headers: {
-                'accept': 'application/json',
-                'authorization': `Bearer ${authToken}`,
-                'x-requested-with': 'XMLHttpRequest'
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
             }
         });
 
