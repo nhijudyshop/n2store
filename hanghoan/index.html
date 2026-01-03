@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="hanghoan.css" />
     <link rel="stylesheet" href="trahang.css" />
     <link rel="stylesheet" href="banhang.css" />
+    <link rel="stylesheet" href="doisoat.css" />
 
     <!-- Navigation Manager -->
     <!-- N2Store Optimization: Core Utilities Loader -->
@@ -32,6 +33,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <!-- Token Manager for TPOS API -->
+    <script src="../orders-report/token-manager.js"></script>
 </head>
 
 <body>
@@ -153,6 +157,10 @@
             <button class="main-tab-btn" data-tab="banHangTab">
                 <i data-lucide="shopping-cart"></i>
                 <span>Bán Hàng</span>
+            </button>
+            <button class="main-tab-btn" data-tab="doiSoatTab">
+                <i data-lucide="clipboard-check"></i>
+                <span>Đối Soát</span>
             </button>
         </div>
 
@@ -614,6 +622,91 @@
         </div>
         <!-- End Bán Hàng Tab Content -->
 
+        <!-- Đối Soát Tab Content -->
+        <div class="tab-content" id="doiSoatTab">
+            <section class="doisoat-section">
+                <!-- Filters -->
+                <div class="doisoat-filters">
+                    <div class="doisoat-filter-group">
+                        <label>Ngày bắt đầu</label>
+                        <input type="datetime-local" id="doiSoatStartDate">
+                    </div>
+                    <div class="doisoat-filter-group">
+                        <label>Ngày kết thúc</label>
+                        <input type="datetime-local" id="doiSoatEndDate">
+                    </div>
+                    <div class="doisoat-filter-group">
+                        <label>Số HD</label>
+                        <input type="text" id="doiSoatNumber" placeholder="Nhập số HĐ">
+                    </div>
+                    <div class="doisoat-filter-group">
+                        <label>Mã đơn vận</label>
+                        <input type="text" id="doiSoatMaDonVan" placeholder="Nhập mã đơn vận">
+                    </div>
+                    <button class="btn btn-primary" id="btnSearchDoiSoat">
+                        <i data-lucide="search"></i>
+                        <span>Tìm kiếm</span>
+                    </button>
+                </div>
+
+                <!-- Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i data-lucide="table"></i>
+                            <h2>Lịch sử đối soát sản phẩm nhiều bán hàng</h2>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="doisoat-table">
+                                <thead>
+                                    <tr>
+                                        <th>Số HD</th>
+                                        <th>Mã vận đơn</th>
+                                        <th>Nhân viên đối soát</th>
+                                        <th>Ngày tạo</th>
+                                        <th>Trạng thái</th>
+                                        <th>Nội dung</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="doiSoatTableBody">
+                                    <!-- Data rows will be rendered here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="doisoat-pagination" id="doiSoatPagination">
+                            <button class="btn btn-secondary" id="btnPrevDoiSoat" disabled>
+                                <i data-lucide="chevron-left"></i>
+                                <span>Trước</span>
+                            </button>
+                            <span id="doiSoatPageInfo">Trang 1</span>
+                            <button class="btn btn-secondary" id="btnNextDoiSoat">
+                                <span>Sau</span>
+                                <i data-lucide="chevron-right"></i>
+                            </button>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div class="doisoat-loading" id="doiSoatLoadingState">
+                            <i data-lucide="loader-2"></i>
+                            <p>Đang tải dữ liệu...</p>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div class="doisoat-empty" id="doiSoatEmptyState">
+                            <i data-lucide="inbox"></i>
+                            <h3>Chưa có dữ liệu</h3>
+                            <p>Dữ liệu đối soát sẽ hiển thị ở đây</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <!-- End Đối Soát Tab Content -->
+
     </main>
 
     <!-- Edit Modal -->
@@ -904,6 +997,7 @@
     <script src="hanghoan.js"></script>
     <script src="trahang.js"></script>
     <script src="banhang.js"></script>
+    <script src="doisoat.js"></script>
 </body>
 
 </html>

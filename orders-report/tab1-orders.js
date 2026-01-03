@@ -1464,7 +1464,7 @@ function checkAdminPermission() {
         // Check if user has admin permissions via detailedPermissions
         const auth = window.authManager ? window.authManager.getAuthState() : null;
         const hasAdminAccess = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
-                              auth?.roleTemplate === 'admin';
+            auth?.roleTemplate === 'admin';
         if (!hasAdminAccess) {
             btn.style.display = 'none';
         } else {
@@ -5179,7 +5179,7 @@ function performTableSearch() {
     // Check if user has admin access via detailedPermissions
     const auth = window.authManager ? window.authManager.getAuthState() : null;
     let isAdmin = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
-                  auth?.roleTemplate === 'admin';
+        auth?.roleTemplate === 'admin';
 
     const currentUserType = auth && auth.userType ? auth.userType : null;
     const currentDisplayName = auth && auth.displayName ? auth.displayName : null;
@@ -6819,7 +6819,7 @@ function renderTable() {
     // Check if user has admin access via detailedPermissions
     const auth = window.authManager ? window.authManager.getAuthState() : null;
     let isAdmin = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
-                  auth?.roleTemplate === 'admin';
+        auth?.roleTemplate === 'admin';
 
     // Fallback: Check username string for Admin (legacy support)
     const currentUserType = auth && auth.userType ? auth.userType : null;
@@ -15719,7 +15719,7 @@ window.fetchAndUpdateMessages = fetchAndUpdateMessages;
  * Scroll to a specific message in the chat modal and highlight it
  * @param {string} messageId - The ID of the message to scroll to
  */
-window.scrollToMessage = function(messageId) {
+window.scrollToMessage = function (messageId) {
     if (!messageId) return;
 
     const modalBody = document.getElementById('chatModalBody');
@@ -22142,7 +22142,7 @@ async function fetchDeliveryCarriers() {
             headers: {
                 'accept': 'application/json, text/javascript, */*; q=0.01',
                 'authorization': `Bearer ${token}`,
-                'tposappversion': '5.11.16.1'
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
             }
         });
 
@@ -22559,7 +22559,7 @@ async function openSaleButtonModal() {
     // Check admin access via detailedPermissions
     const authState = window.authManager ? window.authManager.getAuthState() : null;
     let isAdmin = authState?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
-                  authState?.roleTemplate === 'admin';
+        authState?.roleTemplate === 'admin';
     // Fallback: Check username for admin (legacy support)
     if (!isAdmin) {
         const currentUserType = window.authManager?.getCurrentUser?.()?.name || localStorage.getItem('current_user_name') || '';
@@ -22888,7 +22888,7 @@ async function fetchOrderDetailsForSale(orderUuid) {
                 'accept': 'application/json, text/plain, */*',
                 'authorization': `Bearer ${token}`,
                 'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': '5.11.16.1',
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                 'x-tpos-lang': 'vi'
             },
             body: JSON.stringify({ ids: [orderUuid] })
@@ -23897,7 +23897,7 @@ async function confirmAndPrintSale() {
                     'accept': 'application/json, text/plain, */*',
                     'authorization': `Bearer ${token}`,
                     'content-type': 'application/json;charset=UTF-8',
-                    'tposappversion': '5.11.16.1',
+                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                     'x-tpos-lang': 'vi'
                 },
                 body: JSON.stringify({ model: { Type: 'invoice' } })
@@ -23918,7 +23918,7 @@ async function confirmAndPrintSale() {
                 'accept': 'application/json, text/plain, */*',
                 'authorization': `Bearer ${token}`,
                 'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': '5.11.16.1',
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                 'x-tpos-lang': 'vi'
             },
             body: JSON.stringify(payload)
@@ -23999,7 +23999,7 @@ async function confirmAndPrintSale() {
             headers: {
                 'accept': 'application/json, text/javascript, */*; q=0.01',
                 'authorization': `Bearer ${token}`,
-                'tposappversion': '5.11.16.1',
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                 'x-requested-with': 'XMLHttpRequest'
             }
         });
@@ -24019,7 +24019,7 @@ async function confirmAndPrintSale() {
                 'accept': 'application/json, text/plain, */*',
                 'authorization': `Bearer ${token}`,
                 'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': '5.11.16.1',
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                 'x-tpos-lang': 'vi'
             },
             body: JSON.stringify({ model: { Type: 'invoice' } })
@@ -24820,10 +24820,10 @@ async function renderFastSaleModalBody() {
                     <select id="fastSalePartner" class="form-control">
                         <option value="">-- Chọn mặc định --</option>
                         ${carriers.map(c => {
-                            const fee = c.Config_DefaultFee || c.FixedPrice || 0;
-                            const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
-                            return `<option value="${c.Id}" data-fee="${fee}" data-name="${c.Name}">${c.Name}${feeText}</option>`;
-                        }).join('')}
+        const fee = c.Config_DefaultFee || c.FixedPrice || 0;
+        const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
+        return `<option value="${c.Id}" data-fee="${fee}" data-name="${c.Name}">${c.Name}${feeText}</option>`;
+    }).join('')}
                     </select>
                 </div>
                 <div class="fast-sale-search">
@@ -25851,7 +25851,7 @@ async function printSuccessOrders(type) {
                 // Use both onload and setTimeout for reliability
                 let printed = false;
 
-                printWindow.onload = function() {
+                printWindow.onload = function () {
                     if (!printed) {
                         printed = true;
                         printWindow.focus();

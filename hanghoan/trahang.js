@@ -4,7 +4,7 @@
    ===================================================== */
 
 // Trả Hàng Module - Firebase version with TPOS Excel Background Fetch
-const TraHangModule = (function() {
+const TraHangModule = (function () {
     'use strict';
 
     // Cloudflare Worker proxy URL for TPOS API
@@ -958,7 +958,7 @@ const TraHangModule = (function() {
 })();
 
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Only initialize if we're on the correct page
     if (document.getElementById('trahangTableBody')) {
         TraHangModule.init();
@@ -1035,14 +1035,40 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Tab switching functionality
+// Tab switching functionality with localStorage persistence
 function initMainTabs() {
     const tabBtns = document.querySelectorAll('.main-tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
+    const STORAGE_KEY = 'hanghoan_active_tab';
+
+    // Restore saved tab from localStorage
+    const savedTab = localStorage.getItem(STORAGE_KEY);
+    if (savedTab) {
+        const savedTabBtn = document.querySelector(`.main-tab-btn[data-tab="${savedTab}"]`);
+        const savedTabContent = document.getElementById(savedTab);
+
+        if (savedTabBtn && savedTabContent) {
+            // Remove active from all
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+
+            // Activate saved tab
+            savedTabBtn.classList.add('active');
+            savedTabContent.classList.add('active');
+
+            // Auto-load data for Đối Soát tab if it was saved
+            if (savedTab === 'doiSoatTab' && typeof DoiSoatModule !== 'undefined') {
+                setTimeout(() => DoiSoatModule.loadDataOnTabActivation(), 200);
+            }
+        }
+    }
 
     tabBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const targetTab = this.dataset.tab;
+
+            // Save active tab to localStorage
+            localStorage.setItem(STORAGE_KEY, targetTab);
 
             // Remove active from all tabs
             tabBtns.forEach(b => b.classList.remove('active'));
@@ -1055,6 +1081,11 @@ function initMainTabs() {
                 targetContent.classList.add('active');
             }
 
+            // Auto-load data for Đối Soát tab
+            if (targetTab === 'doiSoatTab' && typeof DoiSoatModule !== 'undefined') {
+                DoiSoatModule.loadDataOnTabActivation();
+            }
+
             // Re-initialize Lucide icons
             if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
@@ -1065,3 +1096,4 @@ function initMainTabs() {
 
 // Initialize tabs when DOM is ready
 document.addEventListener('DOMContentLoaded', initMainTabs);
+

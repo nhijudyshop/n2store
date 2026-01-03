@@ -1164,7 +1164,7 @@ class TposChatManager {
                     headers: {
                         'Accept': '*/*',
                         'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                        'tposappversion': '5.11.16.1'
+                        'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
                     }
                 });
             } else {
@@ -1175,7 +1175,7 @@ class TposChatManager {
                         'Accept': '*/*',
                         ...authHeader,
                         'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                        'tposappversion': '5.11.16.1'
+                        'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
                     }
                 });
             }

@@ -38,7 +38,7 @@
                 headers: {
                     ...headers,
                     'Accept': 'application/json',
-                    'tposappversion': '5.11.16.1'
+                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
                 }
             });
 
@@ -168,7 +168,7 @@
                 'Accept': '*/*',
                 'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
                 ...headers,
-                'tposappversion': '5.11.16.1'
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
             }
         });
 

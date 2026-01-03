@@ -135,7 +135,7 @@ async function fetchInvoiceData(invoiceId) {
             method: 'GET',
             headers: {
                 'Accept': 'application/json, text/plain, */*',
-                'tposappversion': '5.11.16.1',
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                 'x-tpos-lang': 'vi',
             },
         });

@@ -8,6 +8,10 @@ const fetch = require('node-fetch');
 const https = require('https');
 const router = express.Router();
 
+// Dynamic header manager for centralized tposappversion
+const { getDynamicHeaderManager } = require('../helpers/dynamic-header-manager');
+const dynamicHeaders = getDynamicHeaderManager();
+
 const TPOS_TOKEN_URL = 'https://tomato.tpos.vn/token';
 
 // Create HTTPS agent that ignores SSL certificate errors
@@ -111,7 +115,7 @@ router.post('/', async (req, res) => {
             headers: {
                 'accept': 'application/json, text/plain, */*',
                 'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': '5.11.16.1',
+                'tposappversion': dynamicHeaders.getHeader('tposappversion') || '5.11.16.1',
                 'x-tpos-lang': 'vi',
                 'Referer': 'https://tomato.tpos.vn/'
             },
