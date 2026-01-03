@@ -107,86 +107,113 @@
                 </div>
             </header>
 
-            <!-- Quick Date Filters -->
-            <div class="quick-filters">
-                <label><i data-lucide="calendar-clock"></i> Bộ lọc nhanh:</label>
-                <div class="quick-filter-buttons">
-                    <button class="btn-quick-filter" data-filter="today">
-                        <i data-lucide="calendar-days"></i> Hôm nay
+            <!-- Filter Toggle Button -->
+            <div style="margin-bottom: 10px;">
+                <button id="toggleFiltersBtn" class="btn btn-secondary" onclick="toggleFilters()">
+                    <i data-lucide="filter"></i> <span id="toggleFiltersText">Hiện bộ lọc</span>
+                </button>
+            </div>
+
+            <!-- Filters Container (hidden by default) -->
+            <div id="filtersContainer" style="display: none;">
+                <!-- Quick Date Filters -->
+                <div class="quick-filters">
+                    <label><i data-lucide="calendar-clock"></i> Bộ lọc nhanh:</label>
+                    <div class="quick-filter-buttons">
+                        <button class="btn-quick-filter" data-filter="today">
+                            <i data-lucide="calendar-days"></i> Hôm nay
+                        </button>
+                        <button class="btn-quick-filter" data-filter="yesterday">
+                            <i data-lucide="calendar-minus"></i> Hôm qua
+                        </button>
+                        <button class="btn-quick-filter" data-filter="thisWeek">
+                            <i data-lucide="calendar-range"></i> Tuần này
+                        </button>
+                        <button class="btn-quick-filter" data-filter="lastWeek">
+                            <i data-lucide="calendar-range"></i> Tuần trước
+                        </button>
+                        <button class="btn-quick-filter" data-filter="thisMonth">
+                            <i data-lucide="calendar"></i> Tháng này
+                        </button>
+                        <button class="btn-quick-filter" data-filter="lastMonth">
+                            <i data-lucide="calendar"></i> Tháng trước
+                        </button>
+                        <button class="btn-quick-filter" data-filter="last7days">
+                            <i data-lucide="calendar-clock"></i> 7 ngày qua
+                        </button>
+                        <button class="btn-quick-filter active" data-filter="last30days">
+                            <i data-lucide="calendar-clock"></i> 30 ngày qua
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="filters">
+                    <div class="filter-group">
+                        <label><i data-lucide="filter"></i> Loại giao dịch:</label>
+                        <select id="filterType" class="filter-select">
+                            <option value="">Tất cả</option>
+                            <option value="in">Tiền vào</option>
+                            <option value="out">Tiền ra</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label><i data-lucide="landmark"></i> Ngân hàng:</label>
+                        <input type="text" id="filterGateway" class="filter-input" placeholder="VD: Vietcombank">
+                    </div>
+
+                    <div class="filter-group">
+                        <label><i data-lucide="calendar"></i> Từ ngày:</label>
+                        <input type="date" id="filterStartDate" class="filter-input">
+                    </div>
+
+                    <div class="filter-group">
+                        <label><i data-lucide="calendar"></i> Đến ngày:</label>
+                        <input type="date" id="filterEndDate" class="filter-input">
+                    </div>
+
+                    <div class="filter-group">
+                        <label><i data-lucide="search"></i> Tìm kiếm:</label>
+                        <input type="text" id="filterSearch" class="filter-input"
+                            placeholder="Tên KH, SĐT, nội dung...">
+                    </div>
+
+                    <div class="filter-group">
+                        <label><i data-lucide="banknote"></i> Số tiền:</label>
+                        <input type="text" id="filterAmount" class="filter-input" placeholder="VD: 100000 hoặc 100k">
+                    </div>
+
+                    <button id="applyFiltersBtn" class="btn btn-success">
+                        <i data-lucide="check"></i> Áp dụng
                     </button>
-                    <button class="btn-quick-filter" data-filter="yesterday">
-                        <i data-lucide="calendar-minus"></i> Hôm qua
+
+                    <button id="resetFiltersBtn" class="btn btn-secondary">
+                        <i data-lucide="rotate-ccw"></i> Đặt lại
                     </button>
-                    <button class="btn-quick-filter" data-filter="thisWeek">
-                        <i data-lucide="calendar-range"></i> Tuần này
-                    </button>
-                    <button class="btn-quick-filter" data-filter="lastWeek">
-                        <i data-lucide="calendar-range"></i> Tuần trước
-                    </button>
-                    <button class="btn-quick-filter" data-filter="thisMonth">
-                        <i data-lucide="calendar"></i> Tháng này
-                    </button>
-                    <button class="btn-quick-filter" data-filter="lastMonth">
-                        <i data-lucide="calendar"></i> Tháng trước
-                    </button>
-                    <button class="btn-quick-filter" data-filter="last7days">
-                        <i data-lucide="calendar-clock"></i> 7 ngày qua
-                    </button>
-                    <button class="btn-quick-filter active" data-filter="last30days">
-                        <i data-lucide="calendar-clock"></i> 30 ngày qua
+
+                    <button id="filterGapsOnlyBtn" class="btn btn-warning"
+                        style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b;">
+                        <i data-lucide="alert-triangle"></i> Chỉ GD thiếu
                     </button>
                 </div>
             </div>
 
-            <!-- Filters -->
-            <div class="filters">
-                <div class="filter-group">
-                    <label><i data-lucide="filter"></i> Loại giao dịch:</label>
-                    <select id="filterType" class="filter-select">
-                        <option value="">Tất cả</option>
-                        <option value="in">Tiền vào</option>
-                        <option value="out">Tiền ra</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label><i data-lucide="landmark"></i> Ngân hàng:</label>
-                    <input type="text" id="filterGateway" class="filter-input" placeholder="VD: Vietcombank">
-                </div>
-
-                <div class="filter-group">
-                    <label><i data-lucide="calendar"></i> Từ ngày:</label>
-                    <input type="date" id="filterStartDate" class="filter-input">
-                </div>
-
-                <div class="filter-group">
-                    <label><i data-lucide="calendar"></i> Đến ngày:</label>
-                    <input type="date" id="filterEndDate" class="filter-input">
-                </div>
-
-                <div class="filter-group">
-                    <label><i data-lucide="search"></i> Tìm kiếm:</label>
-                    <input type="text" id="filterSearch" class="filter-input" placeholder="Tên KH, SĐT, nội dung...">
-                </div>
-
-                <div class="filter-group">
-                    <label><i data-lucide="banknote"></i> Số tiền:</label>
-                    <input type="text" id="filterAmount" class="filter-input" placeholder="VD: 100000 hoặc 100k">
-                </div>
-
-                <button id="applyFiltersBtn" class="btn btn-success">
-                    <i data-lucide="check"></i> Áp dụng
-                </button>
-
-                <button id="resetFiltersBtn" class="btn btn-secondary">
-                    <i data-lucide="rotate-ccw"></i> Đặt lại
-                </button>
-
-                <button id="filterGapsOnlyBtn" class="btn btn-warning"
-                    style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b;">
-                    <i data-lucide="alert-triangle"></i> Chỉ GD thiếu
-                </button>
-            </div>
+            <script>
+                function toggleFilters() {
+                    const container = document.getElementById('filtersContainer');
+                    const text = document.getElementById('toggleFiltersText');
+                    if (container.style.display === 'none') {
+                        container.style.display = 'block';
+                        text.textContent = 'Ẩn bộ lọc';
+                    } else {
+                        container.style.display = 'none';
+                        text.textContent = 'Hiện bộ lọc';
+                    }
+                    // Re-render icons for newly visible elements
+                    lucide.createIcons();
+                }
+            </script>
 
             <!-- Loading Indicator -->
             <div id="loadingIndicator" class="loading" style="display: none;">
