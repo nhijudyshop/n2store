@@ -309,326 +309,6 @@ const BanHangModule = (function() {
     const MAX_RECORDS_PER_DOC = 500; // Firebase document size limit workaround
 
     /**
-     * Map TPOS API response item to internal format
-     */
-    function mapTPOSToInternal(item, index) {
-        return {
-            id: `tpos_${item.Id || Date.now()}_${index}`,
-            tposId: item.Id, // Keep TPOS ID for reference
-            stt: index + 1,
-            khachHang: item.PartnerDisplayName || item.FacebookName || '',
-            email: item.PartnerEmail || '',
-            facebook: item.FacebookName || item.DisplayFacebookName || '',
-            dienThoai: String(item.Phone || ''),
-            diaChi: item.FullAddress || item.Address || '',
-            so: item.Number || '', // Invoice number - used for duplicate detection
-            ngayBan: item.DateInvoice || null,
-            ngayXacNhan: item.DateCreated || null,
-            tongTien: parseFloat(item.AmountTotal || 0),
-            conNo: parseFloat(item.Residual || 0),
-            trangThai: item.ShowState || '',
-            doiTacGH: item.CarrierName || '',
-            maVanDon: item.TrackingRef || '',
-            cod: parseFloat(item.CashOnDelivery || 0),
-            phiShipGH: item.DeliveryPrice ? formatCurrency(item.DeliveryPrice) : '',
-            tienCoc: parseFloat(item.AmountDeposit || 0),
-            traTruoc: parseFloat(item.PaymentAmount || 0),
-            khoiLuongShip: item.ShipWeight || '',
-            trangThaiGH: item.ShowShipStatus || '',
-            doiSoatGH: item.ShipPaymentStatus || '',
-            ghiChuGH: item.DeliveryNote || '',
-            ghiChu: item.Comment || '',
-            nguoiBan: item.UserName || item.CreateByName || '',
-            nguon: item.Source || '',
-            kenh: item.CRMTeamName || '',
-            congTy: item.CompanyName || '',
-            thamChieu: item.Reference || '',
-            phiGiaoHang: item.CustomerDeliveryPrice ? formatCurrency(item.CustomerDeliveryPrice) : '',
-            nhan: item.Tags || '',
-            tienGiam: parseFloat(item.DecreaseAmount || 0),
-            chietKhau: parseFloat(item.Discount || 0),
-            thanhTienChietKhau: parseFloat(item.DiscountAmount || 0),
-            importedAt: new Date().toISOString(),
-            source: 'tpos' // Mark source for tracking
-        };
-    }
-
-    /**
-     * Merge new data with existing data, handling duplicates
-     * Strategy: Use invoice number (so) as unique key
-     * - If duplicate found: UPDATE the existing record with new data
-     * - If new: ADD to the list
-     */
-    function mergeDataWithDedup(newData, existingData) {
-        // Create a map of existing data by invoice number (so)
-        const existingMap = new Map();
-        existingData.forEach(item => {
-            if (item.so) {
-                existingMap.set(item.so, item);
-            }
-        });
-
-        let updatedCount = 0;
-        let newCount = 0;
-        const resultMap = new Map(existingMap);
-
-        // Process new data
-        newData.forEach(item => {
-            if (item.so) {
-                if (existingMap.has(item.so)) {
-                    // Duplicate found - update with new data but keep original id
-                    const existing = existingMap.get(item.so);
-                    resultMap.set(item.so, {
-                        ...item,
-                        id: existing.id, // Keep original ID
-                        importedAt: existing.importedAt // Keep original import time
-                    });
-                    updatedCount++;
-                } else {
-                    // New record
-                    resultMap.set(item.so, item);
-                    newCount++;
-                }
-            } else {
-                // No invoice number - add with unique key
-                const uniqueKey = `no_invoice_${item.id || Date.now()}_${Math.random()}`;
-                resultMap.set(uniqueKey, item);
-                newCount++;
-            }
-        });
-
-        // Also add existing items without invoice number
-        existingData.forEach(item => {
-            if (!item.so) {
-                const uniqueKey = `existing_no_invoice_${item.id || Date.now()}_${Math.random()}`;
-                if (!resultMap.has(uniqueKey)) {
-                    resultMap.set(uniqueKey, item);
-                }
-            }
-        });
-
-        return {
-            data: Array.from(resultMap.values()),
-            updatedCount,
-            newCount,
-            duplicateCount: updatedCount
-        };
-    }
-
-    /**
-     * Fetch new TPOS token using credentials (same as TokenManager)
-     */
-    async function fetchNewTPOSToken() {
-        const TOKEN_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/token';
-        const credentials = {
-            grant_type: 'password',
-            username: 'nvkt',
-            password: 'Aa@123456789',
-            client_id: 'tmtWebApp'
-        };
-
-        console.log('[BANHANG] Fetching new TPOS token...');
-
-        const formData = new URLSearchParams();
-        formData.append('grant_type', credentials.grant_type);
-        formData.append('username', credentials.username);
-        formData.append('password', credentials.password);
-        formData.append('client_id', credentials.client_id);
-
-        const response = await fetch(TOKEN_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: formData.toString()
-        });
-
-        if (!response.ok) {
-            throw new Error(`Token API error: ${response.status} ${response.statusText}`);
-        }
-
-        const tokenData = await response.json();
-
-        if (!tokenData.access_token) {
-            throw new Error('Invalid token response: missing access_token');
-        }
-
-        // Calculate expiry and save to localStorage (same format as TokenManager)
-        const expiresAt = Date.now() + (tokenData.expires_in * 1000);
-        const dataToSave = {
-            access_token: tokenData.access_token,
-            token_type: tokenData.token_type || 'Bearer',
-            expires_in: tokenData.expires_in,
-            expires_at: expiresAt,
-            issued_at: Date.now()
-        };
-
-        localStorage.setItem('bearer_token_data', JSON.stringify(dataToSave));
-        console.log('[BANHANG] ✅ New token saved, expires:', new Date(expiresAt).toLocaleString());
-
-        return tokenData.access_token;
-    }
-
-    /**
-     * Get valid TPOS token (from localStorage or fetch new one)
-     */
-    async function getTPOSToken() {
-        const tokenData = localStorage.getItem('bearer_token_data');
-
-        if (tokenData) {
-            try {
-                const parsed = JSON.parse(tokenData);
-                // Check if token is still valid (with 5 min buffer)
-                const bufferTime = 5 * 60 * 1000;
-                if (parsed.access_token && parsed.expires_at && Date.now() < (parsed.expires_at - bufferTime)) {
-                    return parsed.access_token;
-                }
-                console.log('[BANHANG] Token expired, fetching new one...');
-            } catch (e) {
-                console.warn('[BANHANG] Error parsing token data:', e);
-            }
-        }
-
-        // No valid token, fetch new one
-        return await fetchNewTPOSToken();
-    }
-
-    /**
-     * Fetch data from TPOS API via Cloudflare Worker proxy
-     * @param {Date} startDate - Start date filter
-     * @param {Date} endDate - End date filter
-     */
-    async function fetchFromTPOS(startDate, endDate) {
-        // Get or fetch token
-        const authToken = await getTPOSToken();
-
-        // Format dates for API (must match TPOS format exactly)
-        const formatDateForAPI = (date) => {
-            // Format: 2025-12-03T17:00:00+00:00
-            const iso = date.toISOString().replace('.000Z', '+00:00');
-            return iso;
-        };
-
-        const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default: 30 days ago
-        const end = endDate || new Date();
-        end.setHours(23, 59, 59, 999);
-
-        const startISO = formatDateForAPI(start);
-        const endISO = formatDateForAPI(end);
-
-        // Build filter with proper encoding (match FastSaleOrder.txt format exactly)
-        const filter = `(Type eq 'invoice' and DateInvoice ge ${startISO} and DateInvoice le ${endISO} and IsMergeCancel ne true)`;
-
-        // Use Cloudflare Worker proxy to bypass CORS
-        const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        const params = new URLSearchParams();
-        params.append('$top', '1000');
-        params.append('$orderby', 'DateInvoice desc');
-        params.append('$filter', filter);
-        params.append('$count', 'true');
-
-        const apiUrl = `${PROXY_URL}/api/odata/FastSaleOrder/ODataService.GetView?${params.toString()}`;
-
-        console.log('Fetching from TPOS via proxy:', apiUrl);
-
-        const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-                'accept': 'application/json, text/javascript, */*; q=0.01',
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new Error('Token đã hết hạn. Vui lòng vào Orders Report để refresh token.');
-            }
-            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        console.log(`TPOS returned ${result['@odata.count'] || 0} total records, fetched ${result.value?.length || 0}`);
-
-        return result.value || [];
-    }
-
-    /**
-     * Refresh data from TPOS API and merge with existing
-     * Uses token from bearer_token_data (shared with other modules)
-     */
-    async function refreshFromTPOS() {
-        showLoading();
-
-        if (typeof showNotification === 'function') {
-            showNotification('Đang fetch dữ liệu từ TPOS...', 'info');
-        }
-
-        try {
-            // Get date range from filters
-            const startDate = elements.startDate?.value ? new Date(elements.startDate.value) : null;
-            const endDate = elements.endDate?.value ? new Date(elements.endDate.value) : null;
-
-            // Fetch from TPOS (uses bearer_token_data from localStorage)
-            const tposData = await fetchFromTPOS(startDate, endDate);
-
-            if (tposData.length === 0) {
-                hideLoading();
-                if (typeof showNotification === 'function') {
-                    showNotification('Không có dữ liệu mới từ TPOS', 'info');
-                }
-                return;
-            }
-
-            // Map to internal format
-            const mappedData = tposData.map((item, index) => mapTPOSToInternal(item, index));
-
-            // Merge with existing data, handling duplicates
-            const mergeResult = mergeDataWithDedup(mappedData, banHangData);
-
-            if (typeof showNotification === 'function') {
-                showNotification('Đang lưu lên Firebase...', 'info');
-            }
-
-            // Save to Firebase
-            const saveSuccess = await saveToFirebase(mergeResult.data);
-
-            if (saveSuccess) {
-                // Update local state
-                banHangData = mergeResult.data;
-                filteredData = [...banHangData];
-
-                hideLoading();
-                currentPage = 1;
-                renderCurrentPage();
-                updateStats();
-
-                let message = `TPOS: +${mergeResult.newCount} mới`;
-                if (mergeResult.duplicateCount > 0) {
-                    message += `, cập nhật ${mergeResult.duplicateCount} trùng`;
-                }
-                message += `. Tổng: ${banHangData.length} đơn`;
-
-                if (typeof showNotification === 'function') {
-                    showNotification(message, 'success');
-                }
-            } else {
-                hideLoading();
-                if (typeof showNotification === 'function') {
-                    showNotification('Lỗi khi lưu lên Firebase', 'error');
-                }
-            }
-
-        } catch (error) {
-            console.error('Error fetching from TPOS:', error);
-            hideLoading();
-
-            if (typeof showNotification === 'function') {
-                showNotification('Lỗi: ' + error.message, 'error');
-            }
-        }
-    }
-
-    /**
      * Load data from Firebase on page init
      */
     async function loadFromFirebase() {
@@ -998,15 +678,20 @@ const BanHangModule = (function() {
                 showNotification('Đang lưu lên Firebase...', 'info');
             }
 
-            // Merge with existing data using dedup function
-            const mergeResult = mergeDataWithDedup(importedData, banHangData);
+            // Merge with existing data (avoid duplicates by checking 'so' - invoice number)
+            const existingInvoices = new Set(banHangData.map(item => item.so));
+            const newData = importedData.filter(item => !existingInvoices.has(item.so) || !item.so);
+            const duplicateCount = importedData.length - newData.length;
+
+            // Merge: new data first, then existing
+            const mergedData = [...newData, ...banHangData];
 
             // Save to Firebase
-            const saveSuccess = await saveToFirebase(mergeResult.data);
+            const saveSuccess = await saveToFirebase(mergedData);
 
             if (saveSuccess) {
                 // Update local state
-                banHangData = mergeResult.data;
+                banHangData = mergedData;
                 filteredData = [...banHangData];
 
                 hideLoading();
@@ -1014,11 +699,10 @@ const BanHangModule = (function() {
                 renderCurrentPage();
                 updateStats();
 
-                let message = `Excel: +${mergeResult.newCount} mới`;
-                if (mergeResult.duplicateCount > 0) {
-                    message += `, cập nhật ${mergeResult.duplicateCount} trùng`;
+                let message = `Đã nhập ${newData.length} đơn hàng từ Excel và lưu lên Firebase`;
+                if (duplicateCount > 0) {
+                    message += ` (bỏ qua ${duplicateCount} đơn trùng)`;
                 }
-                message += `. Tổng: ${banHangData.length} đơn`;
 
                 if (typeof showNotification === 'function') {
                     showNotification(message, 'success');
@@ -1113,7 +797,6 @@ const BanHangModule = (function() {
         init,
         importExcel,
         refreshData,
-        refreshFromTPOS,
         loadFromFirebase,
         deleteRecord,
         clearAllData,
@@ -1178,22 +861,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 await BanHangModule.clearAllData();
                 if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
-                }
-            });
-        }
-
-        // Fetch TPOS button
-        const btnFetchTPOS = document.getElementById('btnFetchTPOS');
-        if (btnFetchTPOS) {
-            btnFetchTPOS.addEventListener('click', async () => {
-                btnFetchTPOS.disabled = true;
-                try {
-                    await BanHangModule.refreshFromTPOS();
-                } finally {
-                    btnFetchTPOS.disabled = false;
-                    if (typeof lucide !== 'undefined') {
-                        lucide.createIcons();
-                    }
                 }
             });
         }
