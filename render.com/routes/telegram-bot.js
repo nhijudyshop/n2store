@@ -596,58 +596,336 @@ const pendingImageEdits = new Map();
 // =====================================================
 
 const CHINESE_TO_VIETNAMESE = {
-    // Colors - Màu sắc
+    // =====================================================
+    // COLORS - MÀU SẮC (颜色)
+    // =====================================================
+    // Màu cơ bản
+    '黑色': 'Đen',
     '黑': 'Đen',
+    '白色': 'Trắng',
     '白': 'Trắng',
+    '红色': 'Đỏ',
     '红': 'Đỏ',
+    '蓝色': 'Xanh dương',
     '蓝': 'Xanh dương',
+    '绿色': 'Xanh lá',
     '绿': 'Xanh lá',
+    '黄色': 'Vàng',
     '黄': 'Vàng',
+    '紫色': 'Tím',
     '紫': 'Tím',
+    '粉色': 'Hồng',
+    '粉红色': 'Hồng phấn',
     '粉': 'Hồng',
+    '灰色': 'Xám',
     '灰': 'Xám',
+    '棕色': 'Nâu',
     '棕': 'Nâu',
-    '咖': 'Cà phê',
-    '米': 'Kem',
-    '杏': 'Mơ',
+    '橙色': 'Cam',
     '橙': 'Cam',
+    '桔色': 'Cam',
+    '橘色': 'Cam',
+
+    // Màu đặc biệt / Hot trend
+    '咖啡色': 'Cà phê',
+    '咖色': 'Nâu cà phê',
+    '咖': 'Nâu cà phê',
+    '米色': 'Kem',
+    '米白色': 'Trắng kem',
+    '米白': 'Trắng kem',
+    '米': 'Kem',
+    '杏色': 'Hồng mơ',
+    '杏': 'Hồng mơ',
+    '酱色': 'Nâu đậm',
+    '酱红色': 'Đỏ nâu',
     '酱': 'Nâu đậm',
-    '卡其': 'Kaki',
+    '卡其色': 'Khaki',
+    '卡其': 'Khaki',
+    '驼色': 'Nâu lạc đà',
     '驼': 'Lạc đà',
-    '藏青': 'Xanh đen',
+    '藏青色': 'Xanh than',
+    '藏青': 'Xanh than',
+    '酒红色': 'Đỏ rượu vang',
     '酒红': 'Đỏ rượu',
+    '墨绿色': 'Xanh rêu',
     '墨绿': 'Xanh rêu',
+    '军绿色': 'Xanh quân đội',
+    '军绿': 'Xanh lính',
+    '焦糖色': 'Caramel',
+    '焦糖': 'Caramel',
+    '牛油果色': 'Xanh bơ',
+    '牛油果': 'Xanh bơ',
+    '奶白': 'Trắng sữa',
+    '奶油': 'Kem sữa',
+    '香槟色': 'Champagne',
+    '香槟': 'Champagne',
+    '银色': 'Bạc',
+    '银': 'Bạc',
+    '金色': 'Vàng gold',
+    '金': 'Vàng gold',
+    '玫红': 'Hồng cánh sen',
+    '玫瑰红': 'Hồng hoa hồng',
+    '宝蓝': 'Xanh hoàng gia',
+    '天蓝': 'Xanh da trời',
+    '湖蓝': 'Xanh hồ',
+    '雾蓝': 'Xanh sương mù',
+    '烟灰': 'Xám khói',
+    '炭灰': 'Xám than',
+    '花灰': 'Xám hoa',
+    '杂灰': 'Xám đốm',
+    '姜黄': 'Vàng nghệ',
+    '土黄': 'Vàng đất',
+    '芥末黄': 'Vàng mù tạt',
+
+    // Tiền tố màu
     '浅': 'Nhạt',
     '深': 'Đậm',
+    '浅灰': 'Xám nhạt',
+    '深灰': 'Xám đậm',
+    '浅蓝': 'Xanh nhạt',
+    '深蓝': 'Xanh đậm',
+    '浅绿': 'Xanh lá nhạt',
+    '深绿': 'Xanh lá đậm',
+    '浅粉': 'Hồng nhạt',
+    '深粉': 'Hồng đậm',
+    '浅紫': 'Tím nhạt',
+    '深紫': 'Tím đậm',
+    '浅咖': 'Nâu nhạt',
+    '深咖': 'Nâu đậm',
 
-    // Patterns - Họa tiết
+    // Viết tắt màu (phổ biến trong hóa đơn viết tay)
+    '兰': 'Xanh dương',  // Viết tắt của 蓝色
+
+    // =====================================================
+    // PATTERNS - HỌA TIẾT
+    // =====================================================
     '条': 'Sọc',
+    '条纹': 'Sọc',
     '纹': 'Vân',
     '格': 'Caro',
+    '格子': 'Caro',
     '花': 'Hoa',
+    '碎花': 'Hoa nhỏ',
+    '大花': 'Hoa lớn',
     '点': 'Chấm',
+    '波点': 'Chấm bi',
     '印': 'In',
+    '印花': 'In hoa',
+    '刺绣': 'Thêu',
+    '绣花': 'Thêu hoa',
+    '山茶花': 'Hoa sơn trà',
+    '皇冠': 'Vương miện',
+    '字母': 'Chữ cái',
+    '数字': 'Số',
+    '卡通': 'Hoạt hình',
 
-    // Materials/Style - Chất liệu/Kiểu
+    // =====================================================
+    // MATERIALS - CHẤT LIỆU (面料)
+    // =====================================================
     '棉': 'Cotton',
+    '纯棉': 'Cotton 100%',
+    '全棉': 'Cotton 100%',
     '麻': 'Lanh',
+    '棉麻': 'Cotton lanh',
     '丝': 'Lụa',
+    '真丝': 'Lụa thật',
     '绒': 'Nhung',
+    '天鹅绒': 'Nhung thiên nga',
+    '金丝绒': 'Nhung vàng',
     '毛': 'Len',
+    '羊毛': 'Len cừu',
+    '羊绒': 'Len cashmere',
     '皮': 'Da',
+    '皮革': 'Da thuộc',
+    '革': 'Da thuộc',
+    '牛仔': 'Vải jean',
+    '雪纺': 'Voan',
+    '涤纶': 'Polyester',
+    '锦纶': 'Nylon',
+    '氨纶': 'Spandex',
+    '蕾丝': 'Ren',
+    '网纱': 'Lưới',
+    '针织': 'Dệt kim',
+    '梭织': 'Dệt thoi',
+    '弹力': 'Co giãn',
 
-    // Common terms
-    '色': '',
-    '款': 'Kiểu',
+    // =====================================================
+    // CLOTHING TYPES - LOẠI TRANG PHỤC (款式)
+    // =====================================================
+    // Áo
     '上衣': 'Áo',
-    '裤': 'Quần',
-    '裙': 'Váy',
+    'T恤': 'Áo thun',
+    'T恤衫': 'Áo thun',
+    '衬衫': 'Áo sơ mi',
+    '衬衣': 'Áo sơ mi',
     '外套': 'Áo khoác',
-    '衬衫': 'Sơ mi',
+    '夹克': 'Áo jacket',
+    '风衣': 'Áo măng tô',
+    '大衣': 'Áo khoác dài',
+    '棉衣': 'Áo cotton',
+    '棉袄': 'Áo bông',
+    '羽绒服': 'Áo phao',
+    '卫衣': 'Áo nỉ',
+    '毛衣': 'Áo len',
+    '针织衫': 'Áo len',
+    '打底衫': 'Áo lót',
+    '打底': 'Áo lót',
+    '马甲': 'Áo gile',
+    '背心': 'Áo ba lỗ',
+    '吊带': 'Dây đeo',
+    '吊带衫': 'Áo hai dây',
+    '西装': 'Vest',
+    '西服': 'Vest',
+    '开衫': 'Áo cardigan',
+
+    // Quần
+    '裤': 'Quần',
+    '裤子': 'Quần',
+    '短裤': 'Quần short',
+    '长裤': 'Quần dài',
+    '牛仔裤': 'Quần jean',
+    '西裤': 'Quần tây',
+    '休闲裤': 'Quần casual',
+    '运动裤': 'Quần thể thao',
+    '阔腿裤': 'Quần ống rộng',
+    '喇叭裤': 'Quần ống loe',
+    '直筒裤': 'Quần ống đứng',
+    '九分裤': 'Quần 9 phân',
+    '七分裤': 'Quần 7 phân',
+    '五分裤': 'Quần 5 phân',
+    '打底裤': 'Quần legging',
+
+    // Váy
+    '裙': 'Váy',
+    '裙子': 'Váy',
+    '连衣裙': 'Váy liền',
+    '半身裙': 'Chân váy',
+    '短裙': 'Váy ngắn',
+    '长裙': 'Váy dài',
+    '百褶裙': 'Váy xếp ly',
+    '包臀裙': 'Váy bút chì',
+    'A字裙': 'Váy chữ A',
+    '蓬蓬裙': 'Váy xòe',
+
+    // Bộ đồ
+    '套装': 'Đồ bộ',
+    '两件套': 'Bộ 2 món',
+    '三件套': 'Bộ 3 món',
+    '四件套': 'Bộ 4 món',
+    '套': 'Bộ',
+    '睡衣': 'Đồ ngủ',
+    '家居服': 'Đồ mặc nhà',
+    '运动套装': 'Bộ thể thao',
+
+    // Phụ kiện
+    '帽子': 'Mũ',
+    '围巾': 'Khăn choàng',
+    '手套': 'Găng tay',
+    '袜子': 'Tất',
+    '皮带': 'Thắt lưng',
+    '腰带': 'Dây lưng',
+    '包': 'Túi',
+    '手提包': 'Túi xách',
+    '单肩包': 'Túi đeo vai',
+    '斜挎包': 'Túi đeo chéo',
+    '双肩包': 'Balo',
+
+    // =====================================================
+    // DESIGN DETAILS - CHI TIẾT THIẾT KẾ (细节)
+    // =====================================================
+    // Cổ áo
     '领': 'Cổ',
+    '圆领': 'Cổ tròn',
+    'V领': 'Cổ chữ V',
+    '高领': 'Cổ cao',
+    '翻领': 'Cổ lật',
+    '方领': 'Cổ vuông',
+    '一字领': 'Cổ ngang',
+    '娃娃领': 'Cổ búp bê',
+    '立领': 'Cổ đứng',
+    '半高领': 'Cổ lọ',
+    '堆堆领': 'Cổ đống',
+
+    // Tay áo
+    '袖': 'Tay áo',
+    '长袖': 'Tay dài',
+    '短袖': 'Tay ngắn',
+    '七分袖': 'Tay 7 phân',
+    '无袖': 'Không tay',
+    '泡泡袖': 'Tay bồng',
+    '蝙蝠袖': 'Tay dơi',
+    '喇叭袖': 'Tay loe',
+    '灯笼袖': 'Tay lồng đèn',
+
+    // Dáng / Kiểu
+    '短款': 'Dáng ngắn',
+    '中长款': 'Dáng trung',
+    '长款': 'Dáng dài',
+    '修身': 'Ôm body',
+    '宽松': 'Rộng',
+    '直筒': 'Ống đứng',
     '交叉': 'Chéo',
     '斜角': 'Xéo góc',
-    '苏': 'Tô'
+    '系带': 'Dây buộc',
+    '拉链': 'Khoá kéo',
+    '纽扣': 'Khuy',
+    '扣子': 'Nút',
+    '铆钉': 'Đinh tán',
+    '流苏': 'Tua rua',
+    '荷叶边': 'Viền lượn sóng',
+    '木耳边': 'Viền bèo',
+    '蝴蝶结': 'Nơ',
+    '腰带': 'Đai lưng',
+    '口袋': 'Túi',
+    '开叉': 'Xẻ',
+    '褶皱': 'Xếp ly',
+    '收腰': 'Eo',
+
+    // =====================================================
+    // SIZES - KÍCH THƯỚC
+    // =====================================================
+    '均码': 'Freesize',
+    'F': 'Freesize',
+    '均': 'Freesize',
+    'S码': 'Size S',
+    'M码': 'Size M',
+    'L码': 'Size L',
+    'XL码': 'Size XL',
+    'XXL码': 'Size XXL',
+    '大码': 'Size lớn',
+    '加大码': 'Size cực lớn',
+    '件': 'Cái',
+    '条': 'Chiếc',
+    '手': '1 ri',
+
+    // =====================================================
+    // ORDER STATUS - TÌNH TRẠNG ĐƠN HÀNG
+    // =====================================================
+    '现货': 'Có sẵn',
+    '预售': 'Pre-order',
+    '欠货': 'Nợ hàng',
+    '退货': 'Trả hàng',
+    '拿货': 'Lấy hàng',
+    '补货': 'Bổ sung hàng',
+    '断货': 'Hết hàng',
+    '缺货': 'Thiếu hàng',
+
+    // =====================================================
+    // COMMON TERMS - TỪ THÔNG DỤNG
+    // =====================================================
+    '色': '',
+    '款': 'Kiểu',
+    '新款': 'Mẫu mới',
+    '热卖': 'Bán chạy',
+    '爆款': 'Hot',
+    '苏': 'Tô',
+    '号': 'Số',
+    '小计': 'Tạm tính',
+    '合计': 'Tổng cộng',
+    '销售合计': 'Tổng bán',
+    '数量': 'Số lượng',
+    '单价': 'Đơn giá',
+    '金额': 'Thành tiền'
 };
 
 /**
@@ -673,7 +951,7 @@ function translateToVietnamese(text) {
 // INVOICE EXTRACTION PROMPT
 // =====================================================
 
-const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia kiểm kê hàng hóa thông thạo tiếng Trung chuyên ngành may mặc và tiếng Việt. Hãy phân tích ảnh hóa đơn này và trích xuất thông tin theo format JSON.
+const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia kiểm kê hàng hóa thông thạo tiếng Trung chuyên ngành may mặc và tiếng Việt. Hãy phân tích ảnh hóa đơn này (có thể là HÓA ĐƠN IN hoặc HÓA ĐƠN VIẾT TAY) và trích xuất thông tin theo format JSON.
 
 === NGUYÊN TẮC QUAN TRỌNG ===
 
@@ -695,133 +973,177 @@ const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia kiểm kê hàng hóa t
    - BỎ QUA tên, số điện thoại, địa chỉ NCC
    - Chỉ trả về ncc: "4" (số thuần túy)
 
-=== TỪ ĐIỂN DỊCH TIẾNG TRUNG → TIẾNG VIỆT ===
+=== TỪ ĐIỂN MỞ RỘNG TIẾNG TRUNG → TIẾNG VIỆT ===
 
-**MÀU SẮC (颜色):**
-黑色 = Đen, 白色 = Trắng, 红色 = Đỏ, 蓝色 = Xanh dương, 绿色 = Xanh lá cây
-黄色 = Vàng, 紫色 = Tím, 粉色 = Hồng, 粉红色 = Hồng phấn, 灰色 = Xám, 棕色 = Nâu
-咖色 = Nâu cà phê, 咖啡色 = Cà phê, 米色 = Kem, 米白色 = Trắng kem
-杏色 = Hồng mơ, 橙色 = Cam, 酱色 = Nâu đậm, 酱红色 = Đỏ nâu
-卡其色 = Khaki, 卡其 = Khaki, 驼色 = Nâu lạc đà, 驼 = Lạc đà
-藏青色 = Xanh than, 藏青 = Xanh than, 酒红色 = Đỏ rượu vang, 酒红 = Đỏ rượu
-墨绿色 = Xanh rêu, 墨绿 = Xanh rêu, 军绿色 = Xanh quân đội, 军绿 = Xanh lính
+**MÀU SẮC CƠ BẢN (颜色):**
+黑/黑色 = Đen, 白/白色 = Trắng, 红/红色 = Đỏ, 蓝/蓝色 = Xanh dương, 绿/绿色 = Xanh lá
+黄/黄色 = Vàng, 紫/紫色 = Tím, 粉/粉色/粉红色 = Hồng, 灰/灰色 = Xám, 棕/棕色 = Nâu
+橙/橙色/桔色/橘色 = Cam
+
+**MÀU ĐẶC BIỆT / HOT TREND:**
+咖/咖色/咖啡色 = Nâu cà phê, 米/米色 = Kem, 米白/米白色 = Trắng kem
+杏/杏色 = Hồng mơ (Hạnh nhân), 酱/酱色 = Nâu đậm, 酱红色 = Đỏ nâu
+卡其/卡其色 = Khaki, 驼/驼色 = Nâu lạc đà
+藏青/藏青色 = Xanh than, 酒红/酒红色 = Đỏ rượu vang
+墨绿/墨绿色 = Xanh rêu, 军绿/军绿色 = Xanh quân đội
+焦糖/焦糖色 = Caramel, 牛油果/牛油果色 = Xanh bơ (Avocado)
+香槟/香槟色 = Champagne, 奶白 = Trắng sữa, 奶油 = Kem sữa
+银/银色 = Bạc, 金/金色 = Vàng gold
+玫红/玫瑰红 = Hồng cánh sen, 宝蓝 = Xanh hoàng gia
+天蓝 = Xanh da trời, 湖蓝 = Xanh hồ, 雾蓝 = Xanh sương mù
+烟灰 = Xám khói, 炭灰 = Xám than, 花灰 = Xám hoa
+姜黄 = Vàng nghệ, 土黄 = Vàng đất, 芥末黄 = Vàng mù tạt
 浅 = Nhạt, 深 = Đậm, 色 = (bỏ từ này)
-浅灰 = Xám nhạt, 深灰 = Xám đậm, 浅蓝 = Xanh nhạt, 深蓝 = Xanh đậm
+浅灰/深灰 = Xám nhạt/đậm, 浅蓝/深蓝 = Xanh nhạt/đậm
+浅绿/深绿 = Xanh lá nhạt/đậm, 浅粉/深粉 = Hồng nhạt/đậm
+浅紫/深紫 = Tím nhạt/đậm, 浅咖/深咖 = Nâu nhạt/đậm
 
-**LOẠI SẢN PHẨM (款式):**
-上衣 = Áo, 裤子 = Quần, 裤 = Quần, 裙子 = Váy, 裙 = Váy
-外套 = Áo khoác, 衬衫 = Áo sơ mi, T恤 = Áo thun, T恤衫 = Áo thun
-连衣裙 = Váy liền, 针织衫 = Áo len, 毛衣 = Áo len, 卫衣 = Áo nỉ
-打底衫 = Áo lót, 马甲 = Áo gile, 背心 = Áo ba lỗ, 吊带 = Dây đeo
-短裤 = Quần short, 长裤 = Quần dài, 牛仔裤 = Quần jean
+**VIẾT TẮT MÀU (PHỔNG BIẾN TRONG HÓA ĐƠN VIẾT TAY):**
+兰 = Xanh dương (viết tắt của 蓝)
+啡 = Nâu cà phê (viết tắt của 咖啡)
 
-**MÔ TẢ/CHI TIẾT (细节):**
-领 = Cổ, 袖 = Tay áo, 长袖 = Tay dài, 短袖 = Tay ngắn
+**LOẠI TRANG PHỤC (款式):**
+上衣 = Áo, T恤/T恤衫 = Áo thun, 衬衫/衬衣 = Áo sơ mi
+外套 = Áo khoác, 夹克 = Jacket, 风衣 = Măng tô, 大衣 = Áo khoác dài
+卫衣 = Áo nỉ (Hoodie), 毛衣/针织衫 = Áo len
+打底/打底衫 = Áo lót/Áo giữ nhiệt, 马甲 = Áo gile
+背心 = Áo ba lỗ, 吊带/吊带衫 = Áo hai dây
+西装/西服 = Vest, 开衫 = Cardigan, 羽绒服 = Áo phao
+裤/裤子 = Quần, 短裤 = Quần short, 长裤 = Quần dài
+牛仔裤 = Quần jean, 西裤 = Quần tây
+阔腿裤 = Quần ống rộng, 打底裤 = Legging
+裙/裙子 = Váy, 连衣裙 = Váy liền, 半身裙 = Chân váy
+百褶裙 = Váy xếp ly, A字裙 = Váy chữ A
+
+**BỘ ĐỒ (套装):**
+套装 = Đồ bộ, 套/两件套 = Bộ 2 món, 三件套 = Bộ 3 món, 四件套 = Bộ 4 món
+睡衣 = Đồ ngủ, 家居服 = Đồ mặc nhà, 运动套装 = Bộ thể thao
+
+**CHI TIẾT THIẾT KẾ (细节):**
+领 = Cổ, 圆领 = Cổ tròn, V领 = Cổ chữ V, 高领 = Cổ cao, 翻领 = Cổ lật
+袖 = Tay áo, 长袖 = Tay dài, 短袖 = Tay ngắn, 无袖 = Không tay
+短款 = Dáng ngắn (Croptop), 长款 = Dáng dài, 中长款 = Dáng trung
 交叉 = Chéo, 斜角 = Xéo góc, 条纹 = Sọc, 格子 = Caro, 花 = Hoa
-圆领 = Cổ tròn, V领 = Cổ V, 高领 = Cổ cao, 翻领 = Cổ lật
-纽扣 = Khuy, 拉链 = Khoá kéo, 铆钉 = Đinh tán, 印花 = In hoa
-绣花 = Thêu hoa, 蕾丝 = Ren, 网纱 = Lưới, 荷叶边 = Viền lượn sóng
+纽扣 = Khuy, 拉链 = Khoá kéo, 铆钉 = Đinh tán
+印花 = In hoa, 刺绣/绣花 = Thêu, 蕾丝 = Ren, 网纱 = Lưới
+山茶花 = Hoa sơn trà, 皇冠 = Vương miện, 荷叶边 = Viền lượn sóng
 
 **CHẤT LIỆU (面料):**
-棉 = Cotton, 麻 = Lanh, 丝 = Lụa, 绒 = Nhung, 毛 = Len
-皮 = Da, 革 = Da thuộc, 牛仔 = Vải jean, 雪纺 = Voan
-涤纶 = Polyester, 锦纶 = Nylon, 氨纶 = Spandex
+棉/纯棉 = Cotton, 麻 = Lanh, 丝/真丝 = Lụa, 绒 = Nhung
+毛/羊毛 = Len, 皮/皮革 = Da, 牛仔 = Vải jean, 雪纺 = Voan
+蕾丝 = Ren, 针织 = Dệt kim, 弹力 = Co giãn
 
 **SIZE/KÍCH THƯỚC:**
-均码 = Size chung, S码 = Size S, M码 = Size M, L码 = Size L, XL码 = Size XL
+均码/均/F = Freesize (Size chung)
+S码/M码/L码/XL码/XXL码 = Size S/M/L/XL/XXL
+大码 = Size lớn (Plus size), 加大码 = Size cực lớn
+件 = Cái, 手 = 1 ri (1 dây đủ size)
 
-=== HƯỚNG DẪN TRÍCH XUẤT DỮ LIỆU ===
+**TÌNH TRẠNG HÀNG:**
+现货 = Có sẵn, 欠货 = Nợ hàng, 退货 = Trả hàng
+拿货 = Lấy hàng, 补货 = Bổ sung hàng, 断货/缺货 = Hết hàng
+
+===============================================
+=== HƯỚNG DẪN ĐỌC HÓA ĐƠN VIẾT TAY ===
+===============================================
+
+**NHẬN DIỆN HÓA ĐƠN VIẾT TAY:**
+Hóa đơn viết tay thường có đặc điểm:
+- Chữ viết bằng tay, có thể mờ hoặc nguệch ngoạc
+- Không có bảng kẻ chuẩn như hóa đơn in
+- Format thường là: [MÃ] [MÀU] [SỐ LƯỢNG]x[ĐƠN GIÁ]=[THÀNH TIỀN]
+
+**CÁCH ĐỌC TỪNG DÒNG VIẾT TAY:**
+
+1. **Format phổ biến nhất:** [MÃ SP] [MÀU VIẾT TẮT] [SL]x[GIÁ]=[TỔNG]
+   - VD: "5/01 去10 30x46=1380" → Mã: 5/01, Màu: 去10, SL: 30, Giá: 46, Tiền: 1380
+   - VD: "283-6 去6啡 10x41=410" → Mã: 283-6, Màu: 6 màu nâu cà phê, SL: 10, Giá: 41
+   - VD: "山茶花 去5颗 20x41=820" → Mã: Hoa sơn trà, Màu: 5 màu, SL: 20, Giá: 41
+   - VD: "126 去10 10x65=650" → Mã: 126, Màu: 10 màu, SL: 10, Giá: 65
+   - VD: "718-9 去6 15x74=1110" → Mã: 718-9, Màu: 6 màu, SL: 15, Giá: 74
+
+2. **Cách hiểu "去X" (qù X):** Có nghĩa "lấy X màu" hoặc "X cái"
+   - "去10" = Lấy 10 màu hoặc 10 cái
+   - "去6啡" = Lấy 6 màu nâu cà phê (啡 = nâu)
+   - "去白" = Lấy màu trắng
+   - "去5颗" = Lấy 5 cái/5 màu
+
+3. **SUY LUẬN TỪ PHÉP TÍNH:**
+   - Khi chữ viết mờ/khó đọc, dùng phép tính để suy luận
+   - VD: "?x46=1380" → ? = 1380/46 = 30 (số lượng là 30)
+   - VD: "20x?=820" → ? = 820/20 = 41 (đơn giá là 41)
+   - VD: "10x65=?" → ? = 10x65 = 650 (thành tiền là 650)
+
+4. **KÝ HIỆU ĐẶC BIỆT TRONG VIẾT TAY:**
+   - Dấu "✓" hoặc "V" = Đã kiểm tra/Đã bốc hàng
+   - Dấu gạch chéo "—" = Bỏ qua/Số lượng bằng 0
+   - Số trong vòng tròn = Mã NCC (quan trọng!)
+   - Chữ viết tay "Nhi" = Tên người mua (thường là 何祥 - Hà Tường)
+
+5. **CỘNG DỒN SỐ LƯỢNG:**
+   - Nếu thấy nhiều số trên một dòng (VD: "5 5 5" dưới cột S-M-L)
+   - Cộng tất cả: 5+5+5 = 15 là tổng số lượng
+
+6. **XỬ LÝ CHỮ MỜ/GẠ̣CH BỎ:**
+   - Khi số bị gạch bỏ và viết số mới → Lấy số MỚI
+   - Khi không đọc được → Dùng phép tính suy luận ngược
+
+===============================================
+=== HƯỚNG DẪN ĐỌC HÓA ĐƠN IN ===
+===============================================
+
+**CẤU TRÚC HÓA ĐƠN IN ĐIỂN HÌNH:**
+
+| 款号/商品 | 颜色 | 均码 | 数量 | 单价 | 小计 |
+|----------|------|------|------|------|------|
+| 835#/T恤衫 | 黑色 | 均码 | 10 | 64 | 640 |
+| 835#/T恤衫 | 白色 | 均码 | 10 | 64 | 640 |
+| 小计 |  |  | 50 |  | 3,200 |
+
+**LƯU Ý:**
+- MỖI DÒNG trong hóa đơn = 1 OBJECT trong products[]
+- MỖI MÀU khác nhau = 1 DÒNG RIÊNG
+- BỎ QUA dòng "小计" (tổng nhỏ của nhóm)
+
+===============================================
+=== TRÍCH XUẤT DỮ LIỆU (CHUNG CHO CẢ 2 LOẠI) ===
+===============================================
 
 **1. MÃ NCC (ncc) - QUAN TRỌNG NHẤT:**
-   - Tìm SỐ được KHOANH TRÒN bằng bút (thường màu đỏ)
+   - Tìm SỐ được KHOANH TRÒN bằng bút (thường màu đỏ, ở cuối hóa đơn)
    - Chỉ lấy STT số, BỎ QUA mọi thông tin khác về NCC
-   - VD: Thấy số "4" khoanh tròn → ncc: "4"
+   - VD: Thấy số "7" khoanh tròn → ncc: "7"
    - VD: Thấy số "15" khoanh tròn → ncc: "15"
    - KHÔNG lấy tên shop, SĐT, địa chỉ
 
 **2. TÊN NHÀ CUNG CẤP (supplier):**
    - Tên shop/cửa hàng IN ĐẬM ở đầu hóa đơn
-   - DỊCH sang tiếng Việt nếu có nghĩa, HOẶC giữ nguyên + dịch
-   - VD: "伊芙诺 (Eveno)" → supplier: "Eveno" HOẶC "伊芙诺"
-   - VD: "添添酱" → supplier: "添添酱"
+   - VD: "菠酷服饰" → supplier: "菠酷服饰"
+   - VD: "伊芙诺 (Eveno)" → supplier: "Eveno"
 
 **3. NGÀY THÁNG (date):**
-   - Tìm ngày in trên hóa đơn
-   - Chuyển sang format DD/MM/YYYY
-   - VD: "2025-12-08 10:56:52" → "08/12/2025"
-   - VD: "打印日期: 2025/12/26" → "26/12/2025"
-   - Nếu không có → để trống ""
+   - Tìm ngày in trên hóa đơn, chuyển sang DD/MM/YYYY
 
 **4. DANH SÁCH SẢN PHẨM (products):**
+   Mỗi sản phẩm là 1 object:
+   {"sku": "mã", "name": "tên tiếng Việt", "color": "màu tiếng Việt", "quantity": số, "price": giá}
 
-   **CẤU TRÚC HÓA ĐƠN ĐIỂN HÌNH:**
-
-   | 款号/商品 | 颜色 | 均码 | 数量 | 单价 | 小计 |
-   |----------|------|------|------|------|------|
-   | 835#/T恤衫 | 黑色 | 均码 | 10 | 64 | 640 |
-   | 835#/T恤衫 | 白色 | 均码 | 10 | 64 | 640 |
-   | 小计 |  |  | 50 |  | 3,200 |
-
-   **CÁCH ĐỌC TỪNG DÒNG:**
-
-   a) **sku** (Mã hàng):
-      - Lấy từ cột "款号/商品" (phần số trước dấu /)
-      - Bỏ ký tự # nếu có
-      - VD: "835#/T恤衫" → sku: "835"
-      - VD: "9151-1#/连衣裙" → sku: "9151-1"
-
-   b) **name** (Tên sản phẩm/Mô tả):
-      - Lấy từ cột "款号/商品" (phần sau dấu /)
-      - DỊCH HOÀN TOÀN sang tiếng Việt
-      - VD: "T恤衫" → "Áo thun"
-      - VD: "连衣裙" → "Váy liền"
-      - VD: "打底衫" → "Áo lót"
-      - VD: "针织衫" → "Áo len"
-      - Nếu không có tên → dùng "Sản phẩm [mã]"
-
-   c) **color** (Màu sắc):
-      - Lấy từ cột "颜色"
-      - DỊCH HOÀN TOÀN sang tiếng Việt theo TỪ ĐIỂN
-      - KHÔNG để sót ký tự Trung Quốc
-      - VD: "黑色" → "Đen" (KHÔNG "黑色")
-      - VD: "卡其色" → "Khaki" (KHÔNG "卡其")
-      - VD: "藏青色" → "Xanh than" (KHÔNG "藏青")
-
-   d) **quantity** (Số lượng):
-      - Lấy từ cột "数量"
-      - ĐẾM CHÍNH XÁC từng dòng sản phẩm
-      - VD: 10, 20, 5, 13
-      - BỎ QUA dòng "小计" (tổng nhỏ)
-
-   e) **price** (Đơn giá):
-      - Lấy từ cột "单价"
-      - Giá của 1 sản phẩm (số nguyên hoặc thập phân)
-      - VD: 64, 67.5, 66
-
-   **LƯU Ý QUAN TRỌNG:**
-   - MỖI DÒNG trong hóa đơn = 1 OBJECT trong products[]
-   - MỖI MÀU khác nhau = 1 DÒNG RIÊNG
-   - BỎ QUA dòng "小计" (tổng nhỏ của nhóm)
-   - Hóa đơn có nhiều NHÓM SẢN PHẨM → Đọc hết tất cả
+   - **sku**: Mã hàng từ cột đầu
+   - **name**: Tên SP dịch sang tiếng Việt
+   - **color**: Màu sắc dịch sang tiếng Việt
+   - **quantity**: Số lượng (từ phép tính hoặc cột số lượng)
+   - **price**: Đơn giá (từ phép tính hoặc cột đơn giá)
 
 **5. TỔNG SỐ MÓN (totalItems):**
    - Cộng tất cả quantity của từng product
-   - VD: 10 + 10 + 10 + ... = 330
-   - KIỂM TRA: Phải khớp với số "数量" ở dòng tổng cộng
 
 **6. TỔNG TIỀN (totalAmount):**
-   - Tìm dòng "销售合计", "合计", "总计"
-   - Lấy số tiền, BỎ dấu phẩy và ký hiệu ¥
-   - VD: "销售合计: ¥21,520.00" → totalAmount: 21520
-   - VD: "合计: ¥3,200" → totalAmount: 3200
-   - Nếu không có → Tính = SUM(quantity * price)
+   - Tìm dòng "销售合计", "合计", "总计" hoặc số ghi cuối hóa đơn
+   - HĐ viết tay: Tìm số lớn nhất ghi ở cuối
 
 **7. KIỂM TRA VÀ CẢNH BÁO:**
-   - Với mỗi nhóm sản phẩm (款号), cộng quantity của các màu
-   - So sánh với số "Tổng cộng" hoặc dòng "小计"
-   - Nếu KHỚP → OK
-   - Nếu CHÊNH LỆCH → Thêm vào notes:
-     "⚠️ CẢNH BÁO: Nhóm [mã SP] - Tổng màu ([X]) ≠ Tổng ghi ([Y]) - Chênh lệch [Z] món"
+   - Dùng phép tính để verify: SL x Giá phải = Thành tiền
+   - Nếu CHÊNH LỆCH → Thêm cảnh báo vào notes
 
 === FORMAT JSON OUTPUT ===
 
@@ -829,29 +1151,29 @@ Trả về JSON CHÍNH XÁC (không markdown, không dấu \`\`\`):
 
 {
   "success": true,
-  "ncc": "4",
-  "supplier": "伊芙诺",
-  "date": "08/12/2025",
+  "ncc": "7",
+  "supplier": "菠酷服饰",
+  "date": "26/12/2025",
   "products": [
-    {"sku": "835", "name": "Áo thun", "color": "Đen", "quantity": 10, "price": 64},
-    {"sku": "835", "name": "Áo thun", "color": "Trắng", "quantity": 10, "price": 64},
-    {"sku": "835", "name": "Áo thun", "color": "Xám", "quantity": 10, "price": 64}
+    {"sku": "5/01", "name": "Sản phẩm 5/01", "color": "10 màu", "quantity": 30, "price": 46},
+    {"sku": "山茶花", "name": "Hoa sơn trà", "color": "5 màu", "quantity": 20, "price": 41}
   ],
-  "totalItems": 330,
-  "totalAmount": 21520,
-  "notes": "Ngày in: 2025-12-08. Đã kiểm tra: Tất cả nhóm sản phẩm khớp số lượng."
+  "totalItems": 155,
+  "totalAmount": 8645,
+  "notes": "Hóa đơn viết tay. Đã verify bằng phép tính. NCC khoanh số 7."
 }
 
 === CHECKLIST TRƯỚC KHI TRẢ VỀ ===
 
-- [ ] Mã NCC: Đã lấy đúng số khoanh tròn (không lấy tên/SĐT/địa chỉ)
-- [ ] Tên sản phẩm: Đã dịch HOÀN TOÀN sang tiếng Việt (không còn ký tự Trung)
-- [ ] Màu sắc: Đã dịch HOÀN TOÀN sang tiếng Việt theo TỪ ĐIỂN
-- [ ] Số lượng: Đã cộng từng dòng, bỏ qua dòng "小计"
-- [ ] Tổng số món: Đã kiểm tra = SUM(quantity)
-- [ ] Tổng tiền: Đã kiểm tra khớp với "销售合计"
-- [ ] Độ chính xác: Đã kiểm tra tổng màu = tổng ghi, nếu sai → cảnh báo
-- [ ] Không bỏ sót: Đã đọc hết tất cả dòng sản phẩm trong hóa đơn
+- [ ] Mã NCC: Đã lấy đúng số khoanh tròn (thường ở cuối HĐ)
+- [ ] Loại hóa đơn: Đã nhận diện đúng (in hay viết tay)
+- [ ] Tên sản phẩm: Đã dịch HOÀN TOÀN sang tiếng Việt
+- [ ] Màu sắc: Đã dịch hoặc ghi nhận số màu
+- [ ] Số lượng: Đã tính từ phép tính [SL]x[GIÁ]=[TỔNG]
+- [ ] Đơn giá: Đã trích xuất từ phép tính
+- [ ] Tổng tiền: Đã tìm hoặc tính tổng
+- [ ] Verify: Đã kiểm tra phép tính có khớp không
+- [ ] Không bỏ sót: Đã đọc hết tất cả dòng sản phẩm
 
 === NẾU KHÔNG XỬ LÝ ĐƯỢC ===
 
