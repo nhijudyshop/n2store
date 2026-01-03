@@ -993,50 +993,44 @@ const BanHangModule = (function() {
     /**
      * Merge TPOS data with existing Firebase data
      * Uses invoice number (so) as unique key to detect duplicates
-     * Updates existing records if TPOS has newer data
+     * STOPS when hitting first duplicate (Excel is sorted newest first)
      */
     function mergeTPOSData(tposData, existingData) {
-        const existingMap = new Map();
+        const existingSet = new Set();
         existingData.forEach(item => {
             if (item.so) {
-                existingMap.set(item.so, item);
+                existingSet.add(item.so);
             }
         });
 
         let newCount = 0;
-        let updatedCount = 0;
+        const newRecords = [];
 
-        const mergedData = [...existingData];
+        // Iterate through TPOS data (newest first)
+        // Stop when we hit a duplicate - all subsequent records already exist
+        for (const tposItem of tposData) {
+            if (!tposItem.so) continue; // Skip items without invoice number
 
-        tposData.forEach(tposItem => {
-            if (!tposItem.so) return; // Skip items without invoice number
-
-            const existing = existingMap.get(tposItem.so);
-            if (existing) {
-                // Update existing record with TPOS data (TPOS is source of truth)
-                const index = mergedData.findIndex(item => item.so === tposItem.so);
-                if (index !== -1) {
-                    // Preserve original id, update other fields
-                    mergedData[index] = {
-                        ...tposItem,
-                        id: existing.id,
-                        importedAt: existing.importedAt || tposItem.importedAt
-                    };
-                    updatedCount++;
-                }
-            } else {
-                // New record from TPOS
-                mergedData.unshift(tposItem); // Add to beginning
-                newCount++;
+            if (existingSet.has(tposItem.so)) {
+                // Hit a duplicate - stop processing
+                console.log(`[BanHang] Hit duplicate at invoice ${tposItem.so}, stopping sync`);
+                break;
             }
-        });
 
-        console.log(`[BanHang] Merge result: ${newCount} new, ${updatedCount} updated`);
+            // New record from TPOS
+            newRecords.push(tposItem);
+            newCount++;
+        }
+
+        // Prepend new records to existing data
+        const mergedData = [...newRecords, ...existingData];
+
+        console.log(`[BanHang] Merge result: ${newCount} new records added`);
 
         return {
             data: mergedData,
             newCount,
-            updatedCount
+            updatedCount: 0
         };
     }
 
@@ -1055,11 +1049,19 @@ const BanHangModule = (function() {
 
         // Show subtle loading indicator
         const indicator = document.getElementById('banhangBackgroundIndicator');
-        if (indicator) {
-            indicator.classList.add('show');
-        }
+
+        const hideIndicator = () => {
+            isBackgroundFetching = false;
+            if (indicator) {
+                indicator.classList.remove('show');
+            }
+        };
 
         try {
+            if (indicator) {
+                indicator.classList.add('show');
+            }
+
             // Step 1: Get TPOS token
             const token = await getTPOSToken();
 
@@ -1071,15 +1073,16 @@ const BanHangModule = (function() {
 
             if (tposData.length === 0) {
                 console.log('[BanHang] No data from TPOS Excel');
+                hideIndicator();
                 return;
             }
 
-            // Step 4: Merge with existing data
-            const { data: mergedData, newCount, updatedCount } = mergeTPOSData(tposData, banHangData);
+            // Step 4: Merge with existing data (stops at first duplicate)
+            const { data: mergedData, newCount } = mergeTPOSData(tposData, banHangData);
 
-            // Step 5: Save to Firebase if there are changes
-            if (newCount > 0 || updatedCount > 0) {
-                console.log('[BanHang] Saving merged data to Firebase...');
+            // Step 5: Save to Firebase if there are new records
+            if (newCount > 0) {
+                console.log('[BanHang] Saving', newCount, 'new records to Firebase...');
                 const saveSuccess = await saveToFirebase(mergedData);
 
                 if (saveSuccess) {
@@ -1089,30 +1092,30 @@ const BanHangModule = (function() {
 
                     // Show success notification
                     if (typeof showNotification === 'function') {
-                        let message = `TPOS sync: `;
-                        if (newCount > 0) message += `${newCount} đơn mới`;
-                        if (newCount > 0 && updatedCount > 0) message += ', ';
-                        if (updatedCount > 0) message += `${updatedCount} đơn cập nhật`;
-                        showNotification(message, 'success');
+                        showNotification(`TPOS sync: ${newCount} đơn mới`, 'success');
                     }
 
                     console.log('[BanHang] ✅ Background sync completed successfully');
                 }
             } else {
-                console.log('[BanHang] ✅ No changes from TPOS (data already in sync)');
+                console.log('[BanHang] ✅ Dữ liệu đã đồng bộ (không có đơn mới)');
+                if (typeof showNotification === 'function') {
+                    showNotification('Dữ liệu đã đồng bộ', 'info');
+                }
             }
 
             lastBackgroundFetchTime = new Date();
 
         } catch (error) {
             console.error('[BanHang] ❌ Background fetch error:', error);
-            // Don't show error notification for background fetch - it's not critical
-        } finally {
-            isBackgroundFetching = false;
-            if (indicator) {
-                indicator.classList.remove('show');
+            // Show error for debugging
+            if (typeof showNotification === 'function') {
+                showNotification('Lỗi sync TPOS: ' + error.message, 'error');
             }
         }
+
+        // Always hide indicator
+        hideIndicator();
     }
 
     /**
