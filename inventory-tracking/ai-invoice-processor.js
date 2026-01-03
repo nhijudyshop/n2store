@@ -58,7 +58,7 @@ function translateToVietnamese(text) {
 // Copied from telegram-bot.js lines 801-986
 // =====================================================
 
-const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia kiểm kê hàng hóa thông thạo tiếng Trung chuyên ngành may mặc và tiếng Việt. Hãy phân tích ảnh hóa đơn này và trích xuất thông tin theo format JSON.
+const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia kiểm kê hàng hóa thông thạo tiếng Trung chuyên ngành may mặc và tiếng Việt. Hãy phân tích ảnh hóa đơn này (có thể là HÓA ĐƠN IN hoặc HÓA ĐƠN VIẾT TAY) và trích xuất thông tin theo format JSON.
 
 === NGUYÊN TẮC QUAN TRỌNG ===
 
@@ -80,78 +80,160 @@ const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia kiểm kê hàng hóa t
    - BỎ QUA tên, số điện thoại, địa chỉ NCC
    - Chỉ trả về ncc: "4" (số thuần túy)
 
-=== TỪ ĐIỂN DỊCH TIẾNG TRUNG → TIẾNG VIỆT ===
+=== TỪ ĐIỂN MỞ RỘNG TIẾNG TRUNG → TIẾNG VIỆT ===
 
-**MÀU SẮC (颜色):**
-黑色 = Đen, 白色 = Trắng, 红色 = Đỏ, 蓝色 = Xanh dương, 绿色 = Xanh lá cây
-黄色 = Vàng, 紫色 = Tím, 粉色 = Hồng, 粉红色 = Hồng phấn, 灰色 = Xám, 棕色 = Nâu
-咖色 = Nâu cà phê, 咖啡色 = Cà phê, 米色 = Kem, 米白色 = Trắng kem
-杏色 = Hồng mơ, 橙色 = Cam, 酱色 = Nâu đậm, 酱红色 = Đỏ nâu
-卡其色 = Khaki, 卡其 = Khaki, 驼色 = Nâu lạc đà, 驼 = Lạc đà
-藏青色 = Xanh than, 藏青 = Xanh than, 酒红色 = Đỏ rượu vang, 酒红 = Đỏ rượu
-墨绿色 = Xanh rêu, 墨绿 = Xanh rêu, 军绿色 = Xanh quân đội, 军绿 = Xanh lính
+**MÀU SẮC CƠ BẢN (颜色):**
+黑/黑色 = Đen, 白/白色 = Trắng, 红/红色 = Đỏ, 蓝/蓝色 = Xanh dương, 绿/绿色 = Xanh lá
+黄/黄色 = Vàng, 紫/紫色 = Tím, 粉/粉色/粉红色 = Hồng, 灰/灰色 = Xám, 棕/棕色 = Nâu
+橙/橙色/桔色/橘色 = Cam
+
+**MÀU ĐẶC BIỆT / HOT TREND:**
+咖/咖色/咖啡色 = Nâu cà phê, 米/米色 = Kem, 米白/米白色 = Trắng kem
+杏/杏色 = Hồng mơ (Hạnh nhân), 酱/酱色 = Nâu đậm, 酱红色 = Đỏ nâu
+卡其/卡其色 = Khaki, 驼/驼色 = Nâu lạc đà
+藏青/藏青色 = Xanh than, 酒红/酒红色 = Đỏ rượu vang
+墨绿/墨绿色 = Xanh rêu, 军绿/军绿色 = Xanh quân đội
+焦糖/焦糖色 = Caramel, 牛油果/牛油果色 = Xanh bơ (Avocado)
+香槟/香槟色 = Champagne, 奶白 = Trắng sữa, 奶油 = Kem sữa
+银/银色 = Bạc, 金/金色 = Vàng gold
+玫红/玫瑰红 = Hồng cánh sen, 宝蓝 = Xanh hoàng gia
+天蓝 = Xanh da trời, 湖蓝 = Xanh hồ, 雾蓝 = Xanh sương mù
+烟灰 = Xám khói, 炭灰 = Xám than, 花灰 = Xám hoa
+姜黄 = Vàng nghệ, 土黄 = Vàng đất, 芥末黄 = Vàng mù tạt
 浅 = Nhạt, 深 = Đậm, 色 = (bỏ từ này)
-浅灰 = Xám nhạt, 深灰 = Xám đậm, 浅蓝 = Xanh nhạt, 深蓝 = Xanh đậm
+浅灰/深灰 = Xám nhạt/đậm, 浅蓝/深蓝 = Xanh nhạt/đậm
+浅绿/深绿 = Xanh lá nhạt/đậm, 浅粉/深粉 = Hồng nhạt/đậm
+浅紫/深紫 = Tím nhạt/đậm, 浅咖/深咖 = Nâu nhạt/đậm
 
-**LOẠI SẢN PHẨM (款式):**
-上衣 = Áo, 裤子 = Quần, 裤 = Quần, 裙子 = Váy, 裙 = Váy
-外套 = Áo khoác, 衬衫 = Áo sơ mi, T恤 = Áo thun, T恤衫 = Áo thun
-连衣裙 = Váy liền, 针织衫 = Áo len, 毛衣 = Áo len, 卫衣 = Áo nỉ
-打底衫 = Áo lót, 马甲 = Áo gile, 背心 = Áo ba lỗ, 吊带 = Dây đeo
-短裤 = Quần short, 长裤 = Quần dài, 牛仔裤 = Quần jean
+**VIẾT TẮT MÀU (PHỔNG BIẾN TRONG HÓA ĐƠN VIẾT TAY):**
+兰 = Xanh dương (viết tắt của 蓝)
 
-**MÔ TẢ/CHI TIẾT (细节):**
-领 = Cổ, 袖 = Tay áo, 长袖 = Tay dài, 短袖 = Tay ngắn
+**LOẠI TRANG PHỤC (款式):**
+上衣 = Áo, T恤/T恤衫 = Áo thun, 衬衫/衬衣 = Áo sơ mi
+外套 = Áo khoác, 夹克 = Jacket, 风衣 = Măng tô, 大衣 = Áo khoác dài
+卫衣 = Áo nỉ (Hoodie), 毛衣/针织衫 = Áo len
+打底/打底衫 = Áo lót/Áo giữ nhiệt, 马甲 = Áo gile
+背心 = Áo ba lỗ, 吊带/吊带衫 = Áo hai dây
+西装/西服 = Vest, 开衫 = Cardigan, 羽绒服 = Áo phao
+裤/裤子 = Quần, 短裤 = Quần short, 长裤 = Quần dài
+牛仔裤 = Quần jean, 西裤 = Quần tây
+阔腿裤 = Quần ống rộng, 打底裤 = Legging
+裙/裙子 = Váy, 连衣裙 = Váy liền, 半身裙 = Chân váy
+百褶裙 = Váy xếp ly, A字裙 = Váy chữ A
+
+**BỘ ĐỒ (套装):**
+套装 = Đồ bộ, 套/两件套 = Bộ 2 món, 三件套 = Bộ 3 món, 四件套 = Bộ 4 món
+睡衣 = Đồ ngủ, 家居服 = Đồ mặc nhà, 运动套装 = Bộ thể thao
+
+**CHI TIẾT THIẾT KẾ (细节):**
+领 = Cổ, 圆领 = Cổ tròn, V领 = Cổ chữ V, 高领 = Cổ cao, 翻领 = Cổ lật
+袖 = Tay áo, 长袖 = Tay dài, 短袖 = Tay ngắn, 无袖 = Không tay
+短款 = Dáng ngắn (Croptop), 长款 = Dáng dài, 中长款 = Dáng trung
 交叉 = Chéo, 斜角 = Xéo góc, 条纹 = Sọc, 格子 = Caro, 花 = Hoa
-圆领 = Cổ tròn, V领 = Cổ V, 高领 = Cổ cao, 翻领 = Cổ lật
-纽扣 = Khuy, 拉链 = Khoá kéo, 铆钉 = Đinh tán, 印花 = In hoa
-绣花 = Thêu hoa, 蕾丝 = Ren, 网纱 = Lưới, 荷叶边 = Viền lượn sóng
+纽扣 = Khuy, 拉链 = Khoá kéo, 铆钉 = Đinh tán
+印花 = In hoa, 刺绣/绣花 = Thêu, 蕾丝 = Ren, 网纱 = Lưới
+山茶花 = Hoa sơn trà, 皇冠 = Vương miện, 荷叶边 = Viền lượn sóng
 
 **CHẤT LIỆU (面料):**
-棉 = Cotton, 麻 = Lanh, 丝 = Lụa, 绒 = Nhung, 毛 = Len
-皮 = Da, 革 = Da thuộc, 牛仔 = Vải jean, 雪纺 = Voan
-涤纶 = Polyester, 锦纶 = Nylon, 氨纶 = Spandex
+棉/纯棉 = Cotton, 麻 = Lanh, 丝/真丝 = Lụa, 绒 = Nhung
+毛/羊毛 = Len, 皮/皮革 = Da, 牛仔 = Vải jean, 雪纺 = Voan
+蕾丝 = Ren, 针织 = Dệt kim, 弹力 = Co giãn
 
 **SIZE/KÍCH THƯỚC:**
-均码 = Size chung, S码 = Size S, M码 = Size M, L码 = Size L, XL码 = Size XL
+均码/均/F = Freesize (Size chung)
+S码/M码/L码/XL码/XXL码 = Size S/M/L/XL/XXL
+大码 = Size lớn (Plus size), 加大码 = Size cực lớn
+件 = Cái, 手 = 1 ri (1 dây đủ size)
 
-=== HƯỚNG DẪN TRÍCH XUẤT DỮ LIỆU ===
+**TÌNH TRẠNG HÀNG:**
+现货 = Có sẵn, 欠货 = Nợ hàng, 退货 = Trả hàng
+拿货 = Lấy hàng, 补货 = Bổ sung hàng, 断货/缺货 = Hết hàng
+
+===============================================
+=== HƯỚNG DẪN ĐỌC HÓA ĐƠN VIẾT TAY ===
+===============================================
+
+**NHẬN DIỆN HÓA ĐƠN VIẾT TAY:**
+Hóa đơn viết tay thường có đặc điểm:
+- Chữ viết bằng tay, có thể mờ hoặc nguệch ngoạc
+- Không có bảng kẻ chuẩn như hóa đơn in
+- Format thường là: [MÃ] [MÀU] [SỐ LƯỢNG]x[ĐƠN GIÁ]=[THÀNH TIỀN]
+
+**CÁCH ĐỌC TỪNG DÒNG VIẾT TAY:**
+
+1. **Format phổ biến nhất:** [MÃ SP] [MÀU VIẾT TẮT] [SL]x[GIÁ]=[TỔNG]
+   - VD: "5/01 去10 30x46=1380" → Mã: 5/01, Màu: 去10, SL: 30, Giá: 46, Tiền: 1380
+   - VD: "283-6 去6啡 10x41=410" → Mã: 283-6, Màu: 6 màu nâu cà phê, SL: 10, Giá: 41
+   - VD: "山茶花 去5颗 20x41=820" → Mã: Hoa sơn trà, Màu: 5 màu, SL: 20, Giá: 41
+   - VD: "126 去10 10x65=650" → Mã: 126, Màu: 10 màu, SL: 10, Giá: 65
+   - VD: "718-9 去6 15x74=1110" → Mã: 718-9, Màu: 6 màu, SL: 15, Giá: 74
+
+2. **Cách hiểu "去X" (qù X):** Có nghĩa "lấy X màu" hoặc "X cái"
+   - "去10" = Lấy 10 màu hoặc 10 cái
+   - "去6啡" = Lấy 6 màu nâu cà phê (啡 = nâu)
+   - "去白" = Lấy màu trắng
+   - "去5颗" = Lấy 5 cái/5 màu
+
+3. **SUY LUẬN TỪ PHÉP TÍNH:**
+   - Khi chữ viết mờ/khó đọc, dùng phép tính để suy luận
+   - VD: "?x46=1380" → ? = 1380/46 = 30 (số lượng là 30)
+   - VD: "20x?=820" → ? = 820/20 = 41 (đơn giá là 41)
+   - VD: "10x65=?" → ? = 10x65 = 650 (thành tiền là 650)
+
+4. **KÝ HIỆU ĐẶC BIỆT TRONG VIẾT TAY:**
+   - Dấu "✓" hoặc "V" = Đã kiểm tra/Đã bốc hàng
+   - Dấu gạch chéo "—" = Bỏ qua/Số lượng bằng 0
+   - Số trong vòng tròn = Mã NCC (quan trọng!)
+   - Chữ viết tay "Nhi" = Tên người mua (thường là 何祥 - Hà Tường)
+
+5. **CỘNG DỒN SỐ LƯỢNG:**
+   - Nếu thấy nhiều số trên một dòng (VD: "5 5 5" dưới cột S-M-L)
+   - Cộng tất cả: 5+5+5 = 15 là tổng số lượng
+
+6. **XỬ LÝ CHỮ MỜ/GẠ̣CH BỎ:**
+   - Khi số bị gạch bỏ và viết số mới → Lấy số MỚI
+   - Khi không đọc được → Dùng phép tính suy luận ngược
+
+===============================================
+=== HƯỚNG DẪN ĐỌC HÓA ĐƠN IN ===
+===============================================
+
+**CẤU TRÚC HÓA ĐƠN IN ĐIỂN HÌNH:**
+
+| 款号/商品 | 颜色 | 均码 | 数量 | 单价 | 小计 |
+|----------|------|------|------|------|------|
+| 835#/T恤衫 | 黑色 | 均码 | 10 | 64 | 640 |
+| 835#/T恤衫 | 白色 | 均码 | 10 | 64 | 640 |
+| 835#/T恤衫 | 灰色 | 均码 | 10 | 64 | 640 |
+| 小计 |  |  | 30 |  | 1,920 |
+
+**QUAN TRỌNG - NHÓM SẢN PHẨM THEO MÃ:**
+- Các dòng có cùng款号 (mã sản phẩm) = 1 SẢN PHẨM DUY NHẤT
+- Gộp các màu khác nhau vào mảng colors[]
+- VD: 3 dòng "835#/T恤衫" với màu khác nhau = 1 object duy nhất với 3 màu
+
+===============================================
+=== TRÍCH XUẤT DỮ LIỆU (CHUNG CHO CẢ 2 LOẠI) ===
+===============================================
 
 **1. MÃ NCC (ncc) - QUAN TRỌNG NHẤT:**
-   - Tìm SỐ được KHOANH TRÒN bằng bút (thường màu đỏ)
+   - Tìm SỐ được KHOANH TRÒN bằng bút (thường màu đỏ, ở cuối hóa đơn)
    - Chỉ lấy STT số, BỎ QUA mọi thông tin khác về NCC
-   - VD: Thấy số "4" khoanh tròn → ncc: "4"
+   - VD: Thấy số "7" khoanh tròn → ncc: "7"
    - VD: Thấy số "15" khoanh tròn → ncc: "15"
    - KHÔNG lấy tên shop, SĐT, địa chỉ
 
 **2. TÊN NHÀ CUNG CẤP (supplier):**
    - Tên shop/cửa hàng IN ĐẬM ở đầu hóa đơn
-   - DỊCH sang tiếng Việt nếu có nghĩa, HOẶC giữ nguyên + dịch
-   - VD: "伊芙诺 (Eveno)" → supplier: "Eveno" HOẶC "伊芙诺"
-   - VD: "添添酱" → supplier: "添添酱"
+   - VD: "菠酷服饰" → supplier: "菠酷服饰"
+   - VD: "伊芙诺 (Eveno)" → supplier: "Eveno"
 
 **3. NGÀY THÁNG (date):**
    - Tìm ngày in trên hóa đơn
    - Chuyển sang format DD/MM/YYYY
-   - VD: "2025-12-08 10:56:52" → "08/12/2025"
-   - VD: "打印日期: 2025/12/26" → "26/12/2025"
-   - Nếu không có → để trống ""
+   - VD: "02年 12月26日" → "26/12/2002" (hoặc năm hiện tại)
 
 **4. DANH SÁCH SẢN PHẨM (products):**
-
-   **CẤU TRÚC HÓA ĐƠN ĐIỂN HÌNH:**
-
-   | 款号/商品 | 颜色 | 均码 | 数量 | 单价 | 小计 |
-   |----------|------|------|------|------|------|
-   | 835#/T恤衫 | 黑色 | 均码 | 10 | 64 | 640 |
-   | 835#/T恤衫 | 白色 | 均码 | 10 | 64 | 640 |
-   | 835#/T恤衫 | 灰色 | 均码 | 10 | 64 | 640 |
-   | 小计 |  |  | 30 |  | 1,920 |
-
-   **QUAN TRỌNG - NHÓM SẢN PHẨM THEO MÃ:**
-   - Các dòng có cùng款号 (mã sản phẩm) = 1 SẢN PHẨM DUY NHẤT
-   - Gộp các màu khác nhau vào mảng colors[]
-   - VD: 3 dòng "835#/T恤衫" với màu khác nhau = 1 object duy nhất với 3 màu
 
    **CẤU TRÚC NHÓM:**
    {
@@ -165,65 +247,36 @@ const INVOICE_EXTRACTION_PROMPT = `Bạn là chuyên gia kiểm kê hàng hóa t
      "price": 64
    }
 
-   **CÁCH ĐỌC VÀ NHÓM:**
+   **CÁCH XỬ LÝ:**
+   a) **sku** (Mã hàng): Lấy từ cột đầu, bỏ ký tự # nếu có
+      - HĐ in: "835#/T恤衫" → sku: "835"
+      - HĐ viết tay: "5/01" → sku: "5/01"
 
-   a) **sku** (Mã hàng):
-      - Lấy từ cột "款号/商品" (phần số trước dấu /)
-      - Bỏ ký tự # nếu có
-      - VD: "835#/T恤衫" → sku: "835"
-      - VD: "9151-1#/连衣裙" → sku: "9151-1"
-
-   b) **name** (Tên sản phẩm/Mô tả):
-      - Lấy từ cột "款号/商品" (phần sau dấu /)
-      - DỊCH HOÀN TOÀN sang tiếng Việt
-      - VD: "T恤衫" → "Áo thun"
-      - VD: "连衣裙" → "Váy liền"
-      - VD: "打底衫" → "Áo lót"
-      - VD: "针织衫" → "Áo len"
-      - VD: "两件套" → "Bộ hai mảnh"
-      - VD: "三件套" → "Bộ ba mảnh"
+   b) **name** (Tên SP): DỊCH HOÀN TOÀN sang tiếng Việt
+      - "T恤衫" → "Áo thun"
+      - "山茶花" → "Hoa sơn trà"
+      - "两件套" → "Bộ 2 món"
       - Nếu không có tên → dùng "Sản phẩm [mã]"
 
    c) **colors** (Mảng màu sắc):
-      - MỖI MÀU = 1 OBJECT trong colors[]
-      - Với mỗi object:
-        * **color**: DỊCH HOÀN TOÀN sang tiếng Việt theo TỪ ĐIỂN
-          - VD: "黑色" → "Đen" (KHÔNG "黑色")
-          - VD: "卡其色" → "Khaki" (KHÔNG "卡其")
-          - VD: "藏青色" → "Xanh than" (KHÔNG "藏青")
-        * **quantity**: Số lượng của màu đó
-          - Lấy từ cột "数量" của dòng tương ứng
-          - VD: 10, 20, 5, 13
+      - HĐ in: Mỗi dòng khác màu = 1 object
+      - HĐ viết tay: "去6啡" = 6 màu nâu cà phê → colors: [{"color": "Nâu cà phê", "quantity": từ phép tính}]
+      - Nếu chỉ có số màu mà không ghi cụ thể → colors: [{"color": "Nhiều màu", "quantity": X}]
 
-   d) **price** (Đơn giá):
-      - Giá của 1 sản phẩm (áp dụng cho TẤT CẢ màu)
-      - Lấy từ cột "单价" (số nguyên hoặc thập phân)
-      - VD: 64, 67.5, 66
-
-   **LƯU Ý QUAN TRỌNG:**
-   - NHÓM theo款号: Cùng mã SP → 1 object duy nhất
-   - Màu khác nhau → Thêm vào colors[] của object đó
-   - BỎ QUA dòng "小计" (tổng nhỏ của nhóm)
-   - Hóa đơn có nhiều款号 → Nhiều objects trong products[]
+   d) **price** (Đơn giá): Lấy từ phép tính [SL]x[GIÁ]=[TỔNG]
 
 **5. TỔNG SỐ MÓN (totalItems):**
    - Cộng tất cả quantity của từng product
-   - VD: 10 + 10 + 10 + ... = 330
-   - KIỂM TRA: Phải khớp với số "数量" ở dòng tổng cộng
+   - KIỂM TRA: Phải khớp với số ghi ở dòng tổng cộng
 
 **6. TỔNG TIỀN (totalAmount):**
-   - Tìm dòng "销售合计", "合计", "总计"
-   - Lấy số tiền, BỎ dấu phẩy và ký hiệu ¥
-   - VD: "销售合计: ¥21,520.00" → totalAmount: 21520
-   - VD: "合计: ¥3,200" → totalAmount: 3200
+   - Tìm dòng "销售合计", "合计", "总计" hoặc số ghi cuối hóa đơn
+   - HĐ viết tay: Tìm số lớn nhất ghi ở cuối (VD: 8645)
    - Nếu không có → Tính = SUM(quantity * price)
 
 **7. KIỂM TRA VÀ CẢNH BÁO:**
-   - Với mỗi sản phẩm trong products[], cộng quantity của các colors[]
-   - So sánh với số "Tổng cộng" hoặc dòng "小计" của nhóm đó
-   - Nếu KHỚP → OK
-   - Nếu CHÊNH LỆCH → Thêm vào notes:
-     "⚠️ CẢNH BÁO: Sản phẩm [sku] [name] - Tổng màu ([X]) ≠ Tổng ghi ([Y]) - Chênh lệch [Z] món"
+   - Dùng phép tính để verify: SL x Giá phải = Thành tiền
+   - Nếu CHÊNH LỆCH → Thêm cảnh báo vào notes
 
 === FORMAT JSON OUTPUT ===
 
@@ -231,47 +284,43 @@ Trả về JSON CHÍNH XÁC (không markdown, không dấu \`\`\`):
 
 {
   "success": true,
-  "ncc": "4",
-  "supplier": "伊芙诺",
-  "date": "08/12/2025",
+  "ncc": "7",
+  "supplier": "菠酷服饰",
+  "date": "26/12/2025",
   "products": [
     {
-      "sku": "835",
-      "name": "Áo thun",
+      "sku": "5/01",
+      "name": "Sản phẩm 5/01",
       "colors": [
-        {"color": "Đen", "quantity": 10},
-        {"color": "Trắng", "quantity": 10},
-        {"color": "Xám", "quantity": 10},
-        {"color": "Đỏ", "quantity": 7},
-        {"color": "Khaki", "quantity": 13}
+        {"color": "10 màu", "quantity": 30}
       ],
-      "price": 64
+      "price": 46
     },
     {
-      "sku": "9151-1",
-      "name": "Váy liền",
+      "sku": "山茶花",
+      "name": "Hoa sơn trà",
       "colors": [
-        {"color": "Xanh than", "quantity": 20},
-        {"color": "Đen", "quantity": 15}
+        {"color": "5 màu", "quantity": 20}
       ],
-      "price": 72
+      "price": 41
     }
   ],
-  "totalItems": 85,
-  "totalAmount": 5720,
-  "notes": "Ngày in: 2025-12-08. Đã kiểm tra: Tất cả nhóm sản phẩm khớp số lượng."
+  "totalItems": 155,
+  "totalAmount": 8645,
+  "notes": "Hóa đơn viết tay. Đã verify bằng phép tính. NCC khoanh số 7."
 }
 
 === CHECKLIST TRƯỚC KHI TRẢ VỀ ===
 
-- [ ] Mã NCC: Đã lấy đúng số khoanh tròn (không lấy tên/SĐT/địa chỉ)
-- [ ] Tên sản phẩm: Đã dịch HOÀN TOÀN sang tiếng Việt (không còn ký tự Trung)
-- [ ] Màu sắc: Đã dịch HOÀN TOÀN sang tiếng Việt theo TỪ ĐIỂN
-- [ ] Số lượng: Đã cộng từng dòng, bỏ qua dòng "小计"
-- [ ] Tổng số món: Đã kiểm tra = SUM(quantity)
-- [ ] Tổng tiền: Đã kiểm tra khớp với "销售合计"
-- [ ] Độ chính xác: Đã kiểm tra tổng màu = tổng ghi, nếu sai → cảnh báo
-- [ ] Không bỏ sót: Đã đọc hết tất cả dòng sản phẩm trong hóa đơn
+- [ ] Mã NCC: Đã lấy đúng số khoanh tròn (thường ở cuối HĐ)
+- [ ] Loại hóa đơn: Đã nhận diện đúng (in hay viết tay)
+- [ ] Tên sản phẩm: Đã dịch HOÀN TOÀN sang tiếng Việt
+- [ ] Màu sắc: Đã dịch hoặc ghi nhận số màu
+- [ ] Số lượng: Đã tính từ phép tính [SL]x[GIÁ]=[TỔNG]
+- [ ] Đơn giá: Đã trích xuất từ phép tính
+- [ ] Tổng tiền: Đã tìm hoặc tính tổng
+- [ ] Verify: Đã kiểm tra phép tính có khớp không
+- [ ] Không bỏ sót: Đã đọc hết tất cả dòng sản phẩm
 
 === NẾU KHÔNG XỬ LÝ ĐƯỢC ===
 
