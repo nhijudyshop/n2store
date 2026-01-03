@@ -416,14 +416,30 @@ const BanHangModule = (function() {
     }
 
     /**
-     * Fetch data from TPOS API
-     * @param {string} authToken - Bearer token for authentication
+     * Fetch data from TPOS API via Cloudflare Worker proxy
      * @param {Date} startDate - Start date filter
      * @param {Date} endDate - End date filter
      */
-    async function fetchFromTPOS(authToken, startDate, endDate) {
+    async function fetchFromTPOS(startDate, endDate) {
+        // Get token from localStorage (same key as TokenManager in other modules)
+        const tokenData = localStorage.getItem('bearer_token_data');
+        let authToken = null;
+
+        if (tokenData) {
+            try {
+                const parsed = JSON.parse(tokenData);
+                // Check if token is still valid (with 5 min buffer)
+                const bufferTime = 5 * 60 * 1000;
+                if (parsed.access_token && parsed.expires_at && Date.now() < (parsed.expires_at - bufferTime)) {
+                    authToken = parsed.access_token;
+                }
+            } catch (e) {
+                console.warn('[BANHANG] Error parsing token data:', e);
+            }
+        }
+
         if (!authToken) {
-            throw new Error('Cần token xác thực để fetch từ TPOS');
+            throw new Error('Chưa có token TPOS. Vui lòng đăng nhập vào trang Orders Report trước để lấy token.');
         }
 
         // Format dates for API
@@ -438,9 +454,11 @@ const BanHangModule = (function() {
         const startISO = formatDateForAPI(start);
         const endISO = formatDateForAPI(end);
 
-        const apiUrl = `https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.GetView?&$top=1000&$orderby=DateInvoice+desc&$filter=(Type+eq+'invoice'+and+DateInvoice+ge+${startISO}+and+DateInvoice+le+${endISO}+and+IsMergeCancel+ne+true)&$count=true`;
+        // Use Cloudflare Worker proxy to bypass CORS
+        const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const apiUrl = `${PROXY_URL}/api/odata/FastSaleOrder/ODataService.GetView?&$top=1000&$orderby=DateInvoice+desc&$filter=(Type+eq+'invoice'+and+DateInvoice+ge+${startISO}+and+DateInvoice+le+${endISO}+and+IsMergeCancel+ne+true)&$count=true`;
 
-        console.log('Fetching from TPOS:', apiUrl);
+        console.log('Fetching from TPOS via proxy:', apiUrl);
 
         const response = await fetch(apiUrl, {
             method: 'GET',
@@ -452,6 +470,9 @@ const BanHangModule = (function() {
         });
 
         if (!response.ok) {
+            if (response.status === 401) {
+                throw new Error('Token đã hết hạn. Vui lòng vào Orders Report để refresh token.');
+            }
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
         }
 
@@ -463,23 +484,10 @@ const BanHangModule = (function() {
 
     /**
      * Refresh data from TPOS API and merge with existing
+     * Uses token from bearer_token_data (shared with other modules)
      */
     async function refreshFromTPOS() {
         showLoading();
-
-        // Prompt for token if not stored
-        let authToken = localStorage.getItem('tpos_auth_token');
-        if (!authToken) {
-            authToken = prompt('Nhập TPOS Bearer Token (lấy từ Developer Tools > Network > Headers):');
-            if (!authToken) {
-                hideLoading();
-                if (typeof showNotification === 'function') {
-                    showNotification('Cần token để fetch dữ liệu từ TPOS', 'warning');
-                }
-                return;
-            }
-            localStorage.setItem('tpos_auth_token', authToken);
-        }
 
         if (typeof showNotification === 'function') {
             showNotification('Đang fetch dữ liệu từ TPOS...', 'info');
@@ -490,8 +498,8 @@ const BanHangModule = (function() {
             const startDate = elements.startDate?.value ? new Date(elements.startDate.value) : null;
             const endDate = elements.endDate?.value ? new Date(elements.endDate.value) : null;
 
-            // Fetch from TPOS
-            const tposData = await fetchFromTPOS(authToken, startDate, endDate);
+            // Fetch from TPOS (uses bearer_token_data from localStorage)
+            const tposData = await fetchFromTPOS(startDate, endDate);
 
             if (tposData.length === 0) {
                 hideLoading();
@@ -544,13 +552,8 @@ const BanHangModule = (function() {
             console.error('Error fetching from TPOS:', error);
             hideLoading();
 
-            // Clear token if auth error
-            if (error.message.includes('401') || error.message.includes('403')) {
-                localStorage.removeItem('tpos_auth_token');
-            }
-
             if (typeof showNotification === 'function') {
-                showNotification('Lỗi fetch TPOS: ' + error.message, 'error');
+                showNotification('Lỗi: ' + error.message, 'error');
             }
         }
     }
