@@ -13,11 +13,13 @@ const AI_CONFIG = {
     GEMINI_PROXY_URL: 'https://n2store-fallback.onrender.com/api/gemini/chat',
     MODEL: 'gemini-3-flash-preview', // Same as telegram bot
     GENERATION_CONFIG: {
-        temperature: 0.1,
+        temperature: 0,      // Deterministic output - no randomness
         topP: 0.95,
         topK: 40,
         maxOutputTokens: 4096
-    }
+    },
+    MAX_RETRIES: 2,           // Retry up to 2 times if first attempt fails
+    RETRY_DELAY_MS: 1000      // Wait 1 second between retries
 };
 
 // =====================================================
@@ -355,70 +357,100 @@ async function convertFileToBase64(file) {
 }
 
 /**
- * Call Gemini Vision API via backend proxy
+ * Sleep helper for retry delay
+ */
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Call Gemini Vision API via backend proxy with retry logic
  * @param {string} base64Image - Base64 encoded image
  * @param {string} mimeType - Image MIME type (e.g., 'image/jpeg')
  * @returns {Promise<Object>} AI response object
  */
 async function callGeminiVisionAPI(base64Image, mimeType) {
-    console.log('[AI] Calling Gemini API...');
+    let lastError = null;
 
-    const response = await fetch(AI_CONFIG.GEMINI_PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            model: AI_CONFIG.MODEL,
-            contents: [{
-                parts: [
-                    { text: INVOICE_EXTRACTION_PROMPT },
-                    {
-                        inline_data: {
-                            mime_type: mimeType,
-                            data: base64Image
-                        }
-                    }
-                ]
-            }],
-            generationConfig: AI_CONFIG.GENERATION_CONFIG
-        })
-    });
+    for (let attempt = 1; attempt <= AI_CONFIG.MAX_RETRIES + 1; attempt++) {
+        try {
+            console.log(`[AI] Calling Gemini API... (attempt ${attempt}/${AI_CONFIG.MAX_RETRIES + 1})`);
 
-    if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
+            const response = await fetch(AI_CONFIG.GEMINI_PROXY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: AI_CONFIG.MODEL,
+                    contents: [{
+                        parts: [
+                            { text: INVOICE_EXTRACTION_PROMPT },
+                            {
+                                inline_data: {
+                                    mime_type: mimeType,
+                                    data: base64Image
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: AI_CONFIG.GENERATION_CONFIG
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error.message || 'Gemini API error');
+            }
+
+            const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!responseText) {
+                throw new Error('Empty response from Gemini');
+            }
+
+            console.log('[AI] Received response from Gemini');
+
+            // Clean markdown code blocks if present
+            let cleanJson = responseText.trim();
+            if (cleanJson.startsWith('```')) {
+                cleanJson = cleanJson.replace(/```json?\n?/g, '').replace(/```/g, '');
+            }
+
+            // Parse JSON
+            const result = JSON.parse(cleanJson);
+
+            // Check if AI returned success: false - retry if so
+            if (result.success === false && attempt <= AI_CONFIG.MAX_RETRIES) {
+                console.warn(`[AI] AI returned failure, retrying... (${result.error || 'Unknown error'})`);
+                lastError = new Error(result.error || 'AI không nhận diện được hóa đơn');
+                await sleep(AI_CONFIG.RETRY_DELAY_MS);
+                continue;
+            }
+
+            return result;
+
+        } catch (error) {
+            lastError = error;
+            console.error(`[AI] Attempt ${attempt} failed:`, error.message);
+
+            if (attempt <= AI_CONFIG.MAX_RETRIES) {
+                console.log(`[AI] Retrying in ${AI_CONFIG.RETRY_DELAY_MS}ms...`);
+                await sleep(AI_CONFIG.RETRY_DELAY_MS);
+            }
+        }
     }
 
-    const data = await response.json();
-
-    if (data.error) {
-        throw new Error(data.error.message || 'Gemini API error');
-    }
-
-    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!responseText) {
-        throw new Error('Empty response from Gemini');
-    }
-
-    console.log('[AI] Received response from Gemini');
-
-    // Clean markdown code blocks if present
-    let cleanJson = responseText.trim();
-    if (cleanJson.startsWith('```')) {
-        cleanJson = cleanJson.replace(/```json?\n?/g, '').replace(/```/g, '');
-    }
-
-    // Parse JSON
-    try {
-        return JSON.parse(cleanJson);
-    } catch (parseError) {
-        console.error('[AI] JSON parse error:', parseError.message);
-        console.error('[AI] Raw response:', responseText);
-        return {
-            success: false,
-            error: 'Không thể parse kết quả từ AI',
-            rawResponse: responseText
-        };
-    }
+    // All retries exhausted
+    console.error('[AI] All retry attempts failed');
+    return {
+        success: false,
+        error: `Không thể nhận diện hóa đơn sau ${AI_CONFIG.MAX_RETRIES + 1} lần thử: ${lastError?.message || 'Unknown error'}`,
+        rawResponse: null
+    };
 }
 
 /**
