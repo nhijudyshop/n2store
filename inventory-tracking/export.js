@@ -58,8 +58,9 @@ function buildShipmentsExportData(shipments, includeFinance) {
         'Tong Ky',
         'STT NCC',
         'Ma SP',
-        'So Mau',
-        'So Luong',
+        'Mo Ta SP',
+        'Chi Tiet Mau Sac',
+        'Tong So Luong',
         'Don Gia',
         'Thanh Tien',
         'Tong Mon',
@@ -78,14 +79,20 @@ function buildShipmentsExportData(shipments, includeFinance) {
 
         (shipment.hoaDon || []).forEach((hd, hdIndex) => {
             (hd.sanPham || []).forEach((sp, spIndex) => {
+                // Format color details for Excel
+                const colorDetails = sp.mauSac?.length > 0
+                    ? sp.mauSac.map(c => `${c.mau} (${c.soLuong})`).join(', ')
+                    : (sp.soMau ? `${sp.soMau} màu` : '');
+
                 const row = [
                     hdIndex === 0 && spIndex === 0 ? formatDateDisplay(shipment.ngayDiHang) : '',
                     hdIndex === 0 && spIndex === 0 ? packages.length : '',
                     hdIndex === 0 && spIndex === 0 ? totalWeight : '',
                     spIndex === 0 ? hd.sttNCC : '',
-                    sp.maSP || sp.rawText || '',
-                    sp.soMau || '',
-                    sp.soLuong || '',
+                    sp.maSP || '',
+                    sp.moTa || '',
+                    colorDetails,
+                    sp.tongSoLuong || sp.soLuong || '',
                     sp.giaDonVi || '',
                     sp.thanhTien || '',
                     spIndex === 0 ? hd.tongMon : '',

@@ -82,6 +82,18 @@ function translateToVietnamese(text) {
 }
 
 /**
+ * Format color details for display in table
+ * @param {Array} mauSac - Array of {mau, soLuong} objects
+ * @returns {string} Formatted color string
+ */
+function formatColors(mauSac) {
+    if (!mauSac || mauSac.length === 0) {
+        return '<span class="text-muted">-</span>';
+    }
+    return mauSac.map(c => `${c.mau} (${c.soLuong})`).join(', ');
+}
+
+/**
  * Render shipments list
  */
 function renderShipments(shipments) {
@@ -317,7 +329,11 @@ function renderInvoicesSection(shipment) {
                         <tr>
                             <th class="col-ncc">NCC</th>
                             <th class="col-stt">STT</th>
-                            <th class="col-products">Chi Tiết Sản Phẩm</th>
+                            <th class="col-sku">Mã hàng</th>
+                            <th class="col-desc">Mô tả</th>
+                            <th class="col-colors">Chi tiết màu sắc</th>
+                            <th class="col-qty text-center">Tổng SL</th>
+                            <th class="col-price text-right">Đơn giá</th>
                             <th class="col-amount text-right">Tiền HĐ</th>
                             <th class="col-total text-center">Tổng Món</th>
                             <th class="col-shortage text-center">Thiếu</th>
@@ -332,7 +348,7 @@ function renderInvoicesSection(shipment) {
                     </tbody>
                     <tfoot>
                         <tr class="total-row">
-                            <td colspan="3" class="text-right"><strong>TỔNG:</strong></td>
+                            <td colspan="7" class="text-right"><strong>TỔNG:</strong></td>
                             <td class="text-right"><strong class="total-amount">${formatNumber(totalAmount)}</strong></td>
                             <td class="text-center"><strong class="total-items">${formatNumber(totalItems)}</strong></td>
                             <td class="text-center"><strong>${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</strong></td>
@@ -361,26 +377,16 @@ function renderProductRow(opts) {
     } = opts;
 
     const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
-    // Use Vietnamese or Chinese based on langMode setting
-    const isVietnamese = globalState.langMode === 'vi';
-    let productText = '-';
-    if (product) {
-        if (isVietnamese) {
-            // Try rawText_vi first, then translate rawText, then build from fields
-            if (product.rawText_vi) {
-                productText = product.rawText_vi;
-            } else if (product.rawText) {
-                productText = translateToVietnamese(product.rawText);
-            } else {
-                const tenSP = product.tenSP_vi || translateToVietnamese(product.tenSP || '');
-                const soMau = product.soMau_vi || translateToVietnamese(product.soMau || '');
-                productText = `MA ${product.maSP || ''} ${tenSP} MAU ${soMau} SL ${product.soLuong || 0}`;
-            }
-        } else {
-            // Chinese mode - use original text
-            productText = product.rawText || `MA ${product.maSP || ''} ${product.tenSP || ''} MAU ${product.soMau || ''} SL ${product.soLuong || 0}`;
-        }
-    }
+
+    // Extract product details for new columns
+    const maSP = product?.maSP || '-';
+    const moTa = product?.moTa || '-';
+    const colorDetails = product?.mauSac?.length > 0
+        ? formatColors(product.mauSac)
+        : (product?.soMau ? `${product.soMau} màu` : '-');
+    const tongSoLuong = product?.tongSoLuong || product?.soLuong || '-';
+    const giaDonVi = product?.giaDonVi || 0;
+
     // For rowspanned cells (rendered on first row), always apply invoice-border since their
     // bottom border appears at the end of their rowspan (which is the last row of invoice)
     // For non-rowspanned cells (STT, Products), only apply on last row
@@ -401,9 +407,11 @@ function renderProductRow(opts) {
         <tr class="${rowClass}">
             ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass} ${nccClass}" rowspan="${rowSpan}" ${nccClickHandler}>${nccDisplay}${subInvoiceIndicator}</td>` : ''}
             <td class="col-stt ${borderClass}">${product ? productIdx + 1 : '-'}</td>
-            <td class="col-products ${borderClass}">
-                <span class="product-text">${productText}</span>
-            </td>
+            <td class="col-sku ${borderClass}">${maSP}</td>
+            <td class="col-desc ${borderClass}">${moTa}</td>
+            <td class="col-colors ${borderClass}">${colorDetails}</td>
+            <td class="col-qty text-center ${borderClass}">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
+            <td class="col-price text-right ${borderClass}">${giaDonVi > 0 ? formatNumber(giaDonVi) : '-'}</td>
             ${isFirstRow ? `
                 <td class="col-amount text-right ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="amount-value">${formatNumber(tongTienHD)}</strong>

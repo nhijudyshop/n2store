@@ -551,4 +551,85 @@ async function handleAIImageUpload(files) {
     await aiQueueManager.addBatch(files);
 }
 
+/**
+ * Add AI invoice to form (NEW: handles productsData structure)
+ * @param {Object} data - AI extracted data
+ * @param {number} data.sttNCC - NCC number
+ * @param {string} data.tenNCC - NCC name
+ * @param {Array} data.productsData - Structured product array with mauSac
+ * @param {string} data.imageUrl - Uploaded image URL
+ * @param {string} data.notes - Notes
+ */
+async function addAIInvoiceToForm(data) {
+    console.log('[MODAL] Adding AI invoice to form with productsData:', data);
+
+    // Add new invoice form
+    addInvoiceForm();
+
+    // Wait for DOM update
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Get the last (newest) invoice form
+    const forms = document.querySelectorAll('.invoice-form');
+    const lastForm = forms[forms.length - 1];
+
+    if (!lastForm) {
+        console.error('[MODAL] Could not find invoice form');
+        return;
+    }
+
+    // Populate NCC fields
+    const nccInput = lastForm.querySelector('.invoice-ncc');
+    const nccNameInput = lastForm.querySelector('.invoice-ncc-name');
+
+    if (nccInput) nccInput.value = data.sttNCC || '';
+    if (nccNameInput) nccNameInput.value = data.tenNCC || '';
+
+    // NEW: Convert productsData to textarea format for compatibility
+    // The existing preview system still uses text parsing
+    const productText = (data.productsData || [])
+        .map(p => p.rawText || `MA ${p.maSP} ${p.soMau} MÀU ${p.tongSoLuong || p.soLuong}X${p.giaDonVi}`)
+        .join('\n');
+
+    const productsTextarea = lastForm.querySelector('.invoice-products');
+    if (productsTextarea) {
+        productsTextarea.value = productText;
+        // Trigger preview update
+        updateInvoicePreview(lastForm);
+    }
+
+    // Store the full structured data in a custom property for later use
+    lastForm._aiProductsData = data.productsData;
+
+    // Add invoice image
+    if (data.imageUrl) {
+        const imageContainer = lastForm.querySelector('.invoice-images-container');
+        if (imageContainer) {
+            const imageCard = document.createElement('div');
+            imageCard.className = 'image-preview-item';
+            imageCard.innerHTML = `
+                <img src="${data.imageUrl}" alt="Invoice">
+                <button type="button" class="btn-remove-image" onclick="removeInvoiceImage(this, '${data.imageUrl}')">
+                    <i data-lucide="x"></i>
+                </button>
+            `;
+            imageContainer.appendChild(imageCard);
+
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        // Store image URL in hidden field
+        const imagesInput = lastForm.querySelector('.invoice-images-data');
+        if (imagesInput) {
+            const existingImages = JSON.parse(imagesInput.value || '[]');
+            existingImages.push(data.imageUrl);
+            imagesInput.value = JSON.stringify(existingImages);
+        }
+    }
+
+    console.log('[MODAL] AI invoice added successfully');
+}
+
 console.log('[MODAL] Shipment modal initialized with AI support');

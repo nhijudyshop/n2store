@@ -2030,6 +2030,113 @@ body {
     color: var(--gray-500);
 }
 
+/* ===== PRODUCTS DETAIL TABLE (AI Preview) ===== */
+
+.products-detail-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+.products-detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.products-detail-table thead {
+    position: sticky;
+    top: 0;
+    background: var(--gray-100);
+    z-index: 10;
+}
+
+.products-detail-table th {
+    padding: 10px 8px;
+    text-align: left;
+    border-bottom: 2px solid var(--gray-300);
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.products-detail-table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--gray-200);
+    vertical-align: middle;
+}
+
+.products-detail-table .col-sku { width: 100px; }
+.products-detail-table .col-desc { width: 150px; }
+.products-detail-table .col-colors { width: 250px; }
+.products-detail-table .col-qty { width: 80px; text-align: center; }
+.products-detail-table .col-price { width: 100px; }
+.products-detail-table .col-amount { width: 120px; }
+
+/* Inline input styling */
+.input-inline {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--gray-300);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.input-inline:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Color display and editing */
+.colors-display {
+    position: relative;
+    padding: 6px 8px;
+    background: var(--gray-50);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.4;
+    min-height: 32px;
+}
+
+.colors-display:hover {
+    background: var(--gray-100);
+}
+
+.btn-edit-colors {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    opacity: 0.6;
+    color: var(--gray-600);
+}
+
+.btn-edit-colors:hover {
+    opacity: 1;
+    color: var(--primary);
+}
+
+.text-muted {
+    color: var(--gray-400);
+    font-style: italic;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
 /* ===== TOAST NOTIFICATIONS ===== */
 .toast-container {
     position: fixed;

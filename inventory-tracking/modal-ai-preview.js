@@ -53,7 +53,7 @@ function openAIPreviewModal(result, imageIndex, totalImages) {
 }
 
 /**
- * Render success state (editable preview)
+ * Render success state (editable preview with detailed product table)
  * @param {Object} result - Successful result
  * @param {number} imageIndex - Current image index
  * @param {number} totalImages - Total images
@@ -99,10 +99,8 @@ function renderSuccessState(result, imageIndex, totalImages) {
                 </div>
 
                 <div class="form-group">
-                    <label>Sản phẩm</label>
-                    <textarea id="aiProducts" class="form-textarea" rows="10"
-                              placeholder="MA [mã] [số màu] MÀU [SL]X[giá]">${data.productText || ''}</textarea>
-                    <small class="form-hint">Format: MA [mã] [số màu] MÀU [SL]X[giá]</small>
+                    <label>Sản phẩm chi tiết</label>
+                    ${renderProductsDetailTable(data.productsData || [])}
                 </div>
 
                 <div class="ai-preview-totals">
@@ -136,6 +134,103 @@ function renderSuccessState(result, imageIndex, totalImages) {
 }
 
 /**
+ * Render detailed products table with color breakdown
+ * @param {Array} productsData - Array of product objects with color details
+ * @returns {string} HTML table
+ */
+function renderProductsDetailTable(productsData) {
+    if (!productsData || productsData.length === 0) {
+        return '<p class="text-muted">Không có sản phẩm</p>';
+    }
+
+    return `
+        <div class="products-detail-table-container">
+            <table class="products-detail-table">
+                <thead>
+                    <tr>
+                        <th class="col-sku">Mã hàng</th>
+                        <th class="col-desc">Mô tả SP</th>
+                        <th class="col-colors">Chi tiết màu sắc</th>
+                        <th class="col-qty">Tổng SL</th>
+                        <th class="col-price">Đơn giá</th>
+                        <th class="col-amount">Thành tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${productsData.map((product, idx) => renderProductDetailRow(product, idx)).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+/**
+ * Render a single product row with editable fields
+ * @param {Object} product - Product object
+ * @param {number} idx - Product index
+ * @returns {string} HTML row
+ */
+function renderProductDetailRow(product, idx) {
+    const colors = product.mauSac || [];
+    const tongSoLuong = product.tongSoLuong || 0;
+    const thanhTien = product.thanhTien || 0;
+
+    // Format color details: "Trắng (10), Đen (13), Xám (10)"
+    const colorText = formatColors(colors);
+
+    return `
+        <tr class="product-detail-row" data-idx="${idx}">
+            <td class="col-sku">
+                <input type="text" class="input-inline product-sku"
+                       value="${product.maSP || ''}"
+                       data-idx="${idx}">
+            </td>
+            <td class="col-desc">
+                <input type="text" class="input-inline product-desc"
+                       value="${product.moTa || ''}"
+                       placeholder="Mô tả sản phẩm"
+                       data-idx="${idx}">
+            </td>
+            <td class="col-colors">
+                <div class="colors-display" onclick="editColors(${idx})">
+                    ${colorText}
+                    <button type="button" class="btn-edit-colors" onclick="editColors(${idx}); event.stopPropagation();">
+                        <i data-lucide="edit-2"></i>
+                    </button>
+                </div>
+                <input type="hidden" class="product-colors-data"
+                       data-idx="${idx}"
+                       value='${JSON.stringify(colors)}'>
+            </td>
+            <td class="col-qty text-center">
+                <strong class="product-qty" data-idx="${idx}">${tongSoLuong}</strong>
+            </td>
+            <td class="col-price">
+                <input type="number" class="input-inline product-price"
+                       value="${product.giaDonVi || ''}"
+                       data-idx="${idx}"
+                       onchange="recalculateProductTotal(${idx})">
+            </td>
+            <td class="col-amount text-right">
+                <strong class="product-amount" data-idx="${idx}">${formatNumber(thanhTien)}</strong>
+            </td>
+        </tr>
+    `;
+}
+
+/**
+ * Format color array for display
+ * @param {Array} mauSac - Color array [{mau, soLuong}]
+ * @returns {string} Formatted string
+ */
+function formatColors(mauSac) {
+    if (!mauSac || mauSac.length === 0) {
+        return '<span class="text-muted">Chưa có màu</span>';
+    }
+    return mauSac.map(c => `${c.mau} (${c.soLuong})`).join(', ');
+}
+
+/**
  * Render error state
  * @param {Object} result - Failed result
  * @param {number} imageIndex - Current image index
@@ -154,6 +249,67 @@ function renderErrorState(result, imageIndex, totalImages) {
             <img src="${result.imageUrl}" alt="Failed image" class="ai-preview-image" style="max-height: 300px; margin-top: 20px;">
         </div>
     `;
+}
+
+// =====================================================
+// COLOR EDITING FUNCTIONS
+// =====================================================
+
+/**
+ * Edit colors for a product - opens a simple prompt-based editor
+ * @param {number} productIdx - Product index
+ */
+function editColors(productIdx) {
+    const row = document.querySelector(`.product-detail-row[data-idx="${productIdx}"]`);
+    if (!row) return;
+
+    const colorsInput = row.querySelector(`.product-colors-data[data-idx="${productIdx}"]`);
+    const mauSac = JSON.parse(colorsInput.value || '[]');
+
+    // Create a simple text representation for editing
+    const colorText = mauSac.map(c => `${c.mau}: ${c.soLuong}`).join('\n');
+
+    const newText = prompt(
+        'Chỉnh sửa màu sắc (mỗi dòng: Tên màu: Số lượng)\nVí dụ:\nĐen: 10\nTrắng: 13',
+        colorText
+    );
+
+    if (newText === null) return; // Cancelled
+
+    // Parse the edited text
+    const newColors = [];
+    const lines = newText.split('\n').filter(l => l.trim());
+
+    for (const line of lines) {
+        const match = line.match(/^(.+?):\s*(\d+)$/);
+        if (match) {
+            newColors.push({
+                mau: match[1].trim(),
+                soLuong: parseInt(match[2]) || 0
+            });
+        }
+    }
+
+    // Update hidden input
+    colorsInput.value = JSON.stringify(newColors);
+
+    // Update display
+    const display = row.querySelector('.colors-display');
+    if (display) {
+        display.innerHTML = formatColors(newColors) + `
+            <button type="button" class="btn-edit-colors" onclick="editColors(${productIdx}); event.stopPropagation();">
+                <i data-lucide="edit-2"></i>
+            </button>
+        `;
+    }
+
+    // Recalculate totals
+    recalculateProductTotal(productIdx);
+
+    // Reinitialize icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
 }
 
 /**
@@ -175,8 +331,10 @@ async function confirmAIPreview() {
     // Get edited values
     const sttNCC = parseInt(document.getElementById('aiNCC')?.value);
     const tenNCC = document.getElementById('aiTenNCC')?.value?.trim() || '';
-    const productText = document.getElementById('aiProducts')?.value?.trim() || '';
     const notes = document.getElementById('aiNotes')?.value?.trim() || '';
+
+    // NEW: Extract edited product data from table
+    const productsData = extractProductsFromTable();
 
     // Validate required fields
     if (!sttNCC || isNaN(sttNCC)) {
@@ -189,17 +347,16 @@ async function confirmAIPreview() {
         return;
     }
 
-    if (!productText) {
+    if (!productsData || productsData.length === 0) {
         if (typeof toast !== 'undefined') {
-            toast.error('Vui lòng nhập sản phẩm!');
+            toast.error('Vui lòng kiểm tra sản phẩm!');
         } else {
-            alert('Vui lòng nhập sản phẩm!');
+            alert('Vui lòng kiểm tra sản phẩm!');
         }
-        document.getElementById('aiProducts')?.focus();
         return;
     }
 
-    console.log('[AI-PREVIEW] Confirming with data:', { sttNCC, tenNCC, productText });
+    console.log('[AI-PREVIEW] Confirming with data:', { sttNCC, tenNCC, productsData });
 
     // Upload image to Firebase Storage
     const loadingToast = typeof toast !== 'undefined' ? toast.loading('Đang tải ảnh lên Firebase...') : null;
@@ -211,15 +368,15 @@ async function confirmAIPreview() {
 
         console.log('[AI-PREVIEW] Image uploaded:', imageUrl);
 
-        // Prepare data
+        // Prepare data with structured products
         const editedData = {
             sttNCC,
             tenNCC,
-            productText,
+            productsData,  // NEW: Structured array instead of text
             notes,
             imageUrl,
-            totalAmount: result.data.totalAmount,
-            totalItems: result.data.totalItems
+            totalAmount: productsData.reduce((sum, p) => sum + (p.thanhTien || 0), 0),
+            totalItems: productsData.reduce((sum, p) => sum + (p.tongSoLuong || 0), 0)
         };
 
         // Add to invoice form in shipment modal
@@ -246,6 +403,63 @@ async function confirmAIPreview() {
             alert('Không thể tải ảnh lên: ' + error.message);
         }
     }
+}
+
+/**
+ * Extract product data from preview table (edited by user)
+ * @returns {Array} Array of product objects
+ */
+function extractProductsFromTable() {
+    const rows = document.querySelectorAll('.product-detail-row');
+
+    return Array.from(rows).map(row => {
+        const idx = row.dataset.idx;
+        const maSP = row.querySelector(`.product-sku[data-idx="${idx}"]`).value.trim();
+        const moTa = row.querySelector(`.product-desc[data-idx="${idx}"]`).value.trim();
+        const colorsInput = row.querySelector(`.product-colors-data[data-idx="${idx}"]`);
+        const giaDonVi = parseInt(row.querySelector(`.product-price[data-idx="${idx}"]`).value) || 0;
+
+        const mauSac = JSON.parse(colorsInput.value || '[]');
+        const tongSoLuong = mauSac.reduce((sum, c) => sum + (c.soLuong || 0), 0);
+        const thanhTien = tongSoLuong * giaDonVi;
+
+        return {
+            maSP,
+            moTa,
+            mauSac,
+            tongSoLuong,
+            soMau: mauSac.length,
+            giaDonVi,
+            thanhTien,
+            rawText: `MA ${maSP}${moTa ? ' ' + moTa : ''} ${mauSac.length} MÀU ${tongSoLuong}X${giaDonVi}`,
+            aiExtracted: true,
+            dataSource: 'ai'
+        };
+    }).filter(p => p.maSP); // Filter out empty rows
+}
+
+/**
+ * Recalculate product total when price changes
+ * @param {number} productIdx - Product index
+ */
+function recalculateProductTotal(productIdx) {
+    const row = document.querySelector(`.product-detail-row[data-idx="${productIdx}"]`);
+    if (!row) return;
+
+    const colorsInput = row.querySelector(`.product-colors-data[data-idx="${productIdx}"]`);
+    const priceInput = row.querySelector(`.product-price[data-idx="${productIdx}"]`);
+
+    const mauSac = JSON.parse(colorsInput.value || '[]');
+    const tongSoLuong = mauSac.reduce((sum, c) => sum + (c.soLuong || 0), 0);
+    const giaDonVi = parseInt(priceInput.value) || 0;
+    const thanhTien = tongSoLuong * giaDonVi;
+
+    // Update display
+    const qtyCell = row.querySelector(`.product-qty[data-idx="${productIdx}"]`);
+    const amountCell = row.querySelector(`.product-amount[data-idx="${productIdx}"]`);
+
+    if (qtyCell) qtyCell.textContent = tongSoLuong;
+    if (amountCell) amountCell.textContent = formatNumber(thanhTien);
 }
 
 /**

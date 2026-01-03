@@ -58,12 +58,16 @@ function parseProductText(text) {
         const giaDonVi = parseInt(match[4]);
         return {
             maSP: match[1].trim(),
-            tenHang: '',
-            soMau: parseInt(match[2]),
-            soLuong: soLuong,
+            moTa: '',                  // NEW: Empty for manual entry
+            mauSac: [],                // NEW: Empty array (no color detail)
+            tongSoLuong: soLuong,      // NEW: Direct quantity
+            soMau: parseInt(match[2]), // Keep legacy field
+            soLuong: soLuong,          // Keep for backward compatibility
             giaDonVi: giaDonVi,
             thanhTien: soLuong * giaDonVi,
             rawText: originalText,
+            aiExtracted: false,        // NEW: Flag as manual
+            dataSource: 'manual',      // NEW: Explicit source tracking
             isValid: true
         };
     }
@@ -75,12 +79,16 @@ function parseProductText(text) {
         const giaDonVi = parseInt(match[3]);
         return {
             maSP: match[1].trim(),
-            tenHang: '',
+            moTa: '',                  // NEW: Empty for manual entry
+            mauSac: [],                // NEW: Empty array
+            tongSoLuong: soLuong,      // NEW
             soMau: 1,
             soLuong: soLuong,
             giaDonVi: giaDonVi,
             thanhTien: soLuong * giaDonVi,
             rawText: originalText,
+            aiExtracted: false,        // NEW
+            dataSource: 'manual',      // NEW
             isValid: true
         };
     }

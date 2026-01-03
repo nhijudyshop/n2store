@@ -156,6 +156,41 @@ function getAllDotHang() {
 }
 
 /**
+ * Normalize product data to new structure with backward compatibility
+ * Converts old product format to new format with moTa, mauSac array, tongSoLuong
+ */
+function normalizeProductData(product) {
+    if (!product) return product;
+
+    // Already has new structure (has mauSac field)
+    if (product.mauSac !== undefined) {
+        return {
+            ...product,
+            // Ensure tongSoLuong is calculated if missing
+            tongSoLuong: product.tongSoLuong ||
+                        (product.mauSac && product.mauSac.length > 0
+                            ? product.mauSac.reduce((sum, c) => sum + (c.soLuong || 0), 0)
+                            : product.soLuong || 0)
+        };
+    }
+
+    // Migrate old data to new structure
+    return {
+        maSP: product.maSP || '',
+        moTa: product.tenHang || '',           // Map old tenHang to moTa
+        mauSac: [],                            // Empty array for old data
+        tongSoLuong: product.soLuong || 0,     // Use old soLuong
+        soMau: product.soMau || 0,             // Keep legacy field
+        soLuong: product.soLuong || 0,         // Keep for backward compatibility
+        giaDonVi: product.giaDonVi || 0,
+        thanhTien: product.thanhTien || 0,
+        rawText: product.rawText || '',
+        dataSource: 'legacy',                  // Mark as migrated data
+        aiExtracted: product.aiExtracted || false
+    };
+}
+
+/**
  * Get all dotHang restructured as shipments (grouped by ngayDiHang)
  * This maintains backward compatibility with the old structure
  */
@@ -182,12 +217,12 @@ function getAllDotHangAsShipments() {
             };
         }
 
-        // Add as hoaDon entry
+        // Add as hoaDon entry with normalized products
         byDate[date].hoaDon.push({
             id: dot.id,
             sttNCC: dot.sttNCC,
             tenNCC: dot.tenNCC,
-            sanPham: dot.sanPham || [],
+            sanPham: (dot.sanPham || []).map(normalizeProductData),  // Normalize products
             tongTienHD: dot.tongTienHD || 0,
             tongMon: dot.tongMon || 0,
             soMonThieu: dot.soMonThieu || 0,
