@@ -3,9 +3,24 @@
    Excel Import & Firebase Storage
    ===================================================== */
 
-// Bán Hàng Module - Firebase version
+// Bán Hàng Module - Firebase version with TPOS Excel Background Fetch
 const BanHangModule = (function() {
     'use strict';
+
+    // Cloudflare Worker proxy URL for TPOS API
+    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+    // TPOS credentials for authentication
+    const TPOS_CREDENTIALS = {
+        grant_type: 'password',
+        username: 'nvkt',
+        password: 'Aa@123456789',
+        client_id: 'tmtWebApp'
+    };
+
+    // Background fetch state
+    let isBackgroundFetching = false;
+    let lastBackgroundFetchTime = null;
 
     // Firebase Configuration (same as hanghoan.js)
     const firebaseConfig = {
@@ -81,9 +96,16 @@ const BanHangModule = (function() {
         cacheElements();
         bindEvents();
         setDefaultDates();
-        // Load data from Firebase on init
-        loadFromFirebase();
-        console.log('BanHangModule initialized (Firebase version)');
+        // Load data from Firebase first, then background fetch from TPOS
+        loadFromFirebase().then(() => {
+            // Start background fetch from TPOS after Firebase data is displayed
+            // Use setTimeout to ensure UI is updated first
+            setTimeout(() => {
+                console.log('[BanHang] Starting background TPOS sync...');
+                backgroundFetchFromTPOS();
+            }, 1000);
+        });
+        console.log('BanHangModule initialized (Firebase + TPOS background sync)');
     }
 
     // Cache DOM elements
@@ -792,6 +814,330 @@ const BanHangModule = (function() {
         return false;
     }
 
+    // =====================================================
+    // TPOS EXCEL BACKGROUND FETCH
+    // =====================================================
+
+    /**
+     * Get TPOS access token via Cloudflare Worker
+     */
+    async function getTPOSToken() {
+        try {
+            console.log('[BanHang] 🔑 Fetching TPOS token...');
+
+            const formData = new URLSearchParams();
+            formData.append('grant_type', TPOS_CREDENTIALS.grant_type);
+            formData.append('username', TPOS_CREDENTIALS.username);
+            formData.append('password', TPOS_CREDENTIALS.password);
+            formData.append('client_id', TPOS_CREDENTIALS.client_id);
+
+            const response = await fetch(`${WORKER_URL}/api/token`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData.toString()
+            });
+
+            if (!response.ok) {
+                throw new Error(`Token request failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (!data.access_token) {
+                throw new Error('Invalid token response');
+            }
+
+            console.log('[BanHang] ✅ Token retrieved successfully');
+            return data.access_token;
+
+        } catch (error) {
+            console.error('[BanHang] ❌ Error fetching token:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Build filter for TPOS FastSaleOrder export
+     * Default: Last 1 month of invoices
+     */
+    function buildTPOSExportFilter() {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 1);
+
+        // Format dates for TPOS API (ISO 8601 with timezone offset)
+        // TPOS expects UTC time, Vietnam is UTC+7
+        const startISO = new Date(startDate.setHours(0, 0, 0, 0) - 7 * 60 * 60 * 1000).toISOString();
+        const endISO = new Date(endDate.setHours(23, 59, 59, 999) - 7 * 60 * 60 * 1000).toISOString();
+
+        return {
+            Filter: {
+                logic: "and",
+                filters: [
+                    { field: "Type", operator: "eq", value: "invoice" },
+                    { field: "DateInvoice", operator: "gte", value: startISO },
+                    { field: "DateInvoice", operator: "lte", value: endISO },
+                    { field: "IsMergeCancel", operator: "neq", value: true }
+                ]
+            }
+        };
+    }
+
+    /**
+     * Fetch Excel file from TPOS FastSaleOrder/ExportFile endpoint
+     * Returns ArrayBuffer of the XLSX file
+     */
+    async function fetchExcelFromTPOS(token) {
+        console.log('[BanHang] 📊 Fetching Excel from TPOS...');
+
+        const filter = buildTPOSExportFilter();
+        const body = {
+            data: JSON.stringify(filter),
+            ids: []
+        };
+
+        // Use the proxy endpoint
+        const response = await fetch(`${WORKER_URL}/api/FastSaleOrder/ExportFile?TagIds=`, {
+            method: 'POST',
+            headers: {
+                'Accept': '*/*',
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            throw new Error(`TPOS Export failed: ${response.status}`);
+        }
+
+        // Response is binary XLSX file
+        const arrayBuffer = await response.arrayBuffer();
+        console.log('[BanHang] ✅ Excel file received, size:', arrayBuffer.byteLength, 'bytes');
+
+        return arrayBuffer;
+    }
+
+    /**
+     * Parse Excel ArrayBuffer and convert to data array
+     * Matches the structure from manual Excel import
+     */
+    async function parseTPOSExcel(arrayBuffer) {
+        // Load XLSX library if not already loaded
+        if (typeof XLSX === 'undefined') {
+            console.log('[BanHang] Loading XLSX library...');
+            const script = document.createElement('script');
+            script.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+            document.head.appendChild(script);
+            await new Promise((resolve, reject) => {
+                script.onload = resolve;
+                script.onerror = reject;
+            });
+        }
+
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // Read with header row starting at row 3 (skip title rows)
+        const rows = XLSX.utils.sheet_to_json(firstSheet, {
+            range: 2,
+            defval: null
+        });
+
+        console.log('[BanHang] Parsed', rows.length, 'rows from TPOS Excel');
+
+        // Map Excel columns to our data structure
+        const parsedData = rows.map((row, index) => ({
+            id: `tpos_${Date.now()}_${index}`,
+            stt: row['STT'] || index + 1,
+            khachHang: row['Khách hàng'] || '',
+            email: row['Email'] || '',
+            facebook: row['Facebook'] || '',
+            dienThoai: String(row['Điện thoại'] || ''),
+            diaChi: row['Địa chỉ'] || '',
+            so: row['Số'] || '',
+            ngayBan: row['Ngày bán'] || null,
+            ngayXacNhan: row['Ngày xác nhận'] || null,
+            tongTien: parseFloat(row['Tổng tiền'] || 0),
+            conNo: parseFloat(row['Còn nợ'] || 0),
+            trangThai: row['Trạng thái'] || 'Nháp',
+            doiTacGH: row['Đối tác giao hàng'] || '',
+            maVanDon: row['Mã vận đơn'] || '',
+            cod: parseFloat(row['COD'] || 0),
+            phiShipGH: row['Phí ship giao hàng'] || '',
+            tienCoc: parseFloat(row['Tiền cọc'] || 0),
+            traTruoc: parseFloat(row['Trả trước'] || 0),
+            khoiLuongShip: row['Khối lượng ship (g)'] || '',
+            trangThaiGH: row['Trạng thái GH'] || '',
+            doiSoatGH: row['Đối soát GH'] || '',
+            ghiChuGH: row['Ghi chú giao hàng'] || '',
+            ghiChu: row['Ghi chú'] || '',
+            nguoiBan: row['Người bán'] || '',
+            nguon: row['Nguồn'] || '',
+            kenh: row['Kênh'] || '',
+            congTy: row['Công ty'] || '',
+            thamChieu: row['Tham chiếu'] || '',
+            phiGiaoHang: row['Phí giao hàng'] || '',
+            nhan: row['Nhãn'] || '',
+            tienGiam: parseFloat(row['Tiền giảm'] || 0),
+            chietKhau: parseFloat(row['Chiết khấu (%)'] || 0),
+            thanhTienChietKhau: parseFloat(row['Thành tiền chiết khấu'] || 0),
+            importedAt: new Date().toISOString(),
+            source: 'tpos_background'
+        }));
+
+        return parsedData;
+    }
+
+    /**
+     * Merge TPOS data with existing Firebase data
+     * Uses invoice number (so) as unique key to detect duplicates
+     * Updates existing records if TPOS has newer data
+     */
+    function mergeTPOSData(tposData, existingData) {
+        const existingMap = new Map();
+        existingData.forEach(item => {
+            if (item.so) {
+                existingMap.set(item.so, item);
+            }
+        });
+
+        let newCount = 0;
+        let updatedCount = 0;
+
+        const mergedData = [...existingData];
+
+        tposData.forEach(tposItem => {
+            if (!tposItem.so) return; // Skip items without invoice number
+
+            const existing = existingMap.get(tposItem.so);
+            if (existing) {
+                // Update existing record with TPOS data (TPOS is source of truth)
+                const index = mergedData.findIndex(item => item.so === tposItem.so);
+                if (index !== -1) {
+                    // Preserve original id, update other fields
+                    mergedData[index] = {
+                        ...tposItem,
+                        id: existing.id,
+                        importedAt: existing.importedAt || tposItem.importedAt
+                    };
+                    updatedCount++;
+                }
+            } else {
+                // New record from TPOS
+                mergedData.unshift(tposItem); // Add to beginning
+                newCount++;
+            }
+        });
+
+        console.log(`[BanHang] Merge result: ${newCount} new, ${updatedCount} updated`);
+
+        return {
+            data: mergedData,
+            newCount,
+            updatedCount
+        };
+    }
+
+    /**
+     * Background fetch Excel from TPOS and update data
+     * Called automatically after Firebase data is loaded
+     */
+    async function backgroundFetchFromTPOS() {
+        if (isBackgroundFetching) {
+            console.log('[BanHang] Background fetch already in progress, skipping...');
+            return;
+        }
+
+        isBackgroundFetching = true;
+        console.log('[BanHang] 🔄 Starting background fetch from TPOS...');
+
+        // Show subtle loading indicator
+        const indicator = document.getElementById('banhangBackgroundIndicator');
+        if (indicator) {
+            indicator.classList.add('show');
+        }
+
+        try {
+            // Step 1: Get TPOS token
+            const token = await getTPOSToken();
+
+            // Step 2: Fetch Excel from TPOS
+            const excelBuffer = await fetchExcelFromTPOS(token);
+
+            // Step 3: Parse Excel data
+            const tposData = await parseTPOSExcel(excelBuffer);
+
+            if (tposData.length === 0) {
+                console.log('[BanHang] No data from TPOS Excel');
+                return;
+            }
+
+            // Step 4: Merge with existing data
+            const { data: mergedData, newCount, updatedCount } = mergeTPOSData(tposData, banHangData);
+
+            // Step 5: Save to Firebase if there are changes
+            if (newCount > 0 || updatedCount > 0) {
+                console.log('[BanHang] Saving merged data to Firebase...');
+                const saveSuccess = await saveToFirebase(mergedData);
+
+                if (saveSuccess) {
+                    // Update local state
+                    banHangData = mergedData;
+                    applyFilters(); // Re-apply filters and re-render
+
+                    // Show success notification
+                    if (typeof showNotification === 'function') {
+                        let message = `TPOS sync: `;
+                        if (newCount > 0) message += `${newCount} đơn mới`;
+                        if (newCount > 0 && updatedCount > 0) message += ', ';
+                        if (updatedCount > 0) message += `${updatedCount} đơn cập nhật`;
+                        showNotification(message, 'success');
+                    }
+
+                    console.log('[BanHang] ✅ Background sync completed successfully');
+                }
+            } else {
+                console.log('[BanHang] ✅ No changes from TPOS (data already in sync)');
+            }
+
+            lastBackgroundFetchTime = new Date();
+
+        } catch (error) {
+            console.error('[BanHang] ❌ Background fetch error:', error);
+            // Don't show error notification for background fetch - it's not critical
+        } finally {
+            isBackgroundFetching = false;
+            if (indicator) {
+                indicator.classList.remove('show');
+            }
+        }
+    }
+
+    /**
+     * Manual trigger for TPOS sync
+     */
+    async function syncFromTPOS() {
+        if (isBackgroundFetching) {
+            if (typeof showNotification === 'function') {
+                showNotification('Đang đồng bộ, vui lòng đợi...', 'info');
+            }
+            return;
+        }
+
+        showLoading();
+        if (typeof showNotification === 'function') {
+            showNotification('Đang đồng bộ dữ liệu từ TPOS...', 'info');
+        }
+
+        try {
+            await backgroundFetchFromTPOS();
+        } finally {
+            hideLoading();
+        }
+    }
+
     // Public API
     return {
         init,
@@ -800,8 +1146,11 @@ const BanHangModule = (function() {
         loadFromFirebase,
         deleteRecord,
         clearAllData,
+        syncFromTPOS,
+        backgroundFetchFromTPOS,
         getData: () => banHangData,
-        getFilteredData: () => filteredData
+        getFilteredData: () => filteredData,
+        isBackgroundFetching: () => isBackgroundFetching
     };
 })();
 
@@ -861,6 +1210,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 await BanHangModule.clearAllData();
                 if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
+                }
+            });
+        }
+
+        // Sync TPOS button
+        const btnSyncTPOS = document.getElementById('btnSyncTPOS');
+        if (btnSyncTPOS) {
+            btnSyncTPOS.addEventListener('click', async () => {
+                btnSyncTPOS.disabled = true;
+                try {
+                    await BanHangModule.syncFromTPOS();
+                } finally {
+                    btnSyncTPOS.disabled = false;
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
                 }
             });
         }

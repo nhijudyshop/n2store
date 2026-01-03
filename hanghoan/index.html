@@ -475,7 +475,16 @@
                         <i data-lucide="trash-2"></i>
                         <span>Xóa tất cả</span>
                     </button>
+                    <button class="btn btn-success" id="btnSyncTPOS" title="Đồng bộ dữ liệu từ TPOS">
+                        <i data-lucide="cloud-download"></i>
+                        <span>Sync TPOS</span>
+                    </button>
                     <input type="file" id="excelFileInputBanHang" accept=".xlsx,.xls" style="display: none;">
+                    <!-- Background sync indicator -->
+                    <div id="banhangBackgroundIndicator" class="background-sync-indicator" title="Đang đồng bộ dữ liệu từ TPOS...">
+                        <i data-lucide="cloud-download" class="sync-icon"></i>
+                        <span>Đang sync...</span>
+                    </div>
                 </div>
 
                 <!-- Filters -->
