@@ -46,6 +46,39 @@ function getTodayDate() {
 }
 
 /**
+ * Parse date from DD.MM.YYYY format to YYYY-MM-DD format
+ * @param {string} dateStr - Date string in DD.MM.YYYY format (e.g., "28.12.2025")
+ * @returns {string|null} - Date in YYYY-MM-DD format or null if invalid
+ */
+function parseDateFromCaption(dateStr) {
+    if (!dateStr) return null;
+
+    // Match DD.MM.YYYY or DD/MM/YYYY format
+    const match = dateStr.match(/^(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{4})$/);
+    if (!match) return null;
+
+    const day = match[1].padStart(2, '0');
+    const month = match[2].padStart(2, '0');
+    const year = match[3];
+
+    // Validate date
+    const date = new Date(`${year}-${month}-${day}`);
+    if (isNaN(date.getTime())) return null;
+
+    return `${year}-${month}-${day}`;
+}
+
+/**
+ * Format date from YYYY-MM-DD to DD/MM/YYYY for display
+ */
+function formatDateForDisplay(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+/**
  * Check if NCC document exists
  */
 async function checkNCCExists(sttNCC) {
@@ -437,6 +470,112 @@ async function addImageToNCC(nccCode, fileId, targetType = 'latest') {
         docId: docId,
         nccCode: nccCode,
         arrayType: arrayType,
+        imageCount: imageCount,
+        imageUrl: imageUrl
+    };
+}
+
+/**
+ * Add image to dotHang (Tab 2 - Theo dõi đơn hàng) with specific delivery date
+ * - If dotHang with same ngayDiHang exists: ADD image to it
+ * - If no dotHang with same ngayDiHang: CREATE new dotHang entry with image
+ * @param {string} nccCode - NCC code
+ * @param {string} fileId - Telegram file ID
+ * @param {string} deliveryDate - Delivery date in YYYY-MM-DD format
+ * @param {string} chatId - Telegram chat ID
+ * @param {string} userId - Telegram user ID
+ */
+async function addImageToDotHangWithDate(nccCode, fileId, deliveryDate, chatId, userId) {
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+        throw new Error('Firebase không khả dụng');
+    }
+
+    // Download image from Telegram
+    const { buffer, mimeType } = await downloadTelegramFile(fileId);
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const extension = mimeType.split('/')[1] || 'jpg';
+    const fileName = `ncc_${nccCode}_${deliveryDate}_${timestamp}.${extension}`;
+
+    // Upload to Firebase Storage using shared service
+    const imageUrl = await firebaseStorageService.uploadImageBuffer(buffer, fileName, 'invoices', mimeType);
+
+    // Get NCC document
+    const docId = `ncc_${nccCode}`;
+    const docRef = firestore.collection('inventory_tracking').doc(docId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+        throw new Error(`Không tìm thấy NCC ${nccCode}. Vui lòng tạo NCC trước bằng cách gửi ảnh hóa đơn.`);
+    }
+
+    const data = doc.data();
+    const dotHang = data.dotHang || [];
+    const datHang = data.datHang || [];
+
+    // Find existing dotHang with same delivery date
+    const existingIndex = dotHang.findIndex(d => d.ngayDiHang === deliveryDate);
+
+    let isNew = false;
+    let entryId = '';
+    let imageCount = 0;
+
+    if (existingIndex !== -1) {
+        // ADD image to existing dotHang
+        entryId = dotHang[existingIndex].id;
+        if (!dotHang[existingIndex].anhHoaDon) {
+            dotHang[existingIndex].anhHoaDon = [];
+        }
+        dotHang[existingIndex].anhHoaDon.push(imageUrl);
+        dotHang[existingIndex].updatedAt = new Date().toISOString();
+        dotHang[existingIndex].updatedBy = `telegram_${userId}`;
+        imageCount = dotHang[existingIndex].anhHoaDon.length;
+
+        console.log(`[FIREBASE] Added image to existing dotHang for NCC ${nccCode}, date ${deliveryDate}`);
+    } else {
+        // CREATE new dotHang entry with image
+        isNew = true;
+        entryId = generateId('dot');
+
+        const newDotHang = {
+            id: entryId,
+            ngayDiHang: deliveryDate,
+            tenNCC: datHang[datHang.length - 1]?.tenNCC || '',
+            sanPham: [],
+            tongTienHD: 0,
+            tongMon: 0,
+            soMonThieu: 0,
+            ghiChuThieu: '',
+            anhHoaDon: [imageUrl],
+            ghiChu: '',
+            source: 'telegram_bot',
+            telegramChatId: chatId,
+            createdAt: new Date().toISOString(),
+            createdBy: `telegram_${userId}`,
+            updatedAt: new Date().toISOString(),
+            updatedBy: `telegram_${userId}`
+        };
+
+        dotHang.push(newDotHang);
+        imageCount = 1;
+
+        console.log(`[FIREBASE] Created new dotHang for NCC ${nccCode}, date ${deliveryDate}`);
+    }
+
+    // Update Firestore
+    await docRef.update({
+        dotHang: dotHang,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return {
+        docId: docId,
+        nccCode: nccCode,
+        entryId: entryId,
+        deliveryDate: deliveryDate,
+        isNew: isNew,
         imageCount: imageCount,
         imageUrl: imageUrl
     };
@@ -1784,10 +1923,65 @@ router.post('/webhook', async (req, res) => {
             // ==========================================
             if (message.photo) {
                 const caption = message.caption || '';
+
+                // Match /NCC with optional date: /2 or /2 28.12.2025 or /2 28/12/2025
+                const nccWithDateMatch = caption.match(/^\/(\d+)\s+(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4})$/);
                 const nccMatch = caption.match(/^\/(\d+)$/);
 
                 // ==========================================
-                // CASE 1: Photo with /NCC command - Add image to NCC
+                // CASE 1A: Photo with /NCC DD.MM.YYYY - Add to dotHang with specific date
+                // Example: /2 28.12.2025 with photo attached
+                // ==========================================
+                if (nccWithDateMatch) {
+                    const nccCode = nccWithDateMatch[1];
+                    const dateStr = nccWithDateMatch[2];
+                    const deliveryDate = parseDateFromCaption(dateStr);
+
+                    if (!deliveryDate) {
+                        await sendTelegramMessage(chatId,
+                            `❌ Ngày không hợp lệ: ${dateStr}\n\n` +
+                            `💡 Định dạng đúng: DD.MM.YYYY hoặc DD/MM/YYYY\n` +
+                            `VD: /2 28.12.2025`,
+                            messageId
+                        );
+                        return;
+                    }
+
+                    console.log(`[TELEGRAM] Photo with NCC and date command: /${nccCode} ${dateStr} -> ${deliveryDate}`);
+
+                    await sendChatAction(chatId, 'upload_photo');
+                    await sendTelegramMessage(chatId, `📤 Đang upload ảnh lên Tab 2 - Theo dõi đơn hàng (ngày ${formatDateForDisplay(deliveryDate)})...`, messageId);
+
+                    try {
+                        // Get the largest photo
+                        const photo = message.photo[message.photo.length - 1];
+
+                        // Add image to dotHang with specific delivery date
+                        const result = await addImageToDotHangWithDate(nccCode, photo.file_id, deliveryDate, chatId, userId);
+
+                        const actionLabel = result.isNew ? 'Đã tạo mới' : 'Đã thêm vào';
+                        await sendTelegramMessage(chatId,
+                            `✅ ${actionLabel} Tab 2 - Theo dõi đơn hàng\n\n` +
+                            `📋 NCC: ${nccCode}\n` +
+                            `📅 Ngày giao: ${formatDateForDisplay(deliveryDate)}\n` +
+                            `🖼️ Tổng ảnh: ${result.imageCount}\n` +
+                            `☁️ Đã lưu lên Firebase Storage\n\n` +
+                            `Xem tại: https://nhijudyshop.github.io/n2store/inventory-tracking/`,
+                            messageId
+                        );
+                    } catch (error) {
+                        console.error('[TELEGRAM] Add image to dotHang error:', error.message);
+                        await sendTelegramMessage(chatId,
+                            `❌ Lỗi thêm ảnh:\n${error.message}\n\n` +
+                            `💡 Đảm bảo đã có NCC ${nccCode} trong hệ thống.`,
+                            messageId
+                        );
+                    }
+                    return;
+                }
+
+                // ==========================================
+                // CASE 1B: Photo with /NCC command - Add image to NCC (latest entry)
                 // Example: /15 with photo attached
                 // ==========================================
                 if (nccMatch) {
@@ -1987,6 +2181,10 @@ router.post('/webhook', async (req, res) => {
                     `- Gửi ảnh với caption /NCC\n` +
                     `- VD: Gửi ảnh + caption "/15"\n` +
                     `- Ảnh sẽ upload lên Firebase Storage\n\n` +
+                    `📅 THÊM ẢNH VỚI NGÀY GIAO:\n` +
+                    `- Gửi ảnh với caption /NCC DD.MM.YYYY\n` +
+                    `- VD: Ảnh + caption "/2 28.12.2025"\n` +
+                    `- Lưu vào Tab 2 với ngày giao cụ thể\n\n` +
                     `💬 TRÒ CHUYỆN AI:\n` +
                     `- Gửi tin nhắn bất kỳ\n` +
                     `- Bot sẽ trả lời bằng Gemini AI\n\n` +
