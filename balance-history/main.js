@@ -1471,12 +1471,13 @@ async function generateDepositQRInline() {
     const customerPhone = inlineCustomerPhone?.value?.trim() || '';
 
     // Generate QR code
-    // If phone is provided, use it as the transfer content (addInfo/uniqueCode)
+    // If phone is provided, use last 6 digits as the transfer content (addInfo/uniqueCode)
     // Otherwise, generate a unique code
     let qrData;
     if (customerPhone) {
-        // Use phone number as the unique code for transfer content
-        qrData = window.QRGenerator.regenerateQR(customerPhone, 0);
+        // Use last 6 digits of phone number as the unique code for transfer content
+        const last6Digits = customerPhone.slice(-6);
+        qrData = window.QRGenerator.regenerateQR(last6Digits, 0);
     } else {
         // Generate normal unique code
         qrData = window.QRGenerator.generateDepositQR(0); // 0 = customer fills amount
