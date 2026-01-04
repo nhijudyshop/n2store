@@ -1092,16 +1092,21 @@ function renderGapRow(missingRef, prevRef, nextRef, prevDate, nextDate) {
 
 // Render Statistics
 function renderStatistics(stats) {
-    document.getElementById('totalIn').textContent = formatCurrency(stats.total_in);
-    document.getElementById('totalInCount').textContent = `${stats.total_in_count} giao dịch`;
+    const totalIn = document.getElementById('totalIn');
+    const totalInCount = document.getElementById('totalInCount');
+    const totalOut = document.getElementById('totalOut');
+    const totalOutCount = document.getElementById('totalOutCount');
+    const netChange = document.getElementById('netChange');
+    const totalTransactions = document.getElementById('totalTransactions');
+    const latestBalance = document.getElementById('latestBalance');
 
-    document.getElementById('totalOut').textContent = formatCurrency(stats.total_out);
-    document.getElementById('totalOutCount').textContent = `${stats.total_out_count} giao dịch`;
-
-    document.getElementById('netChange').textContent = formatCurrency(stats.net_change);
-    document.getElementById('totalTransactions').textContent = `${stats.total_transactions} giao dịch`;
-
-    document.getElementById('latestBalance').textContent = formatCurrency(stats.latest_balance);
+    if (totalIn) totalIn.textContent = formatCurrency(stats.total_in);
+    if (totalInCount) totalInCount.textContent = `${stats.total_in_count} giao dịch`;
+    if (totalOut) totalOut.textContent = formatCurrency(stats.total_out);
+    if (totalOutCount) totalOutCount.textContent = `${stats.total_out_count} giao dịch`;
+    if (netChange) netChange.textContent = formatCurrency(stats.net_change);
+    if (totalTransactions) totalTransactions.textContent = `${stats.total_transactions} giao dịch`;
+    if (latestBalance) latestBalance.textContent = formatCurrency(stats.latest_balance);
 }
 
 // Update Pagination
