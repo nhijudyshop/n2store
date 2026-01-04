@@ -498,6 +498,13 @@
 
                 <!-- Phone Data Table -->
                 <div id="phoneDataContent" style="display: none;">
+                    <!-- Search Box -->
+                    <div style="margin-bottom: 15px;">
+                        <input type="text" id="phoneDataSearch" placeholder="🔍 Tìm kiếm theo SĐT, tên, unique code..."
+                            style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
+                            oninput="filterPhoneDataTable()">
+                    </div>
+
                     <div
                         style="margin-bottom: 15px; padding: 12px; background: #e0f2fe; border-left: 4px solid #3b82f6; border-radius: 4px;">
                         <i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i>
@@ -512,7 +519,7 @@
                                 <th style="width: 150px;">Unique Code</th>
                                 <th style="width: 110px;">Phone</th>
                                 <th style="width: 200px;">Customer Name</th>
-                                <!-- <th style="width: 130px;">Tổng tiền</th> DISABLED: Query too slow -->
+                                <th style="width: 120px;">Công nợ</th>
                                 <th style="width: 180px;">Extraction Note</th>
                                 <th style="width: 110px;">Fetch Status</th>
                                 <th style="width: 140px;">Created At</th>

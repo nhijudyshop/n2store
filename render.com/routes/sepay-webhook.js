@@ -3164,4 +3164,66 @@ router.post('/batch-update-phones', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/sepay/debt/:phone
+ * Get debt for a specific phone number
+ */
+router.get('/debt/:phone', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone } = req.params;
+
+    if (!phone) {
+        return res.status(400).json({
+            success: false,
+            error: 'Phone number is required'
+        });
+    }
+
+    try {
+        // Normalize phone to full 10-digit format (0xxxxxxxxx)
+        let normalizedPhone = phone.replace(/\D/g, '');
+        if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+            normalizedPhone = normalizedPhone.substring(2); // Remove country code 84
+        }
+        if (!normalizedPhone.startsWith('0') && normalizedPhone.length === 9) {
+            normalizedPhone = '0' + normalizedPhone; // Add leading 0
+        }
+
+        console.log(`[DEBT] Fetching debt for phone: ${phone} -> normalized: ${normalizedPhone}`);
+
+        // Query debt from balance_history by linked_customer_phone
+        const query = `
+            SELECT
+                COUNT(*) as transaction_count,
+                COALESCE(SUM(transfer_amount), 0) as total_debt
+            FROM balance_history
+            WHERE transfer_type = 'in'
+              AND linked_customer_phone = $1
+        `;
+
+        const result = await db.query(query, [normalizedPhone]);
+        const row = result.rows[0];
+
+        const debt = parseFloat(row.total_debt) || 0;
+        const transactionCount = parseInt(row.transaction_count) || 0;
+
+        console.log(`[DEBT] Phone ${normalizedPhone}: ${debt} VND (${transactionCount} transactions)`);
+
+        res.json({
+            success: true,
+            phone: normalizedPhone,
+            debt: debt,
+            transaction_count: transactionCount
+        });
+
+    } catch (error) {
+        console.error('[DEBT] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch debt',
+            message: error.message
+        });
+    }
+});
+
 module.exports = router;

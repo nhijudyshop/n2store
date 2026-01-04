@@ -3502,7 +3502,13 @@ async function showPhoneDataModal(page = 1) {
                     <td><code style="font-size: 11px; background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">${row.unique_code}</code></td>
                     <td><strong style="color: #3b82f6;">${row.customer_phone || '-'}</strong></td>
                     <td>${customerName}</td>
-                    <!-- DISABLED: Tổng tiền column removed due to performance issues -->
+                    <td>
+                        ${row.customer_phone ? `
+                            <button class="btn btn-primary btn-sm" onclick="showDebtForPhone('${row.customer_phone}')" style="padding: 4px 8px; font-size: 12px;">
+                                <i data-lucide="eye" style="width: 14px; height: 14px;"></i> Xem
+                            </button>
+                        ` : '<span style="color: #9ca3af;">-</span>'}
+                    </td>
                     <td style="font-size: 12px; color: ${noteColor};">${noteIcon} ${extractionNote}</td>
                     <td>${statusBadge}</td>
                     <td style="font-size: 12px; color: #6b7280;">${createdAt}</td>
@@ -3601,11 +3607,102 @@ function closePhoneDataModal() {
 window.showGapsModal = showGapsModal;
 window.closeGapsModal = closeGapsModal;
 window.ignoreGap = ignoreGap;
+/**
+ * Filter phone data table based on search input
+ */
+function filterPhoneDataTable() {
+    const searchInput = document.getElementById('phoneDataSearch');
+    const tableBody = document.getElementById('phoneDataTableBody');
+    const shownSpan = document.getElementById('phoneDataShown');
+
+    if (!searchInput || !tableBody) return;
+
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const rows = tableBody.getElementsByTagName('tr');
+    let visibleCount = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const text = row.textContent.toLowerCase();
+
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    }
+
+    // Update shown count
+    if (shownSpan) {
+        if (searchTerm) {
+            shownSpan.textContent = `${visibleCount} (lọc)`;
+        } else {
+            const totalSpan = document.getElementById('phoneDataTotal');
+            const total = totalSpan ? totalSpan.textContent : rows.length;
+            shownSpan.textContent = `1-${rows.length}`;
+        }
+    }
+}
+
+/**
+ * Show debt information for a specific phone number
+ */
+async function showDebtForPhone(phone) {
+    if (!phone) {
+        alert('Không có số điện thoại!');
+        return;
+    }
+
+    try {
+        // Show loading notification
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(`Đang tải công nợ cho ${phone}...`, 'info');
+        }
+
+        // Fetch debt from API using existing debt-summary endpoint
+        const response = await fetch(`${API_BASE_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(phone)}`);
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || 'Không thể tải công nợ');
+        }
+
+        const debt = result.total_debt || 0;
+        const transactionCount = result.transactions?.length || 0;
+
+        // Format currency
+        const debtFormatted = new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND'
+        }).format(debt);
+
+        // Show result
+        const message = `📱 SĐT: ${phone}\n💰 Công nợ: ${debtFormatted}\n📊 Số giao dịch: ${transactionCount}`;
+
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(message, 'success');
+        } else {
+            alert(message);
+        }
+
+    } catch (error) {
+        console.error('[DEBT] Error fetching debt:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(`Lỗi: ${error.message}`, 'error');
+        } else {
+            alert(`Lỗi: ${error.message}`);
+        }
+    }
+}
+
 window.rescanGaps = rescanGaps;
 window.retryFailedQueue = retryFailedQueue;
 window.fetchMissingTransaction = fetchMissingTransaction;
 window.showPhoneDataModal = showPhoneDataModal;
 window.closePhoneDataModal = closePhoneDataModal;
+window.filterPhoneDataTable = filterPhoneDataTable;
+window.showDebtForPhone = showDebtForPhone;
 
 // Disconnect when page unloads
 window.addEventListener('beforeunload', () => {
