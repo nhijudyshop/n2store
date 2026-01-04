@@ -4,7 +4,7 @@
    ===================================================== */
 
 // Bán Hàng Module - Firebase version with TPOS Excel Background Fetch
-const BanHangModule = (function() {
+const BanHangModule = (function () {
     'use strict';
 
     // Cloudflare Worker proxy URL for TPOS API
@@ -562,10 +562,18 @@ const BanHangModule = (function() {
             row.insertAdjacentElement('afterend', loadingRow);
 
             // Fetch order lines from TPOS API via worker
-            const response = await fetch(`${WORKER_URL}/tpos/order/${orderId}/lines`, {
+            // Use order-ref route for reference codes like NJD/2026/42623
+            const encodedRef = encodeURIComponent(orderId);
+            const response = await fetch(`${WORKER_URL}/tpos/order-ref/${encodedRef}/lines`, {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+                    'Cache-Control': 'no-cache',
+                    'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+                    'Pragma': 'no-cache',
+                    'tposappversion': typeof TPOS_CONFIG !== 'undefined' ? TPOS_CONFIG.tposAppVersion : '5.12.29.1',
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             });
 
@@ -1283,7 +1291,7 @@ const BanHangModule = (function() {
 })();
 
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Only initialize if we're on the correct page
     if (document.getElementById('banhangTableBody')) {
         BanHangModule.init();

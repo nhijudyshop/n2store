@@ -1333,6 +1333,140 @@ export default {
             },
           });
         }
+      } else if (pathname.startsWith('/tpos/order-ref/') && pathname.endsWith('/lines')) {
+        // ========== TPOS ORDER LINES BY REFERENCE (e.g., NJD/2026/42623) ==========
+        // Example: /tpos/order-ref/NJD%2F2026%2F42623/lines
+        // First search for order by Number (reference), then fetch OrderLines
+        const refMatch = pathname.match(/^\/tpos\/order-ref\/(.+)\/lines$/);
+        const orderRef = refMatch ? decodeURIComponent(refMatch[1]) : null;
+
+        console.log('[TPOS-ORDER-REF] Searching OrderLines for reference:', orderRef);
+
+        if (!orderRef) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Invalid order reference'
+          }), {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+
+        try {
+          // Get or fetch TPOS token
+          let token = getCachedToken()?.access_token;
+
+          if (!token) {
+            console.log('[TPOS-ORDER-REF] No cached token, fetching new one...');
+            const tokenResponse = await fetch('https://tomato.tpos.vn/token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: 'grant_type=password&username=nvkt&password=Aa@123456789&client_id=tmtWebApp',
+            });
+
+            if (!tokenResponse.ok) {
+              throw new Error('Failed to get TPOS token');
+            }
+
+            const tokenData = await tokenResponse.json();
+            cacheToken(tokenData);
+            token = tokenData.access_token;
+          }
+
+          // Step 1: Search for order by Number (reference) using ODataService.GetView
+          // Use contains filter: contains(Number,'NJD/2026/42586')
+          const encodedRef = encodeURIComponent(orderRef);
+          const searchUrl = `https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.GetView?$top=1&$filter=contains(Number,'${encodedRef}')&$select=Id,Number`;
+
+          console.log('[TPOS-ORDER-REF] Search URL:', searchUrl);
+
+          const searchResponse = await fetch(searchUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json, text/javascript, */*; q=0.01',
+              'Authorization': `Bearer ${token}`,
+              'tposappversion': '5.12.29.1',
+              'x-requested-with': 'XMLHttpRequest',
+              'Referer': 'https://tomato.tpos.vn/',
+              'Origin': 'https://tomato.tpos.vn'
+            },
+          });
+
+          if (!searchResponse.ok) {
+            throw new Error(`TPOS search API error: ${searchResponse.status}`);
+          }
+
+          const searchResult = await searchResponse.json();
+
+          if (!searchResult.value || searchResult.value.length === 0) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'Order not found',
+              reference: orderRef
+            }), {
+              status: 404,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+
+          const orderId = searchResult.value[0].Id;
+          console.log('[TPOS-ORDER-REF] Found order ID:', orderId);
+
+          // Step 2: Fetch OrderLines using the order ID
+          const odataUrl = `https://tomato.tpos.vn/odata/FastSaleOrder(${orderId})/OrderLines?$expand=Product,ProductUOM,Account,SaleLine,User`;
+
+          const odataResponse = await fetch(odataUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': '*/*',
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+              'tposappversion': '5.12.29.1',
+              'Referer': 'https://tomato.tpos.vn/',
+              'Origin': 'https://tomato.tpos.vn'
+            },
+          });
+
+          if (!odataResponse.ok) {
+            throw new Error(`TPOS OrderLines API error: ${odataResponse.status}`);
+          }
+
+          const odataResult = await odataResponse.json();
+
+          return new Response(JSON.stringify({
+            success: true,
+            orderId: orderId,
+            reference: orderRef,
+            data: odataResult.value || []
+          }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+
+        } catch (error) {
+          console.error('[TPOS-ORDER-REF] Error:', error);
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
       } else if (pathname.startsWith('/api/rest/')) {
         // ========== TPOS REST API v2.0 (Live Comments, etc.) ==========
         // Example: /api/rest/v2.0/facebookpost/{objectId}/commentsbyuser?userId={userId}
