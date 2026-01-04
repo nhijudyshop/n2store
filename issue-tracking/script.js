@@ -192,13 +192,14 @@ async function selectOrder(order) {
     document.getElementById('order-result').classList.remove('hidden');
     document.getElementById('issue-details-form').classList.remove('hidden');
 
-    // Fill basic order data
+    // Fill basic order info
     document.getElementById('res-customer').textContent = order.customer;
     document.getElementById('res-phone').textContent = order.phone;
-    document.getElementById('res-tracking').textContent = order.trackingCode || order.tposCode || '---';
+    document.getElementById('res-order-code').textContent = order.tposCode;
+    document.getElementById('res-address').textContent = order.address || 'Chưa có địa chỉ';
 
-    // Show loading state for products
-    document.getElementById('res-products').textContent = 'Đang tải sản phẩm...';
+    // Show loading state
+    document.getElementById('res-products-table').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:10px;color:#64748b;">Đang tải sản phẩm...</td></tr>';
     const checklist = document.getElementById('product-checklist');
     checklist.innerHTML = '<p style="color:#64748b;font-size:12px">Đang tải...</p>';
 
@@ -212,27 +213,61 @@ async function selectOrder(order) {
             // Update selectedOrder with full details
             selectedOrder = { ...selectedOrder, ...details };
 
-            // Display products summary
-            const productSummary = details.products.map(p => `${p.quantity}x ${p.name}`).join(', ');
-            document.getElementById('res-products').textContent = productSummary;
+            // Display products in table
+            const productsTableHTML = details.products.map(p => {
+                const noteDisplay = p.note ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">(${p.note})</div>` : '';
+                return `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:6px 8px;">
+                            <div><strong>[${p.code}]</strong> ${p.name}</div>
+                            ${noteDisplay}
+                        </td>
+                        <td style="padding:6px 8px;text-align:center;">${p.quantity}</td>
+                        <td style="padding:6px 8px;text-align:right;">${formatCurrency(p.price)}</td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('res-products-table').innerHTML = productsTableHTML;
 
-            // Generate product checklist for partial return
+            // Calculate totals
+            const totalQty = details.products.reduce((sum, p) => sum + p.quantity, 0);
+            const finalTotal = details.amountTotal - details.decreaseAmount + details.deliveryPrice;
+
+            // Update summary fields
+            document.getElementById('res-total-qty').textContent = totalQty;
+            document.getElementById('res-amount-total').textContent = formatCurrency(details.amountTotal);
+            document.getElementById('res-decrease-amount').textContent = formatCurrency(details.decreaseAmount);
+            document.getElementById('res-delivery-price').textContent = formatCurrency(details.deliveryPrice);
+            document.getElementById('res-final-total').textContent = formatCurrency(finalTotal);
+            document.getElementById('res-payment-amount').textContent = formatCurrency(details.paymentAmount);
+            document.getElementById('res-cod').textContent = formatCurrency(details.cod);
+
+            // Generate product checklist for partial return (with quantity input)
             checklist.innerHTML = details.products.map(p => `
-                <div class="checkbox-item">
-                    <input type="checkbox" value="${p.id}" id="prod-${p.id}" checked data-price="${p.price}" data-qty="${p.quantity}">
-                    <label for="prod-${p.id}">[${p.code}] ${p.name} - ${formatCurrency(p.price)}</label>
+                <div class="checkbox-item" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px;border:1px solid #e2e8f0;border-radius:4px;">
+                    <input type="checkbox" value="${p.id}" id="prod-${p.id}" checked data-price="${p.price}" data-qty="${p.quantity}" style="margin:0;">
+                    <label for="prod-${p.id}" style="flex:1;margin:0;cursor:pointer;">[${p.code}] ${p.name} - ${formatCurrency(p.price)}</label>
+                    <div style="display:flex;align-items:center;gap:4px;">
+                        <span style="font-size:11px;color:#64748b;">SL:</span>
+                        <input type="number"
+                               id="prod-qty-${p.id}"
+                               value="${p.quantity}"
+                               min="1"
+                               max="${p.quantity}"
+                               style="width:50px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:3px;text-align:center;font-size:12px;">
+                    </div>
                 </div>
             `).join('');
         } else {
             // No products found
-            document.getElementById('res-products').textContent = `COD: ${formatCurrency(order.cod)} | Tổng: ${formatCurrency(order.totalAmount)}`;
+            document.getElementById('res-products-table').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:10px;color:#ef4444;">Không tìm thấy sản phẩm</td></tr>';
             checklist.innerHTML = `<p style="color:#64748b;font-size:12px">Mã đơn: ${order.tposCode} | ${order.carrier || 'N/A'}</p>`;
         }
     } catch (err) {
         console.error('[APP] Failed to load order details:', err);
-        // Fallback to basic info
-        document.getElementById('res-products').textContent = `COD: ${formatCurrency(order.cod)} | Tổng: ${formatCurrency(order.totalAmount)}`;
-        checklist.innerHTML = `<p style="color:#ef4444;font-size:12px">Lỗi tải sản phẩm. Mã đơn: ${order.tposCode}</p>`;
+        // Fallback to error state
+        document.getElementById('res-products-table').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:10px;color:#ef4444;">Lỗi tải sản phẩm</td></tr>';
+        checklist.innerHTML = `<p style="color:#ef4444;font-size:12px;">Lỗi tải sản phẩm. Mã đơn: ${order.tposCode}</p>`;
     }
 }
 
