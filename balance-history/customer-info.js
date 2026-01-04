@@ -22,8 +22,10 @@ const CustomerInfoManager = {
         // Initialize Firebase
         this.initFirebase();
 
-        // Load data from database on init
-        this.syncFromDatabase();
+        // Load data from database in background (non-blocking)
+        this.syncFromDatabase().catch(err => {
+            console.error('[CUSTOMER-INFO] Background sync failed:', err);
+        });
     },
 
     /**

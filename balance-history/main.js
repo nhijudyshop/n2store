@@ -395,16 +395,24 @@ function applyQuickFilter(filterType) {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize CustomerInfoManager and sync from database
+document.addEventListener('DOMContentLoaded', async () => {
+    // Set default date first (synchronous, fast)
+    setDefaultCurrentMonth();
+    setupEventListeners();
+
+    // Load data and statistics in parallel (don't wait for each other)
+    const loadPromises = [
+        loadData(),
+        loadStatistics()
+    ];
+
+    // Initialize CustomerInfoManager in background (non-blocking)
     if (window.CustomerInfoManager) {
         window.CustomerInfoManager.init();
     }
 
-    setDefaultCurrentMonth();
-    loadData();
-    loadStatistics();
-    setupEventListeners();
+    // Wait for critical data (main table) to load
+    await Promise.all(loadPromises);
 });
 
 // Event Listeners
