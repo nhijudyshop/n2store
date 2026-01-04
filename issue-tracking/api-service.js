@@ -6,32 +6,8 @@ const ApiService = {
     mode: 'FIREBASE',
 
     /**
-     * Get TPOS Bearer Token (via Cloudflare Worker proxy)
-     * @returns {Promise<string>} Access token
-     */
-    async getTPOSToken() {
-        // Use tokenManager if available (from orders-report)
-        if (window.tokenManager) {
-            return await window.tokenManager.getToken();
-        }
-
-        // Fallback: call /api/token directly
-        const response = await API_CONFIG.smartFetch(`${API_CONFIG.WORKER_URL}/api/token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'grant_type=password&username=nvkt&password=Aa@123456789&client_id=tmtWebApp'
-        });
-
-        if (!response.ok) {
-            throw new Error(`Token fetch failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.access_token;
-    },
-
-    /**
      * Search orders from TPOS via TPOS OData Proxy
+     * Uses tokenManager.authenticatedFetch() for proper auth handling
      * @param {string} query - Phone number (5-11 digits supported)
      * @returns {Promise<Array>} List of mapped orders
      */
@@ -63,16 +39,12 @@ const ApiService = {
         console.log('[API] TPOS OData URL:', url);
 
         try {
-            const token = await this.getTPOSToken();
-
-            const response = await API_CONFIG.smartFetch(url, {
+            // Use tokenManager.authenticatedFetch() - handles token auto-refresh and proper headers
+            const response = await window.tokenManager.authenticatedFetch(url, {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
-                    'Content-Type': 'application/json',
-                    'tposappversion': '5.12.29.1',
-                    'x-requested-with': 'XMLHttpRequest'
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
                 }
             });
 
