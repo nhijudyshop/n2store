@@ -6,7 +6,7 @@
 const API_BASE_URL = window.CONFIG?.API_BASE_URL || (
     window.location.hostname === 'localhost'
         ? 'http://localhost:3000'
-        : 'chatomni-proxy.nhijudyshop.workers.dev'
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev'
 );
 
 // State
