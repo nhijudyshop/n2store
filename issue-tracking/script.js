@@ -183,29 +183,57 @@ async function handleSearchOrder() {
 }
 
 /**
- * Select an order and display its details
+ * Select an order and display its details (with products)
  * @param {Object} order - Order object from TPOS
  */
-function selectOrder(order) {
+async function selectOrder(order) {
     selectedOrder = order;
 
     document.getElementById('order-result').classList.remove('hidden');
     document.getElementById('issue-details-form').classList.remove('hidden');
 
-    // Fill order data
+    // Fill basic order data
     document.getElementById('res-customer').textContent = order.customer;
     document.getElementById('res-phone').textContent = order.phone;
     document.getElementById('res-tracking').textContent = order.trackingCode || order.tposCode || '---';
 
-    // Products - show COD and total amount (products will be loaded separately if needed)
-    document.getElementById('res-products').textContent = `COD: ${formatCurrency(order.cod)} | Tổng: ${formatCurrency(order.totalAmount)}`;
-
-    // Reset product checklist (will implement product loading later if needed)
+    // Show loading state for products
+    document.getElementById('res-products').textContent = 'Đang tải sản phẩm...';
     const checklist = document.getElementById('product-checklist');
-    checklist.innerHTML = `<p style="color:#64748b;font-size:12px">Mã đơn: ${order.tposCode} | ${order.carrier || 'N/A'}</p>`;
+    checklist.innerHTML = '<p style="color:#64748b;font-size:12px">Đang tải...</p>';
 
     // Hide order selection list
     hideOrderSelectionList();
+
+    // Fetch full order details with products
+    try {
+        const details = await ApiService.getOrderDetails(order.id);
+        if (details && details.products && details.products.length > 0) {
+            // Update selectedOrder with full details
+            selectedOrder = { ...selectedOrder, ...details };
+
+            // Display products summary
+            const productSummary = details.products.map(p => `${p.quantity}x ${p.name}`).join(', ');
+            document.getElementById('res-products').textContent = productSummary;
+
+            // Generate product checklist for partial return
+            checklist.innerHTML = details.products.map(p => `
+                <div class="checkbox-item">
+                    <input type="checkbox" value="${p.id}" id="prod-${p.id}" checked data-price="${p.price}" data-qty="${p.quantity}">
+                    <label for="prod-${p.id}">[${p.code}] ${p.name} - ${formatCurrency(p.price)}</label>
+                </div>
+            `).join('');
+        } else {
+            // No products found
+            document.getElementById('res-products').textContent = `COD: ${formatCurrency(order.cod)} | Tổng: ${formatCurrency(order.totalAmount)}`;
+            checklist.innerHTML = `<p style="color:#64748b;font-size:12px">Mã đơn: ${order.tposCode} | ${order.carrier || 'N/A'}</p>`;
+        }
+    } catch (err) {
+        console.error('[APP] Failed to load order details:', err);
+        // Fallback to basic info
+        document.getElementById('res-products').textContent = `COD: ${formatCurrency(order.cod)} | Tổng: ${formatCurrency(order.totalAmount)}`;
+        checklist.innerHTML = `<p style="color:#ef4444;font-size:12px">Lỗi tải sản phẩm. Mã đơn: ${order.tposCode}</p>`;
+    }
 }
 
 /**
