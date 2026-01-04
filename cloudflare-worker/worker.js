@@ -1253,6 +1253,79 @@ export default {
         // Customers API (Render) - PostgreSQL backend
         const customersPath = pathname.replace(/^\/api\/customers\/?/, '');
         targetUrl = `https://n2store-fallback.onrender.com/api/customers/${customersPath}${url.search}`;
+      } else if (pathname.match(/^\/tpos\/order\/(\d+)\/lines$/)) {
+        // ========== TPOS ORDER LINES (OData API) ==========
+        // Example: /tpos/order/409233/lines
+        // Forwards to: https://tomato.tpos.vn/odata/FastSaleOrder(409233)/OrderLines?$expand=Product,ProductUOM
+        const orderId = pathname.match(/^\/tpos\/order\/(\d+)\/lines$/)[1];
+
+        console.log('[TPOS-ORDER-LINES] Fetching OrderLines for order:', orderId);
+
+        try {
+          // Get or fetch TPOS token
+          let token = getCachedToken()?.access_token;
+
+          if (!token) {
+            console.log('[TPOS-ORDER-LINES] No cached token, fetching new one...');
+            const tokenResponse = await fetch('https://tomato.tpos.vn/token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: 'grant_type=password&username=nvkt&password=Aa@123456789&client_id=tmtWebApp',
+            });
+
+            if (!tokenResponse.ok) {
+              throw new Error('Failed to get TPOS token');
+            }
+
+            const tokenData = await tokenResponse.json();
+            cacheToken(tokenData);
+            token = tokenData.access_token;
+          }
+
+          // Fetch OrderLines from TPOS OData API
+          const odataUrl = `https://tomato.tpos.vn/odata/FastSaleOrder(${orderId})/OrderLines?$expand=Product,ProductUOM,Account,SaleLine,User`;
+
+          const odataResponse = await fetch(odataUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+              'tposappversion': '5.12.29.1',
+            },
+          });
+
+          if (!odataResponse.ok) {
+            throw new Error(`TPOS API error: ${odataResponse.status}`);
+          }
+
+          const odataResult = await odataResponse.json();
+
+          return new Response(JSON.stringify({
+            success: true,
+            data: odataResult.value || []
+          }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+
+        } catch (error) {
+          console.error('[TPOS-ORDER-LINES] Error:', error);
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
       } else if (pathname.startsWith('/api/rest/')) {
         // ========== TPOS REST API v2.0 (Live Comments, etc.) ==========
         // Example: /api/rest/v2.0/facebookpost/{objectId}/commentsbyuser?userId={userId}
