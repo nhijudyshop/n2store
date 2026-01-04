@@ -38,7 +38,7 @@
                 headers: {
                     ...headers,
                     'Accept': 'application/json',
-                    'tposappversion': '5.11.16.1'
+                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
                 }
             });
 
@@ -168,7 +168,7 @@
                 'Accept': '*/*',
                 'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
                 ...headers,
-                'tposappversion': '5.11.16.1'
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
             }
         });
 
@@ -185,17 +185,19 @@
     }
 
     /**
-     * Tìm các đơn hàng có cùng số điện thoại trong window.allData
+     * Tìm các đơn hàng có cùng số điện thoại trong allData
      * @param {Object} currentOrder - Đơn hàng hiện tại
      * @returns {Array} - Danh sách đơn hàng có cùng SĐT (đơn hiện tại đầu tiên, còn lại theo thời gian)
      */
     function findRelatedOrdersByPhone(currentOrder) {
         const phone = currentOrder.Telephone;
-        if (!phone || !window.allData) return [{ order: currentOrder, indexInAllData: -1 }];
+        const allOrders = window.getAllOrders ? window.getAllOrders() : [];
+
+        if (!phone || allOrders.length === 0) return [{ order: currentOrder, indexInAllData: -1 }];
 
         // Lọc các đơn có cùng SĐT (không cần check Facebook fields vì sẽ fetch sau)
         const relatedOrders = [];
-        window.allData.forEach((order, index) => {
+        allOrders.forEach((order, index) => {
             if (order.Telephone === phone) {
                 relatedOrders.push({ order, indexInAllData: index });
             }
@@ -558,7 +560,7 @@
             document.addEventListener('keydown', escHandler);
 
             const totalComments = ordersWithComments.reduce((sum, item) => sum + item.comments.length, 0);
-            console.log('[LiveComments] Modal opened with', totalComments, 'comments from', relatedOrders.length, 'orders');
+            console.log('[LiveComments] Modal opened with', totalComments, 'comments from', ordersWithComments.length, 'orders');
 
         } catch (error) {
             console.error('[LiveComments] Error:', error);

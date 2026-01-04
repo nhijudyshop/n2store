@@ -1,3 +1,8 @@
+<!--
+  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
+  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
+-->
 <!doctype html>
 <html lang="vi">
 
@@ -22,6 +27,9 @@
 
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- XLSX.js for Excel parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <style>
         /* Tab Navigation */
@@ -683,6 +691,20 @@
             } else if (e.data.type === "EMPLOYEE_RANGES_RESPONSE") {
                 // Forward employee ranges response from Tab1 to Overview
                 console.log('[MAIN] 📨 Forwarding EMPLOYEE_RANGES_RESPONSE to Overview');
+                const overviewFrame = document.getElementById("overviewFrame");
+                if (overviewFrame && overviewFrame.contentWindow) {
+                    overviewFrame.contentWindow.postMessage(e.data, "*");
+                }
+            } else if (e.data.type === "REQUEST_CAMPAIGN_INFO") {
+                // Forward request from Overview to Tab1 for campaign info
+                console.log('[MAIN] 📨 Forwarding REQUEST_CAMPAIGN_INFO to Tab1');
+                const ordersFrame = document.getElementById("ordersFrame");
+                if (ordersFrame && ordersFrame.contentWindow) {
+                    ordersFrame.contentWindow.postMessage(e.data, "*");
+                }
+            } else if (e.data.type === "CAMPAIGN_INFO_RESPONSE") {
+                // Forward campaign info response from Tab1 to Overview
+                console.log('[MAIN] 📨 Forwarding CAMPAIGN_INFO_RESPONSE to Overview');
                 const overviewFrame = document.getElementById("overviewFrame");
                 if (overviewFrame && overviewFrame.contentWindow) {
                     overviewFrame.contentWindow.postMessage(e.data, "*");

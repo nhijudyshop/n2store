@@ -1,3 +1,8 @@
+<!--
+  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
+  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
+-->
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -156,6 +161,16 @@
             font-weight: 600;
         }
 
+        .badge-base {
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
         /* Chart container */
         .chart-container {
             position: relative;
@@ -193,52 +208,6 @@
         .modal-dialog.modal-fullscreen .modal-body {
             flex: 1 !important;
             overflow-y: auto !important;
-        }
-
-        /* Watermark badges */
-        .watermark-info {
-            font-size: 11px;
-            color: #6b7280;
-            margin-top: 4px;
-        }
-
-        .watermark-badge {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-weight: 500;
-            margin-right: 4px;
-        }
-
-        .watermark-baseline {
-            background: #e5e7eb;
-            color: #4b5563;
-        }
-
-        .watermark-current {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .watermark-kpi {
-            background: #d1fae5;
-            color: #059669;
-            font-weight: 600;
-        }
-
-        /* Fraud warning */
-        .fraud-warning-row {
-            background: #fef2f2 !important;
-        }
-
-        .fraud-warning-icon {
-            color: #dc2626;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
         }
 
         /* Summary cards */
@@ -315,7 +284,7 @@
         <div class="summary-card summary-card-blue">
             <div class="summary-card-title"><i class="fas fa-users"></i> Tổng người dùng</div>
             <div class="summary-card-value" id="totalUsers">0</div>
-            <div class="summary-card-subtitle">Đang hoạt động</div>
+            <div class="summary-card-subtitle">Có đơn hàng KPI</div>
         </div>
         <div class="summary-card summary-card-green">
             <div class="summary-card-title"><i class="fas fa-shopping-cart"></i> Tổng đơn hàng</div>
@@ -328,9 +297,9 @@
             <div class="summary-card-subtitle">Tính KPI</div>
         </div>
         <div class="summary-card summary-card-red">
-            <div class="summary-card-title"><i class="fas fa-exclamation-triangle"></i> Cảnh báo</div>
-            <div class="summary-card-value" id="totalFraudWarnings">0</div>
-            <div class="summary-card-subtitle">Nghi ngờ gian lận</div>
+            <div class="summary-card-title"><i class="fas fa-coins"></i> Tổng KPI</div>
+            <div class="summary-card-value" id="totalKPI">0đ</div>
+            <div class="summary-card-subtitle">Giá trị thanh toán</div>
         </div>
     </div>
 
@@ -342,15 +311,33 @@
                 Thống kê KPI - Watermark Method
             </div>
             <div class="stats-actions">
+                <!-- Campaign Filter -->
+                <select id="campaignFilter" class="form-select" style="width: 250px; font-size: 13px;">
+                    <option value="">-- Chọn bảng/chiến dịch --</option>
+                </select>
                 <button class="btn-action btn-timeline" onclick="showTimeline()">
                     <i class="fas fa-chart-line"></i> Timeline
                 </button>
                 <button class="btn-action btn-export" onclick="exportToExcel()">
                     <i class="fas fa-file-excel"></i> Export Excel
                 </button>
-                <button class="btn-action btn-refresh" onclick="loadStats()">
+                <button class="btn-action btn-refresh" onclick="refreshStats()">
                     <i class="fas fa-sync-alt"></i> Làm mới
                 </button>
+            </div>
+        </div>
+
+        <!-- Campaign Info Bar -->
+        <div id="campaignInfoBar" style="display: none; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <i class="fas fa-calendar-alt" style="color: #0284c7;"></i>
+                    <strong id="selectedCampaignName" style="color: #0369a1;">Chưa chọn chiến dịch</strong>
+                    <span id="campaignOrderCount" style="color: #64748b; margin-left: 12px;"></span>
+                </div>
+                <div id="kpiCalculationStatus" style="font-size: 12px; color: #64748b;">
+                    <!-- Status will be shown here -->
+                </div>
             </div>
         </div>
 
@@ -362,15 +349,15 @@
                         <th>Tên người dùng</th>
                         <th style="text-align: center; width: 100px;">Số đơn</th>
                         <th style="text-align: center;">Tổng số lượng</th>
-                        <th style="text-align: right;">Tổng tiền (5.000đ/sp)</th>
-                        <th style="text-align: right;">Tổng tiền hóa đơn</th>
+                        <th style="text-align: right;">Tổng KPI (5.000đ/sp)</th>
                         <th style="text-align: center; width: 120px;">Trạng thái</th>
                     </tr>
                 </thead>
                 <tbody id="statsTableBody">
                     <tr>
-                        <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
-                            <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải dữ liệu...
+                        <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <i class="fas fa-hand-point-up mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
+                            Vui lòng chọn một chiến dịch để xem thống kê KPI
                         </td>
                     </tr>
                 </tbody>
@@ -379,8 +366,7 @@
                         <td colspan="2" style="text-align: right;">Tổng cộng:</td>
                         <td style="text-align: center;" id="grandTotalOrders">0</td>
                         <td style="text-align: center;" id="grandTotalQty">0</td>
-                        <td style="text-align: right; color: #3b82f6;" id="grandTotalAmount">0đ</td>
-                        <td style="text-align: right; color: #059669;" id="grandTotalInvoiceAmount">0đ</td>
+                        <td style="text-align: right; color: #dc2626;" id="grandTotalAmount">0đ</td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -422,10 +408,10 @@
                             <tr>
                                 <th style="width: 50px;">#</th>
                                 <th>STT Đơn</th>
-                                <th>Số lượng SP</th>
-                                <th>KPI</th>
+                                <th style="text-align: center;">Số lượng SP</th>
+                                <th style="text-align: right;">KPI</th>
                                 <th>Thời gian</th>
-                                <th>Trạng thái</th>
+                                <th style="text-align: center;">Trạng thái</th>
                                 <th style="text-align: center;">Hành động</th>
                             </tr>
                         </thead>
@@ -453,55 +439,70 @@
                     <!-- Nav tabs -->
                     <ul class="nav nav-tabs" id="orderDetailsTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="all-products-tab" data-bs-toggle="tab"
+                            <button class="nav-link active" id="kpi-comparison-tab" data-bs-toggle="tab"
+                                data-bs-target="#kpi-comparison" type="button" role="tab">
+                                <i class="fas fa-exchange-alt text-primary"></i> So sánh KPI
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="all-products-tab" data-bs-toggle="tab"
                                 data-bs-target="#all-products" type="button" role="tab">
-                                <i class="fas fa-box"></i> Tất cả SP
+                                <i class="fas fa-box"></i> Tất cả SP (Current)
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="kpi-products-tab" data-bs-toggle="tab"
-                                data-bs-target="#kpi-products" type="button" role="tab">
-                                <i class="fas fa-star text-warning"></i> SP có KPI
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="non-kpi-products-tab" data-bs-toggle="tab"
-                                data-bs-target="#non-kpi-products" type="button" role="tab">
-                                <i class="fas fa-circle text-muted"></i> SP không KPI
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="invoice-tab" data-bs-toggle="tab" data-bs-target="#invoice"
-                                type="button" role="tab">
-                                <i class="fas fa-file-invoice"></i> Hóa đơn
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="baseline-tab" data-bs-toggle="tab" data-bs-target="#baseline"
-                                type="button" role="tab">
-                                <i class="fas fa-lock text-primary"></i> Baseline
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="compare-tab" data-bs-toggle="tab" data-bs-target="#compare"
-                                type="button" role="tab">
-                                <i class="fas fa-exchange-alt text-success"></i> So sánh với hóa đơn
+                            <button class="nav-link" id="base-products-tab" data-bs-toggle="tab"
+                                data-bs-target="#base-products" type="button" role="tab">
+                                <i class="fas fa-lock text-warning"></i> BASE Products
                             </button>
                         </li>
                     </ul>
 
                     <!-- Tab content -->
                     <div class="tab-content pt-3" id="orderDetailsTabContent">
+                        <!-- KPI Comparison Tab -->
+                        <div class="tab-pane fade show active" id="kpi-comparison" role="tabpanel">
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>So sánh KPI:</strong> So sánh sản phẩm BASE (khi lưu lần đầu) với Current (hiện tại trong đơn).
+                                KPI = Current - BASE (chỉ tính tăng)
+                            </div>
+                            <table class="table table-hover">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th style="width: 50px;">#</th>
+                                        <th>Mã sản phẩm</th>
+                                        <th style="text-align: center; width: 120px;">BASE Qty</th>
+                                        <th style="text-align: center; width: 120px;">Current Qty</th>
+                                        <th style="text-align: center; width: 120px;">KPI Qty</th>
+                                        <th style="text-align: right; width: 150px;">Giá trị KPI</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kpiComparisonTableBody">
+                                    <!-- KPI comparison will be loaded here -->
+                                </tbody>
+                                <tfoot id="kpiComparisonFooter" style="background: #f0fdf4;">
+                                    <tr>
+                                        <td colspan="4" style="text-align: right; font-weight: 600;">Tổng KPI:</td>
+                                        <td style="text-align: center; font-weight: 700; color: #059669;" id="totalKpiQty">0</td>
+                                        <td style="text-align: right; font-weight: 700; color: #059669;" id="totalKpiValue">0đ</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
                         <!-- All Products Tab -->
-                        <div class="tab-pane fade show active" id="all-products" role="tabpanel">
+                        <div class="tab-pane fade" id="all-products" role="tabpanel">
+                            <div class="alert alert-secondary mb-3">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Current Products:</strong> Danh sách sản phẩm hiện tại trong đơn hàng (từ report_order_details)
+                            </div>
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
                                         <th style="width: 50px;">#</th>
-                                        <th>Tên sản phẩm</th>
+                                        <th>Mã sản phẩm</th>
                                         <th style="text-align: center; width: 100px;">Số lượng</th>
-                                        <th style="text-align: center; width: 200px;">Watermark</th>
-                                        <th style="text-align: right; width: 150px;">Giá</th>
                                     </tr>
                                 </thead>
                                 <tbody id="allProductsTableBody">
@@ -510,185 +511,36 @@
                             </table>
                         </div>
 
-                        <!-- KPI Products Tab -->
-                        <div class="tab-pane fade" id="kpi-products" role="tabpanel">
+                        <!-- BASE Products Tab -->
+                        <div class="tab-pane fade" id="base-products" role="tabpanel">
+                            <div class="alert alert-warning mb-3">
+                                <i class="fas fa-lock"></i>
+                                <strong>BASE Products:</strong> Snapshot sản phẩm khi lưu lần đầu. Không bao giờ thay đổi sau khi tạo.
+                            </div>
                             <table class="table table-hover">
-                                <thead class="table-success">
+                                <thead class="table-warning">
                                     <tr>
                                         <th style="width: 50px;">#</th>
-                                        <th>Tên sản phẩm</th>
-                                        <th style="text-align: center; width: 100px;">Baseline</th>
-                                        <th style="text-align: center; width: 100px;">Current</th>
-                                        <th style="text-align: center; width: 100px;">KPI Qty</th>
-                                        <th style="text-align: right; width: 150px;">Giá trị KPI</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="kpiProductsTableBody">
-                                    <!-- KPI products will be loaded here -->
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Non-KPI Products Tab -->
-                        <div class="tab-pane fade" id="non-kpi-products" role="tabpanel">
-                            <table class="table table-hover">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 50px;">#</th>
-                                        <th>Tên sản phẩm</th>
+                                        <th>Mã sản phẩm</th>
                                         <th style="text-align: center; width: 100px;">Số lượng</th>
-                                        <th style="text-align: center; width: 200px;">Watermark</th>
-                                        <th>Lý do không tính KPI</th>
                                     </tr>
                                 </thead>
-                                <tbody id="nonKpiProductsTableBody">
-                                    <!-- Non-KPI products will be loaded here -->
+                                <tbody id="baseProductsTableBody">
+                                    <!-- BASE products will be loaded here -->
                                 </tbody>
                             </table>
-                        </div>
-
-                        <!-- Invoice Tab -->
-                        <div class="tab-pane fade" id="invoice" role="tabpanel">
-                            <div class="alert alert-info mb-3 d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="fas fa-info-circle"></i>
-                                    <strong>Hóa đơn:</strong> Danh sách hóa đơn (30 ngày gần nhất) của khách hàng này, được tải từ API.
-                                </div>
-                                <button class="btn btn-sm btn-primary" id="refreshInvoiceBtn" style="display: none;">
-                                    <i class="fas fa-sync-alt"></i> Làm mới
-                                </button>
-                            </div>
-                            <div id="invoiceContent">
-                                <div style="text-align: center; padding: 40px; color: #94a3b8;">
-                                    <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải hóa đơn...
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Baseline Tab -->
-                        <div class="tab-pane fade" id="baseline" role="tabpanel">
-                            <div class="alert alert-info mb-3">
-                                <i class="fas fa-info-circle"></i>
-                                <strong>Baseline:</strong> Snapshot sản phẩm trong đơn khi thực hiện hành động đầu tiên.
-                                Được dùng để so sánh và phát hiện thay đổi. Baseline không bao giờ thay đổi sau khi được tạo.
-                            </div>
-                            <table class="table table-hover">
-                                <thead class="table-primary">
-                                    <tr>
-                                        <th style="width: 50px;">#</th>
-                                        <th>Tên sản phẩm</th>
-                                        <th style="text-align: center; width: 150px;">Baseline Qty</th>
-                                        <th style="text-align: center; width: 150px;">Current Qty</th>
-                                        <th style="text-align: center; width: 150px;">KPI Qty</th>
-                                        <th style="text-align: center; width: 100px;">Thay đổi</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="baselineTableBody">
-                                    <!-- Baseline products will be loaded here -->
-                                </tbody>
-                            </table>
-                            <div id="baselineEmpty" style="display: none; text-align: center; padding: 40px; color: #94a3b8;">
+                            <div id="baseEmpty" style="display: none; text-align: center; padding: 40px; color: #94a3b8;">
                                 <i class="fas fa-lock-open fa-3x mb-3"></i>
-                                <p>Chưa có baseline cho đơn hàng này</p>
-                                <small>Baseline sẽ được tạo khi thực hiện hành động đầu tiên trên đơn hàng</small>
-                            </div>
-                        </div>
-
-                        <!-- Compare with Invoice Tab -->
-                        <div class="tab-pane fade" id="compare" role="tabpanel">
-                            <div class="alert alert-info mb-3 d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="fas fa-exchange-alt"></i>
-                                    <strong>So sánh:</strong> Kiểm tra sản phẩm trong đơn hàng có khớp với hóa đơn không
-                                </div>
-                                <div style="min-width: 300px;">
-                                    <label style="font-size: 12px; margin-bottom: 4px;">Chọn hóa đơn:</label>
-                                    <select class="form-select form-select-sm" id="invoiceSelector">
-                                        <option value="">Đang tải...</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <!-- Left Table: Order Products -->
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-header bg-primary text-white">
-                                            <h6 class="mb-0"><i class="fas fa-box"></i> Sản phẩm trong đơn hàng</h6>
-                                        </div>
-                                        <div class="card-body p-0">
-                                            <div style="max-height: 600px; overflow-y: auto;">
-                                                <table class="table table-sm table-hover mb-0">
-                                                    <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
-                                                        <tr>
-                                                            <th style="width: 40px;">#</th>
-                                                            <th>Tên sản phẩm</th>
-                                                            <th style="text-align: center; width: 80px;">SL</th>
-                                                            <th style="text-align: center; width: 100px;">Trạng thái</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody id="compareOrderProductsBody">
-                                                        <tr>
-                                                            <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
-                                                                <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải...
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Right Table: Invoice Products -->
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-header bg-success text-white">
-                                            <h6 class="mb-0"><i class="fas fa-file-invoice"></i> Sản phẩm trong hóa đơn</h6>
-                                        </div>
-                                        <div class="card-body p-0">
-                                            <div style="max-height: 600px; overflow-y: auto;">
-                                                <table class="table table-sm table-hover mb-0">
-                                                    <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
-                                                        <tr>
-                                                            <th style="width: 40px;">#</th>
-                                                            <th>Tên sản phẩm</th>
-                                                            <th style="text-align: center; width: 80px;">SL</th>
-                                                            <th style="text-align: right; width: 120px;">Thành tiền</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody id="compareInvoiceProductsBody">
-                                                        <tr>
-                                                            <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
-                                                                <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải...
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Summary Section -->
-                            <div class="alert alert-secondary mt-3" id="compareSummary" style="display: none;">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <strong>Tổng SP trong đơn:</strong> <span id="totalOrderProducts">0</span>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <strong>Tổng SP trong hóa đơn:</strong> <span id="totalInvoiceProducts">0</span>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <strong>SP khớp (có KPI):</strong> <span id="totalMatchedProducts" class="text-success">0</span>
-                                    </div>
-                                </div>
+                                <p>Chưa có BASE cho đơn hàng này</p>
+                                <small>BASE sẽ được tạo khi lưu đơn hàng lần đầu</small>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="fetchOrderFromTPOS()" id="btnFetchTPOS">
+                        <i class="fas fa-cloud-download-alt"></i> Lấy dữ liệu từ TPOS
+                    </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
                 </div>
             </div>
@@ -707,6 +559,8 @@
     <script src="auth.js"></script>
     <script src="token-manager.js"></script>
     <script src="api-config.js"></script>
+    <!-- KPI Manager -->
+    <script src="kpi-manager.js"></script>
 
     <script>
         // Initialize Firebase
@@ -714,42 +568,266 @@
             firebase.initializeApp(firebaseConfig);
         }
 
+        // Global state
         let allStatsData = {};
-        let allOrderSnapshots = {};
         let timelineChart = null;
+        let currentCampaignName = null;
+        let campaignsList = [];
+        let currentOrderId = null; // For TPOS fetch
 
+        // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', function () {
-            loadStats();
+            loadCampaigns();
+
+            // Campaign filter change handler
+            document.getElementById('campaignFilter').addEventListener('change', async function (e) {
+                const selectedCampaign = e.target.value;
+                if (selectedCampaign) {
+                    await onCampaignSelected(selectedCampaign);
+                } else {
+                    currentCampaignName = null;
+                    document.getElementById('campaignInfoBar').style.display = 'none';
+                    clearStatsTable();
+                }
+            });
         });
 
-        async function loadStats() {
-            const tbody = document.getElementById('statsTableBody');
-            const tfoot = document.getElementById('statsTableFooter');
+        // ==================== CAMPAIGN LOADING ====================
+        async function loadCampaigns() {
+            const select = document.getElementById('campaignFilter');
 
+            try {
+                const snapshot = await firebase.database().ref('report_order_details').once('value');
+                const data = snapshot.val() || {};
+
+                campaignsList = [];
+
+                for (const key in data) {
+                    const campaignData = data[key];
+                    if (campaignData && campaignData.tableName) {
+                        campaignsList.push({
+                            key: key,
+                            name: campaignData.tableName,
+                            orderCount: campaignData.orders?.length || 0,
+                            fetchedAt: campaignData.fetchedAt
+                        });
+                    }
+                }
+
+                // Sort by fetchedAt (newest first)
+                campaignsList.sort((a, b) => (b.fetchedAt || 0) - (a.fetchedAt || 0));
+
+                // Populate dropdown
+                select.innerHTML = '<option value="">-- Chọn bảng/chiến dịch --</option>';
+                campaignsList.forEach(campaign => {
+                    const option = document.createElement('option');
+                    option.value = campaign.name;
+                    option.textContent = `${campaign.name} (${campaign.orderCount} đơn)`;
+                    select.appendChild(option);
+                });
+
+                console.log('[KPI-STATS] Loaded', campaignsList.length, 'campaigns');
+
+            } catch (error) {
+                console.error('[KPI-STATS] Error loading campaigns:', error);
+            }
+        }
+
+        // ==================== CAMPAIGN SELECTION ====================
+        async function onCampaignSelected(campaignName) {
+            currentCampaignName = campaignName;
+
+            const infoBar = document.getElementById('campaignInfoBar');
+            const nameEl = document.getElementById('selectedCampaignName');
+            const countEl = document.getElementById('campaignOrderCount');
+            const statusEl = document.getElementById('kpiCalculationStatus');
+
+            infoBar.style.display = 'block';
+            nameEl.textContent = campaignName;
+
+            const campaign = campaignsList.find(c => c.name === campaignName);
+            countEl.textContent = campaign ? `(${campaign.orderCount} đơn hàng)` : '';
+
+            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tính KPI...';
+
+            const tbody = document.getElementById('statsTableBody');
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
-                        <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải dữ liệu...
+                    <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <i class="fas fa-calculator fa-spin mb-2" style="font-size: 24px;"></i><br>
+                        Đang tính KPI cho chiến dịch "<strong>${campaignName}</strong>"...
                     </td>
                 </tr>
             `;
 
             try {
-                // Fetch both stats and snapshots in parallel
-                const [statsSnapshot, orderSnapshotsSnapshot] = await Promise.all([
-                    firebase.database().ref('held_product_stats').once('value'),
-                    firebase.database().ref('order_snapshots').once('value')
-                ]);
+                // Load and display statistics (calculate KPI directly from BASE vs Current)
+                await loadStatsForCampaign(campaignName, statusEl);
 
-                const data = statsSnapshot.val();
-                const allSnapshots = orderSnapshotsSnapshot.val() || {};
-                allOrderSnapshots = allSnapshots;
+            } catch (error) {
+                console.error('[KPI-STATS] Error calculating KPI:', error);
+                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i> Lỗi: ${error.message}`;
+            }
+        }
 
-                if (!data) {
+        // ==================== CALCULATE KPI (same logic as Order Details Modal) ====================
+        function calculateOrderKPI(baseProducts, currentProducts) {
+            // Create maps for comparison (same logic as renderKPIComparisonTab)
+            const baseMap = new Map();
+            (baseProducts || []).forEach(p => {
+                const code = (p.code || '').toUpperCase();
+                if (code) baseMap.set(code, p.quantity || 0);
+            });
+
+            const currentMap = new Map();
+            (currentProducts || []).forEach(p => {
+                const code = (p.code || '').toUpperCase();
+                if (code) currentMap.set(code, p.quantity || 0);
+            });
+
+            let totalKpiQty = 0;
+
+            // Calculate KPI for all products
+            const allCodes = new Set([...baseMap.keys(), ...currentMap.keys()]);
+            for (const code of allCodes) {
+                const baseQty = baseMap.get(code) || 0;
+                const currentQty = currentMap.get(code) || 0;
+                const kpiQty = Math.max(0, currentQty - baseQty); // Only count increases
+                totalKpiQty += kpiQty;
+            }
+
+            return {
+                differences: totalKpiQty,
+                kpi: totalKpiQty * 5000
+            };
+        }
+
+        // ==================== LOAD STATISTICS ====================
+        async function loadStatsForCampaign(campaignName, statusEl) {
+            const tbody = document.getElementById('statsTableBody');
+            const tfoot = document.getElementById('statsTableFooter');
+
+            try {
+                // Get orders from report_order_details
+                const safeTableName = campaignName.replace(/[.$#\[\]\/]/g, '_');
+                const ordersSnapshot = await firebase.database()
+                    .ref(`report_order_details/${safeTableName}`)
+                    .once('value');
+
+                const ordersData = ordersSnapshot.val();
+                if (!ordersData || !ordersData.orders || ordersData.orders.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
-                                <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>Chưa có dữ liệu
+                            <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
+                                <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
+                                Chưa có đơn hàng trong chiến dịch này
+                            </td>
+                        </tr>
+                    `;
+                    tfoot.style.display = 'none';
+                    updateSummaryCards(0, 0, 0, 0);
+                    if (statusEl) statusEl.innerHTML = '<i class="fas fa-info-circle" style="color: #64748b;"></i> Không có đơn hàng';
+                    return;
+                }
+
+                const orders = ordersData.orders;
+
+                // Get all BASE data
+                const baseSnapshot = await firebase.database().ref('kpi_base').once('value');
+                const allBases = baseSnapshot.val() || {};
+
+                // Calculate KPI for each order (same logic as Order Details Modal)
+                const userStats = {};
+                let processedCount = 0;
+                let noBaseCount = 0;
+
+                for (const order of orders) {
+                    const orderId = order.Id || order.id;
+                    if (!orderId) continue;
+
+                    // Get BASE for this order
+                    const base = allBases[orderId];
+
+                    // Get current products from order (same as getOrderDetailsFromFirebase)
+                    const currentProducts = [];
+                    if (order.Details && Array.isArray(order.Details)) {
+                        order.Details.forEach(d => {
+                            const code = d.ProductCode || d.Code || d.DefaultCode || '';
+                            if (code) {
+                                currentProducts.push({
+                                    code: code,
+                                    quantity: d.Quantity || 1
+                                });
+                            }
+                        });
+                    }
+
+                    // Calculate KPI
+                    let kpiResult = { differences: 0, kpi: 0 };
+                    let hasBase = false;
+
+                    if (base && base.products) {
+                        hasBase = true;
+                        kpiResult = calculateOrderKPI(base.products, currentProducts);
+                        processedCount++;
+                    } else {
+                        noBaseCount++;
+                    }
+
+                    // Get user info from BASE or order
+                    const userId = base?.userId || order.UserId || order.User?.Id || 'unknown';
+                    const userName = base?.userName || order.User?.Name || order.UserName || 'Unknown';
+                    const stt = base?.stt || order.SessionIndex || 0;
+
+                    // Aggregate by user
+                    if (!userStats[userId]) {
+                        userStats[userId] = {
+                            id: userId,
+                            name: userName,
+                            totalDifferences: 0,
+                            totalKPI: 0,
+                            orders: []
+                        };
+                    }
+
+                    userStats[userId].totalDifferences += kpiResult.differences;
+                    userStats[userId].totalKPI += kpiResult.kpi;
+                    userStats[userId].orders.push({
+                        orderId: orderId,
+                        stt: stt,
+                        differences: kpiResult.differences,
+                        kpi: kpiResult.kpi,
+                        hasBase: hasBase,
+                        timestamp: base?.timestamp || Date.now()
+                    });
+                }
+
+                // Update status
+                if (statusEl) {
+                    let statusText = `<i class="fas fa-check-circle" style="color: #10b981;"></i> Đã tính ${processedCount} đơn`;
+                    if (noBaseCount > 0) statusText += ` <span class="badge-base">${noBaseCount} đơn chưa có BASE</span>`;
+                    statusEl.innerHTML = statusText;
+                }
+
+                // Calculate totals
+                let totalUsers = Object.keys(userStats).length;
+                let totalOrders = 0;
+                let totalDifferences = 0;
+                let totalKPI = 0;
+
+                for (const user of Object.values(userStats)) {
+                    totalOrders += user.orders.length;
+                    totalDifferences += user.totalDifferences;
+                    totalKPI += user.totalKPI;
+                }
+
+                if (totalOrders === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
+                                <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
+                                Chưa có dữ liệu KPI cho chiến dịch này
+                                <br><small>Vui lòng đảm bảo đã lưu BASE cho các đơn hàng</small>
                             </td>
                         </tr>
                     `;
@@ -758,1013 +836,374 @@
                     return;
                 }
 
-                allStatsData = data;
-
-                // Aggregate data by user
-                const userStats = {};
-
-                Object.keys(data).forEach(userId => {
-                    const userRecords = data[userId];
-                    if (!userRecords) return;
-
-                    Object.values(userRecords).forEach(record => {
-                        if (!userStats[userId]) {
-                            userStats[userId] = {
-                                name: record.userName || 'Unknown',
-                                totalQty: 0,
-                                totalAmount: 0,
-                                orderIds: new Set(),
-                                partnerIds: new Set(),
-                                id: userId,
-                                hasMismatch: false,
-                                hasNegativeKPI: false,
-                                fraudScore: 0,
-                                mismatchDetails: [],
-                                totalInvoiceAmount: 0
-                            };
-                        }
-
-                        const qty = parseInt(record.productCount) || 0;
-                        const amount = record.amount || (qty * 5000);
-
-                        userStats[userId].totalQty += qty;
-                        userStats[userId].totalAmount += amount;
-
-                        // Track negative KPI (reductions)
-                        if (record.isReduction) {
-                            userStats[userId].hasNegativeKPI = true;
-                            userStats[userId].fraudScore += 1;
-                        }
-
-                        if (record.orderId) {
-                            userStats[userId].orderIds.add(record.orderId);
-                        }
-
-                        if (record.userName && record.userName !== 'Unknown') {
-                            userStats[userId].name = record.userName;
-                        }
-                    });
-                });
-
-                // Collect partnerIds for each user from order_snapshots
-                Object.values(allSnapshots).forEach(order => {
-                    const userId = order.userId;
-                    if (userStats[userId] && order.partnerId) {
-                        userStats[userId].partnerIds.add(order.partnerId);
-                    }
-                });
-
-                // Fetch invoice totals for each user
-                console.log('[STATS] Fetching invoice data for users...');
-                const invoiceFetchPromises = Object.values(userStats).map(async (stat) => {
-                    if (stat.partnerIds.size === 0) {
-                        stat.totalInvoiceAmount = 0;
-                        return;
-                    }
-
-                    try {
-                        let total = 0;
-                        // Fetch invoices for all partnerIds of this user
-                        for (const partnerId of stat.partnerIds) {
-                            try {
-                                const invoices = await fetchInvoiceHistory(partnerId);
-                                if (invoices && invoices.length > 0) {
-                                    // Sum up all invoice totals
-                                    invoices.forEach(inv => {
-                                        total += (inv.AmountTotal || 0);
-                                    });
-                                }
-                            } catch (error) {
-                                console.error(`[STATS] Error fetching invoices for partnerId ${partnerId}:`, error);
-                            }
-                        }
-                        stat.totalInvoiceAmount = total;
-                    } catch (error) {
-                        console.error('[STATS] Error calculating invoice total:', error);
-                        stat.totalInvoiceAmount = 0;
-                    }
-                });
-
-                // Wait for all invoice fetches to complete
-                await Promise.all(invoiceFetchPromises);
-                console.log('[STATS] Finished fetching invoice data')
-
                 // Render table
                 let html = '';
-                let grandTotalQty = 0;
-                let grandTotalAmount = 0;
-                let grandTotalInvoiceAmount = 0;
-                let grandTotalOrders = 0;
-                let totalFraudWarnings = 0;
-                let stt = 1;
+                let index = 1;
 
-                Object.values(userStats).forEach(stat => {
-                    const orderCount = stat.orderIds.size;
-                    const invoiceAmount = stat.totalInvoiceAmount || 0;
+                // Sort by KPI descending
+                const sortedUsers = Object.values(userStats).sort((a, b) => b.totalKPI - a.totalKPI);
 
-                    let rowClass = "clickable-row";
-                    let statusHtml = '<span class="badge-success">OK</span>';
-
-                    // Determine fraud level
-                    if (stat.fraudScore >= 3) {
-                        rowClass += " fraud-warning-row";
-                        statusHtml = `<span class="badge-fraud"><i class="fas fa-exclamation-triangle fraud-warning-icon"></i> Nghi ngờ</span>`;
-                        totalFraudWarnings++;
-                    } else if (stat.hasNegativeKPI || stat.hasMismatch) {
-                        statusHtml = '<span class="badge-warning"><i class="fas fa-exclamation-circle"></i> Cảnh báo</span>';
-                    }
-
-                    const tooltipText = stat.mismatchDetails.join('\\n');
-                    const tooltipAttr = stat.mismatchDetails.length > 0 ? `title="${tooltipText}"` : '';
-
-                    const invoiceDisplay = invoiceAmount > 0
-                        ? `${invoiceAmount.toLocaleString('vi-VN')}đ`
-                        : '<span style="color: #94a3b8; font-size: 12px;">Chưa có</span>';
+                for (const user of sortedUsers) {
+                    const hasHighKPI = user.totalKPI > 100000;
 
                     html += `
-                        <tr class="${rowClass}" onclick="showOrders('${stat.id}', '${stat.name.replace(/'/g, "\\'")}')" ${tooltipAttr}>
-                            <td style="text-align: center;">${stt++}</td>
-                            <td style="font-weight: 500;">${stat.name}</td>
-                            <td style="text-align: center; color: #059669; font-weight: 500;">${orderCount}</td>
-                            <td style="text-align: center;">${stat.totalQty.toLocaleString('vi-VN')}</td>
-                            <td style="text-align: right; font-weight: 600;">${stat.totalAmount.toLocaleString('vi-VN')}đ</td>
-                            <td style="text-align: right; font-weight: 600; color: #059669;">${invoiceDisplay}</td>
-                            <td style="text-align: center;">${statusHtml}</td>
+                        <tr class="clickable-row ${hasHighKPI ? 'table-warning' : ''}"
+                            onclick="showUserOrders('${user.id}', '${user.name.replace(/'/g, "\\'")}')">
+                            <td style="text-align: center;">${index++}</td>
+                            <td>
+                                <strong>${user.name}</strong>
+                                ${hasHighKPI ? '<span class="badge-warning" style="margin-left: 8px;"><i class="fas fa-star"></i> Top KPI</span>' : ''}
+                            </td>
+                            <td style="text-align: center;">${user.orders.length}</td>
+                            <td style="text-align: center;">${user.totalDifferences}</td>
+                            <td style="text-align: right; color: #dc2626; font-weight: 600;">
+                                ${user.totalKPI.toLocaleString('vi-VN')}đ
+                            </td>
+                            <td style="text-align: center;">
+                                <span class="badge ${user.totalDifferences > 0 ? 'badge-success' : 'badge-warning'}">
+                                    ${user.totalDifferences > 0 ? 'Có KPI' : 'Chưa có KPI'}
+                                </span>
+                            </td>
                         </tr>
                     `;
-                    grandTotalQty += stat.totalQty;
-                    grandTotalAmount += stat.totalAmount;
-                    grandTotalInvoiceAmount += invoiceAmount;
-                    grandTotalOrders += orderCount;
-                });
+                }
 
                 tbody.innerHTML = html;
 
                 // Update footer
-                document.getElementById('grandTotalOrders').textContent = grandTotalOrders.toLocaleString('vi-VN');
-                document.getElementById('grandTotalQty').textContent = grandTotalQty.toLocaleString('vi-VN');
-                document.getElementById('grandTotalAmount').textContent = grandTotalAmount.toLocaleString('vi-VN') + 'đ';
-                document.getElementById('grandTotalInvoiceAmount').textContent = grandTotalInvoiceAmount.toLocaleString('vi-VN') + 'đ';
                 tfoot.style.display = 'table-footer-group';
+                document.getElementById('grandTotalOrders').textContent = totalOrders;
+                document.getElementById('grandTotalQty').textContent = totalDifferences;
+                document.getElementById('grandTotalAmount').textContent = totalKPI.toLocaleString('vi-VN') + 'đ';
 
                 // Update summary cards
-                updateSummaryCards(Object.keys(userStats).length, grandTotalOrders, grandTotalQty, totalFraudWarnings);
+                updateSummaryCards(totalUsers, totalOrders, totalDifferences, totalKPI);
+
+                // Store for later use
+                allStatsData = userStats;
 
             } catch (error) {
-                console.error('Error loading stats:', error);
+                console.error('[KPI-STATS] Error loading stats:', error);
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">
-                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải dữ liệu: ${error.message}
+                        <td colspan="6" style="text-align: center; padding: 40px; color: #ef4444;">
+                            <i class="fas fa-exclamation-triangle mb-2" style="font-size: 24px;"></i><br>
+                            Lỗi: ${error.message}
                         </td>
                     </tr>
                 `;
             }
         }
 
-        function updateSummaryCards(users, orders, products, warnings) {
-            document.getElementById('totalUsers').textContent = users.toLocaleString('vi-VN');
-            document.getElementById('totalOrders').textContent = orders.toLocaleString('vi-VN');
-            document.getElementById('totalProducts').textContent = products.toLocaleString('vi-VN');
-            document.getElementById('totalFraudWarnings').textContent = warnings.toLocaleString('vi-VN');
-        }
+        // ==================== SHOW USER ORDERS ====================
+        function showUserOrders(userId, userName) {
+            const user = allStatsData[userId];
+            if (!user) return;
 
-        // Level 1: Show list of orders for a user
-        async function showOrders(userId, userName) {
             document.getElementById('modalUserName').textContent = userName;
+
             const tbody = document.getElementById('ordersTableBody');
-            tbody.innerHTML = `
+            let html = '';
+
+            // Sort orders by stt
+            const sortedOrders = [...user.orders].sort((a, b) => (a.stt || 0) - (b.stt || 0));
+
+            sortedOrders.forEach((order, index) => {
+                const hasKPI = order.differences > 0;
+                const hasBase = order.hasBase !== false;
+
+                html += `
+                    <tr class="clickable-row ${!hasBase ? 'table-secondary' : ''}" onclick="showOrderKPIDetails('${order.orderId}', ${order.stt})">
+                        <td>${index + 1}</td>
+                        <td>
+                            <strong>STT ${order.stt}</strong>
+                            ${!hasBase ? '<span class="badge-base">Chưa có BASE</span>' : ''}
+                        </td>
+                        <td style="text-align: center;">${order.differences} SP</td>
+                        <td style="text-align: right; color: #dc2626; font-weight: 600;">${(order.kpi || 0).toLocaleString('vi-VN')}đ</td>
+                        <td>${order.timestamp ? new Date(order.timestamp).toLocaleString('vi-VN') : '-'}</td>
+                        <td style="text-align: center;">
+                            <span class="badge ${hasKPI ? 'badge-success' : 'badge-warning'}">
+                                ${hasKPI ? 'Có KPI' : 'Không KPI'}
+                            </span>
+                        </td>
+                        <td style="text-align: center;">
+                            <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); showOrderKPIDetails('${order.orderId}', ${order.stt})">
+                                <i class="fas fa-eye"></i> Chi tiết
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html || `
                 <tr>
                     <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
-                        <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải danh sách đơn...
+                        <i class="fas fa-box-open mb-2"></i><br>Không có đơn hàng
                     </td>
                 </tr>
             `;
 
             const modal = new bootstrap.Modal(document.getElementById('ordersModal'));
             modal.show();
-
-            try {
-                const userOrders = [];
-                Object.values(allOrderSnapshots).forEach(order => {
-                    if (order.userId === userId) {
-                        userOrders.push(order);
-                    }
-                });
-
-                if (userOrders.length === 0) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
-                                <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>Chưa có đơn hàng
-                            </td>
-                        </tr>
-                    `;
-                    return;
-                }
-
-                // Sort by timestamp desc
-                userOrders.sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
-
-                // Calculate KPI for each order
-                const ordersWithKPI = userOrders.map(order => {
-                    const orderId = order.orderId;
-                    let orderKPI = 0;
-                    let hasWarning = false;
-
-                    // Find KPI stats for this order
-                    if (allStatsData[userId]) {
-                        Object.values(allStatsData[userId]).forEach(stat => {
-                            if (stat.orderId === orderId) {
-                                orderKPI += (stat.productCount || 0);
-                                if (stat.isReduction) {
-                                    hasWarning = true;
-                                }
-                            }
-                        });
-                    }
-
-                    // NOTE: Invoice mismatch check removed - invoiceProducts no longer in snapshot
-
-                    return { ...order, kpi: orderKPI, hasWarning };
-                });
-
-                // Render orders table
-                let html = '';
-                let index = 1;
-
-                ordersWithKPI.forEach(order => {
-                    const date = new Date(order.lastUpdated);
-                    const timeStr = date.toLocaleString('vi-VN');
-                    const productCount = order.products ? order.products.length : 0;
-                    const kpiDisplay = order.kpi !== 0 ? (order.kpi > 0 ? `+${order.kpi}` : order.kpi) : '0';
-                    const kpiColor = order.kpi > 0 ? '#059669' : (order.kpi < 0 ? '#dc2626' : '#6b7280');
-                    const statusBadge = order.hasWarning ? '<span class="badge-warning"><i class="fas fa-exclamation-circle"></i></span>' : '';
-
-                    html += `
-                        <tr class="clickable-row ${order.hasWarning ? 'table-warning' : ''}" onclick="showOrderDetails('${order.orderId}', '${order.orderSTT}')">
-                            <td>${index++}</td>
-                            <td style="font-weight: 500;">${order.orderSTT || 'N/A'}</td>
-                            <td style="text-align: center;">${productCount}</td>
-                            <td style="text-align: center; font-weight: 600; color: ${kpiColor};">${kpiDisplay}</td>
-                            <td style="font-size: 13px;">${timeStr}</td>
-                            <td style="text-align: center;">${statusBadge}</td>
-                            <td style="text-align: center;">
-                                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); showOrderDetails('${order.orderId}', '${order.orderSTT}')">
-                                    <i class="fas fa-eye"></i> Xem
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                });
-
-                tbody.innerHTML = html;
-
-            } catch (error) {
-                console.error('Error loading orders:', error);
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">
-                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải danh sách đơn: ${error.message}
-                        </td>
-                    </tr>
-                `;
-            }
         }
 
-        // Level 2: Show product list and invoice for an order
-        async function showOrderDetails(orderId, orderSTT) {
-            document.getElementById('orderDetailsTitle').textContent = orderSTT || orderId;
+        // ==================== SHOW ORDER KPI DETAILS ====================
+        async function showOrderKPIDetails(orderId, stt) {
+            currentOrderId = orderId; // Store for TPOS fetch
+            document.getElementById('orderDetailsTitle').textContent = `STT ${stt}`;
+
+            // Show loading
+            const comparisonBody = document.getElementById('kpiComparisonTableBody');
+            const allBody = document.getElementById('allProductsTableBody');
+            const baseBody = document.getElementById('baseProductsTableBody');
+
+            comparisonBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>`;
+            allBody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>`;
+            baseBody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>`;
 
             const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
             modal.show();
 
-            const order = allOrderSnapshots[orderId];
-            if (!order) {
-                console.error('Order not found in snapshots:', orderId);
-                return;
-            }
-
-            // Fetch KPI stats for this order
-            let kpiProductsMap = new Map();
-
             try {
-                const statsRef = firebase.database().ref('held_product_stats');
-                const statsSnapshot = await statsRef.once('value');
-                const allStats = statsSnapshot.val();
+                // Load BASE and current products
+                const base = await window.kpiManager.getKPIBase(orderId);
+                const currentProducts = currentCampaignName
+                    ? await window.kpiManager.getOrderDetailsFromFirebase(orderId, currentCampaignName)
+                    : null;
 
-                if (allStats) {
-                    Object.values(allStats).forEach(userStats => {
-                        Object.values(userStats).forEach(statRecord => {
-                            if (statRecord.orderId === orderId && statRecord.products) {
-                                statRecord.products.forEach(p => {
-                                    const key = p.name || 'Unknown';
-                                    kpiProductsMap.set(key, p);
-                                });
-                            }
-                        });
-                    });
-                }
+                // Render KPI Comparison Tab
+                renderKPIComparisonTab(base, currentProducts);
+
+                // Render All Products Tab (Current)
+                renderAllProductsTab(currentProducts);
+
+                // Render BASE Products Tab
+                renderBaseProductsTab(base);
+
             } catch (error) {
-                console.error('Error loading KPI stats:', error);
+                console.error('[KPI-DETAILS] Error loading order details:', error);
+                comparisonBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 40px; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Lỗi: ${error.message}</td></tr>`;
             }
+        }
 
-            // Render ALL products table
-            const allProductsBody = document.getElementById('allProductsTableBody');
-            let allHtml = '';
-            let allIndex = 1;
+        // ==================== RENDER TABS ====================
+        function renderKPIComparisonTab(base, currentProducts) {
+            const tbody = document.getElementById('kpiComparisonTableBody');
+            const baseEmpty = document.getElementById('baseEmpty');
 
-            if (order.products && order.products.length > 0) {
-                order.products.forEach(p => {
-                    const kpiData = kpiProductsMap.get(p.name);
-                    const watermarkHtml = kpiData ? `
-                        <span class="watermark-badge watermark-baseline">B: ${kpiData.baselineQty || 0}</span>
-                        <span class="watermark-badge watermark-current">C: ${kpiData.newQuantityInOrder || p.quantity}</span>
-                        <span class="watermark-badge watermark-kpi">KPI: ${kpiData.newKpiQty || 0}</span>
-                    ` : '<span style="color: #9ca3af; font-size: 11px;">Không có KPI</span>';
-
-                    allHtml += `
-                        <tr>
-                            <td>${allIndex++}</td>
-                            <td>${p.name || 'Unknown Product'}</td>
-                            <td style="text-align: center; font-weight: 600;">${p.quantity || 0}</td>
-                            <td style="text-align: center;">${watermarkHtml}</td>
-                            <td style="text-align: right;">${(p.price || 0).toLocaleString('vi-VN')}đ</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                allHtml = `
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
-                            <i class="fas fa-box-open mb-2"></i><br>Không có sản phẩm
-                        </td>
-                    </tr>
-                `;
-            }
-            allProductsBody.innerHTML = allHtml;
-
-            // Render KPI products table
-            const kpiProductsBody = document.getElementById('kpiProductsTableBody');
-            let kpiHtml = '';
-            let kpiIndex = 1;
-            let hasKpiProducts = false;
-
-            if (order.products && order.products.length > 0) {
-                order.products.forEach(p => {
-                    const kpiData = kpiProductsMap.get(p.name);
-                    if (kpiData && kpiData.isCounted && kpiData.incrementalQty > 0) {
-                        hasKpiProducts = true;
-                        const kpiValue = kpiData.incrementalQty * 5000;
-                        kpiHtml += `
-                            <tr>
-                                <td>${kpiIndex++}</td>
-                                <td>${p.name || 'Unknown Product'}</td>
-                                <td style="text-align: center;">${kpiData.baselineQty || 0}</td>
-                                <td style="text-align: center; font-weight: 600;">${kpiData.newQuantityInOrder || 0}</td>
-                                <td style="text-align: center; color: #059669; font-weight: 700;">${kpiData.newKpiQty || 0}</td>
-                                <td style="text-align: right; color: #059669; font-weight: 600;">${kpiValue.toLocaleString('vi-VN')}đ</td>
-                            </tr>
-                        `;
-                    }
-                });
-            }
-
-            if (!hasKpiProducts) {
-                kpiHtml = `
+            if (!base || !base.products || base.products.length === 0) {
+                tbody.innerHTML = `
                     <tr>
                         <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
-                            <i class="fas fa-info-circle mb-2"></i><br>Không có sản phẩm được tính KPI
+                            <i class="fas fa-lock-open fa-2x mb-3" style="opacity: 0.5;"></i><br>
+                            Chưa có BASE cho đơn hàng này<br>
+                            <small>BASE sẽ được tạo khi lưu đơn hàng lần đầu</small>
                         </td>
                     </tr>
                 `;
-            }
-            kpiProductsBody.innerHTML = kpiHtml;
-
-            // Render NON-KPI products table
-            const nonKpiProductsBody = document.getElementById('nonKpiProductsTableBody');
-            let nonKpiHtml = '';
-            let nonKpiIndex = 1;
-            let hasNonKpiProducts = false;
-
-            if (order.products && order.products.length > 0) {
-                order.products.forEach(p => {
-                    const kpiData = kpiProductsMap.get(p.name);
-                    let reason = '';
-                    let isNonKpi = false;
-
-                    if (!kpiData) {
-                        isNonKpi = true;
-                        reason = 'Sản phẩm không qua "Sản phẩm đang giữ"';
-                    } else if (!kpiData.isCounted || kpiData.incrementalQty === 0) {
-                        isNonKpi = true;
-                        if (kpiData.newQuantityInOrder <= kpiData.baselineQty) {
-                            reason = `Không vượt baseline (Baseline: ${kpiData.baselineQty}, Current: ${kpiData.newQuantityInOrder})`;
-                        } else if (kpiData.oldKpiQty >= kpiData.newKpiQty) {
-                            reason = `Không tăng KPI (Old: ${kpiData.oldKpiQty}, New: ${kpiData.newKpiQty})`;
-                        } else {
-                            reason = 'Không đủ điều kiện tính KPI';
-                        }
-                    }
-
-                    if (isNonKpi) {
-                        hasNonKpiProducts = true;
-                        const watermarkHtml = kpiData ? `
-                            <span class="watermark-badge watermark-baseline">B: ${kpiData.baselineQty || 0}</span>
-                            <span class="watermark-badge watermark-current">C: ${kpiData.newQuantityInOrder || p.quantity}</span>
-                        ` : '<span style="color: #9ca3af; font-size: 11px;">N/A</span>';
-
-                        nonKpiHtml += `
-                            <tr>
-                                <td>${nonKpiIndex++}</td>
-                                <td>${p.name || 'Unknown Product'}</td>
-                                <td style="text-align: center;">${p.quantity || 0}</td>
-                                <td style="text-align: center;">${watermarkHtml}</td>
-                                <td><span class="badge bg-secondary">${reason}</span></td>
-                            </tr>
-                        `;
-                    }
-                });
-            }
-
-            if (!hasNonKpiProducts) {
-                nonKpiHtml = `
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
-                            <i class="fas fa-info-circle mb-2"></i><br>Tất cả sản phẩm đều được tính KPI
-                        </td>
-                    </tr>
-                `;
-            }
-            nonKpiProductsBody.innerHTML = nonKpiHtml;
-
-            // Load invoice when invoice tab is clicked
-            document.getElementById('invoice-tab').addEventListener('click', async function () {
-                await loadInvoice(orderId, order.partnerId);
-                // Show refresh button after loading
-                const refreshBtn = document.getElementById('refreshInvoiceBtn');
-                if (refreshBtn) {
-                    refreshBtn.style.display = 'inline-block';
-                    // Add click handler for refresh button
-                    refreshBtn.onclick = async () => {
-                        await loadInvoice(orderId, order.partnerId);
-                    };
-                }
-            }, { once: true });
-
-            // Load baseline when baseline tab is clicked
-            document.getElementById('baseline-tab').addEventListener('click', async function () {
-                await loadBaseline(orderId, order.products);
-            }, { once: true });
-
-            // Load comparison when compare tab is clicked
-            document.getElementById('compare-tab').addEventListener('click', async function () {
-                await loadComparison(orderId, order.partnerId, order.products);
-            }, { once: true });
-        }
-
-        // Fetch invoice history from API using partnerId
-        async function fetchInvoiceHistory(partnerId) {
-            if (!partnerId) {
-                throw new Error('No partnerId provided');
-            }
-
-            // Calculate date range (last 30 days)
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - 30);
-
-            const formatDate = (date) => {
-                return date.toISOString().split('T')[0]; // YYYY-MM-DD
-            };
-
-            // Use same endpoint as chat-product-manager.js
-            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetOrdersByPartnerId?partnerId=${partnerId}&fromDate=${formatDate(startDate)}&toDate=${formatDate(endDate)}`;
-
-            console.log('[INVOICE-FETCH] Fetching invoices for partnerId:', partnerId);
-
-            try {
-                const headers = await window.tokenManager.getAuthHeader();
-                const response = await API_CONFIG.smartFetch(apiUrl, {
-                    headers: {
-                        ...headers,
-                        "Content-Type": "application/json"
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-                const invoices = data.value || [];
-
-                console.log(`[INVOICE-FETCH] Fetched ${invoices.length} invoices`);
-
-                // Fetch details for each invoice (with OrderLines)
-                const detailedInvoices = [];
-                for (const invoice of invoices) {
-                    try {
-                        const details = await fetchInvoiceDetails(invoice.Id);
-                        if (details) {
-                            detailedInvoices.push(details);
-                        }
-                    } catch (error) {
-                        console.error(`[INVOICE-FETCH] Error fetching details for invoice ${invoice.Id}:`, error);
-                        // Still add basic invoice without details
-                        detailedInvoices.push(invoice);
-                    }
-                }
-
-                console.log(`[INVOICE-FETCH] Fetched ${detailedInvoices.length} invoices with details`);
-                return detailedInvoices;
-            } catch (error) {
-                console.error('[INVOICE-FETCH] API Error:', error);
-                throw error;
-            }
-        }
-
-        // Fetch invoice details with OrderLines
-        async function fetchInvoiceDetails(invoiceId) {
-            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder(${invoiceId})?$expand=OrderLines($expand=Product,ProductUOM,User)`;
-
-            try {
-                const headers = await window.tokenManager.getAuthHeader();
-                const response = await API_CONFIG.smartFetch(apiUrl, {
-                    headers: {
-                        ...headers,
-                        "Content-Type": "application/json",
-                        "Accept": "application/json"
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-                console.log(`[INVOICE-FETCH] Fetched details for invoice ${invoiceId} with ${data.OrderLines?.length || 0} products`);
-                return data;
-            } catch (error) {
-                console.error(`[INVOICE-FETCH] Error fetching invoice ${invoiceId} details:`, error);
-                throw error;
-            }
-        }
-
-        // Fetch and display invoice using partnerId
-        async function loadInvoice(orderId, partnerId) {
-            const invoiceContent = document.getElementById('invoiceContent');
-
-            if (!partnerId) {
-                invoiceContent.innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: #94a3b8;">
-                        <i class="fas fa-file-invoice mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
-                        Không có thông tin khách hàng (partnerId)
-                        <p style="font-size: 12px; margin-top: 8px; color: #6b7280;">Không thể tải hóa đơn</p>
-                    </div>
-                `;
+                document.getElementById('totalKpiQty').textContent = '0';
+                document.getElementById('totalKpiValue').textContent = '0đ';
                 return;
             }
 
-            invoiceContent.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #94a3b8;">
-                    <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải hóa đơn từ API...
-                </div>
-            `;
+            // Create maps for comparison
+            const baseMap = new Map();
+            base.products.forEach(p => {
+                baseMap.set(p.code.toUpperCase(), p.quantity);
+            });
 
-            try {
-                // Fetch invoices using partnerId
-                const invoices = await fetchInvoiceHistory(partnerId);
-
-                if (!invoices || invoices.length === 0) {
-                    invoiceContent.innerHTML = `
-                        <div style="text-align: center; padding: 40px; color: #94a3b8;">
-                            <i class="fas fa-file-invoice mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
-                            Không tìm thấy hóa đơn nào (30 ngày gần nhất)
-                        </div>
-                    `;
-                    return;
-                }
-
-                // Render all invoices with their OrderLines
-                let html = `<div style="padding: 20px;">`;
-
-                invoices.forEach((invoice, idx) => {
-                    const invoiceProducts = invoice.OrderLines || [];
-
-                    html += `
-                        <div class="card mb-3" style="border-left: 4px solid #3b82f6;">
-                            <div class="card-header bg-primary text-white">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-file-invoice"></i> Hóa đơn #${invoice.Id}
-                                    <span class="badge bg-light text-primary" style="font-size: 10px;">Từ API</span>
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Ngày tạo:</strong> ${invoice.DateInvoice ? new Date(invoice.DateInvoice).toLocaleString('vi-VN') : 'N/A'}</p>
-                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Trạng thái:</strong> ${invoice.ShowState || invoice.State || 'N/A'}</p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Tổng tiền:</strong> ${(invoice.AmountTotal || 0).toLocaleString('vi-VN')}đ</p>
-                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Đã thanh toán:</strong> ${(invoice.PaymentAmount || 0).toLocaleString('vi-VN')}đ</p>
-                                    </div>
-                                </div>
-
-                                ${invoiceProducts.length > 0 ? `
-                                    <div class="table-responsive mt-3">
-                                        <table class="table table-sm table-hover mb-0">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th style="width: 40px;">#</th>
-                                                    <th>Sản phẩm</th>
-                                                    <th style="text-align: center; width: 80px;">SL</th>
-                                                    <th style="text-align: right; width: 120px;">Đơn giá</th>
-                                                    <th style="text-align: right; width: 120px;">Thành tiền</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                ${invoiceProducts.map((line, idx) => {
-                                                    const productName = line.Product?.NameGet || line.ProductName || 'Unknown Product';
-                                                    const quantity = line.ProductUOMQty || line.Quantity || 0;
-                                                    const price = line.PriceUnit || line.Price || 0;
-                                                    const total = line.PriceTotal || (quantity * price);
-
-                                                    return `
-                                                        <tr>
-                                                            <td>${idx + 1}</td>
-                                                            <td style="font-size: 12px;">${productName}</td>
-                                                            <td style="text-align: center; font-weight: 600;">${quantity}</td>
-                                                            <td style="text-align: right;">${price.toLocaleString('vi-VN')}đ</td>
-                                                            <td style="text-align: right; font-weight: 600; color: #059669;">${total.toLocaleString('vi-VN')}đ</td>
-                                                        </tr>
-                                                    `;
-                                                }).join('')}
-                                            </tbody>
-                                            <tfoot style="background: #f9fafb;">
-                                                <tr>
-                                                    <td colspan="4" style="text-align: right; font-weight: 600; font-size: 13px;">Tổng:</td>
-                                                    <td style="text-align: right; font-weight: 700; color: #059669; font-size: 14px;">
-                                                        ${invoiceProducts.reduce((sum, p) => sum + (p.PriceTotal || 0), 0).toLocaleString('vi-VN')}đ
-                                                    </td>
-                                                </tr>
-                                            </tfoot>
-                                        </table>
-                                    </div>
-                                ` : `
-                                    <div class="alert alert-warning mb-0 mt-2" style="font-size: 12px;">
-                                        <i class="fas fa-exclamation-circle"></i> Hóa đơn không có sản phẩm
-                                    </div>
-                                `}
-                            </div>
-                        </div>
-                    `;
+            const currentMap = new Map();
+            if (currentProducts) {
+                currentProducts.forEach(p => {
+                    currentMap.set(p.code.toUpperCase(), p.quantity);
                 });
+            }
 
-                html += `</div>`;
-                invoiceContent.innerHTML = html;
+            let html = '';
+            let index = 1;
+            let totalKpiQty = 0;
+            let totalKpiValue = 0;
 
-                console.log('[INVOICE] Loaded', invoices.length, 'invoices for partnerId:', partnerId);
+            // Process all unique product codes
+            const allCodes = new Set([...baseMap.keys(), ...currentMap.keys()]);
+            const sortedCodes = Array.from(allCodes).sort();
 
-            } catch (error) {
-                console.error('[INVOICE] Error loading invoices:', error);
-                invoiceContent.innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: #ef4444;">
-                        <i class="fas fa-exclamation-triangle mb-2"></i><br>
-                        Lỗi tải hóa đơn: ${error.message}
-                        <p style="font-size: 12px; margin-top: 8px;">Vui lòng thử lại sau</p>
-                    </div>
+            for (const code of sortedCodes) {
+                const baseQty = baseMap.get(code) || 0;
+                const currentQty = currentMap.get(code) || 0;
+                const kpiQty = Math.max(0, currentQty - baseQty);
+                const kpiValue = kpiQty * 5000;
+
+                totalKpiQty += kpiQty;
+                totalKpiValue += kpiValue;
+
+                const rowClass = kpiQty > 0 ? 'table-success' : (baseQty > 0 && currentQty === 0 ? 'table-danger' : '');
+                const isNew = baseQty === 0 && currentQty > 0;
+
+                html += `
+                    <tr class="${rowClass}">
+                        <td>${index++}</td>
+                        <td>
+                            <code>${code}</code>
+                            ${isNew ? '<span class="badge bg-info ms-2">Mới</span>' : ''}
+                        </td>
+                        <td style="text-align: center;">${baseQty}</td>
+                        <td style="text-align: center; font-weight: 600;">${currentQty}</td>
+                        <td style="text-align: center; font-weight: 700; color: ${kpiQty > 0 ? '#059669' : '#6b7280'};">
+                            ${kpiQty > 0 ? '+' : ''}${kpiQty}
+                        </td>
+                        <td style="text-align: right; font-weight: 600; color: ${kpiValue > 0 ? '#059669' : '#6b7280'};">
+                            ${kpiValue.toLocaleString('vi-VN')}đ
+                        </td>
+                    </tr>
                 `;
             }
-        }
 
-        // Fetch and display baseline
-        async function loadBaseline(orderId, orderProducts) {
-            const baselineTableBody = document.getElementById('baselineTableBody');
-            const baselineEmpty = document.getElementById('baselineEmpty');
-
-            // Show loading
-            baselineTableBody.innerHTML = `
+            tbody.innerHTML = html || `
                 <tr>
                     <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
-                        <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải baseline...
+                        Không có sản phẩm để so sánh
                     </td>
                 </tr>
             `;
-            baselineEmpty.style.display = 'none';
 
-            try {
-                // Fetch baseline from Firebase order_product_history
-                const historyRef = firebase.database().ref(`order_product_history/${orderId}`);
-                const historySnapshot = await historyRef.once('value');
-                const historyData = historySnapshot.val();
-
-                if (!historyData || Object.keys(historyData).length === 0) {
-                    // No baseline data
-                    baselineTableBody.innerHTML = '';
-                    baselineEmpty.style.display = 'block';
-                    return;
-                }
-
-                // Create a map of product names from order products
-                const productNamesMap = new Map();
-                if (orderProducts && orderProducts.length > 0) {
-                    orderProducts.forEach(p => {
-                        productNamesMap.set(String(p.productId), p.name);
-                    });
-                }
-
-                // Build baseline table
-                let html = '';
-                let index = 1;
-                let hasBaseline = false;
-
-                Object.entries(historyData).forEach(([productId, data]) => {
-                    const baselineQty = data.baselineQty || 0;
-                    const currentQty = data.currentQty || 0;
-                    const kpiQty = data.kpiQty || 0;
-                    const productName = productNamesMap.get(productId) || `Product #${productId}`;
-
-                    // Calculate change
-                    const change = currentQty - baselineQty;
-                    const changeClass = change > 0 ? 'text-success' : (change < 0 ? 'text-danger' : 'text-muted');
-                    const changeIcon = change > 0 ? 'fa-arrow-up' : (change < 0 ? 'fa-arrow-down' : 'fa-minus');
-                    const changeText = change > 0 ? `+${change}` : change;
-
-                    hasBaseline = true;
-                    html += `
-                        <tr>
-                            <td>${index++}</td>
-                            <td>${productName}</td>
-                            <td style="text-align: center; font-weight: 600; color: #6366f1;">
-                                <i class="fas fa-lock" style="font-size: 10px; opacity: 0.5;"></i> ${baselineQty}
-                            </td>
-                            <td style="text-align: center; font-weight: 600;">${currentQty}</td>
-                            <td style="text-align: center; font-weight: 700; color: #059669;">${kpiQty}</td>
-                            <td style="text-align: center;">
-                                <span class="${changeClass}">
-                                    <i class="fas ${changeIcon}"></i> ${changeText}
-                                </span>
-                            </td>
-                        </tr>
-                    `;
-                });
-
-                if (hasBaseline) {
-                    baselineTableBody.innerHTML = html;
-                    baselineEmpty.style.display = 'none';
-                } else {
-                    baselineTableBody.innerHTML = '';
-                    baselineEmpty.style.display = 'block';
-                }
-
-            } catch (error) {
-                console.error('Error loading baseline:', error);
-                baselineTableBody.innerHTML = `
-                    <tr>
-                        <td colspan="6" style="text-align: center; padding: 40px; color: #ef4444;">
-                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải baseline: ${error.message}
-                        </td>
-                    </tr>
-                `;
-                baselineEmpty.style.display = 'none';
-            }
+            document.getElementById('totalKpiQty').textContent = totalKpiQty;
+            document.getElementById('totalKpiValue').textContent = totalKpiValue.toLocaleString('vi-VN') + 'đ';
         }
 
-        // Load and compare products with invoice
-        let currentInvoicesForComparison = [];
-        let currentOrderProductsForComparison = [];
+        function renderAllProductsTab(currentProducts) {
+            const tbody = document.getElementById('allProductsTableBody');
 
-        async function loadComparison(orderId, partnerId, orderProducts) {
-            const invoiceSelector = document.getElementById('invoiceSelector');
-            const orderProductsBody = document.getElementById('compareOrderProductsBody');
-            const invoiceProductsBody = document.getElementById('compareInvoiceProductsBody');
-            const compareSummary = document.getElementById('compareSummary');
-
-            // Reset
-            invoiceSelector.innerHTML = '<option value="">Đang tải hóa đơn...</option>';
-            currentOrderProductsForComparison = orderProducts || [];
-
-            if (!partnerId) {
-                invoiceSelector.innerHTML = '<option value="">Không có partnerId</option>';
-                orderProductsBody.innerHTML = `
+            if (!currentProducts || currentProducts.length === 0) {
+                tbody.innerHTML = `
                     <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
-                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Không có thông tin khách hàng
-                        </td>
-                    </tr>
-                `;
-                invoiceProductsBody.innerHTML = `
-                    <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
-                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Không có thông tin khách hàng
+                        <td colspan="3" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <i class="fas fa-box-open mb-2"></i><br>Không có sản phẩm
                         </td>
                     </tr>
                 `;
                 return;
             }
 
-            try {
-                // Fetch invoices
-                const invoices = await fetchInvoiceHistory(partnerId);
-                currentInvoicesForComparison = invoices || [];
-
-                if (!invoices || invoices.length === 0) {
-                    invoiceSelector.innerHTML = '<option value="">Không có hóa đơn</option>';
-                    orderProductsBody.innerHTML = `
-                        <tr>
-                            <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
-                                <i class="fas fa-info-circle mb-2"></i><br>Không tìm thấy hóa đơn
-                            </td>
-                        </tr>
-                    `;
-                    invoiceProductsBody.innerHTML = `
-                        <tr>
-                            <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
-                                <i class="fas fa-info-circle mb-2"></i><br>Không tìm thấy hóa đơn
-                            </td>
-                        </tr>
-                    `;
-                    return;
-                }
-
-                // Sort invoices by date (newest first)
-                invoices.sort((a, b) => {
-                    const dateA = new Date(a.DateInvoice || a.Created || 0);
-                    const dateB = new Date(b.DateInvoice || b.Created || 0);
-                    return dateB - dateA;
-                });
-
-                // Populate invoice selector
-                let optionsHtml = '';
-                invoices.forEach((invoice, idx) => {
-                    const date = invoice.DateInvoice ? new Date(invoice.DateInvoice).toLocaleDateString('vi-VN') : 'N/A';
-                    const label = `#${invoice.Id} - ${date} - ${(invoice.AmountTotal || 0).toLocaleString('vi-VN')}đ`;
-                    optionsHtml += `<option value="${idx}">${label}</option>`;
-                });
-                invoiceSelector.innerHTML = optionsHtml;
-
-                // Add change event listener
-                invoiceSelector.onchange = function() {
-                    const selectedIdx = parseInt(this.value);
-                    if (selectedIdx >= 0 && selectedIdx < currentInvoicesForComparison.length) {
-                        compareProducts(currentOrderProductsForComparison, currentInvoicesForComparison[selectedIdx]);
-                    }
-                };
-
-                // Auto-select first invoice (newest)
-                if (invoices.length > 0) {
-                    invoiceSelector.value = "0";
-                    compareProducts(currentOrderProductsForComparison, invoices[0]);
-                }
-
-            } catch (error) {
-                console.error('[COMPARE] Error loading invoices:', error);
-                invoiceSelector.innerHTML = '<option value="">Lỗi tải hóa đơn</option>';
-                orderProductsBody.innerHTML = `
+            let html = '';
+            currentProducts.forEach((p, index) => {
+                html += `
                     <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px; color: #ef4444;">
-                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi: ${error.message}
-                        </td>
+                        <td>${index + 1}</td>
+                        <td><code>${p.code}</code></td>
+                        <td style="text-align: center; font-weight: 600;">${p.quantity}</td>
                     </tr>
                 `;
-                invoiceProductsBody.innerHTML = `
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function renderBaseProductsTab(base) {
+            const tbody = document.getElementById('baseProductsTableBody');
+            const emptyEl = document.getElementById('baseEmpty');
+
+            if (!base || !base.products || base.products.length === 0) {
+                tbody.innerHTML = '';
+                emptyEl.style.display = 'block';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+
+            let html = '';
+            base.products.forEach((p, index) => {
+                html += `
                     <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px; color: #ef4444;">
-                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi: ${error.message}
-                        </td>
+                        <td>${index + 1}</td>
+                        <td><code>${p.code}</code></td>
+                        <td style="text-align: center; font-weight: 600;">${p.quantity}</td>
                     </tr>
                 `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        // ==================== UTILITY FUNCTIONS ====================
+        function clearStatsTable() {
+            const tbody = document.getElementById('statsTableBody');
+            const tfoot = document.getElementById('statsTableFooter');
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <i class="fas fa-hand-point-up mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
+                        Vui lòng chọn một chiến dịch để xem thống kê KPI
+                    </td>
+                </tr>
+            `;
+            tfoot.style.display = 'none';
+            updateSummaryCards(0, 0, 0, 0);
+            allStatsData = {};
+        }
+
+        function updateSummaryCards(users, orders, products, kpi) {
+            document.getElementById('totalUsers').textContent = users.toLocaleString('vi-VN');
+            document.getElementById('totalOrders').textContent = orders.toLocaleString('vi-VN');
+            document.getElementById('totalProducts').textContent = products.toLocaleString('vi-VN');
+            document.getElementById('totalKPI').textContent = (typeof kpi === 'number' ? kpi : 0).toLocaleString('vi-VN') + 'đ';
+        }
+
+        function refreshStats() {
+            if (currentCampaignName) {
+                onCampaignSelected(currentCampaignName);
+            } else {
+                loadCampaigns();
             }
         }
 
-        // Compare order products with invoice products
-        function compareProducts(orderProducts, invoice) {
-            const orderProductsBody = document.getElementById('compareOrderProductsBody');
-            const invoiceProductsBody = document.getElementById('compareInvoiceProductsBody');
-            const compareSummary = document.getElementById('compareSummary');
-
-            const invoiceProducts = invoice.OrderLines || [];
-
-            // Create a map of invoice products by name (normalized for comparison)
-            const invoiceProductMap = new Map();
-            invoiceProducts.forEach(line => {
-                const productName = (line.Product?.NameGet || line.ProductName || '').trim().toLowerCase();
-                if (productName) {
-                    invoiceProductMap.set(productName, line);
-                }
-            });
-
-            // Render order products table with match status
-            let orderHtml = '';
-            let matchedCount = 0;
-
-            if (orderProducts && orderProducts.length > 0) {
-                orderProducts.forEach((p, idx) => {
-                    const orderProductName = (p.name || '').trim().toLowerCase();
-                    const isMatched = invoiceProductMap.has(orderProductName);
-
-                    if (isMatched) matchedCount++;
-
-                    const statusBadge = isMatched
-                        ? '<span class="badge bg-success"><i class="fas fa-check"></i> Có KPI</span>'
-                        : '<span class="badge bg-secondary">Không có</span>';
-
-                    const rowClass = isMatched ? 'table-success' : '';
-
-                    orderHtml += `
-                        <tr class="${rowClass}">
-                            <td>${idx + 1}</td>
-                            <td style="font-size: 12px;">${p.name || 'Unknown Product'}</td>
-                            <td style="text-align: center; font-weight: 600;">${p.quantity || 0}</td>
-                            <td style="text-align: center;">${statusBadge}</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                orderHtml = `
-                    <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
-                            <i class="fas fa-box-open mb-2"></i><br>Không có sản phẩm
-                        </td>
-                    </tr>
-                `;
-            }
-            orderProductsBody.innerHTML = orderHtml;
-
-            // Render invoice products table
-            let invoiceHtml = '';
-            if (invoiceProducts.length > 0) {
-                invoiceProducts.forEach((line, idx) => {
-                    const productName = line.Product?.NameGet || line.ProductName || 'Unknown Product';
-                    const quantity = line.ProductUOMQty || line.Quantity || 0;
-                    const total = line.PriceTotal || 0;
-
-                    invoiceHtml += `
-                        <tr>
-                            <td>${idx + 1}</td>
-                            <td style="font-size: 12px;">${productName}</td>
-                            <td style="text-align: center; font-weight: 600;">${quantity}</td>
-                            <td style="text-align: right; color: #059669; font-weight: 600;">${total.toLocaleString('vi-VN')}đ</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                invoiceHtml = `
-                    <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
-                            <i class="fas fa-file-invoice mb-2"></i><br>Hóa đơn không có sản phẩm
-                        </td>
-                    </tr>
-                `;
-            }
-            invoiceProductsBody.innerHTML = invoiceHtml;
-
-            // Update summary
-            document.getElementById('totalOrderProducts').textContent = orderProducts?.length || 0;
-            document.getElementById('totalInvoiceProducts').textContent = invoiceProducts.length;
-            document.getElementById('totalMatchedProducts').textContent = matchedCount;
-            compareSummary.style.display = 'block';
-
-            console.log('[COMPARE] Compared products:', {
-                orderProducts: orderProducts?.length || 0,
-                invoiceProducts: invoiceProducts.length,
-                matched: matchedCount
-            });
-        }
-
-        // Show Timeline Chart
+        // ==================== TIMELINE CHART ====================
         function showTimeline() {
             const modal = new bootstrap.Modal(document.getElementById('timelineModal'));
             modal.show();
 
+            if (Object.keys(allStatsData).length === 0) {
+                document.getElementById('timelineChart').parentElement.innerHTML = `
+                    <div style="text-align: center; padding: 60px; color: #94a3b8;">
+                        <i class="fas fa-chart-line fa-3x mb-3" style="opacity: 0.5;"></i>
+                        <p>Chọn chiến dịch để xem timeline KPI</p>
+                    </div>
+                `;
+                return;
+            }
+
             // Aggregate data by date
             const dateMap = new Map();
 
-            Object.values(allStatsData).forEach(userStats => {
-                Object.values(userStats).forEach(record => {
-                    const timestamp = record.timestamp || 0;
+            Object.values(allStatsData).forEach(userStat => {
+                userStat.orders.forEach(order => {
+                    const timestamp = order.timestamp || Date.now();
                     const date = new Date(timestamp).toLocaleDateString('vi-VN');
-                    const qty = parseInt(record.productCount) || 0;
+                    const kpi = order.kpi || 0;
+                    const diff = order.differences || 0;
 
                     if (!dateMap.has(date)) {
-                        dateMap.set(date, { qty: 0, count: 0 });
+                        dateMap.set(date, { kpi: 0, qty: 0, count: 0 });
                     }
 
-                    dateMap.get(date).qty += qty;
+                    dateMap.get(date).kpi += kpi;
+                    dateMap.get(date).qty += diff;
                     dateMap.get(date).count += 1;
                 });
             });
 
             // Sort by date
             const sortedDates = Array.from(dateMap.keys()).sort((a, b) => {
-                return new Date(a.split('/').reverse().join('/')) - new Date(b.split('/').reverse().join('/'));
+                const [da, ma, ya] = a.split('/').map(Number);
+                const [db, mb, yb] = b.split('/').map(Number);
+                return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db);
             });
 
             const labels = sortedDates;
+            const dataKPI = sortedDates.map(date => dateMap.get(date).kpi / 1000); // Convert to thousands
             const dataQty = sortedDates.map(date => dateMap.get(date).qty);
-            const dataCount = sortedDates.map(date => dateMap.get(date).count);
 
             // Destroy old chart
             if (timelineChart) {
@@ -1779,17 +1218,17 @@
                     labels: labels,
                     datasets: [
                         {
-                            label: 'Tổng số lượng KPI',
-                            data: dataQty,
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            label: 'KPI (nghìn đồng)',
+                            data: dataKPI,
+                            borderColor: '#dc2626',
+                            backgroundColor: 'rgba(220, 38, 38, 0.1)',
                             tension: 0.3,
                             fill: true,
                             yAxisID: 'y'
                         },
                         {
-                            label: 'Số lượt "Lưu vào đơn"',
-                            data: dataCount,
+                            label: 'Số lượng SP',
+                            data: dataQty,
                             borderColor: '#10b981',
                             backgroundColor: 'rgba(16, 185, 129, 0.1)',
                             tension: 0.3,
@@ -1808,7 +1247,7 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Biểu đồ KPI theo thời gian',
+                            text: `Timeline KPI - ${currentCampaignName || 'Tất cả'}`,
                             font: { size: 16, weight: 'bold' }
                         },
                         legend: {
@@ -1822,7 +1261,7 @@
                             position: 'left',
                             title: {
                                 display: true,
-                                text: 'Số lượng KPI'
+                                text: 'KPI (nghìn đồng)'
                             }
                         },
                         y1: {
@@ -1831,7 +1270,7 @@
                             position: 'right',
                             title: {
                                 display: true,
-                                text: 'Số lượt lưu'
+                                text: 'Số lượng SP'
                             },
                             grid: {
                                 drawOnChartArea: false
@@ -1842,43 +1281,62 @@
             });
         }
 
-        // Export to Excel
+        // ==================== EXPORT TO EXCEL ====================
         function exportToExcel() {
+            if (Object.keys(allStatsData).length === 0) {
+                alert('Vui lòng chọn chiến dịch trước khi export');
+                return;
+            }
+
             try {
-                // Prepare data
                 const data = [];
 
-                // Add summary row
+                // Add header
                 data.push(['THỐNG KÊ KPI - WATERMARK METHOD']);
+                data.push(['Chiến dịch:', currentCampaignName || 'N/A']);
                 data.push(['Xuất ngày:', new Date().toLocaleString('vi-VN')]);
                 data.push([]);
 
-                // Add user stats
-                data.push(['STT', 'Tên người dùng', 'Số đơn', 'Tổng số lượng', 'Tổng tiền (đ)', 'Trạng thái']);
+                // Add user summary
+                data.push(['STT', 'Tên người dùng', 'Số đơn', 'Tổng SL', 'Tổng KPI (đ)']);
 
-                Object.values(allStatsData).forEach((userStats, userIndex) => {
-                    const userData = Object.values(userStats)[0];
-                    if (!userData) return;
-
-                    let totalQty = 0;
-                    let totalAmount = 0;
-                    const orderIds = new Set();
-
-                    Object.values(userStats).forEach(record => {
-                        const qty = parseInt(record.productCount) || 0;
-                        totalQty += qty;
-                        totalAmount += (record.amount || qty * 5000);
-                        if (record.orderId) orderIds.add(record.orderId);
-                    });
-
+                const sortedUsers = Object.values(allStatsData).sort((a, b) => b.totalKPI - a.totalKPI);
+                sortedUsers.forEach((user, index) => {
                     data.push([
-                        userIndex + 1,
-                        userData.userName || 'Unknown',
-                        orderIds.size,
-                        totalQty,
-                        totalAmount,
-                        'OK'
+                        index + 1,
+                        user.name,
+                        user.orders.length,
+                        user.totalDifferences,
+                        user.totalKPI
                     ]);
+                });
+
+                // Add totals
+                data.push([]);
+                data.push([
+                    '',
+                    'TỔNG CỘNG',
+                    sortedUsers.reduce((sum, u) => sum + u.orders.length, 0),
+                    sortedUsers.reduce((sum, u) => sum + u.totalDifferences, 0),
+                    sortedUsers.reduce((sum, u) => sum + u.totalKPI, 0)
+                ]);
+
+                // Add order details
+                data.push([]);
+                data.push(['CHI TIẾT ĐƠN HÀNG']);
+                data.push(['Người dùng', 'STT Đơn', 'Order ID', 'SL SP', 'KPI (đ)', 'Thời gian']);
+
+                sortedUsers.forEach(user => {
+                    user.orders.forEach(order => {
+                        data.push([
+                            user.name,
+                            order.stt,
+                            order.orderId,
+                            order.differences,
+                            order.kpi,
+                            order.timestamp ? new Date(order.timestamp).toLocaleString('vi-VN') : ''
+                        ]);
+                    });
                 });
 
                 // Create workbook
@@ -1887,13 +1345,123 @@
                 XLSX.utils.book_append_sheet(wb, ws, 'Thống kê KPI');
 
                 // Save file
-                const fileName = `KPI_Statistics_${new Date().toISOString().split('T')[0]}.xlsx`;
+                const safeName = (currentCampaignName || 'all').replace(/[^a-zA-Z0-9]/g, '_');
+                const fileName = `KPI_${safeName}_${new Date().toISOString().split('T')[0]}.xlsx`;
                 XLSX.writeFile(wb, fileName);
 
                 alert('Đã export thành công!');
             } catch (error) {
                 console.error('Error exporting to Excel:', error);
                 alert('Lỗi export: ' + error.message);
+            }
+        }
+
+        // ==================== FETCH ORDER FROM TPOS ====================
+        async function fetchOrderFromTPOS() {
+            if (!currentOrderId) {
+                alert('Không có Order ID');
+                return;
+            }
+
+            if (!currentCampaignName) {
+                alert('Không có chiến dịch được chọn');
+                return;
+            }
+
+            const btn = document.getElementById('btnFetchTPOS');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+            btn.disabled = true;
+
+            try {
+                // Get auth headers
+                const headers = await window.tokenManager.getAuthHeader();
+
+                // Fetch order from TPOS API
+                const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentOrderId})?$expand=Details,Partner,User`;
+                const response = await API_CONFIG.smartFetch(apiUrl, {
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const orderData = await response.json();
+                console.log('[TPOS-FETCH] Order data:', orderData);
+
+                // Convert TPOS Details to our format
+                const currentProducts = (orderData.Details || []).map(d => ({
+                    code: d.ProductCode || d.Code || d.DefaultCode || '',
+                    quantity: d.Quantity || 1
+                })).filter(p => p.code);
+
+                console.log('[TPOS-FETCH] Current products:', currentProducts);
+
+                // ==================== UPDATE FIREBASE report_order_details ====================
+                // Find and update only this order in Firebase
+                const safeTableName = currentCampaignName.replace(/[.$#\[\]\/]/g, '_');
+                const ordersRef = firebase.database().ref(`report_order_details/${safeTableName}/orders`);
+
+                const ordersSnapshot = await ordersRef.once('value');
+                const orders = ordersSnapshot.val() || [];
+
+                // Find index of this order
+                let orderIndex = -1;
+                for (let i = 0; i < orders.length; i++) {
+                    const order = orders[i];
+                    const orderId = order.Id || order.id;
+                    if (orderId === currentOrderId) {
+                        orderIndex = i;
+                        break;
+                    }
+                }
+
+                if (orderIndex !== -1) {
+                    // Update the specific order's Details in Firebase
+                    const orderRef = firebase.database().ref(`report_order_details/${safeTableName}/orders/${orderIndex}`);
+
+                    // Update Details from TPOS data
+                    await orderRef.update({
+                        Details: orderData.Details || [],
+                        _tposFetchedAt: Date.now(),
+                        _tposFetchedBy: 'tab2-statistics'
+                    });
+
+                    console.log('[TPOS-FETCH] Updated Firebase order at index:', orderIndex);
+                } else {
+                    console.warn('[TPOS-FETCH] Order not found in Firebase campaign:', currentOrderId);
+                }
+
+                // Get BASE and re-render
+                const base = await window.kpiManager.getKPIBase(currentOrderId);
+
+                // Re-render tabs with fresh data
+                renderKPIComparisonTab(base, currentProducts);
+                renderAllProductsTab(currentProducts);
+                renderBaseProductsTab(base);
+
+                // Show success
+                btn.innerHTML = '<i class="fas fa-check"></i> Đã cập nhật!';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-success');
+
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-primary');
+                    btn.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error('[TPOS-FETCH] Error:', error);
+                alert('Lỗi lấy dữ liệu từ TPOS: ' + error.message);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
             }
         }
     </script>

@@ -132,15 +132,19 @@ async function clearCache(key = null) {
     }
 }
 
-// Check authentication - Admin only
+// Check authentication - ALL users check detailedPermissions
 if (typeof authManager !== 'undefined') {
     if (!authManager.requireAuth()) {
         throw new Error('Authentication required');
     }
-    if (!authManager.isAdmin()) {
-        alert('Chỉ Admin mới có quyền truy cập trang này');
+    // Check detailedPermissions for customer-management page - NO admin bypass
+    const auth = authManager.getAuthState ? authManager.getAuthState() : null;
+    const hasAccess = auth?.detailedPermissions?.['customer-management'] &&
+        Object.values(auth.detailedPermissions['customer-management']).some(v => v === true);
+    if (!hasAccess) {
+        alert('Bạn không có quyền truy cập trang này. Cần quyền customer-management trong detailedPermissions.');
         window.location.href = '../index.html';
-        throw new Error('Admin permission required');
+        throw new Error('customer-management permission required');
     }
 }
 

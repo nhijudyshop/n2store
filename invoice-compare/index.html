@@ -1,541 +1,588 @@
+<!--
+  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
+  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
+-->
 <!doctype html>
 <html lang="vi">
-    <head>
-        <meta charset="UTF-8" />
-        <title>So Sánh Đơn Hàng</title>
-        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-        <!-- External CSS -->
-        <link rel="stylesheet" href="../balance-history/modern.css" />
-        <link rel="stylesheet" href="invoice-compare.css" />
+<head>
+    <meta charset="UTF-8" />
+    <title>So Sánh Đơn Hàng</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-        <!-- Navigation Manager -->
-        <!-- N2Store Optimization: Core Utilities Loader -->
-        <script src="../js/core-loader.js"></script>
-        <script src="../js/navigation-modern.js"></script>
-        <script src="../js/common-utils.js"></script>
+    <!-- External CSS -->
+    <link rel="stylesheet" href="../balance-history/modern.css" />
+    <link rel="stylesheet" href="invoice-compare.css" />
 
-        <!-- Lucide Icons CDN -->
-        <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Navigation Manager -->
+    <!-- N2Store Optimization: Core Utilities Loader -->
+    <script src="../js/core-loader.js"></script>
+    <script src="../js/navigation-modern.js"></script>
+    <script src="../js/common-utils.js"></script>
 
-        <!-- Firebase SDKs -->
-        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-        <!-- Load Gemini API Keys -->
-        <script>
-            // Load API keys from localStorage or GitHub Secrets
-            // Priority: localStorage → GitHub Secrets (build process)
-            const savedGeminiKeys = localStorage.getItem('gemini_api_keys') || '';
-            const savedHFKeys = localStorage.getItem('hf_api_keys') || '';
+    <!-- Tesseract.js for OCR (browser-based) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-            // Keys are injected by GitHub Actions workflow from secrets
-            // Priority: localStorage (user override) → GitHub Secrets (auto-injected)
-            window.GEMINI_KEYS = savedGeminiKeys || 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM,AIzaSyCtrNOTjOVbKgJwNwgG80ZIUSVQ9fkYqbE,AIzaSyBl2AO6WmoJHwIlnFg6i0tcbbSyYHnoStM,AIzaSyBwScrzLWofcQMJjB4iQNAmNzBgfWyc7Rs,AIzaSyDOaFELikRXdJRjxslRtj_LUyFFiOEa2-E,AIzaSyDfNAWbpvkfEzXoXfkzpDQuj3SCbXLXEdw,AIzaSyCNO60AvMBspBCAK1WglXikhhuja9OarFg,AIzaSyCs7Fgi3MbH4qd6GNdBm3Yq4aQzSijApBI,AIzaSyDlQlD5QA4cUnaf93LFjFjHe1QnKZRVwGg,AIzaSyDywVP6oaHYQCa60lz6-PnizD8zMw9bXiA' || '';
-            window.HF_KEYS = savedHFKeys || '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,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,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' || '';
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-            console.log('[API-KEYS] Gemini keys loaded:', window.GEMINI_KEYS ? 'Yes' : 'No');
-        </script>
+    <!-- API Keys are now managed securely on Render server -->
+    <script>
+        // API Keys are stored on Render server, no longer needed here
+        console.log('[API-KEYS] Using Render proxy for DeepSeek and Google Vision (keys stored server-side)');
+    </script>
 
-        <!-- Gemini AI Helper -->
-        <script src="gemini-ai-helper.js"></script>
-    </head>
+    <!-- DeepSeek AI Helper -->
+    <script src="deepseek-ai-helper.js"></script>
+</head>
 
-    <body>
-        <!-- Sidebar Navigation -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <i data-lucide="zap"></i>
-                    <span>N2Shop</span>
-                </div>
-                <button class="sidebar-toggle" id="sidebarToggle">
-                    <i data-lucide="panel-left-close"></i>
-                </button>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i data-lucide="zap"></i>
+                <span>N2Shop</span>
             </div>
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i data-lucide="panel-left-close"></i>
+            </button>
+        </div>
 
-            <nav class="sidebar-nav" id="sidebarNav">
-                <!-- Menu items auto-generated -->
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar">
-                        <i data-lucide="user-circle"></i>
-                    </div>
-                    <div class="user-details">
-                        <div class="user-name" id="userName">Admin</div>
-                        <div class="user-role">Quản trị viên</div>
-                    </div>
-                </div>
-                <button class="btn-permissions" id="btnPermissions">
-                    <i data-lucide="shield-check"></i>
-                    <span>Xem Quyền Của Tôi</span>
-                </button>
-                <button class="btn-logout" id="btnLogout">
-                    <i data-lucide="log-out"></i>
-                    <span>Đăng xuất</span>
-                </button>
-            </div>
-        </aside>
-
-        <!-- Mobile Bottom Navigation -->
-        <nav class="mobile-nav" id="mobileNav">
-            <!-- Auto-generated by navigation-modern.js -->
+        <nav class="sidebar-nav" id="sidebarNav">
+            <!-- Menu items auto-generated -->
         </nav>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Top Bar -->
-            <header class="top-bar">
-                <div class="top-bar-left">
-                    <button class="btn-icon" id="menuToggle">
-                        <i data-lucide="menu"></i>
-                    </button>
-                    <div class="breadcrumb">
-                        <i data-lucide="home"></i>
-                        <span>So Sánh Đơn Hàng</span>
-                    </div>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i data-lucide="user-circle"></i>
                 </div>
-                <div class="top-bar-right">
-                    <button
-                        class="btn-icon"
-                        id="btnPancakeSettings"
-                        title="Cài đặt Pancake Account"
-                        onclick="openPancakeSettingsModal()"
-                    >
-                        <i data-lucide="cookie"></i>
-                    </button>
-                    <button
-                        class="btn-icon"
-                        id="btnRefresh"
-                        title="Làm mới dữ liệu"
-                    >
-                        <i data-lucide="refresh-cw"></i>
-                    </button>
-                </div>
-            </header>
-
-            <!-- Content Container -->
-            <div class="container">
-                <div class="invoice-compare-container">
-                    <!-- Input Section -->
-                    <div class="card input-section">
-                        <div class="card-header">
-                            <h2>
-                                <i data-lucide="link"></i>
-                                Nhập Link Hóa Đơn TPOS
-                            </h2>
-                        </div>
-                        <div class="card-body">
-                            <div class="input-group">
-                                <label for="invoiceUrl">Link Hóa Đơn:</label>
-                                <input
-                                    type="text"
-                                    id="invoiceUrl"
-                                    placeholder="https://tomato.tpos.vn/#/app/fastpurchaseorder/invoiceform1?id=53589"
-                                    class="form-input"
-                                />
-                            </div>
-                            <div class="button-group">
-                                <button id="btnFetchInvoice" class="btn btn-primary">
-                                    <i data-lucide="download"></i>
-                                    Tải Dữ Liệu
-                                </button>
-                                <button id="btnClear" class="btn btn-secondary">
-                                    <i data-lucide="x"></i>
-                                    Xóa
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Invoice Images Section -->
-                    <div class="card images-section" id="imagesSection">
-                        <div class="card-header">
-                            <h2>
-                                <i data-lucide="image"></i>
-                                Hình Ảnh Hóa Đơn
-                            </h2>
-                        </div>
-                        <div class="card-body">
-                            <div class="upload-section">
-                                <label for="imageUpload" class="upload-label">
-                                    <i data-lucide="upload"></i>
-                                    <span>Tải lên hoặc Ctrl+V để paste hình</span>
-                                </label>
-                                <input
-                                    type="file"
-                                    id="imageUpload"
-                                    accept="image/*"
-                                    multiple
-                                    style="display: none;"
-                                />
-                                <button id="btnAnalyzeWithAI" class="btn btn-primary" style="display: none; margin-top: 12px;">
-                                    <i data-lucide="sparkles"></i>
-                                    Phân Tích Với AI
-                                </button>
-                            </div>
-                            <div id="invoiceImages" class="image-gallery">
-                                <!-- Images will be loaded here -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- JSON Data Section -->
-                    <div class="card data-section" id="dataSection" style="display: none;">
-                        <div class="card-header">
-                            <h2>
-                                <i data-lucide="database"></i>
-                                Dữ Liệu Đơn Hàng
-                            </h2>
-                        </div>
-                        <div class="card-body">
-                            <div class="data-summary">
-                                <div class="summary-item">
-                                    <span class="label">Số Hóa Đơn:</span>
-                                    <span class="value" id="invoiceNumber">-</span>
-                                </div>
-                                <div class="summary-item">
-                                    <span class="label">Nhà Cung Cấp:</span>
-                                    <span class="value" id="supplierName">-</span>
-                                </div>
-                                <div class="summary-item">
-                                    <span class="label">Tổng Tiền:</span>
-                                    <span class="value" id="totalAmount">-</span>
-                                </div>
-                                <div class="summary-item">
-                                    <span class="label">Tổng Số Lượng:</span>
-                                    <span class="value" id="totalQuantity">-</span>
-                                </div>
-                            </div>
-
-                            <h3>Chi Tiết Sản Phẩm:</h3>
-                            <div id="productList" class="product-list">
-                                <!-- Products will be listed here -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Comparison Result Section -->
-                    <div class="card result-section" id="resultSection" style="display: none;">
-                        <div class="card-header">
-                            <h2>
-                                <i data-lucide="check-circle"></i>
-                                Kết Quả So Sánh
-                            </h2>
-                        </div>
-                        <div class="card-body">
-                            <div id="comparisonResult">
-                                <!-- Comparison results will be shown here -->
-                            </div>
-                        </div>
-                    </div>
+                <div class="user-details">
+                    <div class="user-name" id="userName">Admin</div>
+                    <div class="user-role">Quản trị viên</div>
                 </div>
             </div>
-        </main>
-
-        <!-- Loading Overlay -->
-        <div id="loadingOverlay" class="loading-overlay" style="display: none;">
-            <div class="loading-spinner">
-                <i data-lucide="loader"></i>
-                <p>Đang tải dữ liệu...</p>
-            </div>
+            <button class="btn-permissions" id="btnPermissions">
+                <i data-lucide="shield-check"></i>
+                <span>Xem Quyền Của Tôi</span>
+            </button>
+            <button class="btn-logout" id="btnLogout">
+                <i data-lucide="log-out"></i>
+                <span>Đăng xuất</span>
+            </button>
         </div>
+    </aside>
 
-        <!-- Pancake Settings Modal -->
-        <div class="pancake-modal" id="pancakeSettingsModal">
-            <div class="pancake-modal-content">
-                <div class="pancake-modal-header">
-                    <h3><i data-lucide="settings"></i> Quản lý Pancake Accounts</h3>
-                    <button class="pancake-modal-close" onclick="closePancakeSettingsModal()">×</button>
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-nav" id="mobileNav">
+        <!-- Auto-generated by navigation-modern.js -->
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <button class="btn-icon" id="menuToggle">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="breadcrumb">
+                    <i data-lucide="home"></i>
+                    <span>So Sánh Đơn Hàng</span>
                 </div>
-                <div class="pancake-modal-body">
-                    <!-- Accounts List -->
-                    <div style="margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <h4 style="margin: 0; font-size: 15px; color: #374151; display: flex; align-items: center; gap: 8px;">
-                                <i data-lucide="users" style="width: 18px; height: 18px;"></i> Danh sách tài khoản
-                            </h4>
-                            <button onclick="showAddAccountForm()" class="pancake-btn pancake-btn-primary">
-                                <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Thêm tài khoản
+            </div>
+            <div class="top-bar-right">
+                <button class="btn-icon" id="btnPancakeSettings" title="Cài đặt Pancake Account"
+                    onclick="openPancakeSettingsModal()">
+                    <i data-lucide="cookie"></i>
+                </button>
+                <button class="btn-icon" id="btnRefresh" title="Làm mới dữ liệu">
+                    <i data-lucide="refresh-cw"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Content Container -->
+        <div class="container">
+            <div class="invoice-compare-container">
+                <!-- Combined Input Section - 2 Column Layout -->
+                <div class="card input-card-combined">
+                    <div class="card-header card-header-compact">
+                        <h2>
+                            <i data-lucide="file-search"></i>
+                            So Sánh Hóa Đơn
+                        </h2>
+                    </div>
+                    <div class="card-body card-body-compact">
+                        <div class="input-grid-2col">
+                            <!-- Left Column: URL Input -->
+                            <div class="input-column">
+                                <div class="column-label">
+                                    <i data-lucide="link"></i>
+                                    <span>Link TPOS</span>
+                                </div>
+                                <div class="input-group-compact">
+                                    <input type="text" id="invoiceUrl"
+                                        placeholder="https://tomato.tpos.vn/..."
+                                        class="form-input form-input-compact" />
+                                    <button id="btnClear" class="btn btn-sm btn-secondary">
+                                        <i data-lucide="x"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Image Upload -->
+                            <div class="input-column" id="imagesSection">
+                                <div class="column-label">
+                                    <i data-lucide="image"></i>
+                                    <span>Hình Ảnh</span>
+                                </div>
+                                <div class="drop-zone" id="dropZone">
+                                    <div class="drop-zone-content">
+                                        <i data-lucide="image-plus" class="drop-zone-icon"></i>
+                                        <span class="drop-zone-text">Kéo thả hoặc <strong>Ctrl+V</strong> paste ảnh</span>
+                                        <label for="imageUpload" class="drop-zone-btn">
+                                            <i data-lucide="folder-open"></i>
+                                            Chọn file
+                                        </label>
+                                    </div>
+                                    <input type="file" id="imageUpload" accept="image/*" multiple style="display: none;" />
+                                </div>
+                                <div id="invoiceImages" class="image-gallery-compact">
+                                    <!-- Images will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI Analysis Button - Prominent -->
+                        <div class="ai-analyze-section" id="aiAnalyzeSection" style="display: none;">
+                            <button id="btnAnalyzeWithAI" class="btn-analyze-ai">
+                                <i data-lucide="sparkles"></i>
+                                <span>Phân Tích Với AI</span>
+                                <i data-lucide="arrow-right"></i>
                             </button>
                         </div>
-                        <div id="pancakeAccountsList" style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto;">
-                            <div style="text-align: center; color: #9ca3af; padding: 20px;">
-                                Đang tải...
+
+                        <!-- Inline Loading Section -->
+                        <div id="loadingInline" class="loading-inline" style="display: none;">
+                            <!-- Progress Steps -->
+                            <div class="loading-steps-inline">
+                                <div class="loading-step-inline" id="step1">
+                                    <div class="step-icon-inline">📷</div>
+                                    <div class="step-label-inline">OCR</div>
+                                </div>
+                                <div class="step-connector"></div>
+                                <div class="loading-step-inline" id="step2">
+                                    <div class="step-icon-inline">🤖</div>
+                                    <div class="step-label-inline">Phân tích</div>
+                                </div>
+                                <div class="step-connector"></div>
+                                <div class="loading-step-inline" id="step3">
+                                    <div class="step-icon-inline">✅</div>
+                                    <div class="step-label-inline">Hoàn tất</div>
+                                </div>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="loading-status-inline">
+                                <span class="loading-spinner-inline"></span>
+                                <span id="loadingTitle">Đang xử lý...</span>
+                            </div>
+
+                            <!-- Progress Bar -->
+                            <div class="loading-progress-inline">
+                                <div class="progress-bar-inline">
+                                    <div class="progress-fill-inline" id="progressFill"></div>
+                                </div>
+                                <span class="progress-text" id="loadingSubtitle">0%</span>
+                            </div>
+
+                            <!-- OCR Preview -->
+                            <div class="ocr-preview-inline" id="ocrPreview" style="display: none;">
+                                <div class="ocr-preview-header-inline">
+                                    <span>📝 OCR</span>
+                                    <span class="ocr-engine-inline" id="ocrEngineLabel">Google Vision</span>
+                                </div>
+                                <div class="ocr-preview-content-inline" id="ocrPreviewContent"></div>
+                            </div>
+
+                            <!-- Stats -->
+                            <div class="loading-stats-inline" id="loadingStats">
+                                <span><strong id="statChars">0</strong> ký tự</span>
+                                <span><strong id="statTime">0s</strong></span>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Add Account Form (Hidden by default) -->
-                    <div id="addAccountForm" style="display: none; margin-bottom: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 2px solid #3b82f6;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <h4 style="margin: 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
-                                <i data-lucide="user-plus" style="width: 16px; height: 16px;"></i> Thêm tài khoản mới
-                            </h4>
-                            <button onclick="hideAddAccountForm()" style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
-                                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
-                            </button>
-                        </div>
-
-                        <!-- Token Input -->
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
-                                JWT Token:
-                            </label>
-                            <textarea id="newAccountTokenInput" placeholder="Nhập JWT token từ cookie pancake.vn..."
-                                style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical; box-sizing: border-box;"
-                                oninput="validateTokenInput()"></textarea>
-                            <div id="tokenValidationMessage" style="margin-top: 6px; font-size: 11px; color: #6b7280; display: none;"></div>
-                            <div style="margin-top: 6px; font-size: 11px; color: #6b7280;">
-                                💡 Token sẽ được tự động làm sạch (xóa khoảng trắng, prefix "jwt=", v.v.)
+                <!-- JSON Data Section -->
+                <div class="card data-section" id="dataSection" style="display: none;">
+                    <div class="card-header">
+                        <h2>
+                            <i data-lucide="database"></i>
+                            Dữ Liệu Đơn Hàng
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="data-summary">
+                            <div class="summary-item">
+                                <span class="label">Số Hóa Đơn:</span>
+                                <span class="value" id="invoiceNumber">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Nhà Cung Cấp:</span>
+                                <span class="value" id="supplierName">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Tổng Tiền:</span>
+                                <span class="value" id="totalAmount">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Tổng Số Lượng:</span>
+                                <span class="value" id="totalQuantity">-</span>
                             </div>
                         </div>
 
-                        <!-- Instructions -->
-                        <div style="padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; margin-bottom: 12px;">
-                            <div style="font-size: 12px; color: #92400e; font-weight: 500; margin-bottom: 6px;">
-                                📋 Cách lấy JWT token:
-                            </div>
-                            <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #92400e;">
-                                <li>Mở tab mới: <a href="https://pancake.vn" target="_blank" style="color: #d97706;">https://pancake.vn</a></li>
-                                <li>Đăng nhập vào tài khoản Pancake</li>
-                                <li>Mở DevTools (F12) → Console tab</li>
-                                <li>Gõ: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code></li>
-                                <li>Copy giá trị sau "jwt=" và paste vào ô trên</li>
-                            </ol>
-                        </div>
-
-                        <!-- Actions -->
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button class="pancake-btn pancake-btn-success" onclick="addAccountFromCookie()" style="flex: 1; min-width: 120px;">
-                                <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> Lấy từ Cookie
-                            </button>
-                            <button class="pancake-btn pancake-btn-warning" onclick="debugTokenInput()" style="flex: 1; min-width: 100px;">
-                                <i data-lucide="bug" style="width: 14px; height: 14px;"></i> Debug
-                            </button>
-                            <button class="pancake-btn pancake-btn-primary" onclick="addAccountManual()" style="flex: 1; min-width: 120px;">
-                                <i data-lucide="save" style="width: 14px; height: 14px;"></i> Thêm Token
-                            </button>
+                        <h3>Chi Tiết Sản Phẩm:</h3>
+                        <div id="productList" class="product-list">
+                            <!-- Products will be listed here -->
                         </div>
                     </div>
                 </div>
-                <div class="pancake-modal-footer">
-                    <button class="pancake-btn pancake-btn-secondary" onclick="closePancakeSettingsModal()">
-                        Đóng
-                    </button>
-                    <button class="pancake-btn pancake-btn-danger" onclick="clearAllPancakeAccounts()">
-                        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Xóa tất cả
-                    </button>
+
+                <!-- Comparison Result Section -->
+                <div class="card result-section" id="resultSection" style="display: none;">
+                    <div class="card-header">
+                        <h2>
+                            <i data-lucide="check-circle"></i>
+                            Kết Quả So Sánh
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="comparisonResult">
+                            <!-- Comparison results will be shown here -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+    </main>
 
-        <!-- Invoice Compare Scripts -->
-        <script src="../orders-report/token-manager.js"></script>
-        <script src="../orders-report/pancake-token-manager.js"></script>
-        <script src="auth.js"></script>
-        <script src="invoice-compare.js"></script>
+    <!-- Pancake Settings Modal -->
+    <div class="pancake-modal" id="pancakeSettingsModal">
+        <div class="pancake-modal-content">
+            <div class="pancake-modal-header">
+                <h3><i data-lucide="settings"></i> Quản lý Pancake Accounts</h3>
+                <button class="pancake-modal-close" onclick="closePancakeSettingsModal()">×</button>
+            </div>
+            <div class="pancake-modal-body">
+                <!-- Accounts List -->
+                <div style="margin-bottom: 20px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4
+                            style="margin: 0; font-size: 15px; color: #374151; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="users" style="width: 18px; height: 18px;"></i> Danh sách tài khoản
+                        </h4>
+                        <button onclick="showAddAccountForm()" class="pancake-btn pancake-btn-primary">
+                            <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Thêm tài khoản
+                        </button>
+                    </div>
+                    <div id="pancakeAccountsList"
+                        style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto;">
+                        <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                            Đang tải...
+                        </div>
+                    </div>
+                </div>
 
-        <!-- Pancake Settings Script -->
-        <script>
-            // Open Pancake Settings Modal
-            async function openPancakeSettingsModal() {
-                document.getElementById('pancakeSettingsModal').style.display = 'flex';
-                lucide.createIcons();
+                <!-- Add Account Form (Hidden by default) -->
+                <div id="addAccountForm"
+                    style="display: none; margin-bottom: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 2px solid #3b82f6;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4
+                            style="margin: 0; font-size: 14px; color: #374151; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="user-plus" style="width: 16px; height: 16px;"></i> Thêm tài khoản mới
+                        </h4>
+                        <button onclick="hideAddAccountForm()"
+                            style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
+                            <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                        </button>
+                    </div>
 
-                // Load accounts list
+                    <!-- Token Input -->
+                    <div style="margin-bottom: 12px;">
+                        <label
+                            style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                            JWT Token:
+                        </label>
+                        <textarea id="newAccountTokenInput" placeholder="Nhập JWT token từ cookie pancake.vn..."
+                            style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical; box-sizing: border-box;"
+                            oninput="validateTokenInput()"></textarea>
+                        <div id="tokenValidationMessage"
+                            style="margin-top: 6px; font-size: 11px; color: #6b7280; display: none;"></div>
+                        <div style="margin-top: 6px; font-size: 11px; color: #6b7280;">
+                            💡 Token sẽ được tự động làm sạch (xóa khoảng trắng, prefix "jwt=", v.v.)
+                        </div>
+                    </div>
+
+                    <!-- Instructions -->
+                    <div
+                        style="padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #92400e; font-weight: 500; margin-bottom: 6px;">
+                            📋 Cách lấy JWT token:
+                        </div>
+                        <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #92400e;">
+                            <li>Mở tab mới: <a href="https://pancake.vn" target="_blank"
+                                    style="color: #d97706;">https://pancake.vn</a></li>
+                            <li>Đăng nhập vào tài khoản Pancake</li>
+                            <li>Mở DevTools (F12) → Console tab</li>
+                            <li>Gõ: <code
+                                    style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code>
+                            </li>
+                            <li>Copy giá trị sau "jwt=" và paste vào ô trên</li>
+                        </ol>
+                    </div>
+
+                    <!-- Actions -->
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="pancake-btn pancake-btn-success" onclick="addAccountFromCookie()"
+                            style="flex: 1; min-width: 120px;">
+                            <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> Lấy từ Cookie
+                        </button>
+                        <button class="pancake-btn pancake-btn-warning" onclick="debugTokenInput()"
+                            style="flex: 1; min-width: 100px;">
+                            <i data-lucide="bug" style="width: 14px; height: 14px;"></i> Debug
+                        </button>
+                        <button class="pancake-btn pancake-btn-primary" onclick="addAccountManual()"
+                            style="flex: 1; min-width: 120px;">
+                            <i data-lucide="save" style="width: 14px; height: 14px;"></i> Thêm Token
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="pancake-modal-footer">
+                <button class="pancake-btn pancake-btn-secondary" onclick="closePancakeSettingsModal()">
+                    Đóng
+                </button>
+                <button class="pancake-btn pancake-btn-danger" onclick="clearAllPancakeAccounts()">
+                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Xóa tất cả
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Compare Scripts -->
+    <script src="../orders-report/token-manager.js"></script>
+    <script src="../orders-report/pancake-token-manager.js"></script>
+    <script src="auth.js"></script>
+    <script src="invoice-compare.js"></script>
+
+    <!-- Pancake Settings Script -->
+    <script>
+        // Open Pancake Settings Modal
+        async function openPancattingsModal() {
+            document.getElementById('pancakeSettingsModal').style.display = 'flex';
+            lucide.createIcons();
+
+            // Load accounts list
+            if (window.pancakeTokenManager) {
+                await window.pancakeTokenManager.initialize();
+                await refrest();
+            }
+        }
+
+        // Close Pancake Settings Modal
+        function closePancakeSettingsModal() {
+            document.getElementById('pancakeSettingsModal').style.display = 'none';
+            hideAddAccountForm();
+        }
+
+        // Show Add Account Form
+        function showAddAccountForm() {
+            document.getElementById('addAccountForm').style.display = 'block';
+            document.getElementById('newAccountTokenInput').value = '';
+            document.getElementById('newAccountTokenInput').focus();
+            lucide.createIcons();
+        }
+
+        // Hide Add Account Form
+        function hideAddAccountForm() {
+            document.getElementById('addAccountForm').style.display = 'none';
+            document.getElementById('newAccountTokenInput').value = '';
+            document.getElementById('tokenValidationMessage').style.display = 'none';
+        }
+
+        // Validate Token Input (real-time)
+        function validateTokenInput() {
+            const input = document.getElementById('newAccountTokenInput').value;
+            const messageDiv = document.getElementById('tokenValidationMessage');
+
+            if (!input || input.trim() === '') {
+                messageDiv.style.display = 'none';
+                return;
+            }
+
+            try {
+                // Clean token
+                let cleanedToken = input.trim();
+                if (cleanedToken.toLowerCase().startsWith('jwt=')) {
+                    cleanedToken = cleanedToken.substring(4).trim();
+                }
+                cleanedToken = cleanedToken.replace(/^["']|["']$/g, '');
+                cleanedToken = cleanedToken.replace(/\s+/g, '');
+                cleanedToken = cleanedToken.replace(/[;,]+$/g, '');
+
+                // Check format
+                const parts = cleanedToken.split('.');
+                if (parts.length !== 3) {
+                    messageDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Token có ${parts.length} phần, cần 3 phần (header.payload.signature)</span>`;
+                    messageDiv.style.display = 'block';
+                    return;
+                }
+
+                // Check each part
+                if (!parts[0] || !parts[1] || !parts[2]) {
+                    messageDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ Token có phần trống</span>';
+                    messageDiv.style.display = 'block';
+                    return;
+                }
+
+                // Try to decode (basic check)
                 if (window.pancakeTokenManager) {
-                    await window.pancakeTokenManager.initialize();
-                    await refreshAccountsList();
-                }
-            }
-
-            // Close Pancake Settings Modal
-            function closePancakeSettingsModal() {
-                document.getElementById('pancakeSettingsModal').style.display = 'none';
-                hideAddAccountForm();
-            }
-
-            // Show Add Account Form
-            function showAddAccountForm() {
-                document.getElementById('addAccountForm').style.display = 'block';
-                document.getElementById('newAccountTokenInput').value = '';
-                document.getElementById('newAccountTokenInput').focus();
-                lucide.createIcons();
-            }
-
-            // Hide Add Account Form
-            function hideAddAccountForm() {
-                document.getElementById('addAccountForm').style.display = 'none';
-                document.getElementById('newAccountTokenInput').value = '';
-                document.getElementById('tokenValidationMessage').style.display = 'none';
-            }
-
-            // Validate Token Input (real-time)
-            function validateTokenInput() {
-                const input = document.getElementById('newAccountTokenInput').value;
-                const messageDiv = document.getElementById('tokenValidationMessage');
-
-                if (!input || input.trim() === '') {
-                    messageDiv.style.display = 'none';
-                    return;
-                }
-
-                try {
-                    // Clean token
-                    let cleanedToken = input.trim();
-                    if (cleanedToken.toLowerCase().startsWith('jwt=')) {
-                        cleanedToken = cleanedToken.substring(4).trim();
-                    }
-                    cleanedToken = cleanedToken.replace(/^["']|["']$/g, '');
-                    cleanedToken = cleanedToken.replace(/\s+/g, '');
-                    cleanedToken = cleanedToken.replace(/[;,]+$/g, '');
-
-                    // Check format
-                    const parts = cleanedToken.split('.');
-                    if (parts.length !== 3) {
-                        messageDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Token có ${parts.length} phần, cần 3 phần (header.payload.signature)</span>`;
-                        messageDiv.style.display = 'block';
-                        return;
-                    }
-
-                    // Check each part
-                    if (!parts[0] || !parts[1] || !parts[2]) {
-                        messageDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ Token có phần trống</span>';
-                        messageDiv.style.display = 'block';
-                        return;
-                    }
-
-                    // Try to decode (basic check)
-                    if (window.pancakeTokenManager) {
-                        const payload = window.pancakeTokenManager.decodeToken(cleanedToken);
-                        if (payload) {
-                            const isExpired = window.pancakeTokenManager.isTokenExpired(payload.exp);
-                            if (isExpired) {
-                                const expiryDate = new Date(payload.exp * 1000).toLocaleDateString('vi-VN');
-                                messageDiv.innerHTML = `<span style="color: #ef4444;">❌ Token đã hết hạn: ${expiryDate}</span>`;
-                            } else {
-                                const expiryDate = new Date(payload.exp * 1000).toLocaleDateString('vi-VN');
-                                messageDiv.innerHTML = `<span style="color: #10b981;">✅ Token hợp lệ - ${payload.name || 'N/A'} - Hết hạn: ${expiryDate}</span>`;
-                            }
-                            messageDiv.style.display = 'block';
-                            return;
+                    const payload = window.pancakeTokenManager.decodeToken(cleanedToken);
+                    if (payload) {
+                        const isExpired = window.pancakeTokenManager.isTokenExpired(payload.exp);
+                        if (isExpired) {
+                            const expiryDate = new Date(payload.exp * 1000).toLocaleDateString('vi-VN');
+                            messageDiv.innerHTML = `<span style="color: #ef4444;">❌ Token đã hết hạn: ${expiryDate}</span>`;
+                        } else {
+                            const expiryDate = new Date(payload.exp * 1000).toLocaleDateString('vi-VN');
+                            messageDiv.innerHTML = `<span style="color: #10b981;">✅ Token hợp lệ - ${payload.name || 'N/A'} - Hết hạn: ${expiryDate}</span>`;
                         }
+                        messageDiv.style.display = 'block';
+                        return;
                     }
-
-                    messageDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ Không thể giải mã token, vui lòng kiểm tra lại</span>';
-                    messageDiv.style.display = 'block';
-
-                } catch (error) {
-                    messageDiv.innerHTML = '<span style="color: #ef4444;">❌ Lỗi: ' + error.message + '</span>';
-                    messageDiv.style.display = 'block';
                 }
+
+                messageDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ Không thể giải mã token, vui lòng kiểm tra lại</span>';
+                messageDiv.style.display = 'block';
+
+            } catch (error) {
+                messageDiv.innerHTML = '<span style="color: #ef4444;">❌ Lỗi: ' + error.message + '</span>';
+                messageDiv.style.display = 'block';
+            }
+        }
+
+        // Debug Token Input
+        function debugTokenInput() {
+            const input = document.getElementById('newAccountTokenInput').value;
+
+            if (!input || input.trim() === '') {
+                alert('Vui lòng nhập token vào ô trên trước khi debug');
+                return;
             }
 
-            // Debug Token Input
-            function debugTokenInput() {
-                const input = document.getElementById('newAccountTokenInput').value;
+            if (!window.pancakeTokenManager) {
+                alert('PancakeTokenManager not available');
+                return;
+            }
 
-                if (!input || input.trim() === '') {
-                    alert('Vui lòng nhập token vào ô trên trước khi debug');
-                    return;
-                }
+            console.log('='.repeat(80));
+            console.log('🔍 DEBUG TOKEN ANALYSIS');
+            console.log('='.repeat(80));
 
+            const result = window.pancakeTokenManager.debugToken(input);
+
+            console.log('📊 THÔNG TIN CƠ BẢN:');
+            console.log('  - Độ dài gốc:', result.info.originalLength);
+            console.log('  - Có khoảng trắng:', result.info.hasSpaces ? 'Có ⚠️' : 'Không');
+            console.log('  - Có newline:', result.info.hasNewlines ? 'Có ⚠️' : 'Không');
+            console.log('  - Có prefix jwt=:', result.info.hasPrefix ? 'Có' : 'Không');
+            console.log('  - Độ dài sau làm sạch:', result.info.cleanedLength);
+            console.log('  - Số phần:', result.info.parts);
+            if (result.info.partLengths) {
+                console.log('  - Độ dài từng phần:', result.info.partLengths.join(', '));
+            }
+
+            if (result.valid) {
+                console.log('\n✅ TOKEN HỢP LỆ:');
+                console.log('  - Tên:', result.info.name);
+                console.log('  - UID:', result.info.uid);
+                console.log('  - Hết hạn:', result.info.expiryDate);
+                console.log('  - Đã hết hạn:', result.info.isExpired ? 'Có ❌' : 'Không ✅');
+            } else {
+                console.log('\n❌ TOKEN KHÔNG HỢP LỆ:');
+                result.issues.forEach((issue, index) => {
+                    console.log(`  ${index + 1}. ${issue}`);
+                });
+            }
+
+            console.log('='.repeat(80));
+
+            // Show alert with summary
+            let message = '🔍 KẾT QUẢ DEBUG:\n\n';
+            message += `Độ dài token: ${result.info.originalLength} → ${result.info.cleanedLength} (sau làm sạch)\n`;
+            message += `Số phần: ${result.info.parts}\n\n`;
+
+            if (result.valid) {
+                message += `✅ Token hợp lệ!\n\n`;
+                message += `Tên: ${result.info.name}\n`;
+                message += `Hết hạn: ${result.info.expiryDate}\n`;
+                message += `Trạng thái: ${result.info.isExpired ? 'Đã hết hạn ❌' : 'Còn hạn ✅'}`;
+            } else {
+                message += '❌ Token không hợp lệ!\n\n';
+                message += 'Vấn đề:\n';
+                result.issues.forEach((issue, index) => {
+                    message += `${index + 1}. ${issue}\n`;
+                });
+                message += '\n📋 Chi tiết đã được in ra console (F12)';
+            }
+
+            alert(message);
+        }
+
+        // Refresh Accounts List
+        async function refreshAccountsList() {
+            try {
                 if (!window.pancakeTokenManager) {
-                    alert('PancakeTokenManager not available');
-                    return;
+                    throw new Error('PancakeTokenManager not available');
                 }
 
-                console.log('='.repeat(80));
-                console.log('🔍 DEBUG TOKEN ANALYSIS');
-                console.log('='.repeat(80));
+                const accounts = window.pancakeTokenManager.getAllAccounts();
+                const activeAccountId = window.pancakeTokenManager.activeAccountId;
+                const listDiv = document.getElementById('pancakeAccountsList');
 
-                const result = window.pancakeTokenManager.debugToken(input);
-
-                console.log('📊 THÔNG TIN CƠ BẢN:');
-                console.log('  - Độ dài gốc:', result.info.originalLength);
-                console.log('  - Có khoảng trắng:', result.info.hasSpaces ? 'Có ⚠️' : 'Không');
-                console.log('  - Có newline:', result.info.hasNewlines ? 'Có ⚠️' : 'Không');
-                console.log('  - Có prefix jwt=:', result.info.hasPrefix ? 'Có' : 'Không');
-                console.log('  - Độ dài sau làm sạch:', result.info.cleanedLength);
-                console.log('  - Số phần:', result.info.parts);
-                if (result.info.partLengths) {
-                    console.log('  - Độ dài từng phần:', result.info.partLengths.join(', '));
-                }
-
-                if (result.valid) {
-                    console.log('\n✅ TOKEN HỢP LỆ:');
-                    console.log('  - Tên:', result.info.name);
-                    console.log('  - UID:', result.info.uid);
-                    console.log('  - Hết hạn:', result.info.expiryDate);
-                    console.log('  - Đã hết hạn:', result.info.isExpired ? 'Có ❌' : 'Không ✅');
-                } else {
-                    console.log('\n❌ TOKEN KHÔNG HỢP LỆ:');
-                    result.issues.forEach((issue, index) => {
-                        console.log(`  ${index + 1}. ${issue}`);
-                    });
-                }
-
-                console.log('='.repeat(80));
-
-                // Show alert with summary
-                let message = '🔍 KẾT QUẢ DEBUG:\n\n';
-                message += `Độ dài token: ${result.info.originalLength} → ${result.info.cleanedLength} (sau làm sạch)\n`;
-                message += `Số phần: ${result.info.parts}\n\n`;
-
-                if (result.valid) {
-                    message += `✅ Token hợp lệ!\n\n`;
-                    message += `Tên: ${result.info.name}\n`;
-                    message += `Hết hạn: ${result.info.expiryDate}\n`;
-                    message += `Trạng thái: ${result.info.isExpired ? 'Đã hết hạn ❌' : 'Còn hạn ✅'}`;
-                } else {
-                    message += '❌ Token không hợp lệ!\n\n';
-                    message += 'Vấn đề:\n';
-                    result.issues.forEach((issue, index) => {
-                        message += `${index + 1}. ${issue}\n`;
-                    });
-                    message += '\n📋 Chi tiết đã được in ra console (F12)';
-                }
-
-                alert(message);
-            }
-
-            // Refresh Accounts List
-            async function refreshAccountsList() {
-                try {
-                    if (!window.pancakeTokenManager) {
-                        throw new Error('PancakeTokenManager not available');
-                    }
-
-                    const accounts = window.pancakeTokenManager.getAllAccounts();
-                    const activeAccountId = window.pancakeTokenManager.activeAccountId;
-                    const listDiv = document.getElementById('pancakeAccountsList');
-
-                    if (!accounts || Object.keys(accounts).length === 0) {
-                        listDiv.innerHTML = `
+                if (!accounts || Object.keys(accounts).length === 0) {
+                    listDiv.innerHTML = `
                             <div style="text-align: center; color: #9ca3af; padding: 20px;">
                                 <i data-lucide="users" style="width: 32px; height: 32px; margin-bottom: 8px;"></i>
                                 <div>Chưa có tài khoản nào</div>
                                 <div style="font-size: 12px; margin-top: 4px;">Bấm "Thêm tài khoản" để bắt đầu</div>
                             </div>
                         `;
-                        lucide.createIcons();
-                        return;
-                    }
+                    lucide.createIcons();
+                    return;
+                }
 
-                    let html = '';
-                    for (const [accountId, account] of Object.entries(accounts)) {
-                        const isActive = accountId === activeAccountId;
-                        const isExpired = window.pancakeTokenManager.isTokenExpired(account.exp);
-                        const statusColor = isExpired ? '#ef4444' : '#10b981';
-                        const statusText = isExpired ? '❌ Hết hạn' : '✅ Còn hạn';
-                        const activeStyle = isActive ? 'border: 2px solid #3b82f6; background: #eff6ff;' : 'border: 1px solid #e5e7eb; background: white;';
+                let html = '';
+                for (const [accountId, account] of Object.entries(accounts)) {
+                    const isActive = accountId === activeAccountId;
+                    const isExpired = window.pancakeTokenManager.isTokenExpired(account.exp);
+                    const statusColor = isExpired ? '#ef4444' : '#10b981';
+                    const statusText = isExpired ? '❌ Hết hạn' : '✅ Còn hạn';
+                    const activeStyle = isActive ? 'border: 2px solid #3b82f6; background: #eff6ff;' : 'border: 1px solid #e5e7eb; background: white;';
 
-                        html += `
+                    html += `
                             <div style="padding: 12px; ${activeStyle} border-radius: 8px; margin-bottom: 8px;">
                                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                                     <div style="flex: 1;">
@@ -573,160 +620,161 @@
                                 </div>
                             </div>
                         `;
-                    }
+                }
 
-                    listDiv.innerHTML = html;
-                    lucide.createIcons();
+                listDiv.innerHTML = html;
+                lucide.createIcons();
 
-                } catch (error) {
-                    console.error('[PANCAKE-SETTINGS] Error refreshing accounts list:', error);
-                    document.getElementById('pancakeAccountsList').innerHTML = `
+            } catch (error) {
+                console.error('[PANCAKE-SETTINGS] Error refreshing accounts list:', error);
+                document.getElementById('pancakeAccountsList').innerHTML = `
                         <div style="text-align: center; color: #ef4444; padding: 20px;">
                             <i data-lucide="alert-circle" style="width: 32px; height: 32px; margin-bottom: 8px;"></i>
                             <div>Lỗi: ${error.message}</div>
                         </div>
                     `;
-                    lucide.createIcons();
+                lucide.createIcons();
+            }
+        }
+
+        // Add Account From Cookie
+        async function addAccountFromCookie() {
+            try {
+                if (!window.pancakeTokenManager) {
+                    throw new Error('PancakeTokenManager not available');
                 }
+
+                const token = window.pancakeTokenManager.getTokenFromCookie();
+                if (!token) {
+                    throw new Error('Không tìm thấy JWT token trong cookie. Vui lòng đăng nhập vào pancake.vn trước.');
+                }
+
+                // Save to Firebase
+                const accountId = await window.pancakeTokenManager.saveTokenToFirebase(token);
+
+                if (!accountId) {
+                    throw new Error('Failed to save token');
+                }
+
+                alert('✅ Đã thêm tài khoản từ cookie!');
+
+                // Refresh list and hide form
+                await refreshAccountsList();
+                hideAddAccountForm();
+
+            } catch (error) {
+                console.error('[PANCAKE-SETTINGS] Error adding account from cookie:', error);
+                alert('❌ Lỗi: ' + error.message);
+            }
+        }
+
+        // Add Account Manual
+        async function addAccountManual() {
+            try {
+                const tokenInput = document.getElementById('newAccountTokenInput').value.trim();
+
+                if (!tokenInput) {
+                    throw new Error('Vui lòng nhập JWT token hoặc bấm "Lấy từ Cookie"');
+                }
+
+                if (!window.pancakeTokenManager) {
+                    throw new Error('PancakeTokenManager not available');
+                }
+
+                const accountId = await window.pancakeTokenManager.setTokenManual(tokenInput);
+
+                if (!accountId) {
+                    throw new Error('Failed to save token');
+                }
+
+                alert('✅ Đã thêm tài khoản!');
+
+                // Refresh list and hide form
+                await refreshAccountsList();
+                hideAddAccountForm();
+
+            } catch (error) {
+                console.error('[PANCAKE-SETTINGS] Error adding account manually:', error);
+                alert('❌ Lỗi: ' + error.message);
+            }
+        }
+
+        // Select Account
+        async function selectAccount(accountId) {
+            try {
+                if (!window.pancakeTokenManager) {
+                    throw new Error('PancakeTokenManager not available');
+                }
+
+                const success = await window.pancakeTokenManager.setActiveAccount(accountId);
+
+                if (!success) {
+                    throw new Error('Failed to set active account');
+                }
+
+                alert('✅ Đã chọn tài khoản!');
+
+                // Refresh list
+                await refreshAccountsList();
+
+            } catch (error) {
+                console.error('[PANCAKE-SETTINGS] Error selecting account:', error);
+                alert('❌ Lỗi: ' + error.message);
+            }
+        }
+
+        // Delete Account
+        async function deleteAccount(accountId) {
+            if (!confirm('Bạn có chắc muốn xóa tài khoản này?')) {
+                return;
             }
 
-            // Add Account From Cookie
-            async function addAccountFromCookie() {
-                try {
-                    if (!window.pancakeTokenManager) {
-                        throw new Error('PancakeTokenManager not available');
-                    }
-
-                    const token = window.pancakeTokenManager.getTokenFromCookie();
-                    if (!token) {
-                        throw new Error('Không tìm thấy JWT token trong cookie. Vui lòng đăng nhập vào pancake.vn trước.');
-                    }
-
-                    // Save to Firebase
-                    const accountId = await window.pancakeTokenManager.saveTokenToFirebase(token);
-
-                    if (!accountId) {
-                        throw new Error('Failed to save token');
-                    }
-
-                    alert('✅ Đã thêm tài khoản từ cookie!');
-
-                    // Refresh list and hide form
-                    await refreshAccountsList();
-                    hideAddAccountForm();
-
-                } catch (error) {
-                    console.error('[PANCAKE-SETTINGS] Error adding account from cookie:', error);
-                    alert('❌ Lỗi: ' + error.message);
+            try {
+                if (!window.pancakeTokenManager) {
+                    throw new Error('PancakeTokenManager not available');
                 }
+
+                const success = await window.pancakeTokenManager.deleteAccount(accountId);
+
+                if (!success) {
+                    throw new Error('Failed to delete account');
+                }
+
+                alert('✅ Đã xóa tài khoản!');
+
+                // Refresh list
+                await refreshAccountsList();
+
+            } catch (error) {
+                console.error('[PANCAKE-SETTINGS] Error deleting account:', error);
+                alert('❌ Lỗi: ' + error.message);
+            }
+        }
+
+        // Clear All Accounts
+        async function clearAllPancakeAccounts() {
+            if (!confirm('Bạn có chắc muốn xóa TẤT CẢ tài khoản?')) {
+                return;
             }
 
-            // Add Account Manual
-            async function addAccountManual() {
-                try {
-                    const tokenInput = document.getElementById('newAccountTokenInput').value.trim();
-
-                    if (!tokenInput) {
-                        throw new Error('Vui lòng nhập JWT token hoặc bấm "Lấy từ Cookie"');
-                    }
-
-                    if (!window.pancakeTokenManager) {
-                        throw new Error('PancakeTokenManager not available');
-                    }
-
-                    const accountId = await window.pancakeTokenManager.setTokenManual(tokenInput);
-
-                    if (!accountId) {
-                        throw new Error('Failed to save token');
-                    }
-
-                    alert('✅ Đã thêm tài khoản!');
-
-                    // Refresh list and hide form
-                    await refreshAccountsList();
-                    hideAddAccountForm();
-
-                } catch (error) {
-                    console.error('[PANCAKE-SETTINGS] Error adding account manually:', error);
-                    alert('❌ Lỗi: ' + error.message);
+            try {
+                if (!window.pancakeTokenManager) {
+                    throw new Error('PancakeTokenManager not available');
                 }
+
+                await window.pancakeTokenManager.clearToken();
+
+                alert('✅ Đã xóa tất cả tài khoản!');
+
+                // Refresh list
+                await refreshAccountsList();
+
+            } catch (error) {
+                console.error('[PANCAKE-SETTINGS] Error clearing all accounts:', error);
+                alert('❌ Lỗi: ' + error.message);
             }
+        }
+    </script>
+</body>
 
-            // Select Account
-            async function selectAccount(accountId) {
-                try {
-                    if (!window.pancakeTokenManager) {
-                        throw new Error('PancakeTokenManager not available');
-                    }
-
-                    const success = await window.pancakeTokenManager.setActiveAccount(accountId);
-
-                    if (!success) {
-                        throw new Error('Failed to set active account');
-                    }
-
-                    alert('✅ Đã chọn tài khoản!');
-
-                    // Refresh list
-                    await refreshAccountsList();
-
-                } catch (error) {
-                    console.error('[PANCAKE-SETTINGS] Error selecting account:', error);
-                    alert('❌ Lỗi: ' + error.message);
-                }
-            }
-
-            // Delete Account
-            async function deleteAccount(accountId) {
-                if (!confirm('Bạn có chắc muốn xóa tài khoản này?')) {
-                    return;
-                }
-
-                try {
-                    if (!window.pancakeTokenManager) {
-                        throw new Error('PancakeTokenManager not available');
-                    }
-
-                    const success = await window.pancakeTokenManager.deleteAccount(accountId);
-
-                    if (!success) {
-                        throw new Error('Failed to delete account');
-                    }
-
-                    alert('✅ Đã xóa tài khoản!');
-
-                    // Refresh list
-                    await refreshAccountsList();
-
-                } catch (error) {
-                    console.error('[PANCAKE-SETTINGS] Error deleting account:', error);
-                    alert('❌ Lỗi: ' + error.message);
-                }
-            }
-
-            // Clear All Accounts
-            async function clearAllPancakeAccounts() {
-                if (!confirm('Bạn có chắc muốn xóa TẤT CẢ tài khoản?')) {
-                    return;
-                }
-
-                try {
-                    if (!window.pancakeTokenManager) {
-                        throw new Error('PancakeTokenManager not available');
-                    }
-
-                    await window.pancakeTokenManager.clearToken();
-
-                    alert('✅ Đã xóa tất cả tài khoản!');
-
-                    // Refresh list
-                    await refreshAccountsList();
-
-                } catch (error) {
-                    console.error('[PANCAKE-SETTINGS] Error clearing all accounts:', error);
-                    alert('❌ Lỗi: ' + error.message);
-                }
-            }
-        </script>
-    </body>
 </html>

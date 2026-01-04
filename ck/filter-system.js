@@ -125,7 +125,7 @@ class FilterManager {
                     <span>Hiện Bộ Lọc</span>
                 </button>
                 <div class="filter-status-badge">
-                    <span>Đang lọc: <strong id="mainFilterLabel">Tháng Này</strong></span>
+                    <span>Đang lọc: <strong id="mainFilterLabel">30 Ngày Qua</strong></span>
                 </div>
             `,
         });
@@ -204,14 +204,14 @@ class FilterManager {
             );
         }
 
-        // Set default to "This Month"
-        const thisMonthRange = this.getDateRange("thisMonth");
-        this.filters.startDate = thisMonthRange.start;
-        this.filters.endDate = thisMonthRange.end;
+        // Set default to "Last 30 Days"
+        const last30DaysRange = this.getDateRange("last30days");
+        this.filters.startDate = last30DaysRange.start;
+        this.filters.endDate = last30DaysRange.end;
         this.filters.searchText = ""; // Initialize search text
 
         console.log(
-            "Filter initialized with This Month (hidden):",
+            "Filter initialized with Last 30 Days (hidden):",
             this.filters,
         );
 
@@ -537,7 +537,7 @@ class FilterManager {
                 <i data-lucide="filter"></i>
                 <span>Lọc Nhanh</span>
             </button>
-            <span class="quick-filter-label">Đang lọc: <strong id="currentFilterLabel">Tháng Này</strong></span>
+            <span class="quick-filter-label">Đang lọc: <strong id="currentFilterLabel">30 Ngày Qua</strong></span>
         </div>
 
         <div id="quickFilters" class="quick-filters">
@@ -557,11 +557,11 @@ class FilterManager {
                 <i data-lucide="calendar-range"></i>
                 7 Ngày Qua
             </button>
-            <button class="quick-filter-btn" data-filter="last30days">
+            <button class="quick-filter-btn active" data-filter="last30days">
                 <i data-lucide="calendar-clock"></i>
                 30 Ngày Qua
             </button>
-            <button class="quick-filter-btn active" data-filter="thisMonth">
+            <button class="quick-filter-btn" data-filter="thisMonth">
                 <i data-lucide="calendar-check"></i>
                 Tháng Này
             </button>

@@ -3227,6 +3227,55 @@ button[onclick*="showAddProductForm"] {
     opacity: 0.7;
 }
 
+/* Message Highlight Animation (for scrolling to quoted messages) */
+.message-highlight {
+    animation: messageHighlightPulse 2s ease-in-out;
+}
+
+.message-highlight .chat-bubble {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+@keyframes messageHighlightPulse {
+    0% {
+        background-color: rgba(59, 130, 246, 0.3);
+    }
+    50% {
+        background-color: rgba(59, 130, 246, 0.15);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+/* Quoted Message Styles */
+.quoted-message {
+    position: relative;
+}
+
+.quoted-message:hover::after {
+    content: "Nhấn để xem tin nhắn gốc";
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    animation: tooltipFadeIn 0.2s ease forwards;
+}
+
+@keyframes tooltipFadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
 /* Purchase Comment Highlight */
 .purchase-comment-highlight {
     position: relative;
@@ -6260,4 +6309,190 @@ td[data-column].hidden {
 
 .bulk-tag-delete-result .bulk-tag-result-modal-header {
     background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* =====================================================
+   FAST SALE MODAL (Tạo nhanh PBH)
+   ===================================================== */
+
+.fast-sale-container {
+    padding: 20px;
+}
+
+.fast-sale-header {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.fast-sale-partner-select label,
+.fast-sale-search label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.fast-sale-partner-select select,
+.fast-sale-search select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: white;
+    cursor: pointer;
+}
+
+.fast-sale-note {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.fast-sale-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.fast-sale-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: white;
+}
+
+.fast-sale-table thead {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.fast-sale-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #d1d5db;
+    white-space: nowrap;
+}
+
+.fast-sale-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+}
+
+.fast-sale-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.fast-sale-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Form controls inside table */
+.fast-sale-table .form-control,
+.fast-sale-table .form-control-sm {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.fast-sale-table .form-control:focus,
+.fast-sale-table .form-control-sm:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* Badge styles */
+.fast-sale-table .badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Fast Sale Results Modal Styles */
+.fast-sale-results-tabs {
+    display: flex;
+    border-bottom: 2px solid #e5e7eb;
+    background: #f9fafb;
+    padding: 0 20px;
+}
+
+.fast-sale-results-tab {
+    padding: 15px 30px;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    position: relative;
+    top: 2px;
+}
+
+.fast-sale-results-tab:hover {
+    color: #374151;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.fast-sale-results-tab.active {
+    color: #dc2626;
+    border-bottom-color: #dc2626;
+    background: white;
+}
+
+.fast-sale-results-content {
+    display: none;
+}
+
+.fast-sale-results-content.active {
+    display: block;
+}
+
+.fast-sale-results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.fast-sale-results-table thead {
+    background: #f3f4f6;
+}
+
+.fast-sale-results-table th {
+    padding: 12px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.fast-sale-results-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+}
+
+.fast-sale-results-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.fast-sale-error-msg {
+    color: #dc2626;
+    font-size: 13px;
+    line-height: 1.5;
 }

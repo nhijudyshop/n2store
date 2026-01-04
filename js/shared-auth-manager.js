@@ -123,6 +123,7 @@ if (typeof window !== 'undefined' && window.AuthManager) {
 
     /**
      * Check if user has permission for current page
+     * ALL users (including Admin) check detailedPermissions - NO bypass
      * @param {string} pageName
      * @returns {boolean}
      */
@@ -130,14 +131,13 @@ if (typeof window !== 'undefined' && window.AuthManager) {
         const authData = this.getAuthData();
         if (!authData) return false;
 
-        // Admin (checkLogin = 0) has access to everything
-        if (authData.checkLogin === 0 || authData.checkLogin === '0') {
-            return true;
+        // ALL users check detailedPermissions - NO bypass
+        if (authData.detailedPermissions && authData.detailedPermissions[pageName]) {
+            const pagePerms = authData.detailedPermissions[pageName];
+            return Object.values(pagePerms).some(v => v === true);
         }
 
-        // Check page permissions
-        const permissions = authData.pagePermissions || [];
-        return permissions.includes(pageName);
+        return false;
     }
 
     /**
@@ -152,13 +152,62 @@ if (typeof window !== 'undefined' && window.AuthManager) {
     }
 
     /**
-     * Check permission level
+     * Check permission level - LEGACY METHOD
+     * @deprecated Use hasDetailedPermission() instead
+     * Kept for backward compatibility only
      * @param {number} requiredLevel
-     * @returns {boolean} True if user has required level or higher (lower number = higher permission)
+     * @returns {boolean}
      */
     hasPermissionLevel(requiredLevel) {
+        const authData = this.getAuthData();
+        if (!authData) return false;
+
+        // Legacy: use checkLogin level if available
         const userLevel = this.getPermissionLevel();
         return userLevel <= requiredLevel;
+    }
+
+    /**
+     * Check if user has specific detailed permission
+     * ALL users (including Admin) check detailedPermissions - NO bypass
+     * @param {string} pageId
+     * @param {string} action
+     * @returns {boolean}
+     */
+    hasDetailedPermission(pageId, action) {
+        const authData = this.getAuthData();
+        // ALL users check detailedPermissions - NO bypass
+        if (!authData?.detailedPermissions?.[pageId]) return false;
+        return authData.detailedPermissions[pageId][action] === true;
+    }
+
+    /**
+     * Check if user has admin template (for UI display only)
+     * QUAN TRỌNG: Không dùng để bypass permission - chỉ để hiển thị UI
+     * @returns {boolean}
+     */
+    isAdminTemplate() {
+        const authData = this.getAuthData();
+        return authData?.roleTemplate === 'admin';
+    }
+
+    /**
+     * @deprecated Use isAdminTemplate() instead
+     * Kept for backward compatibility - returns template check only
+     */
+    isAdmin() {
+        return this.isAdminTemplate();
+    }
+
+    /**
+     * LEGACY: hasPermission for backward compatibility
+     * @deprecated Use hasDetailedPermission() instead
+     * @param {number} requiredLevel - 0 = admin, 1 = manager, etc.
+     * @returns {boolean}
+     */
+    hasPermission(requiredLevel) {
+        // Legacy: use checkLogin level
+        return this.hasPermissionLevel(requiredLevel);
     }
 
     /**

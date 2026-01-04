@@ -39,6 +39,23 @@ const MENU_CONFIG = [
         permissionRequired: "nhanhang",
     },
     {
+        href: "../inventory-tracking/index.html",
+        icon: "package-search",
+        text: "Theo Dõi Nhập Hàng SL",
+        shortText: "Nhập Hàng",
+        pageIdentifier: "inventory-tracking",
+        permissionRequired: "inventoryTracking",
+    },
+    {
+        href: "../purchase-orders/index.html",
+        icon: "clipboard-list",
+        text: "Quản Lý Đặt Hàng NCC",
+        shortText: "Đặt Hàng",
+        pageIdentifier: "purchase-orders",
+        adminOnly: true,
+        permissionRequired: "purchase-orders",
+    },
+    {
         href: "../hangrotxa/index.html",
         icon: "clipboard-list",
         text: "Hàng Rớt - Xả",
@@ -178,6 +195,13 @@ const MENU_CONFIG = [
         pageIdentifier: "lichsuchinhsua",
         adminOnly: true,
         permissionRequired: "lichsuchinhsua",
+    },
+    {
+        href: "../AI/gemini.html",
+        icon: "bot",
+        text: "Gemini AI Assistant",
+        shortText: "AI",
+        pageIdentifier: "gemini-ai",
     },
 ];
 
@@ -319,11 +343,50 @@ window.MenuNameUtils = {
     CUSTOM_MENU_NAMES_KEY
 };
 
+/**
+ * Generate default admin permissions for all pages
+ * Used to auto-fill missing permissions for admin template users
+ */
+function getDefaultAdminPermissions() {
+    const defaultPerms = {};
+    MENU_CONFIG.forEach(item => {
+        if (item.permissionRequired) {
+            // Default admin permissions for each page
+            defaultPerms[item.permissionRequired] = {
+                view: true,
+                create: true,
+                edit: true,
+                delete: true,
+                export: true
+            };
+        }
+    });
+    return defaultPerms;
+}
+
+/**
+ * Merge missing permissions for admin template users
+ * Ensures admins have access to all pages even if their stored permissions are outdated
+ */
+function mergeAdminPermissions(existingPerms) {
+    const defaultPerms = getDefaultAdminPermissions();
+    const merged = { ...existingPerms };
+
+    Object.keys(defaultPerms).forEach(pageId => {
+        if (!merged[pageId]) {
+            merged[pageId] = defaultPerms[pageId];
+            console.log(`[Admin Merge] Added missing permission for: ${pageId}`);
+        }
+    });
+
+    return merged;
+}
+
 class UnifiedNavigationManager {
     constructor() {
         this.currentPage = null;
         this.userPermissions = [];
-        this.isAdmin = false;
+        this.isAdminTemplate = false; // For UI display only, NOT for bypass
         this.isMobile = window.innerWidth <= 768;
         this.init();
     }
@@ -341,10 +404,14 @@ class UnifiedNavigationManager {
         }
 
         try {
-            // Get user info
-            const checkLogin = localStorage.getItem("checkLogin");
-            this.isAdmin = checkLogin === "0" || checkLogin === 0;
-            console.log("[Unified Nav] Is Admin:", this.isAdmin);
+            // Get user info - ALL users (including Admin) use detailedPermissions
+            // NO bypass - Admin has full permissions set in detailedPermissions
+            // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
+            const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
+            const authData = JSON.parse(authDataStr);
+            // isAdminTemplate is for UI display only (role badge, etc.), NOT for bypass
+            this.isAdminTemplate = authData.roleTemplate === 'admin';
+            console.log("[Unified Nav] Role Template:", authData.roleTemplate, "| Source:", localStorage.getItem("loginindex_auth") ? "localStorage" : "sessionStorage");
 
             // Load permissions
             await this.loadUserPermissions();
@@ -414,32 +481,34 @@ class UnifiedNavigationManager {
     }
 
     async loadUserPermissions() {
-        // Admin gets all permissions
-        if (this.isAdmin) {
-            this.userPermissions = MENU_CONFIG.map(
-                (item) => item.permissionRequired,
-            ).filter(Boolean);
-            console.log(
-                "[Permission Load] Admin - all permissions granted:",
-                this.userPermissions,
-            );
-            return;
-        }
+        // Load detailedPermissions from auth data
+        // ALL users (including Admin) use detailedPermissions - NO bypass
 
-        // Try to load from localStorage cache
+        // Try to load from cache (check both localStorage AND sessionStorage)
         try {
-            const authData = localStorage.getItem("loginindex_auth");
+            const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
             if (authData) {
                 const userAuth = JSON.parse(authData);
-                if (
-                    userAuth.pagePermissions &&
-                    Array.isArray(userAuth.pagePermissions) &&
-                    userAuth.pagePermissions.length > 0
-                ) {
-                    this.userPermissions = userAuth.pagePermissions;
+
+                // Load detailedPermissions (only system now)
+                if (userAuth.detailedPermissions && Object.keys(userAuth.detailedPermissions).length > 0) {
+                    let permissions = userAuth.detailedPermissions;
+
+                    // Auto-merge missing permissions for admin template users
+                    if (userAuth.roleTemplate === 'admin') {
+                        permissions = mergeAdminPermissions(permissions);
+                        // Update stored auth data with merged permissions
+                        userAuth.detailedPermissions = permissions;
+                        const storage = localStorage.getItem("loginindex_auth") ? localStorage : sessionStorage;
+                        storage.setItem("loginindex_auth", JSON.stringify(userAuth));
+                    }
+
+                    this.userDetailedPermissions = permissions;
+                    // Derive userPermissions from detailedPermissions for menu display
+                    this.userPermissions = this._getAccessiblePagesFromDetailed(permissions);
                     console.log(
-                        "[Permission Load] Loaded cached permissions:",
-                        this.userPermissions,
+                        "[Permission Load] Loaded detailedPermissions:",
+                        Object.keys(this.userDetailedPermissions).length, "pages configured"
                     );
                     return;
                 }
@@ -451,16 +520,16 @@ class UnifiedNavigationManager {
             );
         }
 
-        // Try to load from Firebase
+        // Try to load from Firebase if not in cache
         try {
             if (typeof firebase !== "undefined" && firebase.firestore) {
-                const authData = JSON.parse(
-                    localStorage.getItem("loginindex_auth"),
-                );
+                const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+                const authData = authDataStr ? JSON.parse(authDataStr) : null;
 
                 if (!authData || !authData.username) {
                     console.error("[Permission Load] No username in auth data");
                     this.userPermissions = [];
+                    this.userDetailedPermissions = null;
                     return;
                 }
 
@@ -472,20 +541,34 @@ class UnifiedNavigationManager {
 
                 if (userDoc.exists) {
                     const userData = userDoc.data();
-                    this.userPermissions = userData.pagePermissions || [];
 
-                    // Cache to localStorage
-                    authData.pagePermissions = this.userPermissions;
-                    localStorage.setItem(
-                        "loginindex_auth",
-                        JSON.stringify(authData),
-                    );
+                    // Load detailedPermissions
+                    if (userData.detailedPermissions && Object.keys(userData.detailedPermissions).length > 0) {
+                        let permissions = userData.detailedPermissions;
+                        const roleTemplate = userData.roleTemplate || 'custom';
 
-                    console.log(
-                        "[Permission Load] Loaded from Firebase:",
-                        this.userPermissions,
-                    );
-                    return;
+                        // Auto-merge missing permissions for admin template users
+                        if (roleTemplate === 'admin') {
+                            permissions = mergeAdminPermissions(permissions);
+                        }
+
+                        this.userDetailedPermissions = permissions;
+                        this.userPermissions = this._getAccessiblePagesFromDetailed(permissions);
+
+                        // Cache to localStorage
+                        authData.detailedPermissions = permissions;
+                        authData.roleTemplate = roleTemplate;
+                        localStorage.setItem(
+                            "loginindex_auth",
+                            JSON.stringify(authData),
+                        );
+
+                        console.log(
+                            "[Permission Load] Loaded detailedPermissions from Firebase:",
+                            Object.keys(this.userDetailedPermissions).length, "pages"
+                        );
+                        return;
+                    }
                 } else {
                     console.error(
                         "[Permission Load] User document not found in Firebase",
@@ -500,9 +583,44 @@ class UnifiedNavigationManager {
         }
 
         this.userPermissions = [];
+        this.userDetailedPermissions = null;
         console.log(
             "[Permission Load] No permissions loaded, defaulting to empty",
         );
+    }
+
+    /**
+     * NEW: Derive accessible pages from detailedPermissions
+     * A page is accessible if user has at least one permission = true for that page
+     * @param {Object} detailedPermissions
+     * @returns {Array} List of page IDs user can access
+     */
+    _getAccessiblePagesFromDetailed(detailedPermissions) {
+        if (!detailedPermissions) return [];
+
+        return Object.entries(detailedPermissions)
+            .filter(([pageId, perms]) => {
+                // Check if any permission in this page is true
+                return Object.values(perms).some(value => value === true);
+            })
+            .map(([pageId]) => pageId);
+    }
+
+    /**
+     * NEW: Check if user has a specific detailed permission
+     * Admin (roleTemplate='admin') has FULL BYPASS
+     * @param {string} pageId
+     * @param {string} permissionKey
+     * @returns {boolean}
+     */
+    hasDetailedPermission(pageId, permissionKey) {
+        // ALL users (including Admin) check detailedPermissions - NO bypass
+        if (!this.userDetailedPermissions) return false;
+
+        const pagePerms = this.userDetailedPermissions[pageId];
+        if (!pagePerms) return false;
+
+        return pagePerms[permissionKey] === true;
     }
 
     getCurrentPageIdentifier() {
@@ -560,11 +678,8 @@ class UnifiedNavigationManager {
             return true;
         }
 
-        if (this.isAdmin) {
-            console.log("[Permission Check] Admin user, allowing access");
-            return true;
-        }
-
+        // ALL users (including Admin) check detailedPermissions - NO bypass
+        // Admin gets full access by having all permissions set to true in detailedPermissions
         const hasPermission = this.userPermissions.includes(
             pageInfo.permissionRequired,
         );
@@ -573,6 +688,7 @@ class UnifiedNavigationManager {
             currentPage: this.currentPage,
             requiredPermission: pageInfo.permissionRequired,
             userPermissions: this.userPermissions,
+            roleTemplate: this.isAdminTemplate ? 'admin' : 'other',
             hasAccess: hasPermission,
         });
 
@@ -865,8 +981,9 @@ class UnifiedNavigationManager {
         let renderedCount = 0;
 
         MENU_CONFIG.forEach((menuItem) => {
-            const hasPermission =
-                this.isAdmin ||
+            // ALL users check detailedPermissions - NO admin bypass
+            // Items without permissionRequired are shown to everyone
+            const hasPermission = !menuItem.permissionRequired ||
                 this.userPermissions.includes(menuItem.permissionRequired);
 
             if (!hasPermission) {
@@ -1195,9 +1312,10 @@ class UnifiedNavigationManager {
     }
 
     getAccessiblePages() {
+        // ALL users check detailedPermissions - NO admin bypass
         const accessible = MENU_CONFIG.filter((item) => {
-            if (this.isAdmin) return true;
-            if (item.adminOnly) return false;
+            // Items without permissionRequired are accessible to everyone
+            if (!item.permissionRequired) return true;
             return this.userPermissions.includes(item.permissionRequired);
         });
 
@@ -2972,7 +3090,7 @@ class UnifiedNavigationManager {
             pageName: pageName,
             requiredPermission: requiredPermission,
             userPermissions: this.userPermissions,
-            isAdmin: this.isAdmin,
+            roleTemplate: this.isAdminTemplate ? 'admin' : 'other',
             firstAccessiblePage: firstAccessiblePage
                 ? firstAccessiblePage.pageIdentifier
                 : "none",
@@ -3316,3 +3434,37 @@ setTimeout(() => {
         console.log('[VERSION] Version Checker initialized');
     }
 }, 2000); // Wait 2 seconds for Firebase to be ready
+
+// =====================================================
+// AI CHAT WIDGET LOADER
+// Load floating AI chat widget on all pages
+// =====================================================
+(function loadAIChatWidget() {
+    // Check if already loaded
+    if (window.AIChatWidget) {
+        console.log('[AI Widget] Already loaded');
+        return;
+    }
+
+    // Determine script path based on current page location
+    const currentPath = window.location.pathname;
+    let basePath = '../js/';
+
+    // Handle different directory depths
+    if (currentPath.includes('/n2store/') && !currentPath.includes('/n2store/js/')) {
+        // Find the depth from n2store root
+        const parts = currentPath.split('/n2store/')[1]?.split('/').filter(p => p && !p.includes('.html'));
+        if (parts && parts.length > 1) {
+            basePath = '../'.repeat(parts.length) + 'js/';
+        }
+    }
+
+    // Create and load the script
+    const script = document.createElement('script');
+    script.src = basePath + 'ai-chat-widget.js';
+    script.async = true;
+    script.onerror = () => console.warn('[AI Widget] Failed to load widget script');
+    document.head.appendChild(script);
+
+    console.log('[AI Widget] Loading from:', basePath + 'ai-chat-widget.js');
+})();

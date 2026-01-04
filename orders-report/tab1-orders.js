@@ -214,12 +214,23 @@ let currentEditingOrderId = null;
 let currentEditOrderData = null;
 let currentChatOrderDetails = [];
 let currentChatOrderId = null;
+
+// Getter/Setter for currentChatOrderDetails - used by external modules
+window.getChatOrderDetails = function () {
+    return currentChatOrderDetails;
+};
+window.setChatOrderDetails = function (details) {
+    currentChatOrderDetails = details;
+};
 let currentChatProductsRef = null;
 let currentOrderTags = [];
 let pendingDeleteTagIndex = -1; // Track which tag is pending deletion on backspace
 let currentUserIdentifier = null; // User identifier for quick tag feature
 let currentPastedImage = null; // Track pasted image for chat reply (deprecated - use array below)
 let uploadedImagesData = []; // Track uploaded images data (array for multiple images)
+
+// KPI BASE Status Cache - stores order IDs that have BASE saved
+let ordersWithKPIBase = new Set();
 
 // Purchase Comment Highlight State
 window.purchaseCommentId = null; // Store the Facebook_CommentId from the order to highlight in comment modal
@@ -279,55 +290,25 @@ function getFilterPrefsPath() {
 }
 
 /**
- * Save filter preferences to Firebase (per-user)
- * @param {Object} prefs - { selectedCampaignValue, isCustomMode, customStartDate }
+ * [DEPRECATED] Save filter preferences to Firebase (per-user)
+ * Dates are now stored in campaign objects directly.
+ * This function is kept as a no-op stub for backward compatibility.
  */
 async function saveFilterPreferencesToFirebase(prefs) {
-    if (!database) {
-        console.warn('[FILTER-PREFS] Firebase not available, skipping save');
-        return;
-    }
-
-    try {
-        const path = getFilterPrefsPath();
-        const updateData = {
-            ...prefs,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP
-        };
-
-        await database.ref(path).set(updateData);
-        console.log('[FILTER-PREFS] ✅ Saved to Firebase:', path, updateData);
-    } catch (error) {
-        console.error('[FILTER-PREFS] ❌ Error saving:', error);
-    }
+    // No-op: Dates are now stored in campaign objects
+    console.log('[FILTER-PREFS] ⚠️ DEPRECATED - Dates stored in campaign now');
+    return;
 }
 
 /**
- * Load filter preferences from Firebase (per-user)
- * @returns {Object|null} - { selectedCampaignValue, isCustomMode, customStartDate } or null
+ * [DEPRECATED] Load filter preferences from Firebase (per-user)
+ * Dates are now loaded from campaign objects directly.
+ * This function is kept as a no-op stub for backward compatibility.
  */
 async function loadFilterPreferencesFromFirebase() {
-    if (!database) {
-        console.warn('[FILTER-PREFS] Firebase not available, skipping load');
-        return null;
-    }
-
-    try {
-        const path = getFilterPrefsPath();
-        const snapshot = await database.ref(path).once('value');
-        const prefs = snapshot.val();
-
-        if (prefs) {
-            console.log('[FILTER-PREFS] ✅ Loaded from Firebase:', path, prefs);
-            return prefs;
-        } else {
-            console.log('[FILTER-PREFS] No saved preferences found at:', path);
-            return null;
-        }
-    } catch (error) {
-        console.error('[FILTER-PREFS] ❌ Error loading:', error);
-        return null;
-    }
+    // No-op: Dates are now loaded from campaign objects
+    console.log('[FILTER-PREFS] ⚠️ DEPRECATED - Dates loaded from campaign now');
+    return null;
 }
 
 // =====================================================
@@ -633,6 +614,100 @@ window.testTagListeners = function () {
     console.log('\n=== TEST COMPLETE ===');
 };
 
+// =====================================================
+// KPI BASE STATUS PRELOAD #FIREBASE
+// =====================================================
+
+/**
+ * Preload KPI BASE status for all orders
+ * This allows synchronous checking in createRowHTML
+ */
+async function preloadKPIBaseStatus() {
+    if (!database) {
+        console.warn('[KPI-BASE] Firebase database not available');
+        return;
+    }
+
+    try {
+        const snapshot = await database.ref('kpi_base').once('value');
+        const allBases = snapshot.val() || {};
+
+        // Clear and rebuild the cache
+        ordersWithKPIBase.clear();
+        for (const orderId in allBases) {
+            ordersWithKPIBase.add(orderId);
+        }
+
+        console.log(`[KPI-BASE] Preloaded ${ordersWithKPIBase.size} orders with BASE`);
+
+        // Re-render table if data is already loaded
+        if (allData && allData.length > 0) {
+            performTableSearch();
+        }
+    } catch (error) {
+        console.error('[KPI-BASE] Error preloading BASE status:', error);
+    }
+}
+
+/**
+ * Setup realtime listener for KPI BASE changes
+ */
+function setupKPIBaseRealtimeListener() {
+    if (!database) return;
+
+    database.ref('kpi_base').on('child_added', (snapshot) => {
+        const orderId = snapshot.key;
+        ordersWithKPIBase.add(orderId);
+        console.log('[KPI-BASE] BASE added for order:', orderId);
+
+        // Update the specific row if visible
+        updateKPIBaseIndicator(orderId, true);
+    });
+
+    database.ref('kpi_base').on('child_removed', (snapshot) => {
+        const orderId = snapshot.key;
+        ordersWithKPIBase.delete(orderId);
+        console.log('[KPI-BASE] BASE removed for order:', orderId);
+
+        // Update the specific row if visible
+        updateKPIBaseIndicator(orderId, false);
+    });
+
+    console.log('[KPI-BASE] Realtime listener setup complete');
+}
+
+/**
+ * Update KPI BASE indicator for a specific order row
+ */
+function updateKPIBaseIndicator(orderId, hasBase) {
+    // Find the row by order ID
+    const checkbox = document.querySelector(`input[type="checkbox"][value="${orderId}"]`);
+    if (!checkbox) return;
+
+    const row = checkbox.closest('tr');
+    if (!row) return;
+
+    const sttCell = row.querySelector('td[data-column="stt"]');
+    if (!sttCell) return;
+
+    // Check if indicator already exists
+    let indicator = sttCell.querySelector('.kpi-base-indicator');
+
+    if (hasBase && !indicator) {
+        // Add indicator
+        const div = sttCell.querySelector('div') || sttCell;
+        const indicatorEl = document.createElement('span');
+        indicatorEl.className = 'kpi-base-indicator';
+        indicatorEl.title = 'Đã lưu BASE tính KPI';
+        indicatorEl.innerHTML = '<i class="fas fa-lock" style="color: #10b981; font-size: 10px;"></i>';
+        indicatorEl.style.marginLeft = '4px';
+        div.appendChild(indicatorEl);
+    } else if (!hasBase && indicator) {
+        // Remove indicator
+        indicator.remove();
+    }
+}
+
 // #region ═══════════════════════════════════════════════════════════════════════
 // ║                        SECTION 3: INITIALIZATION                            ║
 // ║                            search: #INIT                                    ║
@@ -657,6 +732,11 @@ window.addEventListener("DOMContentLoaded", async function () {
     if (window.cacheManager) {
         window.cacheManager.clear("orders");
         window.cacheManager.clear("campaigns");
+    }
+
+    // Check and complete any pending held products cleanup from previous session
+    if (typeof window.checkPendingHeldCleanup === 'function') {
+        window.checkPendingHeldCleanup();
     }
 
     // ⚠️ QUAN TRỌNG: Set default dates TRƯỚC KHI load campaigns
@@ -686,6 +766,12 @@ window.addEventListener("DOMContentLoaded", async function () {
         .getElementById("customStartDate")
         .addEventListener("change", handleCustomDateChange);
 
+    // 🎯 Event listener for custom end date - trigger search when manually changed
+    const customEndDateInput = document.getElementById("customEndDate");
+    if (customEndDateInput) {
+        customEndDateInput.addEventListener("change", handleCustomEndDateChange);
+    }
+
     // Event listener for employee campaign selector
     const employeeCampaignSelector = document.getElementById('employeeCampaignSelector');
     if (employeeCampaignSelector) {
@@ -713,29 +799,32 @@ window.addEventListener("DOMContentLoaded", async function () {
     }
 
     // Initialize Pancake Token Manager & Data Manager
-    // IMPORTANT: Wait for this to complete before loading campaigns
-    // so that chat columns can display properly on first render
-    let pancakeInitialized = false;
+    // ⚡ OPTIMIZED: Start Pancake init in PARALLEL with orders loading
+    // Chat columns will show "-" initially, then re-render when Pancake is ready
+    let pancakeInitPromise = null;
     if (window.pancakeTokenManager && window.pancakeDataManager) {
-        console.log('[PANCAKE] Initializing Pancake managers...');
+        console.log('[PANCAKE] Initializing Pancake managers (background)...');
 
-        // Initialize token manager first
+        // Initialize token manager first (sync)
         window.pancakeTokenManager.initialize();
 
-        // Then initialize data manager and WAIT for it
-        try {
-            pancakeInitialized = await window.pancakeDataManager.initialize();
-            if (pancakeInitialized) {
-                console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully');
-                // Set chatDataManager alias for compatibility
-                window.chatDataManager = window.pancakeDataManager;
-            } else {
-                console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
-                console.warn('[PANCAKE] Please set JWT token in Pancake Settings');
-            }
-        } catch (error) {
-            console.error('[PANCAKE] ❌ Error initializing PancakeDataManager:', error);
-        }
+        // Start data manager init but DON'T WAIT - run in parallel with orders loading
+        pancakeInitPromise = window.pancakeDataManager.initialize()
+            .then(success => {
+                if (success) {
+                    console.log('[PANCAKE] ✅ PancakeDataManager initialized (background)');
+                    // Set chatDataManager alias for compatibility
+                    window.chatDataManager = window.pancakeDataManager;
+                } else {
+                    console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
+                    console.warn('[PANCAKE] Please set JWT token in Pancake Settings');
+                }
+                return success;
+            })
+            .catch(error => {
+                console.error('[PANCAKE] ❌ Error initializing PancakeDataManager:', error);
+                return false;
+            });
     } else {
         console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
@@ -753,6 +842,11 @@ window.addEventListener("DOMContentLoaded", async function () {
     if (database) {
         console.log('[TAG-REALTIME] Setting up Firebase TAG listeners on page load...');
         setupTagRealtimeListeners();
+
+        // 🔥 Setup KPI BASE realtime listeners and preload
+        console.log('[KPI-BASE] Setting up KPI BASE listeners on page load...');
+        setupKPIBaseRealtimeListener();
+        preloadKPIBaseStatus(); // Preload BASE status for all orders
     } else {
         console.warn('[TAG-REALTIME] Firebase not available, listeners not setup');
     }
@@ -773,12 +867,22 @@ window.addEventListener("DOMContentLoaded", async function () {
         tableWrapper.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
-    // Tags sẽ được load SAU KHI load xong đơn hàng và hiển thị bảng
-    // NOTE: chatDataManager is now available (pancakeDataManager) for chat column rendering
-    console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
+    // 🎯 ĐƠN GIẢN HÓA: Dùng Campaign System mới (merged)
+    // Flow: Load campaigns → Check active → Fetch orders (1 lần duy nhất)
+    console.log('[AUTO-LOAD] Khởi tạo App...');
     console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
-    await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
+    await initializeApp();
+
+    // ⚡ PHASE 1 OPTIMIZATION: After orders loaded, wait for Pancake and re-render chat columns
+    if (pancakeInitPromise) {
+        pancakeInitPromise.then(success => {
+            if (success && allData.length > 0 && window.chatDataManager) {
+                console.log('[PANCAKE] Re-rendering table with chat data after background init...');
+                // Re-render table to show chat columns now that chatDataManager is ready
+                performTableSearch();
+            }
+        });
+    }
 
     // Search functionality
     const searchInput = document.getElementById("tableSearchInput");
@@ -850,6 +954,232 @@ window.addEventListener("DOMContentLoaded", async function () {
         }
     });
 });
+
+// =====================================================
+// INITIALIZE APP (MERGED & OPTIMIZED FLOW)
+// =====================================================
+/**
+ * Hàm khởi tạo tối ưu - Load campaign trước, sau đó fetch orders 1 lần duy nhất
+ * Flow:
+ *   1. Wait for Firebase
+ *   2. Load data parallel (campaigns, activeCampaignId, employeeRanges)
+ *   3. Check active campaign FIRST (fast path)
+ *   4. If no dates → show modal
+ *   5. Fetch orders 1 lần duy nhất
+ */
+let appInitialized = false; // Guard flag
+async function initializeApp() {
+    // Prevent duplicate initialization
+    if (appInitialized) {
+        console.log('[APP] Already initialized, skipping...');
+        return;
+    }
+    appInitialized = true;
+
+    try {
+        console.log('[APP] 🚀 Initializing...');
+
+        // 1. Wait for Firebase to be ready
+        if (typeof firebase === 'undefined' || !firebase.database) {
+            console.log('[APP] Waiting for Firebase...');
+            appInitialized = false; // Reset flag so it can retry
+            setTimeout(initializeApp, 500);
+            return;
+        }
+
+        // Set current user ID
+        window.campaignManager = window.campaignManager || {
+            allCampaigns: {},
+            activeCampaignId: null,
+            activeCampaign: null,
+            currentUserId: null,
+            initialized: false
+        };
+        window.campaignManager.currentUserId = getCurrentUserId();
+        console.log('[APP] User ID:', window.campaignManager.currentUserId);
+
+        // 2. Load data in PARALLEL for speed
+        console.log('[APP] Loading data in parallel...');
+        const [campaigns, activeCampaignId, _] = await Promise.all([
+            loadAllCampaigns(),
+            loadActiveCampaignId(),
+            loadEmployeeRangesForCampaign(null) // Load employee ranges in parallel
+        ]);
+        console.log('[APP] Data loaded - Campaigns:', Object.keys(campaigns).length, 'Active:', activeCampaignId);
+
+        // 3. ⭐ CHECK ACTIVE CAMPAIGN FIRST (Fast path)
+        if (activeCampaignId && campaigns[activeCampaignId]) {
+            const campaign = campaigns[activeCampaignId];
+            console.log('[APP] Found active campaign:', campaign.name);
+
+            // Check if campaign has dates
+            if (campaign.customStartDate) {
+                // ✅ Happy path - Load ngay!
+                console.log('[APP] ✅ Fast path - Campaign has dates, loading orders...');
+                await continueAfterCampaignSelect(activeCampaignId);
+                return;
+            } else {
+                // ❌ Campaign doesn't have dates
+                console.log('[APP] ⚠️ Campaign has no dates, showing modal...');
+                showCampaignNoDatesModal(activeCampaignId);
+                return;
+            }
+        }
+
+        // 4. No active campaign → Check further
+        if (Object.keys(campaigns).length === 0) {
+            // No campaigns exist
+            console.log('[APP] No campaigns found, showing create modal...');
+            showNoCampaignsModal();
+            return;
+        }
+
+        // Campaigns exist but none selected
+        console.log('[APP] No active campaign selected, showing select modal...');
+        showSelectCampaignModal();
+
+    } catch (error) {
+        console.error('[APP] ❌ Initialization error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi khởi tạo: ' + error.message);
+        }
+    }
+}
+
+/**
+ * Get current user ID (helper)
+ */
+function getCurrentUserId() {
+    // Try to get from Firebase auth
+    if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+        return firebase.auth().currentUser.uid;
+    }
+    // Fallback to localStorage or generate one
+    let userId = localStorage.getItem('campaign_user_id');
+    if (!userId) {
+        userId = 'user_' + Date.now();
+        localStorage.setItem('campaign_user_id', userId);
+    }
+    return userId;
+}
+
+/**
+ * Load active campaign ID from Firebase
+ */
+async function loadActiveCampaignId() {
+    try {
+        const db = firebase.database();
+        const userId = window.campaignManager.currentUserId;
+        const snapshot = await db.ref(`user_preferences/${userId}/activeCampaignId`).once('value');
+        const activeCampaignId = snapshot.val();
+
+        window.campaignManager.activeCampaignId = activeCampaignId;
+        if (activeCampaignId && window.campaignManager.allCampaigns[activeCampaignId]) {
+            window.campaignManager.activeCampaign = window.campaignManager.allCampaigns[activeCampaignId];
+        }
+
+        return activeCampaignId;
+    } catch (error) {
+        console.error('[APP] Error loading active campaign:', error);
+        return null;
+    }
+}
+
+/**
+ * Continue after user selects/creates a campaign
+ * This function handles:
+ * - Setting dates from campaign
+ * - Updating UI
+ * - Fetching orders (1 time only)
+ * - Connecting realtime
+ */
+async function continueAfterCampaignSelect(campaignId) {
+    try {
+        console.log('[APP] continueAfterCampaignSelect:', campaignId);
+
+        const campaign = window.campaignManager.allCampaigns[campaignId];
+        if (!campaign) {
+            console.error('[APP] Campaign not found:', campaignId);
+            return;
+        }
+
+        // Set global state
+        window.campaignManager.activeCampaignId = campaignId;
+        window.campaignManager.activeCampaign = campaign;
+        window.campaignManager.initialized = true;
+
+        // Get dates from campaign
+        const startDate = campaign.customStartDate;
+        const endDate = campaign.customEndDate || '';
+
+        // Set dates to all input fields
+        const customStartDateInput = document.getElementById('customStartDate');
+        const customEndDateInput = document.getElementById('customEndDate');
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const modalCustomStartDate = document.getElementById('modalCustomStartDate');
+        const modalCustomEndDate = document.getElementById('modalCustomEndDate');
+
+        if (customStartDateInput) customStartDateInput.value = startDate;
+        if (customEndDateInput) customEndDateInput.value = endDate;
+        if (startDateInput) startDateInput.value = startDate;
+        if (endDateInput) endDateInput.value = endDate;
+        if (modalCustomStartDate) modalCustomStartDate.value = startDate;
+        if (modalCustomEndDate) modalCustomEndDate.value = endDate;
+
+        console.log('[APP] Dates set:', startDate, '->', endDate);
+
+        // Set selectedCampaign to custom mode
+        selectedCampaign = { isCustom: true };
+
+        // Update UI label
+        updateActiveCampaignLabel(campaign.name);
+
+        // Update modal dropdown
+        const modalSelect = document.getElementById('modalUserCampaignSelect');
+        if (modalSelect) {
+            modalSelect.value = campaignId;
+        }
+
+        // Show notification
+        if (window.notificationManager) {
+            const startDisplay = new Date(startDate).toLocaleDateString('vi-VN');
+            const endDisplay = endDate ? new Date(endDate).toLocaleDateString('vi-VN') : 'N/A';
+            window.notificationManager.info(
+                `Đang tải đơn hàng: ${startDisplay} - ${endDisplay}`,
+                2000
+            );
+        }
+
+        // ⭐ FETCH ORDERS (1 lần duy nhất)
+        console.log('[APP] ⭐ Fetching orders...');
+        await handleSearch();
+
+        // Connect realtime
+        if (window.realtimeManager) {
+            console.log('[APP] Connecting to Realtime Server...');
+            window.realtimeManager.connectServerMode();
+        }
+
+        console.log('[APP] ✅ Initialization complete for campaign:', campaign.name);
+
+    } catch (error) {
+        console.error('[APP] ❌ Error in continueAfterCampaignSelect:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi tải chiến dịch: ' + error.message);
+        }
+    }
+}
+
+/**
+ * Update active campaign label in UI
+ */
+function updateActiveCampaignLabel(name) {
+    const label = document.getElementById('activeCampaignLabel');
+    if (label) {
+        label.innerHTML = `<i class="fas fa-bullhorn"></i> ${name}`;
+    }
+}
 
 // #region ═══════════════════════════════════════════════════════════════════════
 // ║                   SECTION 4: EMPLOYEE RANGE MANAGEMENT                      ║
@@ -933,9 +1263,9 @@ function renderEmployeeTable(users) {
 function sanitizeCampaignName(campaignName) {
     if (!campaignName) return null;
     // Replace invalid Firebase key characters with underscore
-    // Note: Forward slash (/) is allowed in Firebase keys
+    // Note: Forward slash (/) must be replaced to match tab-overview.html sanitization
     return campaignName
-        .replace(/[.$#\[\]]/g, '_')
+        .replace(/[.$#\[\]\/]/g, '_')
         .trim();
 }
 
@@ -1131,14 +1461,40 @@ function toggleControlBar() {
 function checkAdminPermission() {
     const btn = document.getElementById('employeeSettingsBtn');
     if (btn) {
-        // Check if user is admin (checkLogin === 0)
-        const isAdmin = window.authManager && window.authManager.hasPermission(0);
-        if (!isAdmin) {
+        // Check if user has admin permissions via detailedPermissions
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        const hasAdminAccess = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
+            auth?.roleTemplate === 'admin';
+        if (!hasAdminAccess) {
             btn.style.display = 'none';
         } else {
             btn.style.display = 'inline-flex';
         }
     }
+}
+
+// Helper function to convert Firebase object to array if needed
+function normalizeEmployeeRanges(data) {
+    if (!data) return [];
+
+    // If already an array, return it
+    if (Array.isArray(data)) {
+        return data;
+    }
+
+    // If it's an object, convert to array
+    if (typeof data === 'object') {
+        const result = [];
+        // Get all numeric keys and sort them
+        const keys = Object.keys(data).filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
+        for (const key of keys) {
+            result.push(data[key]);
+        }
+        console.log(`[EMPLOYEE] Converted object with ${keys.length} keys to array`);
+        return result;
+    }
+
+    return [];
 }
 
 function loadEmployeeRangesForCampaign(campaignName = null) {
@@ -1156,16 +1512,17 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
             .then((snapshot) => {
                 const allCampaignRanges = snapshot.val() || {};
                 const data = allCampaignRanges[sanitizedName];
+                const normalized = normalizeEmployeeRanges(data);
 
-                if (data && data.length > 0) {
-                    employeeRanges = data;
+                if (normalized.length > 0) {
+                    employeeRanges = normalized;
                     console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`);
                 } else {
                     // If no campaign-specific ranges found, fall back to general config
                     console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
                     return database.ref('settings/employee_ranges').once('value')
                         .then((snapshot) => {
-                            employeeRanges = snapshot.val() || [];
+                            employeeRanges = normalizeEmployeeRanges(snapshot.val());
                             console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`);
                         });
                 }
@@ -1185,7 +1542,7 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
 
         return database.ref('settings/employee_ranges').once('value')
             .then((snapshot) => {
-                employeeRanges = snapshot.val() || [];
+                employeeRanges = normalizeEmployeeRanges(snapshot.val());
                 console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config`);
 
                 // Update employee table if drawer is open
@@ -1206,7 +1563,7 @@ function syncEmployeeRanges() {
     const rangesRef = database.ref('settings/employee_ranges');
     rangesRef.on('value', (snapshot) => {
         const data = snapshot.val();
-        employeeRanges = data || [];
+        employeeRanges = normalizeEmployeeRanges(data);
         console.log(`[EMPLOYEE] Synced ${employeeRanges.length} ranges from Firebase`);
 
         // Re-apply filter to current view
@@ -1997,119 +2354,12 @@ async function createNewTag() {
 }
 
 function populateTagFilter() {
-    const tagFilterOptions = document.getElementById('tagFilterOptions');
-    if (!tagFilterOptions) {
-        console.log('[TAG-FILTER] tagFilterOptions element not found');
-        return;
+    // Call the inline script function if available
+    if (typeof populateTagFilterOptions === 'function') {
+        populateTagFilterOptions();
     }
-
-    // Clear existing options
-    tagFilterOptions.innerHTML = '';
-
-    // Add "Tất cả" option
-    const allOption = document.createElement('div');
-    allOption.className = 'dropdown-option selected';
-    allOption.dataset.value = 'all';
-    allOption.innerHTML = '<span>Tất cả</span>';
-    allOption.onclick = () => selectTagFilter('all', 'Tất cả');
-    tagFilterOptions.appendChild(allOption);
-
-    // Add tag options
-    if (availableTags && availableTags.length > 0) {
-        availableTags.forEach(tag => {
-            const option = document.createElement('div');
-            option.className = 'dropdown-option';
-            option.dataset.value = tag.Id;
-
-            // Create color dot
-            const colorDot = tag.Color ? `<span style="width: 10px; height: 10px; background-color: ${tag.Color}; border-radius: 50%; display: inline-block;"></span>` : '';
-
-            option.innerHTML = `${colorDot} <span>${tag.Name || 'Unnamed Tag'}</span>`;
-            option.onclick = () => selectTagFilter(tag.Id, tag.Name);
-            tagFilterOptions.appendChild(option);
-        });
-        console.log(`[TAG-FILTER] Populated ${availableTags.length} tags in filter dropdown`);
-    } else {
-        console.log('[TAG-FILTER] No tags available to populate');
-    }
+    console.log('[TAG-FILTER] populateTagFilter called');
 }
-
-// --- Searchable Dropdown Functions ---
-
-function toggleTagDropdown() {
-    const container = document.getElementById('tagFilterContainer');
-    const input = document.getElementById('tagFilterInput');
-    if (container) {
-        container.classList.toggle('show');
-        if (container.classList.contains('show') && input) {
-            input.focus();
-        }
-    }
-}
-
-function showTagDropdown() {
-    const container = document.getElementById('tagFilterContainer');
-    if (container) container.classList.add('show');
-}
-
-function hideTagDropdown() {
-    const container = document.getElementById('tagFilterContainer');
-    if (container) container.classList.remove('show');
-}
-
-function filterTagDropdown() {
-    const input = document.getElementById('tagFilterInput');
-    const filter = input.value.toLowerCase();
-    const options = document.getElementById('tagFilterOptions').getElementsByClassName('dropdown-option');
-
-    for (let i = 0; i < options.length; i++) {
-        const span = options[i].getElementsByTagName("span")[0];
-        if (span) {
-            const txtValue = span.textContent || span.innerText;
-            if (txtValue.toLowerCase().indexOf(filter) > -1) {
-                options[i].style.display = "";
-            } else {
-                options[i].style.display = "none";
-            }
-        }
-    }
-}
-
-function selectTagFilter(value, name) {
-    // Update hidden input
-    const hiddenInput = document.getElementById('tagFilter');
-    if (hiddenInput) hiddenInput.value = value;
-
-    // Update selected display
-    const selectedDisplay = document.getElementById('tagFilterSelected');
-    if (selectedDisplay) {
-        selectedDisplay.innerHTML = `<span>${name || 'Tất cả'}</span> <i class="fas fa-chevron-down"></i>`;
-    }
-
-    // Update selected class in options
-    const options = document.getElementById('tagFilterOptions').getElementsByClassName('dropdown-option');
-    for (let i = 0; i < options.length; i++) {
-        if (options[i].dataset.value == value) {
-            options[i].classList.add('selected');
-        } else {
-            options[i].classList.remove('selected');
-        }
-    }
-
-    // Hide dropdown
-    hideTagDropdown();
-
-    // Trigger search
-    performTableSearch();
-}
-
-// Close dropdown when clicking outside
-window.addEventListener('click', function (e) {
-    const dropdown = document.getElementById('tagFilterDropdown');
-    if (dropdown && !dropdown.contains(e.target)) {
-        hideTagDropdown();
-    }
-});
 
 function openTagModal(orderId, orderCode) {
     currentEditingOrderId = orderId;
@@ -3434,32 +3684,32 @@ function showBulkTagResultModal(successResults, failedResults) {
                 </div>
                 <div class="bulk-tag-result-section-body">
                     ${successResults.map(r => {
-                        // Build normal STT display
-                        const normalSttDisplay = r.sttList.length > 0
-                            ? `STT ${r.sttList.join(', ')}`
-                            : '';
+            // Build normal STT display
+            const normalSttDisplay = r.sttList.length > 0
+                ? `STT ${r.sttList.join(', ')}`
+                : '';
 
-                        // Build redirected STT display
-                        const redirectedDisplay = r.redirectedList?.length > 0
-                            ? r.redirectedList.map(rd => `${rd.original} → ${rd.redirectTo}`).join(', ')
-                            : '';
+            // Build redirected STT display
+            const redirectedDisplay = r.redirectedList?.length > 0
+                ? r.redirectedList.map(rd => `${rd.original} → ${rd.redirectTo}`).join(', ')
+                : '';
 
-                        // Combine displays
-                        let sttDisplay = '';
-                        if (normalSttDisplay && redirectedDisplay) {
-                            sttDisplay = `${normalSttDisplay}, ${redirectedDisplay}`;
-                        } else if (normalSttDisplay) {
-                            sttDisplay = normalSttDisplay;
-                        } else if (redirectedDisplay) {
-                            sttDisplay = `STT ${redirectedDisplay}`;
-                        }
+            // Combine displays
+            let sttDisplay = '';
+            if (normalSttDisplay && redirectedDisplay) {
+                sttDisplay = `${normalSttDisplay}, ${redirectedDisplay}`;
+            } else if (normalSttDisplay) {
+                sttDisplay = normalSttDisplay;
+            } else if (redirectedDisplay) {
+                sttDisplay = `STT ${redirectedDisplay}`;
+            }
 
-                        // Add redirect note if there are redirected items
-                        const redirectNote = r.redirectedList?.length > 0
-                            ? `<div class="redirect-note" style="font-size: 11px; color: #6b7280; margin-top: 2px;">↳ Chuyển sang đơn cùng SĐT</div>`
-                            : '';
+            // Add redirect note if there are redirected items
+            const redirectNote = r.redirectedList?.length > 0
+                ? `<div class="redirect-note" style="font-size: 11px; color: #6b7280; margin-top: 2px;">↳ Chuyển sang đơn cùng SĐT</div>`
+                : '';
 
-                        return `
+            return `
                             <div class="bulk-tag-result-item">
                                 <span class="tag-color-dot" style="background-color: ${r.tagColor}"></span>
                                 <span class="tag-name">${r.tagName}:</span>
@@ -3467,7 +3717,7 @@ function showBulkTagResultModal(successResults, failedResults) {
                                 ${redirectNote}
                             </div>
                         `;
-                    }).join('')}
+        }).join('')}
                 </div>
             </div>
         `;
@@ -3684,7 +3934,7 @@ function closeBulkTagHistoryModal() {
 }
 
 // Close dropdown when clicking outside
-document.addEventListener('click', function(event) {
+document.addEventListener('click', function (event) {
     const searchWrapper = document.querySelector('.bulk-tag-search-wrapper');
     const dropdown = document.getElementById('bulkTagModalSearchDropdown');
 
@@ -4926,15 +5176,16 @@ function performTableSearch() {
         : [...allData];
 
     // Apply Employee STT Range Filter
-    // Check if user is admin (checkLogin === 0)
-    let isAdmin = window.authManager && window.authManager.hasPermission(0);
-
+    // Check if user has admin access via detailedPermissions
     const auth = window.authManager ? window.authManager.getAuthState() : null;
+    let isAdmin = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
+        auth?.roleTemplate === 'admin';
+
     const currentUserType = auth && auth.userType ? auth.userType : null;
     const currentDisplayName = auth && auth.displayName ? auth.displayName : null;
     const currentUserId = auth && auth.id ? auth.id : null;
 
-    // Fallback: Check username string for Admin
+    // Fallback: Check username string for Admin (legacy support)
     if (!isAdmin && currentUserType) {
         const lowerName = currentUserType.toLowerCase();
         if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
@@ -5052,7 +5303,6 @@ function performTableSearch() {
                 if (!Array.isArray(orderTags) || orderTags.length === 0) return false;
 
                 // Check if the order has the selected tag
-                // Convert both to string to handle type mismatch (tagFilter is string, tag.Id might be number)
                 return orderTags.some(tag => String(tag.Id) === String(tagFilter));
             } catch (e) {
                 return false;
@@ -5690,26 +5940,33 @@ async function handleCampaignChange() {
     }
 }
 
-// 🎯 Handle custom date filter change - auto-trigger search
+// 🎯 Handle custom start date change - auto-fill end date (+3 days) and trigger search
 async function handleCustomDateChange() {
-    // Only proceed if in custom mode
-    if (!selectedCampaign?.isCustom) {
+    const customStartDateInput = document.getElementById("customStartDate");
+    const customEndDateInput = document.getElementById("customEndDate");
+
+    if (!customStartDateInput.value) {
+        console.log('[CUSTOM-FILTER] Start date cleared, waiting for valid date...');
         return;
     }
 
-    const customStartDateValue = document.getElementById("customStartDate").value;
-    if (!customStartDateValue) {
-        console.log('[CUSTOM-FILTER] Custom date cleared, waiting for valid date...');
-        return;
-    }
+    // Auto-fill end date = start date + 3 days at 00:00
+    const startDate = new Date(customStartDateInput.value);
+    const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+    endDate.setHours(0, 0, 0, 0);
+    customEndDateInput.value = formatDateTimeLocal(endDate);
 
-    console.log(`[CUSTOM-FILTER] Custom date changed to: ${customStartDateValue}`);
+    console.log(`[CUSTOM-FILTER] Date range: ${customStartDateInput.value} -> ${customEndDateInput.value}`);
 
-    // 🔥 Save custom date to Firebase
+    // Ensure custom mode is set
+    selectedCampaign = { isCustom: true };
+
+    // 🔥 Save custom dates to Firebase
     saveFilterPreferencesToFirebase({
         selectedCampaignValue: 'custom',
         isCustomMode: true,
-        customStartDate: customStartDateValue
+        customStartDate: customStartDateInput.value,
+        customEndDate: customEndDateInput.value
     });
 
     // Cleanup old listeners and data
@@ -5717,11 +5974,46 @@ async function handleCustomDateChange() {
 
     // Notify user
     if (window.notificationManager) {
+        const startDisplay = new Date(customStartDateInput.value).toLocaleDateString('vi-VN');
+        const endDisplay = new Date(customEndDateInput.value).toLocaleDateString('vi-VN');
         window.notificationManager.info(
-            `Đang tải đơn hàng từ ngày: ${new Date(customStartDateValue).toLocaleString('vi-VN')}`,
+            `Đang tải đơn hàng: ${startDisplay} - ${endDisplay}`,
             2000
         );
     }
+
+    // Trigger search
+    await handleSearch();
+
+    // Setup new TAG listeners
+    setupTagRealtimeListeners();
+}
+
+// 🎯 Handle custom end date change - just trigger search (no auto-fill)
+async function handleCustomEndDateChange() {
+    const customStartDateInput = document.getElementById("customStartDate");
+    const customEndDateInput = document.getElementById("customEndDate");
+
+    if (!customStartDateInput.value || !customEndDateInput.value) {
+        console.log('[CUSTOM-FILTER] Missing start or end date...');
+        return;
+    }
+
+    console.log(`[CUSTOM-FILTER] End date changed: ${customStartDateInput.value} -> ${customEndDateInput.value}`);
+
+    // Ensure custom mode is set
+    selectedCampaign = { isCustom: true };
+
+    // 🔥 Save custom dates to Firebase
+    saveFilterPreferencesToFirebase({
+        selectedCampaignValue: 'custom',
+        isCustomMode: true,
+        customStartDate: customStartDateInput.value,
+        customEndDate: customEndDateInput.value
+    });
+
+    // Cleanup old listeners and data
+    cleanupTagRealtimeListeners();
 
     // Trigger search
     await handleSearch();
@@ -5738,17 +6030,7 @@ async function reloadTableData() {
     if (icon) icon.classList.add('fa-spin');
 
     try {
-        // 🎯 Also allow custom mode
-        const isCustomMode = selectedCampaign?.isCustom;
-        if (!isCustomMode && !selectedCampaign?.campaignId && !selectedCampaign?.campaignIds) {
-            if (window.notificationManager) {
-                window.notificationManager.warning("Vui lòng chọn chiến dịch trước khi tải lại");
-            } else {
-                alert("Vui lòng chọn chiến dịch trước khi tải lại");
-            }
-            return;
-        }
-
+        // 🎯 SIMPLIFIED: Always use Custom Mode - just reload with current date range
         await handleSearch();
 
         if (window.notificationManager) {
@@ -5768,34 +6050,38 @@ async function reloadTableData() {
 }
 
 async function handleSearch() {
-    // 🎯 Check for custom mode OR normal campaign mode
-    const isCustomMode = selectedCampaign?.isCustom;
+    // 🎯 SIMPLIFIED: Always use Custom Mode
+    // Validate custom date range
+    const customStartDateValue = document.getElementById("customStartDate").value;
+    const customEndDateValue = document.getElementById("customEndDate").value;
 
-    if (!isCustomMode && !selectedCampaign?.campaignId && !selectedCampaign?.campaignIds) {
-        alert("Vui lòng chọn chiến dịch");
-        return;
-    }
-
-    // Validate dates
-    const startDateValue = document.getElementById("startDate").value;
-    const endDateValue = document.getElementById("endDate").value;
-
-    if (!startDateValue || !endDateValue) {
-        alert("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)");
-        return;
-    }
-
-    // 🎯 Custom mode: validate custom start date
-    if (isCustomMode) {
-        const customStartDateValue = document.getElementById("customStartDate").value;
-        if (!customStartDateValue) {
-            if (window.notificationManager) {
-                window.notificationManager.error("Vui lòng chọn ngày bắt đầu custom", 3000);
-            } else {
-                alert("Vui lòng chọn ngày bắt đầu custom");
-            }
-            return;
+    if (!customStartDateValue) {
+        if (window.notificationManager) {
+            window.notificationManager.error("Vui lòng chọn Từ ngày", 3000);
+        } else {
+            alert("Vui lòng chọn Từ ngày");
         }
+        return;
+    }
+
+    if (!customEndDateValue) {
+        if (window.notificationManager) {
+            window.notificationManager.error("Vui lòng chọn Đến ngày", 3000);
+        } else {
+            alert("Vui lòng chọn Đến ngày");
+        }
+        return;
+    }
+
+    // Ensure selectedCampaign is set to custom mode
+    selectedCampaign = { isCustom: true };
+
+    // Update UI label with date range
+    const activeCampaignLabel = document.getElementById('activeCampaignLabel');
+    if (activeCampaignLabel) {
+        const startDisplay = new Date(customStartDateValue).toLocaleDateString('vi-VN');
+        const endDisplay = new Date(customEndDateValue).toLocaleDateString('vi-VN');
+        activeCampaignLabel.innerHTML = `<i class="fas fa-calendar-check"></i> ${startDisplay} - ${endDisplay}`;
     }
 
     // Abort any ongoing background loading
@@ -5821,8 +6107,17 @@ let isLoadingInBackground = false;
 // Track if conversations are being fetched (for loading indicator in messages column)
 let isLoadingConversations = false;
 
+// Guard flag to prevent duplicate fetchOrders calls
+let isFetchingOrders = false;
 
 async function fetchOrders() {
+    // Prevent duplicate calls
+    if (isFetchingOrders) {
+        console.log('[FETCH-ORDERS] Already fetching, skipping duplicate call...');
+        return;
+    }
+    isFetchingOrders = true;
+
     try {
         showLoading(true);
         loadingAborted = false;
@@ -5831,36 +6126,18 @@ async function fetchOrders() {
         const isCustomMode = selectedCampaign?.isCustom;
         let filter;
 
-        if (isCustomMode) {
-            // 🎯 CUSTOM MODE: Filter by DateCreated >= customStartDate and <= endDate
-            // API requires both ge and le with parentheses
-            const customStartDate = convertToUTC(document.getElementById("customStartDate").value);
-            const endDate = convertToUTC(document.getElementById("endDate").value);
-            filter = `(DateCreated ge ${customStartDate} and DateCreated le ${endDate})`;
-            console.log(`[FETCH-CUSTOM] Fetching ALL orders with DateCreated >= ${customStartDate} and <= ${endDate}`);
-        } else {
-            // NORMAL MODE: Filter by date range AND campaign
-            const startDate = convertToUTC(
-                document.getElementById("startDate").value,
-            );
-            const endDate = convertToUTC(document.getElementById("endDate").value);
+        // 🎯 SIMPLIFIED: Always use Custom Mode with customStartDate and customEndDate
+        const customStartDateValue = document.getElementById("customStartDate").value;
+        const customEndDateValue = document.getElementById("customEndDate").value || document.getElementById("endDate").value;
 
-            // Xử lý campaignId có thể là array (nhiều campaigns cùng ngày) hoặc single value
-            const campaignIds = selectedCampaign.campaignIds || (Array.isArray(selectedCampaign.campaignId) ? selectedCampaign.campaignId : [selectedCampaign.campaignId]);
-
-            // Tạo filter cho nhiều campaign IDs
-            let campaignFilter;
-            if (campaignIds.length === 1) {
-                campaignFilter = `LiveCampaignId eq ${campaignIds[0]}`;
-            } else {
-                // Tạo filter dạng: (LiveCampaignId eq 123 or LiveCampaignId eq 456 or ...)
-                const campaignConditions = campaignIds.map(id => `LiveCampaignId eq ${id}`).join(' or ');
-                campaignFilter = `(${campaignConditions})`;
-            }
-
-            filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate}) and ${campaignFilter}`;
-            console.log(`[FETCH] Fetching orders for ${campaignIds.length} campaign(s): ${campaignIds.join(', ')}`);
+        if (!customStartDateValue || !customEndDateValue) {
+            throw new Error("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)");
         }
+
+        const customStartDate = convertToUTC(customStartDateValue);
+        const customEndDate = convertToUTC(customEndDateValue);
+        filter = `(DateCreated ge ${customStartDate} and DateCreated le ${customEndDate})`;
+        console.log(`[FETCH-CUSTOM] Fetching orders: ${customStartDateValue} -> ${customEndDateValue}`);
 
         const PAGE_SIZE = 1000; // API fetch size for background loading
         const INITIAL_PAGE_SIZE = 50; // Smaller size for instant first load
@@ -5897,11 +6174,16 @@ async function fetchOrders() {
         // Also update Overview tab with first batch
         sendOrdersDataToOverview();
 
-        // Load conversations and comment conversations for first batch
-        console.log('[PROGRESSIVE] Loading conversations for first batch...');
+        // ⚡ PHASE 2 OPTIMIZATION: Load conversations in BACKGROUND (non-blocking)
+        // This allows users to interact with the table immediately
+        // Chat columns will show loading spinners, then update when data arrives
+        console.log('[PROGRESSIVE] Loading conversations in background...');
         if (window.chatDataManager) {
-            // Set loading state for messages column indicator
+            // Set loading state for messages column indicator (shows spinner)
             isLoadingConversations = true;
+
+            // Re-render to show loading spinners in chat columns
+            performTableSearch();
 
             // Collect unique channel IDs from orders (parse from Facebook_PostId)
             const channelIds = [...new Set(
@@ -5911,22 +6193,35 @@ async function fetchOrders() {
             )];
             console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
 
-            // FIX: fetchConversations now uses Type="all" to fetch both messages and comments in 1 request
-            // No need to call both methods anymore - this reduces API calls by 50%!
-            // Force refresh (true) to always fetch fresh data when searching
-            await window.chatDataManager.fetchConversations(true, channelIds);
+            // ⚡ Run conversations loading in BACKGROUND (no await!)
+            (async () => {
+                try {
+                    // FIX: fetchConversations now uses Type="all" to fetch both messages and comments in 1 request
+                    // No need to call both methods anymore - this reduces API calls by 50%!
+                    // Force refresh (true) to always fetch fresh data when searching
+                    await window.chatDataManager.fetchConversations(true, channelIds);
 
-            // Fetch Pancake conversations for unread info
-            if (window.pancakeDataManager) {
-                console.log('[PANCAKE] Fetching conversations for unread info...');
-                await window.pancakeDataManager.fetchConversations(true);
-                console.log('[PANCAKE] ✅ Conversations fetched');
-            }
+                    // Fetch Pancake conversations for unread info
+                    if (window.pancakeDataManager) {
+                        console.log('[PANCAKE] Fetching conversations for unread info...');
+                        await window.pancakeDataManager.fetchConversations(true);
+                        console.log('[PANCAKE] ✅ Conversations fetched');
+                    }
 
-            // Clear loading state
-            isLoadingConversations = false;
+                    // Clear loading state
+                    isLoadingConversations = false;
+                    console.log('[PROGRESSIVE] ✅ Conversations loaded (background)');
 
-            performTableSearch(); // Re-apply filters and merge with new chat data
+                    // Re-render with actual chat data
+                    performTableSearch();
+                } catch (err) {
+                    console.error('[PROGRESSIVE] ❌ Conversations loading error:', err);
+                    isLoadingConversations = false;
+                }
+            })();
+        } else {
+            // chatDataManager not ready yet - will be handled by Phase 1 re-render
+            console.log('[PROGRESSIVE] chatDataManager not ready, skipping conversations for now');
         }
 
         // Load tags in background
@@ -6052,6 +6347,9 @@ async function fetchOrders() {
         }
 
         showLoading(false);
+    } finally {
+        // Reset fetching flag to allow subsequent calls
+        isFetchingOrders = false;
     }
 }
 
@@ -6518,11 +6816,12 @@ function renderTable() {
         return;
     }
 
-    // Check if user is admin
-    let isAdmin = window.authManager && window.authManager.hasPermission(0);
-
-    // Fallback: Check username string for Admin
+    // Check if user has admin access via detailedPermissions
     const auth = window.authManager ? window.authManager.getAuthState() : null;
+    let isAdmin = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
+        auth?.roleTemplate === 'admin';
+
+    // Fallback: Check username string for Admin (legacy support)
     const currentUserType = auth && auth.userType ? auth.userType : null;
     if (!isAdmin && currentUserType) {
         const lowerName = currentUserType.toLowerCase();
@@ -6898,6 +7197,7 @@ function createRowHTML(order) {
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     <span>${order.SessionIndex || ""}</span>
                     ${mergedIcon}
+                    ${ordersWithKPIBase.has(order.Id) ? '<span class="kpi-base-indicator" title="Đã lưu BASE tính KPI"><i class="fas fa-lock" style="color: #10b981; font-size: 10px;"></i></span>' : ''}
                 </div>
             </td>
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
@@ -7740,6 +8040,7 @@ function updateActionButtons() {
     const actionButtonsSection = document.getElementById('actionButtonsSection');
     const selectedCountSpan = document.getElementById('selectedOrdersCount');
     const createSaleButtonBtn = document.getElementById('createSaleButtonBtn');
+    const createFastSaleBtn = document.getElementById('createFastSaleBtn');
     const checkedCount = selectedOrderIds.size;
 
     if (checkedCount > 0) {
@@ -7752,6 +8053,11 @@ function updateActionButtons() {
     // Show "Tạo nút bán hàng" button only when exactly 1 order is selected
     if (createSaleButtonBtn) {
         createSaleButtonBtn.style.display = checkedCount === 1 ? 'flex' : 'none';
+    }
+
+    // Show "Tạo nhanh PBH" button when more than 1 order is selected
+    if (createFastSaleBtn) {
+        createFastSaleBtn.style.display = checkedCount > 1 ? 'flex' : 'none';
     }
 }
 
@@ -7873,6 +8179,9 @@ async function openEditModal(orderId) {
         showErrorState(error.message);
     }
 }
+
+// Export to window for use in discount stats UI
+window.openEditModal = openEditModal;
 
 async function fetchOrderData(orderId) {
     const headers = await window.tokenManager.getAuthHeader();
@@ -9426,6 +9735,26 @@ window.addEventListener("message", function (event) {
             ranges: employeeRanges || []
         }, '*');
     }
+
+    // Handle request for campaign info from overview tab
+    if (event.data.type === "REQUEST_CAMPAIGN_INFO") {
+        console.log('📨 [CAMPAIGN] Nhận request campaign info từ tab Báo Cáo Tổng Hợp');
+
+        // Send campaign info back to overview
+        window.parent.postMessage({
+            type: 'CAMPAIGN_INFO_RESPONSE',
+            campaignInfo: {
+                allCampaigns: window.campaignManager?.allCampaigns || {},
+                activeCampaign: window.campaignManager?.activeCampaign || null,
+                activeCampaignId: window.campaignManager?.activeCampaignId || null
+            }
+        }, '*');
+
+        console.log('✅ [CAMPAIGN] Sent campaign info:', {
+            campaignCount: Object.keys(window.campaignManager?.allCampaigns || {}).length,
+            activeCampaign: window.campaignManager?.activeCampaign?.name
+        });
+    }
 });
 
 // Anti-spam: Track fetched channelIds and debounce requests
@@ -10837,6 +11166,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Show modal
     document.getElementById('chatModal').classList.add('show');
 
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+
     // Load and display debt for this order's phone
     loadChatDebt(order.Telephone);
 
@@ -11348,8 +11680,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 }
 
 window.closeChatModal = async function () {
-    // Note: Held products are now persisted - user must explicitly confirm or delete them
-    // So we don't cleanup held products on modal close
+    // Cleanup temporary held products (isDraft: false) - return them to dropped
+    // Only persisted held products (isDraft: true, user clicked "Lưu giữ") will remain
+    if (typeof window.cleanupHeldProducts === 'function') {
+        await window.cleanupHeldProducts();
+    }
 
     // Cleanup held products listener
     if (typeof window.cleanupHeldProductsListener === 'function') {
@@ -11360,6 +11695,9 @@ window.closeChatModal = async function () {
     cleanupRealtimeMessages();
 
     document.getElementById('chatModal').classList.remove('show');
+
+    // Restore body scroll when modal is closed
+    document.body.style.overflow = '';
 
     // Clean up scroll listener
     const modalBody = document.getElementById('chatModalBody');
@@ -12486,6 +12824,52 @@ async function processChatMessageQueue() {
 // =====================================================
 
 /**
+ * Split long messages into multiple parts (max 2000 characters each)
+ * This is required because Facebook Messenger API has a 2000 character limit per message.
+ * Splits at newlines first, then spaces, to avoid breaking words.
+ * @param {string} message - The message to split
+ * @param {number} maxLength - Maximum length per part (default: 2000)
+ * @returns {string[]} Array of message parts
+ */
+function splitMessageIntoParts(message, maxLength = 2000) {
+    if (!message || message.length <= maxLength) {
+        return [message];
+    }
+
+    const parts = [];
+    let remaining = message;
+
+    while (remaining.length > 0) {
+        if (remaining.length <= maxLength) {
+            parts.push(remaining);
+            break;
+        }
+
+        // Find the nearest newline before maxLength
+        let cutIndex = remaining.lastIndexOf('\n', maxLength);
+
+        // If no newline found or too far back, find nearest space
+        if (cutIndex === -1 || cutIndex < maxLength * 0.5) {
+            cutIndex = remaining.lastIndexOf(' ', maxLength);
+        }
+
+        // If still no good cut point, hard cut at maxLength
+        if (cutIndex === -1 || cutIndex < maxLength * 0.3) {
+            cutIndex = maxLength;
+        }
+
+        const part = remaining.substring(0, cutIndex).trim();
+        if (part.length > 0) {
+            parts.push(part);
+        }
+        remaining = remaining.substring(cutIndex).trim();
+    }
+
+    console.log(`[MESSAGE] Split message into ${parts.length} parts (${message.length} chars total)`);
+    return parts;
+}
+
+/**
  * Send message (MESSAGE modal only)
  * Public wrapper - adds to queue
  */
@@ -12549,32 +12933,48 @@ window.sendMessage = async function () {
             replyType: messageReplyType
         });
 
-        // Build queue data
-        const queueData = {
-            message,
-            uploadedImagesData: window.uploadedImagesData || [],
-            order: currentOrder,
-            conversationId: window.currentConversationId,
-            channelId: sendPageId,
-            chatType: 'message', // EXPLICITLY set to message
-            repliedMessageId: repliedMessageId,
-            customerId: window.currentCustomerUUID, // Add customer_id for Pancake API
-            messageReplyType: messageReplyType // Add reply type for private_replies support
-        };
+        // Split message into parts if too long (Facebook Messenger limit: 2000 chars)
+        const messageParts = splitMessageIntoParts(message);
+        const uploadedImages = window.uploadedImagesData || [];
 
-        // Add Facebook data if using private_replies
-        if (messageReplyType === 'private_replies') {
-            queueData.postId = window.purchaseFacebookPostId;
-            queueData.commentId = window.purchaseCommentId;
-            queueData.psid = window.currentChatPSID;
-            console.log('[MESSAGE] Private reply data:', {
-                postId: queueData.postId,
-                commentId: queueData.commentId,
-                psid: queueData.psid
-            });
+        // Add each message part to the queue
+        for (let i = 0; i < messageParts.length; i++) {
+            const messagePart = messageParts[i];
+            const isLastPart = i === messageParts.length - 1;
+
+            // Build queue data for this part
+            const queueData = {
+                message: messagePart,
+                // Only include images in the last part
+                uploadedImagesData: isLastPart ? uploadedImages : [],
+                order: currentOrder,
+                conversationId: window.currentConversationId,
+                channelId: sendPageId,
+                chatType: 'message', // EXPLICITLY set to message
+                // Only include repliedMessageId in the first part
+                repliedMessageId: i === 0 ? repliedMessageId : null,
+                customerId: window.currentCustomerUUID, // Add customer_id for Pancake API
+                messageReplyType: messageReplyType // Add reply type for private_replies support
+            };
+
+            // Add Facebook data if using private_replies (only for first part)
+            if (messageReplyType === 'private_replies' && i === 0) {
+                queueData.postId = window.purchaseFacebookPostId;
+                queueData.commentId = window.purchaseCommentId;
+                queueData.psid = window.currentChatPSID;
+                console.log('[MESSAGE] Private reply data:', {
+                    postId: queueData.postId,
+                    commentId: queueData.commentId,
+                    psid: queueData.psid
+                });
+            }
+
+            window.chatMessageQueue.push(queueData);
+
+            if (messageParts.length > 1) {
+                console.log(`[MESSAGE] Queued part ${i + 1}/${messageParts.length} (${messagePart.length} chars)`);
+            }
         }
-
-        window.chatMessageQueue.push(queueData);
 
         // Clear input
         messageInput.value = '';
@@ -12662,17 +13062,34 @@ window.sendComment = async function () {
         // Add to queue - use currentSendPageId for sending (independent from view page)
         const sendPageId = window.currentSendPageId || window.currentChatChannelId;
         console.log('[COMMENT] Adding to queue', { imageCount: window.uploadedImagesData?.length || 0, sendPageId });
-        window.chatMessageQueue.push({
-            message,
-            uploadedImagesData: window.uploadedImagesData || [],
-            order: currentOrder,
-            conversationId: window.currentConversationId,
-            channelId: sendPageId,
-            chatType: 'comment', // EXPLICITLY set to comment
-            parentCommentId: currentParentCommentId,
-            postId: currentPostId || currentOrder.Facebook_PostId,
-            customerId: window.currentCustomerUUID // Add customer_id for Pancake API
-        });
+
+        // Split message into parts if too long (Facebook limit: 2000 chars)
+        const messageParts = splitMessageIntoParts(message);
+        const uploadedImages = window.uploadedImagesData || [];
+
+        // Add each message part to the queue
+        for (let i = 0; i < messageParts.length; i++) {
+            const messagePart = messageParts[i];
+            const isLastPart = i === messageParts.length - 1;
+
+            window.chatMessageQueue.push({
+                message: messagePart,
+                // Only include images in the last part
+                uploadedImagesData: isLastPart ? uploadedImages : [],
+                order: currentOrder,
+                conversationId: window.currentConversationId,
+                channelId: sendPageId,
+                chatType: 'comment', // EXPLICITLY set to comment
+                // Only include parentCommentId in the first part
+                parentCommentId: i === 0 ? currentParentCommentId : null,
+                postId: currentPostId || currentOrder.Facebook_PostId,
+                customerId: window.currentCustomerUUID // Add customer_id for Pancake API
+            });
+
+            if (messageParts.length > 1) {
+                console.log(`[COMMENT] Queued part ${i + 1}/${messageParts.length} (${messagePart.length} chars)`);
+            }
+        }
 
         // Clear input
         messageInput.value = '';
@@ -13391,6 +13808,85 @@ async function sendMessageInternal(messageData) {
                     console.warn('[MESSAGE] ⚠️ Pancake Unlock failed:', unlockResult.error);
                 }
             }
+
+            // ========== Fallback 2: Private Reply (for error 551 only) ==========
+            // If still not successful and this is a 551 error, try Private Reply via Facebook Graph API
+            if (!apiSuccess && err.isUserUnavailable) {
+                console.log('[MESSAGE] 🔄 User unavailable (#551), checking for Private Reply context...');
+
+                const facebookPostId = order.Facebook_PostId || window.purchaseFacebookPostId;
+                const facebookCommentId = order.Facebook_CommentId || window.purchaseCommentId;
+                const facebookASUserId = order.Facebook_ASUserId || window.purchaseFacebookASUserId || psid;
+
+                // Get REAL Facebook Page Token (not Pancake JWT!)
+                const realFacebookPageToken = window.currentCRMTeam?.Facebook_PageToken;
+
+                if (facebookPostId && facebookCommentId && facebookASUserId && realFacebookPageToken) {
+                    console.log('[MESSAGE] ✅ Found comment context, attempting Private Reply fallback...');
+                    showChatSendingIndicator('Khách chưa nhắn tin, đang thử Private Reply...');
+
+                    try {
+                        // Extract Comment ID (first one if multiple)
+                        const commentIds = facebookCommentId.toString().split(',').map(id => id.trim());
+                        const targetCommentId = commentIds[0];
+
+                        // Build Private Reply payload for Facebook Graph API
+                        const privateReplyUrl = window.API_CONFIG.buildUrl.facebookSend();
+
+                        const privatePayload = {
+                            pageId: channelId, // Required by worker proxy
+                            recipient: {
+                                comment_id: targetCommentId
+                            },
+                            message: {
+                                text: message
+                            },
+                            pageToken: realFacebookPageToken // REAL Facebook Page Token (EAAEppgm... format)
+                        };
+
+                        console.log('[MESSAGE] Sending Private Reply (Graph API) payload:', JSON.stringify(privatePayload));
+
+                        const prResponse = await API_CONFIG.smartFetch(privateReplyUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(privatePayload)
+                        }, 1, true);
+
+                        if (prResponse.ok) {
+                            const prData = await prResponse.json();
+                            if (prData.success !== false) {
+                                console.log('[MESSAGE] ✅ Private Reply fallback succeeded!');
+                                apiSuccess = true;
+                                apiError = null;
+
+                                if (window.notificationManager) {
+                                    window.notificationManager.show('✅ Đã gửi tin nhắn (Private Reply) thành công!', 'success');
+                                }
+
+                                // Auto-mark as read
+                                autoMarkAsRead(0);
+                            } else {
+                                console.warn('[MESSAGE] ❌ Private Reply API error:', prData);
+                            }
+                        } else {
+                            const errorData = await prResponse.json().catch(() => ({}));
+                            console.warn('[MESSAGE] ❌ Private Reply HTTP error:', prResponse.status, errorData);
+                        }
+                    } catch (prError) {
+                        console.error('[MESSAGE] ❌ Private Reply fallback failed:', prError);
+                    }
+                } else {
+                    console.warn('[MESSAGE] ⚠️ Cannot try Private Reply: Missing context', {
+                        hasPostId: !!facebookPostId,
+                        hasCommentId: !!facebookCommentId,
+                        hasASUserId: !!facebookASUserId,
+                        hasPageToken: !!realFacebookPageToken
+                    });
+                }
+            }
         }
 
         // If API failed, throw error
@@ -14041,9 +14537,9 @@ function renderChatMessages(messages, scrollToBottom = false) {
             // Render images in grid if multiple
             if (images.length > 0) {
                 const gridClass = images.length === 1 ? 'chat-image-grid-single' :
-                                 images.length === 2 ? 'chat-image-grid-two' :
-                                 images.length === 3 ? 'chat-image-grid-three' :
-                                 'chat-image-grid-multi';
+                    images.length === 2 ? 'chat-image-grid-two' :
+                        images.length === 3 ? 'chat-image-grid-three' :
+                            'chat-image-grid-multi';
 
                 content += `<div class="chat-image-grid ${gridClass}">`;
                 images.forEach((imageUrl, idx) => {
@@ -14067,18 +14563,92 @@ function renderChatMessages(messages, scrollToBottom = false) {
 
                 // Replied Message (Quoted message)
                 if (att.type === 'replied_message') {
+                    // Debug: Log replied_message structure to find the correct ID field
+                    console.log('[REPLIED_MESSAGE] Full attachment object:', JSON.stringify(att, null, 2));
+
                     const quotedText = att.message || '';
                     const quotedFrom = att.from?.name || att.from?.admin_name || 'Unknown';
                     const quotedHasAttachment = att.attachments && att.attachments.length > 0;
+                    const quotedMessageId = att.id || att.message_id || att.mid || '';
+
+                    console.log('[REPLIED_MESSAGE] Extracted ID:', quotedMessageId, 'from fields:', {
+                        'att.id': att.id,
+                        'att.message_id': att.message_id,
+                        'att.mid': att.mid
+                    });
+
+                    // Build attachment preview content
+                    let attachmentPreview = '';
+                    if (quotedHasAttachment) {
+                        att.attachments.forEach(qAtt => {
+                            // Image attachment
+                            if ((qAtt.type === 'photo' && qAtt.url) ||
+                                (qAtt.mime_type && qAtt.mime_type.startsWith('image/') && qAtt.file_url)) {
+                                const imgUrl = qAtt.url || qAtt.file_url;
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px;">
+                                        <img src="${imgUrl}" style="max-width: 80px; max-height: 60px; border-radius: 4px; object-fit: cover;" loading="lazy" />
+                                    </div>`;
+                            }
+                            // Audio attachment
+                            else if (qAtt.mime_type === 'audio/mp4' && qAtt.file_url) {
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px; display: flex; align-items: center; color: #6b7280; font-size: 11px;">
+                                        <i class="fas fa-microphone" style="margin-right: 4px;"></i>
+                                        <span>Tin nhắn thoại</span>
+                                    </div>`;
+                            }
+                            // Video attachment
+                            else if ((qAtt.type === 'video_inline' || qAtt.type === 'video_direct_response' || qAtt.type === 'video') && qAtt.url) {
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px; display: flex; align-items: center; color: #6b7280; font-size: 11px;">
+                                        <i class="fas fa-video" style="margin-right: 4px;"></i>
+                                        <span>Video</span>
+                                    </div>`;
+                            }
+                            // Sticker attachment
+                            else if (qAtt.type === 'sticker' && (qAtt.url || qAtt.file_url)) {
+                                const stickerUrl = qAtt.url || qAtt.file_url;
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px;">
+                                        <img src="${stickerUrl}" style="max-width: 50px; max-height: 50px;" loading="lazy" />
+                                    </div>`;
+                            }
+                            // File attachment
+                            else if (qAtt.type === 'file' || (qAtt.mime_type && qAtt.file_url)) {
+                                const fileName = qAtt.name || 'Tệp đính kèm';
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px; display: flex; align-items: center; color: #6b7280; font-size: 11px;">
+                                        <i class="fas fa-file" style="margin-right: 4px;"></i>
+                                        <span>${fileName}</span>
+                                    </div>`;
+                            }
+                            // Generic attachment fallback
+                            else if (!attachmentPreview) {
+                                attachmentPreview += `
+                                    <div style="margin-top: 4px; display: flex; align-items: center; color: #6b7280; font-size: 11px;">
+                                        <i class="fas fa-paperclip" style="margin-right: 4px;"></i>
+                                        <span>Tệp đính kèm</span>
+                                    </div>`;
+                            }
+                        });
+                    }
+
+                    // Display text content (if any)
+                    const textContent = quotedText ? `<div style="font-size: 12px; color: #374151;">${quotedText}</div>` : '';
+                    const displayContent = textContent || attachmentPreview || '<div style="font-size: 12px; color: #9ca3af;">[Không có nội dung]</div>';
+
+                    // Add click handler if we have a message ID
+                    const clickHandler = quotedMessageId ? `onclick="window.scrollToMessage('${quotedMessageId}')"` : '';
+                    const cursorStyle = quotedMessageId ? 'cursor: pointer;' : '';
 
                     content = `
-                        <div class="quoted-message" style="background: #f3f4f6; border-left: 3px solid #3b82f6; padding: 8px 10px; margin-bottom: 8px; border-radius: 4px;">
+                        <div class="quoted-message" ${clickHandler} style="background: #f3f4f6; border-left: 3px solid #3b82f6; padding: 8px 10px; margin-bottom: 8px; border-radius: 4px; ${cursorStyle} transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">
                             <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px;">
                                 <i class="fas fa-reply" style="margin-right: 4px;"></i>${quotedFrom}
                             </div>
-                            <div style="font-size: 12px; color: #374151;">
-                                ${quotedText || (quotedHasAttachment ? '[Attachment]' : '[No content]')}
-                            </div>
+                            ${displayContent}
+                            ${textContent && attachmentPreview ? attachmentPreview : ''}
                         </div>
                     ` + content;
                     return;
@@ -14810,7 +15380,7 @@ async function handleRealtimeConversationEvent(event) {
     // Match by conversation ID or by page_id + customer PSID
     const isMatchingConv = (conversation.id === currentConvId) ||
         (conversation.page_id === currentChannelId &&
-         (conversation.from?.id === currentPSID || conversation.from_psid === currentPSID));
+            (conversation.from?.id === currentPSID || conversation.from_psid === currentPSID));
 
     if (!isMatchingConv) {
         // Log quietly - this is expected for updates to other conversations
@@ -15140,6 +15710,41 @@ window.fetchAndUpdateMessages = fetchAndUpdateMessages;
 // ║                       SECTION 13: INFINITE SCROLL                           ║
 // ║                            search: #SCROLL                                  ║
 // #endregion ════════════════════════════════════════════════════════════════════
+
+// =====================================================
+// SCROLL TO MESSAGE FUNCTION
+// =====================================================
+
+/**
+ * Scroll to a specific message in the chat modal and highlight it
+ * @param {string} messageId - The ID of the message to scroll to
+ */
+window.scrollToMessage = function (messageId) {
+    if (!messageId) return;
+
+    const modalBody = document.getElementById('chatModalBody');
+    if (!modalBody) return;
+
+    // Find message element by data-message-id attribute
+    const messageElement = modalBody.querySelector(`[data-message-id="${messageId}"]`);
+
+    if (messageElement) {
+        // Scroll to message
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Add highlight animation
+        messageElement.classList.add('message-highlight');
+
+        // Remove highlight after animation
+        setTimeout(() => {
+            messageElement.classList.remove('message-highlight');
+        }, 2000);
+    } else {
+        console.log('[SCROLL] Message not found:', messageId);
+        // Message might not be loaded yet - show notification
+        showToast && showToast('Tin nhắn không tìm thấy trong cuộc hội thoại hiện tại', 'warning');
+    }
+};
 
 // =====================================================
 // INFINITE SCROLL FOR MESSAGES & COMMENTS #SCROLL
@@ -16037,15 +16642,21 @@ async function fetchAndAppendNewMessages(conversation) {
         if (newItems.length > 0) {
             console.log('[REALTIME] Got', newItems.length, 'new items');
 
+            // Check if user is at bottom before updating
+            const modalBody = document.getElementById('chatModalBody');
+            const wasAtBottom = modalBody &&
+                (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
+
             // Add to global array
             if (chatType === 'message') {
                 window.allChatMessages.push(...newItems);
+                // Re-render all messages with full formatting (avatar, name, quoted messages, etc.)
+                renderChatMessages(window.allChatMessages, wasAtBottom);
             } else {
                 window.allChatComments.push(...newItems);
+                // Re-render all comments with full formatting
+                renderChatMessages(window.allChatComments, wasAtBottom);
             }
-
-            // Incremental render (NEW)
-            appendNewMessages(newItems, chatType);
         } else {
             console.log('[REALTIME] No new items found');
         }
@@ -16653,12 +17264,29 @@ function renderChatProductsTable() {
                     margin-bottom: 8px;
                     display: flex;
                     align-items: center;
-                    gap: 8px;
+                    justify-content: space-between;
                 ">
-                    <i class="fas fa-hand-paper" style="color: #d97706;"></i>
-                    <span style="font-size: 12px; font-weight: 600; color: #92400e;">
-                        Sản phẩm giữ (${heldProducts.length})
-                    </span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-hand-paper" style="color: #d97706;"></i>
+                        <span style="font-size: 12px; font-weight: 600; color: #92400e;">
+                            Sản phẩm giữ (${heldProducts.length})
+                        </span>
+                    </div>
+                    <button onclick="window.saveHeldProducts()" style="
+                        background: #10b981;
+                        color: white;
+                        border: none;
+                        padding: 4px 12px;
+                        border-radius: 4px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    " title="Lưu sản phẩm giữ - sẽ không bị mất khi refresh trang">
+                        <i class="fas fa-save"></i> Lưu giữ
+                    </button>
                 </div>
                 ${heldProducts.map((p, index) => renderProductCard(p, index, true)).join('')}
             </div>
@@ -16778,7 +17406,7 @@ function renderProductCard(p, index, isHeld) {
                     ${!isHeld ? `
                     <!-- Main product: only show minus button and quantity -->
                     <div style="display: flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
-                        <button onclick="decreaseMainProductQuantity(${index})" style="
+                        <button onclick="decreaseMainProductQuantityById(${p.ProductId})" style="
                             width: 28px;
                             height: 28px;
                             border: none;
@@ -16802,7 +17430,7 @@ function renderProductCard(p, index, isHeld) {
                     ` : `
                     <!-- Held product: show full quantity controls -->
                     <div style="display: flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
-                        <button onclick="updateChatProductQuantity(${index}, -1)" style="
+                        <button onclick="updateHeldProductQuantityById(${p.ProductId}, -1)" style="
                             width: 24px;
                             height: 24px;
                             border: none;
@@ -16814,7 +17442,7 @@ function renderProductCard(p, index, isHeld) {
                             justify-content: center;
                         ">−</button>
                         <input type="number" value="${p.Quantity || 0}"
-                            onchange="updateChatProductQuantity(${index}, 0, this.value)"
+                            onchange="updateHeldProductQuantityById(${p.ProductId}, 0, this.value)"
                             style="
                             width: 36px;
                             text-align: center;
@@ -16825,7 +17453,7 @@ function renderProductCard(p, index, isHeld) {
                             font-weight: 600;
                             padding: 2px 0;
                         ">
-                        <button onclick="updateChatProductQuantity(${index}, 1)" style="
+                        <button onclick="updateHeldProductQuantityById(${p.ProductId}, 1)" style="
                             width: 24px;
                             height: 24px;
                             border: none;
@@ -16988,14 +17616,28 @@ function displayChatSearchResults(results) {
         return;
     }
 
-    // Check existing products
+    // Check existing products (both main products and held products)
     const productsInOrder = new Map();
+    const heldProductIds = new Set();
+
+    // Check main products
     currentChatOrderDetails.forEach(d => {
-        productsInOrder.set(d.ProductId, d.Quantity || 0);
+        productsInOrder.set(d.ProductId, (productsInOrder.get(d.ProductId) || 0) + (d.Quantity || 0));
     });
+
+    // Check held products from window.currentChatOrderData.Details
+    if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+        window.currentChatOrderData.Details.forEach(d => {
+            if (d.IsHeld) {
+                heldProductIds.add(d.ProductId);
+                productsInOrder.set(d.ProductId, (productsInOrder.get(d.ProductId) || 0) + (d.Quantity || 0));
+            }
+        });
+    }
 
     resultsDiv.innerHTML = results.map(p => {
         const isInOrder = productsInOrder.has(p.Id);
+        const isHeld = heldProductIds.has(p.Id);
         const currentQty = productsInOrder.get(p.Id) || 0;
 
         return `
@@ -17016,7 +17658,7 @@ function displayChatSearchResults(results) {
                 position: absolute;
                 top: 4px;
                 right: 4px;
-                background: #10b981;
+                background: ${isHeld ? '#f59e0b' : '#10b981'};
                 color: white;
                 font-size: 10px;
                 padding: 2px 6px;
@@ -17024,7 +17666,7 @@ function displayChatSearchResults(results) {
                 font-weight: 600;
                 z-index: 10;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            "><i class="fas fa-shopping-cart"></i> SL: ${currentQty}</div>
+            "><i class="fas ${isHeld ? 'fa-hand-paper' : 'fa-shopping-cart'}"></i> ${isHeld ? 'Giữ' : 'SL'}: ${currentQty}</div>
             ` : ''}
 
             <!-- Image -->
@@ -17163,8 +17805,24 @@ async function addChatProductFromSearch(productId) {
     }
 
     try {
+        // Normalize productId to number
+        const normalizedProductId = parseInt(productId);
+        if (isNaN(normalizedProductId)) {
+            throw new Error("Invalid product ID");
+        }
+
+        // Check if order data is available
+        if (!window.currentChatOrderData) {
+            throw new Error("Vui lòng mở một đơn hàng trước khi thêm sản phẩm");
+        }
+
+        // Ensure Details array exists
+        if (!window.currentChatOrderData.Details) {
+            window.currentChatOrderData.Details = [];
+        }
+
         // 1. Fetch full details from TPOS (Required)
-        const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
+        const fullProduct = await window.productSearchManager.getFullProductDetails(normalizedProductId);
         if (!fullProduct) throw new Error("Không tìm thấy thông tin sản phẩm");
 
         // Logic to inherit image from Product Template if missing (Variant logic)
@@ -17172,7 +17830,6 @@ async function addChatProductFromSearch(productId) {
             if (fullProduct.ProductTmplId) {
                 try {
                     console.log(`[CHAT-ADD] Fetching product template ${fullProduct.ProductTmplId} for image fallback`);
-                    // Construct Template URL
                     const templateApiUrl = window.productSearchManager.PRODUCT_API_BASE.replace('/Product', '/ProductTemplate');
                     const url = `${templateApiUrl}(${fullProduct.ProductTmplId})?$expand=Images`;
 
@@ -17192,22 +17849,26 @@ async function addChatProductFromSearch(productId) {
             }
         }
 
-        // 2. Check if already exists
-        const existingIndex = currentChatOrderDetails.findIndex(p => p.ProductId === productId);
+        // Validate sale price (only use PriceVariant or ListPrice, never StandardPrice)
+        const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
+        if (salePrice == null || salePrice < 0) {
+            console.error(`[CHAT-ADD] ❌ Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+            throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+        }
 
-        if (existingIndex >= 0) {
-            // Increase quantity
-            currentChatOrderDetails[existingIndex].Quantity = (currentChatOrderDetails[existingIndex].Quantity || 0) + 1;
+        // 2. Check if already exists in HELD list (merge quantity)
+        const existingHeldIndex = window.currentChatOrderData?.Details?.findIndex(
+            p => p.ProductId === normalizedProductId && p.IsHeld === true
+        ) ?? -1;
+
+        if (existingHeldIndex >= 0) {
+            // Product already in held list - increment quantity
+            window.currentChatOrderData.Details[existingHeldIndex].Quantity += 1;
+            console.log('[CHAT-ADD] Merged with existing held product, new qty:',
+                window.currentChatOrderData.Details[existingHeldIndex].Quantity);
         } else {
-            // Validate sale price (only use PriceVariant or ListPrice, never StandardPrice)
-            const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
-            if (salePrice == null || salePrice < 0) {
-                console.error(`[CHAT-ADD] ❌ Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
-                throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
-            }
-
-            // 3. Create new product object using EXACT logic from addProductToOrderFromInline
-            const newProduct = {
+            // 3. Create new HELD product object (similar to moveDroppedToOrder)
+            const heldProduct = {
                 ProductId: fullProduct.Id,
                 Quantity: 1,
                 Price: salePrice,
@@ -17215,7 +17876,7 @@ async function addChatProductFromSearch(productId) {
                 UOMId: fullProduct.UOM?.Id || 1,
                 Factor: 1,
                 Priority: 0,
-                OrderId: currentChatOrderId, // Use current chat order ID
+                OrderId: window.currentChatOrderData?.Id || currentChatOrderId,
                 LiveCampaign_DetailId: null,
                 ProductWeight: 0,
 
@@ -17229,34 +17890,74 @@ async function addChatProductFromSearch(productId) {
                 QuantityRegex: null,
                 IsDisabledLiveCampaignDetail: false,
 
-                // Additional fields for chat UI compatibility if needed
+                // HELD product markers
+                IsHeld: true,
+                IsFromSearch: true,
+                StockQty: fullProduct.QtyAvailable || 0,
+
+                // Additional fields for compatibility
                 Name: fullProduct.Name,
                 Code: fullProduct.DefaultCode || fullProduct.Barcode
             };
 
-            // Add to the correct data source
+            // Add to Details array
             if (window.currentChatOrderData && window.currentChatOrderData.Details) {
-                window.currentChatOrderData.Details.push(newProduct);
-            } else {
-                currentChatOrderDetails.push(newProduct);
+                window.currentChatOrderData.Details.push(heldProduct);
             }
         }
 
-        // Sync arrays if needed
-        if (window.currentChatOrderData && window.currentChatOrderData.Details) {
-            currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+        // 4. Sync to Firebase held_products for multi-user collaboration
+        const orderId = window.currentChatOrderData?.Id;
+        if (window.firebase && window.authManager && orderId) {
+            const auth = window.authManager.getAuthState();
+
+            if (auth) {
+                let userId = auth.id || auth.Id || auth.username || auth.userType;
+                if (!userId && auth.displayName) {
+                    userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+                }
+
+                if (userId) {
+                    // Get current held quantity for this user
+                    const currentHeldProduct = window.currentChatOrderData.Details.find(
+                        p => p.ProductId === normalizedProductId && p.IsHeld
+                    );
+                    const heldQuantity = currentHeldProduct ? currentHeldProduct.Quantity : 1;
+
+                    // Sync to Firebase
+                    const ref = window.firebase.database().ref(`held_products/${orderId}/${normalizedProductId}/${userId}`);
+
+                    await ref.set({
+                        productId: normalizedProductId,
+                        displayName: auth.displayName || auth.userType || 'Unknown',
+                        quantity: heldQuantity,
+                        isDraft: true,
+                        isFromSearch: true,
+                        timestamp: window.firebase.database.ServerValue.TIMESTAMP
+                    });
+
+                    console.log('[CHAT-ADD] ✓ Synced to Firebase held_products:', {
+                        orderId,
+                        productId: normalizedProductId,
+                        userId,
+                        quantity: heldQuantity
+                    });
+                }
+            }
         }
 
+        // 5. Re-render UI (held products will show with Confirm/Delete buttons)
         renderChatProductsTable();
-        saveChatProductsToFirebase('shared', currentChatOrderDetails);
 
-        // Update UI for the added item
-        updateChatProductItemUI(productId);
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.show(`✓ Đã thêm "${fullProduct.Name}" vào danh sách giữ`, 'info');
+        }
 
         // Clear search input and keep focus
         const searchInput = document.getElementById("chatInlineProductSearch");
         if (searchInput) {
-            searchInput.value = ''; // Clear input
+            searchInput.value = '';
             searchInput.focus();
         }
 
@@ -17265,6 +17966,8 @@ async function addChatProductFromSearch(productId) {
         if (resultsDiv) {
             resultsDiv.style.display = "none";
         }
+
+        console.log('[CHAT-ADD] ✓ Added product to held list:', normalizedProductId);
 
     } catch (error) {
         console.error("Error adding product:", error);
@@ -17280,19 +17983,40 @@ async function addChatProductFromSearch(productId) {
     }
 }
 
+// Lock state to prevent duplicate confirmHeldProduct calls
+const confirmHeldProductLocks = new Set();
+
 /**
  * Confirm held product - Move from held list to main product list
  * Fetches full product details from TPOS, updates order on backend, and removes from Firebase held_products
  * @param {number|string} productId - Product ID (will be normalized to number)
  */
-window.confirmHeldProduct = async function(productId) {
-    try {
-        // Normalize productId to number for consistent comparison
-        const normalizedProductId = parseInt(productId);
-        if (isNaN(normalizedProductId)) {
-            throw new Error("Invalid product ID");
+window.confirmHeldProduct = async function (productId) {
+    // Normalize productId to number for consistent comparison
+    const normalizedProductId = parseInt(productId);
+    if (isNaN(normalizedProductId)) {
+        console.error('[HELD-CONFIRM] Invalid product ID:', productId);
+        if (window.notificationManager) {
+            window.notificationManager.error("ID sản phẩm không hợp lệ");
         }
+        return;
+    }
 
+    // Lock key includes orderId to allow same product in different orders
+    const orderId = window.currentChatOrderData?.Id;
+    const lockKey = `${orderId}_${normalizedProductId}`;
+
+    // Check if already processing this product
+    if (confirmHeldProductLocks.has(lockKey)) {
+        console.warn('[HELD-CONFIRM] Already processing product:', normalizedProductId, '- skipping duplicate call');
+        return;
+    }
+
+    // Acquire lock
+    confirmHeldProductLocks.add(lockKey);
+    console.log('[HELD-CONFIRM] Lock acquired for:', lockKey);
+
+    try {
         // Find the held product using normalized ID
         const heldProduct = window.currentChatOrderData?.Details?.find(
             p => p.ProductId === normalizedProductId && p.IsHeld === true
@@ -17305,6 +18029,21 @@ window.confirmHeldProduct = async function(productId) {
         // Show loading notification
         if (window.notificationManager) {
             window.notificationManager.show("Đang xác nhận sản phẩm...", "info");
+        }
+
+        // KPI CHECK: Before confirming first product, ask user if they want to track KPI
+        // Get current main products (before adding new one) for potential BASE save
+        const currentMainProducts = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+        const orderId = window.currentChatOrderData.Id;
+        const orderSTT = window.currentChatOrderData.SessionIndex || window.currentChatOrderData.STT || window.currentChatOrderData.Stt || 0;
+
+        if (window.kpiManager) {
+            try {
+                // This will check if BASE exists and prompt user if not
+                await window.kpiManager.promptAndSaveKPIBase(orderId, orderSTT, currentMainProducts);
+            } catch (kpiError) {
+                console.warn('[HELD-CONFIRM] KPI check failed (non-blocking):', kpiError);
+            }
         }
 
         // Fetch full product details from TPOS using normalized ID
@@ -17421,7 +18160,7 @@ window.confirmHeldProduct = async function(productId) {
 
         // STEP 7: Re-render Orders tab
         renderChatProductsTable();
-        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 
         // STEP 8: Trigger Dropped tab re-render to update "Người giữ" status
         if (typeof window.renderDroppedProductsTable === 'function') {
@@ -17442,6 +18181,12 @@ window.confirmHeldProduct = async function(productId) {
         } else {
             alert("❌ Lỗi khi xác nhận: " + error.message);
         }
+    } finally {
+        // Always release the lock
+        const orderId = window.currentChatOrderData?.Id;
+        const lockKey = `${orderId}_${normalizedProductId}`;
+        confirmHeldProductLocks.delete(lockKey);
+        console.log('[HELD-CONFIRM] Lock released for:', lockKey);
     }
 };
 
@@ -17449,7 +18194,7 @@ window.confirmHeldProduct = async function(productId) {
  * Delete held product - Remove from held list with confirmation
  * @param {number|string} productId - Product ID (will be normalized to number)
  */
-window.deleteHeldProduct = async function(productId) {
+window.deleteHeldProduct = async function (productId) {
     try {
         // Normalize productId to number for consistent comparison
         const normalizedProductId = parseInt(productId);
@@ -17474,7 +18219,7 @@ window.deleteHeldProduct = async function(productId) {
             ? await window.CustomPopup.confirm(
                 `Bạn có chắc muốn xóa sản phẩm "${heldProduct.ProductName || heldProduct.Name}" khỏi danh sách giữ?`,
                 'Xác nhận xóa'
-              )
+            )
             : confirm(`Bạn có chắc muốn xóa sản phẩm "${heldProduct.ProductName || heldProduct.Name}" khỏi danh sách giữ?`);
 
         if (!confirmed) return;
@@ -17509,7 +18254,200 @@ window.deleteHeldProduct = async function(productId) {
 // --- Action Logic ---
 
 /**
- * Update product quantity in chat order
+ * Update held product quantity by ProductId
+ * This version uses ProductId instead of array index to avoid bugs when arrays are filtered
+ * @param {number} productId - Product ID to update
+ * @param {number} delta - Amount to add/subtract (-1 or +1)
+ * @param {string|null} specificValue - Specific value to set (from input field)
+ */
+window.updateHeldProductQuantityById = function (productId, delta, specificValue = null) {
+    // Normalize productId
+    const normalizedProductId = parseInt(productId);
+    if (isNaN(normalizedProductId)) {
+        console.error('[UPDATE-QTY] Invalid productId:', productId);
+        return;
+    }
+
+    // Get the correct data source
+    const productsArray = (window.currentChatOrderData && window.currentChatOrderData.Details)
+        ? window.currentChatOrderData.Details
+        : currentChatOrderDetails;
+
+    // Find product by ProductId and IsHeld flag
+    const product = productsArray.find(p => p.ProductId === normalizedProductId && p.IsHeld === true);
+    if (!product) {
+        console.error('[UPDATE-QTY] Held product not found:', normalizedProductId);
+        return;
+    }
+
+    // Update quantity
+    if (specificValue !== null) {
+        const val = parseInt(specificValue);
+        if (val > 0) product.Quantity = val;
+    } else {
+        const newQty = (product.Quantity || 0) + delta;
+        if (newQty > 0) product.Quantity = newQty;
+    }
+
+    // Sync to Firebase
+    if (typeof window.updateHeldProductQuantity === 'function') {
+        window.updateHeldProductQuantity(product.ProductId, product.Quantity);
+    }
+
+    // Sync both arrays if needed
+    if (window.currentChatOrderData && window.currentChatOrderData.Details) {
+        currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+    }
+
+    renderChatProductsTable();
+    // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
+};
+
+/**
+ * Decrease main product quantity by ProductId
+ * Shows confirmation, updates order via API, moves 1 product to dropped
+ * @param {number} productId - Product ID to decrease
+ */
+window.decreaseMainProductQuantityById = async function (productId) {
+    // Normalize productId
+    const normalizedProductId = parseInt(productId);
+    if (isNaN(normalizedProductId)) {
+        console.error('[DECREASE] Invalid productId:', productId);
+        return;
+    }
+
+    // Get the correct data source
+    const productsArray = (window.currentChatOrderData && window.currentChatOrderData.Details)
+        ? window.currentChatOrderData.Details
+        : currentChatOrderDetails;
+
+    // Find product by ProductId (non-held only)
+    const product = productsArray.find(p => p.ProductId === normalizedProductId && !p.IsHeld);
+    if (!product) {
+        console.error('[DECREASE] Main product not found:', normalizedProductId);
+        return;
+    }
+
+    // Show confirmation
+    const productName = product.ProductName || product.Name || 'Sản phẩm';
+    const confirmMsg = `Xóa 1 "${productName}" khỏi đơn hàng?\n\nSản phẩm sẽ được chuyển sang hàng rớt-xả.`;
+
+    let confirmed = false;
+    if (window.CustomPopup) {
+        confirmed = await window.CustomPopup.confirm(confirmMsg, 'Xác nhận xóa sản phẩm');
+    } else {
+        confirmed = confirm(confirmMsg);
+    }
+
+    if (!confirmed) return;
+
+    try {
+        // Show loading
+        if (window.notificationManager) {
+            window.notificationManager.show("Đang cập nhật đơn hàng...", "info");
+        }
+
+        // Fetch latest order data from API to ensure we have fresh data
+        const orderId = window.currentChatOrderData?.Id;
+        if (!orderId) {
+            throw new Error("Không tìm thấy đơn hàng");
+        }
+
+        console.log('[DECREASE-BY-ID] Fetching latest order data:', orderId);
+        const freshOrderData = await getOrderDetails(orderId);
+
+        // Update window.currentChatOrderData with fresh data
+        window.currentChatOrderData = freshOrderData;
+
+        // Find the product in fresh data by ProductId
+        const freshProductIndex = freshOrderData.Details.findIndex(
+            p => p.ProductId === normalizedProductId && !p.IsHeld
+        );
+
+        if (freshProductIndex === -1) {
+            throw new Error("Không tìm thấy sản phẩm trong đơn hàng");
+        }
+
+        const freshProduct = freshOrderData.Details[freshProductIndex];
+
+        // Create product object to add to dropped
+        const droppedProductData = {
+            ProductId: freshProduct.ProductId,
+            ProductName: freshProduct.ProductName || freshProduct.Name,
+            ProductCode: freshProduct.ProductCode || freshProduct.Code,
+            Price: freshProduct.Price || 0,
+            ImageUrl: freshProduct.ImageUrl || '',
+            UOMId: freshProduct.UOMId || 1,
+            UOMName: freshProduct.UOMName || 'Cái',
+            Quantity: 1 // Moving 1 quantity to dropped
+        };
+
+        console.log('[DECREASE-BY-ID] Moving 1 to dropped:', droppedProductData);
+
+        // Add to dropped products
+        if (typeof window.addToDroppedProducts === 'function') {
+            await window.addToDroppedProducts(droppedProductData, 1, 'removed', null);
+        }
+
+        // Decrease quantity in order
+        if (freshProduct.Quantity <= 1) {
+            // Remove product entirely
+            freshOrderData.Details.splice(freshProductIndex, 1);
+        } else {
+            // Decrease by 1
+            freshProduct.Quantity -= 1;
+        }
+
+        // Get only main products for API update
+        const newDetails = freshOrderData.Details.filter(p => !p.IsHeld);
+        const totalQuantity = newDetails.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+        const totalAmount = newDetails.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+
+        console.log('[DECREASE-BY-ID] Updating order on backend:', {
+            orderId: freshOrderData.Id,
+            newDetailsCount: newDetails.length,
+            totalQuantity,
+            totalAmount
+        });
+
+        // Update order on backend
+        await updateOrderWithFullPayload(
+            freshOrderData,
+            newDetails,
+            totalAmount,
+            totalQuantity
+        );
+
+        console.log('[DECREASE-BY-ID] ✓ Order updated successfully');
+
+        // Sync arrays
+        currentChatOrderDetails = freshOrderData.Details.filter(p => !p.IsHeld);
+
+        // Re-render UI
+        renderChatProductsTable();
+        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
+
+        // Re-render Dropped tab if visible
+        if (typeof window.renderDroppedProductsTable === 'function') {
+            await window.renderDroppedProductsTable();
+        }
+
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.show("✅ Đã chuyển 1 sản phẩm sang hàng rớt", "success");
+        }
+
+    } catch (error) {
+        console.error('[DECREASE-BY-ID] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error("❌ Lỗi: " + error.message);
+        }
+    }
+};
+
+/**
+ * Update product quantity in chat order (legacy - by index)
+ * @deprecated Use updateHeldProductQuantityById instead
  * Works with both currentChatOrderDetails and window.currentChatOrderData.Details
  * Syncs held products to Firebase for multi-user collaboration
  */
@@ -17543,7 +18481,7 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
     }
 
     renderChatProductsTable();
-    saveChatProductsToFirebase('shared', currentChatOrderDetails);
+    // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 }
 
 /**
@@ -17648,7 +18586,7 @@ async function decreaseMainProductQuantity(index) {
 
         // Re-render UI
         renderChatProductsTable();
-        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 
         // Re-render dropped tab
         if (typeof window.renderDroppedProductsTable === 'function') {
@@ -17753,7 +18691,7 @@ async function removeChatProduct(index) {
 
         // 5. Re-render UI
         renderChatProductsTable();
-        saveChatProductsToFirebase('shared', currentChatOrderDetails);
+        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 
         // 6. Show success notification
         if (window.notificationManager) {
@@ -17923,6 +18861,11 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
         throw error;
     }
 }
+
+// Export API functions for external modules
+window.saveChatProductsToFirebase = saveChatProductsToFirebase;
+window.getOrderDetails = getOrderDetails;
+window.updateOrderWithFullPayload = updateOrderWithFullPayload;
 
 /**
  * Execute product merge for a single merged order
@@ -20617,6 +21560,7 @@ window.showQRFromChat = showQRFromChat;
 
 /**
  * Load and display debt in chat modal header
+ * NOTE: Always fetches fresh data from API (same source as salePrepaidAmount)
  * @param {string} phone - Phone number
  */
 async function loadChatDebt(phone) {
@@ -20635,19 +21579,24 @@ async function loadChatDebt(phone) {
     debtValueEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     debtValueEl.style.color = 'rgba(255, 255, 255, 0.8)';
 
-    // Check cache first
-    const cachedDebt = getCachedDebt(normalizedPhone);
-
-    if (cachedDebt !== null) {
-        // Has cached value
-        updateChatDebtDisplay(cachedDebt);
-        return;
-    }
-
-    // Fetch from API
+    // Always fetch fresh from API (same source as salePrepaidAmount in fetchDebtForSaleModal)
     try {
-        const debt = await fetchDebtForPhone(normalizedPhone);
-        updateChatDebtDisplay(debt);
+        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(normalizedPhone)}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const totalDebt = result.data.total_debt || 0;
+            console.log('[CHAT-DEBT] Realtime debt for phone:', normalizedPhone, '=', totalDebt);
+
+            // Update cache for consistency with debt column
+            saveDebtToCache(normalizedPhone, totalDebt);
+            updateChatDebtDisplay(totalDebt);
+
+            // Also update debt column in orders table to keep them in sync
+            updateDebtCellsInTable(normalizedPhone, totalDebt);
+        } else {
+            updateChatDebtDisplay(0);
+        }
     } catch (error) {
         console.error('[CHAT-DEBT] Error loading debt:', error);
         debtValueEl.textContent = '-';
@@ -20833,20 +21782,44 @@ function updateDebtCells(phone, debt) {
  * @param {Array<string>} phones - Array of phone numbers
  */
 async function batchFetchDebts(phones) {
+    // Validate input
+    if (!phones || !Array.isArray(phones)) {
+        console.warn('[DEBT-BATCH] Invalid input - phones must be an array');
+        return;
+    }
+
     const uniquePhones = [...new Set(phones.map(p => normalizePhoneForQR(p)).filter(p => p))];
     const uncachedPhones = uniquePhones.filter(p => getCachedDebt(p) === null);
 
-    if (uncachedPhones.length === 0) return;
+    // Double-check before API call to prevent 400 errors
+    if (!Array.isArray(uncachedPhones) || uncachedPhones.length === 0) {
+        console.log('[DEBT-BATCH] No uncached phones to fetch, skipping API call');
+        return;
+    }
 
     console.log(`[DEBT-BATCH] Fetching ${uncachedPhones.length} phones in ONE request...`);
 
     try {
         // Call batch API - ONE request for ALL phones!
+        const requestBody = JSON.stringify({ phones: uncachedPhones });
+        console.log('[DEBT-BATCH] Request body:', requestBody);
+
         const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary-batch`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phones: uncachedPhones })
+            body: requestBody
         });
+
+        // Check response status first
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[DEBT-BATCH] ❌ HTTP ${response.status}: ${errorText}`);
+            // Fallback: set all to 0
+            for (const phone of uncachedPhones) {
+                updateDebtCells(phone, 0);
+            }
+            return;
+        }
 
         const result = await response.json();
 
@@ -21169,7 +22142,7 @@ async function fetchDeliveryCarriers() {
             headers: {
                 'accept': 'application/json, text/javascript, */*; q=0.01',
                 'authorization': `Bearer ${token}`,
-                'tposappversion': '5.11.16.1'
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
             }
         });
 
@@ -21583,8 +22556,11 @@ async function openSaleButtonModal() {
     const prepaidAmountField = document.getElementById('salePrepaidAmount');
     const confirmDebtBtn = document.getElementById('confirmDebtBtn');
 
-    let isAdmin = window.authManager && window.authManager.hasPermission(0);
-    // Fallback: Check username for admin
+    // Check admin access via detailedPermissions
+    const authState = window.authManager ? window.authManager.getAuthState() : null;
+    let isAdmin = authState?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
+        authState?.roleTemplate === 'admin';
+    // Fallback: Check username for admin (legacy support)
     if (!isAdmin) {
         const currentUserType = window.authManager?.getCurrentUser?.()?.name || localStorage.getItem('current_user_name') || '';
         const lowerName = currentUserType.toLowerCase();
@@ -21606,7 +22582,7 @@ async function openSaleButtonModal() {
         }
 
         // Add event listener for prepaid amount changes (for admin)
-        prepaidAmountField.oninput = function() {
+        prepaidAmountField.oninput = function () {
             updateSaleRemainingBalance();
         };
     }
@@ -21614,7 +22590,7 @@ async function openSaleButtonModal() {
     // Add event listener for COD input changes
     const codInput = document.getElementById('saleCOD');
     if (codInput) {
-        codInput.oninput = function() {
+        codInput.oninput = function () {
             updateSaleRemainingBalance();
         };
     }
@@ -21622,7 +22598,7 @@ async function openSaleButtonModal() {
     // Add event listener for shipping fee changes to update COD realtime
     const shippingFeeInput = document.getElementById('saleShippingFee');
     if (shippingFeeInput) {
-        shippingFeeInput.oninput = function() {
+        shippingFeeInput.oninput = function () {
             // Recalculate COD when shipping fee changes
             const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
             const shippingFee = parseFloat(this.value) || 0;
@@ -21637,7 +22613,7 @@ async function openSaleButtonModal() {
     // Add event listener for discount changes to update totals realtime
     const discountInput = document.getElementById('saleDiscount');
     if (discountInput) {
-        discountInput.oninput = function() {
+        discountInput.oninput = function () {
             // Recalculate totals when discount changes
             const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
             const totalQuantity = parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
@@ -21912,7 +22888,7 @@ async function fetchOrderDetailsForSale(orderUuid) {
                 'accept': 'application/json, text/plain, */*',
                 'authorization': `Bearer ${token}`,
                 'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': '5.11.16.1',
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                 'x-tpos-lang': 'vi'
             },
             body: JSON.stringify({ ids: [orderUuid] })
@@ -21946,12 +22922,12 @@ function populatePartnerData(partner) {
     const customerName = partner.DisplayName || partner.Name || '';
     const customerStatus = partner.StatusText || 'Bình thường';
     const loyaltyPoints = partner.LoyaltyPoints || 0;
-    
+
     // Hidden elements (for JS compatibility)
     document.getElementById('saleCustomerName').textContent = customerName;
     document.getElementById('saleCustomerStatus').textContent = customerStatus;
     document.getElementById('saleLoyaltyPoints').textContent = loyaltyPoints;
-    
+
     // Header elements (visible)
     document.getElementById('saleCustomerNameHeader').textContent = customerName;
     document.getElementById('saleCustomerStatusHeader').textContent = customerStatus;
@@ -22021,6 +22997,9 @@ async function fetchDebtForSaleModal(phone) {
 
             // Cache it for later use
             saveDebtToCache(normalizedPhone, totalDebt);
+
+            // Also update debt column in orders table to keep them in sync
+            updateDebtCellsInTable(normalizedPhone, totalDebt);
 
             // Update remaining balance after prepaid amount changes
             updateSaleRemainingBalance();
@@ -22219,8 +23198,8 @@ async function removeSaleItemFromAPI(index) {
 
     // Get product info for confirmation
     const productName = currentSaleOrderData.orderLines[index].Product?.NameGet ||
-                       currentSaleOrderData.orderLines[index].ProductName ||
-                       'sản phẩm này';
+        currentSaleOrderData.orderLines[index].ProductName ||
+        'sản phẩm này';
 
     // Confirm before removing
     const confirmed = await window.notificationManager.confirm(
@@ -22358,9 +23337,19 @@ document.addEventListener('keydown', function (e) {
     }
 });
 
-// Disconnect when page unloads
+// Disconnect when page unloads and cleanup held products
 window.addEventListener('beforeunload', () => {
     disconnectDebtRealtime();
+
+    // Cleanup held products for current user
+    if (typeof window.cleanupHeldProductsSync === 'function') {
+        window.cleanupHeldProductsSync();
+    }
+
+    // Cleanup held products listener
+    if (typeof window.cleanupHeldProductsListener === 'function') {
+        window.cleanupHeldProductsListener();
+    }
 });
 
 // Export realtime functions
@@ -22481,9 +23470,9 @@ function displaySaleProductResults(results) {
             <tr ${rowClass} onclick="addProductToSaleFromSearch(${product.Id})" style="cursor: pointer;">
                 <td style="width: 40px; text-align: center;">
                     ${product.ImageUrl ?
-                        `<img src="${product.ImageUrl}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">` :
-                        `<div style="width: 30px; height: 30px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af; font-size: 12px;"></i></div>`
-                    }
+                `<img src="${product.ImageUrl}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">` :
+                `<div style="width: 30px; height: 30px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af; font-size: 12px;"></i></div>`
+            }
                 </td>
                 <td>
                     <div style="font-weight: 500;">${product.Name}</div>
@@ -22908,7 +23897,7 @@ async function confirmAndPrintSale() {
                     'accept': 'application/json, text/plain, */*',
                     'authorization': `Bearer ${token}`,
                     'content-type': 'application/json;charset=UTF-8',
-                    'tposappversion': '5.11.16.1',
+                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                     'x-tpos-lang': 'vi'
                 },
                 body: JSON.stringify({ model: { Type: 'invoice' } })
@@ -22929,7 +23918,7 @@ async function confirmAndPrintSale() {
                 'accept': 'application/json, text/plain, */*',
                 'authorization': `Bearer ${token}`,
                 'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': '5.11.16.1',
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                 'x-tpos-lang': 'vi'
             },
             body: JSON.stringify(payload)
@@ -23010,7 +23999,7 @@ async function confirmAndPrintSale() {
             headers: {
                 'accept': 'application/json, text/javascript, */*; q=0.01',
                 'authorization': `Bearer ${token}`,
-                'tposappversion': '5.11.16.1',
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                 'x-requested-with': 'XMLHttpRequest'
             }
         });
@@ -23030,7 +24019,7 @@ async function confirmAndPrintSale() {
                 'accept': 'application/json, text/plain, */*',
                 'authorization': `Bearer ${token}`,
                 'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': '5.11.16.1',
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
                 'x-tpos-lang': 'vi'
             },
             body: JSON.stringify({ model: { Type: 'invoice' } })
@@ -23128,10 +24117,17 @@ function buildFastSaleOrderPayload() {
     // Logic: Remaining = COD - Prepaid (if Prepaid < COD), otherwise 0
     const cashOnDelivery = prepaidAmount < codValue ? (codValue - prepaidAmount) : 0;
 
-    // Get carrier
-    const carrierSelect = document.getElementById('saleCarrier');
+    // Get carrier from dropdown (saleDeliveryPartner)
+    const carrierSelect = document.getElementById('saleDeliveryPartner');
     const carrierId = carrierSelect?.value ? parseInt(carrierSelect.value) : 7;
-    const carrierName = carrierSelect?.selectedOptions[0]?.text || 'SHIP TỈNH';
+    const selectedOption = carrierSelect?.selectedOptions[0];
+    // Get carrier name from data-name attribute (clean name without fee), fallback to option text
+    const carrierName = selectedOption?.dataset?.name || selectedOption?.text?.replace(/\s*\([^)]*\)$/, '') || 'SHIP TỈNH';
+    const carrierFee = parseFloat(selectedOption?.dataset?.fee) || shippingFee;
+
+    // Get full carrier data from cache if available
+    const cachedCarriers = getCachedDeliveryCarriers();
+    const fullCarrierData = cachedCarriers?.find(c => c.Id === carrierId) || null;
 
     // Build order lines from current products (with full Product data)
     const orderLines = buildOrderLines();
@@ -23159,11 +24155,11 @@ function buildFastSaleOrderPayload() {
         PaymentMessageCount: 0,
         MessageCount: 0,
         PartnerId: partner?.Id || order.PartnerId || 0,
-        PartnerDisplayName: null,
+        PartnerDisplayName: partner?.DisplayName || partner?.Name || receiverName || null,
         PartnerEmail: null,
-        PartnerFacebookId: null,
+        PartnerFacebookId: partner?.FacebookId || order.Facebook_ASUserId || null,
         PartnerFacebook: null,
-        PartnerPhone: null,
+        PartnerPhone: receiverPhone || null,
         Reference: order.Code || '',
         PriceListId: 1,
         AmountTotal: amountTotal,
@@ -23202,7 +24198,7 @@ function buildFastSaleOrderPayload() {
         CustomerDeliveryPrice: null,
         CarrierId: carrierId,
         CarrierName: carrierName,
-        CarrierDeliveryType: null,
+        CarrierDeliveryType: fullCarrierData?.DeliveryType || 'fixed',
         DeliveryNote: deliveryNote,
         ReceiverName: receiverName,
         ReceiverPhone: receiverPhone,
@@ -23227,7 +24223,7 @@ function buildFastSaleOrderPayload() {
         SaleOrderIds: [],
         FacebookName: receiverName,
         FacebookNameNosign: null,
-        FacebookId: null,
+        FacebookId: partner?.FacebookId || order.Facebook_ASUserId || null,
         DisplayFacebookName: null,
         Deliver: null,
         ShipWeight: 100,
@@ -23235,8 +24231,8 @@ function buildFastSaleOrderPayload() {
         ShipPaymentStatusCode: null,
         OldCredit: 0,
         NewCredit: amountTotal,
-        Phone: null,
-        Address: null,
+        Phone: receiverPhone || null,
+        Address: receiverAddress || null,
         AmountTotalSigned: null,
         ResidualSigned: null,
         Origin: null,
@@ -23250,7 +24246,7 @@ function buildFastSaleOrderPayload() {
         Ship_ServiceExtrasText: '[]',
         Ship_ExtrasText: null,
         Ship_InsuranceFee: 0,
-        CurrencyName: null,
+        CurrencyName: 'VND',
         TeamId: null,
         TeamOrderCode: null,
         TeamOrderId: null,
@@ -23358,7 +24354,7 @@ function buildFastSaleOrderPayload() {
         Journal: window.lastDefaultSaleData?.Journal || { Id: 3, Code: 'INV', Name: 'Nhật ký bán hàng', Type: 'sale' },
         PaymentJournal: window.lastDefaultSaleData?.PaymentJournal || { Id: 1, Code: 'CSH1', Name: 'Tiền mặt', Type: 'cash' },
         Partner: partner || null,
-        Carrier: window.lastDefaultSaleData?.Carrier || { Id: carrierId, Name: carrierName, DeliveryType: 'fixed', Config_DefaultFee: shippingFee },
+        Carrier: fullCarrierData || { Id: carrierId, Name: carrierName, DeliveryType: 'fixed', Config_DefaultFee: carrierFee, Active: true },
         Tax: null,
         SaleOrder: null,
         DestConvertCurrencyUnit: null,
@@ -23558,81 +24554,18 @@ function toggleChatRightPanel() {
     }
 }
 
-/**
- * Switch between tabs in chat right panel
- */
-function switchChatPanelTab(tabName) {
-    // Update tab buttons
-    const tabButtons = document.querySelectorAll('.chat-tab-btn');
-    tabButtons.forEach(btn => {
-        const isActive = btn.getAttribute('data-tab') === tabName;
-
-        if (isActive) {
-            btn.classList.add('active');
-            btn.style.background = 'white';
-            btn.style.color = '#3b82f6';
-            btn.style.borderBottom = '2px solid #3b82f6';
-        } else {
-            btn.classList.remove('active');
-            btn.style.background = '#f8fafc';
-            btn.style.color = '#64748b';
-            btn.style.borderBottom = '2px solid transparent';
-        }
-    });
-
-    // Update tab content visibility
-    const allTabs = document.querySelectorAll('.chat-tab-content');
-    allTabs.forEach(tab => {
-        tab.style.display = 'none';
-    });
-
-    const activeTab = document.getElementById('chatTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1).replace('_', ''));
-    if (activeTab) {
-        activeTab.style.display = 'flex';
-    }
-
-    // Special handling for different tabs
-    switch(tabName) {
-        case 'orders':
-            // Re-render products if needed
-            if (typeof renderChatProductsPanel === 'function') {
-                renderChatProductsPanel();
-            }
-            break;
-        case 'dropped':
-            // Load dropped products if needed
-            if (typeof loadDroppedProductsForCustomer === 'function') {
-                loadDroppedProductsForCustomer();
-            }
-            break;
-        case 'history':
-            // Load order history if needed
-            if (typeof loadOrderHistoryForCustomer === 'function') {
-                loadOrderHistoryForCustomer();
-            }
-            break;
-        case 'invoice_history':
-            // Load invoice history if needed
-            if (typeof loadInvoiceHistoryForCustomer === 'function') {
-                loadInvoiceHistoryForCustomer();
-            }
-            break;
-    }
-}
-
 // Export functions
 window.confirmAndPrintSale = confirmAndPrintSale;
 window.confirmDebtUpdate = confirmDebtUpdate;
 window.openPrintPopup = openPrintPopup;
 window.toggleChatRightPanel = toggleChatRightPanel;
-window.switchChatPanelTab = switchChatPanelTab;
 window.removeChatProduct = removeChatProduct;
 window.updateChatProductQuantity = updateChatProductQuantity;
 
 // Chat Product Manager - For Orders tab in right panel
 window.chatProductManager = {
     addProductFromSearch: addChatProductFromSearch,
-    renderInvoiceHistory: function() {
+    renderInvoiceHistory: function () {
         // TODO: Implement invoice history rendering
         const container = document.getElementById('chatInvoiceHistoryContainer');
         if (container) {
@@ -23713,3 +24646,1277 @@ document.addEventListener('keydown', function (event) {
 });
 
 // #endregion IMAGE ZOOM
+
+// =====================================================
+// FAST SALE MODAL (Tạo nhanh PBH)
+// =====================================================
+
+let fastSaleOrdersData = [];
+
+/**
+ * Show Fast Sale Modal and fetch data for selected orders
+ */
+async function showFastSaleModal() {
+    const modal = document.getElementById('fastSaleModal');
+    const modalBody = document.getElementById('fastSaleModalBody');
+    const subtitle = document.getElementById('fastSaleModalSubtitle');
+
+    // Reset state
+    fastSaleOrdersData = [];
+
+    // Show modal with loading state
+    modal.classList.add('show');
+    modalBody.innerHTML = `
+        <div class="merge-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Đang tải dữ liệu đơn hàng...</p>
+        </div>
+    `;
+
+    try {
+        // Get selected order IDs
+        const selectedIds = Array.from(selectedOrderIds);
+
+        if (selectedIds.length === 0) {
+            modalBody.innerHTML = `
+                <div class="merge-no-duplicates">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Vui lòng chọn ít nhất một đơn hàng.</p>
+                </div>
+            `;
+            return;
+        }
+
+        subtitle.textContent = `Đã chọn ${selectedIds.length} đơn hàng`;
+
+        // Fetch FastSaleOrder data using batch API
+        fastSaleOrdersData = await fetchFastSaleOrdersData(selectedIds);
+
+        if (fastSaleOrdersData.length === 0) {
+            modalBody.innerHTML = `
+                <div class="merge-no-duplicates">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Không thể tải dữ liệu đơn hàng. Vui lòng thử lại.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Render modal body
+        renderFastSaleModalBody();
+
+    } catch (error) {
+        console.error('[FAST-SALE] Error loading data:', error);
+        modalBody.innerHTML = `
+            <div class="merge-no-duplicates">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>Đã xảy ra lỗi khi tải dữ liệu: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Close Fast Sale Modal
+ */
+function closeFastSaleModal() {
+    const modal = document.getElementById('fastSaleModal');
+    modal.classList.remove('show');
+
+    // Reset state
+    fastSaleOrdersData = [];
+}
+
+/**
+ * Fetch FastSaleOrder data for multiple orders (batch)
+ * @param {Array<string>} orderIds - Array of Order IDs
+ * @returns {Promise<Array<Object>>} Array of FastSaleOrder data
+ */
+async function fetchFastSaleOrdersData(orderIds) {
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+
+        // Fetch FastSaleOrder using POST with order IDs
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines,Partner,Carrier`;
+
+        console.log(`[FAST-SALE] Fetching ${orderIds.length} orders from API...`);
+
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                ids: orderIds
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.value && data.value.length > 0) {
+            console.log(`[FAST-SALE] Successfully fetched ${data.value.length} FastSaleOrders`);
+            return data.value;
+        } else {
+            console.warn(`[FAST-SALE] No FastSaleOrder found for ${orderIds.length} orders`);
+            return [];
+        }
+    } catch (error) {
+        console.error(`[FAST-SALE] Error fetching orders:`, error);
+
+        // Fallback: return basic data from displayedData
+        console.warn('[FAST-SALE] Using fallback data from displayedData');
+        return orderIds.map(orderId => {
+            const order = displayedData.find(o => o.Id === orderId);
+            if (!order) return null;
+
+            return {
+                Id: null,
+                Reference: order.Code,
+                PartnerDisplayName: order.Name || order.PartnerName,
+                PartnerPhone: order.Telephone,
+                PartnerAddress: order.Address,
+                DeliveryPrice: 35000,
+                CarrierName: 'SHIP TỈNH',
+                SaleOnlineOrder: order,
+                OrderLines: order.Details || [],
+                NotFound: true
+            };
+        }).filter(o => o !== null);
+    }
+}
+
+/**
+ * Render Fast Sale Modal Body
+ */
+async function renderFastSaleModalBody() {
+    const modalBody = document.getElementById('fastSaleModalBody');
+
+    if (fastSaleOrdersData.length === 0) {
+        modalBody.innerHTML = `
+            <div class="merge-no-duplicates">
+                <i class="fas fa-inbox"></i>
+                <p>Không có dữ liệu để hiển thị.</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Fetch delivery carriers first
+    const carriers = await fetchDeliveryCarriers();
+    console.log(`[FAST-SALE] Fetched ${carriers.length} delivery carriers`);
+
+    // Render table similar to the image provided
+    const html = `
+        <div class="fast-sale-container">
+            <div class="fast-sale-header">
+                <div class="fast-sale-partner-select">
+                    <label for="fastSalePartner">Đối tác giao hàng</label>
+                    <select id="fastSalePartner" class="form-control">
+                        <option value="">-- Chọn mặc định --</option>
+                        ${carriers.map(c => {
+        const fee = c.Config_DefaultFee || c.FixedPrice || 0;
+        const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
+        return `<option value="${c.Id}" data-fee="${fee}" data-name="${c.Name}">${c.Name}${feeText}</option>`;
+    }).join('')}
+                    </select>
+                </div>
+                <div class="fast-sale-search">
+                    <label>Nhập từ khóa tìm kiếm</label>
+                    <select class="form-control">
+                        <option>Nhập từ khóa tìm kiếm</option>
+                    </select>
+                </div>
+                <div class="fast-sale-note">
+                    <p style="color: #dc2626; font-size: 13px; margin: 0;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Phần mềm sẽ tự chọn với số tiền ship thấp nhất
+                    </p>
+                    <p style="color: #dc2626; font-size: 13px; margin: 4px 0 0 0;">
+                        <i class="fas fa-info-circle"></i>
+                        Lưu ý: Chỉ có thể tìm kiếm đơn hàng phát sinh trong 2 tháng vừa qua!
+                    </p>
+                </div>
+            </div>
+            <div class="fast-sale-table-wrapper">
+                <table class="fast-sale-table">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Sản phẩm</th>
+                            <th>Số lượng</th>
+                            <th>Số tiền</th>
+                            <th>Tổng tiền</th>
+                            <th>Ghi chú</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${fastSaleOrdersData.map((order, index) => renderFastSaleOrderRow(order, index, carriers)).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    modalBody.innerHTML = html;
+
+    // Auto-select carriers for each order based on address
+    setTimeout(() => {
+        fastSaleOrdersData.forEach((order, index) => {
+            const rowCarrierSelect = document.querySelector(`#fastSaleCarrier_${index}`);
+            if (rowCarrierSelect && rowCarrierSelect.options.length > 1) {
+                // Get address from SaleOnlineOrder
+                let address = '';
+                let saleOnlineOrder = null;
+                if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+                    const saleOnlineId = order.SaleOnlineIds[0];
+                    saleOnlineOrder = displayedData.find(o => o.Id === saleOnlineId);
+                    address = saleOnlineOrder?.Address || '';
+                }
+
+                if (address) {
+                    console.log(`[FAST-SALE] Auto-selecting carrier for order ${index} with address: ${address}`);
+                    smartSelectCarrierForRow(rowCarrierSelect, address, null);
+                }
+            }
+        });
+    }, 100);
+}
+
+/**
+ * Render a single order row in Fast Sale Modal
+ * @param {Object} order - FastSaleOrder data
+ * @param {number} index - Row index
+ * @param {Array} carriers - Array of delivery carriers
+ * @returns {string} HTML string
+ */
+function renderFastSaleOrderRow(order, index, carriers = []) {
+    // Get SaleOnlineOrder from displayedData to get phone and address
+    let saleOnlineOrder = null;
+    if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+        const saleOnlineId = order.SaleOnlineIds[0];
+        saleOnlineOrder = displayedData.find(o => o.Id === saleOnlineId);
+    }
+
+    const customerName = order.PartnerDisplayName || order.Partner?.PartnerDisplayName || saleOnlineOrder?.Name || 'N/A';
+    const customerCode = order.Reference || 'N/A';
+
+    // Get phone from SaleOnlineOrder first, then fallback to FastSaleOrder
+    const customerPhone = saleOnlineOrder?.Telephone || order.PartnerPhone || order.Partner?.PartnerPhone || 'N/A';
+
+    // Get address from SaleOnlineOrder first, then fallback to FastSaleOrder
+    const customerAddress = saleOnlineOrder?.Address || order.Partner?.PartnerAddress || '*Chưa có địa chỉ';
+
+    // Get products from OrderLines or SaleOnlineOrder Details
+    const products = order.OrderLines || saleOnlineOrder?.Details || [];
+
+    // Build carrier options
+    const carrierOptions = carriers.map(c => {
+        const fee = c.Config_DefaultFee || c.FixedPrice || 0;
+        const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
+        return `<option value="${c.Id}" data-fee="${fee}" data-name="${c.Name}">${c.Name}${feeText}</option>`;
+    }).join('');
+
+    // Get default shipping fee from order or use 35000
+    const defaultShippingFee = order.DeliveryPrice || 35000;
+
+    // Build product rows
+    const productRows = products.map((product, pIndex) => {
+        const productName = product.ProductName || 'N/A';
+        const quantity = product.ProductUOMQty || product.Quantity || 0;
+        const price = product.PriceUnit || product.Price || 0;
+        const total = product.PriceSubTotal || (quantity * price) || 0;
+        const note = product.Note || '';
+
+        return `
+            <tr>
+                ${pIndex === 0 ? `
+                    <td rowspan="${products.length}" style="vertical-align: top;">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="font-weight: 600;">${customerName}</div>
+                            <div style="font-size: 12px; color: #6b7280;">${customerCode}</div>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-phone" style="font-size: 10px; color: #9ca3af;"></i>
+                                <span style="font-size: 12px;">${customerPhone}</span>
+                            </div>
+                            ${order.ShowShipStatus ? `<span class="badge" style="background: #10b981; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">Bom hàng</span>` : ''}
+                            <div style="font-size: 12px; color: #6b7280;">
+                                <i class="fas fa-map-marker-alt" style="font-size: 10px;"></i>
+                                ${customerAddress}
+                            </div>
+                            <div style="font-size: 11px; color: #9ca3af;">
+                                Chiến dịch Live: ${order.SaleOnlineNames || 'N/A'}
+                            </div>
+                            <div style="margin-top: 8px;">
+                                <div style="font-size: 11px; color: #6b7280;">Đối tác:</div>
+                                <select id="fastSaleCarrier_${index}" class="form-control form-control-sm fast-sale-carrier-select"
+                                        data-row-index="${index}"
+                                        style="font-size: 12px; margin-top: 4px;"
+                                        onchange="updateFastSaleShippingFee(${index})">
+                                    <option value="">-- Chọn --</option>
+                                    ${carrierOptions}
+                                </select>
+                            </div>
+                            <div style="margin-top: 4px;">
+                                <div style="font-size: 11px; color: #6b7280;">Tiền ship:</div>
+                                <input id="fastSaleShippingFee_${index}" type="number" class="form-control form-control-sm"
+                                       value="${defaultShippingFee}" style="font-size: 12px; margin-top: 4px;" />
+                            </div>
+                            <div style="margin-top: 4px;">
+                                <div style="font-size: 11px; color: #6b7280;">KL (g)</div>
+                                <input id="fastSaleWeight_${index}" type="number" class="form-control form-control-sm" value="100" style="font-size: 12px; margin-top: 4px;" />
+                            </div>
+                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 11px; color: #6b7280;">Chiều dài:</div>
+                                    <input id="fastSaleLength_${index}" type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-size: 11px; color: #6b7280;">Chiều rộng:</div>
+                                    <input id="fastSaleWidth_${index}" type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-size: 11px; color: #6b7280;">Chiều cao:</div>
+                                    <input id="fastSaleHeight_${index}" type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                ` : ''}
+                <td>
+                    <div style="font-weight: 500; font-size: 13px;">${productName}</div>
+                </td>
+                <td style="text-align: center;">${quantity}</td>
+                <td style="text-align: right;">${price.toLocaleString('vi-VN')}</td>
+                <td style="text-align: right; font-weight: 600;">${total.toLocaleString('vi-VN')}</td>
+                <td>${note}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return productRows;
+}
+
+/**
+ * Update shipping fee when carrier is selected for a row
+ * @param {number} index - Row index
+ */
+function updateFastSaleShippingFee(index) {
+    const carrierSelect = document.getElementById(`fastSaleCarrier_${index}`);
+    const shippingFeeInput = document.getElementById(`fastSaleShippingFee_${index}`);
+
+    if (carrierSelect && shippingFeeInput) {
+        const selectedOption = carrierSelect.options[carrierSelect.selectedIndex];
+        const fee = parseFloat(selectedOption.dataset.fee) || 0;
+        shippingFeeInput.value = fee;
+    }
+}
+
+/**
+ * Smart select carrier for a specific row based on address
+ * @param {HTMLSelectElement} select - The carrier dropdown for this row
+ * @param {string} address - Customer address
+ * @param {object} extraAddress - Optional ExtraAddress object
+ */
+function smartSelectCarrierForRow(select, address, extraAddress = null) {
+    if (!select || select.options.length <= 1) {
+        return;
+    }
+
+    // Extract district info
+    const districtInfo = extractDistrictFromAddress(address, extraAddress);
+
+    if (!districtInfo) {
+        console.log('[FAST-SALE] Could not extract district, selecting default carrier');
+        selectCarrierByName(select, 'SHIP TỈNH', false);
+        return;
+    }
+
+    // Find matching carrier
+    const matchedCarrier = findMatchingCarrier(select, districtInfo);
+
+    if (matchedCarrier) {
+        console.log('[FAST-SALE] ✅ Auto-selected carrier:', matchedCarrier.name);
+        select.value = matchedCarrier.id;
+        select.dispatchEvent(new Event('change'));
+    } else {
+        console.log('[FAST-SALE] No matching carrier, selecting SHIP TỈNH');
+        selectCarrierByName(select, 'SHIP TỈNH', false);
+    }
+}
+
+/**
+ * Collect Fast Sale data from modal inputs
+ * @returns {Array<Object>} Array of order models
+ */
+function collectFastSaleData() {
+    const models = [];
+
+    fastSaleOrdersData.forEach((order, index) => {
+        // Get input values
+        const carrierSelect = document.getElementById(`fastSaleCarrier_${index}`);
+        const shippingFeeInput = document.getElementById(`fastSaleShippingFee_${index}`);
+        const weightInput = document.getElementById(`fastSaleWeight_${index}`);
+        const lengthInput = document.getElementById(`fastSaleLength_${index}`);
+        const widthInput = document.getElementById(`fastSaleWidth_${index}`);
+        const heightInput = document.getElementById(`fastSaleHeight_${index}`);
+
+        // Get carrier info
+        const carrierId = parseInt(carrierSelect?.value) || 0;
+        const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.dataset?.name || '';
+
+        // Get SaleOnlineOrder for phone and address
+        let saleOnlineOrder = null;
+        if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+            const saleOnlineId = order.SaleOnlineIds[0];
+            saleOnlineOrder = displayedData.find(o => o.Id === saleOnlineId);
+        }
+
+        // Get dimensions
+        const packageLength = parseFloat(lengthInput?.value) || 0;
+        const packageWidth = parseFloat(widthInput?.value) || 0;
+        const packageHeight = parseFloat(heightInput?.value) || 0;
+
+        // Get current user ID from token or global context
+        const currentUserId = window.tokenManager?.userId || window.currentUser?.Id || null;
+
+        // Build order model matching exact API structure
+        const model = {
+            Id: 0,
+            Name: null,
+            PrintShipCount: 0,
+            PrintDeliveryCount: 0,
+            PaymentMessageCount: 0,
+            MessageCount: 0,
+            PartnerId: order.PartnerId || 0,
+            PartnerDisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+            PartnerEmail: null,
+            PartnerFacebookId: null,
+            PartnerFacebook: null,
+            PartnerPhone: null,
+            Reference: order.Reference || '',
+            PriceListId: 0,
+            AmountTotal: order.AmountTotal || 0,
+            TotalQuantity: 0,
+            Discount: 0,
+            DiscountAmount: 0,
+            DecreaseAmount: 0,
+            DiscountLoyaltyTotal: null,
+            WeightTotal: 0,
+            AmountTax: null,
+            AmountUntaxed: null,
+            TaxId: null,
+            MoveId: null,
+            UserId: currentUserId,
+            UserName: null,
+            DateInvoice: new Date().toISOString(),
+            DateCreated: order.DateCreated || new Date().toISOString(),
+            CreatedById: null,
+            State: "draft",
+            ShowState: "Nháp",
+            CompanyId: 0,
+            Comment: "",
+            WarehouseId: 0,
+            SaleOnlineIds: order.SaleOnlineIds || [],
+            SaleOnlineNames: Array.isArray(order.SaleOnlineNames) ? order.SaleOnlineNames : [order.SaleOnlineNames || ''],
+            Residual: null,
+            Type: null,
+            RefundOrderId: null,
+            ReferenceNumber: null,
+            AccountId: 0,
+            JournalId: 0,
+            Number: null,
+            MoveName: null,
+            PartnerNameNoSign: null,
+            DeliveryPrice: parseFloat(shippingFeeInput?.value) || 0,
+            CustomerDeliveryPrice: null,
+            CarrierId: carrierId,
+            CarrierName: carrierName,
+            CarrierDeliveryType: null,
+            DeliveryNote: null,
+            ReceiverName: null,
+            ReceiverPhone: null,
+            ReceiverAddress: null,
+            ReceiverDate: null,
+            ReceiverNote: null,
+            CashOnDelivery: 0,
+            TrackingRef: null,
+            TrackingArea: null,
+            TrackingTransport: null,
+            TrackingSortLine: null,
+            TrackingUrl: "",
+            IsProductDefault: false,
+            TrackingRefSort: null,
+            ShipStatus: "none",
+            ShowShipStatus: order.ShowShipStatus || "Chưa tiếp nhận",
+            SaleOnlineName: order.Reference || '',
+            PartnerShippingId: null,
+            PaymentJournalId: null,
+            PaymentAmount: 0,
+            SaleOrderId: null,
+            SaleOrderIds: [],
+            FacebookName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+            FacebookNameNosign: null,
+            FacebookId: null,
+            DisplayFacebookName: null,
+            Deliver: null,
+            ShipWeight: parseFloat(weightInput?.value) || 100,
+            ShipPaymentStatus: null,
+            ShipPaymentStatusCode: null,
+            OldCredit: 0,
+            NewCredit: 0,
+            Phone: null,
+            Address: null,
+            AmountTotalSigned: null,
+            ResidualSigned: null,
+            Origin: null,
+            AmountDeposit: 0,
+            CompanyName: null,
+            PreviousBalance: null,
+            ToPay: null,
+            NotModifyPriceFromSO: false,
+            Ship_ServiceId: null,
+            Ship_ServiceName: null,
+            Ship_ServiceExtrasText: null,
+            Ship_ExtrasText: null,
+            Ship_InsuranceFee: null,
+            CurrencyName: null,
+            TeamId: null,
+            TeamOrderCode: null,
+            TeamOrderId: null,
+            TeamType: null,
+            Revenue: null,
+            SaleOrderDeposit: null,
+            Seri: null,
+            NumberOrder: null,
+            DateOrderRed: null,
+            ApplyPromotion: null,
+            TimeLock: null,
+            PageName: null,
+            Tags: null,
+            IRAttachmentUrl: null,
+            IRAttachmentUrls: [],
+            SaleOnlinesOfPartner: null,
+            IsDeposited: null,
+            LiveCampaignName: order.LiveCampaignName || '',
+            LiveCampaignId: order.LiveCampaignId || null,
+            Source: null,
+            CartNote: null,
+            ExtraPaymentAmount: null,
+            QuantityUpdateDeposit: null,
+            IsMergeCancel: null,
+            IsPickUpAtShop: null,
+            DateDeposit: null,
+            IsRefund: null,
+            StateCode: "None",
+            ActualPaymentAmount: null,
+            RowVersion: null,
+            ExchangeRate: null,
+            DestConvertCurrencyUnitId: null,
+            WiPointQRCode: null,
+            WiInvoiceId: null,
+            WiInvoiceChannelId: null,
+            WiInvoiceStatus: null,
+            WiInvoiceTrackingUrl: "",
+            WiInvoiceIsReplate: false,
+            FormAction: null,
+            Ship_Receiver: null,
+            Ship_Extras: null,
+            PaymentInfo: [],
+            Search: null,
+            ShipmentDetailsAship: {
+                PackageInfo: {
+                    PackageLength: packageLength,
+                    PackageWidth: packageWidth,
+                    PackageHeight: packageHeight
+                }
+            },
+            OrderMergeds: [],
+            OrderAfterMerged: null,
+            TPayment: null,
+            ExtraUpdateCODCarriers: [],
+            AppliedPromotionLoyalty: null,
+            FastSaleOrderOmniExtras: null,
+            Billing: null,
+            PackageInfo: {
+                PackageLength: packageLength,
+                PackageWidth: packageWidth,
+                PackageHeight: packageHeight
+            },
+            Error: null,
+            OrderLines: (order.OrderLines || []).map(line => ({
+                Id: 0,
+                OrderId: 0,
+                ProductId: line.ProductId,
+                ProductUOMId: line.ProductUOMId || 1,
+                PriceUnit: line.PriceUnit || 0,
+                ProductUOMQty: line.ProductUOMQty || 0,
+                ProductUOMQtyAvailable: 0,
+                UserId: null,
+                Discount: 0,
+                Discount_Fixed: 0,
+                DiscountTotalLoyalty: null,
+                PriceTotal: line.PriceTotal || line.PriceSubTotal || 0,
+                PriceSubTotal: line.PriceSubTotal || 0,
+                Weight: 0,
+                WeightTotal: null,
+                AccountId: 0,
+                PriceRecent: null,
+                Name: null,
+                IsName: false,
+                ProductName: line.ProductName || '',
+                ProductUOMName: line.ProductUOMName || 'Cái',
+                SaleLineIds: [],
+                ProductNameGet: null,
+                SaleLineId: null,
+                Type: "fixed",
+                PromotionProgramId: null,
+                Note: line.Note || null,
+                FacebookPostId: null,
+                ChannelType: null,
+                ProductBarcode: null,
+                CompanyId: null,
+                PartnerId: null,
+                PriceSubTotalSigned: null,
+                PromotionProgramComboId: null,
+                LiveCampaign_DetailId: null,
+                LiveCampaignQtyChange: 0,
+                ProductImageUrl: "",
+                SaleOnlineDetailId: null,
+                PriceCheck: null,
+                IsNotEnoughInventory: null,
+                Tags: [],
+                CreatedById: null,
+                TrackingRef: null,
+                ReturnTotal: 0,
+                ConversionPrice: null
+            })),
+            Partner: order.Partner || {
+                Id: order.PartnerId || 0,
+                Name: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+                DisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+                Street: saleOnlineOrder?.Address || order.Partner?.Street || null,
+                Phone: saleOnlineOrder?.Telephone || order.Partner?.Phone || '',
+                Customer: true,
+                Type: "contact",
+                CompanyType: "person",
+                DateCreated: new Date().toISOString(),
+                ExtraAddress: order.Partner?.ExtraAddress || null
+            },
+            Carrier: order.Carrier || {
+                Id: carrierId,
+                Name: carrierName,
+                DeliveryType: "fixed",
+                Config_DefaultFee: parseFloat(shippingFeeInput?.value) || 0
+            }
+        };
+
+        models.push(model);
+    });
+
+    return models;
+}
+
+/**
+ * Confirm and save Fast Sale (Lưu button)
+ */
+async function confirmFastSale() {
+    await saveFastSaleOrders(false);
+}
+
+/**
+ * Confirm and check Fast Sale (Lưu xác nhận button)
+ */
+async function confirmAndCheckFastSale() {
+    await saveFastSaleOrders(true);
+}
+
+/**
+ * Save Fast Sale orders to backend
+ * @param {boolean} isApprove - Whether to approve orders (Lưu xác nhận)
+ */
+async function saveFastSaleOrders(isApprove = false) {
+    try {
+        console.log(`[FAST-SALE] Saving Fast Sale orders (is_approve: ${isApprove})...`);
+
+        // Collect data from modal
+        const models = collectFastSaleData();
+
+        if (models.length === 0) {
+            window.notificationManager.error('Không có dữ liệu để lưu', 'Lỗi');
+            return;
+        }
+
+        // Validate required fields
+        const invalidOrders = models.filter((m, index) => {
+            if (!m.CarrierId || m.CarrierId === 0) {
+                console.error(`[FAST-SALE] Order ${index} (${m.Reference}) missing carrier`);
+                return true;
+            }
+            if (!m.Partner || !m.Partner.Phone) {
+                console.error(`[FAST-SALE] Order ${index} (${m.Reference}) missing phone`);
+                return true;
+            }
+            if (!m.Partner || !m.Partner.Street) {
+                console.error(`[FAST-SALE] Order ${index} (${m.Reference}) missing address`);
+                return true;
+            }
+            return false;
+        });
+
+        if (invalidOrders.length > 0) {
+            window.notificationManager.error(
+                `Có ${invalidOrders.length} đơn hàng thiếu thông tin bắt buộc (đối tác ship, SĐT, địa chỉ)`,
+                'Lỗi validation'
+            );
+            return;
+        }
+
+        // Show loading notification with timeout
+        const loadingNotif = window.notificationManager.info(
+            `Đang ${isApprove ? 'lưu và xác nhận' : 'lưu'} ${models.length} đơn hàng...`,
+            3000 // Auto-dismiss after 3 seconds
+        );
+
+        // Build request body
+        const requestBody = {
+            is_approve: isApprove,
+            model: models
+        };
+
+        console.log('[FAST-SALE] Request body:', requestBody);
+
+        // Call API
+        const headers = await window.tokenManager.getAuthHeader();
+
+        // Use different endpoint based on isApprove
+        // "Lưu xác nhận" uses isForce=true endpoint with is_approve: true
+        // "Lưu" uses normal endpoint with is_approve: false
+        let url;
+        if (isApprove) {
+            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+        } else {
+            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.InsertListOrderModel?$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+        }
+
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('[FAST-SALE] Save result:', result);
+
+        // Close loading notification
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
+            loadingNotif.close();
+        }
+
+        // Show results modal
+        showFastSaleResultsModal(result);
+
+    } catch (error) {
+        console.error('[FAST-SALE] Error saving orders:', error);
+
+        // Close loading notification on error
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
+            loadingNotif.close();
+        }
+
+        window.notificationManager.error(
+            `Lỗi khi lưu đơn hàng: ${error.message}`,
+            'Lỗi hệ thống'
+        );
+    }
+}
+
+/**
+ * Store Fast Sale results data
+ */
+let fastSaleResultsData = {
+    forced: [],
+    failed: [],
+    success: []
+};
+
+/**
+ * Show Fast Sale Results Modal
+ * @param {Object} results - API response with OrdersSucessed, OrdersError, DataErrorFast
+ */
+function showFastSaleResultsModal(results) {
+    // Store results
+    fastSaleResultsData = {
+        forced: results.DataErrorFast || [],
+        failed: results.OrdersError || [],
+        success: results.OrdersSucessed || []
+    };
+
+    // Update counts
+    document.getElementById('forcedCount').textContent = fastSaleResultsData.forced.length;
+    document.getElementById('failedCount').textContent = fastSaleResultsData.failed.length;
+    document.getElementById('successCount').textContent = fastSaleResultsData.success.length;
+
+    // Render tables
+    renderForcedOrdersTable();
+    renderFailedOrdersTable();
+    renderSuccessOrdersTable();
+
+    // Show modal
+    const modal = document.getElementById('fastSaleResultsModal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+
+    // Switch to appropriate tab
+    if (fastSaleResultsData.forced.length > 0) {
+        switchResultsTab('forced');
+    } else if (fastSaleResultsData.failed.length > 0) {
+        switchResultsTab('failed');
+    } else {
+        switchResultsTab('success');
+    }
+}
+
+/**
+ * Close Fast Sale Results Modal
+ */
+function closeFastSaleResultsModal() {
+    const modal = document.getElementById('fastSaleResultsModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+
+    // Close Fast Sale modal if still open
+    closeFastSaleModal();
+
+    // Refresh table
+    selectedOrderIds.clear();
+    updateActionButtons();
+    if (typeof filterAndDisplayOrders === 'function') {
+        filterAndDisplayOrders();
+    }
+}
+
+/**
+ * Switch between results tabs
+ * @param {string} tabName - 'forced', 'failed', or 'success'
+ */
+function switchResultsTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.fast-sale-results-tab').forEach(tab => {
+        if (tab.dataset.tab === tabName) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
+
+    // Update tab content
+    document.querySelectorAll('.fast-sale-results-content').forEach(content => {
+        if (content.id === `${tabName}Tab`) {
+            content.classList.add('active');
+        } else {
+            content.classList.remove('active');
+        }
+    });
+}
+
+/**
+ * Render Forced Orders Table (Cưỡng bức)
+ */
+function renderForcedOrdersTable() {
+    const container = document.getElementById('forcedOrdersTable');
+    if (!container) return;
+
+    if (fastSaleResultsData.forced.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng cần cưỡng bức</p>';
+        return;
+    }
+
+    const html = `
+        <table class="fast-sale-results-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th style="width: 40px;"><input type="checkbox" id="selectAllForced" onchange="toggleAllForcedOrders(this.checked)"></th>
+                    <th>Mã</th>
+                    <th>Số phiếu</th>
+                    <th>Khách hàng</th>
+                    <th>Lỗi</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${fastSaleResultsData.forced.map((order, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><input type="checkbox" class="forced-order-checkbox" value="${index}"></td>
+                        <td>${order.Reference || 'N/A'}</td>
+                        <td>${order.Number || ''}</td>
+                        <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
+                        <td><div class="fast-sale-error-msg">${order.DeliveryNote || 'Lỗi không xác định'}</div></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = html;
+}
+
+/**
+ * Render Failed Orders Table (Thất bại)
+ */
+function renderFailedOrdersTable() {
+    const container = document.getElementById('failedOrdersTable');
+    if (!container) return;
+
+    if (fastSaleResultsData.failed.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng thất bại</p>';
+        return;
+    }
+
+    const html = `
+        <table class="fast-sale-results-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th>Mã</th>
+                    <th>Số phiếu</th>
+                    <th>Khách hàng</th>
+                    <th>Lỗi</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${fastSaleResultsData.failed.map((order, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${order.Reference || 'N/A'}</td>
+                        <td>${order.Number || ''}</td>
+                        <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
+                        <td><div class="fast-sale-error-msg">${order.DeliveryNote || 'Lỗi không xác định'}</div></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = html;
+}
+
+/**
+ * Render Success Orders Table (Thành công)
+ */
+function renderSuccessOrdersTable() {
+    const container = document.getElementById('successOrdersTable');
+    if (!container) return;
+
+    if (fastSaleResultsData.success.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng thành công</p>';
+        return;
+    }
+
+    const html = `
+        <table class="fast-sale-results-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th style="width: 40px;"><input type="checkbox" id="selectAllSuccess" onchange="toggleAllSuccessOrders(this.checked)"></th>
+                    <th>Mã</th>
+                    <th>Số phiếu</th>
+                    <th>Trạng thái</th>
+                    <th>Khách hàng</th>
+                    <th>Mã vận đơn</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${fastSaleResultsData.success.map((order, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><input type="checkbox" class="success-order-checkbox" value="${index}" data-order-id="${order.Id}"></td>
+                        <td>${order.Reference || 'N/A'}</td>
+                        <td>${order.Number || ''}</td>
+                        <td><span style="color: #10b981; font-weight: 600;">✓ ${order.ShowState || 'Nhập'}</span></td>
+                        <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
+                        <td>${order.TrackingRef || ''}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = html;
+}
+
+/**
+ * Toggle all forced orders checkboxes
+ * @param {boolean} checked
+ */
+function toggleAllForcedOrders(checked) {
+    document.querySelectorAll('.forced-order-checkbox').forEach(cb => {
+        cb.checked = checked;
+    });
+}
+
+/**
+ * Create Forced Orders (Tạo cưỡng bức)
+ */
+async function createForcedOrders() {
+    const selectedIndexes = Array.from(document.querySelectorAll('.forced-order-checkbox:checked'))
+        .map(cb => parseInt(cb.value));
+
+    if (selectedIndexes.length === 0) {
+        window.notificationManager.warning('Vui lòng chọn ít nhất 1 đơn hàng để tạo cưỡng bức', 'Thông báo');
+        return;
+    }
+
+    const selectedOrders = selectedIndexes.map(i => fastSaleResultsData.forced[i]);
+
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        // Use isForce=true query parameter for forced creation
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+
+        // Use is_approve: false with isForce=true for forced creation
+        const requestBody = {
+            is_approve: false,
+            model: selectedOrders
+        };
+
+        const loadingNotif = window.notificationManager.info(
+            `Đang tạo cưỡng bức ${selectedIndexes.length} đơn hàng...`,
+            3000 // Auto-dismiss after 3 seconds
+        );
+
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('[FAST-SALE] Force create result:', result);
+
+        // Close loading notification
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
+            loadingNotif.close();
+        }
+
+        // Show results in the same modal
+        showFastSaleResultsModal(result);
+
+        // Auto-switch to Success tab if there are successful orders
+        if (result.OrdersSucessed && result.OrdersSucessed.length > 0) {
+            setTimeout(() => {
+                switchResultsTab('success');
+            }, 100);
+        }
+
+        window.notificationManager.success(
+            `Đã tạo cưỡng bức ${result.OrdersSucessed?.length || 0} đơn hàng`,
+            'Thành công'
+        );
+
+    } catch (error) {
+        console.error('[FAST-SALE] Error creating forced orders:', error);
+
+        // Close loading notification on error
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
+            loadingNotif.close();
+        }
+
+        window.notificationManager.error(`Lỗi khi tạo cưỡng bức: ${error.message}`, 'Lỗi');
+    }
+}
+
+/**
+ * Toggle all success orders checkboxes
+ * @param {boolean} checked
+ */
+function toggleAllSuccessOrders(checked) {
+    document.querySelectorAll('.success-order-checkbox').forEach(cb => {
+        cb.checked = checked;
+    });
+}
+
+/**
+ * Print success orders (In hóa đơn, In phiếu ship, In soạn hàng)
+ * @param {string} type - 'invoice', 'shipping', or 'picking'
+ */
+async function printSuccessOrders(type) {
+    const selectedIndexes = Array.from(document.querySelectorAll('.success-order-checkbox:checked'))
+        .map(cb => parseInt(cb.value));
+
+    if (selectedIndexes.length === 0) {
+        window.notificationManager.warning('Vui lòng chọn ít nhất 1 đơn hàng để in', 'Thông báo');
+        return;
+    }
+
+    const selectedOrders = selectedIndexes.map(i => fastSaleResultsData.success[i]);
+    const orderIds = selectedOrders.map(o => o.Id).filter(id => id);
+
+    if (orderIds.length === 0) {
+        window.notificationManager.error('Không tìm thấy ID đơn hàng để in', 'Lỗi');
+        return;
+    }
+
+    console.log(`[FAST-SALE] Printing ${type} for ${orderIds.length} orders:`, orderIds);
+
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const idsParam = orderIds.join(',');
+
+        let printEndpoint = '';
+        let printLabel = '';
+
+        // Determine endpoint based on print type
+        if (type === 'invoice') {
+            printEndpoint = 'print1'; // In hóa đơn
+            printLabel = 'hóa đơn';
+        } else if (type === 'shipping') {
+            printEndpoint = 'print2'; // In phiếu ship
+            printLabel = 'phiếu ship';
+        } else if (type === 'picking') {
+            printEndpoint = 'print3'; // In soạn hàng
+            printLabel = 'soạn hàng';
+        }
+
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fastsaleorder/${printEndpoint}?ids=${idsParam}`;
+
+        console.log(`[FAST-SALE] Fetching print HTML from: ${url}`);
+
+        // Show loading notification
+        const loadingNotif = window.notificationManager.info(
+            `Đang chuẩn bị in ${printLabel}...`,
+            3000
+        );
+
+        // Fetch the print HTML
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'GET',
+            headers: {
+                ...headers,
+                'Accept': 'application/json, text/javascript, */*; q=0.01'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('[FAST-SALE] Print response:', result);
+
+        // Close loading notification
+        if (loadingNotif && typeof loadingNotif.close === 'function') {
+            loadingNotif.close();
+        }
+
+        // Check for errors
+        if (result.listErrors && result.listErrors.length > 0) {
+            window.notificationManager.error(
+                `Lỗi khi in: ${result.listErrors.join(', ')}`,
+                'Lỗi'
+            );
+            return;
+        }
+
+        // Open new window and write HTML
+        if (result.html) {
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(result.html);
+                printWindow.document.close();
+
+                // Use both onload and setTimeout for reliability
+                let printed = false;
+
+                printWindow.onload = function () {
+                    if (!printed) {
+                        printed = true;
+                        printWindow.focus();
+                        printWindow.print();
+                    }
+                };
+
+                // Fallback timeout in case onload doesn't fire
+                setTimeout(() => {
+                    if (!printed) {
+                        printed = true;
+                        printWindow.focus();
+                        printWindow.print();
+                    }
+                }, 1000); // Increased to 1000ms for complex HTML
+
+                window.notificationManager.success(
+                    `Đã mở cửa sổ in ${printLabel} cho ${orderIds.length} đơn hàng`,
+                    2000
+                );
+            } else {
+                window.notificationManager.error(
+                    'Không thể mở cửa sổ in. Vui lòng kiểm tra popup blocker',
+                    'Lỗi'
+                );
+            }
+        } else {
+            window.notificationManager.error(
+                'Không nhận được HTML để in',
+                'Lỗi'
+            );
+        }
+
+    } catch (error) {
+        console.error('[FAST-SALE] Error printing orders:', error);
+
+        // Better error message extraction
+        let errorMessage = 'Không xác định';
+        if (error instanceof Error) {
+            errorMessage = error.message;
+        } else if (typeof error === 'string') {
+            errorMessage = error;
+        } else if (error && error.toString) {
+            errorMessage = error.toString();
+        }
+
+        window.notificationManager.error(
+            `Lỗi khi in: ${errorMessage}`,
+            'Lỗi'
+        );
+    }
+}
+
+// Make functions globally accessible
+window.showFastSaleModal = showFastSaleModal;
+window.closeFastSaleModal = closeFastSaleModal;
+window.confirmFastSale = confirmFastSale;
+window.confirmAndCheckFastSale = confirmAndCheckFastSale;
+window.updateFastSaleShippingFee = updateFastSaleShippingFee;
+window.showFastSaleResultsModal = showFastSaleResultsModal;
+window.closeFastSaleResultsModal = closeFastSaleResultsModal;
+window.switchResultsTab = switchResultsTab;
+window.toggleAllForcedOrders = toggleAllForcedOrders;
+window.toggleAllSuccessOrders = toggleAllSuccessOrders;
+window.createForcedOrders = createForcedOrders;
+window.printSuccessOrders = printSuccessOrders;
+
+// #endregion FAST SALE MODAL

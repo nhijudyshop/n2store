@@ -58,15 +58,14 @@
 
     // Firebase collection path for dropped products
     const DROPPED_PRODUCTS_COLLECTION = 'dropped_products';
-    const HISTORY_COLLECTION = 'dropped_products_history';
+    // REMOVED: dropped_products_history - không còn sử dụng
 
     // Local state - FIREBASE IS THE SINGLE SOURCE OF TRUTH
     let droppedProducts = [];
-    let historyItems = [];
+    // REMOVED: historyItems - không còn sử dụng
     let isInitialized = false;
     let firebaseDb = null;
     let droppedProductsRef = null;
-    let historyRef = null;
     let isFirstLoad = true;
 
     // Loading states for better UX during multi-user operations
@@ -114,14 +113,14 @@
 
             // Setup realtime listeners - UI will update automatically
             loadDroppedProductsFromFirebase();
-            loadHistoryFromFirebase();
+            // REMOVED: loadHistoryFromFirebase() - không còn sử dụng
 
             isInitialized = true;
             console.log('[DROPPED-PRODUCTS] ✓ Initialized with Firebase realtime multi-user sync');
 
             // Render initial loading state
             renderDroppedProductsTable();
-            renderHistoryList();
+            renderHistoryList(); // Hiển thị thông báo history đã bị tắt
             updateDroppedCounts();
 
         } catch (error) {
@@ -237,105 +236,7 @@
         }
     }
 
-    /**
-     * Load history from Firebase with realtime listener
-     * Uses child_added/changed/removed for granular updates
-     */
-    function loadHistoryFromFirebase() {
-        if (!firebaseDb) return;
-
-        try {
-            console.log('[DROPPED-PRODUCTS] Setting up granular realtime listeners for history');
-
-            historyRef = firebaseDb.ref(HISTORY_COLLECTION)
-                .orderByChild('timestamp')
-                .limitToLast(100);
-
-            // Handle new history items
-            historyRef.on('child_added', (snapshot) => {
-                const itemId = snapshot.key;
-                const itemData = snapshot.val();
-
-                // Check if item already exists (prevent duplicates)
-                const existingIndex = historyItems.findIndex(h => h.id === itemId);
-
-                if (existingIndex === -1) {
-                    // Add new item
-                    const newItem = {
-                        id: itemId,
-                        ...itemData
-                    };
-                    historyItems.push(newItem);
-
-                    // Sort by timestamp (newest first)
-                    historyItems.sort((a, b) => b.timestamp - a.timestamp);
-
-                    // Keep only last 100 items
-                    if (historyItems.length > 100) {
-                        historyItems = historyItems.slice(0, 100);
-                    }
-
-                    if (!isFirstLoad) {
-                        console.log('[DROPPED-PRODUCTS] History item added:', itemId);
-                    }
-                } else if (!isFirstLoad) {
-                    console.warn('[DROPPED-PRODUCTS] Duplicate history add detected for:', itemId, '- skipped');
-                }
-
-                // Update UI
-                renderHistoryList();
-            }, (error) => {
-                console.error('[DROPPED-PRODUCTS] History child_added error:', error);
-            });
-
-            // Handle updated history items (rare, but possible)
-            historyRef.on('child_changed', (snapshot) => {
-                const itemId = snapshot.key;
-                const itemData = snapshot.val();
-
-                const existingIndex = historyItems.findIndex(h => h.id === itemId);
-
-                if (existingIndex > -1) {
-                    historyItems[existingIndex] = {
-                        id: itemId,
-                        ...itemData
-                    };
-                    // Re-sort
-                    historyItems.sort((a, b) => b.timestamp - a.timestamp);
-                    console.log('[DROPPED-PRODUCTS] History item updated:', itemId);
-                } else {
-                    console.warn('[DROPPED-PRODUCTS] History update for non-existent item:', itemId);
-                }
-
-                // Update UI
-                renderHistoryList();
-            }, (error) => {
-                console.error('[DROPPED-PRODUCTS] History child_changed error:', error);
-            });
-
-            // Handle removed history items
-            historyRef.on('child_removed', (snapshot) => {
-                const itemId = snapshot.key;
-
-                const existingIndex = historyItems.findIndex(h => h.id === itemId);
-
-                if (existingIndex > -1) {
-                    historyItems.splice(existingIndex, 1);
-                    console.log('[DROPPED-PRODUCTS] History item removed:', itemId);
-                } else {
-                    console.warn('[DROPPED-PRODUCTS] History remove for non-existent item:', itemId);
-                }
-
-                // Update UI
-                renderHistoryList();
-            }, (error) => {
-                console.error('[DROPPED-PRODUCTS] History child_removed error:', error);
-            });
-
-        } catch (error) {
-            console.error('[DROPPED-PRODUCTS] Error setting up history listeners:', error);
-        }
-    }
+    // REMOVED: loadHistoryFromFirebase() - không còn sử dụng dropped_products_history
 
     /**
      * Show error message to user
@@ -369,10 +270,7 @@
             droppedProductsRef = null;
         }
 
-        if (historyRef) {
-            historyRef.off();
-            historyRef = null;
-        }
+        // REMOVED: historyRef cleanup - không còn sử dụng
 
         isInitialized = false;
         console.log('[DROPPED-PRODUCTS] Cleanup complete');
@@ -595,9 +493,9 @@
 
     /**
      * Get list of users currently holding a product across ALL orders
-     * Returns array of holder names for display in Dropped tab
+     * Returns array of holder objects with detailed info for display in Dropped tab
      * @param {number|string} productId - Product ID to check
-     * @returns {Promise<string[]>} Array of holder display names
+     * @returns {Promise<Array<{name: string, campaign: string, stt: string|number}>>} Array of holder info objects
      */
     window.getProductHolders = async function (productId) {
         if (!window.firebase) return [];
@@ -607,7 +505,8 @@
             const snapshot = await heldProductsRef.once('value');
             const allOrders = snapshot.val() || {};
 
-            const holders = new Set(); // Use Set to avoid duplicates
+            const holders = []; // Array to store holder info with campaign/STT
+            const seenHolders = new Set(); // Track unique holder+campaign+stt combinations
 
             // Scan all orders for this product
             for (const orderId in allOrders) {
@@ -617,16 +516,30 @@
                 const productHolders = orderProducts[String(productId)];
                 if (!productHolders) continue;
 
-                // Collect all holders with quantity > 0 and isDraft === true (persisted)
+                // Collect all holders with quantity > 0 (both temporary and saved)
                 for (const userId in productHolders) {
                     const holderData = productHolders[userId];
-                    if (holderData && holderData.isDraft === true && (parseInt(holderData.quantity) || 0) > 0) {
-                        holders.add(holderData.displayName || userId);
+                    if (holderData && (parseInt(holderData.quantity) || 0) > 0) {
+                        const name = holderData.displayName || userId;
+                        const campaign = holderData.campaignName || '';
+                        const stt = holderData.stt || '';
+
+                        // Create unique key to avoid duplicates
+                        const key = `${name}|${campaign}|${stt}`;
+                        if (!seenHolders.has(key)) {
+                            seenHolders.add(key);
+                            holders.push({
+                                name: name,
+                                campaign: campaign,
+                                stt: stt,
+                                quantity: parseInt(holderData.quantity) || 0
+                            });
+                        }
                     }
                 }
             }
 
-            return Array.from(holders);
+            return holders;
 
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] Error getting holders:', error);
@@ -658,10 +571,10 @@
                 const productHolders = orderProducts[String(productId)];
                 if (!productHolders) continue;
 
-                // Check if any holder has quantity > 0 and isDraft === true (persisted)
+                // Check if any holder has quantity > 0 (both temporary and saved)
                 for (const userId in productHolders) {
                     const holderData = productHolders[userId];
-                    if (holderData && holderData.isDraft === true && (parseInt(holderData.quantity) || 0) > 0) {
+                    if (holderData && (parseInt(holderData.quantity) || 0) > 0) {
                         console.log('[DROPPED-PRODUCTS] Product still held by:', holderData.displayName, 'in order:', orderId);
                         return true;
                     }
@@ -731,24 +644,13 @@
     };
 
     /**
-     * Add history item
-     * FIREBASE-ONLY: Listener will update UI automatically
+     * Add history item - DISABLED
+     * History feature has been removed to reduce Firebase costs
      */
     async function addHistoryItem(item) {
-        if (!firebaseDb) return;
-
-        try {
-            const historyItem = {
-                ...item,
-                timestamp: window.firebase.database.ServerValue.TIMESTAMP,
-                date: new Date().toLocaleString('vi-VN')
-            };
-
-            await firebaseDb.ref(HISTORY_COLLECTION).push(historyItem);
-            // Listener will handle adding to UI
-        } catch (error) {
-            console.error('[DROPPED-PRODUCTS] ❌ Error saving history:', error);
-        }
+        // DISABLED: dropped_products_history không còn sử dụng
+        // Giữ function để không gây lỗi cho code gọi đến
+        return;
     }
 
     /**
@@ -846,6 +748,11 @@
             return;
         }
 
+        // Ensure Details array exists
+        if (!window.currentChatOrderData.Details) {
+            window.currentChatOrderData.Details = [];
+        }
+
         // Check if product has quantity > 0
         if (!product.Quantity || product.Quantity <= 0) {
             showError('Không thể chuyển sản phẩm có số lượng = 0. Sản phẩm này đang được giữ.');
@@ -934,15 +841,29 @@
                         );
                         const heldQuantity = currentHeldProduct ? currentHeldProduct.Quantity : 1;
 
-                        // Sync to Firebase
+                        // Sync to Firebase - use transaction to preserve isDraft if already saved
                         const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
 
-                        await ref.set({
-                            productId: productId,  // Store productId for easy comparison
-                            displayName: auth.displayName || auth.userType || 'Unknown',
-                            quantity: heldQuantity,
-                            isDraft: true,  // Persist held products (user must explicitly confirm or delete)
-                            timestamp: window.firebase.database.ServerValue.TIMESTAMP
+                        await ref.transaction((current) => {
+                            // Preserve isDraft if already saved (true)
+                            const preservedIsDraft = current?.isDraft === true ? true : false;
+
+                            return {
+                                productId: productId,
+                                displayName: auth.displayName || auth.userType || 'Unknown',
+                                quantity: heldQuantity,
+                                isDraft: preservedIsDraft,  // Preserve if saved, else temporary
+                                timestamp: window.firebase.database.ServerValue.TIMESTAMP,
+                                campaignName: window.currentChatOrderData?.LiveCampaignName || '',
+                                stt: window.currentChatOrderData?.SessionIndex || '',
+                                // Product details for reload
+                                productName: product.ProductName || '',
+                                productNameGet: product.ProductNameGet || product.ProductName || '',
+                                productCode: product.ProductCode || '',
+                                imageUrl: product.ImageUrl || '',
+                                price: product.Price || 0,
+                                uomName: product.UOMName || 'Cái'
+                            };
                         });
 
                         console.log('[DROPPED-PRODUCTS] ✓ Synced to Firebase held_products:', {
@@ -1029,7 +950,7 @@
                 const holders = await window.getProductHolders(p.ProductId);
                 return {
                     ...p,
-                    _computedHeldBy: holders.length > 0 ? holders.join(', ') : null
+                    _holders: holders // Array of {name, campaign, stt, quantity}
                 };
             })
         );
@@ -1115,10 +1036,19 @@
                 <td>
                     <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">
                         ${p.ProductNameGet || p.ProductName}
-                        ${isOutOfStock ? '<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> Đang được giữ</span>' : ''}
+                        ${isOutOfStock && p._holders && p._holders.length > 0 ? (() => {
+                            const h = p._holders[0]; // First holder info for badge
+                            const badgeInfo = h.campaign || h.stt
+                                ? ` (${h.campaign ? h.campaign : ''}${h.campaign && h.stt ? ' - ' : ''}${h.stt ? 'STT ' + h.stt : ''})`
+                                : '';
+                            return `<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> ${h.name}${badgeInfo}</span>`;
+                        })() : isOutOfStock ? '<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> Đang được giữ</span>' : ''}
                     </div>
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
-                    ${p._computedHeldBy ? `<div style="font-size: 11px; color: #d97706; margin-top: 2px;"><i class="fas fa-user"></i> Người giữ: <strong>${p._computedHeldBy}</strong></div>` : ''}
+                    ${p._holders && p._holders.length > 1 ? p._holders.slice(1).map(h => {
+                        const orderInfo = h.campaign || h.stt ? ` <span style="color: #6b7280;">(${h.campaign ? h.campaign : ''}${h.campaign && h.stt ? ' - ' : ''}${h.stt ? 'STT ' + h.stt : ''})</span>` : '';
+                        return `<div style="font-size: 11px; color: #d97706; margin-top: 2px;"><i class="fas fa-user"></i> <strong>${h.name}</strong>${orderInfo}</div>`;
+                    }).join('') : ''}
                     <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">${p.addedDate || ''}</div>
                 </td>
                 <td style="text-align: center; width: 140px;">
@@ -1212,71 +1142,21 @@
     };
 
     /**
-     * Render history list
+     * Render history list - DISABLED
+     * History feature has been removed to reduce Firebase costs
      */
     function renderHistoryList() {
         const container = document.getElementById('chatHistoryContainer');
         if (!container) return;
 
-        if (historyItems.length === 0) {
-            container.innerHTML = `
-                <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                    <i class="fas fa-history" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
-                    <p style="font-size: 14px; margin: 0;">Chưa có lịch sử</p>
-                    <p style="font-size: 12px; margin-top: 4px;">Các thao tác sẽ được ghi lại ở đây</p>
-                </div>
-            `;
-            return;
-        }
-
-        const historyHTML = historyItems.map(item => {
-            const actionColor = item.action.includes('Xóa') ? '#ef4444' :
-                item.action.includes('Giảm') ? '#f59e0b' :
-                    item.action.includes('Chuyển') ? '#10b981' : '#3b82f6';
-
-            const actionIcon = item.action.includes('Xóa') ? 'fa-trash' :
-                item.action.includes('Giảm') ? 'fa-minus-circle' :
-                    item.action.includes('Chuyển') ? 'fa-undo' : 'fa-info-circle';
-
-            return `
-                <div class="history-item" style="
-                    padding: 12px 16px;
-                    border-bottom: 1px solid #f1f5f9;
-                    display: flex;
-                    align-items: flex-start;
-                    gap: 12px;
-                ">
-                    <div style="
-                        width: 32px;
-                        height: 32px;
-                        border-radius: 50%;
-                        background: ${actionColor}15;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        flex-shrink: 0;
-                    ">
-                        <i class="fas ${actionIcon}" style="color: ${actionColor}; font-size: 12px;"></i>
-                    </div>
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight: 600; color: ${actionColor}; font-size: 13px; margin-bottom: 2px;">
-                            ${item.action}
-                        </div>
-                        <div style="font-size: 13px; color: #1e293b; margin-bottom: 4px;">
-                            ${item.productName || 'N/A'}
-                        </div>
-                        <div style="font-size: 11px; color: #64748b;">
-                            SL: ${item.quantity} • ${(item.price || 0).toLocaleString('vi-VN')}đ
-                        </div>
-                    </div>
-                    <div style="font-size: 11px; color: #94a3b8; text-align: right; flex-shrink: 0;">
-                        ${item.date || ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        container.innerHTML = historyHTML;
+        // History feature đã bị tắt để tiết kiệm chi phí Firebase
+        container.innerHTML = `
+            <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                <i class="fas fa-history" style="font-size: 40px; margin-bottom: 12px; opacity: 0.3;"></i>
+                <p style="font-size: 14px; margin: 0; color: #64748b;">Lịch sử đã tắt</p>
+                <p style="font-size: 12px; margin-top: 4px;">Tính năng này đã được tắt để tiết kiệm chi phí</p>
+            </div>
+        `;
     }
 
     /**
@@ -1381,266 +1261,26 @@
     };
 
     // =====================================================
-    // HELD PRODUCTS MANAGEMENT
+    // GETTERS FOR EXTERNAL MODULES
     // =====================================================
 
     /**
-     * Cleanup held products for current user when closing modal or disconnecting
-     * Removes all held products from Firebase held_products collection
+     * Get dropped products array (for held-products-manager.js)
+     * @returns {Array} droppedProducts array
      */
-    window.cleanupHeldProducts = async function () {
-        if (!window.firebase || !window.authManager) {
-            console.log('[HELD-PRODUCTS] Firebase/AuthManager not available');
-            return;
-        }
-
-        const auth = window.authManager.getAuthState();
-        if (!auth) {
-            console.log('[HELD-PRODUCTS] No auth state');
-            return;
-        }
-
-        // Get userId
-        let userId = auth.id || auth.Id || auth.username || auth.userType;
-        if (!userId && auth.displayName) {
-            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
-        }
-
-        if (!userId) {
-            console.warn('[HELD-PRODUCTS] No userId found');
-            return;
-        }
-
-        const orderId = window.currentChatOrderData?.Id;
-        if (!orderId) {
-            console.log('[HELD-PRODUCTS] No current order');
-            return;
-        }
-
-        try {
-            console.log('[HELD-PRODUCTS] Cleaning up held products for user:', userId, 'order:', orderId);
-
-            // Get all held products for this user in this order
-            const heldRef = window.firebase.database().ref(`held_products/${orderId}`);
-            const snapshot = await heldRef.once('value');
-            const orderProducts = snapshot.val() || {};
-
-            let cleanupCount = 0;
-
-            for (const productId in orderProducts) {
-                const productHolders = orderProducts[productId];
-                if (productHolders && productHolders[userId]) {
-                    // Remove this user's hold
-                    await window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`).remove();
-                    cleanupCount++;
-
-                    // Clear heldBy from dropped products if no one else is holding
-                    if (window.clearHeldByIfNotHeld) {
-                        await window.clearHeldByIfNotHeld(productId);
-                    }
-                }
-            }
-
-            console.log(`[HELD-PRODUCTS] ✓ Cleaned up ${cleanupCount} held products`);
-
-        } catch (error) {
-            console.error('[HELD-PRODUCTS] ❌ Error cleaning up:', error);
-        }
+    window.getDroppedProducts = function () {
+        return droppedProducts;
     };
 
     /**
-     * Update held product quantity in Firebase
-     * @param {number} productId - Product ID
-     * @param {number} quantity - New quantity
+     * Get Firebase database reference (for held-products-manager.js)
+     * @returns {Object} Firebase database reference
      */
-    window.updateHeldProductQuantity = async function (productId, quantity) {
-        if (!window.firebase || !window.authManager) return;
-
-        // Normalize productId to number for consistent comparison
-        const normalizedProductId = parseInt(productId);
-        if (isNaN(normalizedProductId)) {
-            console.error('[HELD-PRODUCTS] Invalid productId:', productId);
-            return;
-        }
-
-        const auth = window.authManager.getAuthState();
-        if (!auth) return;
-
-        let userId = auth.id || auth.Id || auth.username || auth.userType;
-        if (!userId && auth.displayName) {
-            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
-        }
-
-        const orderId = window.currentChatOrderData?.Id;
-        if (!userId || !orderId) return;
-
-        try {
-            const ref = window.firebase.database().ref(`held_products/${orderId}/${normalizedProductId}/${userId}`);
-
-            if (quantity > 0) {
-                // Update quantity
-                await ref.update({
-                    productId: normalizedProductId,  // Store productId as number for easy comparison
-                    quantity: quantity,
-                    timestamp: Date.now()
-                });
-                console.log('[HELD-PRODUCTS] ✓ Updated quantity to', quantity, 'for productId:', normalizedProductId);
-            } else {
-                // Remove if quantity is 0
-                await ref.remove();
-                console.log('[HELD-PRODUCTS] ✓ Removed (quantity = 0) for productId:', normalizedProductId);
-
-                // Clear heldBy if no one else is holding
-                if (window.clearHeldByIfNotHeld) {
-                    await window.clearHeldByIfNotHeld(normalizedProductId);
-                }
-            }
-
-        } catch (error) {
-            console.error('[HELD-PRODUCTS] ❌ Error updating quantity:', error);
-        }
+    window.getDroppedFirebaseDb = function () {
+        return firebaseDb;
     };
 
-    /**
-     * Remove held product from Firebase
-     * @param {number|string} productId - Product ID to remove (will be normalized to number)
-     */
-    window.removeHeldProduct = async function (productId) {
-        if (!window.firebase || !window.authManager) return;
-
-        // Normalize productId to number for consistent Firebase path
-        const normalizedProductId = parseInt(productId);
-        if (isNaN(normalizedProductId)) {
-            console.error('[HELD-PRODUCTS] Invalid productId for removal:', productId);
-            return;
-        }
-
-        const auth = window.authManager.getAuthState();
-        if (!auth) return;
-
-        let userId = auth.id || auth.Id || auth.username || auth.userType;
-        if (!userId && auth.displayName) {
-            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
-        }
-
-        const orderId = window.currentChatOrderData?.Id;
-        if (!userId || !orderId) return;
-
-        try {
-            console.log('[HELD-PRODUCTS] Removing held product:', normalizedProductId);
-
-            const ref = window.firebase.database().ref(`held_products/${orderId}/${normalizedProductId}/${userId}`);
-            await ref.remove();
-
-            console.log('[HELD-PRODUCTS] ✓ Removed from Firebase, productId:', normalizedProductId);
-
-            // Clear heldBy from dropped products if no one else is holding
-            if (window.clearHeldByIfNotHeld) {
-                await window.clearHeldByIfNotHeld(normalizedProductId);
-            }
-
-        } catch (error) {
-            console.error('[HELD-PRODUCTS] ❌ Error removing:', error);
-        }
-    };
-
-    /**
-     * Setup realtime listener for held products changes
-     * Syncs changes from other users in real-time
-     */
-    window.setupHeldProductsListener = function () {
-        if (!window.firebase) return;
-
-        const orderId = window.currentChatOrderData?.Id;
-        if (!orderId) return;
-
-        console.log('[HELD-PRODUCTS] Setting up realtime listener for order:', orderId);
-
-        const heldRef = window.firebase.database().ref(`held_products/${orderId}`);
-
-        // Listen for changes
-        heldRef.on('value', (snapshot) => {
-            const heldData = snapshot.val() || {};
-
-            console.log('[HELD-PRODUCTS] Realtime update received:', Object.keys(heldData).length, 'products');
-
-            // Update window.currentChatOrderData.Details with held products
-            if (window.currentChatOrderData && window.currentChatOrderData.Details) {
-                // Remove old held products
-                window.currentChatOrderData.Details = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
-
-                // Add current held products from Firebase
-                for (const productId in heldData) {
-                    const productHolders = heldData[productId];
-
-                    // Sum quantities from all holders
-                    let totalQuantity = 0;
-                    let holders = [];
-
-                    for (const userId in productHolders) {
-                        const holderData = productHolders[userId];
-                        // Only show persisted held products (isDraft: true means saved, not temporary)
-                        if (holderData && holderData.isDraft === true) {
-                            totalQuantity += parseInt(holderData.quantity) || 0;
-                            holders.push(holderData.displayName);
-                        }
-                    }
-
-                    if (totalQuantity > 0) {
-                        // Find product in dropped products for details
-                        const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
-
-                        if (droppedProduct) {
-                            window.currentChatOrderData.Details.push({
-                                ProductId: parseInt(productId),
-                                ProductName: droppedProduct.ProductName,
-                                ProductCode: droppedProduct.ProductCode,
-                                ProductNameGet: droppedProduct.ProductNameGet,
-                                ImageUrl: droppedProduct.ImageUrl,
-                                Price: droppedProduct.Price,
-                                Quantity: totalQuantity,
-                                UOMId: 1,
-                                UOMName: droppedProduct.UOMName || 'Cái',
-                                Factor: 1,
-                                Priority: 0,
-                                OrderId: window.currentChatOrderData.Id,
-                                LiveCampaign_DetailId: null,
-                                ProductWeight: 0,
-                                Note: null,
-                                IsHeld: true,
-                                HeldBy: holders.join(', ')
-                            });
-                        }
-                    }
-                }
-
-                // Re-render Orders tab
-                if (typeof window.renderChatProductsTable === 'function') {
-                    window.renderChatProductsTable();
-                }
-
-                // Also re-render Dropped tab to update "Người giữ" status
-                // This ensures realtime updates across tabs when holders change
-                if (typeof window.renderDroppedProductsTable === 'function') {
-                    window.renderDroppedProductsTable();
-                }
-            }
-        });
-
-        // Store reference for cleanup
-        window.heldProductsListener = heldRef;
-    };
-
-    /**
-     * Cleanup held products listener
-     */
-    window.cleanupHeldProductsListener = function () {
-        if (window.heldProductsListener) {
-            console.log('[HELD-PRODUCTS] Cleaning up listener');
-            window.heldProductsListener.off();
-            window.heldProductsListener = null;
-        }
-    };
+    // NOTE: Held Products Management has been moved to held-products-manager.js
 
     // Auto-initialize when DOM is ready
     if (document.readyState === 'loading') {

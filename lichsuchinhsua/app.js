@@ -24,11 +24,9 @@ let filteredData = [];
 const notify = new NotificationManager();
 
 // =====================================================
-// AUTH CHECK
+// AUTH CHECK - Admin has FULL BYPASS
 // =====================================================
 const auth = authManager ? authManager.getAuthState() : null;
-const userType = auth ? auth.userType : null;
-const checkLogin = auth ? parseInt(auth.checkLogin) : 999;
 
 if (!auth || auth.isLoggedIn !== "true") {
     notify.error("Vui lòng đăng nhập để tiếp tục!");
@@ -39,8 +37,11 @@ if (!auth || auth.isLoggedIn !== "true") {
     }, 1500);
 }
 
-// Check permission - Only admin (checkLogin === 0) can access
-if (checkLogin !== 0) {
+// ALL users (including Admin) check detailedPermissions - NO bypass
+const hasPageAccess = auth?.detailedPermissions?.['lichsuchinhsua'] &&
+    Object.values(auth.detailedPermissions['lichsuchinhsua']).some(v => v === true);
+
+if (!hasPageAccess) {
     notify.error("Bạn không có quyền truy cập trang này!");
     setTimeout(() => {
         localStorage.clear();
@@ -568,7 +569,8 @@ function resetFilters() {
 // =====================================================
 
 async function clearFilteredHistory() {
-    if (checkLogin !== 0) {
+    // Check for delete permission in detailedPermissions
+    if (!auth?.detailedPermissions?.['lichsuchinhsua']?.['delete']) {
         notify.warning("Không đủ quyền thực hiện hành động này!");
         return;
     }

@@ -324,8 +324,83 @@ orders-report/
 | `productSearchManager.getStats()` | Thống kê cache |
 
 **Data Sources:**
-1. Excel file trên Supabase (suggestions)
+1. Excel file từ TPOS API `ExportFileWithVariantPrice` (giá bán)
 2. TPOS API `/api/odata/Product({id})` (full details)
+
+---
+
+#### `standard-price-manager.js` (300+ dòng)
+
+**Mục đích:** Lấy giá vốn/giá mua từ TPOS để tính thống kê giảm giá.
+
+| Method | Mô tả |
+|--------|-------|
+| `standardPriceManager.fetchProducts(force)` | Load giá vốn từ Excel |
+| `standardPriceManager.getById(productId)` | Lấy SP theo ID |
+| `standardPriceManager.getByCode(code)` | Lấy SP theo mã |
+| `standardPriceManager.getCostPrice(idOrCode)` | Lấy giá vốn |
+| `standardPriceManager.refresh()` | Clear cache và reload |
+
+**API Endpoint:**
+```
+POST /api/Product/ExportFileWithStandardPriceV2
+→ Proxy to: tomato.tpos.vn/Product/ExportFileWithStandardPriceV2
+Body: { "model": { "Active": "true" }, "ids": "" }
+Returns: Excel file với cấu trúc:
+  - Column A: Id (Product ID)
+  - Column B: Mã sản phẩm (Code)
+  - Column C: Tên sản phẩm (Name)
+  - Column D: Giá mua (PurchasePrice)
+  - Column E: Giá vốn (StandardPrice/CostPrice)
+```
+
+**Cache:** localStorage `standard_price_cache_v1` (TTL: 6 giờ)
+
+---
+
+#### `discount-stats-calculator.js` (500+ dòng)
+
+**Mục đích:** Tính toán thống kê giảm giá cho đợt live sale.
+
+| Method | Mô tả |
+|--------|-------|
+| `discountStatsCalculator.parseDiscountFromNote(note)` | Parse giá giảm từ ghi chú (230, 230k...) |
+| `discountStatsCalculator.calculateProductDiscount(product, listPrice, costPrice)` | Tính discount cho 1 SP |
+| `discountStatsCalculator.calculateOrderDiscount(order)` | Tính discount cho 1 đơn |
+| `discountStatsCalculator.calculateLiveSessionStats(orders)` | Tính tổng hợp đợt live |
+| `discountStatsCalculator.setThresholds(safe, warning)` | Cài đặt ngưỡng cảnh báo |
+
+**Công thức tính:**
+- **Giảm giá SP** = Giá bán - Giá giảm (từ note)
+- **Lợi nhuận còn lại** = Giá giảm - Giá vốn
+- **Margin %** = (Giá giảm - Giá vốn) / Giá giảm × 100
+- **Discount ROI** = Tổng lợi nhuận / Tổng tiền giảm
+
+**Ngưỡng rủi ro (mặc định):**
+- 🟢 An toàn: Margin ≥ 20%
+- 🟡 Cảnh báo: Margin 10-20%
+- 🔴 Nguy hiểm: Margin 0-10%
+- ⚫ Lỗ vốn: Margin < 0%
+
+---
+
+#### `discount-stats-ui.js` (600+ dòng)
+
+**Mục đích:** Render UI thống kê giảm giá với 4 sub-tabs.
+
+| Method | Mô tả |
+|--------|-------|
+| `discountStatsUI.calculateAndRender(orders)` | Tính toán và render |
+| `discountStatsUI.refreshStats()` | Làm mới dữ liệu |
+| `discountStatsUI.switchSubTab(tabName)` | Chuyển tab |
+| `discountStatsUI.filterProducts()` | Lọc SP theo rủi ro |
+| `discountStatsUI.filterOrders()` | Lọc đơn theo rủi ro |
+
+**Sub-tabs:**
+1. **Tổng quan** - KPIs, phân bổ rủi ro, cài đặt ngưỡng
+2. **Chi tiết SP** - Bảng từng sản phẩm giảm giá
+3. **Chi tiết Đơn** - Bảng từng đơn hàng
+4. **Phân tích** - So sánh kịch bản, Top SP, CFO insights
 
 ---
 
@@ -412,6 +487,87 @@ orders-report/
 
 ---
 
+#### `kpi-manager.js` (~400 dòng)
+
+**Mục đích:** Quản lý tính KPI dựa trên sự khác biệt sản phẩm giữa BASE và Note.
+
+**Flow:**
+```
+1. User xác nhận SP lần đầu → checkKPIBaseExists()
+2. Nếu chưa có BASE → Popup "Tính KPI từ lúc này?"
+3. Nếu đồng ý → saveKPIBase() lưu snapshot SP chính
+4. So sánh Note với BASE → calculateKPIDifference()
+5. Tính KPI = Số SP khác biệt × 5,000đ
+```
+
+**Core Functions:**
+
+| Function | Signature | Mô tả |
+|----------|-----------|-------|
+| `checkKPIBaseExists()` | `(orderId) → Promise<boolean>` | Kiểm tra đã có BASE chưa |
+| `saveKPIBase()` | `(orderId, userId, stt, products) → Promise<void>` | Lưu BASE vào Firebase |
+| `getKPIBase()` | `(orderId) → Promise<object\|null>` | Lấy BASE đã lưu |
+| `parseNoteProducts()` | `(note) → Array<{code, qty, price}>` | Parse "N1769 - 1 - 390000" |
+| `calculateKPIDifference()` | `(base, noteProducts) → {totalDifferences, details}` | Tính số SP khác biệt |
+| `calculateKPIAmount()` | `(differences) → number` | × 5,000đ |
+| `saveKPIStatistics()` | `(userId, date, stats) → Promise<void>` | Lưu thống kê |
+
+**Helper Functions:**
+
+| Function | Mô tả |
+|----------|-------|
+| `promptAndSaveKPIBase()` | Hiển thị popup hỏi user + lưu BASE |
+| `calculateAndSaveKPI()` | Tính và lưu KPI cho đơn hàng |
+| `getCurrentDateString()` | Trả về YYYY-MM-DD |
+
+**Firebase Paths:**
+- `kpi_base/{orderId}` - Lưu BASE snapshot
+- `kpi_statistics/{userId}/{date}` - Lưu thống kê KPI theo ngày
+
+**KPI Calculation Rules:**
+
+| Trường hợp | Kết quả |
+|------------|---------|
+| SP mới (không có trong BASE) | +1 khác biệt |
+| SP bị xóa (có trong BASE, không Note) | +1 khác biệt |
+| Số lượng khác | +\|delta\| khác biệt |
+| Trùng khớp | 0 |
+
+**Tích hợp:**
+- Được gọi từ `confirmHeldProduct()` trong `tab1-orders.js`
+- Tự động hỏi user khi xác nhận SP lần đầu cho đơn
+
+---
+
+#### `kpi-statistics-ui.js` (~500 dòng)
+
+**Mục đích:** UI hiển thị thống kê KPI trong tab2-statistics.html
+
+**Core Functions:**
+
+| Function | Signature | Mô tả |
+|----------|-----------|-------|
+| `loadKPIStatistics()` | `(dateFilter?) → Promise<object>` | Load statistics từ Firebase |
+| `loadKPIBase()` | `(orderId) → Promise<object\|null>` | Load BASE cho đơn hàng |
+| `aggregateByUser()` | `(statsData, dateFilter?) → Array` | Tổng hợp theo user |
+| `renderKPIStatisticsTable()` | `(containerId, dateFilter?) → void` | Render bảng thống kê |
+| `showUserKPIDetail()` | `(userId) → void` | Modal chi tiết KPI user |
+| `showOrderKPIComparison()` | `(orderId) → void` | Modal so sánh BASE |
+| `renderKPITimelineChart()` | `(canvasId, userId?) → void` | Render chart timeline |
+
+**UI Components:**
+- Bảng thống kê KPI theo user
+- Summary cards (đơn hàng, SP khác biệt, tổng KPI)
+- Modal chi tiết KPI theo user
+- Modal so sánh BASE vs Note
+- Timeline chart (Chart.js)
+
+**Tích hợp:**
+- Sử dụng trong `tab2-statistics.html`
+- Đọc từ `kpi_base` và `kpi_statistics` collections
+
+---
+
 ### 📁 Other Utilities
 
 | File | Dòng | Mô tả |
@@ -425,6 +581,8 @@ orders-report/
 | `debug-realtime.js` | 150 | Debug realtime connections |
 | `test-tag-listener.js` | 75 | Test Firebase tag listeners |
 | `user-employee-loader.js` | 80 | Load employee list |
+| `kpi-manager.js` | 400 | Tính KPI dựa trên sự khác biệt SP |
+| `kpi-statistics-ui.js` | 500 | UI hiển thị thống kê KPI |
 
 ---
 
@@ -578,9 +736,15 @@ Ctrl+F: #TAG
 |----------------|-------------|--------|
 | `/api/odata/*` | → | `tomato.tpos.vn/odata/*` |
 | `/api/token` | → | `tomato.tpos.vn/token` (có cache) |
+| `/api/Product/ExportFileWithVariantPrice` | → | `tomato.tpos.vn/Product/ExportFileWithVariantPrice` (Giá bán) |
+| `/api/Product/ExportFileWithStandardPriceV2` | → | `tomato.tpos.vn/Product/ExportFileWithStandardPriceV2` (Giá vốn) |
 | `/api/pancake/*` | → | `pancake.vn/api/v1/*` |
 | `/api/sepay/*` | → | `n2store-fallback.onrender.com/api/sepay/*` |
 | `/api/customers/*` | → | `n2store-fallback.onrender.com/api/customers/*` |
+
+**Product Excel APIs:**
+- `ExportFileWithVariantPrice` - Trả về Excel với giá bán biến thể (dùng cho tìm kiếm SP)
+- `ExportFileWithStandardPriceV2` - Trả về Excel với giá mua + giá vốn (dùng cho thống kê giảm giá)
 
 ### Ví dụ sử dụng
 
@@ -625,6 +789,22 @@ const { access_token } = JSON.parse(bearerData);
 | Đối tác giao hàng | `saleDeliveryPartner` | **TPOS API** `/api/odata/DeliveryCarrier` (cached 24h) |
 | Phí giao hàng | `saleShippingFee` | Auto từ carrier `Config_DefaultFee` |
 | Trả trước (Công nợ) | `salePrepaidAmount` | **Realtime API** `/api/sepay/debt-summary` |
+
+### Debt Data Source Consistency
+
+All debt-related UI components use the same **Realtime API** `/api/sepay/debt-summary`:
+
+| Component | ID/Selector | Behavior |
+|-----------|-------------|----------|
+| Sale Modal | `salePrepaidAmount` | Always fetches fresh data |
+| Chat Modal | `chatDebtValue` | Always fetches fresh data |
+| Orders Table | `data-column="debt"` | Uses cache, refreshed by batch API |
+
+When any component fetches fresh debt data, it:
+1. Updates the local cache (`orders_phone_debt_cache`)
+2. Updates the debt column in the orders table via `updateDebtCellsInTable()`
+
+This ensures all views stay synchronized with the latest debt data.
 
 ### Cache Keys (localStorage)
 

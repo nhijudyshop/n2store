@@ -619,7 +619,9 @@ function initializeTooltipHandlers() {
     if (config.tbody) {
         config.tbody.addEventListener("click", function (e) {
             const auth = authManager ? authManager.getAuthState() : null;
-            if (auth && auth.checkLogin == "0") {
+            // ALL users check detailedPermissions - NO admin bypass
+            const hasAdvancedView = auth?.detailedPermissions?.['hangrotxa']?.['delete'] === true;
+            if (hasAdvancedView) {
                 const tooltip = document.getElementById("tooltip");
                 const row = e.target.closest("tr");
                 if (!row) return;

@@ -88,7 +88,7 @@ window.SoOrderSupplierLoader = {
                     'Accept': 'application/json, text/javascript, */*; q=0.01',
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
-                    'tposappversion': '5.11.16.1'
+                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
                 }
             });
 

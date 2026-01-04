@@ -5,6 +5,37 @@
 
 const express = require('express');
 const router = express.Router();
+const tposTokenManager = require('../services/tpos-token-manager');
+const fetch = require('node-fetch');
+// AbortController is global in Node.js 18+, but fallback for older versions
+const AbortController = globalThis.AbortController || require('abort-controller');
+
+/**
+ * Fetch with timeout to prevent hanging requests
+ * @param {string} url - URL to fetch
+ * @param {object} options - Fetch options
+ * @param {number} timeout - Timeout in milliseconds (default: 10000ms = 10s)
+ * @returns {Promise<Response>}
+ */
+async function fetchWithTimeout(url, options = {}, timeout = 10000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeout}ms`);
+        }
+        throw error;
+    }
+}
 
 /**
  * GET /api/sepay/ping
@@ -205,6 +236,32 @@ router.post('/webhook', async (req, res) => {
             try {
                 const debtResult = await processDebtUpdate(db, insertedId);
                 console.log('[SEPAY-WEBHOOK] Debt update result:', debtResult);
+
+                // Broadcast updates based on debt result
+                // This allows frontend to update without F5
+                if (debtResult.success) {
+                    const customerPhone = debtResult.phone || debtResult.linkedPhone || debtResult.fullPhone;
+                    const customerName = debtResult.customerName;
+
+                    if (customerPhone || customerName) {
+                        // Case 1: Single match - broadcast customer info
+                        broadcastBalanceUpdate(req.app, 'customer-info-updated', {
+                            transaction_id: insertedId,
+                            customer_phone: customerPhone || null,
+                            customer_name: customerName || null,
+                            match_method: debtResult.method // 'qr_code', 'exact_phone', 'single_match'
+                        });
+                        console.log('[SEPAY-WEBHOOK] Broadcasted customer-info-updated for transaction:', insertedId);
+                    } else if (debtResult.method === 'pending_match_created') {
+                        // Case 2: Multiple phones found - broadcast pending match
+                        broadcastBalanceUpdate(req.app, 'pending-match-created', {
+                            transaction_id: insertedId,
+                            partial_phone: debtResult.partialPhone,
+                            unique_phones_count: debtResult.uniquePhonesCount
+                        });
+                        console.log('[SEPAY-WEBHOOK] Broadcasted pending-match-created for transaction:', insertedId);
+                    }
+                }
             } catch (debtError) {
                 console.error('[SEPAY-WEBHOOK] Debt update error (non-critical):', debtError.message);
             }
@@ -271,37 +328,41 @@ router.get('/history', async (req, res) => {
 
         // Filter by transfer type
         if (type && ['in', 'out'].includes(type)) {
-            queryConditions.push(`transfer_type = $${paramCounter}`);
+            queryConditions.push(`bh.transfer_type = $${paramCounter}`);
             queryParams.push(type);
             paramCounter++;
         }
 
         // Filter by gateway
         if (gateway) {
-            queryConditions.push(`gateway ILIKE $${paramCounter}`);
+            queryConditions.push(`bh.gateway ILIKE $${paramCounter}`);
             queryParams.push(`%${gateway}%`);
             paramCounter++;
         }
 
         // Filter by date range
         if (startDate) {
-            queryConditions.push(`transaction_date >= $${paramCounter}`);
+            queryConditions.push(`bh.transaction_date >= $${paramCounter}`);
             queryParams.push(startDate);
             paramCounter++;
         }
 
         if (endDate) {
-            queryConditions.push(`transaction_date <= $${paramCounter}`);
-            queryParams.push(endDate);
+            // Add time to end of day (23:59:59) for proper comparison
+            // Without this, "2025-12-31" is treated as "2025-12-31 00:00:00"
+            // which excludes all transactions on that day after midnight
+            queryConditions.push(`bh.transaction_date <= $${paramCounter}`);
+            queryParams.push(`${endDate} 23:59:59`);
             paramCounter++;
         }
 
-        // Search in content, reference_code
+        // Search in content, reference_code, code, customer_phone, customer_name
         if (search) {
             queryConditions.push(`(
-                content ILIKE $${paramCounter} OR
-                reference_code ILIKE $${paramCounter} OR
-                code ILIKE $${paramCounter}
+                bh.content ILIKE $${paramCounter} OR
+                bh.reference_code ILIKE $${paramCounter} OR
+                bh.code ILIKE $${paramCounter} OR
+                bh.linked_customer_phone ILIKE $${paramCounter}
             )`);
             queryParams.push(`%${search}%`);
             paramCounter++;
@@ -312,28 +373,85 @@ router.get('/history', async (req, res) => {
             : '';
 
         // Get total count
-        const countQuery = `SELECT COUNT(*) FROM balance_history ${whereClause}`;
+        const countQuery = `SELECT COUNT(*) FROM balance_history bh ${whereClause}`;
         const countResult = await db.query(countQuery, queryParams);
         const total = parseInt(countResult.rows[0].count);
 
-        // Get paginated data
+        // Get paginated data with customer info AND pending matches
         const dataQuery = `
             SELECT
-                id, sepay_id, gateway, transaction_date, account_number,
-                code, content, transfer_type, transfer_amount, accumulated,
-                sub_account, reference_code, description, created_at
-            FROM balance_history
+                bh.id, bh.sepay_id, bh.gateway, bh.transaction_date, bh.account_number,
+                bh.code, bh.content, bh.transfer_type, bh.transfer_amount, bh.accumulated,
+                bh.sub_account, bh.reference_code, bh.description, bh.created_at,
+                bh.debt_added,
+                bci.customer_phone,
+                bci.customer_name,
+                bci.unique_code as qr_code,
+                -- Pending match info
+                pcm.id as pending_match_id,
+                pcm.status as pending_match_status,
+                pcm.extracted_phone as pending_extracted_phone,
+                pcm.matched_customers as pending_match_options,
+                pcm.resolution_notes as pending_resolution_notes
+            FROM balance_history bh
+            LEFT JOIN balance_customer_info bci ON (
+                -- Match by QR code (N2...) in content
+                (bh.content ~* 'N2[A-Z0-9]{16}' AND bci.unique_code = (regexp_match(UPPER(bh.content), 'N2[A-Z0-9]{16}'))[1])
+                OR
+                -- Match by partial phone search
+                (bci.extraction_note LIKE 'AUTO_MATCHED_FROM_PARTIAL:%'
+                 AND bh.content LIKE '%' || SUBSTRING(bci.extraction_note FROM 'AUTO_MATCHED_FROM_PARTIAL:(.*)') || '%')
+                OR
+                -- Match by exact phone
+                (bci.unique_code LIKE 'PHONE%' AND bh.content LIKE '%' || bci.customer_phone || '%')
+            )
+            LEFT JOIN pending_customer_matches pcm ON (
+                pcm.transaction_id = bh.id
+            )
             ${whereClause}
-            ORDER BY transaction_date DESC
+            ORDER BY bh.transaction_date DESC
             LIMIT $${paramCounter} OFFSET $${paramCounter + 1}
         `;
 
         queryParams.push(limit, offset);
         const dataResult = await db.query(dataQuery, queryParams);
 
+        // Transform data to include pending_match flags
+        const transformedData = dataResult.rows.map(row => {
+            let customerName = row.customer_name;
+            let customerPhone = row.customer_phone;
+
+            // If resolved from pending match, get customer info from resolution_notes
+            if (row.pending_match_status === 'resolved' && row.pending_resolution_notes) {
+                try {
+                    const resolvedCustomer = JSON.parse(row.pending_resolution_notes);
+                    if (resolvedCustomer && resolvedCustomer.name) {
+                        customerName = resolvedCustomer.name;
+                        customerPhone = resolvedCustomer.phone;
+                    }
+                } catch (e) {
+                    // resolution_notes might be old format (plain text), ignore parse error
+                    console.log('[HISTORY] Could not parse resolution_notes:', row.pending_resolution_notes);
+                }
+            }
+
+            return {
+                ...row,
+                // Override customer info from resolved pending match
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                // Flag: has pending match that needs resolution
+                has_pending_match: row.pending_match_status === 'pending',
+                // Flag: was skipped
+                pending_match_skipped: row.pending_match_status === 'skipped',
+                // Parse JSONB matched_customers if exists
+                pending_match_options: row.pending_match_options || null
+            };
+        });
+
         res.json({
             success: true,
-            data: dataResult.rows,
+            data: transformedData,
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
@@ -373,8 +491,9 @@ router.get('/statistics', async (req, res) => {
         }
 
         if (endDate) {
+            // Add time to end of day (23:59:59) for proper comparison
             queryConditions.push(`transaction_date <= $${paramCounter}`);
-            queryParams.push(endDate);
+            queryParams.push(`${endDate} 23:59:59`);
             paramCounter++;
         }
 
@@ -506,6 +625,309 @@ async function logWebhook(db, sepayId, req, statusCode, responseBody, errorMessa
 }
 
 /**
+ * Helper: Parse transaction content to extract phone number
+ * Step 1: If content has "GD" or "-GD", take text BEFORE it
+ * Step 2: Find first sequence of 5+ digits
+ */
+/**
+ * Extract customer identifier from transaction content
+ * Priority:
+ * 1. QR Code N2 (starts with N2, 18 chars) - if found, skip phone extraction
+ * 2. Exact 10-digit phone (0xxxxxxxxx) - direct match, no TPOS needed
+ * 3. Partial phone number (>= 5 digits) - will search TPOS to get full phone
+ *
+ * Returns:
+ * {
+ *   type: 'qr_code' | 'exact_phone' | 'partial_phone' | 'none',
+ *   value: string | null,
+ *   uniqueCode: string | null (only for QR),
+ *   note: string
+ * }
+ */
+function extractPhoneFromContent(content) {
+    if (!content) {
+        return {
+            type: 'none',
+            value: null,
+            uniqueCode: null,
+            note: 'NO_CONTENT'
+        };
+    }
+
+    let textToParse = content;
+
+    // Step 1: If has "GD", take part before " GD" or "-GD"
+    const gdMatch = content.match(/^(.*?)(?:\s*-?\s*GD)/i);
+    if (gdMatch) {
+        textToParse = gdMatch[1].trim();
+        console.log('[EXTRACT] Found GD, parsing before GD:', textToParse);
+    }
+
+    // Step 2: Check for QR Code N2 (starts with N2, exactly 18 chars)
+    const qrCodeMatch = textToParse.match(/\bN2[A-Z0-9]{16}\b/);
+    if (qrCodeMatch) {
+        const qrCode = qrCodeMatch[0];
+        console.log('[EXTRACT] ✅ Found QR Code N2:', qrCode);
+        return {
+            type: 'qr_code',
+            value: qrCode,
+            uniqueCode: qrCode, // Use QR code as unique code
+            note: 'QR_CODE_FOUND'
+        };
+    }
+
+    // Step 3: Check for EXACT 10-digit phone (0xxxxxxxxx)
+    // This avoids unnecessary TPOS API calls when we already have the full phone
+    const exactPhonePattern = /\b0\d{9}\b/g;
+    const exactPhones = textToParse.match(exactPhonePattern);
+
+    if (exactPhones && exactPhones.length > 0) {
+        const exactPhone = exactPhones[exactPhones.length - 1]; // Take last match
+        console.log('[EXTRACT] ✅ Found EXACT 10-digit phone:', exactPhone);
+        return {
+            type: 'exact_phone',
+            value: exactPhone,
+            uniqueCode: `PHONE${exactPhone}`, // Direct unique code
+            note: exactPhones.length > 1 ? 'MULTIPLE_EXACT_PHONES_FOUND' : 'EXACT_PHONE_EXTRACTED'
+        };
+    }
+
+    // Step 4: Extract partial phone number (5-10 digits)
+    // Will search TPOS to get full 10-digit phone
+    // Strategy: Prioritize numbers with phone-like length (5-10 digits), take FIRST match
+    const partialPhonePattern = /\d{5,}/g;
+    const allNumbers = textToParse.match(partialPhonePattern);
+
+    if (allNumbers && allNumbers.length > 0) {
+        // Filter numbers to reasonable phone length (5-10 digits) and take first match
+        const phoneLikeNumbers = allNumbers.filter(num => num.length >= 5 && num.length <= 10);
+        const partialPhone = phoneLikeNumbers.length > 0
+            ? phoneLikeNumbers[0]  // Take FIRST phone-like number
+            : allNumbers[0];         // Fallback to first number if no phone-like numbers
+
+        console.log('[EXTRACT] ✅ Found partial phone (5-10 digits, first occurrence):', partialPhone, 'from:', allNumbers);
+        return {
+            type: 'partial_phone',
+            value: partialPhone,
+            uniqueCode: null, // Will be determined after TPOS search
+            note: allNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED'
+        };
+    }
+
+    console.log('[EXTRACT] ❌ No phone or QR found in:', textToParse);
+    return {
+        type: 'none',
+        value: null,
+        uniqueCode: null,
+        note: 'NO_PHONE_FOUND'
+    };
+}
+
+/**
+ * Search TPOS Partner API by partial phone number
+ * Returns grouped unique customers by 10-digit phone
+ *
+ * @param {string} partialPhone - Partial phone (>= 5 digits)
+ * @returns {Promise<{
+ *   success: boolean,
+ *   uniquePhones: Array<{phone: string, customers: Array}>,
+ *   totalResults: number
+ * }>}
+ */
+async function searchTPOSByPartialPhone(partialPhone) {
+    try {
+        console.log(`[TPOS-SEARCH] Searching for partial phone: ${partialPhone}`);
+
+        // Get TPOS token
+        const token = await tposTokenManager.getToken();
+
+        // Call TPOS Partner API
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${partialPhone}&$top=50&$orderby=DateCreated+desc&$count=true`;
+
+        const response = await fetchWithTimeout(tposUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        }, 15000); // 15 second timeout for TPOS API
+
+        if (!response.ok) {
+            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const totalResults = data['@odata.count'] || 0;
+
+        console.log(`[TPOS-SEARCH] Found ${totalResults} total results for ${partialPhone}`);
+
+        if (!data.value || !Array.isArray(data.value) || data.value.length === 0) {
+            return {
+                success: true,
+                uniquePhones: [],
+                totalResults: 0
+            };
+        }
+
+        // Group by unique 10-digit phone
+        const phoneMap = new Map();
+
+        for (const customer of data.value) {
+            const phone = customer.Phone?.replace(/\D/g, '').slice(-10);
+
+            // Only accept valid 10-digit phones starting with 0
+            if (phone && phone.length === 10 && phone.startsWith('0')) {
+                if (!phoneMap.has(phone)) {
+                    phoneMap.set(phone, []);
+                }
+                phoneMap.get(phone).push({
+                    id: customer.Id,
+                    name: customer.Name || customer.DisplayName,
+                    phone: phone,
+                    email: customer.Email,
+                    address: customer.FullAddress || customer.Street,
+                    network: customer.NameNetwork,
+                    status: customer.Status,
+                    credit: customer.Credit,
+                    debit: customer.Debit
+                });
+            }
+        }
+
+        // Convert map to array
+        const allUniquePhones = Array.from(phoneMap.entries()).map(([phone, customers]) => ({
+            phone,
+            customers, // Array of customers with this phone (sorted by DateCreated desc from TPOS)
+            count: customers.length
+        }));
+
+        console.log(`[TPOS-SEARCH] Grouped into ${allUniquePhones.length} unique phones (before filter):`);
+        allUniquePhones.forEach(({phone, count}) => {
+            console.log(`  - ${phone}: ${count} customer(s)`);
+        });
+
+        // FILTER: Chỉ giữ SĐT có số cuối KHỚP CHÍNH XÁC với partialPhone
+        // VD: partialPhone="81118" → giữ 0938281118 (endsWith 81118), loại 0938811182
+        const uniquePhones = allUniquePhones.filter(({phone}) => {
+            const matches = phone.endsWith(partialPhone);
+            if (!matches) {
+                console.log(`[TPOS-SEARCH] ❌ Filtered out ${phone} (does not end with ${partialPhone})`);
+            }
+            return matches;
+        });
+
+        console.log(`[TPOS-SEARCH] After endsWith filter: ${uniquePhones.length} phones match:`);
+        uniquePhones.forEach(({phone, count}) => {
+            console.log(`  ✅ ${phone}: ${count} customer(s)`);
+        });
+
+        return {
+            success: true,
+            uniquePhones,
+            totalResults
+        };
+
+    } catch (error) {
+        console.error('[TPOS-SEARCH] Error:', error);
+        return {
+            success: false,
+            error: error.message,
+            uniquePhones: [],
+            totalResults: 0
+        };
+    }
+}
+
+// REMOVED: searchCustomerByPhone - was using customers table which has been removed
+
+/**
+ * Search TPOS Partner API by FULL phone number (10 digits)
+ * Returns customer info without endsWith filtering
+ * Used for QR code customer name lookup
+ *
+ * @param {string} fullPhone - Full 10-digit phone (0xxxxxxxxx)
+ * @returns {Promise<{success: boolean, customer: Object|null}>}
+ */
+async function searchTPOSByPhone(fullPhone) {
+    try {
+        console.log(`[TPOS-PHONE] Searching for full phone: ${fullPhone}`);
+
+        // Get TPOS token
+        const token = await tposTokenManager.getToken();
+
+        // Call TPOS Partner API with full phone
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${fullPhone}&$top=10&$orderby=DateCreated+desc&$count=true`;
+
+        const response = await fetchWithTimeout(tposUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        }, 15000);
+
+        if (!response.ok) {
+            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const totalResults = data['@odata.count'] || 0;
+
+        console.log(`[TPOS-PHONE] Found ${totalResults} total results for ${fullPhone}`);
+
+        if (!data.value || !Array.isArray(data.value) || data.value.length === 0) {
+            return {
+                success: true,
+                customer: null,
+                totalResults: 0
+            };
+        }
+
+        // Find EXACT match with full phone (no endsWith filter)
+        for (const customer of data.value) {
+            const phone = customer.Phone?.replace(/\D/g, '').slice(-10);
+
+            // Check for exact match
+            if (phone === fullPhone) {
+                console.log(`[TPOS-PHONE] ✅ Found exact match: ${customer.Name || customer.DisplayName}`);
+                return {
+                    success: true,
+                    customer: {
+                        id: customer.Id,
+                        name: customer.Name || customer.DisplayName,
+                        phone: phone,
+                        email: customer.Email,
+                        address: customer.FullAddress || customer.Street,
+                        network: customer.NameNetwork,
+                        status: customer.Status,
+                        credit: customer.Credit,
+                        debit: customer.Debit
+                    },
+                    totalResults
+                };
+            }
+        }
+
+        // No exact match found
+        console.log(`[TPOS-PHONE] No exact match for ${fullPhone}`);
+        return {
+            success: true,
+            customer: null,
+            totalResults
+        };
+
+    } catch (error) {
+        console.error('[TPOS-PHONE] Error:', error);
+        return {
+            success: false,
+            error: error.message,
+            customer: null,
+            totalResults: 0
+        };
+    }
+}
+
+/**
  * Process debt update for a single transaction
  * @param {Object} db - Database connection
  * @param {number} transactionId - The ID of the transaction in balance_history
@@ -540,70 +962,321 @@ async function processDebtUpdate(db, transactionId) {
         return { success: false, reason: 'Not incoming transaction' };
     }
 
-    // 4. Extract QR code from content (N2 + 16 alphanumeric)
     const content = tx.content || '';
+
+    // 4. FIRST: Try to extract QR code (N2 + 16 alphanumeric)
     const qrMatch = content.toUpperCase().match(/N2[A-Z0-9]{16}/);
-    if (!qrMatch) {
-        console.log('[DEBT-UPDATE] No QR code in content:', transactionId);
-        return { success: false, reason: 'No QR code found' };
+
+    if (qrMatch) {
+        const qrCode = qrMatch[0];
+        console.log('[DEBT-UPDATE] QR code found:', qrCode);
+
+        // 5. Find phone number from balance_customer_info (case-insensitive)
+        const infoResult = await db.query(
+            `SELECT customer_phone, customer_name FROM balance_customer_info
+             WHERE UPPER(unique_code) = $1`,
+            [qrCode]
+        );
+
+        if (infoResult.rows.length > 0 && infoResult.rows[0].customer_phone) {
+            const phone = infoResult.rows[0].customer_phone;
+            let customerName = infoResult.rows[0].customer_name;
+            const amount = parseInt(tx.transfer_amount) || 0;
+
+            console.log('[DEBT-UPDATE] Phone from QR:', phone, 'Amount:', amount);
+
+            // 5.5 NEW: If QR has phone but NO name, fetch from TPOS using full phone
+            if (!customerName) {
+                console.log('[DEBT-UPDATE] QR has phone but no name, fetching from TPOS...');
+
+                try {
+                    // Use new searchTPOSByPhone for full phone lookup
+                    const tposResult = await searchTPOSByPhone(phone);
+
+                    if (tposResult.success && tposResult.customer) {
+                        // Got customer directly (newest match from TPOS)
+                        customerName = tposResult.customer.name;
+
+                        // Update balance_customer_info with fetched name
+                        await db.query(
+                            `UPDATE balance_customer_info
+                             SET customer_name = $1,
+                                 name_fetch_status = 'SUCCESS',
+                                 updated_at = CURRENT_TIMESTAMP
+                             WHERE UPPER(unique_code) = $2`,
+                            [customerName, qrCode]
+                        );
+
+                        console.log('[DEBT-UPDATE] ✅ Updated customer name from TPOS:', customerName);
+                    } else {
+                        console.log('[DEBT-UPDATE] No TPOS match for phone:', phone);
+                    }
+                } catch (error) {
+                    console.error('[DEBT-UPDATE] Error fetching name from TPOS:', error.message);
+                    // Continue processing - phone is enough for debt tracking
+                }
+            }
+
+            // 6. Mark transaction as processed AND link to customer phone
+            await db.query(
+                `UPDATE balance_history
+                 SET debt_added = TRUE, linked_customer_phone = $2
+                 WHERE id = $1 AND linked_customer_phone IS NULL`,
+                [transactionId, phone]
+            );
+
+            console.log('[DEBT-UPDATE] ✅ Success (QR method):', {
+                transactionId,
+                qrCode,
+                phone,
+                linkedPhone: phone,
+                customerName,
+                amount
+            });
+
+            return {
+                success: true,
+                method: 'qr_code',
+                transactionId,
+                qrCode,
+                phone,
+                customerName,
+                amount
+            };
+        }
     }
 
-    const qrCode = qrMatch[0];
-    console.log('[DEBT-UPDATE] QR code found:', qrCode);
+    // 8. FALLBACK: No QR code or QR not linked to phone -> Try to extract partial phone from content
+    console.log('[DEBT-UPDATE] No QR code linked to phone, trying extraction...');
 
-    // 5. Find phone number from balance_customer_info (case-insensitive)
-    const infoResult = await db.query(
-        `SELECT customer_phone FROM balance_customer_info
-         WHERE UPPER(unique_code) = $1`,
-        [qrCode]
-    );
+    const extractResult = extractPhoneFromContent(content);
 
-    if (infoResult.rows.length === 0 || !infoResult.rows[0].customer_phone) {
-        console.log('[DEBT-UPDATE] No phone linked to QR:', qrCode);
-        return { success: false, reason: 'No phone linked to QR code' };
+    console.log('[DEBT-UPDATE] Extract result:', extractResult);
+
+    // Check extraction result
+    if (extractResult.type === 'none') {
+        console.log('[DEBT-UPDATE] No valid identifier found:', extractResult.note);
+        return {
+            success: false,
+            reason: 'No valid identifier found',
+            note: extractResult.note
+        };
     }
 
-    const phone = infoResult.rows[0].customer_phone;
     const amount = parseInt(tx.transfer_amount) || 0;
 
-    console.log('[DEBT-UPDATE] Phone:', phone, 'Amount:', amount);
+    // 9. Handle exact 10-digit phone (no TPOS search needed for matching)
+    if (extractResult.type === 'exact_phone') {
+        const exactPhone = extractResult.value;
+        const uniqueCode = extractResult.uniqueCode; // Already PHONE{phone}
 
-    // 6. Update customer debt (UPSERT)
-    const updateResult = await db.query(
-        `INSERT INTO customers (phone, name, debt, status, active)
-         VALUES ($1, $1, $2, 'Bình thường', true)
-         ON CONFLICT (phone) DO UPDATE SET
-             debt = COALESCE(customers.debt, 0) + $2,
-             updated_at = CURRENT_TIMESTAMP
-         RETURNING id, phone, debt`,
-        [phone, amount]
-    );
+        console.log('[DEBT-UPDATE] Exact 10-digit phone found:', exactPhone);
 
-    const customer = updateResult.rows[0];
-    console.log('[DEBT-UPDATE] Customer updated:', customer);
+        // Try to get customer name from TPOS (optional, for enrichment)
+        let customerName = null;
+        try {
+            const tposResult = await searchTPOSByPartialPhone(exactPhone);
 
-    // 7. Mark transaction as processed
-    await db.query(
-        `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
-        [transactionId]
-    );
+            if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                // Find matching phone data
+                const phoneData = tposResult.uniquePhones.find(p => p.phone === exactPhone);
+                if (phoneData && phoneData.customers.length > 0) {
+                    customerName = phoneData.customers[0].name;
+                    console.log('[DEBT-UPDATE] Found customer name from TPOS:', customerName);
+                }
+            }
+        } catch (error) {
+            console.error('[DEBT-UPDATE] Error fetching from TPOS:', error.message);
+            // Continue without name - we still have the phone
+        }
 
-    console.log('[DEBT-UPDATE] ✅ Success:', {
-        transactionId,
-        qrCode,
-        phone,
-        amount,
-        newDebt: customer.debt
-    });
+        // Save to balance_customer_info
+        await db.query(
+            `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (unique_code) DO UPDATE SET
+                 customer_phone = EXCLUDED.customer_phone,
+                 customer_name = EXCLUDED.customer_name,
+                 extraction_note = EXCLUDED.extraction_note,
+                 name_fetch_status = EXCLUDED.name_fetch_status,
+                 updated_at = CURRENT_TIMESTAMP`,
+            [
+                uniqueCode,
+                exactPhone,
+                customerName,
+                extractResult.note,
+                customerName ? 'SUCCESS' : 'PENDING'
+            ]
+        );
 
+        // Mark transaction as processed AND link to customer phone
+        await db.query(
+            `UPDATE balance_history
+             SET debt_added = TRUE, linked_customer_phone = $2
+             WHERE id = $1 AND linked_customer_phone IS NULL`,
+            [transactionId, exactPhone]
+        );
+
+        console.log('[DEBT-UPDATE] ✅ Success (exact phone method):', {
+            transactionId,
+            exactPhone,
+            linkedPhone: exactPhone,
+            customerName,
+            amount
+        });
+
+        return {
+            success: true,
+            method: 'exact_phone',
+            transactionId,
+            fullPhone: exactPhone,
+            linkedPhone: exactPhone,
+            customerName,
+            amount
+        };
+    }
+
+    // 10. Search TPOS with partial phone
+    if (extractResult.type === 'partial_phone') {
+        const partialPhone = extractResult.value;
+        console.log('[DEBT-UPDATE] Searching TPOS with partial phone:', partialPhone);
+
+        const tposResult = await searchTPOSByPartialPhone(partialPhone);
+
+        if (!tposResult.success || tposResult.uniquePhones.length === 0) {
+            console.log('[DEBT-UPDATE] No customers found in TPOS for:', partialPhone);
+
+            // Save to balance_customer_info with note
+            await db.query(
+                `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+                 VALUES ($1, $2, $3, $4, $5)
+                 ON CONFLICT (unique_code) DO UPDATE SET
+                     extraction_note = EXCLUDED.extraction_note,
+                     name_fetch_status = EXCLUDED.name_fetch_status,
+                     updated_at = CURRENT_TIMESTAMP`,
+                [
+                    `PARTIAL${partialPhone}`,
+                    null,
+                    null,
+                    `PARTIAL_PHONE_NO_TPOS_MATCH:${partialPhone}`,
+                    'NOT_FOUND_IN_TPOS'
+                ]
+            );
+
+            return {
+                success: false,
+                reason: 'No TPOS matches',
+                partialPhone,
+                note: 'NOT_FOUND_IN_TPOS'
+            };
+        }
+
+        // 10. Check if single unique phone or multiple
+        if (tposResult.uniquePhones.length === 1) {
+            // AUTO SAVE: Only 1 unique phone found
+            const phoneData = tposResult.uniquePhones[0];
+            const fullPhone = phoneData.phone;
+            const firstCustomer = phoneData.customers[0]; // Take first customer with this phone
+
+            console.log(`[DEBT-UPDATE] ✅ Single phone found: ${fullPhone} (${phoneData.count} customer(s))`);
+            console.log(`[DEBT-UPDATE] Auto-selecting: ${firstCustomer.name} (ID: ${firstCustomer.id})`);
+
+            // Save to balance_customer_info
+            const uniqueCode = `PHONE${fullPhone}`;
+            await db.query(
+                `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+                 VALUES ($1, $2, $3, $4, $5)
+                 ON CONFLICT (unique_code) DO UPDATE SET
+                     customer_phone = EXCLUDED.customer_phone,
+                     customer_name = EXCLUDED.customer_name,
+                     extraction_note = EXCLUDED.extraction_note,
+                     name_fetch_status = EXCLUDED.name_fetch_status,
+                     updated_at = CURRENT_TIMESTAMP`,
+                [
+                    uniqueCode,
+                    fullPhone,
+                    firstCustomer.name,
+                    `AUTO_MATCHED_FROM_PARTIAL:${partialPhone}`,
+                    'SUCCESS'
+                ]
+            );
+
+            // Mark transaction as processed AND link to customer phone
+            await db.query(
+                `UPDATE balance_history
+                 SET debt_added = TRUE, linked_customer_phone = $2
+                 WHERE id = $1 AND linked_customer_phone IS NULL`,
+                [transactionId, fullPhone]
+            );
+
+            console.log('[DEBT-UPDATE] ✅ Success (auto-matched from TPOS):', {
+                transactionId,
+                partialPhone,
+                fullPhone,
+                linkedPhone: fullPhone,
+                customerName: firstCustomer.name,
+                amount
+            });
+
+            return {
+                success: true,
+                method: 'tpos_auto_match',
+                transactionId,
+                partialPhone,
+                fullPhone,
+                linkedPhone: fullPhone,
+                customerName: firstCustomer.name,
+                amount
+            };
+
+        } else {
+            // MULTIPLE PHONES: Create pending match for admin to choose
+            console.log(`[DEBT-UPDATE] ⚠️ Multiple phones found (${tposResult.uniquePhones.length}), creating pending match...`);
+
+            // Format matched_customers JSONB
+            const matchedCustomers = tposResult.uniquePhones.map(phoneData => ({
+                phone: phoneData.phone,
+                count: phoneData.count,
+                customers: phoneData.customers
+            }));
+
+            // Create pending match
+            await db.query(
+                `INSERT INTO pending_customer_matches (transaction_id, extracted_phone, matched_customers, status)
+                 VALUES ($1, $2, $3, $4)`,
+                [
+                    transactionId,
+                    partialPhone,
+                    JSON.stringify(matchedCustomers),
+                    'pending'
+                ]
+            );
+
+            console.log('[DEBT-UPDATE] 📋 Created pending match for transaction:', transactionId);
+            console.log(`[DEBT-UPDATE] Found ${tposResult.uniquePhones.length} unique phones:`);
+            tposResult.uniquePhones.forEach(({phone, count}) => {
+                console.log(`  - ${phone}: ${count} customer(s)`);
+            });
+
+            return {
+                success: true,
+                method: 'pending_match_created',
+                transactionId,
+                partialPhone,
+                uniquePhonesCount: tposResult.uniquePhones.length,
+                pendingMatch: true
+            };
+        }
+    }
+
+    // Should not reach here
+    console.error('[DEBT-UPDATE] Unexpected extraction type:', extractResult.type);
     return {
-        success: true,
-        transactionId,
-        qrCode,
-        phone,
-        amount,
-        newDebt: customer.debt
+        success: false,
+        reason: 'Unexpected extraction type',
+        type: extractResult.type
     };
+
 }
 
 /**
@@ -630,108 +1303,50 @@ router.get('/debt-summary', async (req, res) => {
     }
 
     try {
-        // Normalize phone: remove non-digits, handle Vietnam country code, remove leading 0
+        // Normalize phone to full 10-digit format (0xxxxxxxxx)
         let normalizedPhone = phone.replace(/\D/g, '');
         if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
             normalizedPhone = normalizedPhone.substring(2); // Remove country code 84
         }
-        if (normalizedPhone.startsWith('0')) {
-            normalizedPhone = normalizedPhone.substring(1); // Remove leading 0
+        if (!normalizedPhone.startsWith('0') && normalizedPhone.length === 9) {
+            normalizedPhone = '0' + normalizedPhone; // Add leading 0
         }
 
         console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
 
-        // 1. Get customer record with debt and debt_adjusted_at
-        const customerResult = await db.query(
-            `SELECT debt, debt_adjusted_at FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
-            [normalizedPhone, '0' + normalizedPhone]
-        );
+        // NEW SIMPLE LOGIC: Query directly by linked_customer_phone
+        // This ensures 1 transaction belongs to exactly 1 customer
+        const txQuery = `
+            SELECT
+                id,
+                transfer_amount,
+                transaction_date,
+                content,
+                debt_added,
+                linked_customer_phone
+            FROM balance_history
+            WHERE transfer_type = 'in'
+              AND linked_customer_phone = $1
+            ORDER BY transaction_date DESC
+            LIMIT 100
+        `;
 
-        const customerDebt = customerResult.rows.length > 0
-            ? (parseFloat(customerResult.rows[0].debt) || 0)
-            : 0;
-        const debtAdjustedAt = customerResult.rows.length > 0
-            ? customerResult.rows[0].debt_adjusted_at
-            : null;
+        console.log('[DEBT-SUMMARY] Query by linked_customer_phone:', normalizedPhone);
 
-        console.log('[DEBT-SUMMARY] Customer debt:', customerDebt, 'adjusted_at:', debtAdjustedAt);
+        const txResult = await db.query(txQuery, [normalizedPhone]);
+        const transactions = txResult.rows;
 
-        // 2. Find all QR codes linked to this phone
-        const qrResult = await db.query(
-            `SELECT unique_code FROM balance_customer_info WHERE customer_phone = $1 OR customer_phone = $2`,
-            [normalizedPhone, '0' + normalizedPhone]
-        );
+        // Calculate total debt
+        const totalDebt = transactions.reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
+        const source = transactions.length > 0 ? 'balance_history' : 'no_data';
 
-        const qrCodes = qrResult.rows.map(r => (r.unique_code || '').toUpperCase()).filter(Boolean);
-        console.log('[DEBT-SUMMARY] QR codes found:', qrCodes);
-
-        // 3. Calculate transactions
-        let transactions = [];
-        let transactionsAfterAdjustment = 0;
-        let allTransactionsTotal = 0;
-
-        if (qrCodes.length > 0) {
-            const placeholders = qrCodes.map((_, i) => `$${i + 1}`).join(', ');
-
-            // Get ALL transactions for display
-            const txQuery = `
-                SELECT
-                    id,
-                    transfer_amount,
-                    transaction_date,
-                    content,
-                    debt_added
-                FROM balance_history
-                WHERE transfer_type = 'in'
-                  AND UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) IN (${placeholders})
-                ORDER BY transaction_date DESC
-                LIMIT 100
-            `;
-            const txResult = await db.query(txQuery, qrCodes);
-            transactions = txResult.rows;
-
-            // Calculate total of ALL transactions
-            allTransactionsTotal = transactions.reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
-
-            // If admin has adjusted, calculate transactions AFTER the adjustment
-            if (debtAdjustedAt) {
-                transactionsAfterAdjustment = transactions
-                    .filter(t => new Date(t.transaction_date) > new Date(debtAdjustedAt))
-                    .reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
-
-                console.log('[DEBT-SUMMARY] Transactions after adjustment:', transactionsAfterAdjustment);
-            }
-        }
-
-        // 4. Calculate total debt
-        let totalDebt;
-        let source;
-
-        if (debtAdjustedAt) {
-            // Admin has adjusted: baseline + new transactions
-            totalDebt = customerDebt + transactionsAfterAdjustment;
-            source = 'admin_adjusted_plus_new';
-            console.log('[DEBT-SUMMARY] Using admin baseline + new transactions:', customerDebt, '+', transactionsAfterAdjustment, '=', totalDebt);
-        } else if (qrCodes.length > 0) {
-            // No adjustment: use all transactions
-            totalDebt = allTransactionsTotal;
-            source = 'balance_history';
-            console.log('[DEBT-SUMMARY] Using all transactions:', totalDebt);
-        } else {
-            // No QR codes, no adjustment: use customers.debt as fallback
-            totalDebt = customerDebt;
-            source = customerDebt > 0 ? 'customers_table' : 'no_data';
-            console.log('[DEBT-SUMMARY] Fallback to customers.debt:', totalDebt);
-        }
+        console.log('[DEBT-SUMMARY] Found', transactions.length, 'transactions, total:', totalDebt);
 
         res.json({
             success: true,
             data: {
                 phone,
                 total_debt: totalDebt,
-                baseline_debt: debtAdjustedAt ? customerDebt : null,
-                new_transactions: debtAdjustedAt ? transactionsAfterAdjustment : null,
-                debt_adjusted_at: debtAdjustedAt,
                 transactions: transactions.map(t => ({
                     id: t.id,
                     amount: parseInt(t.transfer_amount) || 0,
@@ -791,17 +1406,17 @@ router.post('/debt-summary-batch', async (req, res) => {
     try {
         const results = {};
 
-        // Normalize all phones
+        // Normalize all phones to full 10-digit format (0xxxxxxxxx)
         const normalizedPhones = phones.map(phone => {
             let normalized = (phone || '').replace(/\D/g, '');
             if (normalized.startsWith('84') && normalized.length > 9) {
                 normalized = normalized.substring(2);
             }
-            if (normalized.startsWith('0')) {
-                normalized = normalized.substring(1);
+            if (!normalized.startsWith('0') && normalized.length === 9) {
+                normalized = '0' + normalized; // Add leading 0
             }
             return normalized;
-        }).filter(p => p.length >= 9);
+        }).filter(p => p.length === 10);
 
         const uniquePhones = [...new Set(normalizedPhones)];
 
@@ -809,113 +1424,47 @@ router.post('/debt-summary-batch', async (req, res) => {
             return res.json({ success: true, data: {} });
         }
 
-        // 1. Batch query customers table for all phones
-        const phoneConditions = uniquePhones.flatMap(p => [p, '0' + p]);
-        const customerPlaceholders = phoneConditions.map((_, i) => `$${i + 1}`).join(', ');
-
-        const customerQuery = `
-            SELECT phone, debt, debt_adjusted_at
-            FROM customers
-            WHERE phone IN (${customerPlaceholders})
+        // NEW SIMPLE LOGIC: Query directly by linked_customer_phone
+        // This ensures 1 transaction belongs to exactly 1 customer
+        const phonePlaceholders = uniquePhones.map((_, i) => `$${i + 1}`).join(', ');
+        const txQuery = `
+            SELECT
+                linked_customer_phone,
+                SUM(transfer_amount) as total_amount,
+                COUNT(*) as transaction_count
+            FROM balance_history
+            WHERE transfer_type = 'in'
+              AND linked_customer_phone IN (${phonePlaceholders})
+            GROUP BY linked_customer_phone
         `;
-        const customerResult = await db.query(customerQuery, phoneConditions);
 
-        // Build customer map
-        const customerMap = {};
-        customerResult.rows.forEach(row => {
-            let normalizedPhone = row.phone.replace(/\D/g, '');
-            if (normalizedPhone.startsWith('0')) {
-                normalizedPhone = normalizedPhone.substring(1);
-            }
-            // Keep the one with higher debt or has adjustment
-            if (!customerMap[normalizedPhone] ||
-                (row.debt || 0) > (customerMap[normalizedPhone].debt || 0) ||
-                row.debt_adjusted_at) {
-                customerMap[normalizedPhone] = {
-                    debt: parseFloat(row.debt) || 0,
-                    debt_adjusted_at: row.debt_adjusted_at
+        const txResult = await db.query(txQuery, uniquePhones);
+
+        // Build result map from query
+        const debtMap = {};
+        txResult.rows.forEach(row => {
+            if (row.linked_customer_phone) {
+                debtMap[row.linked_customer_phone] = {
+                    total_debt: parseInt(row.total_amount) || 0,
+                    transaction_count: parseInt(row.transaction_count) || 0
                 };
             }
         });
 
-        // 2. Batch query QR codes for all phones
-        const qrQuery = `
-            SELECT customer_phone, unique_code
-            FROM balance_customer_info
-            WHERE customer_phone IN (${customerPlaceholders})
-        `;
-        const qrResult = await db.query(qrQuery, phoneConditions);
-
-        // Build QR map: phone -> [qr_codes]
-        const qrMap = {};
-        qrResult.rows.forEach(row => {
-            let normalizedPhone = (row.customer_phone || '').replace(/\D/g, '');
-            if (normalizedPhone.startsWith('0')) {
-                normalizedPhone = normalizedPhone.substring(1);
-            }
-            if (!qrMap[normalizedPhone]) {
-                qrMap[normalizedPhone] = [];
-            }
-            if (row.unique_code) {
-                qrMap[normalizedPhone].push(row.unique_code.toUpperCase());
-            }
-        });
-
-        // 3. Get all unique QR codes and batch query transactions
-        const allQRCodes = [...new Set(Object.values(qrMap).flat())];
-
-        let transactionMap = {}; // qrCode -> total_amount
-        if (allQRCodes.length > 0) {
-            const qrPlaceholders = allQRCodes.map((_, i) => `$${i + 1}`).join(', ');
-            const txQuery = `
-                SELECT
-                    UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) as qr_code,
-                    SUM(transfer_amount) as total_amount
-                FROM balance_history
-                WHERE transfer_type = 'in'
-                  AND UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}')) IN (${qrPlaceholders})
-                GROUP BY UPPER(SUBSTRING(content FROM 'N2[A-Za-z0-9]{16}'))
-            `;
-            const txResult = await db.query(txQuery, allQRCodes);
-
-            txResult.rows.forEach(row => {
-                if (row.qr_code) {
-                    transactionMap[row.qr_code] = parseInt(row.total_amount) || 0;
-                }
-            });
-        }
-
-        // 4. Calculate debt for each phone
+        // Build results for all phones (including those with 0 debt)
         for (const phone of uniquePhones) {
-            const customer = customerMap[phone] || { debt: 0, debt_adjusted_at: null };
-            const qrCodes = qrMap[phone] || [];
+            const data = debtMap[phone];
+            // Also check without leading 0 for backwards compatibility
+            const phoneWithout0 = phone.startsWith('0') ? phone.substring(1) : phone;
 
-            let totalDebt = 0;
-            let source = 'no_data';
-
-            if (customer.debt_adjusted_at) {
-                // Admin adjusted: use customer.debt as baseline
-                // Note: For batch, we simplify and just use customer.debt
-                totalDebt = customer.debt;
-                source = 'admin_adjusted';
-            } else if (qrCodes.length > 0) {
-                // Sum transactions from all QR codes
-                totalDebt = qrCodes.reduce((sum, qr) => sum + (transactionMap[qr] || 0), 0);
-                source = totalDebt > 0 ? 'balance_history' : 'no_transactions';
-            } else {
-                // Fallback to customer.debt
-                totalDebt = customer.debt;
-                source = customer.debt > 0 ? 'customers_table' : 'no_data';
-            }
-
-            results[phone] = {
-                total_debt: totalDebt,
-                source: source
+            results[phoneWithout0] = {
+                total_debt: data ? data.total_debt : 0,
+                source: data && data.total_debt > 0 ? 'balance_history' : 'no_data'
             };
         }
 
         // Log summary (not individual phones to reduce noise)
-        console.log(`[DEBT-SUMMARY-BATCH] Processed ${uniquePhones.length} phones`);
+        console.log(`[DEBT-SUMMARY-BATCH] Processed ${uniquePhones.length} phones, found debt for ${txResult.rows.length}`);
 
         res.json({
             success: true,
@@ -1008,6 +1557,26 @@ router.post('/customer-info', async (req, res) => {
             customerName,
             customerPhone
         });
+
+        // Sync to customers table if phone is available
+        if (customerPhone) {
+            try {
+                await db.query(`
+                    INSERT INTO customers (phone, name, status, active)
+                    VALUES ($1, $2, 'Bình thường', true)
+                    ON CONFLICT (phone) DO UPDATE SET
+                        name = COALESCE(EXCLUDED.name, customers.name),
+                        updated_at = CURRENT_TIMESTAMP
+                `, [
+                    customerPhone,
+                    customerName || customerPhone
+                ]);
+                console.log('[CUSTOMER-INFO] ✅ Synced to customers table:', customerPhone);
+            } catch (syncError) {
+                console.error('[CUSTOMER-INFO] ⚠️ Failed to sync to customers table:', syncError.message);
+                // Don't fail the main request if sync fails
+            }
+        }
 
         res.json({
             success: true,
@@ -1231,100 +1800,19 @@ router.get('/transactions-by-phone', async (req, res) => {
  * Admin endpoint to manually update customer debt
  * This updates the customers.debt field directly
  */
+/**
+ * DEPRECATED: This endpoint relied on customers table which has been removed
+ * Debt is now calculated directly from balance_history transactions
+ */
 router.post('/update-debt', async (req, res) => {
-    const db = req.app.locals.chatDb;
-    const { phone, new_debt, reason } = req.body;
+    console.log('[UPDATE-DEBT] ⚠️  Endpoint called but disabled (customers table removed)');
 
-    if (!phone || new_debt === undefined) {
-        return res.status(400).json({
-            success: false,
-            error: 'Missing required parameters: phone, new_debt'
-        });
-    }
-
-    try {
-        // Normalize phone
-        let normalizedPhone = phone.replace(/\D/g, '');
-        if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
-            normalizedPhone = normalizedPhone.substring(2);
-        }
-        if (normalizedPhone.startsWith('0')) {
-            normalizedPhone = normalizedPhone.substring(1);
-        }
-
-        const newDebtValue = parseFloat(new_debt) || 0;
-
-        console.log('[UPDATE-DEBT] Updating debt for phone:', normalizedPhone, 'to:', newDebtValue, 'reason:', reason);
-
-        // Get current debt first - ORDER BY debt DESC to get the highest value (most relevant record)
-        const currentResult = await db.query(
-            `SELECT id, phone, debt FROM customers WHERE phone = $1 OR phone = $2 ORDER BY debt DESC NULLS LAST LIMIT 1`,
-            [normalizedPhone, '0' + normalizedPhone]
-        );
-        const oldDebt = currentResult.rows.length > 0 ? (parseFloat(currentResult.rows[0].debt) || 0) : 0;
-        const existingCustomerId = currentResult.rows.length > 0 ? currentResult.rows[0].id : null;
-        const existingPhone = currentResult.rows.length > 0 ? currentResult.rows[0].phone : null;
-
-        let updateResult;
-        if (existingCustomerId) {
-            // Customer exists - UPDATE ALL matching records (both phone formats)
-            // Set debt_adjusted_at to mark when admin adjusted (for calculating new transactions after)
-            updateResult = await db.query(`
-                UPDATE customers
-                SET debt = $1, updated_at = CURRENT_TIMESTAMP, debt_adjusted_at = CURRENT_TIMESTAMP
-                WHERE phone = $2 OR phone = $3
-                RETURNING *
-            `, [newDebtValue, normalizedPhone, '0' + normalizedPhone]);
-            console.log('[UPDATE-DEBT] Updated', updateResult.rowCount, 'customer records');
-        } else {
-            // Customer doesn't exist - INSERT new record with debt_adjusted_at
-            updateResult = await db.query(`
-                INSERT INTO customers (phone, debt, created_at, updated_at, debt_adjusted_at)
-                VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                RETURNING *
-            `, [normalizedPhone, newDebtValue]);
-        }
-
-        // Log the change to debt_adjustment_log table
-        const changeAmount = newDebtValue - oldDebt;
-        try {
-            await db.query(`
-                INSERT INTO debt_adjustment_log (phone, old_debt, new_debt, change_amount, reason, adjusted_by)
-                VALUES ($1, $2, $3, $4, $5, $6)
-            `, [normalizedPhone, oldDebt, newDebtValue, changeAmount, reason || 'Admin manual adjustment', 'admin']);
-            console.log('[UPDATE-DEBT] ✅ History logged to debt_adjustment_log');
-        } catch (logError) {
-            // Table might not exist yet, just log to console
-            console.warn('[UPDATE-DEBT] Could not log to debt_adjustment_log:', logError.message);
-        }
-
-        console.log('[UPDATE-DEBT] ✅ Debt updated:', {
-            phone: normalizedPhone,
-            old_debt: oldDebt,
-            new_debt: newDebtValue,
-            change: changeAmount,
-            reason: reason || 'Admin manual adjustment'
-        });
-
-        res.json({
-            success: true,
-            data: {
-                phone: normalizedPhone,
-                old_debt: oldDebt,
-                new_debt: newDebtValue,
-                change: changeAmount
-            },
-            message: 'Debt updated successfully'
-        });
-
-    } catch (error) {
-        console.error('[UPDATE-DEBT] Error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to update debt',
-            message: error.message
-        });
-    }
+    return res.status(410).json({
+        success: false,
+        error: 'Endpoint no longer supported',
+        message: 'Manual debt adjustment has been removed. Debt is now calculated automatically from transactions in balance_history.',
+        deprecated: true
+    });
 });
 
 // =====================================================
@@ -1647,69 +2135,26 @@ router.post('/failed-queue/retry-all', async (req, res) => {
 
 /**
  * GET /api/sepay/detect-gaps
- * Detect gaps in reference codes
+ * DEPRECATED: Disabled due to performance issues
+ *
+ * This endpoint caused severe performance degradation:
+ * - Full table scan of balance_history (could be 100k+ records)
+ * - Complex sorting and gap calculation
+ * - Called automatically on every page load
+ * - Response times: 60-90 seconds
+ *
+ * Alternative: Check database logs for missing transaction IDs manually if needed
  */
 router.get('/detect-gaps', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    console.log('[DETECT-GAPS] ⚠️  Endpoint called but disabled for performance');
 
-    try {
-        // Get all reference codes, sorted
-        const result = await db.query(`
-            SELECT reference_code, sepay_id, transaction_date
-            FROM balance_history
-            WHERE reference_code IS NOT NULL AND reference_code ~ '^[0-9]+$'
-            ORDER BY CAST(reference_code AS INTEGER) ASC
-        `);
-
-        const gaps = [];
-        const rows = result.rows;
-
-        for (let i = 1; i < rows.length; i++) {
-            const prev = parseInt(rows[i - 1].reference_code);
-            const curr = parseInt(rows[i].reference_code);
-
-            // Check for gaps
-            if (curr - prev > 1) {
-                for (let missing = prev + 1; missing < curr; missing++) {
-                    gaps.push({
-                        missing_reference_code: String(missing),
-                        previous_reference_code: rows[i - 1].reference_code,
-                        next_reference_code: rows[i].reference_code,
-                        previous_date: rows[i - 1].transaction_date,
-                        next_date: rows[i].transaction_date
-                    });
-                }
-            }
-        }
-
-        // Store detected gaps
-        for (const gap of gaps) {
-            try {
-                await db.query(`
-                    INSERT INTO reference_code_gaps (missing_reference_code, previous_reference_code, next_reference_code)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT (missing_reference_code) DO NOTHING
-                `, [gap.missing_reference_code, gap.previous_reference_code, gap.next_reference_code]);
-            } catch (gapError) {
-                // Table might not exist, ignore
-            }
-        }
-
-        res.json({
-            success: true,
-            total_gaps: gaps.length,
-            gaps: gaps.slice(0, 100), // Limit response size
-            message: gaps.length > 0 ? `Found ${gaps.length} missing reference codes` : 'No gaps detected'
-        });
-
-    } catch (error) {
-        console.error('[DETECT-GAPS] Error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to detect gaps',
-            message: error.message
-        });
-    }
+    res.json({
+        success: true,
+        total_gaps: 0,
+        gaps: [],
+        message: 'Gap detection has been disabled for performance. Check database logs if needed.',
+        deprecated: true
+    });
 });
 
 /**
@@ -1802,13 +2247,13 @@ router.post('/fetch-by-reference/:referenceCode', async (req, res) => {
 
         console.log('[FETCH-BY-REF] Calling Sepay API:', sepayUrl);
 
-        const sepayResponse = await fetch(sepayUrl, {
+        const sepayResponse = await fetchWithTimeout(sepayUrl, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${SEPAY_API_KEY}`,
                 'Content-Type': 'application/json'
             }
-        });
+        }, 15000); // 15 second timeout for SePay API
 
         if (!sepayResponse.ok) {
             const errorText = await sepayResponse.text();
@@ -1900,6 +2345,889 @@ router.post('/fetch-by-reference/:referenceCode', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch transaction',
+            message: error.message
+        });
+    }
+});
+
+// =====================================================
+// PENDING CUSTOMER MATCHES ENDPOINTS
+// =====================================================
+
+/**
+ * GET /api/sepay/pending-matches
+ * Get all pending customer matches
+ * Query params:
+ *   - status: pending, resolved, skipped (default: pending)
+ *   - limit: max results (default: 50)
+ */
+router.get('/pending-matches', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { status = 'pending', limit = 50 } = req.query;
+
+    try {
+        const limitCount = Math.min(parseInt(limit) || 50, 200);
+
+        const query = `
+            SELECT
+                pcm.id,
+                pcm.transaction_id,
+                pcm.extracted_phone,
+                pcm.matched_customers,
+                pcm.selected_customer_id,
+                pcm.status,
+                pcm.resolution_notes,
+                pcm.created_at,
+                pcm.resolved_at,
+                pcm.resolved_by,
+                bh.content as transaction_content,
+                bh.transfer_amount,
+                bh.transaction_date,
+                bh.gateway
+            FROM pending_customer_matches pcm
+            INNER JOIN balance_history bh ON pcm.transaction_id = bh.id
+            WHERE pcm.status = $1
+            ORDER BY pcm.created_at DESC
+            LIMIT $2
+        `;
+
+        const result = await db.query(query, [status, limitCount]);
+
+        console.log('[PENDING-MATCHES] Found', result.rows.length, 'matches with status:', status);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            count: result.rows.length
+        });
+
+    } catch (error) {
+        console.error('[PENDING-MATCHES] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch pending matches',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/pending-matches/:id/resolve
+ * Resolve a pending match by selecting a customer
+ * Body:
+ *   - customer_id: The selected customer ID
+ *   - resolved_by: Admin username (optional)
+ */
+router.post('/pending-matches/:id/resolve', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { customer_id, resolved_by = 'admin' } = req.body;
+
+    if (!customer_id) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required parameter: customer_id'
+        });
+    }
+
+    try {
+        // 1. Get pending match details
+        const matchResult = await db.query(
+            `SELECT
+                pcm.transaction_id,
+                pcm.extracted_phone,
+                pcm.matched_customers,
+                bh.transfer_amount,
+                bh.content
+             FROM pending_customer_matches pcm
+             INNER JOIN balance_history bh ON pcm.transaction_id = bh.id
+             WHERE pcm.id = $1 AND pcm.status = 'pending'`,
+            [id]
+        );
+
+        if (matchResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Pending match not found or already resolved'
+            });
+        }
+
+        const match = matchResult.rows[0];
+
+        // 2. Parse matched_customers (handle both string and object)
+        let matchedCustomers = match.matched_customers;
+        if (typeof matchedCustomers === 'string') {
+            try {
+                matchedCustomers = JSON.parse(matchedCustomers);
+            } catch (parseErr) {
+                console.error('[RESOLVE-MATCH] Failed to parse matched_customers:', parseErr);
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid matched_customers data format'
+                });
+            }
+        }
+
+        // Validate matchedCustomers is an array
+        if (!Array.isArray(matchedCustomers)) {
+            console.error('[RESOLVE-MATCH] matched_customers is not an array:', typeof matchedCustomers);
+            return res.status(400).json({
+                success: false,
+                error: 'matched_customers is not an array',
+                debug_type: typeof matchedCustomers
+            });
+        }
+
+        console.log('[RESOLVE-MATCH] Looking for customer_id:', customer_id, 'in', matchedCustomers.length, 'phone groups');
+
+        // 3. Find customer in nested structure
+        // Structure: [{phone, count, customers: [{id, name, phone}]}]
+        let selectedCustomer = null;
+        const targetId = parseInt(customer_id);
+
+        for (const phoneGroup of matchedCustomers) {
+            const customers = phoneGroup.customers || [];
+            if (!Array.isArray(customers)) continue;
+
+            for (const c of customers) {
+                // Compare both as int and string for safety
+                if (c.id === targetId || String(c.id) === String(customer_id)) {
+                    selectedCustomer = c;
+                    console.log('[RESOLVE-MATCH] ✓ Found customer:', c.name, c.phone);
+                    break;
+                }
+            }
+            if (selectedCustomer) break;
+        }
+
+        if (!selectedCustomer) {
+            // Collect all customer IDs for debugging
+            const allCustomerIds = [];
+            for (const pg of matchedCustomers) {
+                if (pg.customers && Array.isArray(pg.customers)) {
+                    for (const c of pg.customers) {
+                        allCustomerIds.push({ id: c.id, name: c.name, phone: c.phone });
+                    }
+                }
+            }
+            console.error('[RESOLVE-MATCH] Customer not found. Target:', customer_id, 'Available:', allCustomerIds);
+            return res.status(400).json({
+                success: false,
+                error: 'Selected customer not in matched list',
+                requested_id: customer_id,
+                available_customers: allCustomerIds
+            });
+        }
+
+        console.log('[RESOLVE-MATCH] Resolving match', id, 'with customer:', selectedCustomer.phone);
+
+        // 3. Mark transaction as processed AND link to customer phone
+        const amount = parseInt(match.transfer_amount) || 0;
+        await db.query(
+            `UPDATE balance_history
+             SET debt_added = TRUE, linked_customer_phone = $2
+             WHERE id = $1 AND linked_customer_phone IS NULL`,
+            [match.transaction_id, selectedCustomer.phone]
+        );
+
+        console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone);
+
+        // 4. Update pending match status with selected customer info as JSON
+        const selectedCustomerJson = JSON.stringify({
+            id: selectedCustomer.id,
+            name: selectedCustomer.name,
+            phone: selectedCustomer.phone
+        });
+
+        await db.query(
+            `UPDATE pending_customer_matches
+             SET status = 'resolved',
+                 selected_customer_id = $2,
+                 resolved_at = CURRENT_TIMESTAMP,
+                 resolved_by = $3,
+                 resolution_notes = $4
+             WHERE id = $1`,
+            [
+                id,
+                customer_id,
+                resolved_by,
+                selectedCustomerJson
+            ]
+        );
+
+        // 5. NEW: Save resolved customer to balance_customer_info for debt tracking
+        const uniqueCode = `PHONE${selectedCustomer.phone}`;
+        await db.query(
+            `INSERT INTO balance_customer_info
+             (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (unique_code) DO UPDATE SET
+                 customer_phone = EXCLUDED.customer_phone,
+                 customer_name = EXCLUDED.customer_name,
+                 extraction_note = EXCLUDED.extraction_note,
+                 name_fetch_status = EXCLUDED.name_fetch_status,
+                 updated_at = CURRENT_TIMESTAMP`,
+            [
+                uniqueCode,
+                selectedCustomer.phone,
+                selectedCustomer.name,
+                `RESOLVED_FROM_PENDING:${match.extracted_phone}`,
+                'SUCCESS'
+            ]
+        );
+
+        console.log('[RESOLVE-MATCH] ✅ Saved to balance_customer_info:', uniqueCode);
+
+        console.log('[RESOLVE-MATCH] ✅ Match resolved:', {
+            match_id: id,
+            transaction_id: match.transaction_id,
+            customer_phone: selectedCustomer.phone,
+            amount
+        });
+
+        res.json({
+            success: true,
+            message: 'Match resolved successfully',
+            data: {
+                match_id: id,
+                transaction_id: match.transaction_id,
+                customer: {
+                    phone: selectedCustomer.phone,
+                    name: selectedCustomer.name
+                },
+                amount_added: amount
+            }
+        });
+
+    } catch (error) {
+        console.error('[RESOLVE-MATCH] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to resolve match',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/pending-matches/:id/skip
+ * Skip/ignore a pending match
+ * Body:
+ *   - reason: Reason for skipping (optional)
+ *   - resolved_by: Admin username (optional)
+ */
+router.post('/pending-matches/:id/skip', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { reason = 'Skipped by admin', resolved_by = 'admin' } = req.body;
+
+    try {
+        const result = await db.query(
+            `UPDATE pending_customer_matches
+             SET status = 'skipped',
+                 resolved_at = CURRENT_TIMESTAMP,
+                 resolved_by = $2,
+                 resolution_notes = $3
+             WHERE id = $1 AND status = 'pending'
+             RETURNING id, transaction_id, extracted_phone`,
+            [id, resolved_by, reason]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Pending match not found or already resolved'
+            });
+        }
+
+        console.log('[SKIP-MATCH] Match skipped:', result.rows[0]);
+
+        res.json({
+            success: true,
+            message: 'Match skipped successfully',
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[SKIP-MATCH] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to skip match',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/pending-matches/:id/undo-skip
+ * Undo a skipped pending match - reset to pending status
+ * Body:
+ *   - resolved_by: Admin username (optional)
+ */
+router.post('/pending-matches/:id/undo-skip', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { resolved_by = 'admin' } = req.body;
+
+    try {
+        // Check if match exists and is skipped
+        const checkResult = await db.query(
+            `SELECT id, transaction_id, status FROM pending_customer_matches WHERE id = $1`,
+            [id]
+        );
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Pending match not found'
+            });
+        }
+
+        if (checkResult.rows[0].status !== 'skipped') {
+            return res.status(400).json({
+                success: false,
+                error: 'Match is not in skipped status',
+                current_status: checkResult.rows[0].status
+            });
+        }
+
+        // Reset to pending status
+        const result = await db.query(
+            `UPDATE pending_customer_matches
+             SET status = 'pending',
+                 resolved_at = NULL,
+                 resolved_by = NULL,
+                 selected_customer_id = NULL,
+                 resolution_notes = $2
+             WHERE id = $1
+             RETURNING id, transaction_id, extracted_phone, status`,
+            [id, `Undo skip by ${resolved_by} at ${new Date().toISOString()}`]
+        );
+
+        console.log('[UNDO-SKIP] Match reset to pending:', result.rows[0]);
+
+        res.json({
+            success: true,
+            message: 'Match reset to pending successfully',
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[UNDO-SKIP] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to undo skip',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sepay/phone-data
+ * Get all phone data from balance_customer_info table
+ * Query params:
+ *   - limit: max results (default: 100, max: 500)
+ *   - offset: pagination offset (default: 0)
+ */
+router.get('/phone-data', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { limit = 50, offset = 0, include_totals = 'false' } = req.query;
+
+    try {
+        const limitCount = Math.min(parseInt(limit) || 50, 200); // Reduced from 500 to 200
+        const offsetCount = parseInt(offset) || 0;
+        const includeTotals = include_totals === 'true';
+
+        console.log(`[PHONE-DATA] Fetching phone data: limit=${limitCount}, offset=${offsetCount}, include_totals=${includeTotals}`);
+
+        // Get total count
+        const countResult = await db.query(
+            `SELECT COUNT(*) as total FROM balance_customer_info`
+        );
+        const total = parseInt(countResult.rows[0]?.total || 0);
+
+        // Get phone data - WITH or WITHOUT transaction totals based on parameter
+        let dataResult;
+
+        if (includeTotals) {
+            // SLOW query with SUM/COUNT aggregation
+            dataResult = await db.query(
+                `SELECT
+                    bci.id,
+                    bci.unique_code,
+                    bci.customer_name,
+                    bci.customer_phone,
+                    bci.extraction_note,
+                    bci.name_fetch_status,
+                    bci.created_at,
+                    bci.updated_at,
+                    COALESCE(SUM(CASE WHEN bh.transfer_type = 'in' THEN bh.transfer_amount ELSE 0 END), 0) as total_amount,
+                    COUNT(bh.id) as transaction_count
+                 FROM balance_customer_info bci
+                 LEFT JOIN balance_history bh ON (
+                     bh.transfer_type = 'in' AND (
+                         -- Match by QR code in content
+                         (bci.unique_code ~* '^N2[A-Z0-9]{16}$' AND bh.content ~* bci.unique_code)
+                         OR
+                         -- Match by partial phone from extraction note
+                         (bci.extraction_note LIKE 'AUTO_MATCHED_FROM_PARTIAL:%'
+                          AND bh.content LIKE '%' || SUBSTRING(bci.extraction_note FROM 'AUTO_MATCHED_FROM_PARTIAL:(.*)') || '%')
+                         OR
+                         -- Match by exact phone in content
+                         (bci.customer_phone IS NOT NULL AND bh.content LIKE '%' || bci.customer_phone || '%')
+                     )
+                 )
+                 GROUP BY bci.id, bci.unique_code, bci.customer_name, bci.customer_phone,
+                          bci.extraction_note, bci.name_fetch_status, bci.created_at, bci.updated_at
+                 ORDER BY bci.created_at DESC
+                 LIMIT $1 OFFSET $2`,
+                [limitCount, offsetCount]
+            );
+        } else {
+            // FAST query without JOIN - just get customer info
+            dataResult = await db.query(
+                `SELECT
+                    id,
+                    unique_code,
+                    customer_name,
+                    customer_phone,
+                    extraction_note,
+                    name_fetch_status,
+                    created_at,
+                    updated_at,
+                    0 as total_amount,
+                    0 as transaction_count
+                 FROM balance_customer_info
+                 ORDER BY created_at DESC
+                 LIMIT $1 OFFSET $2`,
+                [limitCount, offsetCount]
+            );
+        }
+
+        console.log(`[PHONE-DATA] Found ${dataResult.rows.length} records (total: ${total})`);
+
+        res.json({
+            success: true,
+            data: dataResult.rows,
+            pagination: {
+                total,
+                limit: limitCount,
+                offset: offsetCount,
+                returned: dataResult.rows.length
+            }
+        });
+
+    } catch (error) {
+        console.error('[PHONE-DATA] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch phone data',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * PUT /api/sepay/customer-info/:unique_code
+ * Update customer name and/or fetch status for a specific unique code
+ * NOTE: This endpoint is used by backend processes for name fetching from TPOS
+ * For transaction-level phone updates, use PUT /api/sepay/transaction/:id/phone instead
+ * Body: {
+ *   customer_name?: string,
+ *   name_fetch_status?: string
+ * }
+ */
+router.put('/customer-info/:unique_code', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { unique_code } = req.params;
+    const { customer_name, name_fetch_status } = req.body;
+
+    try {
+        // Build dynamic update query for balance_customer_info
+        const updates = [];
+        const values = [];
+        let paramIndex = 1;
+
+        if (customer_name !== undefined) {
+            updates.push(`customer_name = $${paramIndex++}`);
+            values.push(customer_name);
+        }
+
+        if (name_fetch_status !== undefined) {
+            updates.push(`name_fetch_status = $${paramIndex++}`);
+            values.push(name_fetch_status);
+        } else if (customer_name !== undefined && customer_name !== null) {
+            // Auto-set SUCCESS if setting a name without explicit status
+            updates.push(`name_fetch_status = $${paramIndex++}`);
+            values.push('SUCCESS');
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'No fields to update (customer_name or name_fetch_status required)'
+            });
+        }
+
+        updates.push('updated_at = CURRENT_TIMESTAMP');
+        values.push(unique_code);
+
+        // Update balance_customer_info
+        const query = `
+            UPDATE balance_customer_info
+            SET ${updates.join(', ')}
+            WHERE unique_code = $${paramIndex}
+            RETURNING *
+        `;
+
+        console.log(`[UPDATE-CUSTOMER-INFO] ${unique_code}:`, { customer_name, name_fetch_status });
+
+        const result = await db.query(query, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Unique code not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[UPDATE-CUSTOMER-INFO] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update customer info',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * PUT /api/sepay/transaction/:id/phone
+ * Update linked_customer_phone for a specific transaction
+ * This allows moving a transaction's debt from one phone to another
+ * Body: { phone: string }
+ */
+router.put('/transaction/:id/phone', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { phone } = req.body;
+
+    try {
+        // Validate inputs
+        if (!id || isNaN(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid transaction ID'
+            });
+        }
+
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                error: 'Phone number is required'
+            });
+        }
+
+        // Get current transaction data
+        const currentResult = await db.query(
+            'SELECT id, linked_customer_phone, transfer_amount FROM balance_history WHERE id = $1',
+            [id]
+        );
+
+        if (currentResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Transaction not found'
+            });
+        }
+
+        const oldPhone = currentResult.rows[0].linked_customer_phone;
+        const newPhone = phone;
+
+        // Update the transaction's linked phone
+        const updateResult = await db.query(
+            'UPDATE balance_history SET linked_customer_phone = $1 WHERE id = $2 RETURNING *',
+            [newPhone, id]
+        );
+
+        console.log(`[TRANSACTION-PHONE-UPDATE] Transaction #${id}: ${oldPhone || 'NULL'} → ${newPhone}`);
+
+        res.json({
+            success: true,
+            data: updateResult.rows[0],
+            old_phone: oldPhone,
+            new_phone: newPhone
+        });
+
+    } catch (error) {
+        console.error('[TRANSACTION-PHONE-UPDATE] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update transaction phone',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sepay/tpos/customer/:phone
+ * Fetch customer info from TPOS Partner API by phone number
+ * Uses automatic TPOS token management from environment variables
+ */
+router.get('/tpos/customer/:phone', async (req, res) => {
+    const { phone } = req.params;
+
+    try {
+        if (!phone || !/^\d{10}$/.test(phone)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid phone number (must be 10 digits)'
+            });
+        }
+
+        console.log(`[TPOS-CUSTOMER] Fetching customer for phone: ${phone}`);
+
+        // Get TPOS token
+        const token = await tposTokenManager.getToken();
+
+        // Call TPOS Partner API
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${phone}&$top=50&$orderby=DateCreated+desc&$count=true`;
+
+        const response = await fetchWithTimeout(tposUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        }, 15000); // 15 second timeout for TPOS API
+
+        if (!response.ok) {
+            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Group by unique 10-digit phone
+        const uniqueCustomers = [];
+        const seenPhones = new Set();
+
+        if (data.value && Array.isArray(data.value)) {
+            for (const customer of data.value) {
+                const custPhone = customer.Phone?.replace(/\D/g, '').slice(-10);
+                if (custPhone && custPhone.length === 10 && !seenPhones.has(custPhone)) {
+                    seenPhones.add(custPhone);
+                    uniqueCustomers.push({
+                        id: customer.Id,
+                        phone: custPhone,
+                        name: customer.Name || customer.FullName,
+                        email: customer.Email,
+                        status: customer.Status,
+                        credit: customer.Credit
+                    });
+                }
+            }
+        }
+
+        console.log(`[TPOS-CUSTOMER] Found ${uniqueCustomers.length} unique customers for ${phone}`);
+
+        res.json({
+            success: true,
+            data: uniqueCustomers,
+            count: uniqueCustomers.length
+        });
+
+    } catch (error) {
+        console.error('[TPOS-CUSTOMER] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch customer from TPOS',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/batch-update-phones
+ * Batch update phone numbers for existing transactions
+ * This is useful for retroactively extracting phone numbers from old transactions
+ */
+router.post('/batch-update-phones', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { limit = 100, force = false } = req.body;
+
+    try {
+        console.log('[BATCH-UPDATE] Starting batch phone update...');
+
+        // Get transactions that need phone extraction
+        const filter = force ? '' : 'AND debt_added = FALSE';
+        const query = `
+            SELECT id, content, transfer_type
+            FROM balance_history
+            WHERE transfer_type = 'in'
+            ${filter}
+            ORDER BY transaction_date DESC
+            LIMIT $1
+        `;
+
+        const result = await db.query(query, [Math.min(limit, 500)]);
+        const transactions = result.rows;
+
+        console.log(`[BATCH-UPDATE] Found ${transactions.length} transactions to process`);
+
+        const results = {
+            total: transactions.length,
+            processed: 0,
+            success: 0,
+            pending_matches: 0,
+            not_found: 0,
+            skipped: 0,
+            failed: 0,
+            details: []
+        };
+
+        // Process each transaction using processDebtUpdate()
+        for (const tx of transactions) {
+            results.processed++;
+
+            try {
+                const updateResult = await processDebtUpdate(db, tx.id);
+
+                if (updateResult.success) {
+                    if (updateResult.method === 'pending_match_created') {
+                        results.pending_matches++;
+                        results.details.push({
+                            transaction_id: tx.id,
+                            status: 'pending_match',
+                            partial_phone: updateResult.partialPhone,
+                            unique_phones_count: updateResult.uniquePhonesCount
+                        });
+                        console.log(`[BATCH-UPDATE] 📋 Transaction ${tx.id}: pending match (${updateResult.uniquePhonesCount} phones)`);
+                    } else {
+                        results.success++;
+                        results.details.push({
+                            transaction_id: tx.id,
+                            status: 'success',
+                            method: updateResult.method,
+                            phone: updateResult.fullPhone || updateResult.qrCode,
+                            customer_name: updateResult.customerName
+                        });
+                        console.log(`[BATCH-UPDATE] ✅ Transaction ${tx.id}: ${updateResult.method}`);
+                    }
+                } else {
+                    if (updateResult.reason === 'No TPOS matches' || updateResult.note === 'NOT_FOUND_IN_TPOS') {
+                        results.not_found++;
+                        results.details.push({
+                            transaction_id: tx.id,
+                            status: 'not_found',
+                            partial_phone: updateResult.partialPhone,
+                            content: tx.content || '',
+                            reason: updateResult.reason
+                        });
+                        console.log(`[BATCH-UPDATE] ⚠️  Transaction ${tx.id}: no TPOS matches for ${updateResult.partialPhone}`);
+                    } else {
+                        results.skipped++;
+                        results.details.push({
+                            transaction_id: tx.id,
+                            status: 'skipped',
+                            content: tx.content || '',
+                            reason: updateResult.reason,
+                            note: updateResult.note
+                        });
+                        console.log(`[BATCH-UPDATE] ⊘ Transaction ${tx.id}: ${updateResult.reason}`);
+                    }
+                }
+
+            } catch (error) {
+                results.failed++;
+                results.details.push({
+                    transaction_id: tx.id,
+                    status: 'failed',
+                    error: error.message
+                });
+                console.error(`[BATCH-UPDATE] ❌ Transaction ${tx.id}:`, error.message);
+            }
+        }
+
+        console.log('[BATCH-UPDATE] Complete:', results);
+
+        res.json({
+            success: true,
+            message: `Batch update completed: ${results.success} success, ${results.pending_matches} pending matches, ${results.not_found} not found, ${results.skipped} skipped, ${results.failed} failed`,
+            data: results
+        });
+
+    } catch (error) {
+        console.error('[BATCH-UPDATE] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to batch update phones',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sepay/debt/:phone
+ * Get debt for a specific phone number
+ */
+router.get('/debt/:phone', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone } = req.params;
+
+    if (!phone) {
+        return res.status(400).json({
+            success: false,
+            error: 'Phone number is required'
+        });
+    }
+
+    try {
+        // Normalize phone to full 10-digit format (0xxxxxxxxx)
+        let normalizedPhone = phone.replace(/\D/g, '');
+        if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+            normalizedPhone = normalizedPhone.substring(2); // Remove country code 84
+        }
+        if (!normalizedPhone.startsWith('0') && normalizedPhone.length === 9) {
+            normalizedPhone = '0' + normalizedPhone; // Add leading 0
+        }
+
+        console.log(`[DEBT] Fetching debt for phone: ${phone} -> normalized: ${normalizedPhone}`);
+
+        // Query debt from balance_history by linked_customer_phone
+        const query = `
+            SELECT
+                COUNT(*) as transaction_count,
+                COALESCE(SUM(transfer_amount), 0) as total_debt
+            FROM balance_history
+            WHERE transfer_type = 'in'
+              AND linked_customer_phone = $1
+        `;
+
+        const result = await db.query(query, [normalizedPhone]);
+        const row = result.rows[0];
+
+        const debt = parseFloat(row.total_debt) || 0;
+        const transactionCount = parseInt(row.transaction_count) || 0;
+
+        console.log(`[DEBT] Phone ${normalizedPhone}: ${debt} VND (${transactionCount} transactions)`);
+
+        res.json({
+            success: true,
+            phone: normalizedPhone,
+            debt: debt,
+            transaction_count: transactionCount
+        });
+
+    } catch (error) {
+        console.error('[DEBT] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch debt',
             message: error.message
         });
     }

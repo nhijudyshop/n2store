@@ -68,7 +68,7 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-Auth-Data, X-User-Id, tposappversion, x-tpos-lang',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-Auth-Data, X-User-Id, tposappversion, x-tpos-lang, X-Page-Access-Token',
           'Access-Control-Max-Age': '86400',
         },
       });
@@ -622,26 +622,191 @@ export default {
         }
       }
 
+      // ========== DEEPSEEK AI API PROXY ==========
+      // Bypass CORS for DeepSeek API calls from browser
+      // POST /api/deepseek
+      // Body: { model, messages, max_tokens, temperature }
+      // Header: Authorization: Bearer <api_key>
+      if (pathname === '/api/deepseek' && request.method === 'POST') {
+        console.log('[DEEPSEEK] Received request to proxy DeepSeek API');
+
+        try {
+          // Get API key from header or body
+          let apiKey = request.headers.get('Authorization');
+          const body = await request.json();
+
+          // Allow API key in body as fallback
+          if (!apiKey && body.api_key) {
+            apiKey = `Bearer ${body.api_key}`;
+            delete body.api_key;
+          }
+
+          if (!apiKey) {
+            return new Response(JSON.stringify({
+              error: 'Missing Authorization header',
+              usage: 'POST /api/deepseek with Authorization: Bearer <api_key>'
+            }), {
+              status: 401,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+
+          console.log('[DEEPSEEK] Model:', body.model || 'deepseek-chat');
+
+          // Forward to DeepSeek API
+          const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': apiKey,
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify(body),
+          });
+
+          const result = await deepseekResponse.json();
+          console.log('[DEEPSEEK] Response status:', deepseekResponse.status);
+
+          return new Response(JSON.stringify(result), {
+            status: deepseekResponse.status,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+
+        } catch (error) {
+          console.error('[DEEPSEEK] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'DeepSeek proxy failed',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
+      // ========== ALPHAXIV DEEPSEEK-OCR API PROXY ==========
+      // Proxy to alphaXiv's DeepSeek-OCR for high-quality OCR
+      // POST /api/deepseek-ocr
+      // Body: FormData with 'file' field (image or PDF)
+      // Returns: OCR result from DeepSeek-OCR model
+      if (pathname === '/api/deepseek-ocr' && request.method === 'POST') {
+        console.log('[DEEPSEEK-OCR] ========================================');
+        console.log('[DEEPSEEK-OCR] Received request for DeepSeek-OCR via alphaXiv');
+
+        try {
+          // Get the form data from the request
+          const formData = await request.formData();
+          const file = formData.get('file');
+
+          if (!file) {
+            return new Response(JSON.stringify({
+              error: 'Missing file',
+              usage: 'POST /api/deepseek-ocr with FormData containing "file" field'
+            }), {
+              status: 400,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+
+          console.log('[DEEPSEEK-OCR] File name:', file.name || 'unnamed');
+          console.log('[DEEPSEEK-OCR] File size:', file.size, 'bytes');
+          console.log('[DEEPSEEK-OCR] File type:', file.type);
+
+          // Create new FormData to forward to alphaXiv
+          const forwardFormData = new FormData();
+          forwardFormData.append('file', file);
+
+          // Forward to alphaXiv DeepSeek-OCR API (Modal endpoint)
+          const requestId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+          const ocrResponse = await fetch(`https://alphaxiv--deepseek-ocr-modal-serve.modal.run/run/image?_r=${requestId}`, {
+            method: 'POST',
+            headers: {
+              'cache-control': 'no-cache, no-store',
+              'pragma': 'no-cache',
+              'x-request-id': requestId,
+              'Referer': 'https://alphaxiv.github.io/',
+            },
+            body: forwardFormData,
+          });
+
+          console.log('[DEEPSEEK-OCR] alphaXiv response status:', ocrResponse.status);
+
+          // Get the response
+          const result = await ocrResponse.text();
+          let parsedResult;
+
+          try {
+            parsedResult = JSON.parse(result);
+          } catch {
+            // If not JSON, wrap the text result
+            parsedResult = { text: result, raw: true };
+          }
+
+          console.log('[DEEPSEEK-OCR] ========================================');
+
+          return new Response(JSON.stringify(parsedResult), {
+            status: ocrResponse.status,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+
+        } catch (error) {
+          console.error('[DEEPSEEK-OCR] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'DeepSeek-OCR proxy failed',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== FACEBOOK GRAPH API - SEND MESSAGE WITH TAG ==========
       // For sending messages outside 24h window using POST_PURCHASE_UPDATE tag
       // POST /api/facebook-send
-      // Body: { pageId, psid, message, pageToken, useTag: true }
+      // Body: { pageId, psid, message, pageToken, useTag: true, recipient: {...} }
+      // Supports both PSID direct send and CommentID Private Reply
       if (pathname === '/api/facebook-send' && request.method === 'POST') {
         console.log('[FACEBOOK-SEND] ========================================');
         console.log('[FACEBOOK-SEND] Received request to send message via Facebook Graph API');
 
         try {
           const body = await request.json();
-          const { pageId, psid, message, pageToken, useTag, imageUrls } = body;
+          // Support recipient object (for Private Reply with comment_id)
+          let { pageId, psid, message, pageToken, useTag, imageUrls, recipient } = body;
 
-          // Validate required fields
-          if (!pageId || !psid || !pageToken) {
-            console.error('[FACEBOOK-SEND] Missing required fields:', { pageId: !!pageId, psid: !!psid, pageToken: !!pageToken });
+          // Fallback: Get token from header if not in body
+          if (!pageToken) {
+            pageToken = request.headers.get('X-Page-Access-Token');
+          }
+
+          // Validate required fields (psid OR recipient required)
+          if (!pageId || (!psid && !recipient) || !pageToken) {
+            console.error('[FACEBOOK-SEND] Missing required fields:', { pageId: !!pageId, psid: !!psid, recipient: !!recipient, pageToken: !!pageToken });
             return new Response(JSON.stringify({
               success: false,
               error: 'Missing required fields',
-              required: ['pageId', 'psid', 'pageToken'],
-              usage: 'POST /api/facebook-send with JSON body { pageId, psid, message, pageToken, useTag: true, imageUrls: [] }'
+              required: ['pageId', 'psid OR recipient', 'pageToken'],
+              usage: 'POST /api/facebook-send with JSON body { pageId, psid, message, pageToken }'
             }), {
               status: 400,
               headers: {
@@ -664,7 +829,7 @@ export default {
             console.log('[FACEBOOK-SEND] Sending', imageUrls.length, 'images...');
             for (const imageUrl of imageUrls) {
               const imageFbBody = {
-                recipient: { id: psid },
+                recipient: recipient || { id: psid },
                 message: {
                   attachment: {
                     type: 'image',
@@ -676,11 +841,11 @@ export default {
                 }
               };
 
-              // Add message tag for 24h bypass
+              // Add message tag for 24h bypass (not for Private Reply)
               if (useTag) {
                 imageFbBody.messaging_type = 'MESSAGE_TAG';
                 imageFbBody.tag = 'POST_PURCHASE_UPDATE';
-              } else {
+              } else if (!recipient?.comment_id) {
                 imageFbBody.messaging_type = 'RESPONSE';
               }
 
@@ -720,20 +885,24 @@ export default {
           }
 
           // Send text message (if provided)
-          if (message && message.trim()) {
+          // Handle both string message and object message (for passthrough)
+          const hasTextMessage = message && (typeof message === 'string' ? message.trim() : message.text);
+          if (hasTextMessage) {
             const textFbBody = {
-              recipient: { id: psid },
-              message: { text: message },
+              recipient: recipient || { id: psid },
+              message: typeof message === 'object' ? message : { text: message },
             };
 
-            // Add message tag for 24h bypass
+            // Add message tag for 24h bypass (not for Private Reply)
             if (useTag) {
               textFbBody.messaging_type = 'MESSAGE_TAG';
               textFbBody.tag = 'POST_PURCHASE_UPDATE';
               console.log('[FACEBOOK-SEND] Using MESSAGE_TAG with POST_PURCHASE_UPDATE');
-            } else {
+            } else if (!recipient?.comment_id) {
               textFbBody.messaging_type = 'RESPONSE';
               console.log('[FACEBOOK-SEND] Using standard RESPONSE messaging_type');
+            } else {
+              console.log('[FACEBOOK-SEND] Using Private Reply (comment_id)');
             }
 
             console.log('[FACEBOOK-SEND] Sending text message');
@@ -930,6 +1099,135 @@ export default {
         }
       }
 
+      // ========== TPOS PRODUCT EXCEL EXPORT V2 (ExportProductV2) ==========
+      // POST /api/Product/ExportProductV2
+      // Headers theo request thành công từ tomato.tpos.vn (hình user gửi)
+      if (pathname === '/api/Product/ExportProductV2' && request.method === 'POST') {
+        // Extract query params (e.g., ?Active=true)
+        const queryParams = url.search || '?Active=true';
+        const targetUrl = `https://tomato.tpos.vn/Product/ExportProductV2${queryParams}`;
+
+        console.log('[TPOS-EXPORT-PRODUCT-V2] ========================================');
+        console.log('[TPOS-EXPORT-PRODUCT-V2] Proxying to TPOS:', targetUrl);
+
+        // Build headers giống request thành công (từ hình)
+        const tposHeaders = new Headers();
+
+        // Copy Authorization header from original request
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          tposHeaders.set('Authorization', authHeader);
+        }
+
+        // Set headers theo request thành công
+        tposHeaders.set('Content-Type', 'application/json');
+        tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
+        tposHeaders.set('sec-ch-ua', '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"');
+        tposHeaders.set('sec-ch-ua-mobile', '?0');
+        tposHeaders.set('sec-ch-ua-platform', '"macOS"');
+        tposHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+
+        try {
+          const tposResponse = await fetch(targetUrl, {
+            method: 'POST',
+            headers: tposHeaders,
+            body: await request.text(),
+          });
+
+          console.log('[TPOS-EXPORT-PRODUCT-V2] TPOS Response status:', tposResponse.status);
+          console.log('[TPOS-EXPORT-PRODUCT-V2] Content-Type:', tposResponse.headers.get('Content-Type'));
+          console.log('[TPOS-EXPORT-PRODUCT-V2] ========================================');
+
+          // Clone response and add CORS headers
+          const newResponse = new Response(tposResponse.body, tposResponse);
+          newResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+          newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+
+          return newResponse;
+
+        } catch (error) {
+          console.error('[TPOS-EXPORT-PRODUCT-V2] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Failed to fetch product Excel from TPOS',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
+      // ========== TPOS PRODUCT EXCEL EXPORT (Standard Price V2 - Giá mua/vốn) ==========
+      // POST /api/Product/ExportFileWithStandardPriceV2
+      // Cần headers đặc biệt giống như request trực tiếp từ tomato.tpos.vn
+      if (pathname === '/api/Product/ExportFileWithStandardPriceV2' && request.method === 'POST') {
+        const targetUrl = 'https://tomato.tpos.vn/Product/ExportFileWithStandardPriceV2';
+
+        console.log('[TPOS-EXCEL-STANDARD-PRICE] ========================================');
+        console.log('[TPOS-EXCEL-STANDARD-PRICE] Proxying to TPOS:', targetUrl);
+
+        // Build headers giống 100% như request từ browser trên tomato.tpos.vn
+        const tposHeaders = new Headers();
+
+        // Copy Authorization header from original request
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          tposHeaders.set('Authorization', authHeader);
+        }
+
+        // Set headers giống như browser request trực tiếp
+        tposHeaders.set('Accept', '*/*');
+        tposHeaders.set('Accept-Language', 'vi-VN,vi;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6,en;q=0.5');
+        tposHeaders.set('Content-Type', 'application/json');
+        tposHeaders.set('Cache-Control', 'no-cache');
+        tposHeaders.set('Pragma', 'no-cache');
+        tposHeaders.set('Origin', 'https://tomato.tpos.vn');
+        tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
+        tposHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
+        tposHeaders.set('sec-ch-ua', '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"');
+        tposHeaders.set('sec-ch-ua-mobile', '?0');
+        tposHeaders.set('sec-ch-ua-platform', '"Windows"');
+        tposHeaders.set('sec-fetch-dest', 'empty');
+        tposHeaders.set('sec-fetch-mode', 'cors');
+        tposHeaders.set('sec-fetch-site', 'same-origin');
+
+        try {
+          const tposResponse = await fetch(targetUrl, {
+            method: 'POST',
+            headers: tposHeaders,
+            body: await request.text(),
+          });
+
+          console.log('[TPOS-EXCEL-STANDARD-PRICE] TPOS Response status:', tposResponse.status);
+          console.log('[TPOS-EXCEL-STANDARD-PRICE] ========================================');
+
+          // Clone response and add CORS headers
+          const newResponse = new Response(tposResponse.body, tposResponse);
+          newResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+          newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+
+          return newResponse;
+
+        } catch (error) {
+          console.error('[TPOS-EXCEL-STANDARD-PRICE] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Failed to fetch standard price Excel from TPOS',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
       let isTPOSRequest = false;
@@ -955,6 +1253,86 @@ export default {
         // Customers API (Render) - PostgreSQL backend
         const customersPath = pathname.replace(/^\/api\/customers\/?/, '');
         targetUrl = `https://n2store-fallback.onrender.com/api/customers/${customersPath}${url.search}`;
+      } else if (pathname.match(/^\/tpos\/order\/(\d+)\/lines$/)) {
+        // ========== TPOS ORDER LINES (OData API) ==========
+        // Example: /tpos/order/409233/lines
+        // Forwards to: https://tomato.tpos.vn/odata/FastSaleOrder(409233)/OrderLines?$expand=Product,ProductUOM
+        const orderId = pathname.match(/^\/tpos\/order\/(\d+)\/lines$/)[1];
+
+        console.log('[TPOS-ORDER-LINES] Fetching OrderLines for order:', orderId);
+
+        try {
+          // Get or fetch TPOS token
+          let token = getCachedToken()?.access_token;
+
+          if (!token) {
+            console.log('[TPOS-ORDER-LINES] No cached token, fetching new one...');
+            const tokenResponse = await fetch('https://tomato.tpos.vn/token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: 'grant_type=password&username=nvkt&password=Aa@123456789&client_id=tmtWebApp',
+            });
+
+            if (!tokenResponse.ok) {
+              throw new Error('Failed to get TPOS token');
+            }
+
+            const tokenData = await tokenResponse.json();
+            cacheToken(tokenData);
+            token = tokenData.access_token;
+          }
+
+          // Fetch OrderLines from TPOS OData API
+          const odataUrl = `https://tomato.tpos.vn/odata/FastSaleOrder(${orderId})/OrderLines?$expand=Product,ProductUOM,Account,SaleLine,User`;
+
+          const odataResponse = await fetch(odataUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': '*/*',
+              'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache',
+              'tposappversion': '5.12.29.1',
+              'X-Requested-With': 'XMLHttpRequest',
+              'Referer': 'https://tomato.tpos.vn/',
+              'Origin': 'https://tomato.tpos.vn'
+            },
+          });
+
+          if (!odataResponse.ok) {
+            throw new Error(`TPOS API error: ${odataResponse.status}`);
+          }
+
+          const odataResult = await odataResponse.json();
+
+          return new Response(JSON.stringify({
+            success: true,
+            data: odataResult.value || []
+          }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+
+        } catch (error) {
+          console.error('[TPOS-ORDER-LINES] Error:', error);
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
       } else if (pathname.startsWith('/api/rest/')) {
         // ========== TPOS REST API v2.0 (Live Comments, etc.) ==========
         // Example: /api/rest/v2.0/facebookpost/{objectId}/commentsbyuser?userId={userId}

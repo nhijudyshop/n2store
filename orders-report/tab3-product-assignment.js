@@ -5093,4 +5093,1218 @@
         }
     }
 
+    // #region ═══════════════════════════════════════════════════════════════════
+    // ║                 SECTION 12: PRODUCT REMOVAL FEATURE                     ║
+    // ║                         search: #REMOVAL                                ║
+    // #endregion ════════════════════════════════════════════════════════════════
+
+    // ===================================================================
+    // REMOVAL STATE
+    // ===================================================================
+    let removals = [];  // Array of removal items
+    let removalUploadData = {};  // Compiled data for execution
+    let currentRemovalViewMode = 'product';  // 'product' or 'order'
+    let selectedRemovalSTTs = new Set();  // Selected STTs for removal
+
+    // ===================================================================
+    // MODAL CONTROLS
+    // ===================================================================
+    window.openRemoveProductModal = function() {
+        const modalEl = document.getElementById('removeProductModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        // Load removals from storage
+        loadRemovals();
+        renderRemovalTable();
+    };
+
+    window.closeRemoveProductModal = function() {
+        const modalEl = document.getElementById('removeProductModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+    };
+
+    // ===================================================================
+    // PRODUCT SEARCH FOR REMOVAL - CLONE 100% FROM MAIN UI
+    // ===================================================================
+    // Wrap in DOMContentLoaded to ensure modal HTML exists
+    document.addEventListener('DOMContentLoaded', function() {
+        // Product Search Input Handler (GIỐNG Y HỆT line 1571-1587)
+        const removalSearchInput = document.getElementById('removalProductSearch');
+        if (removalSearchInput) {
+            removalSearchInput.addEventListener('input', (e) => {
+                const searchText = e.target.value.trim();
+
+                if (searchText.length >= 2) {
+                    if (productsData.length === 0) {
+                        loadProductsData().then(() => {
+                            const results = searchProducts(searchText);
+                            displayRemovalProductSuggestions(results);
+                        });
+                    } else {
+                        const results = searchProducts(searchText);
+                        displayRemovalProductSuggestions(results);
+                    }
+                } else {
+                    const suggestionsEl = document.getElementById('removalProductSuggestions');
+                    if (suggestionsEl) {
+                        suggestionsEl.classList.remove('show');
+                    }
+                }
+            });
+        }
+
+        // Close suggestions when clicking outside (GIỐNG Y HỆT line 1590-1594)
+        document.addEventListener('click', (e) => {
+            const removalModal = document.getElementById('removeProductModal');
+            if (removalModal && removalModal.classList.contains('show')) {
+                if (!e.target.closest('#removeProductModal .search-wrapper')) {
+                    const suggestionsEl = document.getElementById('removalProductSuggestions');
+                    if (suggestionsEl) {
+                        suggestionsEl.classList.remove('show');
+                    }
+                }
+            }
+        });
+    });
+
+    // ===================================================================
+    // STORAGE FUNCTIONS
+    // ===================================================================
+    function saveRemovals(immediate = false) {
+        const saveAction = () => {
+            try {
+                // Save to localStorage
+                localStorage.setItem('productRemovals', JSON.stringify({
+                    removals: removals,
+                    _timestamp: Date.now(),
+                    _version: 1
+                }));
+
+                // Save to Firebase
+                const user = firebase.auth().currentUser;
+                if (user) {
+                    database.ref(`productRemovals/${user.uid}`).set({
+                        removals: removals,
+                        _timestamp: Date.now()
+                    });
+                }
+            } catch (error) {
+                console.error('[REMOVAL-SAVE] Error:', error);
+            }
+        };
+
+        if (immediate) {
+            if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+            saveAction();
+        } else {
+            if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+            saveDebounceTimer = setTimeout(saveAction, 500);
+        }
+    }
+
+    function loadRemovals() {
+        try {
+            const saved = localStorage.getItem('productRemovals');
+            if (saved) {
+                const data = JSON.parse(saved);
+                removals = data.removals || [];
+                console.log('[REMOVAL-LOAD] Loaded', removals.length, 'removals from localStorage');
+            }
+        } catch (error) {
+            console.error('[REMOVAL-LOAD] Error:', error);
+            removals = [];
+        }
+    }
+
+    // ===================================================================
+    // DISPLAY REMOVAL PRODUCT SUGGESTIONS - CLONE 100% FROM LINE 545-570
+    // ===================================================================
+    function displayRemovalProductSuggestions(suggestions) {
+        const suggestionsDiv = document.getElementById('removalProductSuggestions');
+
+        if (suggestions.length === 0) {
+            suggestionsDiv.classList.remove('show');
+            return;
+        }
+
+        suggestionsDiv.innerHTML = suggestions.map(product => `
+            <div class="suggestion-item" data-id="${product.id}">
+                <span class="product-code">${product.code || 'N/A'}</span>
+                <span class="product-name">${product.name}</span>
+            </div>
+        `).join('');
+
+        suggestionsDiv.classList.add('show');
+
+        suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const productId = item.dataset.id;
+                await addProductToRemoval(productId);
+                suggestionsDiv.classList.remove('show');
+                document.getElementById('removalProductSearch').value = '';
+            });
+        });
+    }
+
+    // ===================================================================
+    // ADD PRODUCT TO REMOVAL - CLONE 100% FROM addProductToAssignment (line 624-760)
+    // ===================================================================
+    async function addProductToRemoval(productId) {
+        try {
+            // Load product details (GIỐNG Y HỆT line 627-635)
+            const response = await authenticatedFetch(
+                `${API_CONFIG.WORKER_URL}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
+            );
+
+            if (!response.ok) {
+                throw new Error('Không thể tải thông tin sản phẩm');
+            }
+
+            const productData = await response.json();
+            let imageUrl = productData.ImageUrl;
+            let templateData = null;
+
+            // Load template to get image and variants (GIỐNG Y HỆT line 640-655)
+            if (productData.ProductTmplId) {
+                try {
+                    const templateResponse = await authenticatedFetch(
+                        `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
+                    );
+
+                    if (templateResponse.ok) {
+                        templateData = await templateResponse.json();
+                        if (!imageUrl) {
+                            imageUrl = templateData.ImageUrl;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading template:', error);
+                }
+            }
+
+            // Check if auto-add variants is enabled and variants exist (GIỐNG Y HỆT line 658-760)
+            if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
+                // Filter only active variants (Active === true)
+                const activeVariants = templateData.ProductVariants.filter(v => v.Active === true);
+
+                // Sort variants
+                const sortedVariants = sortVariants(activeVariants);
+
+                // Check if there are active variants after filtering
+                if (sortedVariants.length === 0) {
+                    // No active variants, fallback to single product
+                    const existingIndex = removals.findIndex(a => a.productId === productData.Id);
+                    if (existingIndex !== -1) {
+                        showNotification('Sản phẩm đã có trong danh sách', 'error');
+                        return;
+                    }
+
+                    // Add single product to removals
+                    const productCode = extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '';
+                    const removal = {
+                        id: Date.now(),
+                        productId: productData.Id,
+                        productName: productData.NameGet,
+                        productCode: productCode,
+                        imageUrl: imageUrl,
+                        sttList: []
+                    };
+
+                    removals.push(removal);
+                    saveRemovals();
+                    renderRemovalTable();
+                    showNotification('Đã thêm sản phẩm vào danh sách');
+                    return;
+                }
+
+                // Add all variants to removals
+                let addedCount = 0;
+                let skippedCount = 0;
+
+                for (const variant of sortedVariants) {
+                    // Check if variant already in removals
+                    const existingIndex = removals.findIndex(a => a.productId === variant.Id);
+                    if (existingIndex !== -1) {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    const variantImageUrl = variant.ImageUrl || imageUrl;
+                    const productCode = extractProductCode(variant.NameGet) || variant.DefaultCode || variant.Barcode || '';
+
+                    const removal = {
+                        id: Date.now() + addedCount,
+                        productId: variant.Id,
+                        productName: variant.NameGet,
+                        productCode: productCode,
+                        imageUrl: variantImageUrl,
+                        sttList: []
+                    };
+
+                    removals.push(removal);
+                    addedCount++;
+                }
+
+                saveRemovals();
+                renderRemovalTable();
+
+                if (addedCount > 0) {
+                    showNotification(`Đã thêm ${addedCount} biến thể${skippedCount > 0 ? ` (${skippedCount} đã tồn tại)` : ''}`);
+                } else if (skippedCount > 0) {
+                    showNotification('Tất cả biến thể đã có trong danh sách', 'error');
+                }
+            } else {
+                // No auto-add variants or no variants - add single product
+                const existingIndex = removals.findIndex(a => a.productId === productData.Id);
+                if (existingIndex !== -1) {
+                    showNotification('Sản phẩm đã có trong danh sách', 'error');
+                    return;
+                }
+
+                const productCode = extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '';
+                const removal = {
+                    id: Date.now(),
+                    productId: productData.Id,
+                    productName: productData.NameGet,
+                    productCode: productCode,
+                    imageUrl: imageUrl,
+                    sttList: []
+                };
+
+                removals.push(removal);
+                saveRemovals();
+                renderRemovalTable();
+                showNotification('Đã thêm sản phẩm vào danh sách');
+            }
+
+        } catch (error) {
+            console.error('Error adding product to removal:', error);
+            showNotification('Lỗi: ' + error.message, 'error');
+        }
+    }
+
+    // ===================================================================
+    // RENDER REMOVAL TABLE
+    // ===================================================================
+    function renderRemovalTable() {
+        const tbody = document.getElementById('removalTableBody');
+        const countEl = document.getElementById('removalCount');
+
+        if (!removals || removals.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-2"></i>
+                        <p class="mb-0">Chưa có sản phẩm nào</p>
+                        <small>Vui lòng tìm kiếm và thêm sản phẩm cần gỡ</small>
+                    </td>
+                </tr>
+            `;
+            countEl.textContent = '0';
+            return;
+        }
+
+        let html = '';
+        removals.forEach(removal => {
+            const sttCount = removal.sttList ? removal.sttList.length : 0;
+            const totalQty = removal.sttList ? removal.sttList.reduce((sum, item) => {
+                return sum + (item.currentProductDetails?.currentQuantity || 0);
+            }, 0) : 0;
+
+            html += `
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            ${removal.imageUrl ? `<img src="${removal.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
+                            <div>
+                                <div style="font-weight:600;">${removal.productName}</div>
+                                <div style="font-size:12px;color:#6b7280;">${removal.productCode}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        ${sttCount > 0 ? `
+                            <div class="d-flex flex-wrap gap-1">
+                                ${removal.sttList.map((item, index) => `
+                                    <span class="badge bg-secondary position-relative">
+                                        ${item.stt}
+                                        <button type="button" class="btn-close btn-close-white ms-1"
+                                            style="font-size:8px;vertical-align:middle;"
+                                            onclick="removeSTTFromRemoval(${removal.id}, ${index})"
+                                            title="Xóa STT này"></button>
+                                    </span>
+                                `).join('')}
+                            </div>
+                            <div class="mt-2">
+                                <input type="text" class="form-control form-control-sm"
+                                    placeholder="Nhập STT để thêm..."
+                                    onkeypress="if(event.key==='Enter'){addSTTToRemoval(${removal.id}, this.value); this.value='';}"
+                                    style="max-width:200px;">
+                            </div>
+                        ` : `
+                            <input type="text" class="form-control form-control-sm"
+                                placeholder="Nhập STT để thêm..."
+                                onkeypress="if(event.key==='Enter'){addSTTToRemoval(${removal.id}, this.value); this.value='';}"
+                                style="max-width:200px;">
+                        `}
+                    </td>
+                    <td class="text-center">
+                        ${sttCount > 0 ? `<span class="badge bg-info">${totalQty}</span>` : '-'}
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeProductFromRemovalList(${removal.id})" title="Xóa sản phẩm">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        countEl.textContent = removals.length;
+    }
+
+    // ===================================================================
+    // ADD STT TO REMOVAL
+    // ===================================================================
+    window.addSTTToRemoval = async function(removalId, stt) {
+        if (!stt || !stt.trim()) return;
+
+        stt = stt.trim();
+
+        try {
+            const removal = removals.find(r => r.id === removalId);
+            if (!removal) {
+                showNotification('❌ Không tìm thấy sản phẩm', 'error');
+                return;
+            }
+
+            // Check if STT already exists
+            if (removal.sttList.some(item => item.stt === stt)) {
+                showNotification('⚠️ STT đã tồn tại', 'warning');
+                return;
+            }
+
+            // Find order by STT (try ordersData first, then fetch directly)
+            let order = ordersData.find(o => String(o.STT) === String(stt));
+            let orderId = null;
+
+            if (!order) {
+                // If not in ordersData, try fetching directly by STT
+                console.log(`[ADD-STT-REMOVAL] Order ${stt} not in cache, fetching by STT...`);
+                try {
+                    const sttSearchResponse = await authenticatedFetch(
+                        `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order?$filter=STT eq '${stt}'`
+                    );
+                    if (sttSearchResponse.ok) {
+                        const sttSearchData = await sttSearchResponse.json();
+                        if (sttSearchData.value && sttSearchData.value.length > 0) {
+                            orderId = sttSearchData.value[0].Id;
+                            console.log(`[ADD-STT-REMOVAL] Found order ID ${orderId} for STT ${stt}`);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[ADD-STT-REMOVAL] Error searching by STT:', err);
+                }
+
+                if (!orderId) {
+                    showNotification(`⚠️ Không tìm thấy đơn hàng ${stt}`, 'warning');
+                    return;
+                }
+            } else {
+                orderId = order.Id;
+            }
+
+            // Fetch full order details with products
+            const response = await authenticatedFetch(
+                `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product)`
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch order');
+            }
+
+            const orderData = await response.json();
+
+            // Find product in order details
+            const productInOrder = orderData.Details?.find(d => d.ProductId === removal.productId);
+
+            // Add to sttList
+            removal.sttList.push({
+                stt: stt,
+                orderId: orderId,
+                orderInfo: {
+                    CustomerName: orderData.CustomerName || 'N/A',
+                    Mobile: orderData.Mobile || '',
+                    TotalAmount: orderData.TotalAmount || 0
+                },
+                currentProductDetails: productInOrder ? {
+                    currentQuantity: productInOrder.Quantity || 0,
+                    unitPrice: productInOrder.Price || 0,
+                    detailId: productInOrder.Id,
+                    canRemove: true
+                } : {
+                    canRemove: false,
+                    reason: 'Sản phẩm không có trong đơn'
+                }
+            });
+
+            saveRemovals();
+            renderRemovalTable();
+
+            if (!productInOrder) {
+                showNotification(`⚠️ Đã thêm STT ${stt} nhưng sản phẩm không có trong đơn (sẽ bỏ qua khi gỡ)`, 'warning');
+            } else {
+                showNotification(`✅ Đã thêm STT ${stt} (SL hiện tại: ${productInOrder.Quantity})`, 'success');
+            }
+
+        } catch (error) {
+            console.error('[ADD-STT-REMOVAL] Error:', error);
+            showNotification('❌ Lỗi: ' + error.message, 'error');
+        }
+    };
+
+    // ===================================================================
+    // REMOVE STT FROM REMOVAL
+    // ===================================================================
+    window.removeSTTFromRemoval = function(removalId, index) {
+        const removal = removals.find(r => r.id === removalId);
+        if (!removal || !removal.sttList) return;
+
+        const stt = removal.sttList[index].stt;
+        removal.sttList.splice(index, 1);
+
+        saveRemovals(true);
+        renderRemovalTable();
+        showNotification(`🗑️ Đã xóa STT ${stt}`, 'success');
+    };
+
+    // ===================================================================
+    // REMOVE PRODUCT FROM REMOVAL LIST
+    // ===================================================================
+    window.removeProductFromRemovalList = function(removalId) {
+        if (!confirm('Bạn có chắc muốn xóa sản phẩm này khỏi danh sách gỡ?')) return;
+
+        removals = removals.filter(r => r.id !== removalId);
+        saveRemovals(true);
+        renderRemovalTable();
+        showNotification('✅ Đã xóa sản phẩm', 'success');
+    };
+
+    // ===================================================================
+    // CLEAR ALL REMOVALS
+    // ===================================================================
+    window.clearAllRemovals = function() {
+        if (!confirm('Bạn có chắc muốn xóa tất cả sản phẩm trong danh sách gỡ?')) return;
+
+        removals = [];
+        saveRemovals(true);
+        renderRemovalTable();
+        showNotification('✅ Đã xóa tất cả', 'success');
+    };
+
+    // ===================================================================
+    // BUILD REMOVAL DATA
+    // ===================================================================
+    function buildRemovalData() {
+        removalUploadData = {};
+
+        removals.forEach(removal => {
+            if (!removal.sttList) return;
+
+            removal.sttList.forEach(sttItem => {
+                const stt = sttItem.stt;
+
+                if (!removalUploadData[stt]) {
+                    removalUploadData[stt] = {
+                        stt: stt,
+                        orderId: sttItem.orderId,
+                        orderInfo: sttItem.orderInfo,
+                        products: []
+                    };
+                }
+
+                const current = sttItem.currentProductDetails?.currentQuantity || 0;
+                const after = current > 1 ? current - 1 : 0;
+
+                removalUploadData[stt].products.push({
+                    productId: removal.productId,
+                    productName: removal.productName,
+                    productCode: removal.productCode,
+                    imageUrl: removal.imageUrl,
+                    currentQuantity: current,
+                    removeQuantity: 1,
+                    afterQuantity: after,
+                    action: after === 0 ? 'remove' : 'decrease',
+                    canRemove: sttItem.currentProductDetails?.canRemove || false,
+                    skipReason: sttItem.currentProductDetails?.reason || null
+                });
+            });
+        });
+
+        console.log('[BUILD-REMOVAL-DATA]', removalUploadData);
+    }
+
+    // ===================================================================
+    // PREVIEW REMOVAL
+    // ===================================================================
+    window.previewRemoval = function() {
+        buildRemovalData();
+
+        const stts = Object.keys(removalUploadData);
+        if (stts.length === 0) {
+            showNotification('⚠️ Chưa có sản phẩm nào để gỡ', 'warning');
+            return;
+        }
+
+        // Show preview card
+        document.getElementById('removalPreviewCard').style.display = 'block';
+        document.getElementById('executeRemovalBtn').style.display = 'inline-block';
+
+        // Initialize selected STTs
+        selectedRemovalSTTs = new Set(stts);
+
+        // Render preview
+        renderRemovalPreview();
+    };
+
+    window.switchRemovalViewMode = function(mode) {
+        currentRemovalViewMode = mode;
+
+        // Update button states
+        document.getElementById('removalViewByProduct').classList.toggle('active', mode === 'product');
+        document.getElementById('removalViewByOrder').classList.toggle('active', mode === 'order');
+
+        renderRemovalPreview();
+    };
+
+    function renderRemovalPreview() {
+        const previewArea = document.getElementById('removalPreviewArea');
+        const stts = Array.from(selectedRemovalSTTs);
+
+        let html = '';
+
+        if (currentRemovalViewMode === 'order') {
+            // View by order
+            stts.forEach(stt => {
+                const data = removalUploadData[stt];
+                if (!data) return;
+
+                const canRemoveCount = data.products.filter(p => p.canRemove).length;
+                const skipCount = data.products.filter(p => !p.canRemove).length;
+
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <div>
+                                <input type="checkbox" class="form-check-input me-2"
+                                    ${selectedRemovalSTTs.has(stt) ? 'checked' : ''}
+                                    onchange="toggleRemovalSTT('${stt}', this.checked)">
+                                <strong>STT: ${stt}</strong>
+                                <span class="text-muted ms-2">${data.orderInfo.CustomerName}</span>
+                            </div>
+                            <span class="badge ${skipCount > 0 ? 'bg-warning' : 'bg-success'}">${canRemoveCount} sản phẩm</span>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm table-bordered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Sản phẩm</th>
+                                        <th class="text-center">SL Hiện tại</th>
+                                        <th class="text-center">Gỡ</th>
+                                        <th class="text-center">Còn lại</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.products.map(p => {
+                                        const statusIcon = p.canRemove ? '✅' : '⚠️';
+                                        const statusText = p.canRemove
+                                            ? (p.action === 'remove' ? 'Xóa hoàn toàn' : 'Giảm số lượng')
+                                            : (p.skipReason || 'Bỏ qua');
+                                        const rowClass = p.canRemove ? '' : 'table-warning';
+
+                                        return `
+                                            <tr class="${rowClass}">
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:30px;height:30px;object-fit:cover;border-radius:4px;">` : '📦'}
+                                                        <div>
+                                                            <div style="font-size:13px;font-weight:600;">${p.productName}</div>
+                                                            <div style="font-size:11px;color:#666;">${p.productCode}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center"><strong>${p.currentQuantity}</strong></td>
+                                                <td class="text-center text-danger"><strong>-1</strong></td>
+                                                <td class="text-center"><strong>${p.afterQuantity}</strong></td>
+                                                <td><small>${statusIcon} ${statusText}</small></td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            // View by product
+            const productGroups = {};
+
+            stts.forEach(stt => {
+                const data = removalUploadData[stt];
+                if (!data) return;
+
+                data.products.forEach(p => {
+                    if (!productGroups[p.productId]) {
+                        productGroups[p.productId] = {
+                            product: p,
+                            stts: []
+                        };
+                    }
+                    productGroups[p.productId].stts.push({
+                        stt: stt,
+                        ...p
+                    });
+                });
+            });
+
+            Object.values(productGroups).forEach(group => {
+                const p = group.product;
+                const canRemoveCount = group.stts.filter(s => s.canRemove).length;
+                const totalQty = group.stts.reduce((sum, s) => sum + s.currentQuantity, 0);
+
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="d-flex align-items-center gap-2">
+                                ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
+                                <div>
+                                    <strong>${p.productName}</strong>
+                                    <div class="text-muted" style="font-size:12px;">${p.productCode}</div>
+                                </div>
+                                <span class="badge bg-info ms-auto">${group.stts.length} đơn</span>
+                                <span class="badge bg-secondary">Tổng SL: ${totalQty}</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm table-bordered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>STT</th>
+                                        <th>Khách hàng</th>
+                                        <th class="text-center">SL Hiện tại</th>
+                                        <th class="text-center">Sau khi gỡ</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${group.stts.map(s => {
+                                        const orderInfo = removalUploadData[s.stt].orderInfo;
+                                        const statusIcon = s.canRemove ? '✅' : '⚠️';
+                                        const statusText = s.canRemove
+                                            ? (s.action === 'remove' ? 'Xóa' : 'Giảm')
+                                            : 'Bỏ qua';
+                                        const rowClass = s.canRemove ? '' : 'table-warning';
+
+                                        return `
+                                            <tr class="${rowClass}">
+                                                <td><strong>${s.stt}</strong></td>
+                                                <td>${orderInfo.CustomerName}</td>
+                                                <td class="text-center">${s.currentQuantity}</td>
+                                                <td class="text-center">${s.afterQuantity}</td>
+                                                <td><small>${statusIcon} ${statusText}</small></td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        previewArea.innerHTML = html || '<div class="alert alert-warning">Không có dữ liệu</div>';
+
+        // Update selection summary
+        document.getElementById('removalSelectionSummary').style.display = 'block';
+        document.getElementById('removalSelectedCount').textContent = selectedRemovalSTTs.size;
+    }
+
+    window.toggleRemovalSTT = function(stt, checked) {
+        if (checked) {
+            selectedRemovalSTTs.add(stt);
+        } else {
+            selectedRemovalSTTs.delete(stt);
+        }
+        renderRemovalPreview();
+    };
+
+    // ===================================================================
+    // EXECUTE REMOVAL - MAIN FUNCTION
+    // ===================================================================
+    window.executeRemoval = async function() {
+        const stts = Array.from(selectedRemovalSTTs);
+
+        if (stts.length === 0) {
+            showNotification('⚠️ Vui lòng chọn ít nhất 1 STT để gỡ sản phẩm', 'warning');
+            return;
+        }
+
+        const confirmMsg = `Bạn có chắc muốn gỡ sản phẩm khỏi ${stts.length} đơn hàng?\n\nLưu ý: Thao tác này không thể hoàn tác!`;
+        if (!confirm(confirmMsg)) return;
+
+        // Show progress modal
+        const progressModal = new bootstrap.Modal(document.getElementById('removalProgressModal'));
+        progressModal.show();
+
+        let results = {
+            success: [],
+            failed: [],
+            skipped: []
+        };
+
+        // Process each STT
+        for (let i = 0; i < stts.length; i++) {
+            const stt = stts[i];
+
+            document.getElementById('removalProgressText').textContent = `Đang gỡ sản phẩm khỏi STT ${stt}...`;
+            document.getElementById('removalProgressDetail').textContent = `${i + 1} / ${stts.length}`;
+
+            const result = await removeSingleSTT(stt);
+
+            if (result.success) {
+                results.success.push(result);
+            } else {
+                results.failed.push(result);
+            }
+
+            if (result.skippedProducts && result.skippedProducts.length > 0) {
+                results.skipped.push(...result.skippedProducts.map(p => ({
+                    stt: stt,
+                    ...p
+                })));
+            }
+        }
+
+        // Hide progress modal
+        progressModal.hide();
+
+        // Show results
+        showRemovalResults(results);
+
+        // Save to history
+        await saveRemovalHistory({
+            timestamp: Date.now(),
+            results: results,
+            totalSTTs: stts.length,
+            successCount: results.success.length,
+            failedCount: results.failed.length,
+            skippedCount: results.skipped.length
+        });
+
+        // Remove successful STTs from removals
+        if (results.success.length > 0) {
+            removeProcessedSTTsFromRemovals(results.success.map(r => r.stt));
+        }
+
+        // Refresh table
+        renderRemovalTable();
+    };
+
+    // ===================================================================
+    // REMOVE SINGLE STT - CORE LOGIC
+    // ===================================================================
+    async function removeSingleSTT(stt) {
+        try {
+            const sessionData = removalUploadData[stt];
+            if (!sessionData) {
+                throw new Error('STT data not found');
+            }
+
+            const orderId = sessionData.orderId;
+            if (!orderId) {
+                throw new Error('No order ID for this STT');
+            }
+
+            console.log(`[REMOVAL] 📡 Fetching order ${orderId} for STT ${stt}...`);
+
+            // Fetch current order data using authenticatedFetch
+            const response = await authenticatedFetch(
+                `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch order ${orderId}: ${response.status}`);
+            }
+
+            const orderData = await response.json();
+            console.log(`[REMOVAL] ✅ Fetched order data for STT ${stt}`);
+
+            // Process each product to remove
+            let removedProducts = [];
+            let skippedProducts = [];
+            let totalQuantityChange = 0;
+
+            for (const product of sessionData.products) {
+                // Skip if cannot remove
+                if (!product.canRemove) {
+                    skippedProducts.push({
+                        productId: product.productId,
+                        productName: product.productName,
+                        productCode: product.productCode,
+                        reason: product.skipReason || 'Sản phẩm không có trong đơn'
+                    });
+                    continue;
+                }
+
+                // Find product in Details
+                const detailIndex = orderData.Details.findIndex(
+                    d => d.ProductId === product.productId
+                );
+
+                if (detailIndex === -1) {
+                    skippedProducts.push({
+                        productId: product.productId,
+                        productName: product.productName,
+                        productCode: product.productCode,
+                        reason: 'Sản phẩm không tồn tại trong đơn'
+                    });
+                    continue;
+                }
+
+                const detail = orderData.Details[detailIndex];
+                const currentQty = detail.Quantity;
+
+                // Handle quantity
+                if (currentQty > 1) {
+                    // Decrease by 1
+                    orderData.Details[detailIndex].Quantity = currentQty - 1;
+                    totalQuantityChange -= 1;
+
+                    removedProducts.push({
+                        productId: product.productId,
+                        productName: product.productName,
+                        productCode: product.productCode,
+                        action: 'decreased',
+                        from: currentQty,
+                        to: currentQty - 1
+                    });
+                } else {
+                    // Remove completely
+                    orderData.Details.splice(detailIndex, 1);
+                    totalQuantityChange -= 1;
+
+                    removedProducts.push({
+                        productId: product.productId,
+                        productName: product.productName,
+                        productCode: product.productCode,
+                        action: 'removed',
+                        quantity: 1
+                    });
+                }
+            }
+
+            // If no products were removed, skip this order
+            if (removedProducts.length === 0) {
+                return {
+                    success: false,
+                    stt: stt,
+                    orderId: orderId,
+                    error: 'Không có sản phẩm nào để gỡ',
+                    skippedProducts: skippedProducts
+                };
+            }
+
+            // Update totals (let TPOS recalculate amounts)
+            orderData.TotalQuantity = (orderData.TotalQuantity || 0) + totalQuantityChange;
+            orderData.TotalAmount = 0;
+
+            // Update Note field
+            orderData.Note = processNoteForRemoval(orderData.Note || '', removedProducts);
+
+            // Prepare payload
+            const payload = prepareUploadPayload(orderData);
+
+            console.log(`[REMOVAL] 📤 Updating order ${orderId}...`);
+
+            // PUT request using authenticatedFetch
+            const uploadResponse = await authenticatedFetch(
+                `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                }
+            );
+
+            if (!uploadResponse.ok) {
+                const errorText = await uploadResponse.text();
+                throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
+            }
+
+            console.log(`[REMOVAL] ✅ Successfully removed products from STT ${stt}`);
+
+            return {
+                success: true,
+                stt: stt,
+                orderId: orderId,
+                removedProducts: removedProducts,
+                skippedProducts: skippedProducts,
+                timestamp: Date.now()
+            };
+
+        } catch (error) {
+            console.error(`[REMOVAL] ❌ Error removing from STT ${stt}:`, error);
+            return {
+                success: false,
+                stt: stt,
+                error: error.message,
+                timestamp: Date.now()
+            };
+        }
+    }
+
+    // ===================================================================
+    // PROCESS NOTE FOR REMOVAL
+    // ===================================================================
+    function processNoteForRemoval(currentNote, removedProducts) {
+        if (!currentNote || !currentNote.trim()) return '';
+
+        let plainTextOutside = '';
+        let decodedContent = '';
+
+        // Extract and decode note
+        if (currentNote && currentNote.trim() !== '') {
+            const { plainText, encodedContent } = extractNoteComponents(currentNote);
+            plainTextOutside = plainText;
+
+            if (encodedContent) {
+                decodedContent = decodeFullNote(encodedContent) || '';
+            } else {
+                const decoded = decodeFullNote(currentNote);
+                if (decoded) {
+                    decodedContent = decoded;
+                    plainTextOutside = '';
+                } else {
+                    decodedContent = currentNote;
+                    plainTextOutside = '';
+                }
+            }
+        }
+
+        console.log('[REMOVAL-NOTE] Decoded content:', decodedContent);
+
+        // Parse note lines and remove/update products
+        const lines = decodedContent.split('\n');
+        const updatedLines = [];
+
+        for (const line of lines) {
+            if (!line || !line.trim()) continue;
+
+            // Parse line format: "PRODUCT_CODE - QUANTITY - PRICE"
+            const match = line.match(/^(.+?)\s*-\s*(\d+)\s*-\s*(.+)$/);
+
+            if (match) {
+                const [, productCode, quantity, price] = match;
+                const productCodeTrimmed = productCode.trim();
+
+                // Check if this product should be removed/decreased
+                const removed = removedProducts.find(p =>
+                    p.productCode === productCodeTrimmed
+                );
+
+                if (removed) {
+                    if (removed.action === 'decreased') {
+                        // Decrease quantity
+                        const newQty = parseInt(quantity) - 1;
+                        if (newQty > 0) {
+                            updatedLines.push(`${productCodeTrimmed} - ${newQty} - ${price.trim()}`);
+                        }
+                        // If newQty === 0, don't add line (remove it)
+                    }
+                    // If action === 'removed', skip this line entirely
+                } else {
+                    // Keep line unchanged
+                    updatedLines.push(line);
+                }
+            } else {
+                // Not a product line, keep it
+                updatedLines.push(line);
+            }
+        }
+
+        const updatedContent = updatedLines.join('\n');
+        console.log('[REMOVAL-NOTE] Updated content:', updatedContent);
+
+        // Encode back
+        let finalNote = '';
+        if (updatedContent.trim() !== '') {
+            const encoded = encodeFullNote(updatedContent);
+            if (plainTextOutside.trim() !== '') {
+                finalNote = `${plainTextOutside}\n${encoded}`;
+            } else {
+                finalNote = encoded;
+            }
+        } else if (plainTextOutside.trim() !== '') {
+            finalNote = plainTextOutside;
+        }
+
+        return finalNote;
+    }
+
+    // ===================================================================
+    // SHOW REMOVAL RESULTS
+    // ===================================================================
+    function showRemovalResults(results) {
+        const resultsBody = document.getElementById('removalResultsBody');
+
+        let html = '<div class="removal-results">';
+
+        // Summary
+        html += `
+            <div class="row mb-4 text-center">
+                <div class="col-md-4">
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <h3 class="text-success">${results.success.length}</h3>
+                            <p class="mb-0">✅ Thành công</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-danger">
+                        <div class="card-body">
+                            <h3 class="text-danger">${results.failed.length}</h3>
+                            <p class="mb-0">❌ Thất bại</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-warning">
+                        <div class="card-body">
+                            <h3 class="text-warning">${results.skipped.length}</h3>
+                            <p class="mb-0">⚠️ Bỏ qua</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Success details
+        if (results.success.length > 0) {
+            html += '<h5 class="text-success">✅ Đơn hàng đã gỡ thành công:</h5>';
+            html += '<div class="list-group mb-4">';
+            results.success.forEach(r => {
+                const removedCount = r.removedProducts.length;
+                const skippedCount = r.skippedProducts?.length || 0;
+
+                html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>STT ${r.stt}</strong>
+                            <span class="badge bg-success">${removedCount} sản phẩm đã gỡ</span>
+                        </div>
+                        <ul class="mb-0" style="font-size:13px;">
+                            ${r.removedProducts.map(p => {
+                                if (p.action === 'removed') {
+                                    return `<li>${p.productCode}: <strong>Đã xóa hoàn toàn</strong></li>`;
+                                } else {
+                                    return `<li>${p.productCode}: Giảm từ <strong>${p.from}</strong> → <strong>${p.to}</strong></li>`;
+                                }
+                            }).join('')}
+                        </ul>
+                        ${skippedCount > 0 ? `<small class="text-muted">(${skippedCount} sản phẩm bỏ qua)</small>` : ''}
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+
+        // Failed details
+        if (results.failed.length > 0) {
+            html += '<h5 class="text-danger">❌ Đơn hàng thất bại:</h5>';
+            html += '<div class="list-group mb-4">';
+            results.failed.forEach(r => {
+                html += `
+                    <div class="list-group-item list-group-item-danger">
+                        <strong>STT ${r.stt}:</strong> ${r.error}
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+
+        // Skipped products
+        if (results.skipped.length > 0) {
+            html += '<h5 class="text-warning">⚠️ Sản phẩm bỏ qua (không có trong đơn):</h5>';
+            html += '<div class="list-group mb-4">';
+            results.skipped.forEach(s => {
+                html += `
+                    <div class="list-group-item list-group-item-warning">
+                        <strong>STT ${s.stt}</strong> - ${s.productName} (${s.productCode}): ${s.reason}
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+
+        html += '</div>';
+
+        resultsBody.innerHTML = html;
+
+        // Show results modal
+        const resultsModal = new bootstrap.Modal(document.getElementById('removalResultsModal'));
+        resultsModal.show();
+    }
+
+    // ===================================================================
+    // REMOVE PROCESSED STTs FROM REMOVALS
+    // ===================================================================
+    function removeProcessedSTTsFromRemovals(successfulSTTs) {
+        removals.forEach(removal => {
+            if (!removal.sttList) return;
+
+            // Remove STTs that were successfully processed
+            removal.sttList = removal.sttList.filter(item =>
+                !successfulSTTs.includes(item.stt)
+            );
+        });
+
+        // Remove removals that have no STTs left
+        removals = removals.filter(r => r.sttList && r.sttList.length > 0);
+
+        saveRemovals(true);
+    }
+
+    // ===================================================================
+    // SAVE REMOVAL HISTORY TO FIREBASE
+    // ===================================================================
+    async function saveRemovalHistory(historyData) {
+        try {
+            const user = firebase.auth().currentUser;
+            if (!user) return;
+
+            const historyId = `removal_${Date.now()}`;
+
+            await database.ref(`productRemovals_history/${user.uid}/${historyId}`).set({
+                ...historyData,
+                userId: user.uid,
+                userEmail: user.email
+            });
+
+            console.log('[REMOVAL-HISTORY] ✅ Saved history:', historyId);
+
+        } catch (error) {
+            console.error('[REMOVAL-HISTORY] ❌ Error saving history:', error);
+        }
+    }
+
 })();

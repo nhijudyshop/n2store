@@ -564,7 +564,9 @@ function initializeTooltipHandlers() {
             }
 
             const auth = getAuthState();
-            if (auth && auth.checkLogin == "0") {
+            // ALL users check detailedPermissions - NO admin bypass
+            const hasAdvancedView = auth?.detailedPermissions?.['nhanhang']?.['delete'] === true;
+            if (hasAdvancedView) {
                 const tooltip = document.getElementById("tooltip");
                 const row = e.target.closest("tr");
                 if (!row) return;

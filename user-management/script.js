@@ -4,45 +4,47 @@ let currentMethod = "cryptojs";
 let users = [];
 
 // Kiểm tra quyền admin ngay khi tải trang
+// ALL users use detailedPermissions - NO admin bypass
 function checkAdminAccess() {
-    const checkLogin = localStorage.getItem("checkLogin");
-    const isLoggedIn = localStorage.getItem("isLoggedIn");
-    const authData = localStorage.getItem("loginindex_auth");
+    const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
 
     console.log("Checking admin access:", {
-        checkLogin,
-        isLoggedIn,
         authData: !!authData,
     });
 
-    if (!isLoggedIn || isLoggedIn !== "true") {
+    if (!authData) {
         showAccessDenied("Bạn chưa đăng nhập hệ thống.");
         return false;
     }
 
-    // Check if user is admin OR has user-management permission
-    const isAdmin = checkLogin === "0" || checkLogin === 0;
+    // ALL users (including Admin) check detailedPermissions - NO bypass
     let hasPermission = false;
 
-    if (!isAdmin) {
-        // Check for specific user-management permission
-        try {
-            const auth = JSON.parse(authData);
-            const pagePermissions = auth.pagePermissions || [];
-            hasPermission = pagePermissions.includes("user-management");
+    try {
+        const auth = JSON.parse(authData);
 
-            console.log("Permission check:", {
-                isAdmin: false,
-                pagePermissions,
-                hasUserManagementPermission: hasPermission
-            });
-        } catch (e) {
-            console.error("Error checking permissions:", e);
+        if (!auth.isLoggedIn || auth.isLoggedIn !== "true") {
+            showAccessDenied("Bạn chưa đăng nhập hệ thống.");
+            return false;
         }
+
+        // Check for specific user-management permission in detailedPermissions
+        if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
+            const userMgmtPerms = auth.detailedPermissions['user-management'];
+            hasPermission = Object.values(userMgmtPerms).some(v => v === true);
+        }
+
+        console.log("Permission check:", {
+            roleTemplate: auth.roleTemplate,
+            hasDetailedPermissions: !!auth.detailedPermissions,
+            hasUserManagementPermission: hasPermission
+        });
+    } catch (e) {
+        console.error("Error checking permissions:", e);
     }
 
-    if (!isAdmin && !hasPermission) {
-        showAccessDenied("Bạn không có quyền truy cập trang này. Cần quyền Admin hoặc quyền 'user-management'.");
+    if (!hasPermission) {
+        showAccessDenied("Bạn không có quyền truy cập trang này. Cần quyền 'user-management' trong detailedPermissions.");
         return false;
     }
 
@@ -292,16 +294,17 @@ async function deleteUser(username) {
     const user = users.find((u) => u.id === username);
     if (!user) return;
 
-    // Không cho phép xóa admin cuối cùng
-    const adminCount = users.filter((u) => u.checkLogin === 0).length;
-    if (user.checkLogin === 0 && adminCount === 1) {
+    // Không cho phép xóa admin cuối cùng - use roleTemplate
+    const adminCount = users.filter((u) => u.roleTemplate === 'admin').length;
+    if (user.roleTemplate === 'admin' && adminCount === 1) {
         alert(
             "❌ Không thể xóa admin cuối cùng!\nHệ thống phải có ít nhất 1 admin.",
         );
         return;
     }
 
-    const confirmMsg = `⚠️ XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nQuyền hạn: ${getRoleText(user.checkLogin)}\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
+    const roleText = user.roleTemplate || 'custom';
+    const confirmMsg = `⚠️ XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nTemplate: ${roleText}\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
 
     if (!confirm(confirmMsg)) {
         return;
@@ -684,10 +687,17 @@ window.addEventListener("beforeunload", function () {
     console.log("Page unloading, cleaning up...");
 });
 
-// Prevent right-click context menu in production
+// Prevent right-click context menu in production (for non-admin templates)
 document.addEventListener("contextmenu", function (e) {
-    const checkLogin = localStorage.getItem("checkLogin");
-    if (checkLogin !== "0" && checkLogin !== 0) {
+    try {
+        const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+        if (authData) {
+            const auth = JSON.parse(authData);
+            // Allow right-click for admin template only (for debugging)
+            if (auth.roleTemplate === 'admin') return;
+        }
+        e.preventDefault();
+    } catch (err) {
         e.preventDefault();
     }
 });

@@ -1,3 +1,8 @@
+<!--
+  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
+  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
+-->
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -1481,12 +1486,30 @@
         }
 
         async function loadSettings() {
+            // Try localStorage first for instant load
+            try {
+                const cachedSettings = localStorage.getItem('orderDisplaySettings');
+                if (cachedSettings) {
+                    const settings = JSON.parse(cachedSettings);
+                    displaySettings = settings;
+                    itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
+                    console.log('⚡ Settings loaded from localStorage cache');
+                    applySettings();
+                }
+            } catch (e) {
+                console.log('📋 No cached settings, loading from Firebase');
+            }
+
+            // Then sync from Firebase (source of truth)
             try {
                 const snapshot = await database.ref('orderDisplaySettings').once('value');
                 const settings = snapshot.val();
                 if (settings) {
                     displaySettings = settings;
                     itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
+                    // Cache to localStorage
+                    localStorage.setItem('orderDisplaySettings', JSON.stringify(settings));
+                    console.log('🔥 Settings synced from Firebase');
                 }
             } catch (error) {
                 console.error('❌ Error loading settings from Firebase:', error);
@@ -2536,6 +2559,8 @@
                     isSyncingFromFirebase = true;
                     displaySettings = settings;
                     itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
+                    // Cache to localStorage for faster next load
+                    localStorage.setItem('orderDisplaySettings', JSON.stringify(settings));
                     applySettings();
                     updateProductGrid();
                     console.log('🔥 Settings synced from Firebase');
