@@ -463,7 +463,7 @@ const BanHangModule = (function () {
         hideEmptyState();
 
         const html = data.map((item, index) => `
-            <tr data-index="${startIndex + index}" data-id="${item.id || ''}" data-order-id="${item.thamChieu || ''}" class="order-row" style="cursor: pointer;">
+            <tr data-index="${startIndex + index}" data-id="${item.id || ''}" data-order-id="${item.so || ''}" class="order-row" style="cursor: pointer;">
                 <td class="text-center">${startIndex + index + 1}</td>
                 <td>${escapeHtml(item.khachHang || '')}</td>
                 <td>${escapeHtml(item.email || '')}</td>
