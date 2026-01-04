@@ -1551,6 +1551,26 @@ router.post('/customer-info', async (req, res) => {
             customerPhone
         });
 
+        // Sync to customers table if phone is available
+        if (customerPhone) {
+            try {
+                await db.query(`
+                    INSERT INTO customers (phone, name, status, active)
+                    VALUES ($1, $2, 'Bình thường', true)
+                    ON CONFLICT (phone) DO UPDATE SET
+                        name = COALESCE(EXCLUDED.name, customers.name),
+                        updated_at = CURRENT_TIMESTAMP
+                `, [
+                    customerPhone,
+                    customerName || customerPhone
+                ]);
+                console.log('[CUSTOMER-INFO] ✅ Synced to customers table:', customerPhone);
+            } catch (syncError) {
+                console.error('[CUSTOMER-INFO] ⚠️ Failed to sync to customers table:', syncError.message);
+                // Don't fail the main request if sync fails
+            }
+        }
+
         res.json({
             success: true,
             data: result.rows[0]
@@ -2803,6 +2823,8 @@ router.get('/phone-data', async (req, res) => {
 /**
  * PUT /api/sepay/customer-info/:unique_code
  * Update customer name and/or fetch status for a specific unique code
+ * NOTE: This endpoint is used by backend processes for name fetching from TPOS
+ * For transaction-level phone updates, use PUT /api/sepay/transaction/:id/phone instead
  * Body: {
  *   customer_name?: string,
  *   name_fetch_status?: string
@@ -2814,7 +2836,7 @@ router.put('/customer-info/:unique_code', async (req, res) => {
     const { customer_name, name_fetch_status } = req.body;
 
     try {
-        // Build dynamic update query
+        // Build dynamic update query for balance_customer_info
         const updates = [];
         const values = [];
         let paramIndex = 1;
@@ -2843,6 +2865,7 @@ router.put('/customer-info/:unique_code', async (req, res) => {
         updates.push('updated_at = CURRENT_TIMESTAMP');
         values.push(unique_code);
 
+        // Update balance_customer_info
         const query = `
             UPDATE balance_customer_info
             SET ${updates.join(', ')}
@@ -2867,10 +2890,78 @@ router.put('/customer-info/:unique_code', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[UPDATE-CUSTOMER-NAME] Error:', error);
+        console.error('[UPDATE-CUSTOMER-INFO] Error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to update customer name',
+            error: 'Failed to update customer info',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * PUT /api/sepay/transaction/:id/phone
+ * Update linked_customer_phone for a specific transaction
+ * This allows moving a transaction's debt from one phone to another
+ * Body: { phone: string }
+ */
+router.put('/transaction/:id/phone', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { phone } = req.body;
+
+    try {
+        // Validate inputs
+        if (!id || isNaN(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid transaction ID'
+            });
+        }
+
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                error: 'Phone number is required'
+            });
+        }
+
+        // Get current transaction data
+        const currentResult = await db.query(
+            'SELECT id, linked_customer_phone, transfer_amount FROM balance_history WHERE id = $1',
+            [id]
+        );
+
+        if (currentResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Transaction not found'
+            });
+        }
+
+        const oldPhone = currentResult.rows[0].linked_customer_phone;
+        const newPhone = phone;
+
+        // Update the transaction's linked phone
+        const updateResult = await db.query(
+            'UPDATE balance_history SET linked_customer_phone = $1 WHERE id = $2 RETURNING *',
+            [newPhone, id]
+        );
+
+        console.log(`[TRANSACTION-PHONE-UPDATE] Transaction #${id}: ${oldPhone || 'NULL'} → ${newPhone}`);
+
+        res.json({
+            success: true,
+            data: updateResult.rows[0],
+            old_phone: oldPhone,
+            new_phone: newPhone
+        });
+
+    } catch (error) {
+        console.error('[TRANSACTION-PHONE-UPDATE] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update transaction phone',
             message: error.message
         });
     }

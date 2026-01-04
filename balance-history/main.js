@@ -913,7 +913,7 @@ function renderTransactionRow(row) {
             <div style="display: flex; align-items: center; gap: 5px;">
                 <span style="${!customerDisplay.hasInfo ? 'color: #999; font-style: italic;' : ''}">${customerDisplay.name}</span>
                 ${hasPermission(2) ? `
-                    <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="${customerDisplay.hasInfo ? 'Chỉnh sửa thông tin' : 'Thêm thông tin khách hàng'}" style="padding: 4px 6px;">
+                    <button class="btn btn-secondary btn-sm" onclick="editTransactionCustomer(${row.id}, '${row.linked_customer_phone || ''}', '${customerDisplay.name}')" title="${customerDisplay.hasInfo ? 'Chỉnh sửa thông tin' : 'Thêm thông tin khách hàng'}" style="padding: 4px 6px;">
                         <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
                     </button>
                 ` : ''}
@@ -2089,13 +2089,48 @@ function editCustomerInfo(uniqueCode) {
 async function saveEditCustomerInfo(event) {
     event.preventDefault();
 
+    const form = document.getElementById('editCustomerForm');
+    const phone = document.getElementById('editCustomerPhone').value;
+
+    // Check if this is a transaction-level edit
+    const isTransactionEdit = form.dataset.isTransactionEdit === 'true';
+    const transactionId = form.dataset.transactionId;
+
+    if (isTransactionEdit && transactionId) {
+        // Transaction-level edit: Update only this transaction's phone
+        console.log('[EDIT-TRANSACTION] Saving:', { transactionId, phone });
+
+        const success = await saveTransactionCustomer(transactionId, phone);
+
+        if (success) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Đã cập nhật SĐT cho giao dịch!', 'success');
+            } else {
+                alert('Đã cập nhật SĐT cho giao dịch!');
+            }
+
+            // Close modal and reload
+            document.getElementById('editCustomerModal').style.display = 'none';
+            loadData();
+
+            // Clear flags
+            delete form.dataset.isTransactionEdit;
+            delete form.dataset.transactionId;
+        } else {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Không thể cập nhật SĐT', 'error');
+            } else {
+                alert('Không thể cập nhật SĐT');
+            }
+        }
+        return;
+    }
+
+    // QR-code level edit (original logic)
     if (!window.CustomerInfoManager) return;
 
-    // Get form element (not event.target which could be button or icon)
-    const form = document.getElementById('editCustomerForm');
     const uniqueCode = form.dataset.uniqueCode;
     const name = document.getElementById('editCustomerName').value;
-    const phone = document.getElementById('editCustomerPhone').value;
 
     console.log('[EDIT-CUSTOMER] Saving:', { uniqueCode, name, phone });
 
@@ -2127,6 +2162,69 @@ async function saveEditCustomerInfo(event) {
         }
     }
 }
+
+// =====================================================
+// TRANSACTION-LEVEL CUSTOMER EDIT
+// =====================================================
+
+// Edit customer info for a specific transaction
+function editTransactionCustomer(transactionId, currentPhone, currentName) {
+    const editCustomerModal = document.getElementById('editCustomerModal');
+    const editCustomerUniqueCode = document.getElementById('editCustomerUniqueCode');
+    const editCustomerName = document.getElementById('editCustomerName');
+    const editCustomerPhone = document.getElementById('editCustomerPhone');
+    const editCustomerForm = document.getElementById('editCustomerForm');
+
+    // Fill form with current values
+    editCustomerUniqueCode.textContent = `Transaction #${transactionId}`;
+    editCustomerName.value = currentName || '';
+    editCustomerPhone.value = currentPhone || '';
+
+    // Store transaction ID for form submission
+    editCustomerForm.dataset.transactionId = transactionId;
+    editCustomerForm.dataset.isTransactionEdit = 'true';
+
+    // Show modal
+    editCustomerModal.style.display = 'block';
+
+    // Reinitialize Lucide icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+// Save transaction customer info
+async function saveTransactionCustomer(transactionId, newPhone) {
+    const API_BASE_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                phone: newPhone
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            return true;
+        } else {
+            console.error('[SAVE-TRANSACTION-PHONE] Error:', result.error);
+            return false;
+        }
+    } catch (error) {
+        console.error('[SAVE-TRANSACTION-PHONE] Error:', error);
+        return false;
+    }
+}
+
+// Make functions globally available
+window.editTransactionCustomer = editTransactionCustomer;
+window.saveTransactionCustomer = saveTransactionCustomer;
 
 // =====================================================
 // CUSTOMER LIST BY PHONE - MAPPING FEATURE
