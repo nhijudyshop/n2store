@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_WALKTHROUGH",
+  "summary":  "Comprehensive Business Flow Documentation for Post-Sales Issue Tracking Module. Contains: Architecture overview (5 files, 846 lines script.js), 5 issue types with workflow states, data model (12 fields), detailed step-by-step flows for Create Ticket and Process Ticket, validation rules (5 rules), error handling (6 scenarios), edge cases (7 identified), Mermaid flowchart, and technical constraints. Based on actual code analysis.",
+  "updatedAt":  "2026-01-03T17:07:37.789447Z"
+}

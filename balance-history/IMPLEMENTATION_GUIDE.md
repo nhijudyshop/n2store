@@ -1,4 +1,4 @@
-# Hướng Dẫn Hiện Thực Tính Năng Lịch Sử Biến Động Số Dư
+đoc# Hướng Dẫn Hiện Thực Tính Năng Lịch Sử Biến Động Số Dư
 
 Tài liệu này mô tả chi tiết cách hiện thực tính năng **Lịch sử biến động số dư** với tích hợp **SePay Webhook API** để theo dõi giao dịch ngân hàng realtime.
 
@@ -17,9 +17,12 @@ Tài liệu này mô tả chi tiết cách hiện thực tính năng **Lịch s�
 7. [Quản Lý Cache](#7-quản-lý-cache)
 8. [Tạo QR Code Chuyển Khoản](#8-tạo-qr-code-chuyển-khoản)
 9. [Quản Lý Thông Tin Khách Hàng](#9-quản-lý-thông-tin-khách-hàng)
-10. [Phát Hiện Giao Dịch Thiếu (Gap Detection)](#10-phát-hiện-giao-dịch-thiếu-gap-detection)
-11. [Realtime Updates (SSE)](#11-realtime-updates-sse)
-12. [Triển Khai](#12-triển-khai)
+10. [Mapping Khách Hàng Theo SĐT](#10-mapping-khách-hàng-theo-sđt)
+11. [Thu Thập Và Tính Toán Công Nợ](#11-thu-thập-và-tính-toán-công-nợ)
+12. [Tích Hợp TPOS OData API](#12-tích-hợp-tpos-odata-api)
+13. [Phát Hiện Giao Dịch Thiếu (Gap Detection)](#13-phát-hiện-giao-dịch-thiếu-gap-detection)
+14. [Realtime Updates (SSE)](#14-realtime-updates-sse)
+15. [Triển Khai](#15-triển-khai)
 
 ---
 
@@ -1272,18 +1275,738 @@ function renderTransactionRow(row) {
 
 ---
 
-## 10. Phát Hiện Giao Dịch Thiếu (Gap Detection)
+## 10. Mapping Khách Hàng Theo SĐT
+
+> [!IMPORTANT]
+> **Tính năng này cho phép tra cứu thông tin khách hàng từ nhiều nguồn** (PostgreSQL, TPOS) dựa trên số điện thoại từ giao dịch ngân hàng.
+
+### 10.1 Tổng Quan Workflow
+
+```mermaid
+flowchart TD
+    subgraph Input["Đầu Vào"]
+        TX[Giao dịch ngân hàng]
+        PHONE[Số điện thoại từ content]
+    end
+    
+    subgraph Lookup["Tra Cứu Khách Hàng"]
+        PROXY[Proxy API: /api/customers/search]
+        TPOS[TPOS OData API Fallback]
+        MERGE[Merge Duplicate Customers]
+    end
+    
+    subgraph Output["Kết Quả"]
+        MODAL[Customer List Modal]
+        DEBT[Debt Summary]
+        LINK[Link to Customer Management]
+    end
+    
+    TX --> PHONE
+    PHONE --> PROXY
+    PROXY -->|Empty| TPOS
+    PROXY -->|Has Data| MERGE
+    TPOS --> MERGE
+    MERGE --> MODAL
+    MODAL --> DEBT
+    MODAL --> LINK
+```
+
+### 10.2 API Endpoints
+
+| Endpoint | Method | Mô Tả |
+|----------|--------|-------|
+| `/api/customers/search?q={phone}` | GET | Tìm khách hàng theo SĐT |
+| `/api/sepay/transactions-by-phone?phone={phone}` | GET | Lấy giao dịch theo SĐT |
+| `/api/sepay/debt-summary?phone={phone}` | GET | Tổng hợp công nợ theo SĐT |
+
+### 10.3 Hàm showCustomersByPhone()
+
+```javascript
+/**
+ * Show customers list by phone number
+ * @param {string} phone - Phone number to search
+ */
+async function showCustomersByPhone(phone) {
+    if (!phone || phone === 'N/A') {
+        window.NotificationManager?.showNotification(
+            'Không có số điện thoại để tìm kiếm', 'warning'
+        );
+        return;
+    }
+
+    const modal = document.getElementById('customerListModal');
+    const loadingEl = document.getElementById('customerListLoading');
+    const emptyEl = document.getElementById('customerListEmpty');
+    const contentEl = document.getElementById('customerListContent');
+
+    // Show modal and loading state
+    modal.style.display = 'block';
+    loadingEl.style.display = 'block';
+    emptyEl.style.display = 'none';
+    contentEl.style.display = 'none';
+
+    try {
+        // Fetch customers and transaction stats in parallel
+        const [customersResponse, transactionsResponse] = await Promise.all([
+            fetch(`${API_BASE_URL}/api/customers/search?q=${encodeURIComponent(phone)}&limit=50`),
+            fetch(`${API_BASE_URL}/api/sepay/transactions-by-phone?phone=${encodeURIComponent(phone)}&limit=1`)
+        ]);
+
+        const customersResult = await customersResponse.json();
+        let balanceStats = null;
+
+        // Get balance statistics from transactions
+        if (transactionsResponse.ok) {
+            const transactionsResult = await transactionsResponse.json();
+            if (transactionsResult.success && transactionsResult.statistics) {
+                balanceStats = transactionsResult.statistics;
+            }
+        }
+
+        // Filter customers with exact phone match
+        let customers = (customersResult.data || []).filter(c => {
+            const customerPhone = (c.phone || '').replace(/\D/g, '');
+            const searchPhone = phone.replace(/\D/g, '');
+            return customerPhone === searchPhone || 
+                   customerPhone.endsWith(searchPhone) || 
+                   searchPhone.endsWith(customerPhone);
+        });
+
+        // Fallback to TPOS OData API if proxy returned empty
+        if (customers.length === 0) {
+            const tposCustomers = await fetchCustomersFromTpos(phone);
+            if (tposCustomers.length > 0) {
+                customers = tposCustomers;
+            }
+        }
+
+        renderCustomerList(customers, balanceStats, phone);
+
+    } catch (error) {
+        console.error('[CUSTOMER-LIST] Error:', error);
+        loadingEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+    }
+}
+```
+
+### 10.4 Merge Customers Cùng SĐT
+
+```javascript
+/**
+ * Merge customers with the same phone number
+ * Khi có nhiều record KH trùng SĐT, gộp lại thành 1 record với:
+ * - mergedNames: Array các tên khác nhau
+ * - mergedAddresses: Array các địa chỉ khác nhau
+ * - mergedIds: Array các ID để tham chiếu
+ * - Status: Lấy status cao nhất (VIP > Nguy hiểm > Cảnh báo > Bom hàng > Bình thường)
+ * - Debt: Lấy giá trị nợ cao nhất
+ */
+function mergeCustomersByPhone(customers) {
+    const phoneMap = new Map();
+
+    customers.forEach(customer => {
+        const phone = (customer.phone || '').trim();
+        if (!phone) {
+            // Customers without phone are kept as-is
+            const uniqueKey = `no_phone_${customer.id}`;
+            phoneMap.set(uniqueKey, {
+                ...customer,
+                mergedNames: [customer.name || ''],
+                mergedAddresses: [customer.address || ''],
+                mergedIds: [customer.id]
+            });
+            return;
+        }
+
+        if (phoneMap.has(phone)) {
+            // Merge with existing customer
+            const existing = phoneMap.get(phone);
+            const newName = (customer.name || '').trim();
+            const newAddress = (customer.address || '').trim();
+
+            // Add unique names
+            if (newName && !existing.mergedNames.includes(newName)) {
+                existing.mergedNames.push(newName);
+            }
+
+            // Add unique addresses
+            if (newAddress && !existing.mergedAddresses.includes(newAddress)) {
+                existing.mergedAddresses.push(newAddress);
+            }
+
+            // Merge IDs for reference
+            existing.mergedIds.push(customer.id);
+
+            // Keep the higher debt
+            if ((customer.debt || 0) > (existing.debt || 0)) {
+                existing.debt = customer.debt;
+            }
+
+            // Keep VIP or worse status
+            existing.status = getMergedCustomerStatus(existing.status, customer.status);
+        } else {
+            // First occurrence
+            phoneMap.set(phone, {
+                ...customer,
+                mergedNames: [customer.name || ''],
+                mergedAddresses: [customer.address || ''],
+                mergedIds: [customer.id]
+            });
+        }
+    });
+
+    return Array.from(phoneMap.values());
+}
+
+/**
+ * Get merged status (prioritize VIP > Nguy hiểm > Cảnh báo > Bom hàng > Bình thường)
+ */
+function getMergedCustomerStatus(status1, status2) {
+    const statusPriority = {
+        'VIP': 5,
+        'Nguy hiểm': 4,
+        'Cảnh báo': 3,
+        'Bom hàng': 2,
+        'Bình thường': 1
+    };
+
+    const priority1 = statusPriority[status1] || 1;
+    const priority2 = statusPriority[status2] || 1;
+
+    return priority1 >= priority2 ? status1 : status2;
+}
+```
+
+### 10.5 Customer List Modal UI
+
+```html
+<!-- Customer List Modal Structure -->
+<div id="customerListModal" class="modal">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3><i data-lucide="users"></i> Khách hàng - SĐT: <span id="customerListPhone"></span></h3>
+            <button id="closeCustomerListModalBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Loading State -->
+            <div id="customerListLoading" style="display: none;">
+                <div class="loading-spinner"></div>
+            </div>
+            
+            <!-- Empty State -->
+            <div id="customerListEmpty" style="display: none;">
+                <p>Không tìm thấy khách hàng</p>
+            </div>
+            
+            <!-- Content -->
+            <div id="customerListContent" style="display: none;">
+                <div id="customerListCount"></div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Tên KH</th>
+                            <th>TPOS ID</th>
+                            <th>Trạng thái</th>
+                            <th>Công nợ</th>
+                            <th>Địa chỉ</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customerListTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+---
+
+## 11. Thu Thập Và Tính Toán Công Nợ
+
+> [!IMPORTANT]
+> **Công nợ được tính toán dựa trên các giao dịch ngân hàng có liên kết SĐT của khách hàng.**
+
+### 11.1 Workflow Tính Công Nợ
+
+```mermaid
+flowchart TD
+    subgraph DataCollection["Thu Thập Dữ Liệu"]
+        PHONE[Số điện thoại KH]
+        UNIQUE_CODE[Mã giao dịch N2xxx]
+        CUSTOMER_INFO[Thông tin KH từ customer_info table]
+    end
+    
+    subgraph Processing["Xử Lý"]
+        FILTER[Lọc giao dịch theo SĐT]
+        GROUP[Nhóm theo khách hàng]
+        SUM[Tính tổng tiền vào]
+    end
+    
+    subgraph Output["Kết Quả"]
+        TOTAL[Tổng công nợ]
+        LIST[Danh sách giao dịch]
+        EXPAND[Chi tiết có thể mở rộng]
+    end
+    
+    PHONE --> FILTER
+    UNIQUE_CODE --> CUSTOMER_INFO
+    CUSTOMER_INFO --> FILTER
+    FILTER --> GROUP
+    GROUP --> SUM
+    SUM --> TOTAL
+    SUM --> LIST
+    LIST --> EXPAND
+```
+
+### 11.2 API Debt Summary
+
+**Endpoint:** `GET /api/sepay/debt-summary?phone={phone}`
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": {
+        "phone": "0901234567",
+        "total_debt": 15000000,
+        "total_transactions": 5,
+        "transactions": [
+            {
+                "id": 123,
+                "amount": 3000000,
+                "date": "2024-12-21T14:02:37Z",
+                "content": "N2ABCD1234 chuyen khoan",
+                "debt_added": true
+            },
+            {
+                "id": 124,
+                "amount": 5000000,
+                "date": "2024-12-20T10:15:00Z",
+                "content": "N2EFGH5678 thanh toan",
+                "debt_added": true
+            }
+        ]
+    }
+}
+```
+
+### 11.3 Backend API Implementation
+
+```javascript
+// routes/sepay-routes.js
+
+/**
+ * Get debt summary for a phone number
+ * Tính tổng công nợ từ các giao dịch có liên kết với SĐT khách hàng
+ */
+router.get('/debt-summary', async (req, res) => {
+    const { phone } = req.query;
+    
+    if (!phone) {
+        return res.status(400).json({ 
+            success: false, 
+            error: 'Phone number is required' 
+        });
+    }
+
+    try {
+        // Chuẩn hóa số điện thoại (loại bỏ ký tự không phải số)
+        const normalizedPhone = phone.replace(/\D/g, '');
+        
+        // Query: Tìm tất cả unique_code có liên kết với SĐT này
+        const customerInfoQuery = `
+            SELECT unique_code, customer_name, customer_phone
+            FROM customer_info 
+            WHERE REPLACE(customer_phone, ' ', '') LIKE $1
+        `;
+        const customerInfoResult = await pool.query(customerInfoQuery, [`%${normalizedPhone}%`]);
+        
+        if (customerInfoResult.rows.length === 0) {
+            return res.json({
+                success: true,
+                data: {
+                    phone,
+                    total_debt: 0,
+                    total_transactions: 0,
+                    transactions: []
+                }
+            });
+        }
+        
+        // Lấy danh sách unique codes
+        const uniqueCodes = customerInfoResult.rows.map(r => r.unique_code);
+        
+        // Query: Tìm tất cả giao dịch có chứa các unique codes này
+        const transactionsQuery = `
+            SELECT id, transfer_amount, transaction_date, content
+            FROM balance_history
+            WHERE transfer_type = 'in'
+              AND content ILIKE ANY($1)
+            ORDER BY transaction_date DESC
+        `;
+        const patterns = uniqueCodes.map(code => `%${code}%`);
+        const transactionsResult = await pool.query(transactionsQuery, [patterns]);
+        
+        // Tính tổng công nợ
+        const transactions = transactionsResult.rows.map(row => ({
+            id: row.id,
+            amount: parseFloat(row.transfer_amount),
+            date: row.transaction_date,
+            content: row.content,
+            debt_added: true
+        }));
+        
+        const totalDebt = transactions.reduce((sum, t) => sum + t.amount, 0);
+        
+        res.json({
+            success: true,
+            data: {
+                phone,
+                total_debt: totalDebt,
+                total_transactions: transactions.length,
+                transactions
+            }
+        });
+        
+    } catch (error) {
+        console.error('[DEBT-SUMMARY] Error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+```
+
+### 11.4 Frontend: loadDebtForPhone()
+
+```javascript
+/**
+ * Load debt data for a phone number and update the debt cell
+ * @param {string} phone - Phone number
+ */
+async function loadDebtForPhone(phone) {
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(phone)}`
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to fetch debt');
+        }
+
+        const data = result.data;
+        const totalDebt = data.total_debt || 0;
+        const transactions = data.transactions || [];
+
+        console.log('[DEBT] Loaded for phone:', phone, 'Total:', totalDebt);
+
+        // Update debt cell with expandable transaction list
+        const debtCell = document.getElementById('debtCell_0');
+        if (debtCell) {
+            if (totalDebt > 0) {
+                // Build expandable transaction list
+                const transactionListHtml = transactions.length > 0 ? `
+                    <div id="debtDetail" style="display: none; margin-top: 8px; padding: 8px; background: #f9fafb; border-radius: 6px;">
+                        ${transactions.slice(0, 20).map((t, i) => {
+                            const isLast = i === Math.min(transactions.length - 1, 19);
+                            const prefix = isLast ? '└──' : '├──';
+                            const dateStr = new Date(t.date).toLocaleDateString('vi-VN');
+                            return `
+                                <div style="font-family: monospace; font-size: 12px;">
+                                    ${prefix} ✓ <strong>${formatCurrency(t.amount)}</strong>
+                                    <span style="color: #9ca3af;">(${dateStr})</span>
+                                </div>
+                            `;
+                        }).join('')}
+                        ${transactions.length > 20 ? `
+                            <div style="color: #9ca3af; font-style: italic;">
+                                ... và ${transactions.length - 20} giao dịch khác
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : '';
+
+                debtCell.innerHTML = `
+                    <div onclick="toggleDebtDetail()" style="cursor: pointer;">
+                        <div style="color: #16a34a; font-weight: 600;">
+                            ${formatCurrency(totalDebt)}
+                        </div>
+                        <small style="color: #9ca3af; font-size: 10px;">
+                            ${transactions.length} giao dịch ▼
+                        </small>
+                    </div>
+                    ${transactionListHtml}
+                `;
+            } else {
+                debtCell.innerHTML = `
+                    <span style="color: #9ca3af;">0 đ</span>
+                    <br><small style="color: #9ca3af;">Chưa có GD</small>
+                `;
+            }
+        }
+
+    } catch (error) {
+        console.error('[DEBT] Error loading:', error);
+        const debtCell = document.getElementById('debtCell_0');
+        if (debtCell) {
+            debtCell.innerHTML = `<span style="color: #ef4444;">Lỗi</span>`;
+        }
+    }
+}
+
+/**
+ * Toggle debt detail expandable row
+ */
+function toggleDebtDetail() {
+    const detail = document.getElementById('debtDetail');
+    const icon = document.getElementById('debtExpandIcon');
+    if (detail) {
+        const isHidden = detail.style.display === 'none';
+        detail.style.display = isHidden ? 'block' : 'none';
+        if (icon) {
+            icon.textContent = isHidden ? '▲' : '▼';
+        }
+    }
+}
+
+window.toggleDebtDetail = toggleDebtDetail;
+```
+
+### 11.5 Database Schema Bổ Sung
+
+```sql
+-- Table: customer_info (Liên kết unique_code với thông tin KH)
+CREATE TABLE IF NOT EXISTS customer_info (
+    id SERIAL PRIMARY KEY,
+    unique_code VARCHAR(20) UNIQUE NOT NULL,
+    customer_name VARCHAR(255),
+    customer_phone VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index cho tìm kiếm theo SĐT
+CREATE INDEX idx_customer_info_phone ON customer_info(customer_phone);
+
+-- Index cho tìm kiếm theo unique_code
+CREATE INDEX idx_customer_info_code ON customer_info(unique_code);
+
+-- View: debt_by_phone (Tổng hợp công nợ theo SĐT)
+CREATE OR REPLACE VIEW debt_by_phone AS
+SELECT 
+    ci.customer_phone,
+    ci.customer_name,
+    COUNT(bh.id) as transaction_count,
+    SUM(bh.transfer_amount) as total_debt,
+    MAX(bh.transaction_date) as last_transaction
+FROM customer_info ci
+JOIN balance_history bh ON bh.content ILIKE '%' || ci.unique_code || '%'
+WHERE bh.transfer_type = 'in'
+GROUP BY ci.customer_phone, ci.customer_name;
+```
+
+---
+
+## 12. Tích Hợp TPOS OData API
+
+> [!TIP]
+> **TPOS là hệ thống quản lý bán hàng được sử dụng để lấy thông tin khách hàng khi proxy API không có dữ liệu.**
+
+### 12.1 Workflow Fallback TPOS
+
+```mermaid
+flowchart TD
+    INPUT[Số điện thoại] --> PROXY[Proxy API /api/customers/search]
+    PROXY -->|Có dữ liệu| RENDER[Render Customer List]
+    PROXY -->|Không có| CHECK_TOKEN{Có TPOS Token?}
+    CHECK_TOKEN -->|Không| RENDER_EMPTY[Hiển thị trống]
+    CHECK_TOKEN -->|Có| TPOS[TPOS OData API]
+    TPOS -->|Có dữ liệu| TRANSFORM[Transform Data Format]
+    TPOS -->|Không có| RENDER_EMPTY
+    TRANSFORM --> RENDER
+```
+
+### 12.2 Lấy TPOS Bearer Token
+
+```javascript
+/**
+ * Get TPOS bearer token from localStorage
+ * Token được lưu bởi orders-report hoặc customer-management page
+ * @returns {string|null} - Bearer token or null if not found/expired
+ */
+function getTposToken() {
+    try {
+        const tokenData = localStorage.getItem('bearer_token_data');
+        if (tokenData) {
+            const parsed = JSON.parse(tokenData);
+            // Check if token is still valid (with 5 minute buffer)
+            if (parsed.access_token && parsed.expires_at) {
+                const bufferTime = 5 * 60 * 1000; // 5 minutes
+                if (Date.now() < (parsed.expires_at - bufferTime)) {
+                    return parsed.access_token;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[TPOS] Error reading token:', error);
+    }
+    return null;
+}
+```
+
+### 12.3 Gọi TPOS OData API
+
+```javascript
+/**
+ * Fallback to TPOS OData API when proxy API returns empty
+ * @param {string} phone - Phone number to search
+ * @returns {Promise<Array>} - Array of customers from TPOS
+ */
+async function fetchCustomersFromTpos(phone) {
+    const token = getTposToken();
+    if (!token) {
+        console.warn('[TPOS] No valid token available');
+        return [];
+    }
+
+    try {
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?` +
+            `Type=Customer&Active=true` +
+            `&Name=${encodeURIComponent(phone)}` +
+            `&$top=50` +
+            `&$orderby=DateCreated+desc` +
+            `&$filter=Type+eq+'Customer'` +
+            `&$count=true`;
+
+        console.log('[TPOS] Fetching from:', tposUrl);
+
+        const response = await fetch(tposUrl, {
+            headers: {
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'authorization': `Bearer ${token}`,
+                'x-requested-with': 'XMLHttpRequest'
+            }
+        });
+
+        if (!response.ok) {
+            console.warn('[TPOS] API returned status:', response.status);
+            return [];
+        }
+
+        const result = await response.json();
+
+        if (!result.value || result.value.length === 0) {
+            console.log('[TPOS] No results found');
+            return [];
+        }
+
+        console.log('[TPOS] Found', result.value.length, 'customers');
+
+        // Transform TPOS response to match expected customer format
+        return result.value.map(tposCustomer => ({
+            id: tposCustomer.Id,
+            tpos_id: tposCustomer.Id,
+            name: tposCustomer.Name || tposCustomer.DisplayName || '',
+            phone: tposCustomer.Phone || '',
+            address: tposCustomer.Street || tposCustomer.FullAddress || '',
+            email: tposCustomer.Email || '',
+            status: tposCustomer.StatusText || tposCustomer.Status || 'Bình thường',
+            debt: tposCustomer.Debit || 0,
+            source: 'TPOS',
+            // Additional TPOS fields
+            facebook_id: tposCustomer.FacebookASIds || null,
+            zalo: tposCustomer.Zalo || null,
+            created_at: tposCustomer.DateCreated || null,
+            updated_at: tposCustomer.LastUpdated || null
+        }));
+
+    } catch (error) {
+        console.error('[TPOS] Fallback error:', error);
+        return [];
+    }
+}
+```
+
+### 12.4 TPOS Response Format
+
+**Request URL:**
+```
+GET https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2
+    ?Type=Customer
+    &Active=true
+    &Name=0901234567
+    &$top=50
+    &$orderby=DateCreated+desc
+    &$filter=Type+eq+'Customer'
+    &$count=true
+```
+
+**Response:**
+```json
+{
+    "@odata.context": "https://tomato.tpos.vn/odata/$metadata#Partner",
+    "@odata.count": 1,
+    "value": [
+        {
+            "Id": 12345,
+            "Name": "Nguyễn Văn A",
+            "DisplayName": "Nguyễn Văn A (0901234567)",
+            "Phone": "0901234567",
+            "Email": "nguyenvana@gmail.com",
+            "Street": "123 Đường ABC",
+            "FullAddress": "123 Đường ABC, Quận 1, TP.HCM",
+            "Status": "VIP",
+            "StatusText": "VIP",
+            "Debit": 5000000,
+            "FacebookASIds": null,
+            "Zalo": "0901234567",
+            "DateCreated": "2024-01-15T10:30:00Z",
+            "LastUpdated": "2024-12-20T15:45:00Z"
+        }
+    ]
+}
+```
+
+### 12.5 Data Transformation Mapping
+
+| TPOS Field | App Field | Mô Tả |
+|------------|-----------|-------|
+| `Id` | `id`, `tpos_id` | ID khách hàng trong TPOS |
+| `Name`, `DisplayName` | `name` | Tên khách hàng |
+| `Phone` | `phone` | Số điện thoại |
+| `Street`, `FullAddress` | `address` | Địa chỉ |
+| `Email` | `email` | Email |
+| `StatusText`, `Status` | `status` | Trạng thái (VIP, Cảnh báo, etc.) |
+| `Debit` | `debt` | Công nợ từ TPOS |
+| `FacebookASIds` | `facebook_id` | Facebook ID |
+| `Zalo` | `zalo` | Zalo |
+| `DateCreated` | `created_at` | Ngày tạo |
+| `LastUpdated` | `updated_at` | Ngày cập nhật |
+
+---
+
+## 13. Phát Hiện Giao Dịch Thiếu (Gap Detection)
 
 > [!WARNING]
 > **Gap Detection** giúp phát hiện các giao dịch bị mất do webhook fail. Cần thiết cho việc reconciliation.
 
-### 10.1 Cách Hoạt Động
+### 13.1 Cách Hoạt Động
 
 1. Mã tham chiếu (reference_code) từ SePay là số tăng tuần tự
 2. Nếu có gap (VD: 2565 → 2567, thiếu 2566), nghĩa là webhook cho 2566 không nhận được
 3. UI hiển thị các giao dịch thiếu để user xử lý
 
-### 10.2 API Gap Detection
+### 13.2 API Gap Detection
 
 ```javascript
 // Backend API
@@ -1304,7 +2027,7 @@ GET /api/sepay/detect-gaps
 }
 ```
 
-### 10.3 Client-Side Gap Detection (Trong Table)
+### 13.3 Client-Side Gap Detection (Trong Table)
 
 ```javascript
 // Trong renderTable()
@@ -1358,9 +2081,9 @@ function renderGapRow(missingRef, prevRef, nextRef) {
 
 ---
 
-## 11. Realtime Updates (SSE)
+## 14. Realtime Updates (SSE)
 
-### 11.1 Server-Sent Events Connection
+### 14.1 Server-Sent Events Connection
 
 ```javascript
 let eventSource = null;
@@ -1423,9 +2146,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ---
 
-## 12. Triển Khai
+## 15. Triển Khai
 
-### 12.1 Checklist Triển Khai
+### 15.1 Checklist Triển Khai
 
 - [ ] **Database**
   - [ ] Tạo PostgreSQL database trên Render.com
@@ -1454,7 +2177,7 @@ document.addEventListener('DOMContentLoaded', () => {
   - [ ] Update bank config trong `qr-generator.js`
   - [ ] Test chức năng tạo QR, filter, pagination
 
-### 12.2 Test Webhook
+### 15.2 Test Webhook
 
 ```bash
 # Test với curl
@@ -1474,7 +2197,7 @@ curl -X POST https://your-worker.workers.dev/api/sepay/webhook \
   }'
 ```
 
-### 12.3 Troubleshooting
+### 15.3 Troubleshooting
 
 | Vấn Đề | Nguyên Nhân | Giải Pháp |
 |--------|-------------|-----------|
