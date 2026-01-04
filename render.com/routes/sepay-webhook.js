@@ -692,14 +692,20 @@ function extractPhoneFromContent(content) {
         };
     }
 
-    // Step 4: Extract partial phone number (>= 5 digits)
+    // Step 4: Extract partial phone number (5-10 digits)
     // Will search TPOS to get full 10-digit phone
+    // Strategy: Prioritize numbers with phone-like length (5-10 digits), take FIRST match
     const partialPhonePattern = /\d{5,}/g;
     const allNumbers = textToParse.match(partialPhonePattern);
 
     if (allNumbers && allNumbers.length > 0) {
-        const partialPhone = allNumbers[allNumbers.length - 1]; // Take last match
-        console.log('[EXTRACT] ✅ Found partial phone (>= 5 digits, last occurrence):', partialPhone);
+        // Filter numbers to reasonable phone length (5-10 digits) and take first match
+        const phoneLikeNumbers = allNumbers.filter(num => num.length >= 5 && num.length <= 10);
+        const partialPhone = phoneLikeNumbers.length > 0
+            ? phoneLikeNumbers[0]  // Take FIRST phone-like number
+            : allNumbers[0];         // Fallback to first number if no phone-like numbers
+
+        console.log('[EXTRACT] ✅ Found partial phone (5-10 digits, first occurrence):', partialPhone, 'from:', allNumbers);
         return {
             type: 'partial_phone',
             value: partialPhone,
