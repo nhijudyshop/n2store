@@ -55,6 +55,12 @@ const PAGE_PERMISSIONS_CONFIG = [
         description: "Xử lý hàng hoàn trả",
     },
     {
+        id: "issue-tracking",
+        icon: "headphones",
+        name: "CSKH + Hàng Hoàn Bưu Cục",
+        description: "Quản lý sự vụ CSKH và điều phối hàng hoàn",
+    },
+    {
         id: "baocaosaleonline",
         icon: "shopping-cart",
         name: "Báo Cáo Sale-Online",
@@ -259,6 +265,7 @@ class PagePermissionsUI {
                 "ib",
                 "ck",
                 "hanghoan",
+                "issue-tracking",
                 "baocaosaleonline",
                 "product-search",
             ],
