@@ -452,21 +452,21 @@ function renderTransactionRow(row) {
 
     return `
     <tr>
-        <td>${formatDateTime(row.transaction_date)}</td>
-        <td>${row.gateway}</td>
-        <td>
+        <td data-column="datetime">${formatDateTime(row.transaction_date)}</td>
+        <td data-column="gateway">${row.gateway}</td>
+        <td data-column="type">
             <span class="badge ${row.transfer_type === 'in' ? 'badge-success' : 'badge-danger'}">
                 <i class="fas fa-arrow-${row.transfer_type === 'in' ? 'down' : 'up'}"></i>
                 ${row.transfer_type === 'in' ? 'Tiền vào' : 'Tiền ra'}
             </span>
         </td>
-        <td class="${row.transfer_type === 'in' ? 'amount-in' : 'amount-out'}">
+        <td data-column="amount" class="${row.transfer_type === 'in' ? 'amount-in' : 'amount-out'}">
             ${row.transfer_type === 'in' ? '+' : '-'}${formatCurrency(row.transfer_amount)}
         </td>
-        <td>${formatCurrency(row.accumulated)}</td>
-        <td>${truncateText(content || 'N/A', 50)}</td>
-        <td>${row.reference_code || 'N/A'}</td>
-        <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
+        <td data-column="balance">${formatCurrency(row.accumulated)}</td>
+        <td data-column="content">${truncateText(content || 'N/A', 50)}</td>
+        <td data-column="reference">${row.reference_code || 'N/A'}</td>
+        <td data-column="customer_name" class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
             ${uniqueCode ? `
                 <div style="display: flex; align-items: center; gap: 5px;">
                     <span>${customerDisplay.name}</span>
@@ -476,7 +476,7 @@ function renderTransactionRow(row) {
                 </div>
             ` : '<span style="color: #999;">N/A</span>'}
         </td>
-        <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
+        <td data-column="customer_phone" class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
             ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
                 <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
                     ${customerDisplay.phone}
@@ -484,7 +484,7 @@ function renderTransactionRow(row) {
                 </a>
             ` : '<span style="color: #999;">N/A</span>'}
         </td>
-        <td class="text-center">
+        <td data-column="qr_code" class="text-center">
             ${uniqueCode ? `
                 <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
                     <i data-lucide="qr-code"></i>
@@ -494,7 +494,7 @@ function renderTransactionRow(row) {
                 </button>
             ` : '<span style="color: #999;">N/A</span>'}
         </td>
-        <td class="text-center">
+        <td data-column="actions" class="text-center">
             <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
                 Chi tiết
             </button>
@@ -2491,3 +2491,101 @@ window.fetchMissingTransaction = fetchMissingTransaction;
 window.addEventListener('beforeunload', () => {
     disconnectRealtimeUpdates();
 });
+
+// =====================================================
+// COLUMN VISIBILITY CONTROL
+// =====================================================
+
+const columnVisibilityBtn = document.getElementById('columnVisibilityBtn');
+const columnVisibilityDropdown = document.getElementById('columnVisibilityDropdown');
+const selectAllColumnsBtn = document.getElementById('selectAllColumnsBtn');
+
+// Toggle dropdown visibility
+columnVisibilityBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = columnVisibilityDropdown.style.display === 'block';
+    columnVisibilityDropdown.style.display = isVisible ? 'none' : 'block';
+});
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    if (!columnVisibilityDropdown?.contains(e.target) && e.target !== columnVisibilityBtn) {
+        columnVisibilityDropdown.style.display = 'none';
+    }
+});
+
+// Load column visibility preferences from localStorage
+function loadColumnVisibility() {
+    const savedVisibility = localStorage.getItem('columnVisibility');
+    if (savedVisibility) {
+        const visibility = JSON.parse(savedVisibility);
+        Object.entries(visibility).forEach(([column, isVisible]) => {
+            const checkbox = document.querySelector(`.column-checkbox input[value="${column}"]`);
+            if (checkbox) {
+                checkbox.checked = isVisible;
+                toggleColumn(column, isVisible);
+            }
+        });
+    }
+}
+
+// Save column visibility preferences to localStorage
+function saveColumnVisibility() {
+    const checkboxes = document.querySelectorAll('.column-checkbox input[type="checkbox"]');
+    const visibility = {};
+    checkboxes.forEach(checkbox => {
+        visibility[checkbox.value] = checkbox.checked;
+    });
+    localStorage.setItem('columnVisibility', JSON.stringify(visibility));
+}
+
+// Toggle column visibility
+function toggleColumn(columnName, isVisible) {
+    const headers = document.querySelectorAll(`th[data-column="${columnName}"]`);
+    const cells = document.querySelectorAll(`td[data-column="${columnName}"]`);
+
+    headers.forEach(header => {
+        if (isVisible) {
+            header.classList.remove('hidden');
+        } else {
+            header.classList.add('hidden');
+        }
+    });
+
+    cells.forEach(cell => {
+        if (isVisible) {
+            cell.classList.remove('hidden');
+        } else {
+            cell.classList.add('hidden');
+        }
+    });
+}
+
+// Handle checkbox changes
+const columnCheckboxes = document.querySelectorAll('.column-checkbox input[type="checkbox"]');
+columnCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+        const columnName = e.target.value;
+        const isVisible = e.target.checked;
+        toggleColumn(columnName, isVisible);
+        saveColumnVisibility();
+    });
+});
+
+// Select/Deselect all columns
+let allColumnsSelected = true;
+selectAllColumnsBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    allColumnsSelected = !allColumnsSelected;
+
+    columnCheckboxes.forEach(checkbox => {
+        checkbox.checked = allColumnsSelected;
+        toggleColumn(checkbox.value, allColumnsSelected);
+    });
+
+    selectAllColumnsBtn.textContent = allColumnsSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả';
+    saveColumnVisibility();
+});
+
+// Initialize column visibility on page load
+loadColumnVisibility();

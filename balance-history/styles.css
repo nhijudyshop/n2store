@@ -1485,3 +1485,109 @@ body {
         transform: rotate(360deg);
     }
 }
+
+/* =====================================================
+   COLUMN VISIBILITY DROPDOWN STYLES
+   ===================================================== */
+
+.column-dropdown {
+    position: absolute;
+    top: calc(100% + 5px);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    min-width: 200px;
+    z-index: 1000;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.column-dropdown-header {
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.column-dropdown-header span {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+    font-weight: 500;
+}
+
+.btn-link:hover {
+    background: var(--primary-bg);
+    color: var(--primary-dark);
+}
+
+.column-dropdown-content {
+    padding: var(--spacing-sm);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.column-checkbox {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    user-select: none;
+}
+
+.column-checkbox:hover {
+    background: var(--gray-50);
+}
+
+.column-checkbox input[type="checkbox"] {
+    margin-right: var(--spacing-sm);
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+}
+
+/* Hide columns */
+.data-table th[data-column].hidden,
+.data-table td[data-column].hidden {
+    display: none;
+}
+
+/* Mobile responsive for column dropdown */
+@media (max-width: 768px) {
+    .column-dropdown {
+        right: 0;
+        left: 0;
+        min-width: auto;
+    }
+}

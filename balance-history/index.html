@@ -230,6 +230,54 @@
                 <button id="filterGapsOnlyBtn" class="btn btn-warning" style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b;">
                     <i data-lucide="alert-triangle"></i> Chỉ GD thiếu
                 </button>
+
+                <div class="filter-group" style="position: relative;">
+                    <label><i data-lucide="columns"></i> Hiển thị cột:</label>
+                    <button id="columnVisibilityBtn" class="btn btn-secondary" style="padding: 8px 12px;">
+                        <i data-lucide="eye"></i> Chọn cột
+                    </button>
+                    <div id="columnVisibilityDropdown" class="column-dropdown" style="display: none;">
+                        <div class="column-dropdown-header">
+                            <span>Chọn cột hiển thị</span>
+                            <button id="selectAllColumnsBtn" class="btn-link">Chọn tất cả</button>
+                        </div>
+                        <div class="column-dropdown-content">
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="datetime" checked> Ngày giờ
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="gateway" checked> Ngân hàng
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="type" checked> Loại
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="amount" checked> Số tiền
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="balance" checked> Số dư
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="content" checked> Nội dung
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="reference" checked> Mã tham chiếu
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="customer_name" checked> Tên khách hàng
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="customer_phone" checked> Số điện thoại
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="qr_code" checked> QR Code
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="actions" checked> Thao tác
+                            </label>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Loading Indicator -->
@@ -242,17 +290,17 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Ngày giờ</th>
-                            <th>Ngân hàng</th>
-                            <th>Loại</th>
-                            <th>Số tiền</th>
-                            <th>Số dư</th>
-                            <th>Nội dung</th>
-                            <th>Mã tham chiếu</th>
-                            <th>Tên khách hàng</th>
-                            <th>Số điện thoại</th>
-                            <th>QR Code</th>
-                            <th>Thao tác</th>
+                            <th data-column="datetime">Ngày giờ</th>
+                            <th data-column="gateway">Ngân hàng</th>
+                            <th data-column="type">Loại</th>
+                            <th data-column="amount">Số tiền</th>
+                            <th data-column="balance">Số dư</th>
+                            <th data-column="content">Nội dung</th>
+                            <th data-column="reference">Mã tham chiếu</th>
+                            <th data-column="customer_name">Tên khách hàng</th>
+                            <th data-column="customer_phone">Số điện thoại</th>
+                            <th data-column="qr_code">QR Code</th>
+                            <th data-column="actions">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
