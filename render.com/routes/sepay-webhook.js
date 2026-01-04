@@ -373,7 +373,7 @@ router.get('/history', async (req, res) => {
             : '';
 
         // Get total count
-        const countQuery = `SELECT COUNT(*) FROM balance_history ${whereClause}`;
+        const countQuery = `SELECT COUNT(*) FROM balance_history bh ${whereClause}`;
         const countResult = await db.query(countQuery, queryParams);
         const total = parseInt(countResult.rows[0].count);
 
