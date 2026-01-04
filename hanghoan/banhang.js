@@ -463,7 +463,7 @@ const BanHangModule = (function() {
         hideEmptyState();
 
         const html = data.map((item, index) => `
-            <tr data-index="${startIndex + index}" data-id="${item.id || ''}">
+            <tr data-index="${startIndex + index}" data-id="${item.id || ''}" data-order-id="${item.thamChieu || ''}" class="order-row" style="cursor: pointer;">
                 <td class="text-center">${startIndex + index + 1}</td>
                 <td>${escapeHtml(item.khachHang || '')}</td>
                 <td>${escapeHtml(item.email || '')}</td>
@@ -506,10 +506,135 @@ const BanHangModule = (function() {
 
         elements.tableBody.innerHTML = html;
 
+        // Add click handlers for row expansion
+        attachRowClickHandlers();
+
         // Re-initialize Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
+    }
+
+    // Attach click handlers to rows for expanding order details
+    function attachRowClickHandlers() {
+        const rows = document.querySelectorAll('.order-row');
+        rows.forEach(row => {
+            row.addEventListener('click', async (e) => {
+                // Don't expand if clicking on a link or button
+                if (e.target.tagName === 'A' || e.target.closest('a')) {
+                    return;
+                }
+
+                const orderId = row.getAttribute('data-order-id');
+                if (!orderId) {
+                    console.log('[EXPAND] No order ID found');
+                    return;
+                }
+
+                // Toggle expansion
+                const existingDetailRow = row.nextElementSibling;
+                if (existingDetailRow && existingDetailRow.classList.contains('order-detail-row')) {
+                    // Already expanded, collapse it
+                    existingDetailRow.remove();
+                    row.style.backgroundColor = '';
+                } else {
+                    // Expand and fetch details
+                    row.style.backgroundColor = '#e3f2fd';
+                    await expandOrderDetails(row, orderId);
+                }
+            });
+        });
+    }
+
+    // Expand order details by fetching OrderLines from TPOS
+    async function expandOrderDetails(row, orderId) {
+        try {
+            console.log('[EXPAND] Fetching details for order:', orderId);
+
+            // Create a loading row
+            const loadingRow = document.createElement('tr');
+            loadingRow.classList.add('order-detail-row');
+            loadingRow.innerHTML = `
+                <td colspan="100%" style="padding: 20px; text-align: center; background: #f5f5f5;">
+                    <i class="fas fa-spinner fa-spin"></i> Đang tải chi tiết đơn hàng...
+                </td>
+            `;
+            row.insertAdjacentElement('afterend', loadingRow);
+
+            // Fetch order lines from TPOS API via worker
+            const response = await fetch(`${WORKER_URL}/tpos/order/${orderId}/lines`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (!result.success || !result.data || result.data.length === 0) {
+                loadingRow.innerHTML = `
+                    <td colspan="100%" style="padding: 20px; text-align: center; background: #fff3cd; color: #856404;">
+                        <i class="fas fa-exclamation-triangle"></i> Không tìm thấy chi tiết đơn hàng
+                    </td>
+                `;
+                return;
+            }
+
+            // Render order details
+            renderOrderDetails(loadingRow, result.data);
+
+        } catch (error) {
+            console.error('[EXPAND] Error fetching order details:', error);
+            const errorRow = row.nextElementSibling;
+            if (errorRow && errorRow.classList.contains('order-detail-row')) {
+                errorRow.innerHTML = `
+                    <td colspan="100%" style="padding: 20px; text-align: center; background: #f8d7da; color: #721c24;">
+                        <i class="fas fa-exclamation-circle"></i> Lỗi khi tải chi tiết: ${error.message}
+                    </td>
+                `;
+            }
+        }
+    }
+
+    // Render order details table
+    function renderOrderDetails(detailRow, orderLines) {
+        const detailHtml = `
+            <td colspan="100%" style="padding: 0; background: #f8f9fa;">
+                <div style="padding: 20px; margin: 10px 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <table class="table table-bordered" style="margin: 0;">
+                        <thead style="background: #e9ecef;">
+                            <tr>
+                                <th style="width: 50px;">STT</th>
+                                <th>Sản phẩm</th>
+                                <th style="width: 120px;">Đơn vị tính</th>
+                                <th style="width: 100px;">Số lượng</th>
+                                <th style="width: 120px;">Đơn giá</th>
+                                <th style="width: 120px;">Thành tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${orderLines.map((line, index) => `
+                                <tr>
+                                    <td class="text-center">${index + 1}</td>
+                                    <td>${escapeHtml(line.ProductNameGet || line.Name || '')}</td>
+                                    <td>${escapeHtml(line.ProductUOMName || '')}</td>
+                                    <td class="text-center">${line.ProductUOMQty || 0}</td>
+                                    <td class="text-right">${formatCurrency(line.PriceUnit || 0)}</td>
+                                    <td class="text-right">${formatCurrency(line.PriceTotal || 0)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                        <tfoot style="background: #f8f9fa; font-weight: bold;">
+                            <tr>
+                                <td colspan="5" class="text-right">Tổng</td>
+                                <td class="text-right">${formatCurrency(orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0))}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </td>
+        `;
+        detailRow.innerHTML = detailHtml;
     }
 
     // Get delivery status class
