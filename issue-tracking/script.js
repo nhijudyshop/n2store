@@ -36,23 +36,15 @@ document.addEventListener('DOMContentLoaded', () => {
     initModalHandlers();
     initReconcileHandlers();
 
-    // Subscribe to Realtime Data (DISABLED - Using Mock Data)
-    console.log('[APP] Using pre-loaded mock data:', TICKETS.length, 'tickets');
-    // Sort mock data by createdAt
-    TICKETS.sort((a, b) => b.createdAt - a.createdAt);
-    // Render initial view
-    renderDashboard('all');
-    updateStats();
-
-    /* FIREBASE SUBSCRIPTION - Uncomment to use real data
+    // Subscribe to Firebase Realtime Data
+    console.log('[APP] Initializing Firebase subscription...');
     currentTicketSubscription = ApiService.subscribeToTickets((tickets) => {
         console.log('[APP] Received tickets update:', tickets.length);
         TICKETS = tickets;
-        const activeTab = document.querySelector('.tab-btn.active').dataset.tab || 'all';
+        const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
         renderDashboard(activeTab);
         updateStats();
     });
-    */
 
     if (typeof mermaid !== 'undefined') {
         mermaid.initialize({ startOnLoad: false, theme: 'default' });
@@ -157,38 +149,29 @@ async function handleSearchOrder() {
     const query = elements.inpSearchOrder.value.trim();
     if (!query) return alert("Vui lòng nhập SĐT hoặc Mã đơn");
 
+    // Validate: need at least 3 digits
+    const cleanQuery = query.replace(/\D/g, '');
+    if (cleanQuery.length < 3) {
+        return alert("Vui lòng nhập ít nhất 3 chữ số");
+    }
+
     showLoading(true);
     try {
-        // Call API Service
         const orders = await ApiService.searchOrders(query);
 
         if (orders && orders.length > 0) {
-            // Pick first match for now (or show list if multiple? logic simplified to first)
-            selectedOrder = orders[0];
-
-            document.getElementById('order-result').classList.remove('hidden');
-            document.getElementById('issue-details-form').classList.remove('hidden');
-
-            // Fill Data
-            document.getElementById('res-customer').textContent = selectedOrder.customer;
-            document.getElementById('res-phone').textContent = selectedOrder.phone;
-            document.getElementById('res-tracking').textContent = selectedOrder.trackingCode || '---';
-
-            const productNames = selectedOrder.products.map(p => `${p.quantity}x ${p.name}`).join(', ');
-            document.getElementById('res-products').textContent = productNames;
-
-            // Generate Product Checklist (for partial return)
-            const checklist = document.getElementById('product-checklist');
-            checklist.innerHTML = selectedOrder.products.map(p => `
-                <div class="checkbox-item">
-                    <input type="checkbox" value="${p.id}" id="prod-${p.id}" checked>
-                    <label for="prod-${p.id}">${p.name} - ${formatCurrency(p.price)}</label>
-                </div>
-            `).join('');
-
+            if (orders.length === 1) {
+                // Only 1 result - auto select
+                selectOrder(orders[0]);
+            } else {
+                // Multiple results - show selection list
+                showOrderSelectionList(orders);
+            }
         } else {
-            alert("Không tìm thấy đơn hàng trên hệ thống.");
+            alert("Không tìm thấy đơn hàng với SĐT này trong 30 ngày gần đây.");
             document.getElementById('order-result').classList.add('hidden');
+            document.getElementById('issue-details-form').classList.add('hidden');
+            hideOrderSelectionList();
             selectedOrder = null;
         }
     } catch (error) {
@@ -198,6 +181,94 @@ async function handleSearchOrder() {
         showLoading(false);
     }
 }
+
+/**
+ * Select an order and display its details
+ * @param {Object} order - Order object from TPOS
+ */
+function selectOrder(order) {
+    selectedOrder = order;
+
+    document.getElementById('order-result').classList.remove('hidden');
+    document.getElementById('issue-details-form').classList.remove('hidden');
+
+    // Fill order data
+    document.getElementById('res-customer').textContent = order.customer;
+    document.getElementById('res-phone').textContent = order.phone;
+    document.getElementById('res-tracking').textContent = order.trackingCode || order.tposCode || '---';
+
+    // Products - show COD and total amount (products will be loaded separately if needed)
+    document.getElementById('res-products').textContent = `COD: ${formatCurrency(order.cod)} | Tổng: ${formatCurrency(order.totalAmount)}`;
+
+    // Reset product checklist (will implement product loading later if needed)
+    const checklist = document.getElementById('product-checklist');
+    checklist.innerHTML = `<p style="color:#64748b;font-size:12px">Mã đơn: ${order.tposCode} | ${order.carrier || 'N/A'}</p>`;
+
+    // Hide order selection list
+    hideOrderSelectionList();
+}
+
+/**
+ * Show list of orders for user to select
+ * @param {Array} orders - Array of order objects
+ */
+function showOrderSelectionList(orders) {
+    // Create or get element
+    let listEl = document.getElementById('order-selection-list');
+    if (!listEl) {
+        listEl = document.createElement('div');
+        listEl.id = 'order-selection-list';
+        listEl.className = 'order-selection-list';
+        document.querySelector('.search-section').appendChild(listEl);
+    }
+
+    listEl.innerHTML = `
+        <div style="padding:10px;background:#f1f5f9;border-radius:6px;margin-top:10px;max-height:300px;overflow-y:auto;">
+            <p style="font-weight:600;margin-bottom:8px;">Tìm thấy ${orders.length} đơn hàng:</p>
+            ${orders.map((o, i) => `
+                <div class="order-option" onclick="selectOrderByIndex(${i})"
+                     style="padding:10px;border:1px solid #e2e8f0;border-radius:4px;margin-bottom:6px;cursor:pointer;background:white;transition:all 0.2s;"
+                     onmouseover="this.style.borderColor='#3b82f6';this.style.background='#eff6ff'"
+                     onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                    <div style="font-weight:500;color:#1e293b">${o.customer} - ${o.phone}</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:2px">
+                        ${o.tposCode} | COD: ${formatCurrency(o.cod)} | ${o.carrier || 'N/A'}
+                    </div>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:2px">
+                        ${new Date(o.createdAt).toLocaleDateString('vi-VN')} - ${o.status}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    listEl.classList.remove('hidden');
+
+    // Hide order result and form until selection
+    document.getElementById('order-result').classList.add('hidden');
+    document.getElementById('issue-details-form').classList.add('hidden');
+
+    // Store orders for selection
+    window._searchedOrders = orders;
+}
+
+/**
+ * Hide order selection list
+ */
+function hideOrderSelectionList() {
+    const listEl = document.getElementById('order-selection-list');
+    if (listEl) {
+        listEl.classList.add('hidden');
+    }
+}
+
+/**
+ * Select order by index (called from onclick)
+ */
+window.selectOrderByIndex = function(index) {
+    if (window._searchedOrders && window._searchedOrders[index]) {
+        selectOrder(window._searchedOrders[index]);
+    }
+};
 
 function handleIssueTypeChange(e) {
     console.log('[DEBUG] handleIssueTypeChange called');
