@@ -1471,7 +1471,16 @@ async function generateDepositQRInline() {
     const customerPhone = inlineCustomerPhone?.value?.trim() || '';
 
     // Generate QR code
-    const qrData = window.QRGenerator.generateDepositQR(0); // 0 = customer fills amount
+    // If phone is provided, use it as the transfer content (addInfo/uniqueCode)
+    // Otherwise, generate a unique code
+    let qrData;
+    if (customerPhone) {
+        // Use phone number as the unique code for transfer content
+        qrData = window.QRGenerator.regenerateQR(customerPhone, 0);
+    } else {
+        // Generate normal unique code
+        qrData = window.QRGenerator.generateDepositQR(0); // 0 = customer fills amount
+    }
 
     // If customer info is provided, save it
     if ((customerName || customerPhone) && window.CustomerInfoManager) {
