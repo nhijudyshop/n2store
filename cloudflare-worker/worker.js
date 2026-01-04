@@ -4,6 +4,49 @@
  */
 
 // =====================================================
+// DYNAMIC HEADERS CACHE (In-memory)
+// =====================================================
+const dynamicHeaders = {
+  tposappversion: null,
+  lastUpdated: null,
+  updateCooldown: 60 * 60 * 1000 // 1 hour
+};
+
+/**
+ * Get dynamic header value
+ * @param {string} headerName - Header name
+ * @returns {string|null}
+ */
+function getDynamicHeader(headerName) {
+  return dynamicHeaders[headerName] || null;
+}
+
+/**
+ * Update dynamic header from response
+ * @param {Response} response - Response object
+ */
+function learnFromResponse(response) {
+  try {
+    const tposVersion = response.headers.get('tposappversion');
+    if (tposVersion && /^\d+\.\d+\.\d+\.\d+$/.test(tposVersion)) {
+      const now = Date.now();
+      const lastUpdate = dynamicHeaders.lastUpdated || 0;
+
+      // Only update if cooldown has passed
+      if (now - lastUpdate > dynamicHeaders.updateCooldown) {
+        if (dynamicHeaders.tposappversion !== tposVersion) {
+          console.log(`[DYNAMIC-HEADERS] Updated tposappversion: ${dynamicHeaders.tposappversion || '(none)'} → ${tposVersion}`);
+          dynamicHeaders.tposappversion = tposVersion;
+          dynamicHeaders.lastUpdated = now;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[DYNAMIC-HEADERS] Learning error:', error.message);
+  }
+}
+
+// =====================================================
 // TPOS TOKEN CACHE (In-memory)
 // =====================================================
 const tokenCache = {
@@ -1062,7 +1105,7 @@ export default {
         // Set required headers for TPOS
         tposHeaders.set('Accept', '*/*');
         tposHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
-        tposHeaders.set('tposappversion', '5.12.29.1');
+        tposHeaders.set('tposappversion', getDynamicHeader('tposappversion') || '5.12.29.1');
         tposHeaders.set('Origin', 'https://tomato.tpos.vn');
         tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
         tposHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
@@ -1075,6 +1118,9 @@ export default {
 
           console.log('[FACEBOOK-GRAPH-LIVE] TPOS Response status:', tposResponse.status);
           console.log('[FACEBOOK-GRAPH-LIVE] ========================================');
+
+          // Learn from TPOS response
+          learnFromResponse(tposResponse);
 
           // Clone response and add CORS headers
           const newResponse = new Response(tposResponse.body, tposResponse);
@@ -1296,7 +1342,7 @@ export default {
               'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
               'Cache-Control': 'no-cache',
               'Pragma': 'no-cache',
-              'tposappversion': '5.12.29.1',
+              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1',
               'X-Requested-With': 'XMLHttpRequest',
               'Referer': 'https://tomato.tpos.vn/',
               'Origin': 'https://tomato.tpos.vn'
@@ -1306,6 +1352,9 @@ export default {
           if (!odataResponse.ok) {
             throw new Error(`TPOS API error: ${odataResponse.status}`);
           }
+
+          // Learn from TPOS response
+          learnFromResponse(odataResponse);
 
           const odataResult = await odataResponse.json();
 
@@ -1390,7 +1439,7 @@ export default {
             headers: {
               'Accept': 'application/json, text/javascript, */*; q=0.01',
               'Authorization': `Bearer ${token}`,
-              'tposappversion': '5.12.29.1',
+              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1',
               'x-requested-with': 'XMLHttpRequest',
               'Referer': 'https://tomato.tpos.vn/',
               'Origin': 'https://tomato.tpos.vn'
@@ -1400,6 +1449,9 @@ export default {
           if (!searchResponse.ok) {
             throw new Error(`TPOS search API error: ${searchResponse.status}`);
           }
+
+          // Learn from TPOS response
+          learnFromResponse(searchResponse);
 
           const searchResult = await searchResponse.json();
 
@@ -1429,7 +1481,7 @@ export default {
               'Accept': '*/*',
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-              'tposappversion': '5.12.29.1',
+              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1',
               'Referer': 'https://tomato.tpos.vn/',
               'Origin': 'https://tomato.tpos.vn'
             },
@@ -1438,6 +1490,9 @@ export default {
           if (!odataResponse.ok) {
             throw new Error(`TPOS OrderLines API error: ${odataResponse.status}`);
           }
+
+          // Learn from TPOS response
+          learnFromResponse(odataResponse);
 
           const odataResult = await odataResponse.json();
 
@@ -1487,7 +1542,7 @@ export default {
         // Set required headers for TPOS
         tposRestHeaders.set('Accept', '*/*');
         tposRestHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
-        tposRestHeaders.set('tposappversion', '5.12.29.1');
+        tposRestHeaders.set('tposappversion', getDynamicHeader('tposappversion') || '5.12.29.1');
         tposRestHeaders.set('Origin', 'https://tomato.tpos.vn');
         tposRestHeaders.set('Referer', 'https://tomato.tpos.vn/');
         tposRestHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
@@ -1502,6 +1557,9 @@ export default {
           });
 
           console.log('[TPOS-REST-API] Response status:', restResponse.status);
+
+          // Learn from TPOS response
+          learnFromResponse(restResponse);
 
           const newRestResponse = new Response(restResponse.body, restResponse);
           newRestResponse.headers.set('Access-Control-Allow-Origin', '*');
