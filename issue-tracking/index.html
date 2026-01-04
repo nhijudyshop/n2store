@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Sự vụ & Điều phối sau bán hàng</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Mermaid.js for Flow Diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>CSKH và Quản Lý</h1>
+                <p class="subtitle">Theo dõi hàng hoàn, sửa COD và xử lý công nợ</p>
+            </div>
+            <div class="header-right">
+                <button id="btn-create-ticket" class="btn btn-primary">+ Tạo Phiếu Mới</button>
+                <button id="btn-open-reconcile" class="btn btn-secondary"
+                    style="margin-left: 10px; background: #8b5cf6; border: none;">📋 Đối Soát</button>
+            </div>
+
+        </header>
+
+        <!-- Dashboard Stats (Optional, nice to have) -->
+        <div class="stats-overview">
+            <div class="stat-card">
+                <h3>Chờ Hàng Về</h3>
+                <p id="count-pending-goods" class="stat-number">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Chờ Đối Soát</h3>
+                <p id="count-pending-finance" class="stat-number">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Hoàn Tất Hôm Nay</h3>
+                <p id="count-completed-today" class="stat-number">0</p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-btn" data-tab="all">
+                    Tất cả sự vụ
+                </button>
+                <button class="tab-btn active" data-tab="pending-goods">
+                    Chờ Hàng Về
+                    <span class="badge" id="badge-pending-goods">0</span>
+                </button>
+                <button class="tab-btn" data-tab="pending-finance">
+                    Chờ Đối Soát Tiền
+                    <span class="badge" id="badge-pending-finance">0</span>
+                </button>
+                <button class="tab-btn" data-tab="completed">
+                    Hoàn Tất
+                </button>
+            </div>
+
+            <!-- Guide Section (Dynamic) -->
+            <div id="tab-guide" class="guide-panel hidden">
+                <div class="guide-header">
+                    <span class="guide-icon">ℹ️</span>
+                    <h4 id="guide-title">Hướng dẫn</h4>
+                    <button class="btn-toggle-guide" onclick="toggleGuide()">▼</button>
+                </div>
+                <div id="guide-content" class="guide-body">
+                    <!-- Content injected by JS -->
+                </div>
+            </div>
+
+            <!-- Filters (Simplified) -->
+            <div class="filters-bar">
+                <input type="text" id="search-ticket" placeholder="Tìm theo SĐT, Mã đơn..." class="search-input">
+                <select id="filter-type" class="select-input">
+                    <option value="all">Tất cả loại</option>
+                    <option value="BOOM">Boom hàng</option>
+                    <option value="RETURN_SHIPPER">Thu về (Shipper)</option>
+                    <option value="RETURN_CLIENT">Khách gửi</option>
+                    <option value="FIX_COD">Sửa COD</option>
+                </select>
+            </div>
+
+            <!-- Data Table -->
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Mã đơn / ID</th>
+                            <th>Khách hàng</th>
+                            <th>Loại & Kênh</th>
+                            <th>Sản phẩm / Chi tiết</th>
+                            <th>Tài chính</th>
+                            <th>Trạng thái</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticket-list-body">
+                        <!-- Rows will be populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Create Ticket -->
+    <div id="modal-create-ticket" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Tạo Phiếu Mới</h2>
+
+            <!-- Step 1: Search Order -->
+            <div class="form-group search-section">
+                <label>Tìm đơn hàng gốc</label>
+                <div class="input-group">
+                    <input type="text" id="order-search-input" placeholder="Nhập SĐT hoặc Mã vận đơn">
+                    <button id="btn-search-order" class="btn btn-secondary">Tìm</button>
+                </div>
+                <div id="order-result" class="order-resultbox hidden">
+                    <!-- Order details will appear here -->
+                    <div class="order-info">
+                        <p><strong>Khách:</strong> <span id="res-customer"></span> - <span id="res-phone"></span></p>
+                        <p><strong>Mã VĐ:</strong> <span id="res-tracking"></span></p>
+                        <p><strong>Sản phẩm:</strong> <span id="res-products"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Issue Details -->
+            <div id="issue-details-form" class="hidden">
+                <div class="form-group">
+                    <label>Loại Sự Vụ</label>
+                    <select id="issue-type-select" class="select-input full-width">
+                        <option value="">-- Chọn loại --</option>
+                        <option value="FIX_COD">Sửa COD (Shipper gọi)</option>
+                        <option value="RETURN_CLIENT">Khách Gửi (Tỉnh/Bưu cục)</option>
+                        <option value="RETURN_SHIPPER">Thu Về (Shipper/TP)</option>
+                        <option value="BOOM">Boom Hàng (Khách không nhận)</option>
+                        <option value="OTHER">CSKH / Vấn đề khác</option>
+                    </select>
+                </div>
+
+                <!-- Dynamic Fields based on Type -->
+                <div id="dynamic-fields">
+                    <!-- FIX COD Fields -->
+                    <div class="field-group hidden" data-type="FIX_COD">
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label>COD Mới (Thực thu)</label>
+                                <input type="number" id="new-cod-amount" placeholder="VD: 250000">
+                            </div>
+                            <div class="form-group half">
+                                <label>Lý do</label>
+                                <select id="fix-cod-reason" class="select-input">
+                                    <option value="WRONG_SHIP">Tính sai ship</option>
+                                    <option value="CUSTOMER_DEBT">Trừ công nợ khách</option>
+                                    <option value="DISCOUNT">Giảm giá/Lẻ tiền</option>
+                                    <option value="REJECT_PARTIAL">Khách nhận 1 phần</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="calc-hint">Chênh lệch phải trả ĐVVC: <strong id="cod-diff-display">0đ</strong></p>
+                    </div>
+
+                    <!-- RETURN Details -->
+                    <div class="field-group hidden" data-type="RETURN">
+                        <div class="form-group">
+                            <label>Sản phẩm hoàn về</label>
+                            <div id="product-checklist" class="product-checklist">
+                                <!-- Checkboxes generated from order products -->
+                            </div>
+                        </div>
+                        <div class="form-group hidden" id="tracking-input-group">
+                            <label>Mã vận đơn khách gửi (Nếu có)</label>
+                            <input type="text" id="return-tracking-code" placeholder="Nhập mã đơn khách gửi về">
+                        </div>
+                        <div class="form-group hidden" id="shipper-input-group">
+                            <label>Shipper / Đội giao hàng</label>
+                            <input type="text" id="return-shipper-name" placeholder="Tên shipper mang về">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Ghi chú nội bộ</label>
+                    <textarea id="ticket-note" rows="2" placeholder="Chi tiết thêm..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button id="btn-submit-ticket" class="btn btn-primary">Xác Nhận Tạo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Confirm Action (Receive / Settle) -->
+    <div id="modal-confirm-action" class="modal">
+        <div class="modal-content small-modal">
+            <span class="close-modal">&times;</span>
+            <h2 id="confirm-title">Xác nhận</h2>
+            <p id="confirm-message">Bạn có chắc chắn?</p>
+
+            <div id="confirm-extra-fields"></div>
+
+            <div class="modal-actions">
+                <button id="btn-confirm-yes" class="btn btn-primary">Xác Nhận</button>
+                <button class="btn btn-secondary close-modal-btn">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Reconcile Excel (NEW) -->
+    <div id="modal-reconcile" class="modal">
+        <div class="modal-content large-modal">
+            <span class="close-modal">&times;</span>
+            <h2>Đối Soát & Quyết Toán Excel</h2>
+
+            <div class="reconcile-layout">
+                <!-- Left: Input -->
+                <div class="reconcile-input-section">
+                    <label style="font-weight:600;display:block;margin-bottom:5px;">1. Dán dữ liệu từ file Excel (Bao
+                        gồm SĐT và Cột 1)</label>
+                    <textarea id="excel-input" placeholder="Copy các cột từ Excel và dán vào đây...
+Ví dụ:
+80266...  325,000  ...  0977888999
+..."></textarea>
+                    <button id="btn-process-excel" class="btn btn-primary full-width" style="margin-top:10px;">🔍 Phân
+                        Tích & So Sánh</button>
+                </div>
+
+                <!-- Right: Summary -->
+                <div class="reconcile-summary-section">
+                    <div class="summary-card">
+                        <small>Tổng đơn Excel</small>
+                        <strong id="rec-total-count">0</strong>
+                    </div>
+                    <div class="summary-card valid">
+                        <small>Hợp lệ (Ready)</small>
+                        <strong id="rec-valid-count">0</strong>
+                    </div>
+                    <div class="summary-card error">
+                        <small>Lỗi / Ảo</small>
+                        <strong id="rec-error-count">0</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Result Table -->
+            <div class="reconcile-table-wrapper hidden" id="reconcile-result-container">
+                <label style="font-weight:600;display:block;margin:15px 0 5px;">2. Kết quả đối soát chi tiết</label>
+                <table class="data-table reconcile-table">
+                    <thead>
+                        <tr>
+                            <th>Dữ liệu Excel (SĐT / ID)</th>
+                            <th>Thông tin trên Hệ thống</th>
+                            <th>Trạng thái Đối Soát</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reconcile-table-body">
+                        <!-- Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-actions sticky-footer">
+                <div class="total-money-display">
+                    Tổng tiền thanh toán: <span id="rec-total-money">0đ</span>
+                </div>
+                <div>
+                    <button id="btn-confirm-reconcile" class="btn btn-primary" disabled>✓ Quyết Toán (<span
+                            id="btn-rec-count">0</span>)</button>
+                    <button class="btn btn-secondary close-modal-btn">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+
+    <!-- Shared API Utils -->
+    <script src="../orders-report/api-config.js"></script>
+    <script src="../orders-report/api-handler.js"></script>
+
+    <!-- Module Scripts -->
+    <script src="firebase-init.js"></script>
+    <script src="api-service.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
