@@ -71,6 +71,14 @@ const MENU_CONFIG = [
         permissionRequired: "hanghoan",
     },
     {
+        href: "../issue-tracking/index.html",
+        icon: "headphones",
+        text: "CSKH + Hàng Hoàn Bưu Cục",
+        shortText: "CSKH",
+        pageIdentifier: "issue-tracking",
+        permissionRequired: "issue-tracking",
+    },
+    {
         href: "../orders-report/main.html",
         icon: "shopping-cart",
         text: "Báo Cáo Sale-Online",
