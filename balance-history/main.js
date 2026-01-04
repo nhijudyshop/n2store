@@ -1020,7 +1020,7 @@ function renderTransactionRow(row) {
     const mappingSource = getMappingSource(row, uniqueCode);
 
     return `
-    <tr class="${rowClass}">
+    <tr class="${rowClass}" data-transaction-id="${row.id}">
         <td>${formatDateTime(row.transaction_date)}</td>
         <td>${row.gateway}</td>
         <td>
@@ -1783,9 +1783,25 @@ async function handleNewTransaction(transaction) {
         return;
     }
 
-    // If on first page, reload data to show new transaction
+    // If on first page, insert new row at top without full reload
     if (currentPage === 1) {
-        loadData();
+        const tableBody = document.getElementById('tableBody');
+        if (tableBody) {
+            // Render new transaction row
+            const newRowHtml = renderTransactionRow(transaction);
+
+            // Insert at the beginning of table
+            tableBody.insertAdjacentHTML('afterbegin', newRowHtml);
+
+            // Re-initialize Lucide icons for the new row
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+
+            console.log('[REALTIME] New transaction row added without full reload');
+        }
+
+        // Only reload statistics (doesn't affect table)
         loadStatistics();
     } else {
         // Show a notification that there's new data
@@ -1807,18 +1823,116 @@ async function handleCustomerInfoUpdated(data) {
         console.log('[REALTIME] Updated CustomerInfoManager for:', uniqueCode);
     }
 
-    // Use debounced reload to prevent race conditions
-    console.log('[REALTIME] Scheduling debounced reload for customer info update...');
-    debouncedReloadData(500);
+    // Update specific row if transaction_id is provided
+    if (data.transaction_id) {
+        updateTransactionRowCustomerInfo(data.transaction_id, data.customer_phone, data.customer_name);
+    } else {
+        // Fallback: debounced reload if no transaction_id
+        console.log('[REALTIME] No transaction_id provided, using debounced reload...');
+        debouncedReloadData(500);
+    }
 }
 
 // Handle pending match created from SSE (multiple phones found, need user selection)
 async function handlePendingMatchCreated(data) {
     console.log('[REALTIME] Processing pending-match-created:', data);
 
-    // Use debounced reload to show the dropdown selector
-    console.log('[REALTIME] Scheduling debounced reload for pending match...');
-    debouncedReloadData(500);
+    // Update specific row if transaction_id is provided
+    if (data.transaction_id) {
+        updateTransactionRowPendingMatch(data.transaction_id, data);
+    } else {
+        // Fallback: debounced reload if no transaction_id
+        console.log('[REALTIME] No transaction_id provided, using debounced reload...');
+        debouncedReloadData(500);
+    }
+}
+
+/**
+ * Update customer info in a specific transaction row without full reload
+ */
+async function updateTransactionRowCustomerInfo(transactionId, customerPhone, customerName) {
+    const tableBody = document.getElementById('tableBody');
+    if (!tableBody) {
+        console.log('[REALTIME] Table body not found, skipping row update');
+        return;
+    }
+
+    // Find the row with matching transaction ID
+    const targetRow = tableBody.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+    if (!targetRow) {
+        console.log('[REALTIME] Row not found for transaction:', transactionId);
+        return;
+    }
+
+    console.log('[REALTIME] Updating customer info in row:', transactionId, customerPhone, customerName);
+
+    // Fetch full transaction data to re-render the row
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/history?page=1&limit=1000`);
+        const result = await response.json();
+
+        if (result.success) {
+            const transaction = result.data.find(t => t.id === transactionId);
+            if (transaction) {
+                // Re-render the row with updated data
+                const newRowHtml = renderTransactionRow(transaction);
+                targetRow.outerHTML = newRowHtml;
+
+                // Re-initialize Lucide icons
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+
+                console.log('[REALTIME] Row updated successfully without full reload');
+            }
+        }
+    } catch (error) {
+        console.error('[REALTIME] Error updating row:', error);
+        // Fallback to debounced reload
+        debouncedReloadData(500);
+    }
+}
+
+/**
+ * Update pending match in a specific transaction row without full reload
+ */
+async function updateTransactionRowPendingMatch(transactionId, matchData) {
+    const tableBody = document.getElementById('tableBody');
+    if (!tableBody) {
+        console.log('[REALTIME] Table body not found, skipping row update');
+        return;
+    }
+
+    console.log('[REALTIME] Pending match created for transaction:', transactionId, matchData);
+
+    // For pending matches, we need to fetch full transaction data and re-render
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/history?page=1&limit=1000`);
+        const result = await response.json();
+
+        if (result.success) {
+            const transaction = result.data.find(t => t.id === transactionId);
+            if (transaction) {
+                const targetRow = tableBody.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+                if (targetRow) {
+                    // Re-render the row with pending match dropdown
+                    const newRowHtml = renderTransactionRow(transaction);
+                    targetRow.outerHTML = newRowHtml;
+
+                    // Re-initialize Lucide icons
+                    if (window.lucide) {
+                        lucide.createIcons();
+                    }
+
+                    console.log('[REALTIME] Pending match row updated successfully');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[REALTIME] Error updating pending match row:', error);
+        // Fallback to debounced reload
+        debouncedReloadData(500);
+    }
 }
 
 // Check if transaction matches current filters
