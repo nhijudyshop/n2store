@@ -6,13 +6,13 @@
 const API_BASE_URL = window.CONFIG?.API_BASE_URL || (
     window.location.hostname === 'localhost'
         ? 'http://localhost:3000'
-        : 'https://your-cloudflare-worker.workers.dev'
+        : 'chatomni-proxy.nhijudyshop.workers.dev'
 );
 
 // State
 let currentPage = 1;
 let totalPages = 1;
-let currentQuickFilter = 'thisMonth'; // Default quick filter
+let currentQuickFilter = 'last30days'; // Default quick filter
 let filters = {
     type: '',
     gateway: '',
@@ -35,26 +35,255 @@ const detailModal = document.getElementById('detailModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const modalBody = document.getElementById('modalBody');
 
+// =====================================================
+// PENDING MATCH FUNCTIONS - Xử lý chọn khách hàng từ dropdown
+// =====================================================
+
+/**
+ * Check if user has detailed permission
+ * @param {string} pageId - Page ID (e.g., 'balance-history')
+ * @param {string} permissionKey - Permission key (e.g., 'undoSkip')
+ * @returns {boolean}
+ */
+function hasDetailedPermission(pageId, permissionKey) {
+    // Get current user's detailed permissions from localStorage or global state
+    const currentUser = JSON.parse(localStorage.getItem('n2shop_current_user') || '{}');
+    const detailedPerms = currentUser.detailedPermissions || {};
+
+    // Admin always has permission
+    if (currentUser.role === 'admin' || currentUser.isAdmin) {
+        return true;
+    }
+
+    return detailedPerms[pageId]?.[permissionKey] === true;
+}
+
+/**
+ * Resolve a pending match by selecting a customer
+ * Called when user selects an option from dropdown
+ * @param {number} pendingMatchId - ID of pending_customer_matches record
+ * @param {HTMLSelectElement} selectElement - The dropdown element
+ */
+async function resolvePendingMatch(pendingMatchId, selectElement) {
+    const selectedValue = selectElement.value;
+
+    if (!selectedValue) {
+        return; // User selected placeholder option
+    }
+
+    // Check permission
+    if (!hasDetailedPermission('balance-history', 'resolveMatch') && !hasPermission(2)) {
+        showNotification('Bạn không có quyền thực hiện thao tác này', 'error');
+        selectElement.value = '';
+        return;
+    }
+
+    const transactionId = selectElement.dataset.transactionId;
+
+    // Handle skip option
+    if (selectedValue === 'skip') {
+        await skipPendingMatch(pendingMatchId, selectElement);
+        return;
+    }
+
+    // Get selected customer info from data attributes
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    const customerName = selectedOption.dataset.name || 'Unknown';
+    const customerPhone = selectedOption.dataset.phone || 'Unknown';
+
+    console.log('[RESOLVE-MATCH] Resolving:', {
+        pendingMatchId,
+        customer_id: selectedValue,
+        customerName,
+        customerPhone
+    });
+
+    try {
+        // Disable dropdown while processing
+        selectElement.disabled = true;
+        selectElement.style.opacity = '0.5';
+
+        const requestBody = {
+            customer_id: parseInt(selectedValue),
+            resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
+        };
+        console.log('[RESOLVE-MATCH] Request body:', requestBody);
+
+        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/resolve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        const result = await response.json();
+        console.log('[RESOLVE-MATCH] Response:', result);
+
+        if (result.success) {
+            showNotification(`Đã chọn khách hàng: ${customerName} (${customerPhone})`, 'success');
+
+            // Small delay to ensure DB is updated, then refresh table
+            setTimeout(async () => {
+                await loadData();
+            }, 300);
+        } else {
+            console.error('[RESOLVE-MATCH] Error response:', result);
+            const errorMsg = result.message || result.error || 'Không thể lưu';
+            showNotification(`Lỗi: ${errorMsg}`, 'error');
+            selectElement.disabled = false;
+            selectElement.style.opacity = '1';
+            selectElement.value = '';
+        }
+    } catch (error) {
+        console.error('[RESOLVE-MATCH] Network error:', error);
+        showNotification(`Lỗi kết nối: ${error.message}`, 'error');
+        selectElement.disabled = false;
+        selectElement.style.opacity = '1';
+        selectElement.value = '';
+    }
+}
+
+/**
+ * Skip a pending match
+ * @param {number} pendingMatchId - ID of pending_customer_matches record
+ * @param {HTMLSelectElement} selectElement - The dropdown element
+ */
+async function skipPendingMatch(pendingMatchId, selectElement) {
+    // Check permission
+    if (!hasDetailedPermission('balance-history', 'skipMatch') && !hasPermission(2)) {
+        showNotification('Bạn không có quyền bỏ qua', 'error');
+        selectElement.value = '';
+        return;
+    }
+
+    try {
+        selectElement.disabled = true;
+        selectElement.style.opacity = '0.5';
+
+        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/skip`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                reason: 'Skipped by user via dropdown',
+                resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification('Đã bỏ qua giao dịch này', 'info');
+            // Small delay to ensure DB is updated, then refresh table
+            setTimeout(async () => {
+                await loadData();
+            }, 300);
+        } else {
+            showNotification(`Lỗi: ${result.error || 'Không thể bỏ qua'}`, 'error');
+            selectElement.disabled = false;
+            selectElement.style.opacity = '1';
+            selectElement.value = '';
+        }
+    } catch (error) {
+        console.error('[SKIP-MATCH] Error:', error);
+        showNotification(`Lỗi kết nối: ${error.message}`, 'error');
+        selectElement.disabled = false;
+        selectElement.style.opacity = '1';
+        selectElement.value = '';
+    }
+}
+
+/**
+ * Undo a skipped pending match
+ * @param {number} pendingMatchId - ID of pending_customer_matches record
+ */
+async function undoSkipMatch(pendingMatchId) {
+    // Check permission
+    if (!hasDetailedPermission('balance-history', 'undoSkip')) {
+        showNotification('Bạn không có quyền hoàn tác', 'error');
+        return;
+    }
+
+    if (!confirm('Bạn có chắc muốn hoàn tác trạng thái "Đã bỏ qua" cho giao dịch này?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/undo-skip`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification('Đã hoàn tác - có thể chọn lại khách hàng', 'success');
+            // Small delay to ensure DB is updated, then refresh table
+            setTimeout(async () => {
+                await loadData();
+            }, 300);
+        } else {
+            showNotification(`Lỗi: ${result.error || 'Không thể hoàn tác'}`, 'error');
+        }
+    } catch (error) {
+        console.error('[UNDO-SKIP] Error:', error);
+        showNotification(`Lỗi kết nối: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Show notification (uses existing notification system or creates simple one)
+ */
+function showNotification(message, type = 'info') {
+    // Try to use existing notification system
+    if (window.NotificationSystem?.show) {
+        window.NotificationSystem.show(message, type);
+        return;
+    }
+
+    // Fallback: simple alert
+    if (type === 'error') {
+        alert('❌ ' + message);
+    } else if (type === 'success') {
+        alert('✅ ' + message);
+    } else {
+        alert('ℹ️ ' + message);
+    }
+}
+
 // Set Default Current Month
 function setDefaultCurrentMonth() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const today = new Date();
 
-    // First day of current month
-    const firstDay = `${year}-${month}-01`;
+    // Calculate 30 days ago (last30days)
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 29);
 
-    // Last day of current month
-    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-    const lastDayFormatted = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+    // Format dates
+    const startYear = startDate.getFullYear();
+    const startMonth = String(startDate.getMonth() + 1).padStart(2, '0');
+    const startDay = String(startDate.getDate()).padStart(2, '0');
+    const firstDay = `${startYear}-${startMonth}-${startDay}`;
+
+    const endYear = today.getFullYear();
+    const endMonth = String(today.getMonth() + 1).padStart(2, '0');
+    const endDay = String(today.getDate()).padStart(2, '0');
+    const lastDay = `${endYear}-${endMonth}-${endDay}`;
 
     // Set input values
     document.getElementById('filterStartDate').value = firstDay;
-    document.getElementById('filterEndDate').value = lastDayFormatted;
+    document.getElementById('filterEndDate').value = lastDay;
 
     // Update filters state
     filters.startDate = firstDay;
-    filters.endDate = lastDayFormatted;
+    filters.endDate = lastDay;
 }
 
 // Quick Filter Date Ranges
@@ -166,16 +395,24 @@ function applyQuickFilter(filterType) {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize CustomerInfoManager and sync from database
+document.addEventListener('DOMContentLoaded', async () => {
+    // Set default date first (synchronous, fast)
+    setDefaultCurrentMonth();
+    setupEventListeners();
+
+    // Load data and statistics in parallel (don't wait for each other)
+    const loadPromises = [
+        loadData(),
+        loadStatistics()
+    ];
+
+    // Initialize CustomerInfoManager in background (non-blocking)
     if (window.CustomerInfoManager) {
         window.CustomerInfoManager.init();
     }
 
-    setDefaultCurrentMonth();
-    loadData();
-    loadStatistics();
-    setupEventListeners();
+    // Wait for critical data (main table) to load
+    await Promise.all(loadPromises);
 });
 
 // Event Listeners
@@ -193,6 +430,87 @@ function setupEventListeners() {
         loadData();
         loadStatistics();
     });
+
+    // View phone data button
+    const viewPhoneDataBtn = document.getElementById('viewPhoneDataBtn');
+    if (viewPhoneDataBtn) {
+        viewPhoneDataBtn.addEventListener('click', () => {
+            phoneDataCurrentPage = 1; // Reset to first page
+            showPhoneDataModal(1);
+        });
+    }
+
+    // Reprocess old transactions button
+    const reprocessOldTransactionsBtn = document.getElementById('reprocessOldTransactionsBtn');
+    if (reprocessOldTransactionsBtn) {
+        console.log('[INIT] ✅ Reprocess button found and event listener attached');
+        reprocessOldTransactionsBtn.addEventListener('click', async () => {
+            console.log('[REPROCESS] Button clicked!');
+            await reprocessOldTransactions();
+        });
+    } else {
+        console.error('[INIT] ❌ Reprocess button NOT FOUND in DOM');
+    }
+
+    // Close phone data modal button
+    const closePhoneDataModalBtn = document.getElementById('closePhoneDataModalBtn');
+    if (closePhoneDataModalBtn) {
+        closePhoneDataModalBtn.addEventListener('click', () => {
+            closePhoneDataModal();
+        });
+    }
+
+    // Refresh phone data button
+    const refreshPhoneDataBtn = document.getElementById('refreshPhoneDataBtn');
+    if (refreshPhoneDataBtn) {
+        refreshPhoneDataBtn.addEventListener('click', () => {
+            phoneDataCurrentPage = 1; // Reset to first page
+            showPhoneDataModal(1); // Reload data from first page
+        });
+    }
+
+    // Phone data pagination buttons
+    const phoneDataPrevBtn = document.getElementById('phoneDataPrevBtn');
+    if (phoneDataPrevBtn) {
+        phoneDataPrevBtn.addEventListener('click', () => {
+            if (phoneDataCurrentPage > 1) {
+                showPhoneDataModal(phoneDataCurrentPage - 1);
+            }
+        });
+    }
+
+    const phoneDataNextBtn = document.getElementById('phoneDataNextBtn');
+    if (phoneDataNextBtn) {
+        phoneDataNextBtn.addEventListener('click', () => {
+            const totalPages = Math.ceil(phoneDataTotalRecords / phoneDataPageSize);
+            if (phoneDataCurrentPage < totalPages) {
+                showPhoneDataModal(phoneDataCurrentPage + 1);
+            }
+        });
+    }
+
+    // Fetch names from TPOS button
+    const fetchNamesBtn = document.getElementById('fetchNamesBtn');
+    if (fetchNamesBtn) {
+        fetchNamesBtn.addEventListener('click', async () => {
+            await fetchCustomerNamesFromTPOS();
+        });
+    }
+
+    // Real-time search with debounce
+    const filterSearchInput = document.getElementById('filterSearch');
+    if (filterSearchInput) {
+        let searchTimeout;
+        filterSearchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentPage = 1;
+                applyFilters();
+                loadData();
+                console.log('[SEARCH] Searching for:', e.target.value);
+            }, 500); // Wait 500ms after user stops typing
+        });
+    }
 
     applyFiltersBtn.addEventListener('click', () => {
         currentPage = 1;
@@ -304,15 +622,15 @@ function resetFilters() {
     document.getElementById('filterSearch').value = '';
     document.getElementById('filterAmount').value = '';
 
-    // Reset dates to current month
+    // Reset dates to last 30 days
     setDefaultCurrentMonth();
 
-    // Reset quick filter to "thisMonth"
+    // Reset quick filter to "last30days"
     document.querySelectorAll('.btn-quick-filter').forEach(btn => {
         btn.classList.remove('active');
     });
-    document.querySelector('[data-filter="thisMonth"]')?.classList.add('active');
-    currentQuickFilter = 'thisMonth';
+    document.querySelector('[data-filter="last30days"]')?.classList.add('active');
+    currentQuickFilter = 'last30days';
 
     filters.type = '';
     filters.gateway = '';
@@ -321,11 +639,63 @@ function resetFilters() {
     // startDate and endDate are already set by setDefaultCurrentMonth()
 }
 
+/**
+ * Filter data by customer name/phone (client-side filtering)
+ * This searches in CustomerInfoManager data which is stored locally
+ * @param {Array} data - Transaction data from API
+ * @param {string} searchQuery - Search term
+ * @returns {Array} Filtered data
+ */
+function filterByCustomerInfo(data, searchQuery) {
+    if (!searchQuery || !data || data.length === 0) return data;
+    if (!window.CustomerInfoManager) return data;
+
+    const lowerQuery = searchQuery.toLowerCase().trim();
+    const isSearchingNoInfo = lowerQuery === 'chưa có thông tin';
+
+    return data.filter(row => {
+        // Extract unique code from content
+        const content = row.content || '';
+        const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
+        const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
+
+        // Skip rows without unique code (these show N/A, not customer info)
+        // This also excludes gap rows which don't have unique codes
+        if (!uniqueCode) return false;
+
+        // Get customer info
+        const customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+
+        // Special case: searching for "Chưa có thông tin" - only match phone column
+        if (isSearchingNoInfo) {
+            return customerDisplay.phone === 'Chưa có thông tin';
+        }
+
+        // Check if search matches customer name (case-insensitive)
+        const nameMatch = customerDisplay.name &&
+            customerDisplay.name.toLowerCase().includes(lowerQuery);
+
+        // Check if search matches customer phone
+        const phoneMatch = customerDisplay.phone &&
+            customerDisplay.phone.includes(searchQuery.trim());
+
+        // Also check backend fields (content, reference_code, gateway)
+        const contentMatch = content.toLowerCase().includes(lowerQuery);
+        const refMatch = row.reference_code &&
+            row.reference_code.toLowerCase().includes(lowerQuery);
+        const gatewayMatch = row.gateway &&
+            row.gateway.toLowerCase().includes(lowerQuery);
+
+        return nameMatch || phoneMatch || contentMatch || refMatch || gatewayMatch;
+    });
+}
+
 // Load Data
 async function loadData() {
     showLoading();
 
     try {
+        // Send search query to backend (backend now handles search for customer phone too)
         const queryParams = new URLSearchParams({
             page: currentPage,
             limit: 50,
@@ -346,7 +716,13 @@ async function loadData() {
         const result = await response.json();
 
         if (result.success) {
-            renderTable(result.data);
+            // Backend now handles search, no need for client-side filtering
+            const filteredData = result.data;
+
+            // Skip gap detection when searching (don't show missing transaction rows)
+            renderTable(filteredData, !!filters.search);
+
+            // Update pagination info
             updatePagination(result.pagination);
         } else {
             showError('Không thể tải dữ liệu: ' + result.error);
@@ -388,7 +764,7 @@ async function loadStatistics() {
 }
 
 // Render Table
-function renderTable(data) {
+function renderTable(data, skipGapDetection = false) {
     if (!data || data.length === 0) {
         tableBody.innerHTML = `
             <tr>
@@ -410,7 +786,8 @@ function renderTable(data) {
 
         // Check for gap with the NEXT row (since data is sorted DESC by date)
         // If current is 2567 and next is 2565, there's a gap of 2566
-        if (i < data.length - 1) {
+        // Skip gap detection when searching/filtering
+        if (!skipGapDetection && i < data.length - 1) {
             const nextRow = data[i + 1];
             const nextRef = parseInt(nextRow.reference_code);
 
@@ -438,65 +815,252 @@ function renderTable(data) {
 /**
  * Render a single transaction row
  */
+
+/**
+ * Get mapping source display info for a transaction
+ * @param {Object} row - Transaction row data
+ * @param {string} uniqueCode - The unique code (N2... or PHONE...)
+ * @returns {Object} { label, icon, color, title }
+ */
+function getMappingSource(row, uniqueCode) {
+    // Priority 1: Check unique_code format
+    if (uniqueCode) {
+        // QR Code: N2 + 16 chars (but NOT N2TX which is auto-generated)
+        if (uniqueCode.startsWith('N2') && !uniqueCode.startsWith('N2TX')) {
+            return {
+                label: 'QR Code',
+                icon: 'qr-code',
+                color: '#10b981', // green
+                title: 'Khách hàng quét mã QR để chuyển khoản'
+            };
+        }
+
+        // Phone Extraction: PHONE + digits
+        if (uniqueCode.startsWith('PHONE')) {
+            return {
+                label: 'Trích xuất SĐT',
+                icon: 'scan-search',
+                color: '#f59e0b', // orange
+                title: 'SĐT được tự động trích xuất từ nội dung chuyển khoản'
+            };
+        }
+    }
+
+    // Priority 2: Check if transaction has linked_customer_phone (manual edit)
+    if (row.linked_customer_phone) {
+        return {
+            label: 'Nhập tay',
+            icon: 'pencil',
+            color: '#3b82f6', // blue
+            title: 'Thông tin khách hàng được nhập thủ công'
+        };
+    }
+
+    // Priority 3: Check pending match status
+    if (row.pending_match_status === 'resolved') {
+        return {
+            label: 'Chọn KH',
+            icon: 'user-check',
+            color: '#8b5cf6', // purple
+            title: 'Khách hàng được chọn từ danh sách gợi ý'
+        };
+    }
+
+    // Priority 4: Check if has pending match (not yet resolved)
+    if (row.has_pending_match === true) {
+        return {
+            label: 'Chờ xác nhận',
+            icon: 'clock',
+            color: '#f97316', // orange-dark
+            title: 'Đang chờ xác nhận khách hàng'
+        };
+    }
+
+    // Priority 5: Skipped
+    if (row.pending_match_skipped === true) {
+        return {
+            label: 'Bỏ qua',
+            icon: 'x-circle',
+            color: '#9ca3af', // gray
+            title: 'Giao dịch đã được bỏ qua'
+        };
+    }
+
+    // Default: Unknown/No mapping
+    return {
+        label: 'Chưa xác định',
+        icon: 'help-circle',
+        color: '#d1d5db', // light gray
+        title: 'Chưa có thông tin mapping'
+    };
+}
+
+/**
+ * Generate unique QR code for transaction without existing QR code
+ * Format: N2TX{paddedTransactionId} (18 chars total)
+ * Example: N2TX000000002734 for transaction ID 2734
+ */
+function generateUniqueCodeForTransaction(transactionId) {
+    // Pad transaction ID to 14 digits (N2 + TX + 14 digits = 18 chars)
+    const paddedId = String(transactionId).padStart(14, '0');
+    return `N2TX${paddedId}`;
+}
+
 function renderTransactionRow(row) {
     // Extract unique code from content (look for N2 prefix pattern - exactly 18 chars)
     const content = row.content || '';
     const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
-    const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
 
-    // Get customer info if unique code exists
-    let customerDisplay = { name: 'N/A', phone: 'N/A', hasInfo: false };
-    if (uniqueCode && window.CustomerInfoManager) {
-        customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+    // Use existing QR code from content, OR from row.qr_code (backend JOIN), OR generate new one
+    let uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : (row.qr_code || null);
+
+    // If still no unique code, generate one based on transaction ID
+    if (!uniqueCode) {
+        uniqueCode = generateUniqueCodeForTransaction(row.id);
     }
 
+    // Get customer info - PRIORITY:
+    // 1. From backend JOIN (row.customer_phone, row.customer_name) - NEW!
+    // 2. From CustomerInfoManager (QR code fallback)
+    let customerDisplay = { name: 'Chưa có', phone: 'Chưa có', hasInfo: false };
+
+    // Priority 1: Use data from backend LEFT JOIN (partial phone match)
+    if (row.customer_phone || row.customer_name) {
+        customerDisplay = {
+            name: row.customer_name || 'Chưa có',
+            phone: row.customer_phone || 'Chưa có',
+            hasInfo: !!(row.customer_phone || row.customer_name)
+        };
+        console.log('[RENDER] Using backend JOIN data:', customerDisplay);
+    }
+    // Priority 2: Fallback to CustomerInfoManager (QR code)
+    else if (window.CustomerInfoManager) {
+        const managerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
+        if (managerDisplay.hasInfo) {
+            customerDisplay = managerDisplay;
+            console.log('[RENDER] Using CustomerInfoManager:', customerDisplay);
+        }
+    }
+
+    // Check for pending match status
+    const hasPendingMatch = row.has_pending_match === true;
+    const isSkipped = row.pending_match_skipped === true;
+    const pendingMatchOptions = row.pending_match_options || [];
+    const pendingMatchId = row.pending_match_id;
+
+    // Determine row class for highlighting
+    const rowClass = hasPendingMatch ? 'row-pending-match' : (isSkipped ? 'row-skipped-match' : '');
+
+    // Build customer name cell content
+    let customerNameCell = '';
+    if (hasPendingMatch && pendingMatchOptions.length > 0) {
+        // PENDING MATCH: Show dropdown to select customer
+        // Structure: [{phone, count, customers: [{id, name, phone}]}]
+        const optionsHtml = pendingMatchOptions.map(opt => {
+            const customers = opt.customers || [];
+            return customers.map(c => {
+                // Ensure we have required fields
+                const customerId = c.id || c.customer_id || '';
+                const customerName = c.name || c.customer_name || 'N/A';
+                const customerPhone = c.phone || c.customer_phone || 'N/A';
+                if (!customerId) {
+                    console.warn('[RENDER] Customer missing ID:', c);
+                    return '';
+                }
+                return `<option value="${customerId}" data-phone="${customerPhone}" data-name="${customerName}">${customerName} - ${customerPhone}</option>`;
+            }).join('');
+        }).join('');
+
+        customerNameCell = `
+            <div class="pending-match-selector">
+                <select class="pending-match-dropdown" onchange="resolvePendingMatch(${pendingMatchId}, this)" data-transaction-id="${row.id}">
+                    <option value="">-- Chọn KH (${row.pending_extracted_phone}) --</option>
+                    ${optionsHtml}
+                    <option value="skip">❌ Bỏ qua</option>
+                </select>
+            </div>
+        `;
+    } else if (isSkipped) {
+        // SKIPPED: Show "Đã bỏ qua" with undo option
+        customerNameCell = `
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <span style="color: #9ca3af; font-style: italic;">Đã bỏ qua</span>
+                ${hasDetailedPermission('balance-history', 'undoSkip') ? `
+                    <button class="btn btn-warning btn-sm" onclick="undoSkipMatch(${pendingMatchId})" title="Hoàn tác" style="padding: 2px 6px;">
+                        <i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i>
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    } else {
+        // NORMAL: Show customer name or "Chưa có"
+        customerNameCell = `
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <span style="${!customerDisplay.hasInfo ? 'color: #999; font-style: italic;' : ''}">${customerDisplay.name}</span>
+                ${hasPermission(2) ? `
+                    <button class="btn btn-secondary btn-sm" onclick="editTransactionCustomer(${row.id}, '${row.linked_customer_phone || ''}', '${customerDisplay.name}')" title="${customerDisplay.hasInfo ? 'Chỉnh sửa thông tin' : 'Thêm thông tin khách hàng'}" style="padding: 4px 6px;">
+                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    // Build phone cell content
+    let phoneCell = '';
+    if (hasPendingMatch) {
+        // Show extracted phone hint
+        phoneCell = `<span style="color: #f59e0b; font-style: italic;">Tìm: ${row.pending_extracted_phone || '?'}</span>`;
+    } else if (isSkipped) {
+        phoneCell = `<span style="color: #9ca3af;">-</span>`;
+    } else if (customerDisplay.hasInfo && customerDisplay.phone !== 'Chưa có') {
+        phoneCell = `
+            <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                ${customerDisplay.phone}
+                <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
+            </a>
+        `;
+    } else {
+        phoneCell = `<span style="color: #999; font-style: italic;">${customerDisplay.phone}</span>`;
+    }
+
+    // Get mapping source info
+    const mappingSource = getMappingSource(row, uniqueCode);
+
     return `
-    <tr>
-        <td data-column="datetime">${formatDateTime(row.transaction_date)}</td>
-        <td data-column="gateway">${row.gateway}</td>
-        <td data-column="type">
+    <tr class="${rowClass}" data-transaction-id="${row.id}">
+        <td>${formatDateTime(row.transaction_date)}</td>
+        <td>${row.gateway}</td>
+        <td>
             <span class="badge ${row.transfer_type === 'in' ? 'badge-success' : 'badge-danger'}">
                 <i class="fas fa-arrow-${row.transfer_type === 'in' ? 'down' : 'up'}"></i>
                 ${row.transfer_type === 'in' ? 'Tiền vào' : 'Tiền ra'}
             </span>
         </td>
-        <td data-column="amount" class="${row.transfer_type === 'in' ? 'amount-in' : 'amount-out'}">
+        <td class="${row.transfer_type === 'in' ? 'amount-in' : 'amount-out'}">
             ${row.transfer_type === 'in' ? '+' : '-'}${formatCurrency(row.transfer_amount)}
         </td>
-        <td data-column="balance">${formatCurrency(row.accumulated)}</td>
-        <td data-column="content">${truncateText(content || 'N/A', 50)}</td>
-        <td data-column="reference">${row.reference_code || 'N/A'}</td>
-        <td data-column="customer_name" class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-            ${uniqueCode ? `
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <span>${customerDisplay.name}</span>
-                    <button class="btn btn-secondary btn-sm" onclick="editCustomerInfo('${uniqueCode}')" title="Chỉnh sửa" style="padding: 4px 6px;">
-                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
-                    </button>
-                </div>
-            ` : '<span style="color: #999;">N/A</span>'}
+        <td>${formatCurrency(row.accumulated)}</td>
+        <td style="word-wrap: break-word; max-width: 300px;">${content || 'N/A'}</td>
+        <td>${row.reference_code || 'N/A'}</td>
+        <td class="customer-info-cell ${hasPendingMatch ? 'pending-match' : (customerDisplay.hasInfo ? '' : 'no-info')}">
+            ${customerNameCell}
         </td>
-        <td data-column="customer_phone" class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
-            ${uniqueCode && customerDisplay.phone !== 'N/A' ? `
-                <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
-                    ${customerDisplay.phone}
-                    <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
-                </a>
-            ` : '<span style="color: #999;">N/A</span>'}
+        <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
+            ${phoneCell}
         </td>
-        <td data-column="qr_code" class="text-center">
-            ${uniqueCode ? `
-                <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
-                    <i data-lucide="qr-code"></i>
-                </button>
-                <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
-                    <i data-lucide="copy"></i>
-                </button>
-            ` : '<span style="color: #999;">N/A</span>'}
+        <td class="text-center" title="${mappingSource.title}">
+            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; background: ${mappingSource.color}20; color: ${mappingSource.color}; font-size: 12px; white-space: nowrap;">
+                <i data-lucide="${mappingSource.icon}" style="width: 12px; height: 12px;"></i>
+                ${mappingSource.label}
+            </span>
         </td>
-        <td data-column="actions" class="text-center">
-            <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
-                Chi tiết
+        <td class="text-center">
+            <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
+                <i data-lucide="qr-code"></i>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
+                <i data-lucide="copy"></i>
             </button>
         </td>
     </tr>
@@ -521,7 +1085,7 @@ function renderGapRow(missingRef, prevRef, nextRef, prevDate, nextDate) {
         <td style="font-family: monospace; font-weight: bold; color: #d97706; font-size: 1.1em; text-align: center;">
             ${missingRef}
         </td>
-        <td colspan="3" style="text-align: center;">
+        <td colspan="4" style="text-align: center;">
             <button class="btn btn-sm" onclick="fetchMissingTransaction('${missingRef}')" title="Lấy lại giao dịch từ Sepay" style="background: #3b82f6; color: white; border: none; padding: 4px 10px; margin-right: 4px;">
                 <i data-lucide="download" style="width: 14px; height: 14px;"></i> Lấy lại
             </button>
@@ -536,16 +1100,21 @@ function renderGapRow(missingRef, prevRef, nextRef, prevDate, nextDate) {
 
 // Render Statistics
 function renderStatistics(stats) {
-    document.getElementById('totalIn').textContent = formatCurrency(stats.total_in);
-    document.getElementById('totalInCount').textContent = `${stats.total_in_count} giao dịch`;
+    const totalIn = document.getElementById('totalIn');
+    const totalInCount = document.getElementById('totalInCount');
+    const totalOut = document.getElementById('totalOut');
+    const totalOutCount = document.getElementById('totalOutCount');
+    const netChange = document.getElementById('netChange');
+    const totalTransactions = document.getElementById('totalTransactions');
+    const latestBalance = document.getElementById('latestBalance');
 
-    document.getElementById('totalOut').textContent = formatCurrency(stats.total_out);
-    document.getElementById('totalOutCount').textContent = `${stats.total_out_count} giao dịch`;
-
-    document.getElementById('netChange').textContent = formatCurrency(stats.net_change);
-    document.getElementById('totalTransactions').textContent = `${stats.total_transactions} giao dịch`;
-
-    document.getElementById('latestBalance').textContent = formatCurrency(stats.latest_balance);
+    if (totalIn) totalIn.textContent = formatCurrency(stats.total_in);
+    if (totalInCount) totalInCount.textContent = `${stats.total_in_count} giao dịch`;
+    if (totalOut) totalOut.textContent = formatCurrency(stats.total_out);
+    if (totalOutCount) totalOutCount.textContent = `${stats.total_out_count} giao dịch`;
+    if (netChange) netChange.textContent = formatCurrency(stats.net_change);
+    if (totalTransactions) totalTransactions.textContent = `${stats.total_transactions} giao dịch`;
+    if (latestBalance) latestBalance.textContent = formatCurrency(stats.latest_balance);
 }
 
 // Update Pagination
@@ -561,12 +1130,17 @@ function updatePagination(pagination) {
 
 // Show Detail Modal
 async function showDetail(id) {
+    console.log('[SHOW-DETAIL] Opening detail for transaction ID:', id);
+    console.log('[SHOW-DETAIL] modalBody element:', modalBody);
+    console.log('[SHOW-DETAIL] detailModal element:', detailModal);
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/sepay/history?page=1&limit=9999`);
         const result = await response.json();
 
         if (result.success) {
             const transaction = result.data.find(t => t.id === id);
+            console.log('[SHOW-DETAIL] Found transaction:', transaction);
 
             if (transaction) {
                 modalBody.innerHTML = `
@@ -996,7 +1570,17 @@ async function generateDepositQRInline() {
     const customerPhone = inlineCustomerPhone?.value?.trim() || '';
 
     // Generate QR code
-    const qrData = window.QRGenerator.generateDepositQR(0); // 0 = customer fills amount
+    // If phone is provided, use last 6 digits as the transfer content (addInfo/uniqueCode)
+    // Otherwise, generate a unique code
+    let qrData;
+    if (customerPhone) {
+        // Use last 6 digits of phone number as the unique code for transfer content
+        const last6Digits = customerPhone.slice(-6);
+        qrData = window.QRGenerator.regenerateQR(last6Digits, 0);
+    } else {
+        // Generate normal unique code
+        qrData = window.QRGenerator.generateDepositQR(0); // 0 = customer fills amount
+    }
 
     // If customer info is provided, save it
     if ((customerName || customerPhone) && window.CustomerInfoManager) {
@@ -1101,6 +1685,21 @@ window.saveQRCustomerInfo = saveQRCustomerInfo;
 let eventSource = null;
 let reconnectTimeout = null;
 let isManualClose = false;
+let sseReloadDebounceTimer = null;
+
+// Debounced reload to prevent race conditions when multiple SSE events arrive
+function debouncedReloadData(delay = 300) {
+    if (sseReloadDebounceTimer) {
+        clearTimeout(sseReloadDebounceTimer);
+    }
+    sseReloadDebounceTimer = setTimeout(() => {
+        console.log('[REALTIME] Debounced reload executing...');
+        if (currentPage === 1) {
+            loadData();
+        }
+        sseReloadDebounceTimer = null;
+    }, delay);
+}
 
 // Connect to SSE endpoint for realtime updates
 function connectRealtimeUpdates() {
@@ -1122,6 +1721,22 @@ function connectRealtimeUpdates() {
             console.log('[REALTIME] New transaction received:', transaction);
 
             handleNewTransaction(transaction);
+        });
+
+        // Customer info updated (phone match completed after transaction)
+        eventSource.addEventListener('customer-info-updated', (e) => {
+            const data = JSON.parse(e.data);
+            console.log('[REALTIME] Customer info updated:', data);
+
+            handleCustomerInfoUpdated(data);
+        });
+
+        // Pending match created (multiple phones found, need user selection)
+        eventSource.addEventListener('pending-match-created', (e) => {
+            const data = JSON.parse(e.data);
+            console.log('[REALTIME] Pending match created:', data);
+
+            handlePendingMatchCreated(data);
         });
 
         // Connection error
@@ -1167,8 +1782,8 @@ function disconnectRealtimeUpdates() {
 
 // Handle new transaction from SSE
 async function handleNewTransaction(transaction) {
-    // Show notification
-    showNotification(transaction);
+    // Show realtime notification
+    showRealtimeNotification(transaction);
 
     // Check if transaction matches current filters
     if (!transactionMatchesFilters(transaction)) {
@@ -1176,13 +1791,155 @@ async function handleNewTransaction(transaction) {
         return;
     }
 
-    // If on first page, reload data to show new transaction
+    // If on first page, insert new row at top without full reload
     if (currentPage === 1) {
-        loadData();
+        const tableBody = document.getElementById('tableBody');
+        if (tableBody) {
+            // Render new transaction row
+            const newRowHtml = renderTransactionRow(transaction);
+
+            // Insert at the beginning of table
+            tableBody.insertAdjacentHTML('afterbegin', newRowHtml);
+
+            // Re-initialize Lucide icons for the new row
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+
+            console.log('[REALTIME] New transaction row added without full reload');
+        }
+
+        // Only reload statistics (doesn't affect table)
         loadStatistics();
     } else {
         // Show a notification that there's new data
         showNewDataBanner();
+    }
+}
+
+// Handle customer info updated from SSE (phone match completed)
+async function handleCustomerInfoUpdated(data) {
+    console.log('[REALTIME] Processing customer-info-updated:', data);
+
+    // Update CustomerInfoManager with new data if phone exists
+    if (window.CustomerInfoManager && data.customer_phone) {
+        const uniqueCode = `PHONE${data.customer_phone}`;
+        window.CustomerInfoManager.saveCustomerInfo(uniqueCode, {
+            name: data.customer_name || null,
+            phone: data.customer_phone
+        });
+        console.log('[REALTIME] Updated CustomerInfoManager for:', uniqueCode);
+    }
+
+    // Update specific row if transaction_id is provided
+    if (data.transaction_id) {
+        updateTransactionRowCustomerInfo(data.transaction_id, data.customer_phone, data.customer_name);
+    } else {
+        // Fallback: debounced reload if no transaction_id
+        console.log('[REALTIME] No transaction_id provided, using debounced reload...');
+        debouncedReloadData(500);
+    }
+}
+
+// Handle pending match created from SSE (multiple phones found, need user selection)
+async function handlePendingMatchCreated(data) {
+    console.log('[REALTIME] Processing pending-match-created:', data);
+
+    // Update specific row if transaction_id is provided
+    if (data.transaction_id) {
+        updateTransactionRowPendingMatch(data.transaction_id, data);
+    } else {
+        // Fallback: debounced reload if no transaction_id
+        console.log('[REALTIME] No transaction_id provided, using debounced reload...');
+        debouncedReloadData(500);
+    }
+}
+
+/**
+ * Update customer info in a specific transaction row without full reload
+ */
+async function updateTransactionRowCustomerInfo(transactionId, customerPhone, customerName) {
+    const tableBody = document.getElementById('tableBody');
+    if (!tableBody) {
+        console.log('[REALTIME] Table body not found, skipping row update');
+        return;
+    }
+
+    // Find the row with matching transaction ID
+    const targetRow = tableBody.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+    if (!targetRow) {
+        console.log('[REALTIME] Row not found for transaction:', transactionId);
+        return;
+    }
+
+    console.log('[REALTIME] Updating customer info in row:', transactionId, customerPhone, customerName);
+
+    // Fetch full transaction data to re-render the row
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/history?page=1&limit=1000`);
+        const result = await response.json();
+
+        if (result.success) {
+            const transaction = result.data.find(t => t.id === transactionId);
+            if (transaction) {
+                // Re-render the row with updated data
+                const newRowHtml = renderTransactionRow(transaction);
+                targetRow.outerHTML = newRowHtml;
+
+                // Re-initialize Lucide icons
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+
+                console.log('[REALTIME] Row updated successfully without full reload');
+            }
+        }
+    } catch (error) {
+        console.error('[REALTIME] Error updating row:', error);
+        // Fallback to debounced reload
+        debouncedReloadData(500);
+    }
+}
+
+/**
+ * Update pending match in a specific transaction row without full reload
+ */
+async function updateTransactionRowPendingMatch(transactionId, matchData) {
+    const tableBody = document.getElementById('tableBody');
+    if (!tableBody) {
+        console.log('[REALTIME] Table body not found, skipping row update');
+        return;
+    }
+
+    console.log('[REALTIME] Pending match created for transaction:', transactionId, matchData);
+
+    // For pending matches, we need to fetch full transaction data and re-render
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/history?page=1&limit=1000`);
+        const result = await response.json();
+
+        if (result.success) {
+            const transaction = result.data.find(t => t.id === transactionId);
+            if (transaction) {
+                const targetRow = tableBody.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+                if (targetRow) {
+                    // Re-render the row with pending match dropdown
+                    const newRowHtml = renderTransactionRow(transaction);
+                    targetRow.outerHTML = newRowHtml;
+
+                    // Re-initialize Lucide icons
+                    if (window.lucide) {
+                        lucide.createIcons();
+                    }
+
+                    console.log('[REALTIME] Pending match row updated successfully');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[REALTIME] Error updating pending match row:', error);
+        // Fallback to debounced reload
+        debouncedReloadData(500);
     }
 }
 
@@ -1203,8 +1960,13 @@ function transactionMatchesFilters(transaction) {
     if (filters.startDate && transactionDate < new Date(filters.startDate)) {
         return false;
     }
-    if (filters.endDate && transactionDate > new Date(filters.endDate)) {
-        return false;
+    if (filters.endDate) {
+        // Set endDate to end of day (23:59:59.999) for proper comparison
+        const endOfDay = new Date(filters.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (transactionDate > endOfDay) {
+            return false;
+        }
     }
 
     // Search filter
@@ -1231,8 +1993,8 @@ function transactionMatchesFilters(transaction) {
     return true;
 }
 
-// Show notification for new transaction
-function showNotification(transaction) {
+// Show notification for new transaction (realtime)
+function showRealtimeNotification(transaction) {
     // Create notification element
     const notification = document.createElement('div');
     notification.className = 'realtime-notification';
@@ -1541,11 +2303,56 @@ function editCustomerInfo(uniqueCode) {
 async function saveEditCustomerInfo(event) {
     event.preventDefault();
 
+    const form = document.getElementById('editCustomerForm');
+    const phone = document.getElementById('editCustomerPhone').value;
+
+    // Check if this is a transaction-level edit
+    const isTransactionEdit = form.dataset.isTransactionEdit === 'true';
+    const transactionId = form.dataset.transactionId;
+
+    if (isTransactionEdit && transactionId) {
+        // Transaction-level edit: Update only this transaction's phone
+        console.log('[EDIT-TRANSACTION] Saving:', { transactionId, phone });
+
+        const success = await saveTransactionCustomer(transactionId, phone);
+
+        if (success) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Đã cập nhật SĐT cho giao dịch!', 'success');
+            } else {
+                alert('Đã cập nhật SĐT cho giao dịch!');
+            }
+
+            // Close modal and reload
+            document.getElementById('editCustomerModal').style.display = 'none';
+            loadData();
+
+            // Clear flags
+            delete form.dataset.isTransactionEdit;
+            delete form.dataset.transactionId;
+        } else {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Không thể cập nhật SĐT', 'error');
+            } else {
+                alert('Không thể cập nhật SĐT');
+            }
+        }
+        return;
+    }
+
+    // QR-code level edit (original logic)
     if (!window.CustomerInfoManager) return;
 
-    const uniqueCode = event.target.dataset.uniqueCode;
+    const uniqueCode = form.dataset.uniqueCode;
     const name = document.getElementById('editCustomerName').value;
-    const phone = document.getElementById('editCustomerPhone').value;
+
+    console.log('[EDIT-CUSTOMER] Saving:', { uniqueCode, name, phone });
+
+    if (!uniqueCode) {
+        console.error('[EDIT-CUSTOMER] No uniqueCode found in form dataset');
+        alert('❌ Lỗi: Không tìm thấy mã giao dịch!');
+        return;
+    }
 
     const success = await window.CustomerInfoManager.saveCustomerInfo(uniqueCode, { name, phone });
 
@@ -1569,6 +2376,69 @@ async function saveEditCustomerInfo(event) {
         }
     }
 }
+
+// =====================================================
+// TRANSACTION-LEVEL CUSTOMER EDIT
+// =====================================================
+
+// Edit customer info for a specific transaction
+function editTransactionCustomer(transactionId, currentPhone, currentName) {
+    const editCustomerModal = document.getElementById('editCustomerModal');
+    const editCustomerUniqueCode = document.getElementById('editCustomerUniqueCode');
+    const editCustomerName = document.getElementById('editCustomerName');
+    const editCustomerPhone = document.getElementById('editCustomerPhone');
+    const editCustomerForm = document.getElementById('editCustomerForm');
+
+    // Fill form with current values
+    editCustomerUniqueCode.textContent = `Transaction #${transactionId}`;
+    editCustomerName.value = currentName || '';
+    editCustomerPhone.value = currentPhone || '';
+
+    // Store transaction ID for form submission
+    editCustomerForm.dataset.transactionId = transactionId;
+    editCustomerForm.dataset.isTransactionEdit = 'true';
+
+    // Show modal
+    editCustomerModal.style.display = 'block';
+
+    // Reinitialize Lucide icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+// Save transaction customer info
+async function saveTransactionCustomer(transactionId, newPhone) {
+    const API_BASE_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                phone: newPhone
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            return true;
+        } else {
+            console.error('[SAVE-TRANSACTION-PHONE] Error:', result.error);
+            return false;
+        }
+    } catch (error) {
+        console.error('[SAVE-TRANSACTION-PHONE] Error:', error);
+        return false;
+    }
+}
+
+// Make functions globally available
+window.editTransactionCustomer = editTransactionCustomer;
+window.saveTransactionCustomer = saveTransactionCustomer;
 
 // =====================================================
 // CUSTOMER LIST BY PHONE - MAPPING FEATURE
@@ -2107,10 +2977,11 @@ document.addEventListener('DOMContentLoaded', () => {
         connectRealtimeUpdates();
     }, 1000);
 
-    // Load gap detection data
-    setTimeout(() => {
-        loadGapData();
-    }, 2000);
+    // DISABLED: Gap detection was causing severe performance issues (60-90s response times)
+    // Uncomment only if you need manual gap detection
+    // setTimeout(() => {
+    //     loadGapData();
+    // }, 2000);
 });
 
 // =====================================================
@@ -2293,8 +3164,8 @@ async function ignoreGap(referenceCode) {
                 window.NotificationManager.showNotification(`Đã bỏ qua mã ${referenceCode}`, 'success');
             }
 
-            // Reload gaps data
-            await loadGapData();
+            // DISABLED: Gap detection (performance issue)
+            // await loadGapData();
 
             // Refresh modal if open
             const modal = document.getElementById('gapsModal');
@@ -2324,10 +3195,11 @@ async function rescanGaps() {
     }
 
     try {
-        await loadGapData();
+        // DISABLED: Gap detection (performance issue)
+        // await loadGapData();
 
         if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Đã quét lại gaps', 'success');
+            window.NotificationManager.showNotification('Gap detection đã bị tắt để tối ưu hiệu suất', 'info');
         }
 
         // Refresh modal
@@ -2365,8 +3237,8 @@ async function retryFailedQueue() {
                 window.NotificationManager.showNotification(result.message, 'success');
             }
 
-            // Reload gaps after retry
-            await loadGapData();
+            // DISABLED: Gap detection (performance issue)
+            // await loadGapData();
 
             // Reload main data
             loadData();
@@ -2463,8 +3335,8 @@ async function fetchMissingTransaction(referenceCode) {
                 window.NotificationManager.showNotification(`Đã lấy được giao dịch ${referenceCode}!`, 'success');
             }
 
-            // Reload data to show the new transaction
-            await loadGapData();
+            // DISABLED: Gap detection (performance issue)
+            // await loadGapData();
             loadData();
             loadStatistics();
         } else {
@@ -2479,113 +3351,573 @@ async function fetchMissingTransaction(referenceCode) {
     }
 }
 
+/**
+ * Fetch customer names from TPOS Partner API for phones without names
+ */
+async function fetchCustomerNamesFromTPOS() {
+    try {
+        // Fetch phone data from database (without totals for speed)
+        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=500&include_totals=false`);
+        const result = await response.json();
+
+        if (!result.success || !result.data) {
+            throw new Error('Failed to fetch phone data');
+        }
+
+        // Filter phones that are PENDING (valid 10-digit phones without names)
+        const phonesToFetch = result.data.filter(row => {
+            const phone = row.customer_phone || '';
+            const status = row.name_fetch_status || '';
+            // Only fetch if: has valid 10-digit phone AND status is PENDING
+            return phone.length === 10 && /^0\d{9}$/.test(phone) && status === 'PENDING';
+        });
+
+        if (phonesToFetch.length === 0) {
+            alert('✅ Không có phone nào cần fetch!\n\nTất cả phone hợp lệ đã được xử lý.');
+            return;
+        }
+
+        if (!confirm(`Tìm thấy ${phonesToFetch.length} phone numbers chưa có tên.\n\nGọi TPOS API để lấy tên?`)) {
+            return;
+        }
+
+        console.log(`[FETCH-NAMES] Processing ${phonesToFetch.length} phones...`);
+
+        let success = 0;
+        let notFound = 0;
+        let failed = 0;
+
+        // Process each phone
+        for (const row of phonesToFetch) {
+            try {
+                const phone = row.customer_phone;
+                console.log(`[FETCH-NAMES] Fetching name for: ${phone}`);
+
+                // Call backend API (uses automatic TPOS token from environment)
+                const tposResponse = await fetch(`${API_BASE_URL}/api/sepay/tpos/customer/${phone}`);
+                const tposData = await tposResponse.json();
+
+                if (!tposData.success || !tposData.data || tposData.data.length === 0) {
+                    console.log(`[FETCH-NAMES] No customer found for ${phone}`);
+
+                    // Mark as NOT_FOUND_IN_TPOS
+                    await fetch(`${API_BASE_URL}/api/sepay/customer-info/${row.unique_code}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            customer_name: null,
+                            name_fetch_status: 'NOT_FOUND_IN_TPOS'
+                        })
+                    });
+
+                    notFound++;
+                    continue;
+                }
+
+                // Take first match
+                const customer = tposData.data[0];
+                const customerName = customer.name || 'Unknown';
+
+                console.log(`[FETCH-NAMES] Found: ${customerName} (${tposData.count} matches)`);
+
+                // Update database
+                const updateResponse = await fetch(`${API_BASE_URL}/api/sepay/customer-info/${row.unique_code}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        customer_name: customerName
+                    })
+                });
+
+                const updateResult = await updateResponse.json();
+
+                if (updateResult.success) {
+                    console.log(`[FETCH-NAMES] ✅ Updated ${row.unique_code} → ${customerName}`);
+                    success++;
+                } else {
+                    console.error(`[FETCH-NAMES] Failed to update ${row.unique_code}`);
+                    failed++;
+                }
+
+                // Small delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+            } catch (error) {
+                console.error(`[FETCH-NAMES] Error for ${row.customer_phone}:`, error);
+                failed++;
+            }
+        }
+
+        alert(`✅ Hoàn thành!\n\nThành công: ${success}\nKhông tìm thấy: ${notFound}\nLỗi: ${failed}`);
+
+        // Reload data
+        loadData();
+        if (document.getElementById('phoneDataModal').style.display === 'flex') {
+            showPhoneDataModal(phoneDataCurrentPage); // Refresh phone data modal at current page
+        }
+
+    } catch (error) {
+        console.error('[FETCH-NAMES] Error:', error);
+        alert('❌ Lỗi: ' + error.message);
+    }
+}
+
+/**
+ * Reprocess old transactions to extract phones and fetch from TPOS
+ */
+async function reprocessOldTransactions() {
+    console.log('[REPROCESS] Function called');
+
+    const limit = prompt('Nhập số lượng giao dịch cần xử lý (tối đa 500):', '100');
+
+    if (!limit) {
+        console.log('[REPROCESS] User cancelled prompt');
+        return; // User cancelled
+    }
+
+    const limitNum = parseInt(limit);
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 500) {
+        alert('❌ Số lượng không hợp lệ! Vui lòng nhập từ 1-500.');
+        return;
+    }
+
+    // Ask if user wants to force reprocess (including already processed transactions)
+    const forceReprocess = confirm(
+        `Xử lý lại ${limitNum} giao dịch cũ?\n\n` +
+        `✅ BẤM "OK" = Xử lý LẠI TẤT CẢ (kể cả đã xử lý trước đó)\n` +
+        `⏭️ BẤM "Cancel" = Chỉ xử lý GD chưa được xử lý\n\n` +
+        `Hệ thống sẽ:\n` +
+        `- Extract phone từ nội dung (>= 5 số hoặc 10 số)\n` +
+        `- Tìm kiếm TPOS để lấy SĐT đầy đủ + tên KH\n` +
+        `- Lưu thông tin khách hàng\n` +
+        `- Hiển thị trong bảng`
+    );
+
+    try {
+        console.log(`[REPROCESS] Starting batch reprocess for ${limitNum} transactions (force: ${forceReprocess})...`);
+
+        // Show loading indicator (reuse the button as status)
+        const btn = document.getElementById('reprocessOldTransactionsBtn');
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader"></i> Đang xử lý...';
+        lucide.createIcons();
+
+        const response = await fetch(`${API_BASE_URL}/api/sepay/batch-update-phones`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                limit: limitNum,
+                force: forceReprocess  // TRUE = reprocess all, FALSE = only unprocessed
+            })
+        });
+
+        const result = await response.json();
+
+        // Restore button
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+        lucide.createIcons();
+
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to reprocess transactions');
+        }
+
+        console.log('[REPROCESS] Complete:', result.data);
+
+        const summary = result.data;
+
+        // Build detailed message
+        let message = `✅ Xử lý hoàn tất!\n\n` +
+            `Tổng số: ${summary.total}\n` +
+            `Thành công: ${summary.success}\n` +
+            `Pending (nhiều SĐT): ${summary.pending_matches}\n` +
+            `Không tìm thấy TPOS: ${summary.not_found}\n` +
+            `Bỏ qua: ${summary.skipped}\n` +
+            `Lỗi: ${summary.failed}`;
+
+        // If there are not_found items, show details
+        if (summary.not_found > 0 && summary.details) {
+            const notFoundItems = summary.details.filter(d => d.status === 'not_found');
+
+            if (notFoundItems.length > 0) {
+                message += `\n\n━━━━━━━━━━━━━━━━━━━━\n📋 Chi tiết KHÔNG TÌM THẤY TPOS (${notFoundItems.length}):\n━━━━━━━━━━━━━━━━━━━━\n`;
+
+                // Show first 10 items in alert (to avoid too long message)
+                const itemsToShow = notFoundItems.slice(0, 10);
+                itemsToShow.forEach((item, index) => {
+                    const contentPreview = item.content ?
+                        (item.content.length > 40 ? item.content.substring(0, 40) + '...' : item.content) :
+                        'N/A';
+                    message += `\n${index + 1}. GD #${item.transaction_id}\n   Phone: ${item.partial_phone || 'N/A'}\n   ND: "${contentPreview}"\n`;
+                });
+
+                if (notFoundItems.length > 10) {
+                    message += `\n... và ${notFoundItems.length - 10} giao dịch khác`;
+                }
+
+                // Also log full details to console
+                console.group('[REPROCESS] Chi tiết KHÔNG TÌM THẤY TPOS:');
+                console.table(notFoundItems.map(item => ({
+                    'GD #': item.transaction_id,
+                    'Partial Phone': item.partial_phone || 'N/A',
+                    'Nội dung': item.content || '',
+                    'Lý do': item.reason
+                })));
+                console.groupEnd();
+
+                message += `\n\n💡 Xem console (F12) để thấy danh sách đầy đủ`;
+            }
+        }
+
+        alert(message);
+
+        // Reload data to show updated customer info
+        loadData();
+        loadStatistics();
+
+    } catch (error) {
+        console.error('[REPROCESS] Error:', error);
+        alert('❌ Lỗi: ' + error.message);
+
+        // Restore button
+        const btn = document.getElementById('reprocessOldTransactionsBtn');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="rotate-cw"></i> Xử lý lại GD cũ';
+            lucide.createIcons();
+        }
+    }
+}
+
+// Phone data modal pagination state
+let phoneDataCurrentPage = 1;
+let phoneDataPageSize = 50; // Records per page
+let phoneDataTotalRecords = 0;
+
+/**
+ * Show phone data modal with data from balance_customer_info
+ */
+async function showPhoneDataModal(page = 1) {
+    const modal = document.getElementById('phoneDataModal');
+    const loading = document.getElementById('phoneDataLoading');
+    const empty = document.getElementById('phoneDataEmpty');
+    const content = document.getElementById('phoneDataContent');
+    const tableBody = document.getElementById('phoneDataTableBody');
+    const totalSpan = document.getElementById('phoneDataTotal');
+    const shownSpan = document.getElementById('phoneDataShown');
+
+    // Show modal and loading state
+    modal.style.display = 'flex';
+    loading.style.display = 'block';
+    empty.style.display = 'none';
+    content.style.display = 'none';
+
+    try {
+        console.log(`[PHONE-DATA] Fetching phone data... (page ${page}, size ${phoneDataPageSize})`);
+
+        // Calculate offset
+        const offset = (page - 1) * phoneDataPageSize;
+
+        // Fetch with pagination - totals DISABLED for performance (query too slow)
+        // TODO: Optimize backend query or use cached totals
+        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=${phoneDataPageSize}&offset=${offset}&include_totals=false`);
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to fetch phone data');
+        }
+
+        const data = result.data || [];
+        const total = result.pagination?.total || 0;
+
+        console.log(`[PHONE-DATA] Loaded ${data.length} records (total: ${total})`);
+
+        // Update pagination state
+        phoneDataCurrentPage = page;
+        phoneDataTotalRecords = total;
+
+        // Hide loading
+        loading.style.display = 'none';
+
+        if (data.length === 0 && page === 1) {
+            // Show empty state (only on first page)
+            empty.style.display = 'block';
+            return;
+        }
+
+        // Show content
+        content.style.display = 'block';
+        totalSpan.textContent = total;
+
+        // Calculate range
+        const startRecord = offset + 1;
+        const endRecord = Math.min(offset + data.length, total);
+        shownSpan.textContent = `${startRecord}-${endRecord}`;
+
+        // Render table
+        tableBody.innerHTML = data.map((row, index) => {
+            const createdAt = new Date(row.created_at).toLocaleString('vi-VN');
+            const updatedAt = new Date(row.updated_at).toLocaleString('vi-VN');
+            const customerName = row.customer_name || '<em style="color: #9ca3af;">Chưa có</em>';
+            const rowNumber = offset + index + 1; // Correct row number with pagination
+
+            // Format extraction_note with color coding
+            const extractionNote = row.extraction_note || '-';
+            let noteColor = '#6b7280';
+            let noteIcon = '';
+            if (extractionNote.startsWith('PHONE_EXTRACTED')) {
+                noteColor = '#10b981';
+                noteIcon = '✓';
+            } else if (extractionNote.startsWith('QR_CODE_FOUND')) {
+                noteColor = '#3b82f6';
+                noteIcon = '🔗';
+            } else if (extractionNote.startsWith('INVALID_PHONE_LENGTH')) {
+                noteColor = '#f59e0b';
+                noteIcon = '⚠️';
+            } else if (extractionNote.startsWith('NO_PHONE_FOUND')) {
+                noteColor = '#9ca3af';
+                noteIcon = '✗';
+            } else if (extractionNote.startsWith('MULTIPLE_PHONES_FOUND')) {
+                noteColor = '#8b5cf6';
+                noteIcon = '📞';
+            }
+
+            // Format total amount - DISABLED: Query too slow with include_totals=true
+            // const totalAmount = parseFloat(row.total_amount) || 0;
+            // const transactionCount = parseInt(row.transaction_count) || 0;
+            // const totalAmountFormatted = formatCurrency(totalAmount);
+
+            // Format name_fetch_status with badges
+            const fetchStatus = row.name_fetch_status || '-';
+            let statusBadge = '';
+            if (fetchStatus === 'SUCCESS') {
+                statusBadge = `<span style="background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">✓ SUCCESS</span>`;
+            } else if (fetchStatus === 'PENDING') {
+                statusBadge = `<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">⏳ PENDING</span>`;
+            } else if (fetchStatus === 'NOT_FOUND_IN_TPOS') {
+                statusBadge = `<span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">✗ NOT FOUND</span>`;
+            } else if (fetchStatus === 'INVALID_PHONE') {
+                statusBadge = `<span style="background: #fed7aa; color: #9a3412; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">⚠ INVALID</span>`;
+            } else if (fetchStatus === 'NO_PHONE_TO_FETCH') {
+                statusBadge = `<span style="background: #e5e7eb; color: #4b5563; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">- N/A</span>`;
+            } else {
+                statusBadge = `<span style="color: #9ca3af;">${fetchStatus}</span>`;
+            }
+
+            return `
+                <tr>
+                    <td>${rowNumber}</td>
+                    <td><code style="font-size: 11px; background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">${row.unique_code}</code></td>
+                    <td><strong style="color: #3b82f6;">${row.customer_phone || '-'}</strong></td>
+                    <td>${customerName}</td>
+                    <td>
+                        ${row.customer_phone ? `
+                            <button class="btn btn-primary btn-sm" onclick="showDebtForPhone('${row.customer_phone}')" style="padding: 4px 8px; font-size: 12px;">
+                                <i data-lucide="eye" style="width: 14px; height: 14px;"></i> Xem
+                            </button>
+                        ` : '<span style="color: #9ca3af;">-</span>'}
+                    </td>
+                    <td style="font-size: 12px; color: ${noteColor};">${noteIcon} ${extractionNote}</td>
+                    <td>${statusBadge}</td>
+                    <td style="font-size: 12px; color: #6b7280;">${createdAt}</td>
+                    <td style="font-size: 12px; color: #6b7280;">${updatedAt}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // Render pagination controls
+        renderPhoneDataPagination();
+
+        // Initialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+
+    } catch (error) {
+        console.error('[PHONE-DATA] Error:', error);
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+        empty.innerHTML = `
+            <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: #ef4444;"></i>
+            <p style="margin-top: 15px; color: #ef4444;">Lỗi khi tải dữ liệu!</p>
+            <p style="color: #9ca3af; font-size: 14px;">${error.message}</p>
+        `;
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+}
+
+/**
+ * Render pagination controls for phone data modal
+ */
+function renderPhoneDataPagination() {
+    const paginationContainer = document.getElementById('phoneDataPagination');
+    const pageInfo = document.getElementById('phoneDataPageInfo');
+    const prevBtn = document.getElementById('phoneDataPrevBtn');
+    const nextBtn = document.getElementById('phoneDataNextBtn');
+
+    if (!paginationContainer || !pageInfo || !prevBtn || !nextBtn) {
+        console.error('[PHONE-DATA] Pagination elements not found');
+        return;
+    }
+
+    // Calculate total pages
+    const totalPages = Math.ceil(phoneDataTotalRecords / phoneDataPageSize);
+
+    // Show/hide pagination based on total pages
+    if (totalPages <= 1) {
+        paginationContainer.style.display = 'none';
+        return;
+    }
+
+    paginationContainer.style.display = 'flex';
+    paginationContainer.style.gap = '8px';
+    paginationContainer.style.alignItems = 'center';
+
+    // Update page info
+    pageInfo.textContent = `Trang ${phoneDataCurrentPage} / ${totalPages}`;
+
+    // Enable/disable buttons
+    prevBtn.disabled = phoneDataCurrentPage <= 1;
+    nextBtn.disabled = phoneDataCurrentPage >= totalPages;
+
+    // Update button styles
+    if (prevBtn.disabled) {
+        prevBtn.style.opacity = '0.5';
+        prevBtn.style.cursor = 'not-allowed';
+    } else {
+        prevBtn.style.opacity = '1';
+        prevBtn.style.cursor = 'pointer';
+    }
+
+    if (nextBtn.disabled) {
+        nextBtn.style.opacity = '0.5';
+        nextBtn.style.cursor = 'not-allowed';
+    } else {
+        nextBtn.style.opacity = '1';
+        nextBtn.style.cursor = 'pointer';
+    }
+}
+
+/**
+ * Close phone data modal
+ */
+function closePhoneDataModal() {
+    const modal = document.getElementById('phoneDataModal');
+    modal.style.display = 'none';
+
+    // Reset pagination state
+    phoneDataCurrentPage = 1;
+}
+
 // Export functions for global access
 window.showGapsModal = showGapsModal;
 window.closeGapsModal = closeGapsModal;
 window.ignoreGap = ignoreGap;
+/**
+ * Filter phone data table based on search input
+ */
+function filterPhoneDataTable() {
+    const searchInput = document.getElementById('phoneDataSearch');
+    const tableBody = document.getElementById('phoneDataTableBody');
+    const shownSpan = document.getElementById('phoneDataShown');
+
+    if (!searchInput || !tableBody) return;
+
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const rows = tableBody.getElementsByTagName('tr');
+    let visibleCount = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const text = row.textContent.toLowerCase();
+
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    }
+
+    // Update shown count
+    if (shownSpan) {
+        if (searchTerm) {
+            shownSpan.textContent = `${visibleCount} (lọc)`;
+        } else {
+            const totalSpan = document.getElementById('phoneDataTotal');
+            const total = totalSpan ? totalSpan.textContent : rows.length;
+            shownSpan.textContent = `1-${rows.length}`;
+        }
+    }
+}
+
+/**
+ * Show debt information for a specific phone number
+ */
+async function showDebtForPhone(phone) {
+    if (!phone) {
+        alert('Không có số điện thoại!');
+        return;
+    }
+
+    try {
+        // Show loading notification
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(`Đang tải công nợ cho ${phone}...`, 'info');
+        }
+
+        // Fetch debt from API using existing debt-summary endpoint
+        const response = await fetch(`${API_BASE_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(phone)}`);
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || 'Không thể tải công nợ');
+        }
+
+        const debt = result.total_debt || 0;
+        const transactionCount = result.transactions?.length || 0;
+
+        // Format currency
+        const debtFormatted = new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND'
+        }).format(debt);
+
+        // Show result
+        const message = `📱 SĐT: ${phone}\n💰 Công nợ: ${debtFormatted}\n📊 Số giao dịch: ${transactionCount}`;
+
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(message, 'success');
+        } else {
+            alert(message);
+        }
+
+    } catch (error) {
+        console.error('[DEBT] Error fetching debt:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(`Lỗi: ${error.message}`, 'error');
+        } else {
+            alert(`Lỗi: ${error.message}`);
+        }
+    }
+}
+
 window.rescanGaps = rescanGaps;
 window.retryFailedQueue = retryFailedQueue;
 window.fetchMissingTransaction = fetchMissingTransaction;
+window.showPhoneDataModal = showPhoneDataModal;
+window.closePhoneDataModal = closePhoneDataModal;
+window.filterPhoneDataTable = filterPhoneDataTable;
+window.showDebtForPhone = showDebtForPhone;
 
 // Disconnect when page unloads
 window.addEventListener('beforeunload', () => {
     disconnectRealtimeUpdates();
 });
-
-// =====================================================
-// COLUMN VISIBILITY CONTROL
-// =====================================================
-
-const columnVisibilityBtn = document.getElementById('columnVisibilityBtn');
-const columnVisibilityDropdown = document.getElementById('columnVisibilityDropdown');
-const selectAllColumnsBtn = document.getElementById('selectAllColumnsBtn');
-
-// Toggle dropdown visibility
-columnVisibilityBtn?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isVisible = columnVisibilityDropdown.style.display === 'block';
-    columnVisibilityDropdown.style.display = isVisible ? 'none' : 'block';
-});
-
-// Close dropdown when clicking outside
-document.addEventListener('click', (e) => {
-    if (!columnVisibilityDropdown?.contains(e.target) && e.target !== columnVisibilityBtn) {
-        columnVisibilityDropdown.style.display = 'none';
-    }
-});
-
-// Load column visibility preferences from localStorage
-function loadColumnVisibility() {
-    const savedVisibility = localStorage.getItem('columnVisibility');
-    if (savedVisibility) {
-        const visibility = JSON.parse(savedVisibility);
-        Object.entries(visibility).forEach(([column, isVisible]) => {
-            const checkbox = document.querySelector(`.column-checkbox input[value="${column}"]`);
-            if (checkbox) {
-                checkbox.checked = isVisible;
-                toggleColumn(column, isVisible);
-            }
-        });
-    }
-}
-
-// Save column visibility preferences to localStorage
-function saveColumnVisibility() {
-    const checkboxes = document.querySelectorAll('.column-checkbox input[type="checkbox"]');
-    const visibility = {};
-    checkboxes.forEach(checkbox => {
-        visibility[checkbox.value] = checkbox.checked;
-    });
-    localStorage.setItem('columnVisibility', JSON.stringify(visibility));
-}
-
-// Toggle column visibility
-function toggleColumn(columnName, isVisible) {
-    const headers = document.querySelectorAll(`th[data-column="${columnName}"]`);
-    const cells = document.querySelectorAll(`td[data-column="${columnName}"]`);
-
-    headers.forEach(header => {
-        if (isVisible) {
-            header.classList.remove('hidden');
-        } else {
-            header.classList.add('hidden');
-        }
-    });
-
-    cells.forEach(cell => {
-        if (isVisible) {
-            cell.classList.remove('hidden');
-        } else {
-            cell.classList.add('hidden');
-        }
-    });
-}
-
-// Handle checkbox changes
-const columnCheckboxes = document.querySelectorAll('.column-checkbox input[type="checkbox"]');
-columnCheckboxes.forEach(checkbox => {
-    checkbox.addEventListener('change', (e) => {
-        const columnName = e.target.value;
-        const isVisible = e.target.checked;
-        toggleColumn(columnName, isVisible);
-        saveColumnVisibility();
-    });
-});
-
-// Select/Deselect all columns
-let allColumnsSelected = true;
-selectAllColumnsBtn?.addEventListener('click', (e) => {
-    e.preventDefault();
-    allColumnsSelected = !allColumnsSelected;
-
-    columnCheckboxes.forEach(checkbox => {
-        checkbox.checked = allColumnsSelected;
-        toggleColumn(checkbox.value, allColumnsSelected);
-    });
-
-    selectAllColumnsBtn.textContent = allColumnsSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả';
-    saveColumnVisibility();
-});
-
-// Initialize column visibility on page load
-loadColumnVisibility();
