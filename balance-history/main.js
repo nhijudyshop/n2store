@@ -810,6 +810,86 @@ function renderTable(data, skipGapDetection = false) {
 /**
  * Render a single transaction row
  */
+
+/**
+ * Get mapping source display info for a transaction
+ * @param {Object} row - Transaction row data
+ * @param {string} uniqueCode - The unique code (N2... or PHONE...)
+ * @returns {Object} { label, icon, color, title }
+ */
+function getMappingSource(row, uniqueCode) {
+    // Priority 1: Check unique_code format
+    if (uniqueCode) {
+        // QR Code: N2 + 16 chars (but NOT N2TX which is auto-generated)
+        if (uniqueCode.startsWith('N2') && !uniqueCode.startsWith('N2TX')) {
+            return {
+                label: 'QR Code',
+                icon: 'qr-code',
+                color: '#10b981', // green
+                title: 'Khách hàng quét mã QR để chuyển khoản'
+            };
+        }
+
+        // Phone Extraction: PHONE + digits
+        if (uniqueCode.startsWith('PHONE')) {
+            return {
+                label: 'Trích xuất SĐT',
+                icon: 'scan-search',
+                color: '#f59e0b', // orange
+                title: 'SĐT được tự động trích xuất từ nội dung chuyển khoản'
+            };
+        }
+    }
+
+    // Priority 2: Check if transaction has linked_customer_phone (manual edit)
+    if (row.linked_customer_phone) {
+        return {
+            label: 'Nhập tay',
+            icon: 'pencil',
+            color: '#3b82f6', // blue
+            title: 'Thông tin khách hàng được nhập thủ công'
+        };
+    }
+
+    // Priority 3: Check pending match status
+    if (row.pending_match_status === 'resolved') {
+        return {
+            label: 'Chọn KH',
+            icon: 'user-check',
+            color: '#8b5cf6', // purple
+            title: 'Khách hàng được chọn từ danh sách gợi ý'
+        };
+    }
+
+    // Priority 4: Check if has pending match (not yet resolved)
+    if (row.has_pending_match === true) {
+        return {
+            label: 'Chờ xác nhận',
+            icon: 'clock',
+            color: '#f97316', // orange-dark
+            title: 'Đang chờ xác nhận khách hàng'
+        };
+    }
+
+    // Priority 5: Skipped
+    if (row.pending_match_skipped === true) {
+        return {
+            label: 'Bỏ qua',
+            icon: 'x-circle',
+            color: '#9ca3af', // gray
+            title: 'Giao dịch đã được bỏ qua'
+        };
+    }
+
+    // Default: Unknown/No mapping
+    return {
+        label: 'Chưa xác định',
+        icon: 'help-circle',
+        color: '#d1d5db', // light gray
+        title: 'Chưa có thông tin mapping'
+    };
+}
+
 /**
  * Generate unique QR code for transaction without existing QR code
  * Format: N2TX{paddedTransactionId} (18 chars total)
@@ -939,6 +1019,9 @@ function renderTransactionRow(row) {
         phoneCell = `<span style="color: #999; font-style: italic;">${customerDisplay.phone}</span>`;
     }
 
+    // Get mapping source info
+    const mappingSource = getMappingSource(row, uniqueCode);
+
     return `
     <tr class="${rowClass}">
         <td>${formatDateTime(row.transaction_date)}</td>
@@ -960,6 +1043,12 @@ function renderTransactionRow(row) {
         </td>
         <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">
             ${phoneCell}
+        </td>
+        <td class="text-center" title="${mappingSource.title}">
+            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; background: ${mappingSource.color}20; color: ${mappingSource.color}; font-size: 12px; white-space: nowrap;">
+                <i data-lucide="${mappingSource.icon}" style="width: 12px; height: 12px;"></i>
+                ${mappingSource.label}
+            </span>
         </td>
         <td class="text-center">
             <button class="btn btn-success btn-sm" onclick="showTransactionQR('${uniqueCode}', 0)" title="Xem QR Code">
@@ -996,7 +1085,7 @@ function renderGapRow(missingRef, prevRef, nextRef, prevDate, nextDate) {
         <td style="font-family: monospace; font-weight: bold; color: #d97706; font-size: 1.1em; text-align: center;">
             ${missingRef}
         </td>
-        <td colspan="3" style="text-align: center;">
+        <td colspan="4" style="text-align: center;">
             <button class="btn btn-sm" onclick="fetchMissingTransaction('${missingRef}')" title="Lấy lại giao dịch từ Sepay" style="background: #3b82f6; color: white; border: none; padding: 4px 10px; margin-right: 4px;">
                 <i data-lucide="download" style="width: 14px; height: 14px;"></i> Lấy lại
             </button>
