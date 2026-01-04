@@ -1290,9 +1290,16 @@ export default {
           const odataResponse = await fetch(odataUrl, {
             method: 'GET',
             headers: {
+              'Accept': '*/*',
+              'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache',
               'tposappversion': '5.12.29.1',
+              'X-Requested-With': 'XMLHttpRequest',
+              'Referer': 'https://tomato.tpos.vn/',
+              'Origin': 'https://tomato.tpos.vn'
             },
           });
 
