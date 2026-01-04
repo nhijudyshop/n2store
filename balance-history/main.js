@@ -489,6 +489,21 @@ function setupEventListeners() {
         });
     }
 
+    // Real-time search with debounce
+    const filterSearchInput = document.getElementById('filterSearch');
+    if (filterSearchInput) {
+        let searchTimeout;
+        filterSearchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentPage = 1;
+                applyFilters();
+                loadData();
+                console.log('[SEARCH] Searching for:', e.target.value);
+            }, 500); // Wait 500ms after user stops typing
+        });
+    }
+
     applyFiltersBtn.addEventListener('click', () => {
         currentPage = 1;
         applyFilters();
@@ -672,16 +687,11 @@ async function loadData() {
     showLoading();
 
     try {
-        // Create query params but exclude 'search' for API call
-        // We'll do client-side search to include customer name/phone
-        const apiFilters = { ...filters };
-        const searchQuery = filters.search;
-        delete apiFilters.search; // Remove search from API request
-
+        // Send search query to backend (backend now handles search for customer phone too)
         const queryParams = new URLSearchParams({
             page: currentPage,
-            limit: searchQuery ? 500 : 50, // Get more rows if searching (for client-side filter)
-            ...apiFilters
+            limit: 50,
+            ...filters
         });
 
         // Remove empty params
@@ -698,27 +708,14 @@ async function loadData() {
         const result = await response.json();
 
         if (result.success) {
-            // Apply client-side filtering for customer name/phone
-            let filteredData = result.data;
-            if (searchQuery) {
-                filteredData = filterByCustomerInfo(result.data, searchQuery);
-            }
+            // Backend now handles search, no need for client-side filtering
+            const filteredData = result.data;
 
             // Skip gap detection when searching (don't show missing transaction rows)
-            renderTable(filteredData, !!searchQuery);
+            renderTable(filteredData, !!filters.search);
 
             // Update pagination info
-            if (searchQuery) {
-                // For client-side search, show custom pagination info
-                updatePagination({
-                    ...result.pagination,
-                    total: filteredData.length,
-                    totalPages: 1,
-                    page: 1
-                });
-            } else {
-                updatePagination(result.pagination);
-            }
+            updatePagination(result.pagination);
         } else {
             showError('Không thể tải dữ liệu: ' + result.error);
         }
@@ -953,7 +950,7 @@ function renderTransactionRow(row) {
             ${row.transfer_type === 'in' ? '+' : '-'}${formatCurrency(row.transfer_amount)}
         </td>
         <td>${formatCurrency(row.accumulated)}</td>
-        <td>${truncateText(content || 'N/A', 50)}</td>
+        <td style="word-wrap: break-word; max-width: 300px;">${content || 'N/A'}</td>
         <td>${row.reference_code || 'N/A'}</td>
         <td class="customer-info-cell ${hasPendingMatch ? 'pending-match' : (customerDisplay.hasInfo ? '' : 'no-info')}">
             ${customerNameCell}
@@ -967,11 +964,6 @@ function renderTransactionRow(row) {
             </button>
             <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
                 <i data-lucide="copy"></i>
-            </button>
-        </td>
-        <td class="text-center">
-            <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
-                Chi tiết
             </button>
         </td>
     </tr>
@@ -1036,12 +1028,17 @@ function updatePagination(pagination) {
 
 // Show Detail Modal
 async function showDetail(id) {
+    console.log('[SHOW-DETAIL] Opening detail for transaction ID:', id);
+    console.log('[SHOW-DETAIL] modalBody element:', modalBody);
+    console.log('[SHOW-DETAIL] detailModal element:', detailModal);
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/sepay/history?page=1&limit=9999`);
         const result = await response.json();
 
         if (result.success) {
             const transaction = result.data.find(t => t.id === id);
+            console.log('[SHOW-DETAIL] Found transaction:', transaction);
 
             if (transaction) {
                 modalBody.innerHTML = `

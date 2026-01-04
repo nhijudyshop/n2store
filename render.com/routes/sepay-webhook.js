@@ -328,21 +328,21 @@ router.get('/history', async (req, res) => {
 
         // Filter by transfer type
         if (type && ['in', 'out'].includes(type)) {
-            queryConditions.push(`transfer_type = $${paramCounter}`);
+            queryConditions.push(`bh.transfer_type = $${paramCounter}`);
             queryParams.push(type);
             paramCounter++;
         }
 
         // Filter by gateway
         if (gateway) {
-            queryConditions.push(`gateway ILIKE $${paramCounter}`);
+            queryConditions.push(`bh.gateway ILIKE $${paramCounter}`);
             queryParams.push(`%${gateway}%`);
             paramCounter++;
         }
 
         // Filter by date range
         if (startDate) {
-            queryConditions.push(`transaction_date >= $${paramCounter}`);
+            queryConditions.push(`bh.transaction_date >= $${paramCounter}`);
             queryParams.push(startDate);
             paramCounter++;
         }
@@ -351,17 +351,18 @@ router.get('/history', async (req, res) => {
             // Add time to end of day (23:59:59) for proper comparison
             // Without this, "2025-12-31" is treated as "2025-12-31 00:00:00"
             // which excludes all transactions on that day after midnight
-            queryConditions.push(`transaction_date <= $${paramCounter}`);
+            queryConditions.push(`bh.transaction_date <= $${paramCounter}`);
             queryParams.push(`${endDate} 23:59:59`);
             paramCounter++;
         }
 
-        // Search in content, reference_code
+        // Search in content, reference_code, code, customer_phone, customer_name
         if (search) {
             queryConditions.push(`(
-                content ILIKE $${paramCounter} OR
-                reference_code ILIKE $${paramCounter} OR
-                code ILIKE $${paramCounter}
+                bh.content ILIKE $${paramCounter} OR
+                bh.reference_code ILIKE $${paramCounter} OR
+                bh.code ILIKE $${paramCounter} OR
+                bh.linked_customer_phone ILIKE $${paramCounter}
             )`);
             queryParams.push(`%${search}%`);
             paramCounter++;
