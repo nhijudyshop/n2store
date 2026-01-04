@@ -7,6 +7,10 @@
 const express = require('express');
 const router = express.Router();
 
+// Dynamic header manager for centralized tposappversion
+const { getDynamicHeaderManager } = require('../helpers/dynamic-header-manager');
+const dynamicHeaders = getDynamicHeaderManager();
+
 // =====================================================
 // FACEBOOK/PANCAKE AVATAR PROXY
 // GET /api/fb-avatar?id=<facebook_user_id>&page=<page_id>&token=<jwt_token>
@@ -523,7 +527,7 @@ router.all('/rest/*', async (req, res) => {
     const headers = {
         'Accept': '*/*',
         'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-        'tposappversion': '5.11.16.1',
+        'tposappversion': dynamicHeaders.getHeader('tposappversion'),
         'Origin': 'https://tomato.tpos.vn',
         'Referer': 'https://tomato.tpos.vn/',
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'

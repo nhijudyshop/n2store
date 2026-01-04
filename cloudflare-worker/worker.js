@@ -1062,7 +1062,7 @@ export default {
         // Set required headers for TPOS
         tposHeaders.set('Accept', '*/*');
         tposHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
-        tposHeaders.set('tposappversion', '5.11.16.1');
+        tposHeaders.set('tposappversion', '5.12.29.1');
         tposHeaders.set('Origin', 'https://tomato.tpos.vn');
         tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
         tposHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
@@ -1487,7 +1487,7 @@ export default {
         // Set required headers for TPOS
         tposRestHeaders.set('Accept', '*/*');
         tposRestHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
-        tposRestHeaders.set('tposappversion', '5.11.16.1');
+        tposRestHeaders.set('tposappversion', '5.12.29.1');
         tposRestHeaders.set('Origin', 'https://tomato.tpos.vn');
         tposRestHeaders.set('Referer', 'https://tomato.tpos.vn/');
         tposRestHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');

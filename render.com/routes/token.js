@@ -115,7 +115,7 @@ router.post('/', async (req, res) => {
             headers: {
                 'accept': 'application/json, text/plain, */*',
                 'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': dynamicHeaders.getHeader('tposappversion') || '5.11.16.1',
+                'tposappversion': dynamicHeaders.getHeader('tposappversion'),
                 'x-tpos-lang': 'vi',
                 'Referer': 'https://tomato.tpos.vn/'
             },
