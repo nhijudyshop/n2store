@@ -24170,27 +24170,8 @@ async function confirmAndPrintSale() {
             }
         }
 
-        // Step 2: GET print1 to get print HTML
-        console.log('[SALE-CONFIRM] Step 2: Fetching print HTML for ID:', orderId);
-        const printResponse = await fetch(`https://tomato.tpos.vn/fastsaleorder/print1?ids=${orderId}`, {
-            method: 'GET',
-            headers: {
-                'accept': 'application/json, text/javascript, */*; q=0.01',
-                'authorization': `Bearer ${token}`,
-                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
-                'x-requested-with': 'XMLHttpRequest'
-            }
-        });
-
-        if (!printResponse.ok) {
-            throw new Error(`Lỗi lấy phiếu in: ${printResponse.status}`);
-        }
-
-        const printResult = await printResponse.json();
-        console.log('[SALE-CONFIRM] Print HTML received');
-
-        // Step 3: POST ODataService.DefaultGet to reset form (parallel with print)
-        console.log('[SALE-CONFIRM] Step 3: Fetching default data for new order...');
+        // Step 2: Fetch default data for next order (async, don't block)
+        console.log('[SALE-CONFIRM] Step 2: Fetching default data for new order...');
         fetch('https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.DefaultGet?$expand=Warehouse,User,PriceList,Company,Journal,PaymentJournal,Partner,Carrier,Tax,SaleOrder,DestConvertCurrencyUnit', {
             method: 'POST',
             headers: {
@@ -24209,13 +24190,9 @@ async function confirmAndPrintSale() {
             console.warn('[SALE-CONFIRM] Failed to fetch default data:', err);
         });
 
-        // Step 4: Open print popup with HTML and VietQR
-        if (printResult.html) {
-            // Get phone and COD for VietQR
-            const phone = document.getElementById('saleReceiverPhone')?.value || currentSaleOrderData?.PartnerPhone || currentSaleOrderData?.Telephone;
-            const cod = parseFloat(document.getElementById('saleCOD')?.value) || 0;
-            openPrintPopup(printResult.html, phone, cod);
-        }
+        // Step 3: Open print popup with custom bill (no longer fetches from TPOS API)
+        console.log('[SALE-CONFIRM] Step 3: Opening custom bill popup...');
+        openPrintPopup(createResult);
 
         // Success notification
         if (window.notificationManager) {
@@ -24615,49 +24592,316 @@ function buildOrderLines() {
 }
 
 /**
- * Open print popup with HTML content
- * @param {string} html - HTML content from print1 API
- * @param {string} phone - Customer phone number (unused, kept for API compatibility)
- * @param {number} cod - Cash on delivery amount (unused, kept for API compatibility)
+ * Generate custom bill HTML from order data
+ * @param {Object} orderResult - The created order result from FastSaleOrder API
+ * @returns {string} HTML content for the bill
  */
-function openPrintPopup(html, phone = null, cod = 0) {
-    console.log('[SALE-CONFIRM] Opening print popup...');
+function generateCustomBillHTML(orderResult) {
+    const order = currentSaleOrderData;
+    const defaultData = window.lastDefaultSaleData || {};
+    const company = defaultData.Company || { Name: 'NJD Live', Phone: '090 8888 674' };
 
-    // Inject STT into bill
-    if (currentSaleOrderData) {
-        let sttDisplay = '';
+    // Get form values
+    const receiverName = document.getElementById('saleReceiverName')?.value || '';
+    const receiverPhone = document.getElementById('saleReceiverPhone')?.value || '';
+    const receiverAddress = document.getElementById('saleReceiverAddress')?.value || '';
+    const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
+    const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
+    const discount = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
+    const codAmount = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
 
-        // Check if merged order with multiple original orders
-        if (currentSaleOrderData.IsMerged && currentSaleOrderData.OriginalOrders && currentSaleOrderData.OriginalOrders.length > 1) {
-            // Get all STTs from original orders, sorted ascending
-            const allSTTs = currentSaleOrderData.OriginalOrders
-                .map(o => o.SessionIndex)
-                .filter(stt => stt)
-                .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
-            sttDisplay = allSTTs.join(', ');
-            console.log('[SALE-CONFIRM] Merged order STTs:', sttDisplay);
-        } else {
-            // Single order - use SessionIndex directly
-            sttDisplay = currentSaleOrderData.SessionIndex || '';
-            console.log('[SALE-CONFIRM] Single order STT:', sttDisplay);
-        }
+    // Get carrier info
+    const carrierSelect = document.getElementById('saleDeliveryPartner');
+    const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
 
-        if (sttDisplay) {
-            // Create STT HTML to inject after "Người bán:" line
-            const sttHtml = `<div style="font-weight: bold; margin: 5px 0;">STT: ${sttDisplay}</div>`;
-
-            // Try to inject after "Người bán:" line
-            const nguoiBanRegex = /(<div[^>]*>Người bán:[^<]*<\/div>)/i;
-            if (nguoiBanRegex.test(html)) {
-                html = html.replace(nguoiBanRegex, `$1${sttHtml}`);
-                console.log('[SALE-CONFIRM] STT injected after Người bán');
-            } else {
-                // Fallback: inject after <body> tag
-                html = html.replace(/<body[^>]*>/i, `$&${sttHtml}`);
-                console.log('[SALE-CONFIRM] STT injected after body tag (fallback)');
-            }
-        }
+    // Get STT
+    let sttDisplay = '';
+    if (order?.IsMerged && order?.OriginalOrders?.length > 1) {
+        const allSTTs = order.OriginalOrders
+            .map(o => o.SessionIndex)
+            .filter(stt => stt)
+            .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
+        sttDisplay = allSTTs.join(', ');
+    } else {
+        sttDisplay = order?.SessionIndex || '';
     }
+
+    // Get products from orderLines
+    const orderLines = order?.orderLines || [];
+    let totalQuantity = 0;
+    let totalAmount = 0;
+
+    const productsHTML = orderLines.map((item, index) => {
+        const quantity = item.Quantity || item.ProductUOMQty || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        const total = quantity * price;
+        const productName = item.ProductName || item.ProductNameGet || '';
+        const note = item.Note || '';
+
+        totalQuantity += quantity;
+        totalAmount += total;
+
+        return `
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${index + 1}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">
+                    ${productName}
+                    ${note ? `<div style="font-size: 11px; color: #6b7280; font-style: italic;">${note}</div>` : ''}
+                </td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${quantity}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${price.toLocaleString('vi-VN')}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${total.toLocaleString('vi-VN')}</td>
+            </tr>
+        `;
+    }).join('');
+
+    // Calculate final total
+    const finalTotal = totalAmount - discount + shippingFee;
+    const remainingBalance = codAmount - prepaidAmount;
+
+    // Format date
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Phiếu bán hàng - ${orderResult?.Number || ''}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.4;
+            padding: 20px;
+            max-width: 80mm;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px dashed #333;
+        }
+        .shop-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .shop-phone {
+            font-size: 14px;
+            color: #333;
+        }
+        .bill-title {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .order-info {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #ccc;
+        }
+        .order-info div {
+            margin-bottom: 3px;
+        }
+        .stt-display {
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+            background: #f3f4f6;
+            padding: 8px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .customer-info {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #ccc;
+        }
+        .customer-info div {
+            margin-bottom: 3px;
+        }
+        .label {
+            font-weight: bold;
+            display: inline-block;
+            min-width: 80px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        th {
+            background: #f3f4f6;
+            padding: 8px 4px;
+            text-align: left;
+            font-weight: bold;
+            border-bottom: 2px solid #333;
+        }
+        th:nth-child(1) { width: 30px; text-align: center; }
+        th:nth-child(3) { width: 40px; text-align: center; }
+        th:nth-child(4), th:nth-child(5) { width: 70px; text-align: right; }
+        .totals {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 2px dashed #333;
+        }
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .total-row.final {
+            font-size: 16px;
+            font-weight: bold;
+            padding-top: 5px;
+            border-top: 1px solid #333;
+            margin-top: 5px;
+        }
+        .cod-amount {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            background: #fef3c7;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 2px solid #f59e0b;
+        }
+        .delivery-note {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fef2f2;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #dc2626;
+        }
+        .footer {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 2px dashed #333;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        @media print {
+            body { padding: 5px; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="shop-name">${company.Name || 'NJD Live'}</div>
+        <div class="shop-phone">Hotline: ${company.Phone || '090 8888 674'}</div>
+    </div>
+
+    <div class="bill-title">PHIẾU BÁN HÀNG</div>
+
+    ${sttDisplay ? `<div class="stt-display">STT: ${sttDisplay}</div>` : ''}
+
+    <div class="order-info">
+        <div><span class="label">Số HĐ:</span> ${orderResult?.Number || 'N/A'}</div>
+        <div><span class="label">Ngày:</span> ${dateStr}</div>
+        ${carrierName ? `<div><span class="label">ĐVVC:</span> ${carrierName}</div>` : ''}
+    </div>
+
+    <div class="customer-info">
+        <div><span class="label">Khách hàng:</span> ${receiverName}</div>
+        <div><span class="label">SĐT:</span> ${receiverPhone}</div>
+        <div><span class="label">Địa chỉ:</span> ${receiverAddress}</div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Sản phẩm</th>
+                <th>SL</th>
+                <th>Đơn giá</th>
+                <th>Thành tiền</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${productsHTML}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div class="total-row">
+            <span>Tổng SL:</span>
+            <span>${totalQuantity}</span>
+        </div>
+        <div class="total-row">
+            <span>Tổng tiền hàng:</span>
+            <span>${totalAmount.toLocaleString('vi-VN')} đ</span>
+        </div>
+        ${discount > 0 ? `
+        <div class="total-row">
+            <span>Chiết khấu:</span>
+            <span>-${discount.toLocaleString('vi-VN')} đ</span>
+        </div>
+        ` : ''}
+        <div class="total-row">
+            <span>Phí giao hàng:</span>
+            <span>${shippingFee.toLocaleString('vi-VN')} đ</span>
+        </div>
+        ${prepaidAmount > 0 ? `
+        <div class="total-row">
+            <span>Trả trước (Công nợ):</span>
+            <span>-${prepaidAmount.toLocaleString('vi-VN')} đ</span>
+        </div>
+        ` : ''}
+        <div class="total-row final">
+            <span>TỔNG CỘNG:</span>
+            <span>${finalTotal.toLocaleString('vi-VN')} đ</span>
+        </div>
+    </div>
+
+    <div class="cod-amount">
+        THU HỘ (COD): ${codAmount.toLocaleString('vi-VN')} đ
+    </div>
+
+    ${deliveryNote ? `
+    <div class="delivery-note">
+        <strong>Ghi chú giao hàng:</strong><br>
+        ${deliveryNote}
+    </div>
+    ` : ''}
+
+    <div class="footer">
+        <div>Cảm ơn quý khách!</div>
+        <div>Mọi thắc mắc vui lòng liên hệ: ${company.Phone || '090 8888 674'}</div>
+    </div>
+</body>
+</html>
+    `;
+}
+
+/**
+ * Open print popup with custom bill
+ * @param {Object} orderResult - The created order result from FastSaleOrder API
+ */
+function openPrintPopup(orderResult) {
+    console.log('[SALE-CONFIRM] Opening print popup with custom bill...');
+
+    // Generate custom bill HTML
+    const html = generateCustomBillHTML(orderResult);
 
     // Create a new window for printing
     const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
