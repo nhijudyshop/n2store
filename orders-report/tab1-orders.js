@@ -25000,13 +25000,16 @@ async function generateBillImage(orderResult) {
     // Use the same HTML as the print bill
     const html = generateCustomBillHTML(orderResult);
 
-    // Extract just the body content
+    // Extract styles from head
+    const styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    const styles = styleMatch ? styleMatch[1] : '';
+
+    // Extract body content
     const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-    if (bodyMatch) {
-        container.innerHTML = bodyMatch[1];
-    } else {
-        container.innerHTML = html;
-    }
+    const bodyContent = bodyMatch ? bodyMatch[1] : html;
+
+    // Inject styles + body content together
+    container.innerHTML = `<style>${styles}</style>${bodyContent}`;
 
     document.body.appendChild(container);
 
