@@ -18,6 +18,11 @@ class PancakeDataManager {
         this.lastFetchTime = null;
         this.lastPageFetchTime = null;
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
+        // Unread pages cache (shorter TTL since it changes more frequently)
+        this.unreadPagesCache = null;
+        this.lastUnreadPagesFetchTime = null;
+        this.UNREAD_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
     }
 
     /**
@@ -223,10 +228,22 @@ class PancakeDataManager {
     /**
      * Lấy danh sách pages với số lượng unread conversations
      * Endpoint: /api/v1/pages/unread_conv_pages_count
+     * Uses cache with 2-minute TTL to reduce API calls
+     * @param {boolean} forceRefresh - Force refresh cache
      * @returns {Promise<Array>} Array of { page_id, unread_conv_count }
      */
-    async fetchPagesWithUnreadCount() {
+    async fetchPagesWithUnreadCount(forceRefresh = false) {
         try {
+            // Check cache first (unless force refresh)
+            const now = Date.now();
+            if (!forceRefresh && this.unreadPagesCache && this.lastUnreadPagesFetchTime) {
+                const cacheAge = now - this.lastUnreadPagesFetchTime;
+                if (cacheAge < this.UNREAD_CACHE_DURATION) {
+                    console.log(`[PANCAKE] ✅ Unread pages cache HIT (age: ${Math.round(cacheAge / 1000)}s)`);
+                    return this.unreadPagesCache;
+                }
+            }
+
             console.log('[PANCAKE] Fetching pages with unread count...');
 
             const token = await this.getToken();
@@ -272,15 +289,24 @@ class PancakeDataManager {
                     };
                 });
 
-                console.log(`[PANCAKE] ✅ Got ${pagesWithUnread.length} pages with unread count`);
+                // Save to cache
+                this.unreadPagesCache = pagesWithUnread;
+                this.lastUnreadPagesFetchTime = Date.now();
+
+                console.log(`[PANCAKE] ✅ Got ${pagesWithUnread.length} pages with unread count (cached for ${this.UNREAD_CACHE_DURATION / 1000}s)`);
                 return pagesWithUnread;
             } else {
                 console.warn('[PANCAKE] Unexpected response format:', data);
-                return [];
+                return this.unreadPagesCache || []; // Return stale cache if available
             }
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching pages with unread count:', error);
+            // Return stale cache on error if available
+            if (this.unreadPagesCache) {
+                console.log('[PANCAKE] ⚠️ Returning stale cache due to error');
+                return this.unreadPagesCache;
+            }
             return [];
         }
     }
