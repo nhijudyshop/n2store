@@ -837,16 +837,18 @@ window.addEventListener("DOMContentLoaded", async function () {
         console.warn('[REALTIME] ⚠️ RealtimeManager class not found');
     }
 
-    // 🔥 Setup TAG realtime listeners on page load
-    // This ensures listeners are active even if user doesn't change campaign
+    // ⚡ OPTIMIZATION FIX: Defer TAG/KPI BASE listeners to reduce initial blocking
+    // Previous: Setup immediately, blocking DOMContentLoaded
+    // New: Defer by 1 second to allow UI to render first
     if (database) {
-        console.log('[TAG-REALTIME] Setting up Firebase TAG listeners on page load...');
-        setupTagRealtimeListeners();
+        setTimeout(() => {
+            console.log('[TAG-REALTIME] Setting up Firebase TAG listeners (deferred)...');
+            setupTagRealtimeListeners();
 
-        // 🔥 Setup KPI BASE realtime listeners and preload
-        console.log('[KPI-BASE] Setting up KPI BASE listeners on page load...');
-        setupKPIBaseRealtimeListener();
-        preloadKPIBaseStatus(); // Preload BASE status for all orders
+            console.log('[KPI-BASE] Setting up KPI BASE listeners (deferred)...');
+            setupKPIBaseRealtimeListener();
+            preloadKPIBaseStatus(); // Preload BASE status for all orders
+        }, 1000); // Defer 1 second
     } else {
         console.warn('[TAG-REALTIME] Firebase not available, listeners not setup');
     }
@@ -871,7 +873,16 @@ window.addEventListener("DOMContentLoaded", async function () {
     // Flow: Load campaigns → Check active → Fetch orders (1 lần duy nhất)
     console.log('[AUTO-LOAD] Khởi tạo App...');
     console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
-    await initializeApp();
+
+    // ⚡ OPTIMIZATION FIX: Make initializeApp() non-blocking
+    // Previous: await initializeApp() blocked everything
+    // New: Run in background, show loading indicator
+    initializeApp().then(() => {
+        console.log('[APP] ✅ Initialization complete');
+    }).catch(err => {
+        console.error('[APP] ❌ Initialization failed:', err);
+        alert('Lỗi khởi tạo ứng dụng. Vui lòng refresh lại trang.');
+    });
 
     // ⚡ PHASE 1 OPTIMIZATION: After orders loaded, wait for Pancake and re-render chat columns
     if (pancakeInitPromise) {
@@ -928,6 +939,32 @@ window.addEventListener("DOMContentLoaded", async function () {
         }
     });
 
+    // ⚡ NEW: Listen for token requests from Overview tab (via main.html)
+    window.addEventListener('message', async function(event) {
+        if (event.data.type === 'REQUEST_TOKEN') {
+            console.log('[TAB1] 🔑 Token requested, responding...');
+            try {
+                if (!window.tokenManager) {
+                    throw new Error('tokenManager not available');
+                }
+                const token = await window.tokenManager.getToken();
+                window.parent.postMessage({
+                    type: 'TOKEN_RESPONSE',
+                    requestId: event.data.requestId,
+                    token: token
+                }, '*');
+                console.log('[TAB1] ✅ Token sent successfully');
+            } catch (error) {
+                console.error('[TAB1] ❌ Error getting token:', error);
+                window.parent.postMessage({
+                    type: 'TOKEN_RESPONSE',
+                    requestId: event.data.requestId,
+                    error: error.message
+                }, '*');
+            }
+        }
+    });
+
     // Keyboard shortcuts for tag modal
     document.addEventListener('keydown', function (event) {
         const tagModal = document.getElementById('tagModal');
@@ -968,6 +1005,10 @@ window.addEventListener("DOMContentLoaded", async function () {
  *   5. Fetch orders 1 lần duy nhất
  */
 let appInitialized = false; // Guard flag
+// ⚡ OPTIMIZATION FIX: Track Firebase wait attempts to prevent infinite loops
+let firebaseWaitAttempts = 0;
+const MAX_FIREBASE_WAIT_ATTEMPTS = 20; // 20 × 500ms = 10 seconds max
+
 async function initializeApp() {
     // Prevent duplicate initialization
     if (appInitialized) {
@@ -979,13 +1020,25 @@ async function initializeApp() {
     try {
         console.log('[APP] 🚀 Initializing...');
 
-        // 1. Wait for Firebase to be ready
+        // 1. Wait for Firebase to be ready (with timeout)
         if (typeof firebase === 'undefined' || !firebase.database) {
-            console.log('[APP] Waiting for Firebase...');
+            firebaseWaitAttempts++;
+
+            if (firebaseWaitAttempts >= MAX_FIREBASE_WAIT_ATTEMPTS) {
+                console.error('[APP] ❌ Firebase failed to load after 10 seconds');
+                appInitialized = false;
+                alert('Không thể kết nối Firebase. Vui lòng kiểm tra kết nối mạng và refresh lại trang.');
+                return;
+            }
+
+            console.log(`[APP] Waiting for Firebase... (attempt ${firebaseWaitAttempts}/${MAX_FIREBASE_WAIT_ATTEMPTS})`);
             appInitialized = false; // Reset flag so it can retry
             setTimeout(initializeApp, 500);
             return;
         }
+
+        // Reset counter on successful Firebase connection
+        firebaseWaitAttempts = 0;
 
         // Set current user ID
         window.campaignManager = window.campaignManager || {
