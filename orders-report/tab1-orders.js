@@ -13429,17 +13429,36 @@ async function sendMessageViaFacebookTag(params) {
         // Get Facebook Page Token from TPOS CRMTeam data (expanded in order)
         // This token is different from Pancake's page_access_token
         let facebookPageToken = null;
+        let tokenSourcePageId = null;
 
         // Source 1: Try from window.currentCRMTeam (set when chat modal opens)
+        // IMPORTANT: Check if this CRMTeam matches the requested pageId
         if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
-            facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
-            console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from window.currentCRMTeam');
+            const crmPageId = window.currentCRMTeam.ChannelId || window.currentCRMTeam.Facebook_AccountId || window.currentCRMTeam.Id;
+            tokenSourcePageId = crmPageId;
+
+            // Check if pageId matches CRMTeam's page
+            if (String(crmPageId) === String(pageId) ||
+                String(window.currentCRMTeam.Facebook_AccountId) === String(pageId)) {
+                facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
+                console.log('[FB-TAG-SEND] ✅ Got matching Facebook Page Token from window.currentCRMTeam');
+            } else {
+                console.warn(`[FB-TAG-SEND] ⚠️ currentCRMTeam page (${crmPageId}) does not match requested page (${pageId})`);
+            }
         }
 
         // Source 2: Try to get from current order's CRMTeam (if already loaded)
         if (!facebookPageToken && window.currentOrder && window.currentOrder.CRMTeam && window.currentOrder.CRMTeam.Facebook_PageToken) {
-            facebookPageToken = window.currentOrder.CRMTeam.Facebook_PageToken;
-            console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from currentOrder.CRMTeam');
+            const crmPageId = window.currentOrder.CRMTeam.ChannelId || window.currentOrder.CRMTeam.Facebook_AccountId;
+            tokenSourcePageId = crmPageId;
+
+            if (String(crmPageId) === String(pageId) ||
+                String(window.currentOrder.CRMTeam.Facebook_AccountId) === String(pageId)) {
+                facebookPageToken = window.currentOrder.CRMTeam.Facebook_PageToken;
+                console.log('[FB-TAG-SEND] ✅ Got matching Facebook Page Token from currentOrder.CRMTeam');
+            } else {
+                console.warn(`[FB-TAG-SEND] ⚠️ currentOrder.CRMTeam page (${crmPageId}) does not match requested page (${pageId})`);
+            }
         }
 
         // Source 3: Try from cachedChannelsData
@@ -13454,27 +13473,36 @@ async function sendMessageViaFacebookTag(params) {
             }
         }
 
-        // Source 4: Fetch order data with CRMTeam expand (fallback)
-        if (!facebookPageToken && window.currentOrder && window.currentOrder.Id) {
-            console.log('[FB-TAG-SEND] Token not in cache, fetching from order API...');
+        // Source 4: Fetch CRMTeam directly by pageId from TPOS (NEW!)
+        if (!facebookPageToken) {
+            console.log('[FB-TAG-SEND] Token not found for page, fetching CRMTeam from TPOS...');
             try {
-                const orderId = window.currentOrder.Id;
-                const orderUrl = `${window.API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=CRMTeam`;
-                const response = await fetch(orderUrl, {
+                const headers = await window.tokenManager?.getAuthHeader() || {};
+                // Try to find CRMTeam by ChannelId (pageId)
+                const crmUrl = `${window.API_CONFIG.WORKER_URL}/api/odata/CRMTeam?$filter=ChannelId eq '${pageId}' or Facebook_AccountId eq '${pageId}'&$top=1`;
+                const response = await fetch(crmUrl, {
                     method: 'GET',
-                    headers: { 'Accept': 'application/json' }
+                    headers: { ...headers, 'Accept': 'application/json' }
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.CRMTeam && data.CRMTeam.Facebook_PageToken) {
-                        facebookPageToken = data.CRMTeam.Facebook_PageToken;
-                        console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from order API');
+                    const teams = data.value || data;
+                    if (teams && teams.length > 0 && teams[0].Facebook_PageToken) {
+                        facebookPageToken = teams[0].Facebook_PageToken;
+                        console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from CRMTeam API for page:', pageId);
                     }
                 }
             } catch (fetchError) {
-                console.warn('[FB-TAG-SEND] ⚠️ Could not fetch order from TPOS:', fetchError.message);
+                console.warn('[FB-TAG-SEND] ⚠️ Could not fetch CRMTeam from TPOS:', fetchError.message);
             }
+        }
+
+        // Source 5: Fallback - use currentCRMTeam token anyway (may cause error but better than nothing)
+        if (!facebookPageToken && window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
+            facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
+            console.warn('[FB-TAG-SEND] ⚠️ Using currentCRMTeam token as fallback - may cause page mismatch error!');
+            console.warn(`[FB-TAG-SEND] ⚠️ Token is for page: ${tokenSourcePageId}, but sending to page: ${pageId}`);
         }
 
         if (!facebookPageToken) {
