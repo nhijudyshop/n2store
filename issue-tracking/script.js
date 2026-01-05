@@ -210,8 +210,13 @@ async function selectOrder(order) {
     try {
         const details = await ApiService.getOrderDetails(order.id);
         if (details && details.products && details.products.length > 0) {
-            // Update selectedOrder with full details
+            // Update selectedOrder with full details, but preserve phone from searchOrders if details.phone is missing
+            const preservedPhone = selectedOrder.phone;
             selectedOrder = { ...selectedOrder, ...details };
+            // Restore phone if it was overwritten with undefined/null
+            if (!selectedOrder.phone && preservedPhone) {
+                selectedOrder.phone = preservedPhone;
+            }
 
             // Display products in table
             const productsTableHTML = details.products.map(p => {
@@ -276,6 +281,27 @@ async function selectOrder(order) {
  * @param {Array} orders - Array of order objects
  */
 function showOrderSelectionList(orders) {
+    // Helper: translate State to Vietnamese
+    const translateState = (state) => {
+        const map = {
+            'draft': 'Nháp',
+            'open': 'Đã xác nhận',
+            'paid': 'Đã thanh toán',
+            'cancel': 'Hủy bỏ'
+        };
+        return map[state] || state;
+    };
+
+    // Helper: translate StateCode to Vietnamese
+    const translateStateCode = (stateCode) => {
+        const map = {
+            'CrossCheckComplete': 'Đã ĐS SP',
+            'NotEnoughInventory': 'Không đủ tồn',
+            'None': 'Chưa ĐS SP'
+        };
+        return map[stateCode] || stateCode;
+    };
+
     // Create or get element
     let listEl = document.getElementById('order-selection-list');
     if (!listEl) {
@@ -298,7 +324,9 @@ function showOrderSelectionList(orders) {
                         ${o.tposCode} | COD: ${formatCurrency(o.cod)} | ${o.carrier || 'N/A'}
                     </div>
                     <div style="font-size:11px;color:#94a3b8;margin-top:2px">
-                        ${new Date(o.createdAt).toLocaleDateString('vi-VN')} - ${o.status}
+                        ${new Date(o.createdAt).toLocaleDateString('vi-VN')} - 
+                        <span style="color:#3b82f6;font-weight:500;">${translateState(o.status)}</span> | 
+                        <span style="color:${o.stateCode === 'CrossCheckComplete' ? '#10b981' : '#f59e0b'};">${translateStateCode(o.stateCode)}</span>
                     </div>
                 </div>
             `).join('')}
@@ -474,6 +502,8 @@ async function handleSubmitTicket() {
         fixCodReason: type === 'FIX_COD' ? document.getElementById('fix-cod-reason').value : null,
         channel: channel,
         status: status,
+        orderState: selectedOrder.status || 'open', // Trạng thái đơn TPOS: open, paid
+        stateCode: selectedOrder.stateCode || 'None', // Trạng thái đối soát SP: CrossCheckComplete, None
         products: selectedProducts,
         money: money,
         note: note
@@ -482,7 +512,6 @@ async function handleSubmitTicket() {
     showLoading(true);
     try {
         await ApiService.createTicket(ticketData);
-        alert("Đã tạo sự vụ thành công!");
         closeModal(elements.modalCreate);
         resetCreateForm();
     } catch (error) {
@@ -926,24 +955,46 @@ function renderDashboard(tabName, searchTerm = '') {
         const orderIdParts = orderIdStr.split('/');
         const last5Digits = orderIdParts.length > 0 ? orderIdParts[orderIdParts.length - 1] : orderIdStr;
 
-        // Build customer cell - will be populated async if phone missing
+        // Build customer cell
         const customerName = t.customer || 'N/A';
-        const customerPhone = t.phone || '';
-        const phoneDisplay = customerPhone || 'Đang tải...';
+        const customerPhone = t.phone || 'N/A';
+
+        // Helper: Get order state display for row
+        const getOrderStateDisplay = () => {
+            const orderState = t.orderState || 'open';
+            const stateCode = t.stateCode || 'None';
+
+            if (orderState === 'paid') {
+                if (stateCode === 'CrossCheckComplete') {
+                    return { text: 'Đã thanh toán', color: '#10b981', isError: false };
+                } else {
+                    return { text: 'Đã TT/Chưa ĐS SP', color: '#ef4444', isError: true };
+                }
+            } else if (orderState === 'open') {
+                if (stateCode === 'CrossCheckComplete') {
+                    return { text: 'Đã đối soát SP', color: '#10b981', isError: false };
+                } else {
+                    return { text: 'Chưa Đối Soát SP', color: '#f59e0b', isError: false };
+                }
+            }
+            return { text: '', color: '#64748b', isError: false };
+        };
+        const stateDisplay = getOrderStateDisplay();
 
         tr.innerHTML = `
             <td>
-                <div style="font-weight:bold;font-size:13px;">
+                <div style="font-weight:bold;font-size:13px;${stateDisplay.isError ? 'color:#ef4444;' : ''}">
                     <a href="#" onclick="openOrderDetailModal('${t.tposId}'); return false;"
-                       style="color:#3b82f6;text-decoration:none;">
+                       style="${stateDisplay.isError ? 'color:#ef4444;' : 'color:#3b82f6;'}text-decoration:none;">
                         ${last5Digits}
                     </a>
                 </div>
                 <div style="font-size:11px;color:#64748b;">#${t.tposId || '---'}</div>
+                ${stateDisplay.text ? `<div style="font-size:10px;color:${stateDisplay.color};font-weight:500;">${stateDisplay.text}</div>` : ''}
             </td>
-            <td class="customer-cell" data-tpos-id="${t.tposId}">
+            <td>
                 <div style="font-weight:500;color:#1e293b;">${customerName}</div>
-                <div style="font-weight:500;color:#1e293b;" class="phone-display">${phoneDisplay}</div>
+                <div style="font-weight:500;color:#1e293b;">${customerPhone}</div>
             </td>
             <td>
                 ${renderTypeBadge(t.type, t.fixCodReason)}
@@ -961,78 +1012,34 @@ function renderDashboard(tabName, searchTerm = '') {
                 </div>
             </td>
             <td>
-                <span class="status-badge status-${t.status.toLowerCase().replace('_', '-')}">${translateStatus(t.status)}</span>
-            </td>
-            <td>
                 ${renderActionButtons(t)}
             </td>
         `;
         elements.ticketList.appendChild(tr);
-
-        // If phone is missing, fetch from TPOS API
-        if (!customerPhone && t.tposId) {
-            loadPhoneForTicket(t.tposId, tr.querySelector('.phone-display'));
-        }
     });
 }
 
-// Cache for phone numbers to avoid repeated API calls
-const phoneCache = {};
-
-async function loadPhoneForTicket(tposId, phoneElement) {
-    if (!tposId || !phoneElement) {
-        console.log('[Phone] Skip loading - missing tposId or element:', { tposId, hasElement: !!phoneElement });
-        return;
-    }
-
-    // Check cache first
-    if (phoneCache[tposId]) {
-        phoneElement.textContent = phoneCache[tposId];
-        console.log('[Phone] From cache:', tposId, phoneCache[tposId]);
-        return;
-    }
-
-    // Show loading indicator
-    phoneElement.textContent = 'Đang tải...';
-
-    try {
-        console.log('[Phone] Fetching from API for tposId:', tposId);
-        const details = await ApiService.getOrderDetails(tposId);
-
-        if (details && details.phone) {
-            phoneCache[tposId] = details.phone;
-            phoneElement.textContent = details.phone;
-            console.log('[Phone] Loaded successfully:', tposId, details.phone);
-        } else {
-            phoneElement.textContent = 'N/A';
-            console.log('[Phone] No phone in API response:', tposId, details);
-        }
-    } catch (err) {
-        console.error('[Phone] Failed to load for', tposId, err);
-        phoneElement.textContent = 'Lỗi';
-    }
-}
-
 function renderProductsList(ticket) {
-    // Nếu là FIX_COD và không phải REJECT_PARTIAL thì không hiển thị sản phẩm
+    // Ghi chú luôn hiển thị đầu tiên - chữ thường, màu cam
+    const noteDisplay = ticket.note
+        ? `<div style="color:#f59e0b;margin-bottom:4px;">${ticket.note}</div>`
+        : '';
+
+    // Nếu là FIX_COD và không phải REJECT_PARTIAL thì chỉ hiển thị ghi chú (không có sản phẩm)
     if (ticket.type === 'FIX_COD' && ticket.fixCodReason !== 'REJECT_PARTIAL') {
-        return '<span style="color:#94a3b8;font-size:12px;">—</span>';
+        return noteDisplay || '<span style="color:#94a3b8;font-size:12px;">—</span>';
     }
 
     if (!ticket.products || ticket.products.length === 0) {
-        return '<span style="color:#94a3b8;font-size:12px;">—</span>';
+        return noteDisplay || '<span style="color:#94a3b8;font-size:12px;">—</span>';
     }
 
     const productItems = ticket.products.map(p => {
         const qty = p.returnQuantity || p.quantity || 1;
-        return `<li style="font-size:12px;">• ${qty}x ${p.name}</li>`;
+        return `<li style="font-size:12px;">• ${qty}x ${p.code ? `${p.code} ` : ''}${p.name}</li>`;
     }).join('');
 
-    const noteDisplay = ticket.note
-        ? `<div style="font-size:11px;color:#f59e0b;margin-top:2px;"><em>Note: ${ticket.note}</em></div>`
-        : '';
-
-    return `<ul style="list-style:none;padding:0;margin:0;">${productItems}</ul>${noteDisplay}`;
+    return `${noteDisplay}<ul style="list-style:none;padding:0;margin:0;">${productItems}</ul>`;
 }
 
 function renderTypeBadge(type, fixCodReason) {
@@ -1135,22 +1142,25 @@ function renderActionButtons(ticket) {
     let mainAction = '';
 
     if (ticket.status === 'PENDING_GOODS') {
-        mainAction = `<button class="btn btn-primary btn-sm" onclick="promptAction('${id}', 'RECEIVE')">Đã Nhận Hàng</button>`;
+        // Màu xanh dương - chờ nhận hàng
+        mainAction = `<button class="btn btn-sm action-btn action-receive" onclick="promptAction('${id}', 'RECEIVE')" style="background:#3b82f6;color:white;border:none;padding:6px 12px;border-radius:6px;font-weight:500;cursor:pointer;">📦 Nhận hàng</button>`;
     } else if (ticket.status === 'PENDING_FINANCE') {
-        mainAction = `<button class="btn btn-primary btn-sm" onclick="promptAction('${id}', 'PAY')">Đã Thanh Toán</button>`;
+        // Màu vàng cam - chờ thanh toán
+        mainAction = `<button class="btn btn-sm action-btn action-pay" onclick="promptAction('${id}', 'PAY')" style="background:#f59e0b;color:white;border:none;padding:6px 12px;border-radius:6px;font-weight:500;cursor:pointer;">💳 Thanh toán</button>`;
     } else {
-        mainAction = `<span style="color:#10b981;font-weight:500;">✓ Hoàn tất</span>`;
+        // Màu xám nhạt - đã hoàn tất
+        mainAction = `<span style="display:inline-block;padding:6px 12px;background:#e2e8f0;color:#64748b;border-radius:6px;font-weight:500;">✓ Hoàn tất</span>`;
     }
 
-    // Add Edit/Delete buttons
-    const editDeleteButtons = `
-        <div style="display:flex;gap:4px;margin-top:6px;">
-            <button class="btn btn-sm" onclick="editTicket('${id}')" style="padding:2px 6px;font-size:11px;background:#f59e0b;color:white;border:none;">Sửa</button>
-            <button class="btn btn-sm" onclick="deleteTicket('${id}')" style="padding:2px 6px;font-size:11px;background:#ef4444;color:white;border:none;">Xóa</button>
+    // Icon buttons for Edit/Delete
+    const iconButtons = `
+        <div style="display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle;">
+            <button onclick="editTicket('${id}')" title="Sửa" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">✏️</button>
+            <button onclick="deleteTicket('${id}')" title="Xóa" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🗑️</button>
         </div>
     `;
 
-    return `<div>${mainAction}${editDeleteButtons}</div>`;
+    return `<div style="display:flex;align-items:center;">${mainAction}${iconButtons}</div>`;
 }
 
 // Helper: Toggle Guide
@@ -1237,7 +1247,6 @@ window.deleteTicket = async function (firebaseId) {
     showLoading(true);
     try {
         await getTicketsRef().child(firebaseId).remove();
-        alert('Đã xóa phiếu thành công');
     } catch (error) {
         console.error('Delete ticket failed:', error);
         alert('Lỗi khi xóa phiếu: ' + error.message);

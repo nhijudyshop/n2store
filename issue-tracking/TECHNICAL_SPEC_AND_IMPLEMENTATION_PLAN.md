@@ -440,6 +440,39 @@ async searchOrders(query) {
 }
 ```
 
+**TPOS Response Fields Reference:**
+
+| Field TPOS | Internal Field | Ý nghĩa | Giá trị mẫu |
+|------------|----------------|---------|-------------|
+| `Id` | `id` | ID đơn hàng (số) | `42639` |
+| `Number` | `tposCode` | Mã đơn hàng | `NJD/2026/42639` |
+| `Phone` | `phone` | Số điện thoại khách | `0773841886` |
+| `State` | `status` | Trạng thái đơn hàng | `open`, `paid`, `draft`, `cancel` |
+| `StateCode` | `stateCode` | Trạng thái đối soát sản phẩm | `CrossCheckComplete`, `NotEnoughInventory`, `None` |
+| `CrossCheckTimes` | `crossCheckTimes` | Số lần đối soát sản phẩm | `0`, `1`, `2` |
+| `CashOnDelivery` | `cod` | Tiền thu hộ (COD) | `325000` |
+| `AmountTotal` | `totalAmount` | Tổng giá trị đơn | `325000` |
+| `TrackingRef` | `trackingCode` | Mã vận đơn | `12345678` |
+| `CarrierName` | `carrier` | Tên ĐVVC | `J&T`, `SHIP TỈNH` |
+| `DateInvoice` | `createdAt` | Ngày tạo đơn | `2026-01-05T00:00:00` |
+
+**State (Trạng thái đơn hàng):**
+
+| State | ShowState (Tiếng Việt) | Filter? |
+|-------|------------------------|---------|
+| `draft` | Nháp | ❌ Bỏ qua |
+| `open` | Đã xác nhận | ✅ Lấy |
+| `paid` | Đã thanh toán | ✅ Lấy |
+| `cancel` | Hủy bỏ | ❌ Bỏ qua |
+
+**StateCode (Trạng thái đối soát sản phẩm):**
+
+| StateCode | Tiếng Việt | Màu UI |
+|-----------|------------|--------|
+| `CrossCheckComplete` | Đã ĐS sản phẩm | 🟢 Xanh lá (#10b981) |
+| `NotEnoughInventory` | Không đủ tồn kho | 🟠 Cam (#f59e0b) |
+| `None` | Chưa ĐS sản phẩm | 🟠 Cam (#f59e0b) |
+
 **UI/UX:**
 - Hiện loading spinner khi đang tìm
 - Nếu tìm thấy nhiều đơn → hiện danh sách để chọn
