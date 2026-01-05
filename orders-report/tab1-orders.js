@@ -24196,7 +24196,27 @@ async function confirmAndPrintSale() {
 
         // Step 4: Send bill image to customer via Messenger (async, don't block)
         console.log('[SALE-CONFIRM] Step 4: Sending bill to customer...');
-        const chatInfo = window.chatDataManager?.getChatInfoForOrder(currentSaleOrderData);
+        console.log('[SALE-CONFIRM] Order data for chat:', {
+            Facebook_ASUserId: currentSaleOrderData?.Facebook_ASUserId,
+            Facebook_PostId: currentSaleOrderData?.Facebook_PostId,
+            Facebook_ConversationId: currentSaleOrderData?.Facebook_ConversationId,
+            chatDataManager: !!window.chatDataManager
+        });
+
+        let chatInfo = window.chatDataManager?.getChatInfoForOrder(currentSaleOrderData);
+
+        // Fallback: get chat info directly from order if chatDataManager not available
+        if (!chatInfo || !chatInfo.hasChat) {
+            const psid = currentSaleOrderData?.Facebook_ASUserId;
+            const postId = currentSaleOrderData?.Facebook_PostId;
+            const channelId = postId ? postId.split('_')[0] : null;
+            if (psid && channelId) {
+                chatInfo = { channelId, psid, hasChat: true };
+                console.log('[SALE-CONFIRM] Using fallback chat info:', chatInfo);
+            }
+        }
+        console.log('[SALE-CONFIRM] Final chat info:', chatInfo);
+
         if (chatInfo?.hasChat) {
             sendBillToCustomer(createResult, chatInfo.channelId, chatInfo.psid)
                 .then(result => {
@@ -24214,6 +24234,7 @@ async function confirmAndPrintSale() {
                 });
         } else {
             console.log('[SALE-CONFIRM] ⏭️ Skipping bill send - no chat info available');
+            console.log('[SALE-CONFIRM] Reason: chatDataManager=', !!window.chatDataManager, 'hasChat=', chatInfo?.hasChat);
         }
 
         // Success notification
@@ -25064,21 +25085,29 @@ async function sendBillToCustomer(orderResult, pageId, psid) {
         // Step 3: Send message with image via Pancake API
         console.log('[BILL-SEND] Step 3: Sending message with image...');
 
-        // Get conversation ID from current order data
-        const convId = currentSaleOrderData?.Facebook_ConversationId ||
+        // Get conversation ID - try multiple sources
+        let convId = currentSaleOrderData?.Facebook_ConversationId ||
             currentSaleOrderData?.Conversation_Id ||
             currentSaleOrderData?.ConversationId;
 
+        // Try to get conversation from Pancake conversations map by PSID
+        if (!convId && window.pancakeDataManager) {
+            const pancakeConv = window.pancakeDataManager.getConversationByUserId(psid);
+            if (pancakeConv && pancakeConv.id) {
+                convId = pancakeConv.id;
+                console.log('[BILL-SEND] Got conversation ID from Pancake map:', convId);
+            }
+        }
+
+        // Fallback: construct conversationId from pageId_psid (standard Pancake format)
+        if (!convId && pageId && psid) {
+            convId = `${pageId}_${psid}`;
+            console.log('[BILL-SEND] ⚠️ Using fallback conversation ID:', convId);
+        }
+
         if (!convId) {
-            console.warn('[BILL-SEND] No conversation ID found, trying to send via Facebook Graph API');
-            // Fallback to Facebook Graph API with POST_PURCHASE_UPDATE tag
-            const fbResult = await sendMessageViaFacebookTag({
-                pageId,
-                psid,
-                message: `Đơn hàng ${orderResult?.Number || ''} đã được xác nhận! 🎉`,
-                imageUrls: [contentUrl]
-            });
-            return fbResult;
+            console.warn('[BILL-SEND] No conversation ID found');
+            return { success: false, error: 'No conversation ID available' };
         }
 
         // Send via Pancake API
