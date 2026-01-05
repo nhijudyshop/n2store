@@ -232,6 +232,45 @@ let uploadedImagesData = []; // Track uploaded images data (array for multiple i
 // KPI BASE Status Cache - stores order IDs that have BASE saved
 let ordersWithKPIBase = new Set();
 
+// Order Details Cache - stores fetched order details for chat modal (TTL: 5 minutes)
+const ORDER_DETAILS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in ms
+const orderDetailsCache = new Map(); // Map<orderId, { data, timestamp }>
+
+/**
+ * Get order details from cache if valid
+ * @param {string} orderId - Order ID
+ * @returns {Object|null} - Cached order data or null if expired/not found
+ */
+function getOrderDetailsFromCache(orderId) {
+    const cached = orderDetailsCache.get(orderId);
+    if (cached && (Date.now() - cached.timestamp) < ORDER_DETAILS_CACHE_TTL) {
+        console.log(`[CACHE] ✅ Order details cache HIT for ${orderId}`);
+        return cached.data;
+    }
+    if (cached) {
+        console.log(`[CACHE] ⏰ Order details cache EXPIRED for ${orderId}`);
+        orderDetailsCache.delete(orderId);
+    }
+    return null;
+}
+
+/**
+ * Save order details to cache
+ * @param {string} orderId - Order ID
+ * @param {Object} data - Order data to cache
+ */
+function saveOrderDetailsToCache(orderId, data) {
+    orderDetailsCache.set(orderId, { data, timestamp: Date.now() });
+    console.log(`[CACHE] 💾 Order details cached for ${orderId} (TTL: ${ORDER_DETAILS_CACHE_TTL / 1000}s)`);
+
+    // Clean up old entries (keep max 50 entries)
+    if (orderDetailsCache.size > 50) {
+        const oldestKey = orderDetailsCache.keys().next().value;
+        orderDetailsCache.delete(oldestKey);
+        console.log(`[CACHE] 🧹 Evicted oldest cache entry`);
+    }
+}
+
 // Purchase Comment Highlight State
 window.purchaseCommentId = null; // Store the Facebook_CommentId from the order to highlight in comment modal
 window.purchaseFacebookPostId = null; // Store Facebook_PostId
@@ -11178,60 +11217,74 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
     // OPTIMIZATION: Fetch TPOS order details in parallel (non-blocking)
     // This runs independently while messages are being fetched
+    // Uses cache to avoid redundant API calls (TTL: 5 minutes)
     const orderDetailsPromise = (async () => {
         try {
-            const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
-            const response = await API_CONFIG.smartFetch(apiUrl, {
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                },
-            });
-            if (response.ok) {
-                const fullOrderData = await response.json();
+            // Check cache first
+            let fullOrderData = getOrderDetailsFromCache(orderId);
 
-                // Store full order data for dropped products manager (needed by moveDroppedToOrder)
-                window.currentChatOrderData = fullOrderData;
-
-                // Store Facebook data for highlighting purchase comment
-                window.purchaseFacebookPostId = fullOrderData.Facebook_PostId || null;
-                window.purchaseFacebookASUserId = fullOrderData.Facebook_ASUserId || null;
-                window.purchaseCommentId = fullOrderData.Facebook_CommentId || null;
-
-                console.log('[CHAT] Order Facebook data loaded:', {
-                    PostId: window.purchaseFacebookPostId,
-                    ASUserId: window.purchaseFacebookASUserId,
-                    CommentId: window.purchaseCommentId
+            if (!fullOrderData) {
+                // Cache miss - fetch from API
+                console.log(`[CACHE] ❌ Order details cache MISS for ${orderId}, fetching from API...`);
+                const headers = await window.tokenManager.getAuthHeader();
+                const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+                const response = await API_CONFIG.smartFetch(apiUrl, {
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
                 });
 
-                // Store CRMTeam for Facebook_PageToken access (for 24h bypass)
-                window.currentCRMTeam = fullOrderData.CRMTeam || null;
-                if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
-                    console.log('[CHAT] CRMTeam loaded with Facebook_PageToken');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
-                // Store order details for products display
-                currentChatOrderDetails = fullOrderData.Details ? JSON.parse(JSON.stringify(fullOrderData.Details)) : [];
-                console.log('[CHAT] Order details loaded:', currentChatOrderDetails.length, 'products');
+                fullOrderData = await response.json();
 
-                // Render products table
-                renderChatProductsTable();
-
-                // Initialize search after render (with delay for DOM ready)
-                setTimeout(() => {
-                    initChatProductSearch();
-                }, 100);
-
-                // Setup realtime listener for held products (multi-user collaboration)
-                if (typeof window.setupHeldProductsListener === 'function') {
-                    window.setupHeldProductsListener();
-                }
-
-                // Update message reply type toggle (show if order has comment)
-                window.updateMessageReplyTypeToggle();
+                // Save to cache for future use
+                saveOrderDetailsToCache(orderId, fullOrderData);
             }
+
+            // Store full order data for dropped products manager (needed by moveDroppedToOrder)
+            window.currentChatOrderData = fullOrderData;
+
+            // Store Facebook data for highlighting purchase comment
+            window.purchaseFacebookPostId = fullOrderData.Facebook_PostId || null;
+            window.purchaseFacebookASUserId = fullOrderData.Facebook_ASUserId || null;
+            window.purchaseCommentId = fullOrderData.Facebook_CommentId || null;
+
+            console.log('[CHAT] Order Facebook data loaded:', {
+                PostId: window.purchaseFacebookPostId,
+                ASUserId: window.purchaseFacebookASUserId,
+                CommentId: window.purchaseCommentId
+            });
+
+            // Store CRMTeam for Facebook_PageToken access (for 24h bypass)
+            window.currentCRMTeam = fullOrderData.CRMTeam || null;
+            if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
+                console.log('[CHAT] CRMTeam loaded with Facebook_PageToken');
+            }
+
+            // Store order details for products display
+            currentChatOrderDetails = fullOrderData.Details ? JSON.parse(JSON.stringify(fullOrderData.Details)) : [];
+            console.log('[CHAT] Order details loaded:', currentChatOrderDetails.length, 'products');
+
+            // Render products table
+            renderChatProductsTable();
+
+            // Initialize search after render (with delay for DOM ready)
+            setTimeout(() => {
+                initChatProductSearch();
+            }, 100);
+
+            // Setup realtime listener for held products (multi-user collaboration)
+            if (typeof window.setupHeldProductsListener === 'function') {
+                window.setupHeldProductsListener();
+            }
+
+            // Update message reply type toggle (show if order has comment)
+            window.updateMessageReplyTypeToggle();
         } catch (error) {
             console.error('[CHAT] Error loading order details:', error);
             // Reset order data
@@ -11349,8 +11402,16 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             if (window.pancakeDataManager && facebookPsid) {
                 try {
-                    // Fetch all conversations for this customer
-                    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid);
+                    // OPTIMIZATION: Fetch conversations AND page access token in parallel
+                    console.log('[CHAT-MODAL] ⚡ Starting parallel fetch: conversations + pageAccessToken');
+                    const parallelStartTime = Date.now();
+
+                    const [result, preloadedPageAccessToken] = await Promise.all([
+                        window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid),
+                        window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId)
+                    ]);
+
+                    console.log(`[CHAT-MODAL] ⚡ Parallel fetch completed in ${Date.now() - parallelStartTime}ms`);
 
                     if (result.success && result.conversations.length > 0) {
                         console.log('[CHAT-MODAL] ✅ Found', result.conversations.length, 'conversations for fb_id:', facebookPsid);
@@ -11430,13 +11491,15 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             updateMarkButton(false);
 
                             // Now fetch messages for this COMMENT conversation
-                            console.log('[CHAT-MODAL] 📥 Fetching messages for COMMENT conversation...');
+                            // Pass preloaded pageAccessToken to skip redundant token fetch
+                            console.log('[CHAT-MODAL] 📥 Fetching messages for COMMENT conversation (using preloaded token)...');
 
                             const messagesResponse = await window.pancakeDataManager.fetchMessagesForConversation(
                                 channelId,
                                 window.currentConversationId,
                                 null,
-                                window.currentCustomerUUID
+                                window.currentCustomerUUID,
+                                preloadedPageAccessToken  // Use preloaded token from parallel fetch
                             );
 
                             // Store as comments (they are messages from COMMENT conversation)
@@ -11503,8 +11566,17 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             if (window.pancakeDataManager && facebookPsid) {
                 try {
-                    // Fetch all conversations for this customer
-                    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid);
+                    // OPTIMIZATION: Fetch conversations AND page access token in parallel
+                    // This saves ~600ms by not waiting for token after conversations
+                    console.log('[CHAT-MODAL] ⚡ Starting parallel fetch: conversations + pageAccessToken');
+                    const parallelStartTime = Date.now();
+
+                    const [result, preloadedPageAccessToken] = await Promise.all([
+                        window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid),
+                        window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId)
+                    ]);
+
+                    console.log(`[CHAT-MODAL] ⚡ Parallel fetch completed in ${Date.now() - parallelStartTime}ms`);
 
                     if (result.success && result.conversations.length > 0) {
                         console.log('[CHAT-MODAL] ✅ Found', result.conversations.length, 'conversations for fb_id:', facebookPsid);
@@ -11565,13 +11637,15 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             }
 
                             // Now fetch messages for this INBOX conversation
-                            console.log('[CHAT-MODAL] 📥 Fetching messages for INBOX conversation...');
+                            // Pass preloaded pageAccessToken to skip redundant token fetch
+                            console.log('[CHAT-MODAL] 📥 Fetching messages for INBOX conversation (using preloaded token)...');
 
                             const messagesResponse = await window.pancakeDataManager.fetchMessagesForConversation(
                                 channelId,
                                 window.currentConversationId,
                                 null,
-                                window.currentCustomerUUID
+                                window.currentCustomerUUID,
+                                preloadedPageAccessToken  // Use preloaded token from parallel fetch
                             );
 
                             window.allChatMessages = messagesResponse.messages || [];

@@ -849,12 +849,12 @@ class PancakeDataManager {
      * @param {number} customerId - Customer ID (PartnerId) - required by backend API
      * @returns {Promise<Object>} { messages: Array, conversation: Object }
      */
-    async fetchMessagesForConversation(pageId, conversationId, currentCount = null, customerId = null) {
+    async fetchMessagesForConversation(pageId, conversationId, currentCount = null, customerId = null, preloadedPageAccessToken = null) {
         try {
             console.log(`[PANCAKE] Fetching messages for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`);
 
-            // Get page_access_token for Official API (pages.fm)
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            // Use preloaded token if available, otherwise fetch (for backward compatibility)
+            const pageAccessToken = preloadedPageAccessToken || await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
