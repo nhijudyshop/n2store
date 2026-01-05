@@ -194,12 +194,20 @@
                     <div class="field-group hidden" data-type="FIX_COD">
                         <div class="form-row">
                             <div class="form-group half">
-                                <label>COD Mới (Thực thu)</label>
-                                <input type="number" id="new-cod-amount" placeholder="VD: 250000">
+                                <label>COD Giảm</label>
+                                <div style="display:flex;gap:6px;align-items:center;">
+                                    <input type="number" id="cod-reduce-amount" class="select-input" placeholder="0"
+                                           oninput="calculateCodRemaining()" style="flex:1;">
+                                    <button type="button" id="btn-edit-cod-reduce" onclick="toggleCodReduceEdit()"
+                                            style="display:none;padding:8px 10px;border:1px solid #e0e7ff;border-radius:6px;background:#f8fafc;cursor:pointer;"
+                                            title="Chỉnh sửa thủ công">
+                                        ✏️
+                                    </button>
+                                </div>
                             </div>
                             <div class="form-group half">
                                 <label>Lý do</label>
-                                <select id="fix-cod-reason" class="select-input">
+                                <select id="fix-cod-reason" class="select-input" onchange="onFixCodReasonChange()">
                                     <option value="WRONG_SHIP">Tính sai ship</option>
                                     <option value="CUSTOMER_DEBT">Trừ công nợ khách</option>
                                     <option value="DISCOUNT">Giảm giá/Lẻ tiền</option>
@@ -207,7 +215,10 @@
                                 </select>
                             </div>
                         </div>
-                        <p class="calc-hint">Chênh lệch phải trả ĐVVC: <strong id="cod-diff-display">0đ</strong></p>
+                        <div style="display:flex;gap:20px;margin-top:8px;">
+                            <p class="calc-hint" style="margin:0;">COD còn phải thu: <strong id="cod-remaining-display" style="color:#10b981;">0đ</strong></p>
+                            <p class="calc-hint" style="margin:0;">Phải trả ĐVVC: <strong id="cod-diff-display" style="color:#ef4444;">0đ</strong></p>
+                        </div>
                     </div>
 
                     <!-- RETURN Details -->

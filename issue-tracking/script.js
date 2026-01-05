@@ -250,7 +250,9 @@ async function selectOrder(order) {
             // Generate product checklist for partial return (with quantity input)
             checklist.innerHTML = details.products.map(p => `
                 <div class="checkbox-item" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px;border:1px solid #e2e8f0;border-radius:4px;">
-                    <input type="checkbox" value="${p.id}" id="prod-${p.id}" checked data-price="${p.price}" data-qty="${p.quantity}" style="margin:0;">
+                    <input type="checkbox" value="${p.id}" id="prod-${p.id}" checked
+                           data-price="${p.price}" data-qty="${p.quantity}"
+                           onchange="updateCodReduceFromProducts()" style="margin:0;">
                     <label for="prod-${p.id}" style="flex:1;margin:0;cursor:pointer;">[${p.code}] ${p.name} - ${formatCurrency(p.price)}</label>
                     <div style="display:flex;align-items:center;gap:4px;">
                         <span style="font-size:11px;color:#64748b;">SL:</span>
@@ -259,6 +261,7 @@ async function selectOrder(order) {
                                value="${p.quantity}"
                                min="1"
                                max="${p.quantity}"
+                               onchange="updateCodReduceFromProducts()"
                                style="width:50px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:3px;text-align:center;font-size:12px;">
                     </div>
                 </div>
@@ -416,13 +419,95 @@ function handleIssueTypeChange(e) {
 }
 
 
-// Calculate Money Diff for Fix COD
-window.calculateCodDiff = function () {
+// Calculate COD Remaining and Diff for Fix COD
+window.calculateCodRemaining = function() {
     if (!selectedOrder) return;
-    const newCod = parseInt(document.getElementById('new-cod-amount').value) || 0;
-    const diff = selectedOrder.cod - newCod;
-    document.getElementById('cod-diff-display').textContent = formatCurrency(diff);
+    const codReduce = parseInt(document.getElementById('cod-reduce-amount').value) || 0;
+    const codRemaining = selectedOrder.cod - codReduce;
+
+    document.getElementById('cod-remaining-display').textContent = formatCurrency(codRemaining);
+    document.getElementById('cod-diff-display').textContent = formatCurrency(codReduce);
 }
+
+// Handle FIX_COD reason change
+window.onFixCodReasonChange = function() {
+    const reason = document.getElementById('fix-cod-reason').value;
+    const codReduceInput = document.getElementById('cod-reduce-amount');
+    const editBtn = document.getElementById('btn-edit-cod-reduce');
+    const returnGroup = document.querySelector('[data-type="RETURN"]');
+
+    if (reason === 'REJECT_PARTIAL') {
+        // Tự động tính COD giảm = tổng giá SP được chọn trả
+        codReduceInput.readOnly = true;
+        codReduceInput.style.backgroundColor = '#f1f5f9';
+        // Show edit button
+        if (editBtn) editBtn.style.display = 'block';
+        // Show product checklist
+        if (returnGroup) returnGroup.classList.remove('hidden');
+
+        // Bỏ check tất cả sản phẩm để user tự chọn món trả lại
+        const checkboxes = document.querySelectorAll('#product-checklist input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+
+        // Reset COD giảm về 0
+        codReduceInput.value = 0;
+        calculateCodRemaining();
+    } else {
+        // Cho phép nhập tay
+        codReduceInput.readOnly = false;
+        codReduceInput.style.backgroundColor = '';
+        // Hide edit button
+        if (editBtn) editBtn.style.display = 'none';
+        // Hide product checklist
+        if (returnGroup) returnGroup.classList.add('hidden');
+
+        // Check lại tất cả sản phẩm (cho các loại khác như THU VỀ, BOOM)
+        const checkboxes = document.querySelectorAll('#product-checklist input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = true);
+    }
+}
+
+// Toggle COD Reduce edit mode (for REJECT_PARTIAL)
+window.toggleCodReduceEdit = function() {
+    const codReduceInput = document.getElementById('cod-reduce-amount');
+    const editBtn = document.getElementById('btn-edit-cod-reduce');
+
+    if (codReduceInput.readOnly) {
+        // Enable manual editing
+        codReduceInput.readOnly = false;
+        codReduceInput.style.backgroundColor = '';
+        codReduceInput.focus();
+        if (editBtn) editBtn.innerHTML = '🔒';
+        if (editBtn) editBtn.title = 'Khóa & tính tự động';
+    } else {
+        // Lock and recalculate from products
+        codReduceInput.readOnly = true;
+        codReduceInput.style.backgroundColor = '#f1f5f9';
+        if (editBtn) editBtn.innerHTML = '✏️';
+        if (editBtn) editBtn.title = 'Chỉnh sửa thủ công';
+        updateCodReduceFromProducts();
+    }
+}
+
+// Calculate COD reduce from selected products (for REJECT_PARTIAL)
+function updateCodReduceFromProducts() {
+    const checkedInputs = document.querySelectorAll('#product-checklist input[type="checkbox"]:checked');
+    let totalReduce = 0;
+
+    checkedInputs.forEach(cb => {
+        const productId = cb.value;
+        const qtyInput = document.getElementById(`prod-qty-${productId}`);
+        const qty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+        const price = parseFloat(cb.dataset.price) || 0;
+        totalReduce += price * qty;
+    });
+
+    document.getElementById('cod-reduce-amount').value = totalReduce;
+    calculateCodRemaining();
+}
+
+// Expose for checkbox/quantity change events
+window.updateCodReduceFromProducts = updateCodReduceFromProducts;
 
 async function handleSubmitTicket() {
     if (!selectedOrder) return alert("Chưa chọn đơn hàng!");
@@ -444,10 +529,15 @@ async function handleSubmitTicket() {
     // Logic for Status & Money based on type
     if (type === 'FIX_COD') {
         const fixCodReason = document.getElementById('fix-cod-reason').value;
-        const newCod = parseInt(document.getElementById('new-cod-amount').value) || 0;
-        money = selectedOrder.cod - newCod;
+        const codReduce = parseInt(document.getElementById('cod-reduce-amount').value) || 0;
+        money = codReduce; // COD Giảm chính là số tiền phải trả ĐVVC
 
         if (fixCodReason === 'REJECT_PARTIAL') {
+            // Validation: Đơn phải có >= 2 món
+            if (selectedOrder.products.length < 2) {
+                return alert("Đơn hàng chỉ có 1 món. Nếu khách không nhận, vui lòng chọn 'Boom Hàng'.");
+            }
+
             // Khách nhận 1 phần - có hàng hoàn về
             status = 'PENDING_GOODS';
             // Get selected products with quantities
@@ -462,17 +552,32 @@ async function handleSubmitTicket() {
                     returnQuantity: returnQty
                 };
             });
+
+            // Validation: Phải chọn ít nhất 1 món trả
+            if (selectedProducts.length === 0) {
+                return alert("Vui lòng chọn ít nhất 1 món hàng khách trả lại.");
+            }
+            // Validation: Không được trả toàn bộ (đó là BOOM)
+            if (selectedProducts.length === selectedOrder.products.length) {
+                return alert("Khách trả toàn bộ món hàng. Vui lòng chọn 'Boom Hàng' thay vì 'Nhận 1 phần'.");
+            }
         } else {
             // Các lý do khác - không có hàng trả, chỉ đối soát tiền
             status = 'PENDING_FINANCE';
             selectedProducts = []; // Không có sản phẩm
         }
-    } else if (type === 'OTHER') {
-        status = 'COMPLETED';
-        money = 0;
-        selectedProducts = [];
-    } else {
-        // BOOM, RETURN_CLIENT, RETURN_SHIPPER - có hàng hoàn về
+    } else if (type === 'BOOM') {
+        // BOOM: COD giảm = toàn bộ COD (khách không nhận gì)
+        money = selectedOrder.cod;
+        status = 'PENDING_GOODS';
+
+        // Tất cả sản phẩm đều hoàn về
+        selectedProducts = selectedOrder.products.map(p => ({
+            ...p,
+            returnQuantity: p.quantity
+        }));
+    } else if (type === 'RETURN_CLIENT' || type === 'RETURN_SHIPPER') {
+        // Thu về/Khách gửi: Đã thu COD xong, giờ là giá trị hàng hoàn
         status = 'PENDING_GOODS';
 
         // Get selected products with return quantities
@@ -488,8 +593,12 @@ async function handleSubmitTicket() {
             };
         });
 
-        // Calculate money based on returned products
+        // Giá trị hoàn = tổng giá trị sản phẩm trả về
         money = selectedProducts.reduce((sum, p) => sum + (p.price * p.returnQuantity), 0);
+    } else if (type === 'OTHER') {
+        status = 'COMPLETED';
+        money = 0;
+        selectedProducts = [];
     }
 
     const ticketData = {
@@ -1062,11 +1171,11 @@ function renderDashboard(tabName, searchTerm = '') {
                 ${renderProductsList(t)}
             </td>
             <td>
-                <div style="font-weight:bold;color:${t.status === 'PENDING_FINANCE' ? '#ef4444' : '#1e293b'};">
+                <div style="font-weight:bold;color:${(t.type === 'BOOM' || t.type === 'FIX_COD') ? '#ef4444' : '#1e293b'};">
                     ${formatCurrency(t.money)}
                 </div>
                 <div style="font-size:11px;color:#64748b;">
-                    ${t.status === 'PENDING_FINANCE' ? 'Phải trả ĐVVC' : 'Giá trị'}
+                    ${(t.type === 'BOOM' || t.type === 'FIX_COD') ? 'COD Giảm' : 'Giá trị hoàn'}
                 </div>
             </td>
             <td>
