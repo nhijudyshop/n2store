@@ -445,23 +445,32 @@ class TposRealtimeClient {
         if (this.isConnected || !this.token) return;
 
         console.log('[TPOS-WS] Connecting to TPOS... (attempt', this.reconnectAttempts + 1, ')');
+
+        // Add token to connection URL as query parameter
+        const urlWithToken = `${this.url}&token=${encodeURIComponent(this.token)}`;
+        console.log('[TPOS-WS] Connection URL:', this.url.split('?')[0] + '?...(with token)');
+
         const headers = {
             'Origin': 'https://nhijudyshop.github.io',
+            'Authorization': `Bearer ${this.token}`, // Also try in header
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
         };
 
-        this.ws = new WebSocket(this.url, {
+        this.ws = new WebSocket(urlWithToken, {
             headers: headers
         });
 
         this.ws.on('open', () => {
-            console.log('[TPOS-WS] WebSocket connected, sending handshake...');
+            console.log('[TPOS-WS] ✅ WebSocket connected, sending handshake...');
             this.reconnectAttempts = 0; // Reset on successful connect
+
             // Socket.IO namespace connect
-            this.ws.send('40/chatomni,');
+            const namespaceMsg = '40/chatomni,';
+            this.ws.send(namespaceMsg);
+            console.log('[TPOS-WS] 📤 Sent namespace connect:', namespaceMsg);
         });
 
         this.ws.on('close', (code, reason) => {
@@ -506,6 +515,10 @@ class TposRealtimeClient {
 
         this.ws.on('message', (data) => {
             const message = data.toString();
+            // Log all raw messages for debugging (can comment out after troubleshooting)
+            if (!message.startsWith('2') && !message.startsWith('3')) {
+                console.log('[TPOS-WS] 📥 Raw message:', message.substring(0, 200)); // Truncate long messages
+            }
             this.handleMessage(message);
         });
     }
