@@ -327,7 +327,7 @@ function hideOrderSelectionList() {
 /**
  * Select order by index (called from onclick)
  */
-window.selectOrderByIndex = function(index) {
+window.selectOrderByIndex = function (index) {
     if (window._searchedOrders && window._searchedOrders[index]) {
         selectOrder(window._searchedOrders[index]);
     }
@@ -405,41 +405,78 @@ async function handleSubmitTicket() {
     let status = 'PENDING_GOODS';
     let money = 0;
     let note = document.getElementById('ticket-note').value;
+    let selectedProducts = [];
 
-    // Logic for Status & Money
+    // Determine channel: TP if HCM, J&T otherwise
+    const address = selectedOrder.address || '';
+    const channel = address.includes('Hồ Chí Minh') || address.includes('HCM') || address.includes('TP HCM')
+        ? 'TP'
+        : 'J&T';
+
+    // Logic for Status & Money based on type
     if (type === 'FIX_COD') {
-        status = 'PENDING_FINANCE';
+        const fixCodReason = document.getElementById('fix-cod-reason').value;
         const newCod = parseInt(document.getElementById('new-cod-amount').value) || 0;
         money = selectedOrder.cod - newCod;
+
+        if (fixCodReason === 'REJECT_PARTIAL') {
+            // Khách nhận 1 phần - có hàng hoàn về
+            status = 'PENDING_GOODS';
+            // Get selected products with quantities
+            const checkedInputs = document.querySelectorAll('#product-checklist input[type="checkbox"]:checked');
+            selectedProducts = Array.from(checkedInputs).map(cb => {
+                const productId = cb.value;
+                const qtyInput = document.getElementById(`prod-qty-${productId}`);
+                const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+                const product = selectedOrder.products.find(p => String(p.id) === String(productId));
+                return {
+                    ...product,
+                    returnQuantity: returnQty
+                };
+            });
+        } else {
+            // Các lý do khác - không có hàng trả, chỉ đối soát tiền
+            status = 'PENDING_FINANCE';
+            selectedProducts = []; // Không có sản phẩm
+        }
     } else if (type === 'OTHER') {
         status = 'COMPLETED';
         money = 0;
+        selectedProducts = [];
     } else {
-        // Boom or Return 
+        // BOOM, RETURN_CLIENT, RETURN_SHIPPER - có hàng hoàn về
         status = 'PENDING_GOODS';
-        money = selectedOrder.products.reduce((sum, p) => sum + p.price, 0);
-    }
 
-    // Partial Return Check
-    let selectedProducts = selectedOrder.products;
-    // If partial check enabled and visible
-    const returnGroup = document.querySelector('[data-type="RETURN"]');
-    if (!returnGroup.classList.contains('hidden')) {
-        const checkedIds = Array.from(document.querySelectorAll('#product-checklist input:checked')).map(cb => cb.value);
-        selectedProducts = selectedOrder.products.filter(p => checkedIds.includes(String(p.id)));
+        // Get selected products with return quantities
+        const checkedInputs = document.querySelectorAll('#product-checklist input[type="checkbox"]:checked');
+        selectedProducts = Array.from(checkedInputs).map(cb => {
+            const productId = cb.value;
+            const qtyInput = document.getElementById(`prod-qty-${productId}`);
+            const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+            const product = selectedOrder.products.find(p => String(p.id) === String(productId));
+            return {
+                ...product,
+                returnQuantity: returnQty
+            };
+        });
+
+        // Calculate money based on returned products
+        money = selectedProducts.reduce((sum, p) => sum + (p.price * p.returnQuantity), 0);
     }
 
     const ticketData = {
-        orderId: selectedOrder.id || selectedOrder.tposId,
+        orderId: selectedOrder.tposCode, // Mã đơn NJD/2025/xxx
+        tposId: selectedOrder.id, // ID số
         customer: selectedOrder.customer,
         phone: selectedOrder.phone,
+        address: selectedOrder.address,
         type: type,
-        channel: "TPOS", // Or infer from tracking
+        fixCodReason: type === 'FIX_COD' ? document.getElementById('fix-cod-reason').value : null,
+        channel: channel,
         status: status,
         products: selectedProducts,
         money: money,
-        note: note,
-        // user: currentUser...
+        note: note
     };
 
     showLoading(true);
@@ -447,6 +484,7 @@ async function handleSubmitTicket() {
         await ApiService.createTicket(ticketData);
         alert("Đã tạo sự vụ thành công!");
         closeModal(elements.modalCreate);
+        resetCreateForm();
     } catch (error) {
         console.error(error);
         alert("Lỗi khi tạo sự vụ: " + error.message);
@@ -881,30 +919,44 @@ function renderDashboard(tabName, searchTerm = '') {
     elements.ticketList.innerHTML = '';
     filtered.forEach(t => {
         const tr = document.createElement('tr');
+
+        // Extract last 5 digits after "/" from orderId (e.g., "NJD/2025/41587" -> "41587")
+        // Ensure orderId is converted to string first (some old tickets may have non-string values)
+        const orderIdStr = String(t.orderId || '');
+        const orderIdParts = orderIdStr.split('/');
+        const last5Digits = orderIdParts.length > 0 ? orderIdParts[orderIdParts.length - 1] : orderIdStr;
+
+        // Build customer cell - will be populated async if phone missing
+        const customerName = t.customer || 'N/A';
+        const customerPhone = t.phone || '';
+        const phoneDisplay = customerPhone || 'Đang tải...';
+
         tr.innerHTML = `
             <td>
-                <div style="font-weight:bold;font-size:13px">${t.orderId}</div>
-                <div style="font-size:11px;color:#94a3b8">#${t.firebaseId ? t.firebaseId.slice(-4) : '---'}</div>
+                <div style="font-weight:bold;font-size:13px;">
+                    <a href="#" onclick="openOrderDetailModal('${t.tposId}'); return false;"
+                       style="color:#3b82f6;text-decoration:none;">
+                        ${last5Digits}
+                    </a>
+                </div>
+                <div style="font-size:11px;color:#64748b;">#${t.tposId || '---'}</div>
+            </td>
+            <td class="customer-cell" data-tpos-id="${t.tposId}">
+                <div style="font-weight:500;color:#1e293b;">${customerName}</div>
+                <div style="font-weight:500;color:#1e293b;" class="phone-display">${phoneDisplay}</div>
             </td>
             <td>
-                <div>${t.customer}</div>
-                <div style="font-size:12px;color:#64748b">${t.phone}</div>
+                ${renderTypeBadge(t.type, t.fixCodReason)}
+                <div style="font-size:12px;margin-top:4px;color:#64748b;">${t.channel || 'TPOS'}</div>
             </td>
             <td>
-                ${renderTypeBadge(t.type)}
-                <div style="font-size:12px;margin-top:4px">${t.channel || 'TPOS'}</div>
+                ${renderProductsList(t)}
             </td>
             <td>
-                <ul style="list-style:none;font-size:13px">
-                    ${(t.products || []).map(p => `<li>• ${p.name}</li>`).join('')}
-                </ul>
-                ${t.note ? `<div style="font-size:11px;color:#f59e0b;margin-top:2px"><em>Note: ${t.note}</em></div>` : ''}
-            </td>
-            <td>
-                <div style="font-weight:bold;color:${t.status === 'PENDING_FINANCE' ? '#ef4444' : '#1e293b'}">
+                <div style="font-weight:bold;color:${t.status === 'PENDING_FINANCE' ? '#ef4444' : '#1e293b'};">
                     ${formatCurrency(t.money)}
                 </div>
-                <div style="font-size:11px;color:#64748b">
+                <div style="font-size:11px;color:#64748b;">
                     ${t.status === 'PENDING_FINANCE' ? 'Phải trả ĐVVC' : 'Giá trị'}
                 </div>
             </td>
@@ -916,29 +968,189 @@ function renderDashboard(tabName, searchTerm = '') {
             </td>
         `;
         elements.ticketList.appendChild(tr);
+
+        // If phone is missing, fetch from TPOS API
+        if (!customerPhone && t.tposId) {
+            loadPhoneForTicket(t.tposId, tr.querySelector('.phone-display'));
+        }
     });
 }
 
-function renderTypeBadge(type) {
+// Cache for phone numbers to avoid repeated API calls
+const phoneCache = {};
+
+async function loadPhoneForTicket(tposId, phoneElement) {
+    if (!tposId || !phoneElement) {
+        console.log('[Phone] Skip loading - missing tposId or element:', { tposId, hasElement: !!phoneElement });
+        return;
+    }
+
+    // Check cache first
+    if (phoneCache[tposId]) {
+        phoneElement.textContent = phoneCache[tposId];
+        console.log('[Phone] From cache:', tposId, phoneCache[tposId]);
+        return;
+    }
+
+    // Show loading indicator
+    phoneElement.textContent = 'Đang tải...';
+
+    try {
+        console.log('[Phone] Fetching from API for tposId:', tposId);
+        const details = await ApiService.getOrderDetails(tposId);
+
+        if (details && details.phone) {
+            phoneCache[tposId] = details.phone;
+            phoneElement.textContent = details.phone;
+            console.log('[Phone] Loaded successfully:', tposId, details.phone);
+        } else {
+            phoneElement.textContent = 'N/A';
+            console.log('[Phone] No phone in API response:', tposId, details);
+        }
+    } catch (err) {
+        console.error('[Phone] Failed to load for', tposId, err);
+        phoneElement.textContent = 'Lỗi';
+    }
+}
+
+function renderProductsList(ticket) {
+    // Nếu là FIX_COD và không phải REJECT_PARTIAL thì không hiển thị sản phẩm
+    if (ticket.type === 'FIX_COD' && ticket.fixCodReason !== 'REJECT_PARTIAL') {
+        return '<span style="color:#94a3b8;font-size:12px;">—</span>';
+    }
+
+    if (!ticket.products || ticket.products.length === 0) {
+        return '<span style="color:#94a3b8;font-size:12px;">—</span>';
+    }
+
+    const productItems = ticket.products.map(p => {
+        const qty = p.returnQuantity || p.quantity || 1;
+        return `<li style="font-size:12px;">• ${qty}x ${p.name}</li>`;
+    }).join('');
+
+    const noteDisplay = ticket.note
+        ? `<div style="font-size:11px;color:#f59e0b;margin-top:2px;"><em>Note: ${ticket.note}</em></div>`
+        : '';
+
+    return `<ul style="list-style:none;padding:0;margin:0;">${productItems}</ul>${noteDisplay}`;
+}
+
+function renderTypeBadge(type, fixCodReason) {
     const map = {
         'BOOM': { text: 'Boom Hàng', class: 'type-boom' },
         'FIX_COD': { text: 'Sửa COD', class: 'type-fix' },
         'RETURN_CLIENT': { text: 'Khách Gửi', class: 'type-return' },
-        'RETURN_SHIPPER': { text: 'Shipper Thu', class: 'type-return' },
+        'RETURN_SHIPPER': { text: 'Thu Về', class: 'type-return' },
         'OTHER': { text: 'Vấn đề khác', class: 'type-other' },
     };
     const conf = map[type] || { text: type, class: '' };
-    return `<span class="type-label ${conf.class}">● ${conf.text}</span>`;
+
+    // Add reason detail for FIX_COD if available
+    let reasonText = '';
+    if (type === 'FIX_COD' && fixCodReason) {
+        const reasonMap = {
+            'WRONG_SHIP': 'Sai ship',
+            'CUSTOMER_DEBT': 'Trừ nợ',
+            'DISCOUNT': 'Giảm giá',
+            'REJECT_PARTIAL': 'Nhận 1 phần'
+        };
+        reasonText = `<div style="font-size:10px;color:#64748b;margin-top:2px;">${reasonMap[fixCodReason] || fixCodReason}</div>`;
+    }
+
+    return `<span class="type-label ${conf.class}">● ${conf.text}</span>${reasonText}`;
 }
+
+/**
+ * Open order detail modal (read-only view of order)
+ */
+window.openOrderDetailModal = async function (tposId) {
+    if (!tposId) {
+        alert('Không có ID đơn hàng');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const details = await ApiService.getOrderDetails(tposId);
+        if (!details) {
+            alert('Không tìm thấy đơn hàng');
+            return;
+        }
+
+        // Hide search section for view-only mode
+        document.querySelector('.search-section label').style.display = 'none';
+        document.querySelector('.search-section .input-group').style.display = 'none';
+
+        // Show order result, hide issue form
+        document.getElementById('order-result').classList.remove('hidden');
+        document.getElementById('issue-details-form').classList.add('hidden');
+
+        // Fill order info
+        document.getElementById('res-customer').textContent = details.customer || 'N/A';
+        document.getElementById('res-phone').textContent = details.phone || '';
+        document.getElementById('res-order-code').textContent = details.tposCode || '';
+        document.getElementById('res-address').textContent = details.address || 'Chưa có địa chỉ';
+
+        // Products table
+        const productsTableHTML = details.products.map(p => {
+            const noteDisplay = p.note ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">(${p.note})</div>` : '';
+            return `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:6px 8px;">
+                        <div><strong>[${p.code}]</strong> ${p.name}</div>
+                        ${noteDisplay}
+                    </td>
+                    <td style="padding:6px 8px;text-align:center;">${p.quantity}</td>
+                    <td style="padding:6px 8px;text-align:right;">${formatCurrency(p.price)}</td>
+                </tr>
+            `;
+        }).join('');
+        document.getElementById('res-products-table').innerHTML = productsTableHTML;
+
+        // Summary
+        const totalQty = details.products.reduce((sum, p) => sum + p.quantity, 0);
+        const finalTotal = details.amountTotal - details.decreaseAmount + details.deliveryPrice;
+
+        document.getElementById('res-total-qty').textContent = totalQty;
+        document.getElementById('res-amount-total').textContent = formatCurrency(details.amountTotal);
+        document.getElementById('res-decrease-amount').textContent = formatCurrency(details.decreaseAmount);
+        document.getElementById('res-delivery-price').textContent = formatCurrency(details.deliveryPrice);
+        document.getElementById('res-final-total').textContent = formatCurrency(finalTotal);
+        document.getElementById('res-payment-amount').textContent = formatCurrency(details.paymentAmount);
+        document.getElementById('res-cod').textContent = formatCurrency(details.cod);
+
+        // Open modal using correct function
+        openModal(elements.modalCreate);
+
+    } catch (err) {
+        console.error('Failed to load order details:', err);
+        alert('Lỗi khi tải thông tin đơn hàng: ' + err.message);
+    } finally {
+        showLoading(false);
+    }
+};
 
 function renderActionButtons(ticket) {
     const id = ticket.firebaseId;
+    let mainAction = '';
+
     if (ticket.status === 'PENDING_GOODS') {
-        return `<button class="btn btn-primary btn-sm" onclick="promptAction('${id}', 'RECEIVE')">Đã Nhận Hàng</button>`;
+        mainAction = `<button class="btn btn-primary btn-sm" onclick="promptAction('${id}', 'RECEIVE')">Đã Nhận Hàng</button>`;
     } else if (ticket.status === 'PENDING_FINANCE') {
-        return `<button class="btn btn-primary btn-sm" onclick="promptAction('${id}', 'PAY')">Đã Thanh Toán</button>`;
+        mainAction = `<button class="btn btn-primary btn-sm" onclick="promptAction('${id}', 'PAY')">Đã Thanh Toán</button>`;
+    } else {
+        mainAction = `<span style="color:#10b981;font-weight:500;">✓ Hoàn tất</span>`;
     }
-    return `<span style="color:#10b981">✓ Xong</span>`;
+
+    // Add Edit/Delete buttons
+    const editDeleteButtons = `
+        <div style="display:flex;gap:4px;margin-top:6px;">
+            <button class="btn btn-sm" onclick="editTicket('${id}')" style="padding:2px 6px;font-size:11px;background:#f59e0b;color:white;border:none;">Sửa</button>
+            <button class="btn btn-sm" onclick="deleteTicket('${id}')" style="padding:2px 6px;font-size:11px;background:#ef4444;color:white;border:none;">Xóa</button>
+        </div>
+    `;
+
+    return `<div>${mainAction}${editDeleteButtons}</div>`;
 }
 
 // Helper: Toggle Guide
@@ -979,6 +1191,10 @@ function resetCreateForm() {
     document.getElementById('issue-details-form').classList.add('hidden');
     document.getElementById('issue-type-select').value = '';
     document.getElementById('ticket-note').value = '';
+
+    // Restore search section visibility (in case it was hidden by openOrderDetailModal)
+    document.querySelector('.search-section label').style.display = '';
+    document.querySelector('.search-section .input-group').style.display = '';
 }
 
 function translateStatus(s) {
@@ -989,3 +1205,43 @@ function translateStatus(s) {
     };
     return map[s] || s;
 }
+
+/**
+ * Edit ticket
+ */
+window.editTicket = function (firebaseId) {
+    const ticket = TICKETS.find(t => t.firebaseId === firebaseId);
+    if (!ticket) {
+        alert('Không tìm thấy phiếu');
+        return;
+    }
+
+    // TODO: Implement edit modal
+    // For now, just show alert
+    alert(`Chức năng sửa phiếu #${firebaseId.slice(-4)} đang được phát triển`);
+};
+
+/**
+ * Delete ticket
+ */
+window.deleteTicket = async function (firebaseId) {
+    const ticket = TICKETS.find(t => t.firebaseId === firebaseId);
+    if (!ticket) {
+        alert('Không tìm thấy phiếu');
+        return;
+    }
+
+    const confirmed = confirm(`Xác nhận xóa phiếu #${firebaseId.slice(-4)} - ${ticket.orderId}?`);
+    if (!confirmed) return;
+
+    showLoading(true);
+    try {
+        await getTicketsRef().child(firebaseId).remove();
+        alert('Đã xóa phiếu thành công');
+    } catch (error) {
+        console.error('Delete ticket failed:', error);
+        alert('Lỗi khi xóa phiếu: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+};
