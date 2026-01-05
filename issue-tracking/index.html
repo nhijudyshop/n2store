@@ -93,13 +93,12 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Mã đơn / ID</th>
-                            <th>Khách hàng</th>
-                            <th>Loại & Kênh</th>
-                            <th>Sản phẩm / Chi tiết</th>
-                            <th>Tài chính</th>
-                            <th>Trạng thái</th>
-                            <th>Hành động</th>
+                            <th style="width:8%;">Mã đơn / ID</th>
+                            <th style="width:12%;">Khách hàng</th>
+                            <th style="width:9%;">Loại & Kênh</th>
+                            <th>Ghi Chú / Sản Phẩm</th>
+                            <th style="width:10%;">Tài chính</th>
+                            <th style="width:14%;">Hành động</th>
                         </tr>
                     </thead>
                     <tbody id="ticket-list-body">
@@ -145,8 +144,10 @@
                             <thead>
                                 <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
                                     <th style="padding:6px 8px;text-align:left;font-weight:600;">Sản phẩm</th>
-                                    <th style="padding:6px 8px;text-align:center;width:80px;font-weight:600;">Số lượng</th>
-                                    <th style="padding:6px 8px;text-align:right;width:90px;font-weight:600;">Đơn giá</th>
+                                    <th style="padding:6px 8px;text-align:center;width:80px;font-weight:600;">Số lượng
+                                    </th>
+                                    <th style="padding:6px 8px;text-align:right;width:90px;font-weight:600;">Đơn giá
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody id="res-products-table">
@@ -156,15 +157,18 @@
                     </div>
 
                     <!-- Order Summary -->
-                    <div class="order-summary" style="margin-top:12px;padding:10px;background:#f8fafc;border-radius:6px;font-size:12px;">
+                    <div class="order-summary"
+                        style="margin-top:12px;padding:10px;background:#f8fafc;border-radius:6px;font-size:12px;">
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                             <div><strong>Tổng số lượng:</strong> <span id="res-total-qty">0</span></div>
                             <div><strong>Tổng:</strong> <span id="res-amount-total">0đ</span></div>
                             <div><strong>Giảm giá:</strong> <span id="res-decrease-amount">0đ</span></div>
                             <div><strong>Ship:</strong> <span id="res-delivery-price">0đ</span></div>
-                            <div><strong>Tổng tiền:</strong> <span id="res-final-total" style="color:#ef4444;font-weight:600;">0đ</span></div>
+                            <div><strong>Tổng tiền:</strong> <span id="res-final-total"
+                                    style="color:#ef4444;font-weight:600;">0đ</span></div>
                             <div><strong>Công nợ:</strong> <span id="res-payment-amount">0đ</span></div>
-                            <div><strong>COD:</strong> <span id="res-cod" style="color:#3b82f6;font-weight:600;">0đ</span></div>
+                            <div><strong>COD:</strong> <span id="res-cod"
+                                    style="color:#3b82f6;font-weight:600;">0đ</span></div>
                         </div>
                     </div>
                 </div>
@@ -173,7 +177,7 @@
             <!-- Step 2: Issue Details -->
             <div id="issue-details-form" class="hidden">
                 <div class="form-group">
-                    <label>Loại Sự Vụ</label>
+                    <label>Trường Hợp</label>
                     <select id="issue-type-select" class="select-input full-width">
                         <option value="">-- Chọn loại --</option>
                         <option value="FIX_COD">Sửa COD (Shipper gọi)</option>

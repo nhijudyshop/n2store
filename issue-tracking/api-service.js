@@ -61,8 +61,14 @@ const ApiService = {
                 return [];
             }
 
+            // Filter: only open and paid orders (exclude draft and cancel)
+            const validStates = ['open', 'paid'];
+            const filteredOrders = data.value.filter(order => validStates.includes(order.State));
+
+            console.log('[API] Filtered orders (open/paid):', filteredOrders.length, 'of', data.value.length);
+
             // Map TPOS fields to internal format
-            return data.value.map(order => ({
+            return filteredOrders.map(order => ({
                 id: order.Id,
                 tposCode: order.Number,
                 reference: order.Reference,
@@ -73,6 +79,8 @@ const ApiService = {
                 cod: order.CashOnDelivery || 0,
                 totalAmount: order.AmountTotal || 0,
                 status: order.State,
+                stateCode: order.StateCode || 'None',
+                crossCheckTimes: order.CrossCheckTimes || 0,
                 carrier: order.CarrierName || '',
                 channel: order.CRMTeamName || 'TPOS',
                 products: [], // Will fetch separately via getOrderDetails()
