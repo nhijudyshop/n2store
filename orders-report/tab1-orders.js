@@ -24955,8 +24955,7 @@ function generateCustomBillHTML(orderResult) {
                     format: "CODE128",
                     width: 1.5,
                     height: 40,
-                    displayValue: true,
-                    fontSize: 12,
+                    displayValue: false,
                     margin: 5
                 });
             } catch (e) {
