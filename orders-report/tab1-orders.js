@@ -1618,6 +1618,78 @@ function syncEmployeeRanges() {
 // =====================================================
 // TAG MANAGEMENT FUNCTIONS #TAG
 // =====================================================
+
+// Helper function to fetch all tags with pagination (TPOS max $top=1000)
+async function fetchAllTagsWithPagination(headers) {
+    const PAGE_SIZE = 1000;
+    let allTags = [];
+    let skip = 0;
+    let totalCount = 0;
+
+    // First request to get count and first batch
+    const firstResponse = await API_CONFIG.smartFetch(
+        `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=${PAGE_SIZE}&$skip=0&$count=true`,
+        {
+            method: "GET",
+            headers: {
+                ...headers,
+                accept: "application/json",
+                "content-type": "application/json",
+            },
+        },
+    );
+
+    if (!firstResponse.ok) {
+        throw new Error(`HTTP ${firstResponse.status}`);
+    }
+
+    const firstData = await firstResponse.json();
+    allTags = firstData.value || [];
+    totalCount = firstData["@odata.count"] || allTags.length;
+
+    console.log(`[TAG] First batch: ${allTags.length} tags, total count: ${totalCount}`);
+
+    // If more tags exist, fetch remaining with pagination
+    if (totalCount > PAGE_SIZE) {
+        skip = PAGE_SIZE;
+
+        while (skip < totalCount) {
+            console.log(`[TAG] Fetching more tags with skip=${skip}...`);
+
+            const response = await API_CONFIG.smartFetch(
+                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=${PAGE_SIZE}&$skip=${skip}&$count=true`,
+                {
+                    method: "GET",
+                    headers: {
+                        ...headers,
+                        accept: "application/json",
+                        "content-type": "application/json",
+                    },
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} at skip=${skip}`);
+            }
+
+            const data = await response.json();
+            const batchTags = data.value || [];
+
+            if (batchTags.length === 0) {
+                break; // No more tags
+            }
+
+            allTags = allTags.concat(batchTags);
+            skip += PAGE_SIZE;
+
+            console.log(`[TAG] Fetched ${batchTags.length} more tags, total now: ${allTags.length}`);
+        }
+    }
+
+    console.log(`[TAG] Pagination complete: ${allTags.length}/${totalCount} tags fetched`);
+    return allTags;
+}
+
 async function loadAvailableTags() {
     try {
         const cached = window.cacheManager.get("tags", "tags");
@@ -1632,24 +1704,9 @@ async function loadAvailableTags() {
         console.log("[TAG] Loading tags from API...");
         const headers = await window.tokenManager.getAuthHeader();
 
-        const response = await API_CONFIG.smartFetch(
-            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=1000&$count=true",
-            {
-                method: "GET",
-                headers: {
-                    ...headers,
-                    accept: "application/json",
-                    "content-type": "application/json",
-                },
-            },
-        );
+        // Use pagination helper to fetch all tags
+        availableTags = await fetchAllTagsWithPagination(headers);
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        availableTags = data.value || [];
         window.availableTags = availableTags; // Export to window
         window.cacheManager.set("tags", availableTags, "tags");
         console.log(`[TAG] Loaded ${availableTags.length} tags from API`);
@@ -1672,25 +1729,8 @@ async function refreshTags() {
         console.log("[TAG] Refreshing tags from TPOS...");
         const headers = await window.tokenManager.getAuthHeader();
 
-        // Use $top=1000 to ensure we get all tags (current count ~302)
-        const response = await API_CONFIG.smartFetch(
-            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000",
-            {
-                method: "GET",
-                headers: {
-                    ...headers,
-                    accept: "application/json",
-                    "content-type": "application/json",
-                },
-            },
-        );
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        const newTags = data.value || [];
+        // Use pagination helper to fetch all tags (TPOS max $top=1000)
+        const newTags = await fetchAllTagsWithPagination(headers);
 
         console.log(`[TAG] Fetched ${newTags.length} tags from TPOS`);
 
