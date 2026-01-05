@@ -308,7 +308,8 @@
     <script src="api-config.js?v=20241219"></script>
     <script src="pancake-token-manager.js?v=20241219"></script>
     <script src="pancake-data-manager.js?v=20241219"></script>
-    <script src="pancake-chat.js?v=20241219"></script>
+    <!-- [DISABLED - ĐANG PHÁT TRIỂN] pancake-chat.js tạm tắt -->
+    <!-- <script src="pancake-chat.js?v=20241219"></script> -->
 
     <!-- Realtime WebSocket Manager (Server Mode) -->
     <script src="realtime-manager.js?v=20241220"></script>
@@ -375,7 +376,9 @@
                 }
             }
 
+            // [DISABLED - ĐANG PHÁT TRIỂN] Pancake Chat Manager tạm tắt
             // Initialize Pancake Chat Manager
+            /*
             if (typeof PancakeChatManager !== "undefined" && window.pancakeChatManager) {
                 try {
                     // Wait a bit for managers to be ready
@@ -397,6 +400,8 @@
                     console.error("[UI] Error initializing PancakeChatManager:", error);
                 }
             }
+            */
+            console.log("[UI] ⚠️ PancakeChatManager DISABLED - đang phát triển");
 
             // TPOS Chat Manager removed - TPOS realtime is now handled by render.com/server.js
             // The server maintains persistent WebSocket connection to TPOS and broadcasts events via SSE
