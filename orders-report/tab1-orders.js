@@ -3061,12 +3061,22 @@ async function autoCreateAndAddTagToBulkModal(tagName) {
             delete newTag['@odata.context'];
         }
 
-        // Clear tags cache to force fresh fetch from TPOS
-        window.cacheManager.clear("tags");
-        console.log('[BULK-TAG-MODAL] Cleared tags cache, reloading from TPOS...');
+        // IMPORTANT: Add new tag directly to availableTags first (before reload)
+        // This ensures the tag appears immediately in dropdown even if TPOS hasn't indexed it yet
+        if (Array.isArray(availableTags)) {
+            // Check if not already exists
+            const existsInAvailable = availableTags.some(t => t.Id === newTag.Id);
+            if (!existsInAvailable) {
+                availableTags.push(newTag);
+                window.availableTags = availableTags;
+                console.log('[BULK-TAG-MODAL] Added new tag directly to availableTags:', newTag.Name);
+            }
+        }
 
-        // Reload all tags from TPOS API to ensure sync (with pagination support)
-        await loadAvailableTags();
+        // Clear tags cache and update with new list
+        window.cacheManager.clear("tags");
+        window.cacheManager.set("tags", availableTags, "tags");
+        console.log('[BULK-TAG-MODAL] Updated tags cache with new tag');
 
         // Update filter dropdowns
         populateTagFilter();
