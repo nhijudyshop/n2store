@@ -24194,6 +24194,28 @@ async function confirmAndPrintSale() {
         console.log('[SALE-CONFIRM] Step 3: Opening custom bill popup...');
         openPrintPopup(createResult);
 
+        // Step 4: Send bill image to customer via Messenger (async, don't block)
+        console.log('[SALE-CONFIRM] Step 4: Sending bill to customer...');
+        const chatInfo = window.chatDataManager?.getChatInfoForOrder(currentSaleOrderData);
+        if (chatInfo?.hasChat) {
+            sendBillToCustomer(createResult, chatInfo.channelId, chatInfo.psid)
+                .then(result => {
+                    if (result.success) {
+                        console.log('[SALE-CONFIRM] ✅ Bill sent to customer successfully');
+                        if (window.notificationManager) {
+                            window.notificationManager.success('Đã gửi phiếu bán hàng qua Messenger', 3000);
+                        }
+                    } else {
+                        console.warn('[SALE-CONFIRM] ⚠️ Failed to send bill:', result.error);
+                    }
+                })
+                .catch(err => {
+                    console.error('[SALE-CONFIRM] ❌ Error sending bill:', err);
+                });
+        } else {
+            console.log('[SALE-CONFIRM] ⏭️ Skipping bill send - no chat info available');
+        }
+
         // Success notification
         if (window.notificationManager) {
             window.notificationManager.success(`Đã tạo đơn hàng ${createResult.Number || orderId}`);
@@ -24933,6 +24955,167 @@ function openPrintPopup(orderResult) {
             printWindow.print();
         }
     }, 1500);
+}
+
+/**
+ * Generate bill image from HTML using html2canvas
+ * @param {Object} orderResult - The created order result
+ * @returns {Promise<Blob>} - Image blob
+ */
+async function generateBillImage(orderResult) {
+    console.log('[BILL-IMAGE] Generating bill image...');
+
+    // Create a hidden container with bill HTML
+    const container = document.createElement('div');
+    container.style.cssText = `
+        position: fixed;
+        left: -9999px;
+        top: 0;
+        width: 400px;
+        background: white;
+        font-family: Arial, sans-serif;
+    `;
+
+    // Use the same HTML as the print bill
+    const html = generateCustomBillHTML(orderResult);
+
+    // Extract just the body content
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    if (bodyMatch) {
+        container.innerHTML = bodyMatch[1];
+    } else {
+        container.innerHTML = html;
+    }
+
+    document.body.appendChild(container);
+
+    // Wait for rendering
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+        // Generate image using html2canvas
+        const canvas = await html2canvas(container, {
+            backgroundColor: '#ffffff',
+            scale: 2,
+            logging: false,
+            useCORS: true,
+            allowTaint: true
+        });
+
+        // Remove container
+        document.body.removeChild(container);
+
+        // Convert to blob
+        const blob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/png');
+        });
+
+        console.log('[BILL-IMAGE] ✅ Bill image generated:', blob.size, 'bytes');
+        return blob;
+
+    } catch (error) {
+        document.body.removeChild(container);
+        console.error('[BILL-IMAGE] ❌ Error generating image:', error);
+        throw error;
+    }
+}
+
+/**
+ * Send bill image to customer via Messenger
+ * @param {Object} orderResult - The created order result
+ * @param {string} pageId - Facebook Page ID (channelId)
+ * @param {string} psid - Customer's Facebook PSID
+ */
+async function sendBillToCustomer(orderResult, pageId, psid) {
+    console.log('[BILL-SEND] ========================================');
+    console.log('[BILL-SEND] Sending bill image to customer...');
+    console.log('[BILL-SEND] Page ID:', pageId, 'PSID:', psid);
+
+    if (!pageId || !psid) {
+        console.warn('[BILL-SEND] Missing pageId or psid, cannot send bill');
+        return { success: false, error: 'Missing pageId or psid' };
+    }
+
+    try {
+        // Step 1: Generate bill image
+        console.log('[BILL-SEND] Step 1: Generating bill image...');
+        const imageBlob = await generateBillImage(orderResult);
+
+        // Convert blob to File for upload
+        const imageFile = new File([imageBlob], `bill_${orderResult?.Number || Date.now()}.png`, {
+            type: 'image/png'
+        });
+
+        // Step 2: Upload image to Pancake
+        console.log('[BILL-SEND] Step 2: Uploading image to Pancake...');
+        if (!window.pancakeDataManager) {
+            throw new Error('PancakeDataManager not available');
+        }
+
+        const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
+        const contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+        const contentId = typeof uploadResult === 'object' ? uploadResult.id : null;
+
+        if (!contentUrl) {
+            throw new Error('Upload failed - no content_url returned');
+        }
+        console.log('[BILL-SEND] ✅ Image uploaded:', contentUrl);
+
+        // Step 3: Send message with image via Pancake API
+        console.log('[BILL-SEND] Step 3: Sending message with image...');
+
+        // Get conversation ID from current order data
+        const convId = currentSaleOrderData?.Facebook_ConversationId ||
+            currentSaleOrderData?.Conversation_Id ||
+            currentSaleOrderData?.ConversationId;
+
+        if (!convId) {
+            console.warn('[BILL-SEND] No conversation ID found, trying to send via Facebook Graph API');
+            // Fallback to Facebook Graph API with POST_PURCHASE_UPDATE tag
+            const fbResult = await sendMessageViaFacebookTag({
+                pageId,
+                psid,
+                message: `Đơn hàng ${orderResult?.Number || ''} đã được xác nhận! 🎉`,
+                imageUrls: [contentUrl]
+            });
+            return fbResult;
+        }
+
+        // Send via Pancake API
+        const pageToken = await window.pancakeDataManager.getPageToken(pageId);
+        if (!pageToken) {
+            throw new Error('No page token available');
+        }
+
+        const sendResponse = await fetch(
+            `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations/${convId}/messages?page_access_token=${pageToken}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    content_id: contentId,
+                    message: `📋 Phiếu bán hàng #${orderResult?.Number || ''}`
+                })
+            }
+        );
+
+        if (!sendResponse.ok) {
+            const errorText = await sendResponse.text();
+            throw new Error(`Send failed: ${sendResponse.status} - ${errorText}`);
+        }
+
+        const sendResult = await sendResponse.json();
+        console.log('[BILL-SEND] ✅ Bill sent successfully:', sendResult);
+
+        return { success: true, messageId: sendResult.id };
+
+    } catch (error) {
+        console.error('[BILL-SEND] ❌ Error sending bill:', error);
+        return { success: false, error: error.message };
+    }
 }
 
 // Add keyboard shortcut F9 for confirm and print
