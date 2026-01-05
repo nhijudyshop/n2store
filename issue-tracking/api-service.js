@@ -340,19 +340,23 @@ const ApiService = {
         // ========== FETCH 5: Print Refund - Get HTML bill ==========
         console.log('[API] Step 5: PrintRefund');
 
-        // Extract base URL from TPOS_ODATA (remove /odata suffix)
-        const baseUrl = API_CONFIG.TPOS_ODATA.replace('/odata', '');
+        // PrintRefund endpoint must go directly to TPOS (not through proxy)
+        // because it returns HTML content and proxy doesn't have this route
+        const TPOS_DIRECT_URL = 'https://tomato.tpos.vn';
+        const printUrl = `${TPOS_DIRECT_URL}/fastsaleorder/PrintRefund/${refundOrderId}`;
 
-        const printResponse = await window.tokenManager.authenticatedFetch(
-            `${baseUrl}/fastsaleorder/PrintRefund/${refundOrderId}`,
-            {
-                method: 'GET',
-                headers: {
-                    'Accept': '*/*',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+        console.log('[API] PrintRefund URL:', printUrl);
+
+        // Get token for authorization header (use getToken() per SHARED_TPOS.md)
+        const token = await window.tokenManager.getToken();
+
+        const printResponse = await fetch(printUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': '*/*',
+                'Authorization': `Bearer ${token}`
             }
-        );
+        });
 
         if (!printResponse.ok) {
             const errorText = await printResponse.text();

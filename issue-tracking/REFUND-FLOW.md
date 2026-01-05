@@ -126,12 +126,15 @@ Response:
 
 ### Step 5: PrintRefund - Lấy HTML bill
 
+**Lưu ý**: Endpoint này gọi **trực tiếp đến TPOS** (không qua proxy) vì:
+- Trả về HTML content, không phải JSON
+- Proxy không có route `/fastsaleorder/PrintRefund`
+
 ```javascript
-GET /fastsaleorder/PrintRefund/409602
+GET https://tomato.tpos.vn/fastsaleorder/PrintRefund/409602
 
 Headers:
 - Accept: */*
-- X-Requested-With: XMLHttpRequest
 - Authorization: Bearer {token}
 
 Response:
