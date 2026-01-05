@@ -25125,6 +25125,7 @@ async function sendBillToCustomer(orderResult, pageId, psid) {
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify({
+                    action: 'reply_inbox',
                     content_id: contentId,
                     message: `📋 Phiếu bán hàng #${orderResult?.Number || ''}`
                 })
