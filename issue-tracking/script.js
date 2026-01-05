@@ -8,6 +8,17 @@ let TICKETS = [];
 let selectedOrder = null;
 let currentTicketSubscription = null;
 
+// Settings Management
+const SETTINGS_KEY = 'issue_tracking_settings';
+const DEFAULT_SETTINGS = {
+    printBillEnabled: false  // Default: off
+};
+
+let appSettings = { ...DEFAULT_SETTINGS };
+
+// Notification Manager instance
+let notificationManager = null;
+
 // DOM Elements
 const elements = {
     tabs: document.querySelectorAll('.tab-btn'),
@@ -30,11 +41,18 @@ const elements = {
  * INITIALIZATION
  */
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize Notification Manager
+    notificationManager = new NotificationManager();
+
+    // Load settings from localStorage
+    loadSettings();
+
     // Setup UI
     initLoadingOverlay();
     initTabs();
     initModalHandlers();
     initReconcileHandlers();
+    initSettingsHandlers();
 
     // Subscribe to Firebase Realtime Data
     console.log('[APP] Initializing Firebase subscription...');
@@ -49,7 +67,66 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof mermaid !== 'undefined') {
         mermaid.initialize({ startOnLoad: false, theme: 'default' });
     }
+
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 });
+
+/**
+ * SETTINGS MANAGEMENT
+ */
+function loadSettings() {
+    try {
+        const saved = localStorage.getItem(SETTINGS_KEY);
+        if (saved) {
+            appSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        }
+        console.log('[SETTINGS] Loaded:', appSettings);
+    } catch (e) {
+        console.error('[SETTINGS] Load error:', e);
+        appSettings = { ...DEFAULT_SETTINGS };
+    }
+}
+
+function saveSettings() {
+    try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(appSettings));
+        console.log('[SETTINGS] Saved:', appSettings);
+    } catch (e) {
+        console.error('[SETTINGS] Save error:', e);
+    }
+}
+
+function initSettingsHandlers() {
+    const btnOpenSettings = document.getElementById('btn-open-settings');
+    const modalSettings = document.getElementById('modal-settings');
+    const btnSaveSettings = document.getElementById('btn-save-settings');
+    const togglePrintBill = document.getElementById('setting-print-bill');
+
+    if (btnOpenSettings && modalSettings) {
+        btnOpenSettings.addEventListener('click', () => {
+            // Load current settings into UI
+            if (togglePrintBill) {
+                togglePrintBill.checked = appSettings.printBillEnabled;
+            }
+            openModal(modalSettings);
+        });
+    }
+
+    if (btnSaveSettings) {
+        btnSaveSettings.addEventListener('click', () => {
+            // Save settings from UI
+            if (togglePrintBill) {
+                appSettings.printBillEnabled = togglePrintBill.checked;
+            }
+            saveSettings();
+            closeModal(modalSettings);
+            notificationManager.success('Đã lưu cài đặt');
+        });
+    }
+}
 
 function initLoadingOverlay() {
     elements.loadingOverlay.id = 'loading-overlay';
@@ -657,11 +734,15 @@ async function handleConfirmAction() {
 
     const ticket = TICKETS.find(t => t.firebaseId === pendingActionTicketId);
     if (!ticket) {
-        alert('Không tìm thấy phiếu');
+        notificationManager.error('Không tìm thấy phiếu');
         return;
     }
 
-    showLoading(true);
+    // Close confirm modal first
+    closeModal(elements.modalConfirm);
+
+    let loadingId = null;
+
     try {
         if (pendingActionType === 'RECEIVE') {
             // RECEIVE action: Process full TPOS refund flow (5 API calls)
@@ -671,10 +752,21 @@ async function handleConfirmAction() {
                 throw new Error('Thiếu TPOS Order ID để xử lý nhận hàng');
             }
 
-            // Call the refund process - this handles all 5 fetch calls
-            const result = await ApiService.processRefund(ticket.tposId);
+            // Show loading notification with progress
+            loadingId = notificationManager.loading('Bước 1/5: Tạo phiếu hoàn...', 'Đang xử lý nhận hàng');
+
+            // Call the refund process with progress callback
+            const result = await ApiService.processRefund(ticket.tposId, (step, message) => {
+                // Update loading notification with step progress
+                notificationManager.remove(loadingId);
+                loadingId = notificationManager.loading(message, `Bước ${step}/5`);
+            });
 
             console.log('[APP] Refund completed, refundOrderId:', result.refundOrderId);
+
+            // Update loading: Saving to Firebase
+            notificationManager.remove(loadingId);
+            loadingId = notificationManager.loading('Đang cập nhật hệ thống...', 'Hoàn tất');
 
             // Update ticket in Firebase with refund info
             await ApiService.updateTicket(pendingActionTicketId, {
@@ -684,27 +776,42 @@ async function handleConfirmAction() {
                 refundNumber: result.confirmResult?.value?.[0]?.Number || null
             });
 
-            closeModal(elements.modalConfirm);
+            // Remove loading notification
+            notificationManager.remove(loadingId);
+            loadingId = null;
 
-            // Show print dialog with the HTML bill
-            if (result.printHtml) {
+            // Show success notification
+            const refundNumber = result.confirmResult?.value?.[0]?.Number || result.refundOrderId;
+            notificationManager.success(`Đã tạo phiếu hoàn: ${refundNumber}`, 3000, 'Nhận hàng thành công');
+
+            // Show print dialog with the HTML bill (only if enabled in settings)
+            if (result.printHtml && appSettings.printBillEnabled) {
                 showPrintDialog(result.printHtml);
             }
 
         } else if (pendingActionType === 'PAY') {
             // PAY action: Just mark as completed (payment done externally)
+            loadingId = notificationManager.loading('Đang cập nhật...', 'Xác nhận thanh toán');
+
             await ApiService.updateTicket(pendingActionTicketId, {
                 status: 'COMPLETED',
                 completedAt: firebase.database.ServerValue.TIMESTAMP
             });
 
-            closeModal(elements.modalConfirm);
+            notificationManager.remove(loadingId);
+            loadingId = null;
+
+            notificationManager.success('Đã xác nhận thanh toán', 2000, 'Thành công');
         }
     } catch (error) {
         console.error('[APP] handleConfirmAction error:', error);
-        alert("Lỗi khi xử lý: " + error.message);
-    } finally {
-        showLoading(false);
+
+        // Remove loading notification if exists
+        if (loadingId) {
+            notificationManager.remove(loadingId);
+        }
+
+        notificationManager.error(error.message, 5000, 'Lỗi xử lý');
     }
 }
 

@@ -230,17 +230,26 @@ const ApiService = {
      * Process refund (Nhận hàng) - TPOS Refund Flow
      * Flow: ActionRefund -> Get Details -> PUT with SaveAndPrint -> ActionInvoiceOpenV2 -> PrintRefund
      * @param {number} originalOrderId - ID của đơn hàng gốc (tposId)
+     * @param {Function} onProgress - Callback for progress updates (step, message)
      * @returns {Promise<{refundOrderId: number, printHtml: string}>}
      */
-    async processRefund(originalOrderId) {
+    async processRefund(originalOrderId, onProgress = null) {
         if (!originalOrderId) {
             throw new Error('Missing original order ID');
         }
+
+        // Helper to call progress callback
+        const reportProgress = (step, message) => {
+            if (onProgress && typeof onProgress === 'function') {
+                onProgress(step, message);
+            }
+        };
 
         console.log('[API] Starting refund process for order:', originalOrderId);
 
         // ========== FETCH 1: Create Refund Order ==========
         console.log('[API] Step 1: ActionRefund');
+        reportProgress(1, 'Tạo phiếu hoàn...');
         const refundResponse = await window.tokenManager.authenticatedFetch(
             `${API_CONFIG.TPOS_ODATA}/FastSaleOrder/ODataService.ActionRefund`,
             {
@@ -265,6 +274,7 @@ const ApiService = {
 
         // ========== FETCH 2: Get Refund Order Details ==========
         console.log('[API] Step 2: Get refund order details');
+        reportProgress(2, 'Lấy chi tiết phiếu hoàn...');
         const expand = 'Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,HistoryDeliveryDetails,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,OutstandingInfo($expand=Content),Team,OfferAmountDetails,DestConvertCurrencyUnit,PackageImages';
 
         const detailsResponse = await window.tokenManager.authenticatedFetch(
@@ -288,6 +298,7 @@ const ApiService = {
 
         // ========== FETCH 3: PUT Update with FormAction: SaveAndPrint ==========
         console.log('[API] Step 3: PUT update with SaveAndPrint');
+        reportProgress(3, 'Lưu phiếu hoàn...');
 
         // Prepare the payload - copy most fields and add FormAction
         const updatePayload = this._prepareRefundUpdatePayload(refundDetails);
@@ -315,6 +326,7 @@ const ApiService = {
 
         // ========== FETCH 4: ActionInvoiceOpenV2 - Confirm the order ==========
         console.log('[API] Step 4: ActionInvoiceOpenV2');
+        reportProgress(4, 'Xác nhận phiếu hoàn...');
 
         const confirmResponse = await window.tokenManager.authenticatedFetch(
             `${API_CONFIG.TPOS_ODATA}/FastSaleOrder/ODataService.ActionInvoiceOpenV2`,
@@ -339,6 +351,7 @@ const ApiService = {
 
         // ========== FETCH 5: Print Refund - Get HTML bill ==========
         console.log('[API] Step 5: PrintRefund');
+        reportProgress(5, 'Lấy phiếu in...');
 
         // PrintRefund endpoint must go directly to TPOS (not through proxy)
         // because it returns HTML content and proxy doesn't have this route

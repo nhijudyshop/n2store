@@ -155,10 +155,12 @@ Response:
 ### api-service.js
 
 ```javascript
-ApiService.processRefund(originalOrderId)
+ApiService.processRefund(originalOrderId, onProgress)
 ```
 
-- **Input**: `originalOrderId` - ID đơn hàng gốc (ticket.tposId)
+- **Input**:
+  - `originalOrderId` - ID đơn hàng gốc (ticket.tposId)
+  - `onProgress` - Callback function(step, message) để cập nhật progress
 - **Output**:
   ```javascript
   {
@@ -174,9 +176,11 @@ ApiService.processRefund(originalOrderId)
 handleConfirmAction()
 ```
 
-- Gọi `ApiService.processRefund(ticket.tposId)` khi action là `RECEIVE`
+- Hiển thị notification loading với progress từng bước
+- Gọi `ApiService.processRefund(ticket.tposId, onProgress)` khi action là `RECEIVE`
 - Cập nhật ticket Firebase với `refundOrderId` và `refundNumber`
-- Gọi `showPrintDialog(result.printHtml)` để in bill
+- Gọi `showPrintDialog(result.printHtml)` để in bill (nếu setting bật)
+- Hiển thị notification success/error
 
 ```javascript
 showPrintDialog(html)
@@ -185,6 +189,27 @@ showPrintDialog(html)
 - Mở popup window mới
 - Render HTML bill
 - Trigger print dialog
+
+## Cài đặt (Settings)
+
+Nút ⚙️ mở modal cài đặt với các tùy chọn:
+
+| Setting | Key | Default | Mô tả |
+|---------|-----|---------|-------|
+| In bill khi nhận hàng | `printBillEnabled` | `false` | Tự động mở cửa sổ in sau khi xử lý |
+
+Settings được lưu vào `localStorage` với key `issue_tracking_settings`.
+
+## Notification System
+
+Sử dụng `NotificationManager` theo chuẩn SHARED_NOTIFICATION:
+
+| Thời điểm | Method | Message |
+|-----------|--------|---------|
+| Bắt đầu | `loading()` | "Bước 1/5: Tạo phiếu hoàn..." |
+| Mỗi step | `loading()` | "Bước X/5: {message}" |
+| Thành công | `success()` | "Đã tạo phiếu hoàn: {refundNumber}" |
+| Lỗi | `error()` | Error message từ API |
 
 ## Dữ liệu lưu vào Firebase
 
