@@ -25110,14 +25110,14 @@ async function sendBillToCustomer(orderResult, pageId, psid) {
             return { success: false, error: 'No conversation ID available' };
         }
 
-        // Send via Pancake API
-        const pageToken = await window.pancakeDataManager.getPageToken(pageId);
-        if (!pageToken) {
-            throw new Error('No page token available');
+        // Send via Pancake API (use same method as chat modal)
+        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+        if (!pageAccessToken) {
+            throw new Error('No page_access_token available. Vui lòng vào Pancake Settings → Tools để tạo token.');
         }
 
         const sendResponse = await fetch(
-            `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations/${convId}/messages?page_access_token=${pageToken}`,
+            `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations/${convId}/messages?page_access_token=${pageAccessToken}`,
             {
                 method: 'POST',
                 headers: {
