@@ -11176,76 +11176,78 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     window.populateChatPageSelector(channelId);  // View page selector
     window.populateSendPageSelector(channelId);  // Send page selector (independent)
 
-    // Initialize chat modal products with order data
-    // Fetch full order data with product details (including Facebook_PostId, Facebook_ASUserId, Facebook_CommentId)
-    try {
-        const headers = await window.tokenManager.getAuthHeader();
-        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
-        const response = await API_CONFIG.smartFetch(apiUrl, {
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-        });
-        if (response.ok) {
-            const fullOrderData = await response.json();
-
-            // Store full order data for dropped products manager (needed by moveDroppedToOrder)
-            window.currentChatOrderData = fullOrderData;
-
-            // Store Facebook data for highlighting purchase comment
-            window.purchaseFacebookPostId = fullOrderData.Facebook_PostId || null;
-            window.purchaseFacebookASUserId = fullOrderData.Facebook_ASUserId || null;
-            window.purchaseCommentId = fullOrderData.Facebook_CommentId || null;
-
-            console.log('[CHAT] Order Facebook data loaded:', {
-                PostId: window.purchaseFacebookPostId,
-                ASUserId: window.purchaseFacebookASUserId,
-                CommentId: window.purchaseCommentId
+    // OPTIMIZATION: Fetch TPOS order details in parallel (non-blocking)
+    // This runs independently while messages are being fetched
+    const orderDetailsPromise = (async () => {
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+            const response = await API_CONFIG.smartFetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
             });
+            if (response.ok) {
+                const fullOrderData = await response.json();
 
-            // Store CRMTeam for Facebook_PageToken access (for 24h bypass)
-            window.currentCRMTeam = fullOrderData.CRMTeam || null;
-            if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
-                console.log('[CHAT] CRMTeam loaded with Facebook_PageToken');
+                // Store full order data for dropped products manager (needed by moveDroppedToOrder)
+                window.currentChatOrderData = fullOrderData;
+
+                // Store Facebook data for highlighting purchase comment
+                window.purchaseFacebookPostId = fullOrderData.Facebook_PostId || null;
+                window.purchaseFacebookASUserId = fullOrderData.Facebook_ASUserId || null;
+                window.purchaseCommentId = fullOrderData.Facebook_CommentId || null;
+
+                console.log('[CHAT] Order Facebook data loaded:', {
+                    PostId: window.purchaseFacebookPostId,
+                    ASUserId: window.purchaseFacebookASUserId,
+                    CommentId: window.purchaseCommentId
+                });
+
+                // Store CRMTeam for Facebook_PageToken access (for 24h bypass)
+                window.currentCRMTeam = fullOrderData.CRMTeam || null;
+                if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
+                    console.log('[CHAT] CRMTeam loaded with Facebook_PageToken');
+                }
+
+                // Store order details for products display
+                currentChatOrderDetails = fullOrderData.Details ? JSON.parse(JSON.stringify(fullOrderData.Details)) : [];
+                console.log('[CHAT] Order details loaded:', currentChatOrderDetails.length, 'products');
+
+                // Render products table
+                renderChatProductsTable();
+
+                // Initialize search after render (with delay for DOM ready)
+                setTimeout(() => {
+                    initChatProductSearch();
+                }, 100);
+
+                // Setup realtime listener for held products (multi-user collaboration)
+                if (typeof window.setupHeldProductsListener === 'function') {
+                    window.setupHeldProductsListener();
+                }
+
+                // Update message reply type toggle (show if order has comment)
+                window.updateMessageReplyTypeToggle();
             }
-
-            // Store order details for products display
-            currentChatOrderDetails = fullOrderData.Details ? JSON.parse(JSON.stringify(fullOrderData.Details)) : [];
-            console.log('[CHAT] Order details loaded:', currentChatOrderDetails.length, 'products');
-
-            // Render products table
+        } catch (error) {
+            console.error('[CHAT] Error loading order details:', error);
+            // Reset order data
+            window.currentChatOrderData = null;
+            // Reset Facebook data on error
+            window.purchaseFacebookPostId = null;
+            window.purchaseFacebookASUserId = null;
+            window.purchaseCommentId = null;
+            // Reset order details
+            currentChatOrderDetails = [];
             renderChatProductsTable();
 
-            // Initialize search after render (with delay for DOM ready)
-            setTimeout(() => {
-                initChatProductSearch();
-            }, 100);
-
-            // Setup realtime listener for held products (multi-user collaboration)
-            if (typeof window.setupHeldProductsListener === 'function') {
-                window.setupHeldProductsListener();
-            }
-
-            // Update message reply type toggle (show if order has comment)
+            // Hide message reply type toggle on error
             window.updateMessageReplyTypeToggle();
         }
-    } catch (error) {
-        console.error('[CHAT] Error loading order details:', error);
-        // Reset order data
-        window.currentChatOrderData = null;
-        // Reset Facebook data on error
-        window.purchaseFacebookPostId = null;
-        window.purchaseFacebookASUserId = null;
-        window.purchaseCommentId = null;
-        // Reset order details
-        currentChatOrderDetails = [];
-        renderChatProductsTable();
-
-        // Hide message reply type toggle on error
-        window.updateMessageReplyTypeToggle();
-    }
+    })(); // Execute immediately but don't await - runs in parallel
 
     // Show loading
     const modalBody = document.getElementById('chatModalBody');
