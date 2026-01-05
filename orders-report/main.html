@@ -674,6 +674,23 @@
             } else if (e.data.type === "CAMPAIGN_STATUS_UPDATE") {
                 // Update campaign badge from overview tab
                 updateCampaignBadge(e.data);
+            } else if (e.data.type === "REQUEST_TOKEN_FROM_OVERVIEW") {
+                // Overview tab requesting token - forward to Tab1
+                console.log('[MAIN] 🔑 Forwarding token request to Tab1');
+                const ordersFrame = document.getElementById("ordersFrame");
+                if (ordersFrame && ordersFrame.contentWindow) {
+                    ordersFrame.contentWindow.postMessage(
+                        { type: "REQUEST_TOKEN", requestId: e.data.requestId },
+                        "*"
+                    );
+                }
+            } else if (e.data.type === "TOKEN_RESPONSE") {
+                // Forward token response from Tab1 to Overview
+                console.log('[MAIN] 🔑 Forwarding token response to Overview');
+                const overviewFrame = document.getElementById("overviewFrame");
+                if (overviewFrame && overviewFrame.contentWindow) {
+                    overviewFrame.contentWindow.postMessage(e.data, "*");
+                }
             } else if (e.data.type === "TABLE_NAME_CHANGED") {
                 // Forward table name change from Tab1 to Overview
                 const overviewFrame = document.getElementById("overviewFrame");

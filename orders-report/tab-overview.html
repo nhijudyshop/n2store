@@ -3104,8 +3104,7 @@
         }
     </style>
 
-    <!-- Mobile-optimized CSS for responsive design -->
-    <link rel="stylesheet" href="tab-overview-mobile.css">
+    <!-- Mobile CSS removed - will be reimplemented later -->
 </head>
 
 <body>
@@ -3408,23 +3407,7 @@
         </div>
     </div>
 
-    <!-- Mobile Product Detail Popup -->
-    <div class="modal-overlay" id="mobileProductDetailModal" style="z-index: 2001;">
-        <div class="modal-content" style="width: 95%; max-width: 400px; border-radius: 12px;">
-            <div class="modal-header"
-                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px;">
-                <h3 id="mobilePopupTitle"
-                    style="color: white; font-size: 16px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 85%;">
-                    Chi tiết sản phẩm
-                </h3>
-                <button class="modal-close" onclick="closeMobileProductPopup()"
-                    style="color: white; opacity: 0.8;">&times;</button>
-            </div>
-            <div class="modal-body" id="mobilePopupBody" style="padding: 20px;">
-                <!-- Content injected via JS -->
-            </div>
-        </div>
-    </div>
+    <!-- Mobile Product Detail Popup removed - will be reimplemented later -->
 
     <!-- Modal: Lưu báo cáo -->
     <div class="modal-overlay" id="saveReportModal">
@@ -3471,6 +3454,132 @@
             </div>
         </div>
     </div>
+
+    <!-- ⚡ NEW: Modal chọn nguồn dữ liệu - Chuyên nghiệp & Hiện đại -->
+    <div class="modal-overlay" id="dataSourceModal" style="display: none;">
+        <div class="modal-content" style="width: 95%; max-width: 520px; border-radius: 20px; overflow: hidden; animation: modalSlideIn 0.3s ease;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 30px 25px; position: relative;">
+                <h3 style="margin: 0; color: white; font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 12px;">
+                    <i class="fas fa-database"></i>
+                    <span>Chọn Nguồn Dữ Liệu</span>
+                </h3>
+                <button class="modal-close" onclick="closeDataSourceModal()"
+                    style="color: white; opacity: 0.9; font-size: 32px; background: none; border: none; position: absolute; top: 20px; right: 20px; cursor: pointer; transition: opacity 0.2s; line-height: 1; padding: 0; width: 32px; height: 32px;"
+                    onmouseover="this.style.opacity='1'"
+                    onmouseout="this.style.opacity='0.9'">&times;</button>
+                <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 400;">
+                    Chọn phương thức tải dữ liệu đơn hàng
+                </p>
+            </div>
+            <div class="modal-body" style="padding: 25px;">
+                <!-- Option 1: Excel -->
+                <div class="data-source-option" data-choice="excel"
+                    style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #86efac; border-radius: 16px; padding: 20px; margin-bottom: 15px; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden;"
+                    onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(34, 197, 94, 0.2)'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                    <div style="position: absolute; top: 15px; right: 15px; background: #22c55e; color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;">
+                        Khuyến nghị
+                    </div>
+                    <div style="display: flex; align-items: start; gap: 15px;">
+                        <div style="background: #22c55e; color: white; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">
+                            <i class="fas fa-file-excel"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 18px; font-weight: 700; color: #166534; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                <span>Excel Chiến Dịch</span>
+                                <span style="background: #22c55e; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">1</span>
+                            </div>
+                            <div style="color: #166534; font-size: 14px; line-height: 1.5; margin-bottom: 10px;">
+                                Tải tất cả đơn từ Excel của chiến dịch
+                            </div>
+                            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; color: #15803d;">
+                                    <i class="fas fa-bolt" style="color: #22c55e;"></i>
+                                    <span style="font-weight: 600;">Nhanh (5-10s)</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; color: #15803d;">
+                                    <i class="fas fa-database" style="color: #22c55e;"></i>
+                                    <span style="font-weight: 600;">Dữ liệu cơ bản</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option 2: API -->
+                <div class="data-source-option" data-choice="api"
+                    style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #93c5fd; border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden;"
+                    onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(59, 130, 246, 0.2)'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                    <div style="display: flex; align-items: start; gap: 15px;">
+                        <div style="background: #3b82f6; color: white; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">
+                            <i class="fas fa-cloud-download-alt"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 18px; font-weight: 700; color: #1e40af; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                <span>API Chi Tiết</span>
+                                <span style="background: #3b82f6; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">2</span>
+                            </div>
+                            <div style="color: #1e40af; font-size: 14px; line-height: 1.5; margin-bottom: 10px;">
+                                Fetch từng đơn từ API TPOS
+                            </div>
+                            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; color: #1d4ed8;">
+                                    <i class="fas fa-clock" style="color: #3b82f6;"></i>
+                                    <span style="font-weight: 600;">Chậm (30-60s)</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; color: #1d4ed8;">
+                                    <i class="fas fa-check-circle" style="color: #3b82f6;"></i>
+                                    <span style="font-weight: 600;">Đầy đủ nhất</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Box -->
+                <div style="background: #fef3c7; border: 2px solid #fbbf24; border-radius: 12px; padding: 15px; margin-top: 20px; display: flex; align-items: start; gap: 12px;">
+                    <i class="fas fa-lightbulb" style="color: #f59e0b; font-size: 20px; margin-top: 2px;"></i>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 700; color: #92400e; margin-bottom: 5px; font-size: 14px;">
+                            💡 Gợi ý sử dụng
+                        </div>
+                        <div style="color: #92400e; font-size: 13px; line-height: 1.6;">
+                            <strong>Excel (1):</strong> Dùng cho báo cáo nhanh, dữ liệu cơ bản<br>
+                            <strong>API (2):</strong> Dùng khi cần thông tin chi tiết đầy đủ
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div style="display: flex; gap: 12px; margin-top: 25px;">
+                    <button onclick="closeDataSourceModal()"
+                        style="flex: 1; padding: 14px; border: 2px solid #e5e7eb; background: white; border-radius: 12px; font-weight: 600; font-size: 15px; cursor: pointer; transition: all 0.2s; color: #6b7280;"
+                        onmouseover="this.style.background='#f9fafb'; this.style.borderColor='#d1d5db'"
+                        onmouseout="this.style.background='white'; this.style.borderColor='#e5e7eb'">
+                        <i class="fas fa-times" style="margin-right: 5px;"></i> Hủy
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .data-source-option:active {
+            transform: scale(0.98) !important;
+        }
+    </style>
 
     <!-- Modal: Quản lý bản lưu -->
     <div class="modal-overlay" id="manageReportsModal">
@@ -3823,6 +3932,45 @@
         }
 
         /**
+         * ⚡ NEW: Request authentication token from Tab1 via postMessage
+         * This solves the cross-origin security error when accessing window.parent.tokenManager
+         * @returns {Promise<string>} - Authentication token
+         * @throws {Error} - If token request fails or times out
+         */
+        function requestTokenFromTab1() {
+            return new Promise((resolve, reject) => {
+                const requestId = Date.now() + '_' + Math.random();
+
+                const messageHandler = (event) => {
+                    if (event.data.type === 'TOKEN_RESPONSE' && event.data.requestId === requestId) {
+                        window.removeEventListener('message', messageHandler);
+                        if (event.data.error) {
+                            reject(new Error(event.data.error));
+                        } else {
+                            resolve(event.data.token);
+                        }
+                    }
+                };
+
+                window.addEventListener('message', messageHandler);
+
+                // Send request via parent (main.html will route to Tab1)
+                window.parent.postMessage({
+                    type: 'REQUEST_TOKEN_FROM_OVERVIEW',
+                    requestId: requestId
+                }, '*');
+
+                console.log('[REPORT] 🔑 Requesting token from Tab1 via postMessage...');
+
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                    window.removeEventListener('message', messageHandler);
+                    reject(new Error('Token request timeout after 5 seconds'));
+                }, 5000);
+            });
+        }
+
+        /**
          * Fetch campaigns from TPOS OData API by date filter
          * @param {string} dateFilter - Date string "dd/mm/yyyy" to filter campaigns
          * @returns {Promise<Array<{id: number, name: string}>>} - List of campaigns from TPOS
@@ -3830,19 +3978,13 @@
         async function fetchCampaignsFromTPOS(dateFilter) {
             const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
-            // Get token from parent window's tokenManager
+            // ⚡ FIXED: Get token via postMessage to avoid cross-origin security error
             let token;
             try {
-                if (window.parent?.tokenManager) {
-                    token = await window.parent.tokenManager.getToken();
-                } else if (window.tokenManager) {
-                    token = await window.tokenManager.getToken();
-                } else {
-                    throw new Error('tokenManager not found');
-                }
+                token = await requestTokenFromTab1();
             } catch (error) {
                 console.error('[REPORT] ❌ Error getting token for campaigns fetch:', error);
-                throw new Error('Could not get authentication token');
+                throw new Error('Could not get authentication token: ' + error.message);
             }
 
             // Encode date for OData filter (30/12/2025 → 30%2F12%2F2025)
@@ -3997,19 +4139,13 @@
             const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
             const endpoint = `/api/SaleOnline_Order/ExportFile?campaignId=${campaignId}&sort=date`;
 
-            // Get token from parent window's tokenManager
+            // ⚡ FIXED: Get token via postMessage to avoid cross-origin security error
             let token;
             try {
-                if (window.parent?.tokenManager) {
-                    token = await window.parent.tokenManager.getToken();
-                } else if (window.tokenManager) {
-                    token = await window.tokenManager.getToken();
-                } else {
-                    throw new Error('tokenManager not found');
-                }
+                token = await requestTokenFromTab1();
             } catch (error) {
                 console.error('[REPORT] ❌ Error getting token:', error);
-                throw new Error('Could not get authentication token');
+                throw new Error('Could not get authentication token: ' + error.message);
             }
 
             console.log(`[REPORT] 📥 Fetching Excel from TPOS for campaign: ${campaignId}`);
@@ -5314,6 +5450,51 @@
         /**
          * Render all statistics
          */
+        /**
+         * ⚡ NEW: Render statistics from allOrders (Tab1 data) - Single source of truth
+         * This is now the primary function for rendering statistics in "Tổng quan" tab
+         */
+        function renderStatisticsFromAllOrders() {
+            const orders = allOrders || [];
+
+            const statsContainer = document.getElementById('statisticsContainer');
+            const emptyState = document.getElementById('statsEmptyState');
+
+            if (orders.length === 0) {
+                statsContainer.style.display = 'none';
+                emptyState.style.display = 'block';
+                console.log('[REPORT] ℹ️ No orders from Tab1, showing empty state');
+                return;
+            }
+
+            statsContainer.style.display = 'block';
+            emptyState.style.display = 'none';
+
+            // Calculate all stats
+            const tagStats = calculateTagStats(orders);
+            const employeeStats = calculateEmployeeTagStats(orders);
+
+            // Render tag stats
+            renderTagStatsTable(tagStats, orders.length);
+
+            // Render employee stats
+            renderEmployeeStats(employeeStats, orders);
+
+            // Calculate and render empty cart reasons
+            const emptyCartReasons = calculateEmptyCartReasons(orders);
+            renderEmptyCartReasons(emptyCartReasons);
+
+            // Calculate and render discount statistics
+            renderDiscountStatistics(orders);
+
+            console.log('[REPORT] ✅ Statistics rendered from allOrders (' + orders.length + ' orders)');
+        }
+
+        /**
+         * ⚠️ LEGACY: Render statistics from cachedOrderDetails (Firebase data)
+         * This is now only used for "Chi tiết đã tải" tab, NOT for "Tổng quan"
+         * "Tổng quan" uses renderStatisticsFromAllOrders() instead
+         */
         function renderStatistics() {
             const cached = cachedOrderDetails[currentTableName];
             const orders = cached?.orders || [];
@@ -5347,20 +5528,7 @@
             // Calculate and render discount statistics
             renderDiscountStatistics(orders);
 
-            // Dispatch event for mobile UI (after DOM updates)
-            setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('statisticsRendered', {
-                    detail: {
-                        timestamp: Date.now(),
-                        hasData: orders.length > 0,
-                        counts: {
-                            tags: tagStats.length,
-                            employees: employeeStats.length
-                        }
-                    }
-                }));
-                console.log('[REPORT] 📱 statisticsRendered event dispatched');
-            }, 150);
+            console.log('[REPORT] ✅ Statistics rendered from cachedOrderDetails');
         }
 
         /**
@@ -6304,9 +6472,9 @@
          * Show mismatch orders modal with reason details
          */
         function showMismatchOrdersModal(empName, emp, mismatchOrders) {
-            const modal = document.getElementById('orderDetailModal');
-            const titleEl = modal.querySelector('.modal-header h3');
-            const body = document.getElementById('modalBody');
+            const modal = document.getElementById('ordersDetailModal');
+            const titleEl = document.getElementById('ordersDetailTitle');
+            const body = document.getElementById('ordersDetailBody');
 
             // Summary info
             const summaryHtml = `
@@ -6370,7 +6538,8 @@
             titleEl.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: #dc2626;"></i> Đơn không khớp - ${empName} <span style="font-size: 14px; opacity: 0.8;">(${mismatchOrders.length} đơn)</span>`;
             body.innerHTML = summaryHtml + tableHtml;
 
-            modal.style.display = 'flex';
+            // ⚡ FIXED: Use classList.add('show') instead of style.display
+            modal.classList.add('show');
         }
 
         /**
@@ -6776,18 +6945,27 @@
                 updateCachedCountBadge();
                 renderCachedDetailsTab();
 
-                // Load employee ranges and render statistics
+                // ⚡ OPTIMIZATION FIX: Render statistics from allOrders immediately
+                // Load employee ranges and render statistics with proper async handling
                 loadEmployeeRanges().then(() => {
-                    renderStatistics();
+                    // ⚡ FIX: Use allOrders as single source of truth for statistics
+                    console.log('[REPORT] 📊 Rendering statistics from Tab1 data (allOrders)...');
+                    renderStatisticsFromAllOrders(); // New function that uses allOrders
+                }).catch(err => {
+                    console.error('[REPORT] ❌ Error loading employee ranges:', err);
                 });
 
                 // Check Firebase status for this table
                 checkFirebaseStatus();
 
-                // Load Firebase data for current table WITHOUT clearing/repopulating dropdown
-                // This prevents race condition where dropdown gets cleared while being updated
+                // ⚡ OPTIMIZATION FIX: AWAIT Firebase load to prevent race condition
+                // Load Firebase data for "Chi tiết đã tải" tab (separate from allOrders)
                 if (currentTableName) {
-                    loadTableDataFromFirebase(currentTableName);
+                    loadTableDataFromFirebase(currentTableName).then(() => {
+                        console.log('[REPORT] ✅ Firebase data loaded for "Chi tiết đã tải" tab');
+                    }).catch(err => {
+                        console.warn('[REPORT] ⚠️ Failed to load Firebase data:', err);
+                    });
                 }
 
                 // Stop loading state
@@ -6862,11 +7040,42 @@
             dataReceivedFromTab1 = false; // Reset flag before request
             setRefreshLoading(true);
 
+            // ⚡ FIXED: Wrap in try-catch to handle cross-origin security error
+            try {
+                // Try to check if Tab1 iframe exists and is loaded
+                const ordersFrame = window.parent.document.getElementById('ordersFrame');
+                if (!ordersFrame) {
+                    console.warn('[REPORT] ⚠️ Tab1 iframe not found - retrying in 1s...');
+                    setTimeout(() => requestDataFromTab1(), 1000);
+                    return;
+                }
+
+                // Check if iframe has loaded content
+                try {
+                    const frameDoc = ordersFrame.contentDocument || ordersFrame.contentWindow?.document;
+                    if (!frameDoc || frameDoc.readyState !== 'complete') {
+                        console.warn('[REPORT] ⚠️ Tab1 iframe not ready - retrying in 1s...');
+                        setTimeout(() => requestDataFromTab1(), 1000);
+                        return;
+                    }
+                } catch (e) {
+                    // Cross-origin or other access error - proceed anyway
+                    console.log('[REPORT] Cannot check Tab1 ready state (cross-origin?), proceeding...');
+                }
+            } catch (e) {
+                // ⚡ FIXED: Cross-origin error when accessing parent.document - proceed anyway
+                console.log('[REPORT] ⚠️ Cannot access parent.document (cross-origin), proceeding with postMessage...');
+            }
+
             window.parent.postMessage({
                 type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
             }, '*');
 
-            // Retry logic - if no data after RETRY_DELAY, try again
+            // ⚡ OPTIMIZATION FIX: Increased retry delay to 3 seconds (was 2s)
+            // Tab1 initialization may take 3-5 seconds, giving it more time
+            const EXTENDED_RETRY_DELAY = 3000;
+
+            // Retry logic - if no data after delay, try again
             setTimeout(() => {
                 if (!dataReceivedFromTab1 && allOrders.length === 0) {
                     requestRetryCount++;
@@ -6875,7 +7084,8 @@
                         requestDataFromTab1();
                     } else {
                         setRefreshLoading(false);
-                        console.log('[REPORT] ❌ Failed to get data from Tab1 after retries');
+                        console.log('[REPORT] ❌ Failed to get data from Tab1 after', MAX_RETRY_COUNT, 'retries');
+                        console.log('[REPORT] 💡 Suggestion: Check if Tab1 has selected a campaign');
                         requestRetryCount = 0; // Reset for next time
                     }
                 } else {
@@ -6883,7 +7093,7 @@
                     requestRetryCount = 0;
                     console.log('[REPORT] ✅ Data received from Tab1 successfully');
                 }
-            }, RETRY_DELAY);
+            }, EXTENDED_RETRY_DELAY);
         }
 
         function setRefreshLoading(loading) {
@@ -6924,76 +7134,109 @@
                 return;
             }
 
-            // =====================================================
-            // NEW: Dialog to choose between Firebase or API fetch
-            // =====================================================
+            // ⚡ NEW: Open professional modal instead of prompt
+            openDataSourceModal();
+        }
 
-            // Check if Firebase data exists for current table
-            const firebaseData = await loadFromFirebase(currentTableName);
-            const hasFirebaseData = firebaseData && firebaseData.orders && firebaseData.orders.length > 0;
-
-            let userChoice;
-            if (hasFirebaseData) {
-                // Show dialog with 2 options
-                const choice = confirm(
-                    `Bạn muốn:\n\n` +
-                    `✅ OK = Tải dữ liệu từ Firebase (${firebaseData.orders.length} đơn hàng, lưu lúc ${new Date(firebaseData.fetchedAt).toLocaleString('vi-VN')})\n\n` +
-                    `🔄 Cancel = Lấy dữ liệu mới từ API (${allOrders.length} đơn hàng)`
-                );
-
-                userChoice = choice ? 'firebase' : 'api';
-            } else {
-                // No Firebase data, ask to confirm API fetch
-                if (allOrders.length === 0) {
-                    alert('Chưa có dữ liệu đơn hàng. Vui lòng nhấn "Làm mới" trước.');
-                    return;
-                }
-
-                const confirmMsg = `Không tìm thấy dữ liệu Firebase cho "${currentTableName}".\n\nSẽ lấy chi tiết cho ${allOrders.length} đơn hàng từ API.\n\nBạn có muốn tiếp tục?`;
-                if (!confirm(confirmMsg)) {
-                    return;
-                }
-                userChoice = 'api';
+        // ⚡ NEW: Execute Excel Fetch
+        async function executeExcelFetch() {
+            if (isFetching) {
+                alert('Đang trong quá trình tải, vui lòng đợi...');
+                return;
             }
 
-            // =====================================================
-            // OPTION 1: Load from Firebase
-            // =====================================================
-            if (userChoice === 'firebase') {
-                console.log('[REPORT] 📦 User chose to load from Firebase');
+            console.log('[REPORT] 📊 User chose Excel - Fetching from Excel');
 
+            isFetching = true;
+            const btn = document.getElementById('btnBatchFetch');
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải từ Excel...';
+
+                console.log('[REPORT] 🔄 Fetching Excel for campaign:', currentTableName);
+                const allExcelOrders = await fetchAllCampaignsExcel();
+
+                if (allExcelOrders.length === 0) {
+                    alert('❌ Không tìm thấy đơn hàng nào từ Excel');
+                    return;
+                }
+
+                console.log(`[REPORT] 📊 fetchAllCampaignsExcel returned ${allExcelOrders.length} orders`);
+                const parsedOrders = parseExcelOrderData(allExcelOrders);
+
+                // Save to sessionStorage for quick access on refresh
+                sessionStorage.setItem('reportOrdersExcelCache', JSON.stringify({
+                    orders: parsedOrders,
+                    timestamp: Date.now()
+                }));
+
+                console.log(`[REPORT] ✅ Fetched ${parsedOrders.length} orders from Excel`);
+
+                // Save to cachedOrderDetails
+                const cacheData = {
+                    tableName: currentTableName,
+                    orders: parsedOrders,
+                    fetchedAt: new Date().toISOString(),
+                    totalOrders: parsedOrders.length,
+                    successCount: parsedOrders.length,
+                    errorCount: 0,
+                    _source: 'excel_manual_fetch'
+                };
+
+                // Load into local cache
+                cachedOrderDetails[currentTableName] = cacheData;
+                saveCachedData();
+
+                // Save to Firebase
                 try {
-                    // Update cache
-                    cachedOrderDetails[currentTableName] = firebaseData;
-                    saveCachedData();
-
-                    // Update UI
-                    updateCachedCountBadge();
-                    renderCachedDetailsTab();
-
-                    // Update statistics
-                    await loadEmployeeRanges();
-                    renderStatistics();
-
-                    // Show success message
-                    alert(`✅ Đã tải dữ liệu từ Firebase!\n- Số đơn hàng: ${firebaseData.orders.length}\n- Lưu lúc: ${new Date(firebaseData.fetchedAt).toLocaleString('vi-VN')}\n- Bảng: ${currentTableName}`);
-
-                    // Switch to details tab
-                    switchMainTab('details');
-                } catch (error) {
-                    console.error('[REPORT] ❌ Error loading from Firebase:', error);
-                    alert(`Lỗi khi tải từ Firebase: ${error.message}`);
+                    const firebaseSaved = await saveToFirebase(currentTableName, cacheData);
+                    if (firebaseSaved) {
+                        console.log(`[REPORT] ✅ Excel data saved to Firebase for "${currentTableName}"`);
+                    }
+                } catch (fbError) {
+                    console.warn('[REPORT] ⚠️ Failed to save Excel data to Firebase:', fbError);
                 }
+
+                // Update UI
+                updateCachedCountBadge();
+                renderCachedDetailsTab();
+
+                // Update statistics
+                await loadEmployeeRanges();
+                renderStatistics();
+
+                // Show success message
+                alert(`✅ Đã tải dữ liệu từ Excel!\n- Số đơn hàng: ${parsedOrders.length}\n- Bảng: ${currentTableName}\n- Đã lưu vào Firebase`);
+
+                // Switch to details tab
+                switchMainTab('details');
+
+            } catch (error) {
+                console.error('[REPORT] ❌ Error fetching from Excel:', error);
+                alert(`Lỗi khi tải từ Excel: ${error.message}`);
+            } finally {
+                isFetching = false;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download"></i> Lấy chi tiết đơn hàng';
+                }
+            }
+        }
+
+        // ⚡ NEW: Execute API Fetch
+        async function executeAPIFetch() {
+            if (isFetching) {
+                alert('Đang trong quá trình tải, vui lòng đợi...');
                 return;
             }
 
-            // =====================================================
-            // OPTION 2: Fetch from API (existing logic)
-            // =====================================================
             if (allOrders.length === 0) {
-                alert('Chưa có dữ liệu đơn hàng. Vui lòng nhấn "Làm mới" trước.');
+                alert('❌ Chưa có dữ liệu từ Tab1. Vui lòng chọn chiến dịch ở Tab1 trước.');
                 return;
             }
+
+            console.log('[REPORT] 📡 User chose API - Fetching detailed data');
 
             isFetching = true;
             const btn = document.getElementById('btnBatchFetch');
@@ -7013,8 +7256,8 @@
 
             try {
                 btn.disabled = true;
-                btn.classList.remove('highlight-pulse'); // Remove highlight when starting fetch
-                btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải...';
+                btn.classList.remove('highlight-pulse');
+                btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải từ API...';
 
                 // Hide helper message during fetch
                 document.getElementById('tableHelperMessage').style.display = 'none';
@@ -7027,7 +7270,7 @@
                 let completed = 0;
                 let errors = 0;
 
-                console.log(`[REPORT] Starting batch fetch for ${total} orders (table: ${currentTableName})`);
+                console.log(`[REPORT] Starting API fetch for ${total} orders (table: ${currentTableName})`);
 
                 // Process in batches of BATCH_SIZE
                 for (let i = 0; i < total; i += BATCH_SIZE) {
@@ -7038,7 +7281,6 @@
                         try {
                             const detail = await fetchOrderData(order.orderId);
                             // Merge Tags from allOrders (Tab1) into fetched data
-                            // API doesn't return Tags, so we need to preserve it
                             if (order.Tags) {
                                 detail.Tags = order.Tags;
                             }
@@ -7079,12 +7321,13 @@
 
                 // Save to cache with timestamp
                 const cacheData = {
-                    tableName: currentTableName, // Include table name
+                    tableName: currentTableName,
                     orders: fetchedOrders,
                     fetchedAt: new Date().toISOString(),
                     totalOrders: total,
                     successCount: fetchedOrders.length,
-                    errorCount: errors
+                    errorCount: errors,
+                    _source: 'api_manual_fetch'
                 };
 
                 cachedOrderDetails[currentTableName] = cacheData;
@@ -7114,7 +7357,7 @@
                 // Switch to details tab
                 switchMainTab('details');
             } catch (error) {
-                console.error('[REPORT] ❌ Error in batch fetch:', error);
+                console.error('[REPORT] ❌ Error in API fetch:', error);
                 resetButtonState();
                 alert(`Lỗi khi tải chi tiết đơn hàng: ${error.message}`);
             }
@@ -8031,6 +8274,35 @@
             document.getElementById('saveReportModal').style.display = 'none';
         }
 
+        // ⚡ NEW: Data Source Modal Functions
+        function openDataSourceModal() {
+            const modal = document.getElementById('dataSourceModal');
+            modal.style.display = 'flex';
+
+            // Add click handlers to options
+            const options = modal.querySelectorAll('.data-source-option');
+            options.forEach(option => {
+                option.onclick = function() {
+                    const choice = this.getAttribute('data-choice');
+                    handleDataSourceChoice(choice);
+                };
+            });
+        }
+
+        function closeDataSourceModal() {
+            document.getElementById('dataSourceModal').style.display = 'none';
+        }
+
+        async function handleDataSourceChoice(choice) {
+            closeDataSourceModal();
+
+            if (choice === 'excel') {
+                await executeExcelFetch();
+            } else if (choice === 'api') {
+                await executeAPIFetch();
+            }
+        }
+
         // Confirm and save report copy
         async function confirmSaveReport() {
             const reportName = document.getElementById('saveReportName').value.trim();
@@ -8427,8 +8699,9 @@
             updateCachedCountBadge();
             renderCachedDetailsTab();
 
-            // Render statistics if cached data exists
-            renderStatistics();
+            // ⚡ OPTIMIZATION FIX: Don't render statistics on init - wait for Tab1 data
+            // renderStatistics() will be called after receiving data from Tab1
+            console.log('[REPORT] ⏳ Waiting for Tab1 data before rendering statistics...');
 
             // Initialize discount stats UI
             if (window.discountStatsUI) {
@@ -8439,14 +8712,17 @@
             console.log(`[REPORT] 🎉 Firebase init complete. cachedOrders for "${currentTableName}": ${cachedOrderDetails[currentTableName]?.orders?.length || 0}`);
 
             // =====================================================
-            // AUTO-FETCH EXCEL FROM TPOS (NEW FEATURE)
+            // EXCEL AUTO-FETCH - DISABLED FOR PERFORMANCE
             // =====================================================
-            // Try to auto-fetch basic data from TPOS Excel on page load
-            // This provides quick fallback data without needing Firebase
+            // ⚡ OPTIMIZATION FIX: Excel auto-fetch was blocking initialization for 5-15 seconds
+            // Now disabled - user can manually fetch via button if needed
+            //
+            // Previous behavior: Automatically fetched ALL campaigns on page load
+            // Issue: Blocked for 5-15 seconds waiting for API responses
+            // Fix: Only load from sessionStorage cache (fast), skip API fetch
             try {
-                // Check if we have cached data in sessionStorage
+                // Check if we have cached data in sessionStorage (non-blocking)
                 const sessionCache = sessionStorage.getItem('reportOrdersExcelCache');
-                let hasQuickData = false;
 
                 if (sessionCache) {
                     try {
@@ -8457,11 +8733,8 @@
 
                         if (cacheAge < 5 * 60 * 1000 && hasValidOrders) {
                             console.log(`[REPORT] 📦 Using cached Excel data from sessionStorage (${cached.orders.length} orders)`);
-                            hasQuickData = true;
 
-                            // =====================================================
-                            // IMPORTANT: Load cached data into cachedOrderDetails for display
-                            // =====================================================
+                            // Load cached data into cachedOrderDetails for display
                             if (currentTableName) {
                                 const cacheData = {
                                     tableName: currentTableName,
@@ -8484,92 +8757,26 @@
                                 console.log(`[REPORT] ✅ Session cache loaded into "Chi tiết đã tải" for "${currentTableName}"`);
                             }
                         } else if (!hasValidOrders) {
-                            console.log('[REPORT] ⚠️ Session cache exists but has no orders, will fetch fresh');
+                            console.log('[REPORT] ⚠️ Session cache exists but has no orders - use manual fetch button');
                         }
                     } catch (e) {
                         console.warn('[REPORT] Failed to parse session cache:', e);
                     }
+                } else {
+                    console.log('[REPORT] ℹ️ No session cache - use manual fetch button or wait for Tab1 data');
                 }
 
-                // If no fresh cache, auto-fetch from TPOS
-                if (!hasQuickData) {
-                    console.log('[REPORT] 🔄 Auto-fetching data from TPOS Excel...');
-                    console.log(`[REPORT] 📋 currentTableName = "${currentTableName}"`);
-                    try {
-                        const allExcelOrders = await fetchAllCampaignsExcel();
-                        console.log(`[REPORT] 📊 fetchAllCampaignsExcel returned ${allExcelOrders.length} orders`);
-                        if (allExcelOrders.length > 0) {
-                            const parsedOrders = parseExcelOrderData(allExcelOrders);
-
-                            // Save to sessionStorage for quick access on refresh
-                            sessionStorage.setItem('reportOrdersExcelCache', JSON.stringify({
-                                orders: parsedOrders,
-                                timestamp: Date.now()
-                            }));
-
-                            console.log(`[REPORT] ✅ Auto-fetched ${parsedOrders.length} orders from TPOS Excel`);
-
-                            // =====================================================
-                            // NEW: Save Excel data to Firebase and display in "Chi tiết đã tải"
-                            // =====================================================
-                            if (currentTableName) {
-                                const cacheData = {
-                                    tableName: currentTableName,
-                                    orders: parsedOrders,
-                                    fetchedAt: new Date().toISOString(),
-                                    totalOrders: parsedOrders.length,
-                                    successCount: parsedOrders.length,
-                                    errorCount: 0,
-                                    _source: 'excel_auto_fetch'
-                                };
-
-                                // Save to local cache
-                                cachedOrderDetails[currentTableName] = cacheData;
-                                saveCachedData();
-
-                                // Save to Firebase
-                                try {
-                                    const firebaseSaved = await saveToFirebase(currentTableName, cacheData);
-                                    if (firebaseSaved) {
-                                        console.log(`[REPORT] ✅ Excel data saved to Firebase for "${currentTableName}"`);
-                                    }
-                                } catch (fbError) {
-                                    console.warn('[REPORT] ⚠️ Failed to save Excel data to Firebase:', fbError);
-                                }
-
-                                // Update UI
-                                updateCachedCountBadge();
-                                renderCachedDetailsTab();
-
-                                // Update statistics
-                                try {
-                                    await loadEmployeeRanges();
-                                    renderStatistics();
-                                } catch (statError) {
-                                    console.warn('[REPORT] ⚠️ Failed to render statistics:', statError);
-                                }
-
-                                console.log(`[REPORT] ✅ Excel data loaded into "Chi tiết đã tải" for "${currentTableName}"`);
-                            } else {
-                                console.warn('[REPORT] ⚠️ No currentTableName, skipping Firebase save');
-                            }
-                        } else {
-                            console.log('[REPORT] ℹ️ No orders found in Excel auto-fetch');
-                        }
-                    } catch (error) {
-                        console.warn('[REPORT] ⚠️ Auto-fetch from TPOS failed:', error);
-                    }
-                }
+                //    ... (Excel fetch code removed for performance)
+                // }
             } catch (error) {
-                console.error('[REPORT] ❌ Error in auto-fetch logic:', error);
+                console.warn('[REPORT] ⚠️ Error loading session cache:', error);
             }
 
-            // ALWAYS request data from Tab1 for Tổng quan tab
-            // allOrders MUST come from Tab1, NOT from Firebase
-            setTimeout(() => {
-                console.log('[REPORT] 📡 Requesting Tab1 data for Tổng quan...');
-                requestDataFromTab1();
-            }, 500);
+            // ⚡ OPTIMIZATION FIX: Request Tab1 data IMMEDIATELY (no delay)
+            // Previous: 500ms delay after blocking Excel fetch
+            // New: Request immediately, let Tab1 respond when ready
+            console.log('[REPORT] 📡 Requesting Tab1 data for Tổng quan...');
+            requestDataFromTab1();
         });
 
         // =====================================================
@@ -8594,9 +8801,7 @@
         window.currentTableName = currentTableName;
     </script>
 
-    <!-- Mobile-specific JavaScript V2 - Event-based system -->
-    <!-- V2 uses event-driven architecture to avoid timing issues -->
-    <script src="tab-overview-mobile-v2.js"></script>
+    <!-- Mobile JS removed - will be reimplemented later -->
 </body>
 
 </html>
