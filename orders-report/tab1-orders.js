@@ -3061,15 +3061,19 @@ async function autoCreateAndAddTagToBulkModal(tagName) {
             delete newTag['@odata.context'];
         }
 
-        // Reload all tags from TPOS API to ensure sync
-        console.log('[BULK-TAG-MODAL] Reloading all tags from TPOS...');
+        // Clear tags cache to force fresh fetch from TPOS
+        window.cacheManager.clear("tags");
+        console.log('[BULK-TAG-MODAL] Cleared tags cache, reloading from TPOS...');
+
+        // Reload all tags from TPOS API to ensure sync (with pagination support)
         await loadAvailableTags();
 
         // Update filter dropdowns
         populateTagFilter();
         populateBulkTagModalDropdown();
 
-        // Add the new tag to bulk tag modal table
+        // Add the new tag to bulk tag modal table using response data
+        // newTag from API response contains: Id, Name, Color, NameNosign, Type
         addTagToBulkTagModal(newTag.Id, newTag.Name, newTag.Color);
 
         // Show success notification
