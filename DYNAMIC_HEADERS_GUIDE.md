@@ -105,7 +105,7 @@ tposHeaders.set('tposappversion', getDynamicHeader('tposappversion') || '5.12.29
 - [orders-report/live-comments-readonly-modal.js](orders-report/live-comments-readonly-modal.js) - Sử dụng `window.TPOS_CONFIG`
 - [orders-report/tab1-orders.js](orders-report/tab1-orders.js) - Sử dụng `window.TPOS_CONFIG`
 - [orders-report/tab-overview.html](orders-report/tab-overview.html) - Sử dụng `window.TPOS_CONFIG`
-- [tpos-pancake/tpos-chat.js](tpos-pancake/tpos-chat.js) - Sử dụng `window.TPOS_CONFIG`
+- ~~tpos-pancake/tpos-chat.js~~ - Removed (TPOS realtime handled by render.com/server.js)
 
 ### ✅ Cloudflare Worker
 - [cloudflare-worker/worker.js](cloudflare-worker/worker.js) - Sử dụng `getDynamicHeader()` với fallback

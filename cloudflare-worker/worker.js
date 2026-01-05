@@ -1289,7 +1289,7 @@ export default {
         // Realtime Server (Render)
         targetUrl = `https://n2store-fallback.onrender.com/api/realtime/start`;
       } else if (pathname.startsWith('/api/realtime/tpos/')) {
-        // TPOS Realtime Server (Render) - for tpos-chat.js
+        // TPOS Realtime Server (Render) - WebSocket managed by server
         const tposPath = pathname.replace(/^\/api\/realtime\/tpos\//, '');
         targetUrl = `https://n2store-fallback.onrender.com/api/realtime/tpos/${tposPath}${url.search}`;
       } else if (pathname.startsWith('/api/chat/')) {
