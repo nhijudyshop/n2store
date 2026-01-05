@@ -165,7 +165,7 @@ ws.onmessage = (event) => {
 | Thuộc tính | Giá trị |
 |------------|---------|
 | **URL** | https://n2store-fallback.onrender.com |
-| **Plan** | Free / Starter |
+| **Plan** | Standard |
 | **Region** | Singapore |
 | **Repository** | nhijudyshop/n2store |
 | **Root Directory** | `render.com` |
@@ -245,13 +245,13 @@ GET /api/fb-avatar?id=xxx
 | Feature | n2store-realtime | n2store-fallback |
 |---------|------------------|------------------|
 | **Purpose** | WebSocket only | Full API + DB |
-| **Plan** | Standard | Free/Starter |
+| **Plan** | Standard | Standard |
 | **Database** | None | PostgreSQL |
-| **Sleep** | No (Standard) | Yes (Free tier) |
-| **Uptime** | 24/7 | Depends on ping |
+| **Sleep** | No | No |
+| **Uptime** | 24/7 | 24/7 |
 | **Size** | ~18KB | ~900KB |
 | **Dependencies** | 4 packages | 15+ packages |
-| **Cold start** | ~2s | ~10-15s |
+| **Cold start** | ~2s | ~5s |
 
 ---
 
@@ -295,11 +295,17 @@ GET /api/fb-avatar?id=xxx
      -d '{"token":"xxx","userId":"xxx","pageIds":["xxx"]}'
    ```
 
-### Server fallback bị sleep (Free tier)
+### Kiểm tra server status
 
-Dùng UptimeRobot để ping mỗi 5 phút:
-- URL: `https://n2store-fallback.onrender.com/health`
-- Interval: 5 minutes
+Cả 2 server đều là **Standard plan** nên không bị sleep. Kiểm tra status:
+
+```bash
+# Realtime server
+curl https://n2store-realtime.onrender.com/health
+
+# Fallback server
+curl https://n2store-fallback.onrender.com/health
+```
 
 ### Token hết hạn
 
