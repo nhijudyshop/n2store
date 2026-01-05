@@ -25080,7 +25080,7 @@ async function sendBillToCustomer(orderResult, pageId, psid) {
         if (!contentUrl) {
             throw new Error('Upload failed - no content_url returned');
         }
-        console.log('[BILL-SEND] ✅ Image uploaded:', contentUrl);
+        console.log('[BILL-SEND] ✅ Image uploaded:', contentUrl, 'content_id:', contentId);
 
         // Step 3: Send message with image via Pancake API
         console.log('[BILL-SEND] Step 3: Sending message with image...');
@@ -25126,8 +25126,8 @@ async function sendBillToCustomer(orderResult, pageId, psid) {
                 },
                 body: JSON.stringify({
                     action: 'reply_inbox',
-                    content_id: contentId,
-                    message: `📋 Phiếu bán hàng #${orderResult?.Number || ''}`
+                    message: `📋 Phiếu bán hàng #${orderResult?.Number || ''}`,
+                    ...(contentId ? { content_ids: [contentId], attachment_type: 'PHOTO' } : {})
                 })
             }
         );
