@@ -114,10 +114,10 @@ function initModalHandlers() {
     // Modal Submit Ticket
     document.getElementById('btn-submit-ticket').addEventListener('click', handleSubmitTicket);
 
-    // Modal Confirm Action (if exists)
-    const btnConfirmAction = document.getElementById('btn-confirm-action');
-    if (btnConfirmAction) {
-        btnConfirmAction.addEventListener('click', handleConfirmAction);
+    // Modal Confirm Action - "Xác Nhận" button triggers refund flow
+    const btnConfirmYes = document.getElementById('btn-confirm-yes');
+    if (btnConfirmYes) {
+        btnConfirmYes.addEventListener('click', handleConfirmAction);
     }
 
 
