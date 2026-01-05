@@ -63,7 +63,8 @@ function getTPOSHeaders() {
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
-        tposappversion: "5.12.29.1",
+        // Use dynamic version from global TPOS_CONFIG if available
+        tposappversion: window.TPOS_CONFIG?.tposAppVersion || "5.12.29.1",
         "user-agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
         "x-request-id": generateRandomId(),

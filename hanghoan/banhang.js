@@ -583,7 +583,7 @@ const BanHangModule = (function () {
                     'Accept': '*/*',
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                    'tposappversion': '5.12.29.1'
+                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
                 }
             });
 
@@ -616,7 +616,7 @@ const BanHangModule = (function () {
                     'Accept': '*/*',
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                    'tposappversion': '5.12.29.1'
+                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
                 }
             });
 

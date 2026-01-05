@@ -1105,6 +1105,7 @@ export default {
         // Set required headers for TPOS
         tposHeaders.set('Accept', '*/*');
         tposHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
+        // Dynamic version from learned responses, fallback for initial requests only
         tposHeaders.set('tposappversion', getDynamicHeader('tposappversion') || '5.12.29.1');
         tposHeaders.set('Origin', 'https://tomato.tpos.vn');
         tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
@@ -1342,7 +1343,7 @@ export default {
               'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
               'Cache-Control': 'no-cache',
               'Pragma': 'no-cache',
-              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1',
+              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1', // Dynamic header, fallback for initial requests
               'X-Requested-With': 'XMLHttpRequest',
               'Referer': 'https://tomato.tpos.vn/',
               'Origin': 'https://tomato.tpos.vn'
@@ -1439,7 +1440,7 @@ export default {
             headers: {
               'Accept': 'application/json, text/javascript, */*; q=0.01',
               'Authorization': `Bearer ${token}`,
-              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1',
+              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1', // Dynamic header, fallback for initial requests
               'x-requested-with': 'XMLHttpRequest',
               'Referer': 'https://tomato.tpos.vn/',
               'Origin': 'https://tomato.tpos.vn'
@@ -1481,7 +1482,7 @@ export default {
               'Accept': '*/*',
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1',
+              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1', // Dynamic header, fallback for initial requests
               'Referer': 'https://tomato.tpos.vn/',
               'Origin': 'https://tomato.tpos.vn'
             },
@@ -1542,6 +1543,7 @@ export default {
         // Set required headers for TPOS
         tposRestHeaders.set('Accept', '*/*');
         tposRestHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
+        // Dynamic version from learned responses, fallback for initial requests only
         tposRestHeaders.set('tposappversion', getDynamicHeader('tposappversion') || '5.12.29.1');
         tposRestHeaders.set('Origin', 'https://tomato.tpos.vn');
         tposRestHeaders.set('Referer', 'https://tomato.tpos.vn/');
