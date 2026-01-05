@@ -24986,48 +24986,47 @@ function openPrintPopup(orderResult) {
 async function generateBillImage(orderResult) {
     console.log('[BILL-IMAGE] Generating bill image...');
 
-    // Create a hidden container with bill HTML
-    const container = document.createElement('div');
-    container.style.cssText = `
+    // Use the same HTML as the print bill
+    const html = generateCustomBillHTML(orderResult);
+
+    // Create hidden iframe to render full HTML document with styles
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = `
         position: fixed;
         left: -9999px;
         top: 0;
         width: 400px;
-        background: white;
-        font-family: Arial, sans-serif;
+        height: 1200px;
+        border: none;
     `;
+    document.body.appendChild(iframe);
 
-    // Use the same HTML as the print bill
-    const html = generateCustomBillHTML(orderResult);
-
-    // Extract styles from head
-    const styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-    const styles = styleMatch ? styleMatch[1] : '';
-
-    // Extract body content
-    const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-    const bodyContent = bodyMatch ? bodyMatch[1] : html;
-
-    // Inject styles + body content together
-    container.innerHTML = `<style>${styles}</style>${bodyContent}`;
-
-    document.body.appendChild(container);
+    // Write full HTML to iframe
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(html);
+    iframeDoc.close();
 
     // Wait for rendering
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 200));
 
     try {
+        // Get the body element from iframe
+        const iframeBody = iframeDoc.body;
+
         // Generate image using html2canvas
-        const canvas = await html2canvas(container, {
+        const canvas = await html2canvas(iframeBody, {
             backgroundColor: '#ffffff',
             scale: 2,
             logging: false,
             useCORS: true,
-            allowTaint: true
+            allowTaint: true,
+            windowWidth: 400,
+            windowHeight: 1200
         });
 
-        // Remove container
-        document.body.removeChild(container);
+        // Remove iframe
+        document.body.removeChild(iframe);
 
         // Convert to blob
         const blob = await new Promise(resolve => {
@@ -25038,7 +25037,7 @@ async function generateBillImage(orderResult) {
         return blob;
 
     } catch (error) {
-        document.body.removeChild(container);
+        document.body.removeChild(iframe);
         console.error('[BILL-IMAGE] ❌ Error generating image:', error);
         throw error;
     }
