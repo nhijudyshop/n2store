@@ -8,7 +8,10 @@
       "Bash(git commit:*)",
       "Bash(npx wrangler deploy)",
       "Bash(git init:*)",
-      "Bash(gh repo create:*)"
+      "Bash(gh repo create:*)",
+      "Bash(brew install:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh auth login:*)"
     ]
   }
 }

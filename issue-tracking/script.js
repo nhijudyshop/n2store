@@ -546,22 +546,80 @@ window.promptAction = function (id, action) {
 async function handleConfirmAction() {
     if (!pendingActionTicketId) return;
 
+    const ticket = TICKETS.find(t => t.firebaseId === pendingActionTicketId);
+    if (!ticket) {
+        alert('Không tìm thấy phiếu');
+        return;
+    }
+
     showLoading(true);
     try {
-        // Simple logic: Move to COMPLETED
-        // In real world: might need more steps (e.g. adjust debt)
-        await ApiService.updateTicket(pendingActionTicketId, {
-            status: 'COMPLETED',
-            completedAt: firebase.database.ServerValue.TIMESTAMP
-        });
+        if (pendingActionType === 'RECEIVE') {
+            // RECEIVE action: Process full TPOS refund flow (5 API calls)
+            console.log('[APP] Processing RECEIVE action for tposId:', ticket.tposId);
 
-        closeModal(elements.modalConfirm);
+            if (!ticket.tposId) {
+                throw new Error('Thiếu TPOS Order ID để xử lý nhận hàng');
+            }
+
+            // Call the refund process - this handles all 5 fetch calls
+            const result = await ApiService.processRefund(ticket.tposId);
+
+            console.log('[APP] Refund completed, refundOrderId:', result.refundOrderId);
+
+            // Update ticket in Firebase with refund info
+            await ApiService.updateTicket(pendingActionTicketId, {
+                status: 'COMPLETED',
+                completedAt: firebase.database.ServerValue.TIMESTAMP,
+                refundOrderId: result.refundOrderId,
+                refundNumber: result.confirmResult?.value?.[0]?.Number || null
+            });
+
+            closeModal(elements.modalConfirm);
+
+            // Show print dialog with the HTML bill
+            if (result.printHtml) {
+                showPrintDialog(result.printHtml);
+            }
+
+        } else if (pendingActionType === 'PAY') {
+            // PAY action: Just mark as completed (payment done externally)
+            await ApiService.updateTicket(pendingActionTicketId, {
+                status: 'COMPLETED',
+                completedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            closeModal(elements.modalConfirm);
+        }
     } catch (error) {
-        console.error(error);
-        alert("Lỗi khi cập nhật: " + error.message);
+        console.error('[APP] handleConfirmAction error:', error);
+        alert("Lỗi khi xử lý: " + error.message);
     } finally {
         showLoading(false);
     }
+}
+
+/**
+ * Show print dialog with refund bill HTML
+ * @param {string} html - HTML content of the bill
+ */
+function showPrintDialog(html) {
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+
+    if (!printWindow) {
+        alert('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
+        return;
+    }
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    // Wait for content to load then trigger print
+    printWindow.onload = function() {
+        printWindow.focus();
+        printWindow.print();
+    };
 }
 
 /**
