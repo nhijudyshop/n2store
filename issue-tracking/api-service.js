@@ -265,7 +265,7 @@ const ApiService = {
 
         // ========== FETCH 2: Get Refund Order Details ==========
         console.log('[API] Step 2: Get refund order details');
-        const expand = 'Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,HistoryDeliveryDetails,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,OutstandingInfo($expand=Content),Team,OfferAmountDetails,+DestConvertCurrencyUnit,PackageImages';
+        const expand = 'Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,HistoryDeliveryDetails,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,OutstandingInfo($expand=Content),Team,OfferAmountDetails,DestConvertCurrencyUnit,PackageImages';
 
         const detailsResponse = await window.tokenManager.authenticatedFetch(
             `${API_CONFIG.TPOS_ODATA}/FastSaleOrder(${refundOrderId})?$expand=${encodeURIComponent(expand)}`,
