@@ -24842,6 +24842,14 @@ function generateCustomBillHTML(orderResult) {
             font-size: 12px;
             color: #666;
         }
+        .barcode-container {
+            text-align: center;
+            margin: 10px 0;
+        }
+        .barcode-container svg {
+            max-width: 100%;
+            height: auto;
+        }
         @media print {
             body { padding: 5px; }
             .no-print { display: none; }
@@ -24857,6 +24865,11 @@ function generateCustomBillHTML(orderResult) {
     <div class="bill-title">PHIẾU BÁN HÀNG</div>
 
     ${sttDisplay ? `<div class="stt-display">STT: ${sttDisplay}</div>` : ''}
+
+    <!-- Barcode for order number -->
+    <div class="barcode-container">
+        <svg id="barcode"></svg>
+    </div>
 
     <div class="order-info">
         <div><span class="label">Số HĐ:</span> ${orderResult?.Number || 'N/A'}</div>
@@ -24931,6 +24944,26 @@ function generateCustomBillHTML(orderResult) {
         <div>Cảm ơn quý khách!</div>
         <div>Mọi thắc mắc vui lòng liên hệ: ${company.Phone || '090 8888 674'}</div>
     </div>
+
+    <!-- JsBarcode library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script>
+        // Generate barcode after page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                JsBarcode("#barcode", "${orderResult?.Number || ''}", {
+                    format: "CODE128",
+                    width: 1.5,
+                    height: 40,
+                    displayValue: true,
+                    fontSize: 12,
+                    margin: 5
+                });
+            } catch (e) {
+                console.error('Barcode generation failed:', e);
+            }
+        });
+    </script>
 </body>
 </html>
     `;
@@ -25007,8 +25040,8 @@ async function generateBillImage(orderResult) {
     iframeDoc.write(html);
     iframeDoc.close();
 
-    // Wait for rendering
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Wait for scripts to load and barcode to render (JsBarcode needs time)
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
         // Get the body element from iframe
