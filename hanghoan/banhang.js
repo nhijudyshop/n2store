@@ -546,7 +546,7 @@ const BanHangModule = (function () {
         });
     }
 
-    // Expand order details by fetching OrderLines from TPOS
+    // Expand order details by fetching from TPOS with 2 API calls
     async function expandOrderDetails(row, orderId) {
         try {
             console.log('[EXPAND] Fetching details for order:', orderId);
@@ -561,35 +561,81 @@ const BanHangModule = (function () {
             `;
             row.insertAdjacentElement('afterend', loadingRow);
 
-            // Fetch order lines from TPOS API via worker
-            // Use order-ref route for reference codes like NJD/2026/42623
-            const encodedRef = encodeURIComponent(orderId);
-            const response = await fetch(`${WORKER_URL}/tpos/order-ref/${encodedRef}/lines`, {
+            // Get token first
+            const token = await getTPOSToken();
+
+            // Build date range for filter (last 2 months to ensure we find the order)
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setMonth(startDate.getMonth() - 2);
+            const startISO = startDate.toISOString();
+            const endISO = endDate.toISOString();
+
+            // FETCH 1: Get order details by Number to get the internal ID
+            const filterQuery = `(Type eq 'invoice' and IsMergeCancel ne true and DateInvoice ge ${startISO} and DateInvoice le ${endISO} and contains(Number,'${orderId}'))`;
+            const fetch1Url = `${WORKER_URL}/api/odata/FastSaleOrder/ODataService.GetView?&$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filterQuery)}&$count=true`;
+
+            console.log('[EXPAND] Fetch 1 - GetView URL:', fetch1Url);
+
+            const response1 = await fetch(fetch1Url, {
                 method: 'GET',
                 headers: {
                     'Accept': '*/*',
-                    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-                    'Cache-Control': 'no-cache',
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                    'Pragma': 'no-cache',
-                    'tposappversion': typeof TPOS_CONFIG !== 'undefined' ? TPOS_CONFIG.tposAppVersion : '5.12.29.1',
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'tposappversion': '5.12.29.1'
                 }
             });
 
-            const result = await response.json();
+            const result1 = await response1.json();
+            console.log('[EXPAND] Fetch 1 result:', result1);
 
-            if (!result.success || !result.data || result.data.length === 0) {
+            if (!result1.value || result1.value.length === 0) {
                 loadingRow.innerHTML = `
                     <td colspan="100%" style="padding: 20px; text-align: center; background: #fff3cd; color: #856404;">
-                        <i class="fas fa-exclamation-triangle"></i> Không tìm thấy chi tiết đơn hàng
+                        <i class="fas fa-exclamation-triangle"></i> Không tìm thấy đơn hàng ${orderId}
                     </td>
                 `;
                 return;
             }
 
-            // Render order details
-            renderOrderDetails(loadingRow, result.data);
+            // Get the order data from fetch 1
+            const orderData = result1.value[0];
+            const internalId = orderData.Id;
+
+            console.log('[EXPAND] Found order with internal ID:', internalId);
+
+            // FETCH 2: Get OrderLines using internal ID
+            const fetch2Url = `${WORKER_URL}/api/odata/FastSaleOrder(${internalId})/OrderLines?$expand=Product,ProductUOM,Account,SaleLine,User`;
+
+            console.log('[EXPAND] Fetch 2 - OrderLines URL:', fetch2Url);
+
+            const response2 = await fetch(fetch2Url, {
+                method: 'GET',
+                headers: {
+                    'Accept': '*/*',
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+                    'tposappversion': '5.12.29.1'
+                }
+            });
+
+            const result2 = await response2.json();
+            console.log('[EXPAND] Fetch 2 result:', result2);
+
+            const orderLines = result2.value || [];
+
+            if (orderLines.length === 0) {
+                loadingRow.innerHTML = `
+                    <td colspan="100%" style="padding: 20px; text-align: center; background: #fff3cd; color: #856404;">
+                        <i class="fas fa-exclamation-triangle"></i> Không tìm thấy chi tiết sản phẩm
+                    </td>
+                `;
+                return;
+            }
+
+            // Render order details with both order info and order lines
+            renderOrderDetails(loadingRow, orderLines, orderData);
 
         } catch (error) {
             console.error('[EXPAND] Error fetching order details:', error);
@@ -604,8 +650,16 @@ const BanHangModule = (function () {
         }
     }
 
-    // Render order details table
-    function renderOrderDetails(detailRow, orderLines) {
+    // Render order details table with order info and product lines
+    function renderOrderDetails(detailRow, orderLines, orderData = {}) {
+        // Calculate totals from order lines
+        const productTotal = orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
+
+        // Get order-level data from fetch 1 result
+        const deliveryFee = orderData.DeliveryPrice || orderData.AmountDelivery || 0;
+        const totalAmount = orderData.AmountTotal || (productTotal + deliveryFee);
+        const amountResidual = orderData.Residual || orderData.AmountResidual || totalAmount;
+
         const detailHtml = `
             <td colspan="100%" style="padding: 0; background: #f8f9fa;">
                 <div style="padding: 20px; margin: 10px 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -624,18 +678,33 @@ const BanHangModule = (function () {
                             ${orderLines.map((line, index) => `
                                 <tr>
                                     <td class="text-center">${index + 1}</td>
-                                    <td>${escapeHtml(line.ProductNameGet || line.Name || '')}</td>
-                                    <td>${escapeHtml(line.ProductUOMName || '')}</td>
+                                    <td>
+                                        <div>${escapeHtml(line.ProductNameGet || line.Name || '')}</div>
+                                        ${line.Product && line.Product.NameNoSign ? `<small style="color: #6c757d;">${escapeHtml(line.Product.NameNoSign || '')}</small>` : ''}
+                                    </td>
+                                    <td>${escapeHtml(line.ProductUOM?.Name || line.ProductUOMName || '')}</td>
                                     <td class="text-center">${line.ProductUOMQty || 0}</td>
                                     <td class="text-right">${formatCurrency(line.PriceUnit || 0)}</td>
                                     <td class="text-right">${formatCurrency(line.PriceTotal || 0)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
-                        <tfoot style="background: #f8f9fa; font-weight: bold;">
+                        <tfoot style="background: #f8f9fa;">
                             <tr>
-                                <td colspan="5" class="text-right">Tổng</td>
-                                <td class="text-right">${formatCurrency(orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0))}</td>
+                                <td colspan="5" class="text-right" style="font-weight: bold;">Tổng</td>
+                                <td class="text-right" style="font-weight: bold;">${formatCurrency(productTotal)}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="5" class="text-right">Phí giao hàng:</td>
+                                <td class="text-right">${formatCurrency(deliveryFee)}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="5" class="text-right" style="font-weight: bold;">Tổng tiền:</td>
+                                <td class="text-right" style="font-weight: bold;">${formatCurrency(totalAmount)}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="5" class="text-right" style="font-weight: bold; color: #dc3545;">Còn nợ:</td>
+                                <td class="text-right" style="font-weight: bold; color: #dc3545;">${formatCurrency(amountResidual)}</td>
                             </tr>
                         </tfoot>
                     </table>
