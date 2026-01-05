@@ -6,7 +6,9 @@
       "Bash(git add:*)",
       "Bash(git push:*)",
       "Bash(git commit:*)",
-      "Bash(npx wrangler deploy)"
+      "Bash(npx wrangler deploy)",
+      "Bash(git init:*)",
+      "Bash(gh repo create:*)"
     ]
   }
 }
