@@ -22832,12 +22832,32 @@ async function openSaleButtonModal() {
 
 /**
  * Close Sale Button Modal
+ * @param {boolean} clearSelection - If true, clear checkbox selection and selectedOrderIds
  */
-function closeSaleButtonModal() {
+function closeSaleButtonModal(clearSelection = false) {
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'none';
     currentSaleOrderData = null;
     currentSalePartnerData = null;
+
+    // Clear selection if requested (after successful order creation)
+    if (clearSelection) {
+        // Clear selectedOrderIds
+        selectedOrderIds.clear();
+
+        // Uncheck all checkboxes in table
+        const checkboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+
+        // Uncheck "Select All" checkbox
+        const selectAllCheckbox = document.getElementById('selectAll');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+        }
+
+        // Update action buttons visibility
+        updateActionButtons();
+    }
 }
 
 /**
@@ -24202,13 +24222,9 @@ async function confirmAndPrintSale() {
             window.notificationManager.success(`Đã tạo đơn hàng ${createResult.Number || orderId}`);
         }
 
-        // Close modal after successful creation
+        // Close modal after successful creation and clear selection
         setTimeout(() => {
-            closeSaleButtonModal();
-            // Refresh the orders list if needed
-            if (typeof loadTab1Data === 'function') {
-                loadTab1Data();
-            }
+            closeSaleButtonModal(true); // true = clear checkbox selection
         }, 500);
 
     } catch (error) {
