@@ -24658,6 +24658,12 @@ function generateCustomBillHTML(orderResult) {
     const carrierSelect = document.getElementById('saleDeliveryPartner');
     const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
 
+    // Get seller name from current user
+    const sellerName = window.authManager?.currentUser?.displayName ||
+                       defaultData.User?.Name ||
+                       orderResult?.User?.Name ||
+                       '';
+
     // Get STT
     let sttDisplay = '';
     if (order?.IsMerged && order?.OriginalOrders?.length > 1) {
@@ -24881,6 +24887,7 @@ function generateCustomBillHTML(orderResult) {
         <div><span class="label">Khách hàng:</span> ${receiverName}</div>
         <div><span class="label">SĐT:</span> ${receiverPhone}</div>
         <div><span class="label">Địa chỉ:</span> ${receiverAddress}</div>
+        ${sellerName ? `<div><span class="label">Người bán:</span> ${sellerName}</div>` : ''}
     </div>
 
     <table>
