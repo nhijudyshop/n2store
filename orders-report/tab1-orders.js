@@ -25632,6 +25632,153 @@ let fastSaleResultsData = {
 };
 
 /**
+ * Cache for pre-generated bill images and send tasks
+ * Key: order ID or order Number
+ * Value: { imageBlob, contentUrl, contentId, enrichedOrder, sendTask }
+ */
+window.preGeneratedBillData = new Map();
+
+/**
+ * Flag to track if pre-generation is in progress
+ */
+window.isPreGeneratingBills = false;
+
+/**
+ * Pre-generate bill images in background after orders are created
+ * This runs automatically when success orders are available
+ */
+async function preGenerateBillImages() {
+    const successOrders = fastSaleResultsData.success;
+    if (!successOrders || successOrders.length === 0) {
+        console.log('[FAST-SALE] No success orders to pre-generate bills for');
+        return;
+    }
+
+    window.isPreGeneratingBills = true;
+    // Run in background - don't disable print button
+
+    console.log(`[FAST-SALE] 🎨 Pre-generating ${successOrders.length} bill images in background...`);
+    window.preGeneratedBillData.clear();
+
+    for (let i = 0; i < successOrders.length; i++) {
+        const order = successOrders[i];
+
+        try {
+            // Find original order by matching SaleOnlineIds or Reference (same logic as printSuccessOrders)
+            const originalOrderIndex = fastSaleOrdersData.findIndex(o =>
+                (o.SaleOnlineIds && order.SaleOnlineIds &&
+                    JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
+                (o.Reference && o.Reference === order.Reference)
+            );
+            const originalOrder = originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
+
+            // Find saleOnline order from displayedData
+            const saleOnlineId = order.SaleOnlineIds?.[0];
+            const saleOnlineOrderForData = saleOnlineId
+                ? displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId))
+                : null;
+
+            // Get CarrierName from form dropdown
+            const carrierSelect = originalOrderIndex >= 0 ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`) : null;
+            const carrierNameFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
+            const carrierName = carrierNameFromDropdown ||
+                originalOrder?.Carrier?.Name ||
+                originalOrder?.CarrierName ||
+                order.CarrierName ||
+                order.Carrier?.Name ||
+                '';
+            const shippingFee = originalOrderIndex >= 0
+                ? parseFloat(document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)?.value) || 0
+                : order.DeliveryPrice || 0;
+
+            // Get OrderLines
+            let orderLines = originalOrder?.OrderLines || order.OrderLines || [];
+            if ((!orderLines || orderLines.length === 0) && saleOnlineOrderForData?.Details) {
+                orderLines = saleOnlineOrderForData.Details.map(d => ({
+                    ProductName: d.ProductName || d.ProductNameGet || '',
+                    ProductNameGet: d.ProductNameGet || d.ProductName || '',
+                    ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
+                    Quantity: d.Quantity || d.ProductUOMQty || 1,
+                    PriceUnit: d.Price || d.PriceUnit || 0,
+                    Note: d.Note || ''
+                }));
+            }
+
+            // Create enriched order
+            const enrichedOrder = {
+                ...order,
+                OrderLines: orderLines,
+                CarrierName: carrierName,
+                DeliveryPrice: shippingFee,
+                PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
+            };
+
+            // Find saleOnline order for chat info
+            let saleOnlineOrder = saleOnlineOrderForData;
+            const saleOnlineName = order.SaleOnlineNames?.[0];
+            if (!saleOnlineOrder && saleOnlineName) {
+                saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
+            }
+            if (!saleOnlineOrder && order.PartnerId) {
+                saleOnlineOrder = displayedData.find(o => o.PartnerId === order.PartnerId);
+            }
+
+            // Prepare send task
+            let sendTask = null;
+            if (saleOnlineOrder) {
+                const psid = saleOnlineOrder.Facebook_ASUserId;
+                const postId = saleOnlineOrder.Facebook_PostId;
+                const channelId = postId ? postId.split('_')[0] : null;
+
+                if (psid && channelId) {
+                    sendTask = {
+                        channelId,
+                        psid,
+                        customerName: saleOnlineOrder.Name,
+                        orderNumber: order.Number
+                    };
+                }
+            }
+
+            // Generate bill image in background
+            const imageBlob = await generateBillImage(enrichedOrder, {});
+
+            // Upload image to Pancake immediately if we have sendTask
+            let contentUrl = null;
+            let contentId = null;
+            if (sendTask && window.pancakeDataManager) {
+                const imageFile = new File([imageBlob], `bill_${order.Number || Date.now()}.png`, { type: 'image/png' });
+                const uploadResult = await window.pancakeDataManager.uploadImage(sendTask.channelId, imageFile);
+                contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+                // IMPORTANT: Use content_id (hash), not id (UUID) - Pancake API expects content_id
+                contentId = typeof uploadResult === 'object' ? (uploadResult.content_id || uploadResult.id) : null;
+                console.log(`[FAST-SALE] 📤 Pre-uploaded bill image for ${order.Number}: ${contentUrl}, content_id: ${contentId}`);
+            }
+
+            // Cache the data
+            const cacheKey = order.Id || order.Number;
+            window.preGeneratedBillData.set(cacheKey, {
+                imageBlob,
+                contentUrl,
+                contentId,
+                enrichedOrder,
+                sendTask
+            });
+
+            console.log(`[FAST-SALE] ✅ Pre-generated bill ${i + 1}/${successOrders.length}: ${order.Number}`);
+
+        } catch (error) {
+            console.error(`[FAST-SALE] ❌ Error pre-generating bill for ${order.Number}:`, error);
+        }
+    }
+
+    console.log(`[FAST-SALE] 🎨 Pre-generation complete: ${window.preGeneratedBillData.size}/${successOrders.length} bills ready`);
+    window.notificationManager.success(`Đã tạo sẵn ${window.preGeneratedBillData.size} bill images`, 2000);
+
+    window.isPreGeneratingBills = false;
+}
+
+/**
  * Show Fast Sale Results Modal
  * @param {Object} results - API response with OrdersSucessed, OrdersError, DataErrorFast
  */
@@ -25666,6 +25813,11 @@ function showFastSaleResultsModal(results) {
         switchResultsTab('failed');
     } else {
         switchResultsTab('success');
+    }
+
+    // Pre-generate bill images in background (don't await - run async)
+    if (fastSaleResultsData.success.length > 0) {
+        setTimeout(() => preGenerateBillImages(), 100);
     }
 }
 
@@ -25942,6 +26094,8 @@ function toggleAllSuccessOrders(checked) {
  * @param {string} type - 'invoice', 'shipping', or 'picking'
  */
 async function printSuccessOrders(type) {
+    // Pre-generation runs in background - if cached data exists, use it; otherwise generate on-the-fly
+
     const selectedIndexes = Array.from(document.querySelectorAll('.success-order-checkbox:checked'))
         .map(cb => parseInt(cb.value));
 
@@ -26105,13 +26259,39 @@ async function printSuccessOrders(type) {
             openCombinedPrintPopup(enrichedOrders);
         }
 
+        // 3. Clear main table checkboxes after printing
+        console.log('[FAST-SALE] Clearing main table checkboxes after print...');
+        selectedOrderIds.clear();
+        // Uncheck all checkboxes in main table
+        document.querySelectorAll('#ordersTable input[type="checkbox"]:checked').forEach(cb => {
+            cb.checked = false;
+        });
+        // Also uncheck header checkbox
+        const headerCheckbox = document.querySelector('#ordersTable thead input[type="checkbox"]');
+        if (headerCheckbox) headerCheckbox.checked = false;
+        // Update action buttons visibility
+        updateActionButtons();
+
         // 2. Send all bills to Messenger in PARALLEL
         if (sendTasks.length > 0) {
             console.log('[FAST-SALE] Sending', sendTasks.length, 'bills to Messenger in parallel...');
             window.notificationManager.info(`Đang gửi ${sendTasks.length} bill qua Messenger...`, 3000);
 
-            const sendPromises = sendTasks.map(task =>
-                sendBillToCustomer(task.enrichedOrder, task.channelId, task.psid)
+            const sendPromises = sendTasks.map(task => {
+                // Check for pre-generated bill data
+                const orderId = task.enrichedOrder?.Id;
+                const orderNumber = task.enrichedOrder?.Number;
+                const cachedData = window.preGeneratedBillData?.get(orderId) ||
+                    window.preGeneratedBillData?.get(orderNumber);
+
+                const sendOptions = {};
+                if (cachedData && cachedData.contentUrl && cachedData.contentId) {
+                    console.log(`[FAST-SALE] ⚡ Using pre-generated bill for ${task.orderNumber}`);
+                    sendOptions.preGeneratedContentUrl = cachedData.contentUrl;
+                    sendOptions.preGeneratedContentId = cachedData.contentId;
+                }
+
+                return sendBillToCustomer(task.enrichedOrder, task.channelId, task.psid, sendOptions)
                     .then(res => {
                         if (res.success) {
                             console.log(`[FAST-SALE] ✅ Bill sent for ${task.orderNumber} to ${task.customerName}`);
@@ -26124,8 +26304,8 @@ async function printSuccessOrders(type) {
                     .catch(err => {
                         console.error(`[FAST-SALE] ❌ Error sending bill for ${task.orderNumber}:`, err);
                         return { success: false, orderNumber: task.orderNumber, error: err.message };
-                    })
-            );
+                    });
+            });
 
             // Wait for all sends to complete
             Promise.all(sendPromises).then(results => {

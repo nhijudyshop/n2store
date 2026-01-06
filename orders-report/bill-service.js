@@ -627,6 +627,8 @@ const BillService = (function () {
      * @param {string} psid - Customer's Facebook PSID
      * @param {Object} options - Optional parameters
      * @param {Object} options.currentSaleOrderData - Current sale order data for conversation lookup
+     * @param {string} options.preGeneratedContentUrl - Pre-uploaded image URL (skip generation & upload if provided)
+     * @param {string} options.preGeneratedContentId - Pre-uploaded content ID
      * @returns {Promise<{success: boolean, error?: string, messageId?: string}>}
      */
     async function sendBillToCustomer(orderResult, pageId, psid, options = {}) {
@@ -640,29 +642,38 @@ const BillService = (function () {
         }
 
         try {
-            // Step 1: Generate bill image
-            console.log('[BILL-SERVICE] Step 1: Generating bill image...');
-            const imageBlob = await generateBillImage(orderResult, options);
+            let contentUrl = options.preGeneratedContentUrl || null;
+            let contentId = options.preGeneratedContentId || null;
 
-            // Convert blob to File for upload
-            const imageFile = new File([imageBlob], `bill_${orderResult?.Number || Date.now()}.png`, {
-                type: 'image/png'
-            });
+            // Use pre-generated content if available, otherwise generate and upload
+            if (contentUrl && contentId) {
+                console.log('[BILL-SERVICE] ⚡ Using pre-generated bill image:', contentUrl);
+            } else {
+                // Step 1: Generate bill image
+                console.log('[BILL-SERVICE] Step 1: Generating bill image...');
+                const imageBlob = await generateBillImage(orderResult, options);
 
-            // Step 2: Upload image to Pancake
-            console.log('[BILL-SERVICE] Step 2: Uploading image to Pancake...');
-            if (!window.pancakeDataManager) {
-                throw new Error('PancakeDataManager not available');
+                // Convert blob to File for upload
+                const imageFile = new File([imageBlob], `bill_${orderResult?.Number || Date.now()}.png`, {
+                    type: 'image/png'
+                });
+
+                // Step 2: Upload image to Pancake
+                console.log('[BILL-SERVICE] Step 2: Uploading image to Pancake...');
+                if (!window.pancakeDataManager) {
+                    throw new Error('PancakeDataManager not available');
+                }
+
+                const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
+                contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+                // IMPORTANT: Use content_id (hash), not id (UUID) - Pancake API expects content_id
+                contentId = typeof uploadResult === 'object' ? (uploadResult.content_id || uploadResult.id) : null;
+
+                if (!contentUrl) {
+                    throw new Error('Upload failed - no content_url returned');
+                }
+                console.log('[BILL-SERVICE] Image uploaded:', contentUrl, 'content_id:', contentId);
             }
-
-            const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
-            const contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
-            const contentId = typeof uploadResult === 'object' ? uploadResult.id : null;
-
-            if (!contentUrl) {
-                throw new Error('Upload failed - no content_url returned');
-            }
-            console.log('[BILL-SERVICE] Image uploaded:', contentUrl, 'content_id:', contentId);
 
             // Step 3: Send message with image via Pancake API
             console.log('[BILL-SERVICE] Step 3: Sending message with image...');
