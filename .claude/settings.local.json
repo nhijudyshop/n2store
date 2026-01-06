@@ -7,7 +7,9 @@
       "Bash(git push:*)",
       "Bash(git checkout:*)",
       "Bash(git commit:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)"
     ]
   }
 }
