@@ -112,7 +112,7 @@
                     <i data-lucide="filter"></i> <span id="toggleFiltersText">Hiện bộ lọc</span>
                 </button>
                 <button id="toggleHiddenBtn" class="btn-toggle-hidden" onclick="toggleShowHidden()">
-                    <i data-lucide="eye-off"></i> <span id="toggleHiddenText">Hiện GD đã ẩn</span>
+                    <i data-lucide="eye-off"></i> <span id="toggleHiddenText">Xem GD đã ẩn</span>
                 </button>
                 <span id="hiddenCount" style="color: #6b7280; font-size: 13px;"></span>
             </div>
@@ -223,24 +223,23 @@
 
                     // Update button UI
                     const btn = document.getElementById('toggleHiddenBtn');
-                    const text = document.getElementById('toggleHiddenText');
 
                     if (showHidden) {
+                        // Currently showing ONLY hidden items
                         btn.classList.add('active');
-                        text.textContent = 'Ẩn GD đã ẩn';
-                        btn.innerHTML = '<i data-lucide="eye"></i> <span id="toggleHiddenText">Ẩn GD đã ẩn</span>';
+                        btn.innerHTML = '<i data-lucide="eye"></i> <span id="toggleHiddenText">Xem tất cả</span>';
                     } else {
+                        // Currently showing ALL items (default)
                         btn.classList.remove('active');
-                        text.textContent = 'Hiện GD đã ẩn';
-                        btn.innerHTML = '<i data-lucide="eye-off"></i> <span id="toggleHiddenText">Hiện GD đã ẩn</span>';
+                        btn.innerHTML = '<i data-lucide="eye-off"></i> <span id="toggleHiddenText">Xem GD đã ẩn</span>';
                     }
 
                     // Re-render icons
                     lucide.createIcons();
 
-                    // Reload data with new filter
-                    if (typeof loadData === 'function') {
-                        loadData();
+                    // Re-render table from cached data (no API call - instant!)
+                    if (typeof renderCurrentView === 'function') {
+                        renderCurrentView();
                     }
                 }
             </script>

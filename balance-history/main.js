@@ -14,6 +14,7 @@ let currentPage = 1;
 let totalPages = 1;
 let currentQuickFilter = 'last30days'; // Default quick filter
 let showHidden = false; // Toggle to show/hide hidden transactions
+let allLoadedData = []; // Cache all loaded data (including hidden) for client-side filtering
 let filters = {
     type: '',
     gateway: '',
@@ -696,11 +697,11 @@ async function loadData() {
     showLoading();
 
     try {
-        // Send search query to backend (backend now handles search for customer phone too)
+        // Always fetch ALL data (including hidden) - we filter client-side for toggle
         const queryParams = new URLSearchParams({
             page: currentPage,
             limit: 50,
-            showHidden: showHidden.toString(),
+            showHidden: 'true', // Always get all data
             ...filters
         });
 
@@ -718,14 +719,17 @@ async function loadData() {
         const result = await response.json();
 
         if (result.success) {
-            // Backend now handles search, no need for client-side filtering
-            const filteredData = result.data;
+            // Store all data for client-side filtering
+            allLoadedData = result.data;
 
-            // Skip gap detection when searching (don't show missing transaction rows)
-            renderTable(filteredData, !!filters.search);
+            // Render with current filter
+            renderCurrentView();
 
             // Update pagination info
             updatePagination(result.pagination);
+
+            // Update hidden count badge
+            updateHiddenCount();
         } else {
             showError('Không thể tải dữ liệu: ' + result.error);
         }
@@ -734,6 +738,28 @@ async function loadData() {
         showError('Lỗi khi tải dữ liệu: ' + error.message);
     } finally {
         hideLoading();
+    }
+}
+
+// Render current view based on showHidden flag (no API call)
+function renderCurrentView() {
+    // Filter data based on showHidden flag
+    // showHidden = false: Show ALL transactions (default)
+    // showHidden = true: Show ONLY hidden transactions
+    const dataToRender = showHidden
+        ? allLoadedData.filter(item => item.is_hidden)  // Only hidden items
+        : allLoadedData;  // Show all
+
+    // Skip gap detection when searching
+    renderTable(dataToRender, !!filters.search);
+}
+
+// Update hidden count badge
+function updateHiddenCount() {
+    const hiddenCount = allLoadedData.filter(item => item.is_hidden).length;
+    const countEl = document.getElementById('hiddenCount');
+    if (countEl) {
+        countEl.textContent = hiddenCount > 0 ? `(${hiddenCount} GD đã ẩn)` : '';
     }
 }
 
@@ -2262,6 +2288,15 @@ async function toggleHideTransaction(transactionId, hidden) {
         const result = await response.json();
 
         if (result.success) {
+            // Update the cached data
+            const itemIndex = allLoadedData.findIndex(item => item.id === transactionId);
+            if (itemIndex !== -1) {
+                allLoadedData[itemIndex].is_hidden = hidden;
+            }
+
+            // Update hidden count badge
+            updateHiddenCount();
+
             // Find the row in DOM
             const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
 
