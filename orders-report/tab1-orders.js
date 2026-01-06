@@ -26460,3 +26460,230 @@ window.createForcedOrders = createForcedOrders;
 window.printSuccessOrders = printSuccessOrders;
 
 // #endregion FAST SALE MODAL
+
+// #region BILL TEMPLATE SETTINGS
+
+/**
+ * Default bill template settings
+ */
+const defaultBillSettings = {
+    // General
+    shopName: '',
+    shopPhone: '',
+    shopAddress: '',
+    billTitle: 'PHIẾU BÁN HÀNG',
+    footerText: 'Cảm ơn quý khách! Hẹn gặp lại!',
+    // Sections visibility
+    showHeader: true,
+    showTitle: true,
+    showSTT: true,
+    showBarcode: true,
+    showOrderInfo: true,
+    showCarrier: true,
+    showCustomer: true,
+    showSeller: true,
+    showProducts: true,
+    showTotals: true,
+    showCOD: true,
+    showDeliveryNote: true,
+    showFooter: true,
+    // Style
+    fontShopName: 18,
+    fontTitle: 16,
+    fontContent: 13,
+    fontCOD: 18,
+    billWidth: '80mm',
+    billPadding: 20,
+    codBackground: '#fef3c7',
+    codBorder: '#f59e0b'
+};
+
+/**
+ * Get bill template settings from localStorage
+ */
+function getBillTemplateSettings() {
+    try {
+        const saved = localStorage.getItem('billTemplateSettings');
+        if (saved) {
+            return { ...defaultBillSettings, ...JSON.parse(saved) };
+        }
+    } catch (e) {
+        console.error('[BILL-SETTINGS] Error loading settings:', e);
+    }
+    return { ...defaultBillSettings };
+}
+
+/**
+ * Open bill template settings modal
+ */
+function openBillTemplateSettings() {
+    const modal = document.getElementById('billTemplateSettingsModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        loadBillSettingsToForm();
+    }
+}
+
+/**
+ * Close bill template settings modal
+ */
+function closeBillTemplateSettings() {
+    const modal = document.getElementById('billTemplateSettingsModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * Switch between settings tabs
+ */
+function switchBillSettingsTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.bill-settings-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.tab === tabName);
+    });
+    // Update content
+    document.querySelectorAll('.bill-settings-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    const tabMap = {
+        'general': 'billSettingsGeneral',
+        'sections': 'billSettingsSections',
+        'style': 'billSettingsStyle',
+        'preview': 'billSettingsPreview'
+    };
+    const targetContent = document.getElementById(tabMap[tabName]);
+    if (targetContent) {
+        targetContent.style.display = 'block';
+    }
+}
+
+/**
+ * Load settings to form
+ */
+function loadBillSettingsToForm() {
+    const settings = getBillTemplateSettings();
+    // General
+    document.getElementById('billShopName').value = settings.shopName || '';
+    document.getElementById('billShopPhone').value = settings.shopPhone || '';
+    document.getElementById('billShopAddress').value = settings.shopAddress || '';
+    document.getElementById('billTitle').value = settings.billTitle || 'PHIẾU BÁN HÀNG';
+    document.getElementById('billFooterText').value = settings.footerText || '';
+    // Sections
+    document.getElementById('billShowHeader').checked = settings.showHeader !== false;
+    document.getElementById('billShowTitle').checked = settings.showTitle !== false;
+    document.getElementById('billShowSTT').checked = settings.showSTT !== false;
+    document.getElementById('billShowBarcode').checked = settings.showBarcode !== false;
+    document.getElementById('billShowOrderInfo').checked = settings.showOrderInfo !== false;
+    document.getElementById('billShowCarrier').checked = settings.showCarrier !== false;
+    document.getElementById('billShowCustomer').checked = settings.showCustomer !== false;
+    document.getElementById('billShowSeller').checked = settings.showSeller !== false;
+    document.getElementById('billShowProducts').checked = settings.showProducts !== false;
+    document.getElementById('billShowTotals').checked = settings.showTotals !== false;
+    document.getElementById('billShowCOD').checked = settings.showCOD !== false;
+    document.getElementById('billShowDeliveryNote').checked = settings.showDeliveryNote !== false;
+    document.getElementById('billShowFooter').checked = settings.showFooter !== false;
+    // Style
+    document.getElementById('billFontShopName').value = settings.fontShopName || 18;
+    document.getElementById('billFontTitle').value = settings.fontTitle || 16;
+    document.getElementById('billFontContent').value = settings.fontContent || 13;
+    document.getElementById('billFontCOD').value = settings.fontCOD || 18;
+    document.getElementById('billWidth').value = settings.billWidth || '80mm';
+    document.getElementById('billPadding').value = settings.billPadding || 20;
+    document.getElementById('billCODBackground').value = settings.codBackground || '#fef3c7';
+    document.getElementById('billCODBorder').value = settings.codBorder || '#f59e0b';
+}
+
+/**
+ * Save bill template settings
+ */
+function saveBillTemplateSettings() {
+    const settings = {
+        // General
+        shopName: document.getElementById('billShopName').value.trim(),
+        shopPhone: document.getElementById('billShopPhone').value.trim(),
+        shopAddress: document.getElementById('billShopAddress').value.trim(),
+        billTitle: document.getElementById('billTitle').value.trim() || 'PHIẾU BÁN HÀNG',
+        footerText: document.getElementById('billFooterText').value.trim(),
+        // Sections
+        showHeader: document.getElementById('billShowHeader').checked,
+        showTitle: document.getElementById('billShowTitle').checked,
+        showSTT: document.getElementById('billShowSTT').checked,
+        showBarcode: document.getElementById('billShowBarcode').checked,
+        showOrderInfo: document.getElementById('billShowOrderInfo').checked,
+        showCarrier: document.getElementById('billShowCarrier').checked,
+        showCustomer: document.getElementById('billShowCustomer').checked,
+        showSeller: document.getElementById('billShowSeller').checked,
+        showProducts: document.getElementById('billShowProducts').checked,
+        showTotals: document.getElementById('billShowTotals').checked,
+        showCOD: document.getElementById('billShowCOD').checked,
+        showDeliveryNote: document.getElementById('billShowDeliveryNote').checked,
+        showFooter: document.getElementById('billShowFooter').checked,
+        // Style
+        fontShopName: parseInt(document.getElementById('billFontShopName').value) || 18,
+        fontTitle: parseInt(document.getElementById('billFontTitle').value) || 16,
+        fontContent: parseInt(document.getElementById('billFontContent').value) || 13,
+        fontCOD: parseInt(document.getElementById('billFontCOD').value) || 18,
+        billWidth: document.getElementById('billWidth').value || '80mm',
+        billPadding: parseInt(document.getElementById('billPadding').value) || 20,
+        codBackground: document.getElementById('billCODBackground').value || '#fef3c7',
+        codBorder: document.getElementById('billCODBorder').value || '#f59e0b'
+    };
+
+    try {
+        localStorage.setItem('billTemplateSettings', JSON.stringify(settings));
+        window.notificationManager.success('Đã lưu cài đặt bill template', 2000);
+        closeBillTemplateSettings();
+    } catch (e) {
+        console.error('[BILL-SETTINGS] Error saving settings:', e);
+        window.notificationManager.error('Lỗi khi lưu cài đặt', 2000);
+    }
+}
+
+/**
+ * Reset bill template settings to default
+ */
+function resetBillTemplateSettings() {
+    localStorage.removeItem('billTemplateSettings');
+    loadBillSettingsToForm();
+    window.notificationManager.info('Đã đặt lại cài đặt mặc định', 2000);
+}
+
+/**
+ * Preview bill template with sample data
+ */
+function previewBillTemplate() {
+    const sampleOrder = {
+        Number: 'NJD/2026/SAMPLE',
+        PartnerDisplayName: 'Nguyễn Văn A',
+        Partner: { Name: 'Nguyễn Văn A', Phone: '0901234567', Street: '123 Đường ABC, Quận 1, TP.HCM' },
+        CarrierName: 'Giao hàng nhanh (GHN)',
+        DeliveryPrice: 25000,
+        CashOnDelivery: 350000,
+        AmountDeposit: 50000,
+        Discount: 10000,
+        Ship_Note: 'Gọi trước khi giao. Ship COD.',
+        SessionIndex: '123',
+        OrderLines: [
+            { ProductName: 'Áo thun nam size L', Quantity: 2, PriceUnit: 150000 },
+            { ProductName: 'Quần jean nữ size M', Quantity: 1, PriceUnit: 250000, Note: 'Màu xanh đậm' }
+        ]
+    };
+
+    const html = window.generateCustomBillHTML(sampleOrder, {});
+    const container = document.getElementById('billPreviewContainer');
+    if (container) {
+        container.innerHTML = `<div style="background: white; padding: 10px; max-width: 320px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">${html}</div>`;
+    }
+}
+
+// Make functions globally accessible
+window.openBillTemplateSettings = openBillTemplateSettings;
+window.closeBillTemplateSettings = closeBillTemplateSettings;
+window.switchBillSettingsTab = switchBillSettingsTab;
+window.saveBillTemplateSettings = saveBillTemplateSettings;
+window.resetBillTemplateSettings = resetBillTemplateSettings;
+window.previewBillTemplate = previewBillTemplate;
+window.getBillTemplateSettings = getBillTemplateSettings;
+
+// #endregion BILL TEMPLATE SETTINGS

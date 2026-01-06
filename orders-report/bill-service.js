@@ -16,11 +16,46 @@ const BillService = (function () {
      * @returns {string} HTML content for the bill
      */
     function generateCustomBillHTML(orderResult, options = {}) {
+        // Get bill template settings from localStorage
+        const settings = window.getBillTemplateSettings ? window.getBillTemplateSettings() : {};
+
         // Support both saleButtonModal (uses currentSaleOrderData) and FastSale (uses orderResult directly)
         const currentSaleOrderData = options.currentSaleOrderData || null;
         const order = currentSaleOrderData || orderResult;
         const defaultData = window.lastDefaultSaleData || {};
         const company = defaultData.Company || { Name: 'NJD Live', Phone: '090 8888 674' };
+
+        // Use settings for shop info if provided, otherwise fallback to company data
+        const shopName = settings.shopName || company.Name || 'NJD Live';
+        const shopPhone = settings.shopPhone || company.Phone || '090 8888 674';
+        const shopAddress = settings.shopAddress || '';
+        const billTitle = settings.billTitle || 'PHIẾU BÁN HÀNG';
+        const footerText = settings.footerText || 'Cảm ơn quý khách! Hẹn gặp lại!';
+
+        // Section visibility settings (default all visible)
+        const showHeader = settings.showHeader !== false;
+        const showTitle = settings.showTitle !== false;
+        const showSTT = settings.showSTT !== false;
+        const showBarcode = settings.showBarcode !== false;
+        const showOrderInfo = settings.showOrderInfo !== false;
+        const showCarrier = settings.showCarrier !== false;
+        const showCustomer = settings.showCustomer !== false;
+        const showSeller = settings.showSeller !== false;
+        const showProducts = settings.showProducts !== false;
+        const showTotals = settings.showTotals !== false;
+        const showCOD = settings.showCOD !== false;
+        const showDeliveryNote = settings.showDeliveryNote !== false;
+        const showFooter = settings.showFooter !== false;
+
+        // Style settings
+        const fontShopName = settings.fontShopName || 18;
+        const fontTitle = settings.fontTitle || 16;
+        const fontContent = settings.fontContent || 13;
+        const fontCOD = settings.fontCOD || 18;
+        const billWidth = settings.billWidth || '80mm';
+        const billPadding = settings.billPadding || 20;
+        const codBackground = settings.codBackground || '#fef3c7';
+        const codBorder = settings.codBorder || '#f59e0b';
 
         // Get form values - try form fields first, then fallback to orderResult data
         const receiverName = document.getElementById('saleReceiverName')?.value ||
@@ -141,10 +176,10 @@ const BillService = (function () {
         }
         body {
             font-family: Arial, sans-serif;
-            font-size: 13px;
+            font-size: ${fontContent}px;
             line-height: 1.4;
-            padding: 20px;
-            max-width: 80mm;
+            padding: ${billPadding}px;
+            max-width: ${billWidth};
             margin: 0 auto;
         }
         .header {
@@ -154,7 +189,7 @@ const BillService = (function () {
             border-bottom: 2px dashed #333;
         }
         .shop-name {
-            font-size: 18px;
+            font-size: ${fontShopName}px;
             font-weight: bold;
             margin-bottom: 5px;
         }
@@ -162,8 +197,13 @@ const BillService = (function () {
             font-size: 14px;
             color: #333;
         }
+        .shop-address {
+            font-size: 12px;
+            color: #666;
+            margin-top: 3px;
+        }
         .bill-title {
-            font-size: 16px;
+            font-size: ${fontTitle}px;
             font-weight: bold;
             text-align: center;
             margin: 10px 0;
@@ -224,21 +264,21 @@ const BillService = (function () {
             margin-bottom: 5px;
         }
         .total-row.final {
-            font-size: 16px;
+            font-size: ${fontTitle}px;
             font-weight: bold;
             padding-top: 5px;
             border-top: 1px solid #333;
             margin-top: 5px;
         }
         .cod-amount {
-            font-size: 18px;
+            font-size: ${fontCOD}px;
             font-weight: bold;
             text-align: center;
-            background: #fef3c7;
+            background: ${codBackground};
             padding: 10px;
             margin: 10px 0;
             border-radius: 4px;
-            border: 2px solid #f59e0b;
+            border: 2px solid ${codBorder};
         }
         .delivery-note {
             margin-top: 10px;
@@ -271,33 +311,43 @@ const BillService = (function () {
     </style>
 </head>
 <body>
+    ${showHeader ? `
     <div class="header">
-        <div class="shop-name">${company.Name || 'NJD Live'}</div>
-        <div class="shop-phone">Hotline: ${company.Phone || '090 8888 674'}</div>
+        <div class="shop-name">${shopName}</div>
+        <div class="shop-phone">Hotline: ${shopPhone}</div>
+        ${shopAddress ? `<div class="shop-address">${shopAddress}</div>` : ''}
     </div>
+    ` : ''}
 
-    <div class="bill-title">PHIẾU BÁN HÀNG</div>
+    ${showTitle ? `<div class="bill-title">${billTitle}</div>` : ''}
 
-    ${sttDisplay ? `<div class="stt-display">STT: ${sttDisplay}</div>` : ''}
+    ${showSTT && sttDisplay ? `<div class="stt-display">STT: ${sttDisplay}</div>` : ''}
 
+    ${showBarcode ? `
     <!-- Barcode for order number -->
     <div class="barcode-container">
         <svg id="barcode"></svg>
     </div>
+    ` : ''}
 
+    ${showOrderInfo ? `
     <div class="order-info">
         <div><span class="label">Số HĐ:</span> ${orderResult?.Number || 'N/A'}</div>
         <div><span class="label">Ngày:</span> ${dateStr}</div>
-        ${carrierName ? `<div><span class="label">ĐVVC:</span> ${carrierName}</div>` : ''}
+        ${showCarrier && carrierName ? `<div><span class="label">ĐVVC:</span> ${carrierName}</div>` : ''}
     </div>
+    ` : ''}
 
+    ${showCustomer ? `
     <div class="customer-info">
         <div><span class="label">Khách hàng:</span> ${receiverName}</div>
         <div><span class="label">SĐT:</span> ${receiverPhone}</div>
         <div><span class="label">Địa chỉ:</span> ${receiverAddress}</div>
-        ${sellerName ? `<div><span class="label">Người bán:</span> ${sellerName}</div>` : ''}
+        ${showSeller && sellerName ? `<div><span class="label">Người bán:</span> ${sellerName}</div>` : ''}
     </div>
+    ` : ''}
 
+    ${showProducts ? `
     <table>
         <thead>
             <tr>
@@ -312,7 +362,9 @@ const BillService = (function () {
             ${productsHTML}
         </tbody>
     </table>
+    ` : ''}
 
+    ${showTotals ? `
     <div class="totals">
         <div class="total-row">
             <span>Tổng SL:</span>
@@ -343,28 +395,34 @@ const BillService = (function () {
             <span>${finalTotal.toLocaleString('vi-VN')} đ</span>
         </div>
     </div>
+    ` : ''}
 
+    ${showCOD ? `
     <div class="cod-amount">
         THU HỘ (COD): ${codAmount.toLocaleString('vi-VN')} đ
     </div>
+    ` : ''}
 
-    ${deliveryNote ? `
+    ${showDeliveryNote && deliveryNote ? `
     <div class="delivery-note">
         <strong>Ghi chú giao hàng:</strong><br>
         ${deliveryNote}
     </div>
     ` : ''}
 
+    ${showFooter ? `
     <div class="footer">
-        <div>Cảm ơn quý khách!</div>
-        <div>Mọi thắc mắc vui lòng liên hệ: ${company.Phone || '090 8888 674'}</div>
+        <div>${footerText}</div>
+        <div>Mọi thắc mắc vui lòng liên hệ: ${shopPhone}</div>
     </div>
+    ` : ''}
 
     <!-- JsBarcode library -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script>
         // Generate barcode after page loads
         document.addEventListener('DOMContentLoaded', function() {
+            ${showBarcode ? `
             try {
                 JsBarcode("#barcode", "${orderResult?.Number || ''}", {
                     format: "CODE128",
@@ -376,6 +434,7 @@ const BillService = (function () {
             } catch (e) {
                 console.error('Barcode generation failed:', e);
             }
+            ` : ''}
         });
     </script>
 </body>
