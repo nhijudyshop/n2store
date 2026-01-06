@@ -10,6 +10,15 @@ const fetch = require('node-fetch');
 // AbortController is global in Node.js 18+, but fallback for older versions
 const AbortController = globalThis.AbortController || require('abort-controller');
 
+// =====================================================
+// BLACKLIST: Các số cần bỏ qua khi extract phone
+// Bao gồm: số tài khoản ngân hàng của shop, mã giao dịch, etc.
+// =====================================================
+const PHONE_EXTRACTION_BLACKLIST = [
+    '75918',    // Số tài khoản ACB của shop
+    // Thêm các số khác cần bỏ qua ở đây
+];
+
 /**
  * Fetch with timeout to prevent hanging requests
  * @param {string} url - URL to fetch
@@ -695,23 +704,36 @@ function extractPhoneFromContent(content) {
     // Step 4: Extract partial phone number (5-10 digits)
     // Will search TPOS to get full 10-digit phone
     // Strategy: Prioritize numbers with phone-like length (5-10 digits), take FIRST match
+    // IMPORTANT: Filter out blacklisted numbers (bank account numbers, etc.)
     const partialPhonePattern = /\d{5,}/g;
     const allNumbers = textToParse.match(partialPhonePattern);
 
     if (allNumbers && allNumbers.length > 0) {
-        // Filter numbers to reasonable phone length (5-10 digits) and take first match
-        const phoneLikeNumbers = allNumbers.filter(num => num.length >= 5 && num.length <= 10);
-        const partialPhone = phoneLikeNumbers.length > 0
-            ? phoneLikeNumbers[0]  // Take FIRST phone-like number
-            : allNumbers[0];         // Fallback to first number if no phone-like numbers
+        // Filter numbers:
+        // 1. Reasonable phone length (5-10 digits)
+        // 2. NOT in blacklist (bank account numbers, etc.)
+        const phoneLikeNumbers = allNumbers.filter(num => {
+            const isValidLength = num.length >= 5 && num.length <= 10;
+            const isBlacklisted = PHONE_EXTRACTION_BLACKLIST.includes(num);
+            if (isBlacklisted) {
+                console.log('[EXTRACT] ⏭️ Skipping blacklisted number:', num);
+            }
+            return isValidLength && !isBlacklisted;
+        });
 
-        console.log('[EXTRACT] ✅ Found partial phone (5-10 digits, first occurrence):', partialPhone, 'from:', allNumbers);
-        return {
-            type: 'partial_phone',
-            value: partialPhone,
-            uniqueCode: null, // Will be determined after TPOS search
-            note: allNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED'
-        };
+        if (phoneLikeNumbers.length > 0) {
+            const partialPhone = phoneLikeNumbers[0];  // Take FIRST non-blacklisted phone-like number
+            console.log('[EXTRACT] ✅ Found partial phone (5-10 digits, first non-blacklisted):', partialPhone, 'from:', allNumbers);
+            return {
+                type: 'partial_phone',
+                value: partialPhone,
+                uniqueCode: null, // Will be determined after TPOS search
+                note: phoneLikeNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED'
+            };
+        }
+
+        // All numbers were blacklisted
+        console.log('[EXTRACT] ⚠️ All numbers were blacklisted:', allNumbers);
     }
 
     console.log('[EXTRACT] ❌ No phone or QR found in:', textToParse);
