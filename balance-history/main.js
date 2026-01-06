@@ -823,6 +823,17 @@ function renderTable(data, skipGapDetection = false) {
  * @returns {Object} { label, icon, color, title }
  */
 function getMappingSource(row, uniqueCode) {
+    // Priority 0: Check for MOMO pattern (highest priority)
+    const extractionNote = row.extraction_note || '';
+    if (extractionNote.startsWith('MOMO:')) {
+        return {
+            label: 'Momo',
+            icon: 'smartphone',
+            color: '#a50064', // Momo pink/magenta
+            title: 'Giao dịch từ Momo - SĐT trích xuất từ nội dung KH ghi'
+        };
+    }
+
     // Priority 1: Check unique_code format
     if (uniqueCode) {
         // QR Code: N2 + 16 chars (but NOT N2TX which is auto-generated)

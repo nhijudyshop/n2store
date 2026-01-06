@@ -396,6 +396,7 @@ router.get('/history', async (req, res) => {
                 bci.customer_phone,
                 bci.customer_name,
                 bci.unique_code as qr_code,
+                bci.extraction_note,
                 -- Pending match info
                 pcm.id as pending_match_id,
                 pcm.status as pending_match_status,
@@ -769,7 +770,7 @@ function extractPhoneFromContent(content) {
         type: 'none',
         value: null,
         uniqueCode: null,
-        note: 'NO_PHONE_FOUND'
+        note: isMomo ? 'MOMO:NO_PHONE_FOUND' : 'NO_PHONE_FOUND'
     };
 }
 
