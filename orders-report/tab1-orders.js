@@ -26043,11 +26043,33 @@ async function printSuccessOrders(type) {
                 saleOnlineOrder = displayedData.find(o => o.PartnerId === order.PartnerId);
             }
 
+            // DEBUG: Log customer matching info
+            console.log('[FAST-SALE] DEBUG - Customer matching for order:', order.Number, {
+                saleOnlineId,
+                saleOnlineName,
+                partnerId: order.PartnerId,
+                foundSaleOnlineOrder: !!saleOnlineOrder,
+                saleOnlineOrderId: saleOnlineOrder?.Id,
+                saleOnlineOrderName: saleOnlineOrder?.Name,
+                saleOnlineOrderCode: saleOnlineOrder?.Code,
+                Facebook_ASUserId: saleOnlineOrder?.Facebook_ASUserId,
+                Facebook_PostId: saleOnlineOrder?.Facebook_PostId
+            });
+
             // Prepare send task for this customer
             if (saleOnlineOrder) {
                 const psid = saleOnlineOrder.Facebook_ASUserId;
                 const postId = saleOnlineOrder.Facebook_PostId;
                 const channelId = postId ? postId.split('_')[0] : null;
+
+                console.log('[FAST-SALE] DEBUG - Send task check:', {
+                    orderNumber: order.Number,
+                    customerName: saleOnlineOrder.Name,
+                    psid,
+                    postId,
+                    channelId,
+                    willAddToSendTasks: !!(psid && channelId)
+                });
 
                 if (psid && channelId) {
                     console.log('[FAST-SALE] Will send bill to:', saleOnlineOrder.Name, 'for order:', order.Number);
@@ -26058,9 +26080,24 @@ async function printSuccessOrders(type) {
                         customerName: saleOnlineOrder.Name,
                         orderNumber: order.Number
                     });
+                } else {
+                    console.warn('[FAST-SALE] ⚠️ Missing psid or channelId for order:', order.Number, {
+                        psid: psid || 'MISSING',
+                        channelId: channelId || 'MISSING'
+                    });
                 }
+            } else {
+                console.warn('[FAST-SALE] ⚠️ No saleOnlineOrder found for order:', order.Number);
             }
         }
+
+        // DEBUG: Summary of collected data
+        console.log('[FAST-SALE] DEBUG - Collection summary:', {
+            selectedOrdersCount: selectedOrders.length,
+            enrichedOrdersCount: enrichedOrders.length,
+            sendTasksCount: sendTasks.length,
+            sendTasksDetails: sendTasks.map(t => ({ orderNumber: t.orderNumber, customer: t.customerName, psid: t.psid }))
+        });
 
         // 1. Open ONE combined print popup with all bills
         if (enrichedOrders.length > 0) {

@@ -721,13 +721,191 @@ const BillService = (function () {
             }
 
             const sendResult = await sendResponse.json();
-            console.log('[BILL-SERVICE] Bill sent successfully:', sendResult);
 
+            // Check if API returned success: false (Facebook policy errors, etc.)
+            if (sendResult.success === false) {
+                const errorMessage = sendResult.message || `Error code: ${sendResult.e_code}`;
+                console.warn('[BILL-SERVICE] ⚠️ Bill send failed (API error):', {
+                    e_code: sendResult.e_code,
+                    e_subcode: sendResult.e_subcode,
+                    message: sendResult.message
+                });
+
+                // Check for 24-hour policy error - try Facebook API fallback
+                const is24HourError = (sendResult.e_code === 10 && sendResult.e_subcode === 2018278) ||
+                    (sendResult.message && sendResult.message.includes('khoảng thời gian cho phép'));
+
+                if (is24HourError) {
+                    console.log('[BILL-SERVICE] 🔄 24h policy error detected - trying Facebook API fallback...');
+
+                    const fbFallbackResult = await sendViaFacebookAPI(
+                        pageId,
+                        psid,
+                        `📋 Phiếu bán hàng #${orderResult?.Number || ''}\n\n🖼️ Xem hình: ${contentUrl}`,
+                        contentUrl
+                    );
+
+                    if (fbFallbackResult.success) {
+                        console.log('[BILL-SERVICE] ✅ Facebook API fallback succeeded!');
+                        return { success: true, messageId: fbFallbackResult.messageId, viafallback: true };
+                    } else {
+                        console.warn('[BILL-SERVICE] ❌ Facebook API fallback also failed:', fbFallbackResult.error);
+                    }
+                }
+
+                return {
+                    success: false,
+                    error: errorMessage,
+                    e_code: sendResult.e_code,
+                    e_subcode: sendResult.e_subcode
+                };
+            }
+
+            console.log('[BILL-SERVICE] ✅ Bill sent successfully:', sendResult);
             return { success: true, messageId: sendResult.id };
 
         } catch (error) {
             console.error('[BILL-SERVICE] Error sending bill:', error);
             return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Send message via Facebook Graph API with POST_PURCHASE_UPDATE tag
+     * Used as fallback when Pancake API fails with 24h policy error
+     * Same logic as sendMessageViaFacebookTag in tab1-orders.js
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} psid - Customer's Facebook PSID
+     * @param {string} message - Text message to send
+     * @param {string} imageUrl - Optional image URL to include
+     * @returns {Promise<{success: boolean, error?: string, messageId?: string}>}
+     */
+    async function sendViaFacebookAPI(pageId, psid, message, imageUrl = null) {
+        console.log('[BILL-SERVICE] [FB-FALLBACK] ========================================');
+        console.log('[BILL-SERVICE] [FB-FALLBACK] Attempting Facebook API fallback...');
+        console.log('[BILL-SERVICE] [FB-FALLBACK] Page ID:', pageId, 'PSID:', psid);
+
+        try {
+            // Get Facebook Page Token from various sources (same as tab1-orders.js)
+            let facebookPageToken = null;
+
+            // Source 1: Try from window.currentCRMTeam (set when chat modal opens)
+            if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
+                const crmPageId = window.currentCRMTeam.ChannelId || window.currentCRMTeam.Facebook_AccountId || window.currentCRMTeam.Id;
+                if (String(crmPageId) === String(pageId) ||
+                    String(window.currentCRMTeam.Facebook_AccountId) === String(pageId)) {
+                    facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
+                    console.log('[BILL-SERVICE] [FB-FALLBACK] ✅ Got matching Facebook Page Token from window.currentCRMTeam');
+                }
+            }
+
+            // Source 2: Try from current order's CRMTeam
+            if (!facebookPageToken && window.currentOrder && window.currentOrder.CRMTeam && window.currentOrder.CRMTeam.Facebook_PageToken) {
+                const crmPageId = window.currentOrder.CRMTeam.ChannelId || window.currentOrder.CRMTeam.Facebook_AccountId;
+                if (String(crmPageId) === String(pageId) ||
+                    String(window.currentOrder.CRMTeam.Facebook_AccountId) === String(pageId)) {
+                    facebookPageToken = window.currentOrder.CRMTeam.Facebook_PageToken;
+                    console.log('[BILL-SERVICE] [FB-FALLBACK] ✅ Got matching Facebook Page Token from currentOrder.CRMTeam');
+                }
+            }
+
+            // Source 3: Try from cachedChannelsData
+            if (!facebookPageToken && window.cachedChannelsData) {
+                const channel = window.cachedChannelsData.find(ch =>
+                    String(ch.ChannelId) === String(pageId) ||
+                    String(ch.Facebook_AccountId) === String(pageId)
+                );
+                if (channel && channel.Facebook_PageToken) {
+                    facebookPageToken = channel.Facebook_PageToken;
+                    console.log('[BILL-SERVICE] [FB-FALLBACK] ✅ Got Facebook Page Token from cached channels');
+                }
+            }
+
+            // Source 4: Fetch CRMTeam directly by pageId from TPOS
+            if (!facebookPageToken) {
+                console.log('[BILL-SERVICE] [FB-FALLBACK] Token not found, fetching CRMTeam from TPOS...');
+                try {
+                    const headers = await window.tokenManager?.getAuthHeader() || {};
+                    const crmUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/CRMTeam?$filter=ChannelId eq '${pageId}' or Facebook_AccountId eq '${pageId}'&$top=1`;
+                    const response = await fetch(crmUrl, {
+                        method: 'GET',
+                        headers: { ...headers, 'Accept': 'application/json' }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const teams = data.value || data;
+                        if (teams && teams.length > 0 && teams[0].Facebook_PageToken) {
+                            facebookPageToken = teams[0].Facebook_PageToken;
+                            console.log('[BILL-SERVICE] [FB-FALLBACK] ✅ Got Facebook Page Token from CRMTeam API');
+                        }
+                    }
+                } catch (fetchError) {
+                    console.warn('[BILL-SERVICE] [FB-FALLBACK] ⚠️ Could not fetch CRMTeam from TPOS:', fetchError.message);
+                }
+            }
+
+            // Source 5: Fallback - use currentCRMTeam token anyway
+            if (!facebookPageToken && window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
+                facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
+                console.warn('[BILL-SERVICE] [FB-FALLBACK] ⚠️ Using currentCRMTeam token as last resort fallback');
+            }
+
+            if (!facebookPageToken) {
+                console.error('[BILL-SERVICE] [FB-FALLBACK] ❌ No Facebook Page Token found');
+                return {
+                    success: false,
+                    error: 'Không tìm thấy Facebook Page Token để gửi fallback'
+                };
+            }
+
+            // Call Facebook Send API via worker proxy
+            const facebookSendUrl = window.API_CONFIG?.buildUrl?.facebookSend?.() ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/facebook-send';
+            console.log('[BILL-SERVICE] [FB-FALLBACK] Calling:', facebookSendUrl);
+
+            const requestBody = {
+                pageId: pageId,
+                psid: psid,
+                message: message,
+                pageToken: facebookPageToken,
+                useTag: true, // Use POST_PURCHASE_UPDATE tag to bypass 24h policy
+                imageUrls: imageUrl ? [imageUrl] : [] // Include image URL if provided
+            };
+
+            const response = await fetch(facebookSendUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const result = await response.json();
+            console.log('[BILL-SERVICE] [FB-FALLBACK] Response:', result);
+            console.log('[BILL-SERVICE] [FB-FALLBACK] ========================================');
+
+            if (result.success) {
+                console.log('[BILL-SERVICE] [FB-FALLBACK] ✅ Message sent successfully via Facebook Graph API!');
+                console.log('[BILL-SERVICE] [FB-FALLBACK] Used tag:', result.used_tag);
+                return {
+                    success: true,
+                    messageId: result.message_id
+                };
+            } else {
+                return {
+                    success: false,
+                    error: result.error || 'Facebook API error'
+                };
+            }
+
+        } catch (error) {
+            console.error('[BILL-SERVICE] [FB-FALLBACK] ❌ Error:', error);
+            return {
+                success: false,
+                error: error.message
+            };
         }
     }
 
