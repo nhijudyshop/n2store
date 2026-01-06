@@ -13,6 +13,7 @@ const API_BASE_URL = window.CONFIG?.API_BASE_URL || (
 let currentPage = 1;
 let totalPages = 1;
 let currentQuickFilter = 'last30days'; // Default quick filter
+let showHidden = false; // Toggle to show/hide hidden transactions
 let filters = {
     type: '',
     gateway: '',
@@ -699,6 +700,7 @@ async function loadData() {
         const queryParams = new URLSearchParams({
             page: currentPage,
             limit: 50,
+            showHidden: showHidden.toString(),
             ...filters
         });
 
@@ -960,7 +962,9 @@ function renderTransactionRow(row) {
     const pendingMatchId = row.pending_match_id;
 
     // Determine row class for highlighting
-    const rowClass = hasPendingMatch ? 'row-pending-match' : (isSkipped ? 'row-skipped-match' : '');
+    const isHidden = row.is_hidden === true;
+    let rowClass = hasPendingMatch ? 'row-pending-match' : (isSkipped ? 'row-skipped-match' : '');
+    if (isHidden) rowClass += ' row-hidden';
 
     // Build customer name cell content
     let customerNameCell = '';
@@ -1072,6 +1076,9 @@ function renderTransactionRow(row) {
             </button>
             <button class="btn btn-secondary btn-sm" onclick="copyUniqueCode('${uniqueCode}')" title="Copy mã" style="margin-left: 4px;">
                 <i data-lucide="copy"></i>
+            </button>
+            <button class="btn btn-sm ${row.is_hidden ? 'btn-warning' : 'btn-outline-secondary'}" onclick="toggleHideTransaction(${row.id}, ${!row.is_hidden})" title="${row.is_hidden ? 'Bỏ ẩn giao dịch' : 'Ẩn giao dịch'}" style="margin-left: 4px;">
+                <i data-lucide="${row.is_hidden ? 'eye' : 'eye-off'}"></i>
             </button>
         </td>
     </tr>
@@ -2227,6 +2234,42 @@ async function copyUniqueCode(uniqueCode) {
             window.NotificationManager.showNotification('Không thể copy mã', 'error');
         } else {
             alert('Không thể copy mã');
+        }
+    }
+}
+
+// Toggle hide transaction
+async function toggleHideTransaction(transactionId, hidden) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/hidden`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ hidden })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Refresh data to show updated state
+            await fetchData();
+
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(
+                    hidden ? 'Đã ẩn giao dịch' : 'Đã bỏ ẩn giao dịch',
+                    'success'
+                );
+            }
+        } else {
+            throw new Error(result.error || 'Failed to update');
+        }
+    } catch (error) {
+        console.error('[TOGGLE-HIDE] Error:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Không thể cập nhật trạng thái ẩn', 'error');
+        } else {
+            alert('Không thể cập nhật trạng thái ẩn');
         }
     }
 }

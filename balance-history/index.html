@@ -107,10 +107,14 @@
             </header>
 
             <!-- Filter Toggle Button -->
-            <div style="margin-bottom: 10px;">
+            <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
                 <button id="toggleFiltersBtn" class="btn btn-secondary" onclick="toggleFilters()">
                     <i data-lucide="filter"></i> <span id="toggleFiltersText">Hiện bộ lọc</span>
                 </button>
+                <button id="toggleHiddenBtn" class="btn-toggle-hidden" onclick="toggleShowHidden()">
+                    <i data-lucide="eye-off"></i> <span id="toggleHiddenText">Hiện GD đã ẩn</span>
+                </button>
+                <span id="hiddenCount" style="color: #6b7280; font-size: 13px;"></span>
             </div>
 
             <!-- Filters Container (hidden by default) -->
@@ -211,6 +215,34 @@
                     }
                     // Re-render icons for newly visible elements
                     lucide.createIcons();
+                }
+
+                function toggleShowHidden() {
+                    // Toggle state (defined in main.js)
+                    showHidden = !showHidden;
+
+                    // Update button UI
+                    const btn = document.getElementById('toggleHiddenBtn');
+                    const text = document.getElementById('toggleHiddenText');
+                    const icon = btn.querySelector('i');
+
+                    if (showHidden) {
+                        btn.classList.add('active');
+                        text.textContent = 'Ẩn GD đã ẩn';
+                        icon.setAttribute('data-lucide', 'eye');
+                    } else {
+                        btn.classList.remove('active');
+                        text.textContent = 'Hiện GD đã ẩn';
+                        icon.setAttribute('data-lucide', 'eye-off');
+                    }
+
+                    // Re-render icons
+                    lucide.createIcons();
+
+                    // Reload data with new filter
+                    if (typeof loadData === 'function') {
+                        loadData();
+                    }
                 }
             </script>
 

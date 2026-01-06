@@ -327,13 +327,19 @@ router.get('/history', async (req, res) => {
             gateway,
             startDate,
             endDate,
-            search
+            search,
+            showHidden = 'false' // 'true' = show all, 'false' = hide hidden transactions
         } = req.query;
 
         const offset = (page - 1) * limit;
         let queryConditions = [];
         let queryParams = [];
         let paramCounter = 1;
+
+        // Filter hidden transactions (default: hide hidden)
+        if (showHidden !== 'true') {
+            queryConditions.push(`(bh.is_hidden = FALSE OR bh.is_hidden IS NULL)`);
+        }
 
         // Filter by transfer type
         if (type && ['in', 'out'].includes(type)) {
@@ -392,7 +398,7 @@ router.get('/history', async (req, res) => {
                 bh.id, bh.sepay_id, bh.gateway, bh.transaction_date, bh.account_number,
                 bh.code, bh.content, bh.transfer_type, bh.transfer_amount, bh.accumulated,
                 bh.sub_account, bh.reference_code, bh.description, bh.created_at,
-                bh.debt_added,
+                bh.debt_added, bh.is_hidden,
                 bci.customer_phone,
                 bci.customer_name,
                 bci.unique_code as qr_code,
@@ -3002,6 +3008,62 @@ router.put('/transaction/:id/phone', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to update transaction phone',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * PUT /api/sepay/transaction/:id/hidden
+ * Toggle hidden status of a transaction
+ * Body: { hidden: boolean }
+ */
+router.put('/transaction/:id/hidden', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { hidden } = req.body;
+
+    try {
+        // Validate inputs
+        if (!id || isNaN(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid transaction ID'
+            });
+        }
+
+        if (typeof hidden !== 'boolean') {
+            return res.status(400).json({
+                success: false,
+                error: 'hidden must be a boolean'
+            });
+        }
+
+        // Update the transaction's hidden status
+        const updateResult = await db.query(
+            'UPDATE balance_history SET is_hidden = $1 WHERE id = $2 RETURNING id, is_hidden',
+            [hidden, id]
+        );
+
+        if (updateResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Transaction not found'
+            });
+        }
+
+        console.log(`[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden = ${hidden}`);
+
+        res.json({
+            success: true,
+            data: updateResult.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[TRANSACTION-HIDDEN] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update transaction hidden status',
             message: error.message
         });
     }
