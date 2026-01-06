@@ -724,7 +724,7 @@ function extractPhoneFromContent(content) {
             type: 'partial_phone',
             value: customerPhone,
             uniqueCode: null,
-            note: 'MBBANK:PARTIAL_PHONE_EXTRACTED'
+            note: 'VCB:PARTIAL_PHONE_EXTRACTED'
         };
     }
 

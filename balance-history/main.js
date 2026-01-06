@@ -836,13 +836,13 @@ function getMappingSource(row, uniqueCode) {
         };
     }
 
-    // Priority 0.5: Check for MB BANK pattern
-    if (extractionNote.startsWith('MBBANK:')) {
+    // Priority 0.5: Check for Vietcombank (VCB) pattern - MBVCB format
+    if (extractionNote.startsWith('VCB:')) {
         return {
-            label: 'MB Bank',
+            label: 'Vietcombank',
             icon: 'building-2',
-            color: '#1e40af', // MB Bank blue
-            title: 'Giao dịch từ MB Bank - SĐT trích xuất từ mã MBVCB'
+            color: '#007b40', // VCB green
+            title: 'Giao dịch từ Vietcombank - SĐT trích xuất từ mã MBVCB'
         };
     }
 
