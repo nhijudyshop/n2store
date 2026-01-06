@@ -26227,6 +26227,7 @@ async function saveFastSaleOrders(isApprove = false) {
                                 }
                             })
                             .catch(err => console.error(`[FAST-SALE] ❌ Failed to send bill for ${successOrder.Number}:`, err));
+                    }
                 }
             }
         }
