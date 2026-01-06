@@ -1,5 +1,7 @@
 # ORDERS-REPORT ARCHITECTURE
 
+> **AI Agents:** Xem [MODULE_MAP.md](MODULE_MAP.md) de navigation nhanh va [.ai-instructions.md](.ai-instructions.md) de hieu workflow.
+
 > **LUU Y QUAN TRONG:** Khi them code moi, vui long:
 > 1. Doc file nay truoc de hieu cau truc
 > 2. Them ham vao dung SECTION trong file JS tuong ung
