@@ -24693,28 +24693,55 @@ function buildOrderLines() {
  * @returns {string} HTML content for the bill
  */
 function generateCustomBillHTML(orderResult) {
-    const order = currentSaleOrderData;
+    // Support both saleButtonModal (uses currentSaleOrderData) and FastSale (uses orderResult directly)
+    const order = currentSaleOrderData || orderResult;
     const defaultData = window.lastDefaultSaleData || {};
     const company = defaultData.Company || { Name: 'NJD Live', Phone: '090 8888 674' };
 
-    // Get form values
-    const receiverName = document.getElementById('saleReceiverName')?.value || '';
-    const receiverPhone = document.getElementById('saleReceiverPhone')?.value || '';
-    const receiverAddress = document.getElementById('saleReceiverAddress')?.value || '';
-    const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
-    const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
-    const discount = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
-    const codAmount = parseFloat(document.getElementById('saleCOD')?.value) || 0;
-    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    // Get form values - try form fields first, then fallback to orderResult data
+    const receiverName = document.getElementById('saleReceiverName')?.value ||
+                         orderResult?.Partner?.Name ||
+                         orderResult?.PartnerDisplayName ||
+                         '';
+    const receiverPhone = document.getElementById('saleReceiverPhone')?.value ||
+                          orderResult?.Partner?.Phone ||
+                          orderResult?.Ship_Receiver?.Phone ||
+                          '';
+    const receiverAddress = document.getElementById('saleReceiverAddress')?.value ||
+                            orderResult?.Partner?.Street ||
+                            orderResult?.Ship_Receiver?.Street ||
+                            '';
+    const deliveryNote = document.getElementById('saleDeliveryNote')?.value ||
+                         orderResult?.Ship_Note ||
+                         orderResult?.Comment ||
+                         '';
+    const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) ||
+                        orderResult?.DeliveryPrice ||
+                        0;
+    const discount = parseFloat(document.getElementById('saleDiscount')?.value) ||
+                     orderResult?.Discount ||
+                     orderResult?.DiscountAmount ||
+                     0;
+    const codAmount = parseFloat(document.getElementById('saleCOD')?.value) ||
+                      orderResult?.CashOnDelivery ||
+                      orderResult?.AmountTotal ||
+                      0;
+    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) ||
+                          orderResult?.AmountDeposit ||
+                          0;
 
     // Get carrier info
     const carrierSelect = document.getElementById('saleDeliveryPartner');
-    const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
+    const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text ||
+                        orderResult?.Carrier?.Name ||
+                        orderResult?.CarrierName ||
+                        '';
 
     // Get seller name from current user
     const sellerName = window.authManager?.currentUser?.displayName ||
                        defaultData.User?.Name ||
                        orderResult?.User?.Name ||
+                       orderResult?.UserName ||
                        '';
 
     // Get STT
@@ -24726,11 +24753,11 @@ function generateCustomBillHTML(orderResult) {
             .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
         sttDisplay = allSTTs.join(', ');
     } else {
-        sttDisplay = order?.SessionIndex || '';
+        sttDisplay = order?.SessionIndex || orderResult?.SessionIndex || '';
     }
 
-    // Get products from orderLines
-    const orderLines = order?.orderLines || [];
+    // Get products from orderLines - support multiple field names
+    const orderLines = order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
     let totalQuantity = 0;
     let totalAmount = 0;
 
@@ -26153,6 +26180,61 @@ async function saveFastSaleOrders(isApprove = false) {
 
         // Show results modal
         showFastSaleResultsModal(result);
+
+        // Send bill to customers for successful orders (async, don't block)
+        if (result.OrdersSucessed && result.OrdersSucessed.length > 0) {
+            console.log('[FAST-SALE] Sending bills to customers for successful orders...');
+
+            for (const successOrder of result.OrdersSucessed) {
+                // Find original order data to get chat info
+                const originalOrder = fastSaleOrdersData.find(o =>
+                    o.SaleOnlineIds?.some(id => successOrder.SaleOnlineIds?.includes(id))
+                );
+
+                if (!originalOrder) {
+                    // Try to find from displayedData using SaleOnlineIds
+                    const saleOnlineId = successOrder.SaleOnlineIds?.[0];
+                    const saleOnlineOrder = saleOnlineId ? displayedData.find(o => o.Id === saleOnlineId) : null;
+
+                    if (saleOnlineOrder) {
+                        const psid = saleOnlineOrder.Facebook_ASUserId;
+                        const postId = saleOnlineOrder.Facebook_PostId;
+                        const channelId = postId ? postId.split('_')[0] : null;
+
+                        if (psid && channelId) {
+                            console.log('[FAST-SALE] Sending bill for order:', successOrder.Number);
+                            sendBillToCustomer(successOrder, channelId, psid)
+                                .then(res => {
+                                    if (res.success) {
+                                        console.log(`[FAST-SALE] ✅ Bill sent for ${successOrder.Number}`);
+                                    }
+                                })
+                                .catch(err => console.error(`[FAST-SALE] ❌ Failed to send bill for ${successOrder.Number}:`, err));
+                        }
+                    }
+                    continue;
+                }
+
+                // Get chat info from original order
+                const saleOnlineId = originalOrder.SaleOnlineIds?.[0];
+                const saleOnlineOrder = saleOnlineId ? displayedData.find(o => o.Id === saleOnlineId) : null;
+
+                const psid = saleOnlineOrder?.Facebook_ASUserId;
+                const postId = saleOnlineOrder?.Facebook_PostId;
+                const channelId = postId ? postId.split('_')[0] : null;
+
+                if (psid && channelId) {
+                    console.log('[FAST-SALE] Sending bill for order:', successOrder.Number);
+                    sendBillToCustomer(successOrder, channelId, psid)
+                        .then(res => {
+                            if (res.success) {
+                                console.log(`[FAST-SALE] ✅ Bill sent for ${successOrder.Number}`);
+                            }
+                        })
+                        .catch(err => console.error(`[FAST-SALE] ❌ Failed to send bill for ${successOrder.Number}:`, err));
+                }
+            }
+        }
 
     } catch (error) {
         console.error('[FAST-SALE] Error saving orders:', error);
