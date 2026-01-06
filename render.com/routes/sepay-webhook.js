@@ -1580,25 +1580,7 @@ router.post('/customer-info', async (req, res) => {
             customerPhone
         });
 
-        // Sync to customers table if phone is available
-        if (customerPhone) {
-            try {
-                await db.query(`
-                    INSERT INTO customers (phone, name, status, active)
-                    VALUES ($1, $2, 'Bình thường', true)
-                    ON CONFLICT (phone) DO UPDATE SET
-                        name = COALESCE(EXCLUDED.name, customers.name),
-                        updated_at = CURRENT_TIMESTAMP
-                `, [
-                    customerPhone,
-                    customerName || customerPhone
-                ]);
-                console.log('[CUSTOMER-INFO] ✅ Synced to customers table:', customerPhone);
-            } catch (syncError) {
-                console.error('[CUSTOMER-INFO] ⚠️ Failed to sync to customers table:', syncError.message);
-                // Don't fail the main request if sync fails
-            }
-        }
+        // NOTE: customers table has been removed - data is now only in balance_customer_info
 
         res.json({
             success: true,
