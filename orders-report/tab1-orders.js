@@ -24245,7 +24245,7 @@ async function confirmAndPrintSale() {
 
         // Step 3: Open print popup with custom bill (no longer fetches from TPOS API)
         console.log('[SALE-CONFIRM] Step 3: Opening custom bill popup...');
-        openPrintPopup(createResult);
+        openPrintPopup(createResult, { currentSaleOrderData });
 
         // Step 4: Send bill image to customer via Messenger (async, don't block)
         console.log('[SALE-CONFIRM] Step 4: Sending bill to customer...');
@@ -24271,7 +24271,7 @@ async function confirmAndPrintSale() {
         console.log('[SALE-CONFIRM] Final chat info:', chatInfo);
 
         if (chatInfo?.hasChat) {
-            sendBillToCustomer(createResult, chatInfo.channelId, chatInfo.psid)
+            sendBillToCustomer(createResult, chatInfo.channelId, chatInfo.psid, { currentSaleOrderData })
                 .then(result => {
                     if (result.success) {
                         console.log('[SALE-CONFIRM] ✅ Bill sent to customer successfully');
@@ -24687,587 +24687,11 @@ function buildOrderLines() {
     return [];
 }
 
-/**
- * Generate custom bill HTML from order data
- * @param {Object} orderResult - The created order result from FastSaleOrder API
- * @returns {string} HTML content for the bill
- */
-function generateCustomBillHTML(orderResult) {
-    // Support both saleButtonModal (uses currentSaleOrderData) and FastSale (uses orderResult directly)
-    const order = currentSaleOrderData || orderResult;
-    const defaultData = window.lastDefaultSaleData || {};
-    const company = defaultData.Company || { Name: 'NJD Live', Phone: '090 8888 674' };
-
-    // Get form values - try form fields first, then fallback to orderResult data
-    const receiverName = document.getElementById('saleReceiverName')?.value ||
-                         orderResult?.Partner?.Name ||
-                         orderResult?.PartnerDisplayName ||
-                         '';
-    const receiverPhone = document.getElementById('saleReceiverPhone')?.value ||
-                          orderResult?.Partner?.Phone ||
-                          orderResult?.Ship_Receiver?.Phone ||
-                          '';
-    const receiverAddress = document.getElementById('saleReceiverAddress')?.value ||
-                            orderResult?.Partner?.Street ||
-                            orderResult?.Ship_Receiver?.Street ||
-                            '';
-    const deliveryNote = document.getElementById('saleDeliveryNote')?.value ||
-                         orderResult?.Ship_Note ||
-                         orderResult?.Comment ||
-                         '';
-    const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) ||
-                        orderResult?.DeliveryPrice ||
-                        0;
-    const discount = parseFloat(document.getElementById('saleDiscount')?.value) ||
-                     orderResult?.Discount ||
-                     orderResult?.DiscountAmount ||
-                     0;
-    const codAmount = parseFloat(document.getElementById('saleCOD')?.value) ||
-                      orderResult?.CashOnDelivery ||
-                      orderResult?.AmountTotal ||
-                      0;
-    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) ||
-                          orderResult?.AmountDeposit ||
-                          0;
-
-    // Get carrier info
-    const carrierSelect = document.getElementById('saleDeliveryPartner');
-    const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text ||
-                        orderResult?.Carrier?.Name ||
-                        orderResult?.CarrierName ||
-                        '';
-
-    // Get seller name from current user
-    const sellerName = window.authManager?.currentUser?.displayName ||
-                       defaultData.User?.Name ||
-                       orderResult?.User?.Name ||
-                       orderResult?.UserName ||
-                       '';
-
-    // Get STT
-    let sttDisplay = '';
-    if (order?.IsMerged && order?.OriginalOrders?.length > 1) {
-        const allSTTs = order.OriginalOrders
-            .map(o => o.SessionIndex)
-            .filter(stt => stt)
-            .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
-        sttDisplay = allSTTs.join(', ');
-    } else {
-        sttDisplay = order?.SessionIndex || orderResult?.SessionIndex || '';
-    }
-
-    // Get products from orderLines - support multiple field names
-    const orderLines = order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
-    let totalQuantity = 0;
-    let totalAmount = 0;
-
-    const productsHTML = orderLines.map((item, index) => {
-        const quantity = item.Quantity || item.ProductUOMQty || 1;
-        const price = item.PriceUnit || item.Price || 0;
-        const total = quantity * price;
-        const productName = item.ProductName || item.ProductNameGet || '';
-        const note = item.Note || '';
-
-        totalQuantity += quantity;
-        totalAmount += total;
-
-        return `
-            <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${index + 1}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">
-                    ${productName}
-                    ${note ? `<div style="font-size: 11px; color: #6b7280; font-style: italic;">${note}</div>` : ''}
-                </td>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${quantity}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${price.toLocaleString('vi-VN')}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${total.toLocaleString('vi-VN')}</td>
-            </tr>
-        `;
-    }).join('');
-
-    // Calculate final total
-    const finalTotal = totalAmount - discount + shippingFee;
-    const remainingBalance = codAmount - prepaidAmount;
-
-    // Format date
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Phiếu bán hàng - ${orderResult?.Number || ''}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 13px;
-            line-height: 1.4;
-            padding: 20px;
-            max-width: 80mm;
-            margin: 0 auto;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px dashed #333;
-        }
-        .shop-name {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .shop-phone {
-            font-size: 14px;
-            color: #333;
-        }
-        .bill-title {
-            font-size: 16px;
-            font-weight: bold;
-            text-align: center;
-            margin: 10px 0;
-        }
-        .order-info {
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px dashed #ccc;
-        }
-        .order-info div {
-            margin-bottom: 3px;
-        }
-        .stt-display {
-            font-size: 20px;
-            font-weight: bold;
-            text-align: center;
-            background: #f3f4f6;
-            padding: 8px;
-            margin: 10px 0;
-            border-radius: 4px;
-        }
-        .customer-info {
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px dashed #ccc;
-        }
-        .customer-info div {
-            margin-bottom: 3px;
-        }
-        .label {
-            font-weight: bold;
-            display: inline-block;
-            min-width: 80px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 10px;
-        }
-        th {
-            background: #f3f4f6;
-            padding: 8px 4px;
-            text-align: left;
-            font-weight: bold;
-            border-bottom: 2px solid #333;
-        }
-        th:nth-child(1) { width: 30px; text-align: center; }
-        th:nth-child(3) { width: 40px; text-align: center; }
-        th:nth-child(4), th:nth-child(5) { width: 70px; text-align: right; }
-        .totals {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 2px dashed #333;
-        }
-        .total-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-        }
-        .total-row.final {
-            font-size: 16px;
-            font-weight: bold;
-            padding-top: 5px;
-            border-top: 1px solid #333;
-            margin-top: 5px;
-        }
-        .cod-amount {
-            font-size: 18px;
-            font-weight: bold;
-            text-align: center;
-            background: #fef3c7;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-            border: 2px solid #f59e0b;
-        }
-        .delivery-note {
-            margin-top: 10px;
-            padding: 10px;
-            background: #fef2f2;
-            border-radius: 4px;
-            font-size: 11px;
-            color: #dc2626;
-        }
-        .footer {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 2px dashed #333;
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-        }
-        .barcode-container {
-            text-align: center;
-            margin: 10px 0;
-        }
-        .barcode-container svg {
-            max-width: 100%;
-            height: auto;
-        }
-        @media print {
-            body { padding: 5px; }
-            .no-print { display: none; }
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="shop-name">${company.Name || 'NJD Live'}</div>
-        <div class="shop-phone">Hotline: ${company.Phone || '090 8888 674'}</div>
-    </div>
-
-    <div class="bill-title">PHIẾU BÁN HÀNG</div>
-
-    ${sttDisplay ? `<div class="stt-display">STT: ${sttDisplay}</div>` : ''}
-
-    <!-- Barcode for order number -->
-    <div class="barcode-container">
-        <svg id="barcode"></svg>
-    </div>
-
-    <div class="order-info">
-        <div><span class="label">Số HĐ:</span> ${orderResult?.Number || 'N/A'}</div>
-        <div><span class="label">Ngày:</span> ${dateStr}</div>
-        ${carrierName ? `<div><span class="label">ĐVVC:</span> ${carrierName}</div>` : ''}
-    </div>
-
-    <div class="customer-info">
-        <div><span class="label">Khách hàng:</span> ${receiverName}</div>
-        <div><span class="label">SĐT:</span> ${receiverPhone}</div>
-        <div><span class="label">Địa chỉ:</span> ${receiverAddress}</div>
-        ${sellerName ? `<div><span class="label">Người bán:</span> ${sellerName}</div>` : ''}
-    </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Sản phẩm</th>
-                <th>SL</th>
-                <th>Đơn giá</th>
-                <th>Thành tiền</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${productsHTML}
-        </tbody>
-    </table>
-
-    <div class="totals">
-        <div class="total-row">
-            <span>Tổng SL:</span>
-            <span>${totalQuantity}</span>
-        </div>
-        <div class="total-row">
-            <span>Tổng tiền hàng:</span>
-            <span>${totalAmount.toLocaleString('vi-VN')} đ</span>
-        </div>
-        ${discount > 0 ? `
-        <div class="total-row">
-            <span>Chiết khấu:</span>
-            <span>-${discount.toLocaleString('vi-VN')} đ</span>
-        </div>
-        ` : ''}
-        <div class="total-row">
-            <span>Phí giao hàng:</span>
-            <span>${shippingFee.toLocaleString('vi-VN')} đ</span>
-        </div>
-        ${prepaidAmount > 0 ? `
-        <div class="total-row">
-            <span>Trả trước (Công nợ):</span>
-            <span>-${prepaidAmount.toLocaleString('vi-VN')} đ</span>
-        </div>
-        ` : ''}
-        <div class="total-row final">
-            <span>TỔNG CỘNG:</span>
-            <span>${finalTotal.toLocaleString('vi-VN')} đ</span>
-        </div>
-    </div>
-
-    <div class="cod-amount">
-        THU HỘ (COD): ${codAmount.toLocaleString('vi-VN')} đ
-    </div>
-
-    ${deliveryNote ? `
-    <div class="delivery-note">
-        <strong>Ghi chú giao hàng:</strong><br>
-        ${deliveryNote}
-    </div>
-    ` : ''}
-
-    <div class="footer">
-        <div>Cảm ơn quý khách!</div>
-        <div>Mọi thắc mắc vui lòng liên hệ: ${company.Phone || '090 8888 674'}</div>
-    </div>
-
-    <!-- JsBarcode library -->
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <script>
-        // Generate barcode after page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            try {
-                JsBarcode("#barcode", "${orderResult?.Number || ''}", {
-                    format: "CODE128",
-                    width: 1.5,
-                    height: 40,
-                    displayValue: false,
-                    margin: 5
-                });
-            } catch (e) {
-                console.error('Barcode generation failed:', e);
-            }
-        });
-    </script>
-</body>
-</html>
-    `;
-}
-
-/**
- * Open print popup with custom bill
- * @param {Object} orderResult - The created order result from FastSaleOrder API
- */
-function openPrintPopup(orderResult) {
-    console.log('[SALE-CONFIRM] Opening print popup with custom bill...');
-
-    // Generate custom bill HTML
-    const html = generateCustomBillHTML(orderResult);
-
-    // Create a new window for printing
-    const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
-
-    if (!printWindow) {
-        console.error('[SALE-CONFIRM] Failed to open print window - popup blocked?');
-        if (window.notificationManager) {
-            window.notificationManager.warning('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
-        }
-        return;
-    }
-
-    // Write the HTML content
-    printWindow.document.write(html);
-    printWindow.document.close();
-
-    // Wait for content to load, then trigger print
-    printWindow.onload = function () {
-        setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-        }, 500);
-    };
-
-    // Fallback if onload doesn't fire
-    setTimeout(() => {
-        if (printWindow && !printWindow.closed) {
-            printWindow.focus();
-            printWindow.print();
-        }
-    }, 1500);
-}
-
-/**
- * Generate bill image from HTML using html2canvas
- * @param {Object} orderResult - The created order result
- * @returns {Promise<Blob>} - Image blob
- */
-async function generateBillImage(orderResult) {
-    console.log('[BILL-IMAGE] Generating bill image...');
-
-    // Use the same HTML as the print bill
-    const html = generateCustomBillHTML(orderResult);
-
-    // Create hidden iframe to render full HTML document with styles
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = `
-        position: fixed;
-        left: -9999px;
-        top: 0;
-        width: 400px;
-        height: 1200px;
-        border: none;
-    `;
-    document.body.appendChild(iframe);
-
-    // Write full HTML to iframe
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    iframeDoc.open();
-    iframeDoc.write(html);
-    iframeDoc.close();
-
-    // Wait for scripts to load and barcode to render (JsBarcode needs time)
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    try {
-        // Get the body element from iframe
-        const iframeBody = iframeDoc.body;
-
-        // Generate image using html2canvas
-        const canvas = await html2canvas(iframeBody, {
-            backgroundColor: '#ffffff',
-            scale: 2,
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            windowWidth: 400,
-            windowHeight: 1200
-        });
-
-        // Remove iframe
-        document.body.removeChild(iframe);
-
-        // Convert to blob
-        const blob = await new Promise(resolve => {
-            canvas.toBlob(resolve, 'image/png');
-        });
-
-        console.log('[BILL-IMAGE] ✅ Bill image generated:', blob.size, 'bytes');
-        return blob;
-
-    } catch (error) {
-        document.body.removeChild(iframe);
-        console.error('[BILL-IMAGE] ❌ Error generating image:', error);
-        throw error;
-    }
-}
-
-/**
- * Send bill image to customer via Messenger
- * @param {Object} orderResult - The created order result
- * @param {string} pageId - Facebook Page ID (channelId)
- * @param {string} psid - Customer's Facebook PSID
- */
-async function sendBillToCustomer(orderResult, pageId, psid) {
-    console.log('[BILL-SEND] ========================================');
-    console.log('[BILL-SEND] Sending bill image to customer...');
-    console.log('[BILL-SEND] Page ID:', pageId, 'PSID:', psid);
-
-    if (!pageId || !psid) {
-        console.warn('[BILL-SEND] Missing pageId or psid, cannot send bill');
-        return { success: false, error: 'Missing pageId or psid' };
-    }
-
-    try {
-        // Step 1: Generate bill image
-        console.log('[BILL-SEND] Step 1: Generating bill image...');
-        const imageBlob = await generateBillImage(orderResult);
-
-        // Convert blob to File for upload
-        const imageFile = new File([imageBlob], `bill_${orderResult?.Number || Date.now()}.png`, {
-            type: 'image/png'
-        });
-
-        // Step 2: Upload image to Pancake
-        console.log('[BILL-SEND] Step 2: Uploading image to Pancake...');
-        if (!window.pancakeDataManager) {
-            throw new Error('PancakeDataManager not available');
-        }
-
-        const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
-        const contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
-        const contentId = typeof uploadResult === 'object' ? uploadResult.id : null;
-
-        if (!contentUrl) {
-            throw new Error('Upload failed - no content_url returned');
-        }
-        console.log('[BILL-SEND] ✅ Image uploaded:', contentUrl, 'content_id:', contentId);
-
-        // Step 3: Send message with image via Pancake API
-        console.log('[BILL-SEND] Step 3: Sending message with image...');
-
-        // Get conversation ID - try multiple sources
-        let convId = currentSaleOrderData?.Facebook_ConversationId ||
-            currentSaleOrderData?.Conversation_Id ||
-            currentSaleOrderData?.ConversationId;
-
-        // Try to get conversation from Pancake conversations map by PSID
-        if (!convId && window.pancakeDataManager) {
-            const pancakeConv = window.pancakeDataManager.getConversationByUserId(psid);
-            if (pancakeConv && pancakeConv.id) {
-                convId = pancakeConv.id;
-                console.log('[BILL-SEND] Got conversation ID from Pancake map:', convId);
-            }
-        }
-
-        // Fallback: construct conversationId from pageId_psid (standard Pancake format)
-        if (!convId && pageId && psid) {
-            convId = `${pageId}_${psid}`;
-            console.log('[BILL-SEND] ⚠️ Using fallback conversation ID:', convId);
-        }
-
-        if (!convId) {
-            console.warn('[BILL-SEND] No conversation ID found');
-            return { success: false, error: 'No conversation ID available' };
-        }
-
-        // Send via Pancake API (use same method as chat modal)
-        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
-        if (!pageAccessToken) {
-            throw new Error('No page_access_token available. Vui lòng vào Pancake Settings → Tools để tạo token.');
-        }
-
-        const sendResponse = await fetch(
-            `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations/${convId}/messages?page_access_token=${pageAccessToken}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    action: 'reply_inbox',
-                    message: `📋 Phiếu bán hàng #${orderResult?.Number || ''}`,
-                    ...(contentId ? { content_ids: [contentId], attachment_type: 'PHOTO' } : {})
-                })
-            }
-        );
-
-        if (!sendResponse.ok) {
-            const errorText = await sendResponse.text();
-            throw new Error(`Send failed: ${sendResponse.status} - ${errorText}`);
-        }
-
-        const sendResult = await sendResponse.json();
-        console.log('[BILL-SEND] ✅ Bill sent successfully:', sendResult);
-
-        return { success: true, messageId: sendResult.id };
-
-    } catch (error) {
-        console.error('[BILL-SEND] ❌ Error sending bill:', error);
-        return { success: false, error: error.message };
-    }
-}
+// ============================================================================
+// BILL SERVICE - Functions moved to bill-service.js
+// Use window.BillService.generateCustomBillHTML, openPrintPopup, generateBillImage, sendBillToCustomer
+// or global functions: generateCustomBillHTML, openPrintPopup, generateBillImage, sendBillToCustomer
+// ============================================================================
 
 // Add keyboard shortcut F9 for confirm and print
 document.addEventListener('keydown', function (e) {
@@ -25309,7 +24733,7 @@ function toggleChatRightPanel() {
 // Export functions
 window.confirmAndPrintSale = confirmAndPrintSale;
 window.confirmDebtUpdate = confirmDebtUpdate;
-window.openPrintPopup = openPrintPopup;
+// Note: openPrintPopup is now exported from bill-service.js
 window.toggleChatRightPanel = toggleChatRightPanel;
 window.removeChatProduct = removeChatProduct;
 window.updateChatProductQuantity = updateChatProductQuantity;
@@ -26543,6 +25967,10 @@ async function printSuccessOrders(type) {
         // Clear currentSaleOrderData to prevent old data interference
         currentSaleOrderData = null;
 
+        // Collect all enriched orders and send tasks
+        const enrichedOrders = [];
+        const sendTasks = [];
+
         for (let i = 0; i < selectedOrders.length; i++) {
             const order = selectedOrders[i];
 
@@ -26562,7 +25990,14 @@ async function printSuccessOrders(type) {
 
             // Get CarrierName from form dropdown (same logic as collectFastSaleData)
             const carrierSelect = originalOrderIndex >= 0 ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`) : null;
-            const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text || order.CarrierName || '';
+            const carrierNameFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
+            // Fallback chain: dropdown > originalOrder.Carrier.Name > order.CarrierName > order.Carrier.Name
+            const carrierName = carrierNameFromDropdown ||
+                originalOrder?.Carrier?.Name ||
+                originalOrder?.CarrierName ||
+                order.CarrierName ||
+                order.Carrier?.Name ||
+                '';
             const shippingFee = originalOrderIndex >= 0
                 ? parseFloat(document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)?.value) || 0
                 : order.DeliveryPrice || 0;
@@ -26587,82 +26022,88 @@ async function printSuccessOrders(type) {
                 OrderLines: orderLines,
                 CarrierName: carrierName,
                 DeliveryPrice: shippingFee,
-                // Also copy customer info from original order
                 PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
             };
 
+            enrichedOrders.push(enrichedOrder);
+
             console.log('[FAST-SALE] Enriched order for bill:', {
                 number: enrichedOrder.Number,
-                reference: order.Reference,
                 carrierName: enrichedOrder.CarrierName,
-                orderLinesCount: enrichedOrder.OrderLines?.length,
-                orderLines: enrichedOrder.OrderLines,
-                deliveryPrice: enrichedOrder.DeliveryPrice,
-                originalOrderIndex,
-                foundOriginal: !!originalOrder
+                orderLinesCount: enrichedOrder.OrderLines?.length
             });
 
-            // Open print popup with enriched order data
-            openPrintPopup(enrichedOrder);
-
-            // Find original SaleOnline order to get chat info
-            const saleOnlineId = order.SaleOnlineIds?.[0];
+            // Find saleOnline order for chat info
+            let saleOnlineOrder = saleOnlineOrderForData;
             const saleOnlineName = order.SaleOnlineNames?.[0];
-
-            console.log('[FAST-SALE] Looking for customer for order:', order.Number, {
-                saleOnlineId,
-                saleOnlineName,
-                partnerId: order.PartnerId,
-                partnerName: order.PartnerDisplayName
-            });
-
-            // Strategy 1: Match by SaleOnlineId
-            let saleOnlineOrder = saleOnlineId
-                ? displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId))
-                : null;
-
-            // Strategy 2: Match by SaleOnlineName (Code)
             if (!saleOnlineOrder && saleOnlineName) {
                 saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
             }
-
-            // Strategy 3: Match by PartnerId
             if (!saleOnlineOrder && order.PartnerId) {
                 saleOnlineOrder = displayedData.find(o => o.PartnerId === order.PartnerId);
             }
 
-            console.log('[FAST-SALE] Found saleOnlineOrder:', saleOnlineOrder?.Id, saleOnlineOrder?.Code, saleOnlineOrder?.Name);
-
+            // Prepare send task for this customer
             if (saleOnlineOrder) {
                 const psid = saleOnlineOrder.Facebook_ASUserId;
                 const postId = saleOnlineOrder.Facebook_PostId;
                 const channelId = postId ? postId.split('_')[0] : null;
 
-                console.log('[FAST-SALE] Chat info:', { psid, postId, channelId, customerName: saleOnlineOrder.Name });
-
                 if (psid && channelId) {
-                    console.log('[FAST-SALE] Sending bill to Messenger for order:', order.Number, 'to customer:', saleOnlineOrder.Name);
-                    // Send enriched order to get correct bill content
-                    sendBillToCustomer(enrichedOrder, channelId, psid)
-                        .then(res => {
-                            if (res.success) {
-                                console.log(`[FAST-SALE] ✅ Bill sent for ${order.Number} to ${saleOnlineOrder.Name}`);
-                                window.notificationManager.success(`Đã gửi bill ${order.Number} qua Messenger`, 2000);
-                            }
-                        })
-                        .catch(err => console.error(`[FAST-SALE] ❌ Failed to send bill:`, err));
-                } else {
-                    console.log('[FAST-SALE] ⚠️ No chat info for order:', order.Number);
+                    console.log('[FAST-SALE] Will send bill to:', saleOnlineOrder.Name, 'for order:', order.Number);
+                    sendTasks.push({
+                        enrichedOrder,
+                        channelId,
+                        psid,
+                        customerName: saleOnlineOrder.Name,
+                        orderNumber: order.Number
+                    });
                 }
-            } else {
-                console.log('[FAST-SALE] ⚠️ Could not find saleOnlineOrder for:', order.Number);
             }
         }
 
-        window.notificationManager.success(
-            `Đã mở ${selectedOrders.length} cửa sổ in hóa đơn`,
-            2000
-        );
+        // 1. Open ONE combined print popup with all bills
+        if (enrichedOrders.length > 0) {
+            console.log('[FAST-SALE] Opening combined print popup for', enrichedOrders.length, 'bills...');
+            openCombinedPrintPopup(enrichedOrders);
+        }
+
+        // 2. Send all bills to Messenger in PARALLEL
+        if (sendTasks.length > 0) {
+            console.log('[FAST-SALE] Sending', sendTasks.length, 'bills to Messenger in parallel...');
+            window.notificationManager.info(`Đang gửi ${sendTasks.length} bill qua Messenger...`, 3000);
+
+            const sendPromises = sendTasks.map(task =>
+                sendBillToCustomer(task.enrichedOrder, task.channelId, task.psid)
+                    .then(res => {
+                        if (res.success) {
+                            console.log(`[FAST-SALE] ✅ Bill sent for ${task.orderNumber} to ${task.customerName}`);
+                            return { success: true, orderNumber: task.orderNumber, customerName: task.customerName };
+                        } else {
+                            console.warn(`[FAST-SALE] ⚠️ Failed to send bill for ${task.orderNumber}:`, res.error);
+                            return { success: false, orderNumber: task.orderNumber, error: res.error };
+                        }
+                    })
+                    .catch(err => {
+                        console.error(`[FAST-SALE] ❌ Error sending bill for ${task.orderNumber}:`, err);
+                        return { success: false, orderNumber: task.orderNumber, error: err.message };
+                    })
+            );
+
+            // Wait for all sends to complete
+            Promise.all(sendPromises).then(results => {
+                const successCount = results.filter(r => r.success).length;
+                const failCount = results.filter(r => !r.success).length;
+
+                if (successCount > 0) {
+                    window.notificationManager.success(`Đã gửi ${successCount}/${results.length} bill qua Messenger`, 3000);
+                }
+                if (failCount > 0) {
+                    window.notificationManager.warning(`${failCount} bill gửi thất bại`, 3000);
+                }
+            });
+        }
+
         return;
     }
 
