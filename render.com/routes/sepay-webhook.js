@@ -705,16 +705,17 @@ function extractPhoneFromContent(content) {
         console.log('[EXTRACT] 🟣 Parsing MOMO customer content:', textToParse);
     }
 
-    // Step 1.6: MB BANK (MBVCB) PATTERN DETECTION
+    // Step 1.6: VIETCOMBANK (MBVCB) PATTERN DETECTION
     // Format: MBVCB.{random}.{random}.{phone}.CT tu ...
     // Example: MBVCB.12459068036.249370.228666.CT tu 0141000833447 NGUYEN THI...
     // We need to extract the number before ".CT" (228666)
+    // Note: MBVCB = Mobile Banking Vietcombank
     const mbvcbPattern = /MBVCB\.[^.]+\.[^.]+\.(\d{5,10})\.CT/i;
     const mbvcbMatch = textToParse.match(mbvcbPattern);
     if (mbvcbMatch) {
         const customerPhone = mbvcbMatch[1]; // 228666
 
-        console.log('[EXTRACT] 🔵 Detected MB BANK (MBVCB) pattern:', {
+        console.log('[EXTRACT] 🔵 Detected Vietcombank (MBVCB) pattern:', {
             fullMatch: mbvcbMatch[0],
             customerPhone
         });
