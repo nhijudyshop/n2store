@@ -232,6 +232,45 @@ let uploadedImagesData = []; // Track uploaded images data (array for multiple i
 // KPI BASE Status Cache - stores order IDs that have BASE saved
 let ordersWithKPIBase = new Set();
 
+// Order Details Cache - stores fetched order details for chat modal (TTL: 5 minutes)
+const ORDER_DETAILS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in ms
+const orderDetailsCache = new Map(); // Map<orderId, { data, timestamp }>
+
+/**
+ * Get order details from cache if valid
+ * @param {string} orderId - Order ID
+ * @returns {Object|null} - Cached order data or null if expired/not found
+ */
+function getOrderDetailsFromCache(orderId) {
+    const cached = orderDetailsCache.get(orderId);
+    if (cached && (Date.now() - cached.timestamp) < ORDER_DETAILS_CACHE_TTL) {
+        console.log(`[CACHE] ✅ Order details cache HIT for ${orderId}`);
+        return cached.data;
+    }
+    if (cached) {
+        console.log(`[CACHE] ⏰ Order details cache EXPIRED for ${orderId}`);
+        orderDetailsCache.delete(orderId);
+    }
+    return null;
+}
+
+/**
+ * Save order details to cache
+ * @param {string} orderId - Order ID
+ * @param {Object} data - Order data to cache
+ */
+function saveOrderDetailsToCache(orderId, data) {
+    orderDetailsCache.set(orderId, { data, timestamp: Date.now() });
+    console.log(`[CACHE] 💾 Order details cached for ${orderId} (TTL: ${ORDER_DETAILS_CACHE_TTL / 1000}s)`);
+
+    // Clean up old entries (keep max 50 entries)
+    if (orderDetailsCache.size > 50) {
+        const oldestKey = orderDetailsCache.keys().next().value;
+        orderDetailsCache.delete(oldestKey);
+        console.log(`[CACHE] 🧹 Evicted oldest cache entry`);
+    }
+}
+
 // Purchase Comment Highlight State
 window.purchaseCommentId = null; // Store the Facebook_CommentId from the order to highlight in comment modal
 window.purchaseFacebookPostId = null; // Store Facebook_PostId
@@ -1632,6 +1671,78 @@ function syncEmployeeRanges() {
 // =====================================================
 // TAG MANAGEMENT FUNCTIONS #TAG
 // =====================================================
+
+// Helper function to fetch all tags with pagination (TPOS max $top=1000)
+async function fetchAllTagsWithPagination(headers) {
+    const PAGE_SIZE = 1000;
+    let allTags = [];
+    let skip = 0;
+    let totalCount = 0;
+
+    // First request to get count and first batch
+    const firstResponse = await API_CONFIG.smartFetch(
+        `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=${PAGE_SIZE}&$skip=0&$count=true`,
+        {
+            method: "GET",
+            headers: {
+                ...headers,
+                accept: "application/json",
+                "content-type": "application/json",
+            },
+        },
+    );
+
+    if (!firstResponse.ok) {
+        throw new Error(`HTTP ${firstResponse.status}`);
+    }
+
+    const firstData = await firstResponse.json();
+    allTags = firstData.value || [];
+    totalCount = firstData["@odata.count"] || allTags.length;
+
+    console.log(`[TAG] First batch: ${allTags.length} tags, total count: ${totalCount}`);
+
+    // If more tags exist, fetch remaining with pagination
+    if (totalCount > PAGE_SIZE) {
+        skip = PAGE_SIZE;
+
+        while (skip < totalCount) {
+            console.log(`[TAG] Fetching more tags with skip=${skip}...`);
+
+            const response = await API_CONFIG.smartFetch(
+                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=${PAGE_SIZE}&$skip=${skip}&$count=true`,
+                {
+                    method: "GET",
+                    headers: {
+                        ...headers,
+                        accept: "application/json",
+                        "content-type": "application/json",
+                    },
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} at skip=${skip}`);
+            }
+
+            const data = await response.json();
+            const batchTags = data.value || [];
+
+            if (batchTags.length === 0) {
+                break; // No more tags
+            }
+
+            allTags = allTags.concat(batchTags);
+            skip += PAGE_SIZE;
+
+            console.log(`[TAG] Fetched ${batchTags.length} more tags, total now: ${allTags.length}`);
+        }
+    }
+
+    console.log(`[TAG] Pagination complete: ${allTags.length}/${totalCount} tags fetched`);
+    return allTags;
+}
+
 async function loadAvailableTags() {
     try {
         const cached = window.cacheManager.get("tags", "tags");
@@ -1646,24 +1757,9 @@ async function loadAvailableTags() {
         console.log("[TAG] Loading tags from API...");
         const headers = await window.tokenManager.getAuthHeader();
 
-        const response = await API_CONFIG.smartFetch(
-            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=1000&$count=true",
-            {
-                method: "GET",
-                headers: {
-                    ...headers,
-                    accept: "application/json",
-                    "content-type": "application/json",
-                },
-            },
-        );
+        // Use pagination helper to fetch all tags
+        availableTags = await fetchAllTagsWithPagination(headers);
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        availableTags = data.value || [];
         window.availableTags = availableTags; // Export to window
         window.cacheManager.set("tags", availableTags, "tags");
         console.log(`[TAG] Loaded ${availableTags.length} tags from API`);
@@ -1686,25 +1782,8 @@ async function refreshTags() {
         console.log("[TAG] Refreshing tags from TPOS...");
         const headers = await window.tokenManager.getAuthHeader();
 
-        // Use $top=1000 to ensure we get all tags (current count ~302)
-        const response = await API_CONFIG.smartFetch(
-            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000",
-            {
-                method: "GET",
-                headers: {
-                    ...headers,
-                    accept: "application/json",
-                    "content-type": "application/json",
-                },
-            },
-        );
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        const newTags = data.value || [];
+        // Use pagination helper to fetch all tags (TPOS max $top=1000)
+        const newTags = await fetchAllTagsWithPagination(headers);
 
         console.log(`[TAG] Fetched ${newTags.length} tags from TPOS`);
 
@@ -3035,15 +3114,29 @@ async function autoCreateAndAddTagToBulkModal(tagName) {
             delete newTag['@odata.context'];
         }
 
-        // Reload all tags from TPOS API to ensure sync
-        console.log('[BULK-TAG-MODAL] Reloading all tags from TPOS...');
-        await loadAvailableTags();
+        // IMPORTANT: Add new tag directly to availableTags first (before reload)
+        // This ensures the tag appears immediately in dropdown even if TPOS hasn't indexed it yet
+        if (Array.isArray(availableTags)) {
+            // Check if not already exists
+            const existsInAvailable = availableTags.some(t => t.Id === newTag.Id);
+            if (!existsInAvailable) {
+                availableTags.push(newTag);
+                window.availableTags = availableTags;
+                console.log('[BULK-TAG-MODAL] Added new tag directly to availableTags:', newTag.Name);
+            }
+        }
+
+        // Clear tags cache and update with new list
+        window.cacheManager.clear("tags");
+        window.cacheManager.set("tags", availableTags, "tags");
+        console.log('[BULK-TAG-MODAL] Updated tags cache with new tag');
 
         // Update filter dropdowns
         populateTagFilter();
         populateBulkTagModalDropdown();
 
-        // Add the new tag to bulk tag modal table
+        // Add the new tag to bulk tag modal table using response data
+        // newTag from API response contains: Id, Name, Color, NameNosign, Type
         addTagToBulkTagModal(newTag.Id, newTag.Name, newTag.Color);
 
         // Show success notification
@@ -11229,20 +11322,36 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     window.populateChatPageSelector(channelId);  // View page selector
     window.populateSendPageSelector(channelId);  // Send page selector (independent)
 
-    // Initialize chat modal products with order data
-    // Fetch full order data with product details (including Facebook_PostId, Facebook_ASUserId, Facebook_CommentId)
-    try {
-        const headers = await window.tokenManager.getAuthHeader();
-        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
-        const response = await API_CONFIG.smartFetch(apiUrl, {
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-        });
-        if (response.ok) {
-            const fullOrderData = await response.json();
+    // OPTIMIZATION: Fetch TPOS order details in parallel (non-blocking)
+    // This runs independently while messages are being fetched
+    // Uses cache to avoid redundant API calls (TTL: 5 minutes)
+    const orderDetailsPromise = (async () => {
+        try {
+            // Check cache first
+            let fullOrderData = getOrderDetailsFromCache(orderId);
+
+            if (!fullOrderData) {
+                // Cache miss - fetch from API
+                console.log(`[CACHE] ❌ Order details cache MISS for ${orderId}, fetching from API...`);
+                const headers = await window.tokenManager.getAuthHeader();
+                const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+                const response = await API_CONFIG.smartFetch(apiUrl, {
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                fullOrderData = await response.json();
+
+                // Save to cache for future use
+                saveOrderDetailsToCache(orderId, fullOrderData);
+            }
 
             // Store full order data for dropped products manager (needed by moveDroppedToOrder)
             window.currentChatOrderData = fullOrderData;
@@ -11283,22 +11392,22 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             // Update message reply type toggle (show if order has comment)
             window.updateMessageReplyTypeToggle();
-        }
-    } catch (error) {
-        console.error('[CHAT] Error loading order details:', error);
-        // Reset order data
-        window.currentChatOrderData = null;
-        // Reset Facebook data on error
-        window.purchaseFacebookPostId = null;
-        window.purchaseFacebookASUserId = null;
-        window.purchaseCommentId = null;
-        // Reset order details
-        currentChatOrderDetails = [];
-        renderChatProductsTable();
+        } catch (error) {
+            console.error('[CHAT] Error loading order details:', error);
+            // Reset order data
+            window.currentChatOrderData = null;
+            // Reset Facebook data on error
+            window.purchaseFacebookPostId = null;
+            window.purchaseFacebookASUserId = null;
+            window.purchaseCommentId = null;
+            // Reset order details
+            currentChatOrderDetails = [];
+            renderChatProductsTable();
 
-        // Hide message reply type toggle on error
-        window.updateMessageReplyTypeToggle();
-    }
+            // Hide message reply type toggle on error
+            window.updateMessageReplyTypeToggle();
+        }
+    })(); // Execute immediately but don't await - runs in parallel
 
     // Show loading
     const modalBody = document.getElementById('chatModalBody');
@@ -11400,8 +11509,16 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             if (window.pancakeDataManager && facebookPsid) {
                 try {
-                    // Fetch all conversations for this customer
-                    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid);
+                    // OPTIMIZATION: Fetch conversations AND page access token in parallel
+                    console.log('[CHAT-MODAL] ⚡ Starting parallel fetch: conversations + pageAccessToken');
+                    const parallelStartTime = Date.now();
+
+                    const [result, preloadedPageAccessToken] = await Promise.all([
+                        window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid),
+                        window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId)
+                    ]);
+
+                    console.log(`[CHAT-MODAL] ⚡ Parallel fetch completed in ${Date.now() - parallelStartTime}ms`);
 
                     if (result.success && result.conversations.length > 0) {
                         console.log('[CHAT-MODAL] ✅ Found', result.conversations.length, 'conversations for fb_id:', facebookPsid);
@@ -11481,13 +11598,15 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             updateMarkButton(false);
 
                             // Now fetch messages for this COMMENT conversation
-                            console.log('[CHAT-MODAL] 📥 Fetching messages for COMMENT conversation...');
+                            // Pass preloaded pageAccessToken to skip redundant token fetch
+                            console.log('[CHAT-MODAL] 📥 Fetching messages for COMMENT conversation (using preloaded token)...');
 
                             const messagesResponse = await window.pancakeDataManager.fetchMessagesForConversation(
                                 channelId,
                                 window.currentConversationId,
                                 null,
-                                window.currentCustomerUUID
+                                window.currentCustomerUUID,
+                                preloadedPageAccessToken  // Use preloaded token from parallel fetch
                             );
 
                             // Store as comments (they are messages from COMMENT conversation)
@@ -11554,8 +11673,17 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             if (window.pancakeDataManager && facebookPsid) {
                 try {
-                    // Fetch all conversations for this customer
-                    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid);
+                    // OPTIMIZATION: Fetch conversations AND page access token in parallel
+                    // This saves ~600ms by not waiting for token after conversations
+                    console.log('[CHAT-MODAL] ⚡ Starting parallel fetch: conversations + pageAccessToken');
+                    const parallelStartTime = Date.now();
+
+                    const [result, preloadedPageAccessToken] = await Promise.all([
+                        window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid),
+                        window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId)
+                    ]);
+
+                    console.log(`[CHAT-MODAL] ⚡ Parallel fetch completed in ${Date.now() - parallelStartTime}ms`);
 
                     if (result.success && result.conversations.length > 0) {
                         console.log('[CHAT-MODAL] ✅ Found', result.conversations.length, 'conversations for fb_id:', facebookPsid);
@@ -11616,13 +11744,15 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             }
 
                             // Now fetch messages for this INBOX conversation
-                            console.log('[CHAT-MODAL] 📥 Fetching messages for INBOX conversation...');
+                            // Pass preloaded pageAccessToken to skip redundant token fetch
+                            console.log('[CHAT-MODAL] 📥 Fetching messages for INBOX conversation (using preloaded token)...');
 
                             const messagesResponse = await window.pancakeDataManager.fetchMessagesForConversation(
                                 channelId,
                                 window.currentConversationId,
                                 null,
-                                window.currentCustomerUUID
+                                window.currentCustomerUUID,
+                                preloadedPageAccessToken  // Use preloaded token from parallel fetch
                             );
 
                             window.allChatMessages = messagesResponse.messages || [];
@@ -13352,17 +13482,36 @@ async function sendMessageViaFacebookTag(params) {
         // Get Facebook Page Token from TPOS CRMTeam data (expanded in order)
         // This token is different from Pancake's page_access_token
         let facebookPageToken = null;
+        let tokenSourcePageId = null;
 
         // Source 1: Try from window.currentCRMTeam (set when chat modal opens)
+        // IMPORTANT: Check if this CRMTeam matches the requested pageId
         if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
-            facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
-            console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from window.currentCRMTeam');
+            const crmPageId = window.currentCRMTeam.ChannelId || window.currentCRMTeam.Facebook_AccountId || window.currentCRMTeam.Id;
+            tokenSourcePageId = crmPageId;
+
+            // Check if pageId matches CRMTeam's page
+            if (String(crmPageId) === String(pageId) ||
+                String(window.currentCRMTeam.Facebook_AccountId) === String(pageId)) {
+                facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
+                console.log('[FB-TAG-SEND] ✅ Got matching Facebook Page Token from window.currentCRMTeam');
+            } else {
+                console.warn(`[FB-TAG-SEND] ⚠️ currentCRMTeam page (${crmPageId}) does not match requested page (${pageId})`);
+            }
         }
 
         // Source 2: Try to get from current order's CRMTeam (if already loaded)
         if (!facebookPageToken && window.currentOrder && window.currentOrder.CRMTeam && window.currentOrder.CRMTeam.Facebook_PageToken) {
-            facebookPageToken = window.currentOrder.CRMTeam.Facebook_PageToken;
-            console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from currentOrder.CRMTeam');
+            const crmPageId = window.currentOrder.CRMTeam.ChannelId || window.currentOrder.CRMTeam.Facebook_AccountId;
+            tokenSourcePageId = crmPageId;
+
+            if (String(crmPageId) === String(pageId) ||
+                String(window.currentOrder.CRMTeam.Facebook_AccountId) === String(pageId)) {
+                facebookPageToken = window.currentOrder.CRMTeam.Facebook_PageToken;
+                console.log('[FB-TAG-SEND] ✅ Got matching Facebook Page Token from currentOrder.CRMTeam');
+            } else {
+                console.warn(`[FB-TAG-SEND] ⚠️ currentOrder.CRMTeam page (${crmPageId}) does not match requested page (${pageId})`);
+            }
         }
 
         // Source 3: Try from cachedChannelsData
@@ -13377,27 +13526,36 @@ async function sendMessageViaFacebookTag(params) {
             }
         }
 
-        // Source 4: Fetch order data with CRMTeam expand (fallback)
-        if (!facebookPageToken && window.currentOrder && window.currentOrder.Id) {
-            console.log('[FB-TAG-SEND] Token not in cache, fetching from order API...');
+        // Source 4: Fetch CRMTeam directly by pageId from TPOS (NEW!)
+        if (!facebookPageToken) {
+            console.log('[FB-TAG-SEND] Token not found for page, fetching CRMTeam from TPOS...');
             try {
-                const orderId = window.currentOrder.Id;
-                const orderUrl = `${window.API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=CRMTeam`;
-                const response = await fetch(orderUrl, {
+                const headers = await window.tokenManager?.getAuthHeader() || {};
+                // Try to find CRMTeam by ChannelId (pageId)
+                const crmUrl = `${window.API_CONFIG.WORKER_URL}/api/odata/CRMTeam?$filter=ChannelId eq '${pageId}' or Facebook_AccountId eq '${pageId}'&$top=1`;
+                const response = await fetch(crmUrl, {
                     method: 'GET',
-                    headers: { 'Accept': 'application/json' }
+                    headers: { ...headers, 'Accept': 'application/json' }
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.CRMTeam && data.CRMTeam.Facebook_PageToken) {
-                        facebookPageToken = data.CRMTeam.Facebook_PageToken;
-                        console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from order API');
+                    const teams = data.value || data;
+                    if (teams && teams.length > 0 && teams[0].Facebook_PageToken) {
+                        facebookPageToken = teams[0].Facebook_PageToken;
+                        console.log('[FB-TAG-SEND] ✅ Got Facebook Page Token from CRMTeam API for page:', pageId);
                     }
                 }
             } catch (fetchError) {
-                console.warn('[FB-TAG-SEND] ⚠️ Could not fetch order from TPOS:', fetchError.message);
+                console.warn('[FB-TAG-SEND] ⚠️ Could not fetch CRMTeam from TPOS:', fetchError.message);
             }
+        }
+
+        // Source 5: Fallback - use currentCRMTeam token anyway (may cause error but better than nothing)
+        if (!facebookPageToken && window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
+            facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
+            console.warn('[FB-TAG-SEND] ⚠️ Using currentCRMTeam token as fallback - may cause page mismatch error!');
+            console.warn(`[FB-TAG-SEND] ⚠️ Token is for page: ${tokenSourcePageId}, but sending to page: ${pageId}`);
         }
 
         if (!facebookPageToken) {
@@ -22727,12 +22885,32 @@ async function openSaleButtonModal() {
 
 /**
  * Close Sale Button Modal
+ * @param {boolean} clearSelection - If true, clear checkbox selection and selectedOrderIds
  */
-function closeSaleButtonModal() {
+function closeSaleButtonModal(clearSelection = false) {
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'none';
     currentSaleOrderData = null;
     currentSalePartnerData = null;
+
+    // Clear selection if requested (after successful order creation)
+    if (clearSelection) {
+        // Clear selectedOrderIds
+        selectedOrderIds.clear();
+
+        // Uncheck all checkboxes in table
+        const checkboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+
+        // Uncheck "Select All" checkbox
+        const selectAllCheckbox = document.getElementById('selectAll');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+        }
+
+        // Update action buttons visibility
+        updateActionButtons();
+    }
 }
 
 /**
@@ -24045,27 +24223,8 @@ async function confirmAndPrintSale() {
             }
         }
 
-        // Step 2: GET print1 to get print HTML
-        console.log('[SALE-CONFIRM] Step 2: Fetching print HTML for ID:', orderId);
-        const printResponse = await fetch(`https://tomato.tpos.vn/fastsaleorder/print1?ids=${orderId}`, {
-            method: 'GET',
-            headers: {
-                'accept': 'application/json, text/javascript, */*; q=0.01',
-                'authorization': `Bearer ${token}`,
-                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
-                'x-requested-with': 'XMLHttpRequest'
-            }
-        });
-
-        if (!printResponse.ok) {
-            throw new Error(`Lỗi lấy phiếu in: ${printResponse.status}`);
-        }
-
-        const printResult = await printResponse.json();
-        console.log('[SALE-CONFIRM] Print HTML received');
-
-        // Step 3: POST ODataService.DefaultGet to reset form (parallel with print)
-        console.log('[SALE-CONFIRM] Step 3: Fetching default data for new order...');
+        // Step 2: Fetch default data for next order (async, don't block)
+        console.log('[SALE-CONFIRM] Step 2: Fetching default data for new order...');
         fetch('https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.DefaultGet?$expand=Warehouse,User,PriceList,Company,Journal,PaymentJournal,Partner,Carrier,Tax,SaleOrder,DestConvertCurrencyUnit', {
             method: 'POST',
             headers: {
@@ -24084,12 +24243,51 @@ async function confirmAndPrintSale() {
             console.warn('[SALE-CONFIRM] Failed to fetch default data:', err);
         });
 
-        // Step 4: Open print popup with HTML and VietQR
-        if (printResult.html) {
-            // Get phone and COD for VietQR
-            const phone = document.getElementById('saleReceiverPhone')?.value || currentSaleOrderData?.PartnerPhone || currentSaleOrderData?.Telephone;
-            const cod = parseFloat(document.getElementById('saleCOD')?.value) || 0;
-            openPrintPopup(printResult.html, phone, cod);
+        // Step 3: Open print popup with custom bill (no longer fetches from TPOS API)
+        console.log('[SALE-CONFIRM] Step 3: Opening custom bill popup...');
+        openPrintPopup(createResult, { currentSaleOrderData });
+
+        // Step 4: Send bill image to customer via Messenger (async, don't block)
+        console.log('[SALE-CONFIRM] Step 4: Sending bill to customer...');
+        console.log('[SALE-CONFIRM] Order data for chat:', {
+            Facebook_ASUserId: currentSaleOrderData?.Facebook_ASUserId,
+            Facebook_PostId: currentSaleOrderData?.Facebook_PostId,
+            Facebook_ConversationId: currentSaleOrderData?.Facebook_ConversationId,
+            chatDataManager: !!window.chatDataManager
+        });
+
+        let chatInfo = window.chatDataManager?.getChatInfoForOrder(currentSaleOrderData);
+
+        // Fallback: get chat info directly from order if chatDataManager not available
+        if (!chatInfo || !chatInfo.hasChat) {
+            const psid = currentSaleOrderData?.Facebook_ASUserId;
+            const postId = currentSaleOrderData?.Facebook_PostId;
+            const channelId = postId ? postId.split('_')[0] : null;
+            if (psid && channelId) {
+                chatInfo = { channelId, psid, hasChat: true };
+                console.log('[SALE-CONFIRM] Using fallback chat info:', chatInfo);
+            }
+        }
+        console.log('[SALE-CONFIRM] Final chat info:', chatInfo);
+
+        if (chatInfo?.hasChat) {
+            sendBillToCustomer(createResult, chatInfo.channelId, chatInfo.psid, { currentSaleOrderData })
+                .then(result => {
+                    if (result.success) {
+                        console.log('[SALE-CONFIRM] ✅ Bill sent to customer successfully');
+                        if (window.notificationManager) {
+                            window.notificationManager.success('Đã gửi phiếu bán hàng qua Messenger', 3000);
+                        }
+                    } else {
+                        console.warn('[SALE-CONFIRM] ⚠️ Failed to send bill:', result.error);
+                    }
+                })
+                .catch(err => {
+                    console.error('[SALE-CONFIRM] ❌ Error sending bill:', err);
+                });
+        } else {
+            console.log('[SALE-CONFIRM] ⏭️ Skipping bill send - no chat info available');
+            console.log('[SALE-CONFIRM] Reason: chatDataManager=', !!window.chatDataManager, 'hasChat=', chatInfo?.hasChat);
         }
 
         // Success notification
@@ -24097,13 +24295,9 @@ async function confirmAndPrintSale() {
             window.notificationManager.success(`Đã tạo đơn hàng ${createResult.Number || orderId}`);
         }
 
-        // Close modal after successful creation
+        // Close modal after successful creation and clear selection
         setTimeout(() => {
-            closeSaleButtonModal();
-            // Refresh the orders list if needed
-            if (typeof loadTab1Data === 'function') {
-                loadTab1Data();
-            }
+            closeSaleButtonModal(true); // true = clear checkbox selection
         }, 500);
 
     } catch (error) {
@@ -24493,82 +24687,11 @@ function buildOrderLines() {
     return [];
 }
 
-/**
- * Open print popup with HTML content
- * @param {string} html - HTML content from print1 API
- * @param {string} phone - Customer phone number (unused, kept for API compatibility)
- * @param {number} cod - Cash on delivery amount (unused, kept for API compatibility)
- */
-function openPrintPopup(html, phone = null, cod = 0) {
-    console.log('[SALE-CONFIRM] Opening print popup...');
-
-    // Inject STT into bill
-    if (currentSaleOrderData) {
-        let sttDisplay = '';
-
-        // Check if merged order with multiple original orders
-        if (currentSaleOrderData.IsMerged && currentSaleOrderData.OriginalOrders && currentSaleOrderData.OriginalOrders.length > 1) {
-            // Get all STTs from original orders, sorted ascending
-            const allSTTs = currentSaleOrderData.OriginalOrders
-                .map(o => o.SessionIndex)
-                .filter(stt => stt)
-                .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
-            sttDisplay = allSTTs.join(', ');
-            console.log('[SALE-CONFIRM] Merged order STTs:', sttDisplay);
-        } else {
-            // Single order - use SessionIndex directly
-            sttDisplay = currentSaleOrderData.SessionIndex || '';
-            console.log('[SALE-CONFIRM] Single order STT:', sttDisplay);
-        }
-
-        if (sttDisplay) {
-            // Create STT HTML to inject after "Người bán:" line
-            const sttHtml = `<div style="font-weight: bold; margin: 5px 0;">STT: ${sttDisplay}</div>`;
-
-            // Try to inject after "Người bán:" line
-            const nguoiBanRegex = /(<div[^>]*>Người bán:[^<]*<\/div>)/i;
-            if (nguoiBanRegex.test(html)) {
-                html = html.replace(nguoiBanRegex, `$1${sttHtml}`);
-                console.log('[SALE-CONFIRM] STT injected after Người bán');
-            } else {
-                // Fallback: inject after <body> tag
-                html = html.replace(/<body[^>]*>/i, `$&${sttHtml}`);
-                console.log('[SALE-CONFIRM] STT injected after body tag (fallback)');
-            }
-        }
-    }
-
-    // Create a new window for printing
-    const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
-
-    if (!printWindow) {
-        console.error('[SALE-CONFIRM] Failed to open print window - popup blocked?');
-        if (window.notificationManager) {
-            window.notificationManager.warning('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
-        }
-        return;
-    }
-
-    // Write the HTML content
-    printWindow.document.write(html);
-    printWindow.document.close();
-
-    // Wait for content to load, then trigger print
-    printWindow.onload = function () {
-        setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-        }, 500);
-    };
-
-    // Fallback if onload doesn't fire
-    setTimeout(() => {
-        if (printWindow && !printWindow.closed) {
-            printWindow.focus();
-            printWindow.print();
-        }
-    }, 1500);
-}
+// ============================================================================
+// BILL SERVICE - Functions moved to bill-service.js
+// Use window.BillService.generateCustomBillHTML, openPrintPopup, generateBillImage, sendBillToCustomer
+// or global functions: generateCustomBillHTML, openPrintPopup, generateBillImage, sendBillToCustomer
+// ============================================================================
 
 // Add keyboard shortcut F9 for confirm and print
 document.addEventListener('keydown', function (e) {
@@ -24610,7 +24733,7 @@ function toggleChatRightPanel() {
 // Export functions
 window.confirmAndPrintSale = confirmAndPrintSale;
 window.confirmDebtUpdate = confirmDebtUpdate;
-window.openPrintPopup = openPrintPopup;
+// Note: openPrintPopup is now exported from bill-service.js
 window.toggleChatRightPanel = toggleChatRightPanel;
 window.removeChatProduct = removeChatProduct;
 window.updateChatProductQuantity = updateChatProductQuantity;
@@ -25482,6 +25605,8 @@ async function saveFastSaleOrders(isApprove = false) {
         // Show results modal
         showFastSaleResultsModal(result);
 
+        // Note: Bill sending is handled manually via "In hóa đơn" button in printSuccessOrders()
+
     } catch (error) {
         console.error('[FAST-SALE] Error saving orders:', error);
 
@@ -25505,6 +25630,153 @@ let fastSaleResultsData = {
     failed: [],
     success: []
 };
+
+/**
+ * Cache for pre-generated bill images and send tasks
+ * Key: order ID or order Number
+ * Value: { imageBlob, contentUrl, contentId, enrichedOrder, sendTask }
+ */
+window.preGeneratedBillData = new Map();
+
+/**
+ * Flag to track if pre-generation is in progress
+ */
+window.isPreGeneratingBills = false;
+
+/**
+ * Pre-generate bill images in background after orders are created
+ * This runs automatically when success orders are available
+ */
+async function preGenerateBillImages() {
+    const successOrders = fastSaleResultsData.success;
+    if (!successOrders || successOrders.length === 0) {
+        console.log('[FAST-SALE] No success orders to pre-generate bills for');
+        return;
+    }
+
+    window.isPreGeneratingBills = true;
+    // Run in background - don't disable print button
+
+    console.log(`[FAST-SALE] 🎨 Pre-generating ${successOrders.length} bill images in background...`);
+    window.preGeneratedBillData.clear();
+
+    for (let i = 0; i < successOrders.length; i++) {
+        const order = successOrders[i];
+
+        try {
+            // Find original order by matching SaleOnlineIds or Reference (same logic as printSuccessOrders)
+            const originalOrderIndex = fastSaleOrdersData.findIndex(o =>
+                (o.SaleOnlineIds && order.SaleOnlineIds &&
+                    JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
+                (o.Reference && o.Reference === order.Reference)
+            );
+            const originalOrder = originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
+
+            // Find saleOnline order from displayedData
+            const saleOnlineId = order.SaleOnlineIds?.[0];
+            const saleOnlineOrderForData = saleOnlineId
+                ? displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId))
+                : null;
+
+            // Get CarrierName from form dropdown
+            const carrierSelect = originalOrderIndex >= 0 ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`) : null;
+            const carrierNameFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
+            const carrierName = carrierNameFromDropdown ||
+                originalOrder?.Carrier?.Name ||
+                originalOrder?.CarrierName ||
+                order.CarrierName ||
+                order.Carrier?.Name ||
+                '';
+            const shippingFee = originalOrderIndex >= 0
+                ? parseFloat(document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)?.value) || 0
+                : order.DeliveryPrice || 0;
+
+            // Get OrderLines
+            let orderLines = originalOrder?.OrderLines || order.OrderLines || [];
+            if ((!orderLines || orderLines.length === 0) && saleOnlineOrderForData?.Details) {
+                orderLines = saleOnlineOrderForData.Details.map(d => ({
+                    ProductName: d.ProductName || d.ProductNameGet || '',
+                    ProductNameGet: d.ProductNameGet || d.ProductName || '',
+                    ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
+                    Quantity: d.Quantity || d.ProductUOMQty || 1,
+                    PriceUnit: d.Price || d.PriceUnit || 0,
+                    Note: d.Note || ''
+                }));
+            }
+
+            // Create enriched order
+            const enrichedOrder = {
+                ...order,
+                OrderLines: orderLines,
+                CarrierName: carrierName,
+                DeliveryPrice: shippingFee,
+                PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
+            };
+
+            // Find saleOnline order for chat info
+            let saleOnlineOrder = saleOnlineOrderForData;
+            const saleOnlineName = order.SaleOnlineNames?.[0];
+            if (!saleOnlineOrder && saleOnlineName) {
+                saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
+            }
+            if (!saleOnlineOrder && order.PartnerId) {
+                saleOnlineOrder = displayedData.find(o => o.PartnerId === order.PartnerId);
+            }
+
+            // Prepare send task
+            let sendTask = null;
+            if (saleOnlineOrder) {
+                const psid = saleOnlineOrder.Facebook_ASUserId;
+                const postId = saleOnlineOrder.Facebook_PostId;
+                const channelId = postId ? postId.split('_')[0] : null;
+
+                if (psid && channelId) {
+                    sendTask = {
+                        channelId,
+                        psid,
+                        customerName: saleOnlineOrder.Name,
+                        orderNumber: order.Number
+                    };
+                }
+            }
+
+            // Generate bill image in background
+            const imageBlob = await generateBillImage(enrichedOrder, {});
+
+            // Upload image to Pancake immediately if we have sendTask
+            let contentUrl = null;
+            let contentId = null;
+            if (sendTask && window.pancakeDataManager) {
+                const imageFile = new File([imageBlob], `bill_${order.Number || Date.now()}.png`, { type: 'image/png' });
+                const uploadResult = await window.pancakeDataManager.uploadImage(sendTask.channelId, imageFile);
+                contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+                // IMPORTANT: Use content_id (hash), not id (UUID) - Pancake API expects content_id
+                contentId = typeof uploadResult === 'object' ? (uploadResult.content_id || uploadResult.id) : null;
+                console.log(`[FAST-SALE] 📤 Pre-uploaded bill image for ${order.Number}: ${contentUrl}, content_id: ${contentId}`);
+            }
+
+            // Cache the data
+            const cacheKey = order.Id || order.Number;
+            window.preGeneratedBillData.set(cacheKey, {
+                imageBlob,
+                contentUrl,
+                contentId,
+                enrichedOrder,
+                sendTask
+            });
+
+            console.log(`[FAST-SALE] ✅ Pre-generated bill ${i + 1}/${successOrders.length}: ${order.Number}`);
+
+        } catch (error) {
+            console.error(`[FAST-SALE] ❌ Error pre-generating bill for ${order.Number}:`, error);
+        }
+    }
+
+    console.log(`[FAST-SALE] 🎨 Pre-generation complete: ${window.preGeneratedBillData.size}/${successOrders.length} bills ready`);
+    window.notificationManager.success(`Đã tạo sẵn ${window.preGeneratedBillData.size} bill images`, 2000);
+
+    window.isPreGeneratingBills = false;
+}
 
 /**
  * Show Fast Sale Results Modal
@@ -25541,6 +25813,11 @@ function showFastSaleResultsModal(results) {
         switchResultsTab('failed');
     } else {
         switchResultsTab('success');
+    }
+
+    // Pre-generate bill images in background (don't await - run async)
+    if (fastSaleResultsData.success.length > 0) {
+        setTimeout(() => preGenerateBillImages(), 100);
     }
 }
 
@@ -25817,6 +26094,8 @@ function toggleAllSuccessOrders(checked) {
  * @param {string} type - 'invoice', 'shipping', or 'picking'
  */
 async function printSuccessOrders(type) {
+    // Pre-generation runs in background - if cached data exists, use it; otherwise generate on-the-fly
+
     const selectedIndexes = Array.from(document.querySelectorAll('.success-order-checkbox:checked'))
         .map(cb => parseInt(cb.value));
 
@@ -25835,6 +26114,217 @@ async function printSuccessOrders(type) {
 
     console.log(`[FAST-SALE] Printing ${type} for ${orderIds.length} orders:`, orderIds);
 
+    // For invoice type, use custom bill and send to Messenger
+    if (type === 'invoice') {
+        console.log('[FAST-SALE] Using custom bill for invoice printing...');
+
+        // Clear currentSaleOrderData to prevent old data interference
+        currentSaleOrderData = null;
+
+        // Collect all enriched orders and send tasks
+        const enrichedOrders = [];
+        const sendTasks = [];
+
+        for (let i = 0; i < selectedOrders.length; i++) {
+            const order = selectedOrders[i];
+
+            // Find original order by matching SaleOnlineIds or Reference
+            const originalOrderIndex = fastSaleOrdersData.findIndex(o =>
+                (o.SaleOnlineIds && order.SaleOnlineIds &&
+                    JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
+                (o.Reference && o.Reference === order.Reference)
+            );
+            const originalOrder = originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
+
+            // Also try to find saleOnline order from displayedData for additional data
+            const saleOnlineId = order.SaleOnlineIds?.[0];
+            const saleOnlineOrderForData = saleOnlineId
+                ? displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId))
+                : null;
+
+            // Get CarrierName from form dropdown (same logic as collectFastSaleData)
+            const carrierSelect = originalOrderIndex >= 0 ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`) : null;
+            const carrierNameFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
+            // Fallback chain: dropdown > originalOrder.Carrier.Name > order.CarrierName > order.Carrier.Name
+            const carrierName = carrierNameFromDropdown ||
+                originalOrder?.Carrier?.Name ||
+                originalOrder?.CarrierName ||
+                order.CarrierName ||
+                order.Carrier?.Name ||
+                '';
+            const shippingFee = originalOrderIndex >= 0
+                ? parseFloat(document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)?.value) || 0
+                : order.DeliveryPrice || 0;
+
+            // Get OrderLines - priority: originalOrder (from FastSale API) > saleOnlineOrder.Details > order.OrderLines
+            let orderLines = originalOrder?.OrderLines || order.OrderLines || [];
+            if ((!orderLines || orderLines.length === 0) && saleOnlineOrderForData?.Details) {
+                // Map saleOnline Details to OrderLines format
+                orderLines = saleOnlineOrderForData.Details.map(d => ({
+                    ProductName: d.ProductName || d.ProductNameGet || '',
+                    ProductNameGet: d.ProductNameGet || d.ProductName || '',
+                    ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
+                    Quantity: d.Quantity || d.ProductUOMQty || 1,
+                    PriceUnit: d.Price || d.PriceUnit || 0,
+                    Note: d.Note || ''
+                }));
+            }
+
+            // Merge data: API result + original OrderLines + form values
+            const enrichedOrder = {
+                ...order,
+                OrderLines: orderLines,
+                CarrierName: carrierName,
+                DeliveryPrice: shippingFee,
+                PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
+            };
+
+            enrichedOrders.push(enrichedOrder);
+
+            console.log('[FAST-SALE] Enriched order for bill:', {
+                number: enrichedOrder.Number,
+                carrierName: enrichedOrder.CarrierName,
+                orderLinesCount: enrichedOrder.OrderLines?.length
+            });
+
+            // Find saleOnline order for chat info
+            let saleOnlineOrder = saleOnlineOrderForData;
+            const saleOnlineName = order.SaleOnlineNames?.[0];
+            if (!saleOnlineOrder && saleOnlineName) {
+                saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
+            }
+            if (!saleOnlineOrder && order.PartnerId) {
+                saleOnlineOrder = displayedData.find(o => o.PartnerId === order.PartnerId);
+            }
+
+            // DEBUG: Log customer matching info
+            console.log('[FAST-SALE] DEBUG - Customer matching for order:', order.Number, {
+                saleOnlineId,
+                saleOnlineName,
+                partnerId: order.PartnerId,
+                foundSaleOnlineOrder: !!saleOnlineOrder,
+                saleOnlineOrderId: saleOnlineOrder?.Id,
+                saleOnlineOrderName: saleOnlineOrder?.Name,
+                saleOnlineOrderCode: saleOnlineOrder?.Code,
+                Facebook_ASUserId: saleOnlineOrder?.Facebook_ASUserId,
+                Facebook_PostId: saleOnlineOrder?.Facebook_PostId
+            });
+
+            // Prepare send task for this customer
+            if (saleOnlineOrder) {
+                const psid = saleOnlineOrder.Facebook_ASUserId;
+                const postId = saleOnlineOrder.Facebook_PostId;
+                const channelId = postId ? postId.split('_')[0] : null;
+
+                console.log('[FAST-SALE] DEBUG - Send task check:', {
+                    orderNumber: order.Number,
+                    customerName: saleOnlineOrder.Name,
+                    psid,
+                    postId,
+                    channelId,
+                    willAddToSendTasks: !!(psid && channelId)
+                });
+
+                if (psid && channelId) {
+                    console.log('[FAST-SALE] Will send bill to:', saleOnlineOrder.Name, 'for order:', order.Number);
+                    sendTasks.push({
+                        enrichedOrder,
+                        channelId,
+                        psid,
+                        customerName: saleOnlineOrder.Name,
+                        orderNumber: order.Number
+                    });
+                } else {
+                    console.warn('[FAST-SALE] ⚠️ Missing psid or channelId for order:', order.Number, {
+                        psid: psid || 'MISSING',
+                        channelId: channelId || 'MISSING'
+                    });
+                }
+            } else {
+                console.warn('[FAST-SALE] ⚠️ No saleOnlineOrder found for order:', order.Number);
+            }
+        }
+
+        // DEBUG: Summary of collected data
+        console.log('[FAST-SALE] DEBUG - Collection summary:', {
+            selectedOrdersCount: selectedOrders.length,
+            enrichedOrdersCount: enrichedOrders.length,
+            sendTasksCount: sendTasks.length,
+            sendTasksDetails: sendTasks.map(t => ({ orderNumber: t.orderNumber, customer: t.customerName, psid: t.psid }))
+        });
+
+        // 1. Open ONE combined print popup with all bills
+        if (enrichedOrders.length > 0) {
+            console.log('[FAST-SALE] Opening combined print popup for', enrichedOrders.length, 'bills...');
+            openCombinedPrintPopup(enrichedOrders);
+        }
+
+        // 3. Clear main table checkboxes after printing
+        console.log('[FAST-SALE] Clearing main table checkboxes after print...');
+        selectedOrderIds.clear();
+        // Uncheck all checkboxes in main table
+        document.querySelectorAll('#ordersTable input[type="checkbox"]:checked').forEach(cb => {
+            cb.checked = false;
+        });
+        // Also uncheck header checkbox
+        const headerCheckbox = document.querySelector('#ordersTable thead input[type="checkbox"]');
+        if (headerCheckbox) headerCheckbox.checked = false;
+        // Update action buttons visibility
+        updateActionButtons();
+
+        // 2. Send all bills to Messenger in PARALLEL
+        if (sendTasks.length > 0) {
+            console.log('[FAST-SALE] Sending', sendTasks.length, 'bills to Messenger in parallel...');
+            window.notificationManager.info(`Đang gửi ${sendTasks.length} bill qua Messenger...`, 3000);
+
+            const sendPromises = sendTasks.map(task => {
+                // Check for pre-generated bill data
+                const orderId = task.enrichedOrder?.Id;
+                const orderNumber = task.enrichedOrder?.Number;
+                const cachedData = window.preGeneratedBillData?.get(orderId) ||
+                    window.preGeneratedBillData?.get(orderNumber);
+
+                const sendOptions = {};
+                if (cachedData && cachedData.contentUrl && cachedData.contentId) {
+                    console.log(`[FAST-SALE] ⚡ Using pre-generated bill for ${task.orderNumber}`);
+                    sendOptions.preGeneratedContentUrl = cachedData.contentUrl;
+                    sendOptions.preGeneratedContentId = cachedData.contentId;
+                }
+
+                return sendBillToCustomer(task.enrichedOrder, task.channelId, task.psid, sendOptions)
+                    .then(res => {
+                        if (res.success) {
+                            console.log(`[FAST-SALE] ✅ Bill sent for ${task.orderNumber} to ${task.customerName}`);
+                            return { success: true, orderNumber: task.orderNumber, customerName: task.customerName };
+                        } else {
+                            console.warn(`[FAST-SALE] ⚠️ Failed to send bill for ${task.orderNumber}:`, res.error);
+                            return { success: false, orderNumber: task.orderNumber, error: res.error };
+                        }
+                    })
+                    .catch(err => {
+                        console.error(`[FAST-SALE] ❌ Error sending bill for ${task.orderNumber}:`, err);
+                        return { success: false, orderNumber: task.orderNumber, error: err.message };
+                    });
+            });
+
+            // Wait for all sends to complete
+            Promise.all(sendPromises).then(results => {
+                const successCount = results.filter(r => r.success).length;
+                const failCount = results.filter(r => !r.success).length;
+
+                if (successCount > 0) {
+                    window.notificationManager.success(`Đã gửi ${successCount}/${results.length} bill qua Messenger`, 3000);
+                }
+                if (failCount > 0) {
+                    window.notificationManager.warning(`${failCount} bill gửi thất bại`, 3000);
+                }
+            });
+        }
+
+        return;
+    }
+
+    // For shipping and picking types, use TPOS API
     try {
         const headers = await window.tokenManager.getAuthHeader();
         const idsParam = orderIds.join(',');
@@ -25843,10 +26333,7 @@ async function printSuccessOrders(type) {
         let printLabel = '';
 
         // Determine endpoint based on print type
-        if (type === 'invoice') {
-            printEndpoint = 'print1'; // In hóa đơn
-            printLabel = 'hóa đơn';
-        } else if (type === 'shipping') {
+        if (type === 'shipping') {
             printEndpoint = 'print2'; // In phiếu ship
             printLabel = 'phiếu ship';
         } else if (type === 'picking') {
@@ -25973,3 +26460,230 @@ window.createForcedOrders = createForcedOrders;
 window.printSuccessOrders = printSuccessOrders;
 
 // #endregion FAST SALE MODAL
+
+// #region BILL TEMPLATE SETTINGS
+
+/**
+ * Default bill template settings
+ */
+const defaultBillSettings = {
+    // General
+    shopName: '',
+    shopPhone: '',
+    shopAddress: '',
+    billTitle: 'PHIẾU BÁN HÀNG',
+    footerText: 'Cảm ơn quý khách! Hẹn gặp lại!',
+    // Sections visibility
+    showHeader: true,
+    showTitle: true,
+    showSTT: true,
+    showBarcode: true,
+    showOrderInfo: true,
+    showCarrier: true,
+    showCustomer: true,
+    showSeller: true,
+    showProducts: true,
+    showTotals: true,
+    showCOD: true,
+    showDeliveryNote: true,
+    showFooter: true,
+    // Style
+    fontShopName: 18,
+    fontTitle: 16,
+    fontContent: 13,
+    fontCOD: 18,
+    billWidth: '80mm',
+    billPadding: 20,
+    codBackground: '#fef3c7',
+    codBorder: '#f59e0b'
+};
+
+/**
+ * Get bill template settings from localStorage
+ */
+function getBillTemplateSettings() {
+    try {
+        const saved = localStorage.getItem('billTemplateSettings');
+        if (saved) {
+            return { ...defaultBillSettings, ...JSON.parse(saved) };
+        }
+    } catch (e) {
+        console.error('[BILL-SETTINGS] Error loading settings:', e);
+    }
+    return { ...defaultBillSettings };
+}
+
+/**
+ * Open bill template settings modal
+ */
+function openBillTemplateSettings() {
+    const modal = document.getElementById('billTemplateSettingsModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        loadBillSettingsToForm();
+    }
+}
+
+/**
+ * Close bill template settings modal
+ */
+function closeBillTemplateSettings() {
+    const modal = document.getElementById('billTemplateSettingsModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * Switch between settings tabs
+ */
+function switchBillSettingsTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.bill-settings-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.tab === tabName);
+    });
+    // Update content
+    document.querySelectorAll('.bill-settings-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    const tabMap = {
+        'general': 'billSettingsGeneral',
+        'sections': 'billSettingsSections',
+        'style': 'billSettingsStyle',
+        'preview': 'billSettingsPreview'
+    };
+    const targetContent = document.getElementById(tabMap[tabName]);
+    if (targetContent) {
+        targetContent.style.display = 'block';
+    }
+}
+
+/**
+ * Load settings to form
+ */
+function loadBillSettingsToForm() {
+    const settings = getBillTemplateSettings();
+    // General
+    document.getElementById('billShopName').value = settings.shopName || '';
+    document.getElementById('billShopPhone').value = settings.shopPhone || '';
+    document.getElementById('billShopAddress').value = settings.shopAddress || '';
+    document.getElementById('billTitle').value = settings.billTitle || 'PHIẾU BÁN HÀNG';
+    document.getElementById('billFooterText').value = settings.footerText || '';
+    // Sections
+    document.getElementById('billShowHeader').checked = settings.showHeader !== false;
+    document.getElementById('billShowTitle').checked = settings.showTitle !== false;
+    document.getElementById('billShowSTT').checked = settings.showSTT !== false;
+    document.getElementById('billShowBarcode').checked = settings.showBarcode !== false;
+    document.getElementById('billShowOrderInfo').checked = settings.showOrderInfo !== false;
+    document.getElementById('billShowCarrier').checked = settings.showCarrier !== false;
+    document.getElementById('billShowCustomer').checked = settings.showCustomer !== false;
+    document.getElementById('billShowSeller').checked = settings.showSeller !== false;
+    document.getElementById('billShowProducts').checked = settings.showProducts !== false;
+    document.getElementById('billShowTotals').checked = settings.showTotals !== false;
+    document.getElementById('billShowCOD').checked = settings.showCOD !== false;
+    document.getElementById('billShowDeliveryNote').checked = settings.showDeliveryNote !== false;
+    document.getElementById('billShowFooter').checked = settings.showFooter !== false;
+    // Style
+    document.getElementById('billFontShopName').value = settings.fontShopName || 18;
+    document.getElementById('billFontTitle').value = settings.fontTitle || 16;
+    document.getElementById('billFontContent').value = settings.fontContent || 13;
+    document.getElementById('billFontCOD').value = settings.fontCOD || 18;
+    document.getElementById('billWidth').value = settings.billWidth || '80mm';
+    document.getElementById('billPadding').value = settings.billPadding || 20;
+    document.getElementById('billCODBackground').value = settings.codBackground || '#fef3c7';
+    document.getElementById('billCODBorder').value = settings.codBorder || '#f59e0b';
+}
+
+/**
+ * Save bill template settings
+ */
+function saveBillTemplateSettings() {
+    const settings = {
+        // General
+        shopName: document.getElementById('billShopName').value.trim(),
+        shopPhone: document.getElementById('billShopPhone').value.trim(),
+        shopAddress: document.getElementById('billShopAddress').value.trim(),
+        billTitle: document.getElementById('billTitle').value.trim() || 'PHIẾU BÁN HÀNG',
+        footerText: document.getElementById('billFooterText').value.trim(),
+        // Sections
+        showHeader: document.getElementById('billShowHeader').checked,
+        showTitle: document.getElementById('billShowTitle').checked,
+        showSTT: document.getElementById('billShowSTT').checked,
+        showBarcode: document.getElementById('billShowBarcode').checked,
+        showOrderInfo: document.getElementById('billShowOrderInfo').checked,
+        showCarrier: document.getElementById('billShowCarrier').checked,
+        showCustomer: document.getElementById('billShowCustomer').checked,
+        showSeller: document.getElementById('billShowSeller').checked,
+        showProducts: document.getElementById('billShowProducts').checked,
+        showTotals: document.getElementById('billShowTotals').checked,
+        showCOD: document.getElementById('billShowCOD').checked,
+        showDeliveryNote: document.getElementById('billShowDeliveryNote').checked,
+        showFooter: document.getElementById('billShowFooter').checked,
+        // Style
+        fontShopName: parseInt(document.getElementById('billFontShopName').value) || 18,
+        fontTitle: parseInt(document.getElementById('billFontTitle').value) || 16,
+        fontContent: parseInt(document.getElementById('billFontContent').value) || 13,
+        fontCOD: parseInt(document.getElementById('billFontCOD').value) || 18,
+        billWidth: document.getElementById('billWidth').value || '80mm',
+        billPadding: parseInt(document.getElementById('billPadding').value) || 20,
+        codBackground: document.getElementById('billCODBackground').value || '#fef3c7',
+        codBorder: document.getElementById('billCODBorder').value || '#f59e0b'
+    };
+
+    try {
+        localStorage.setItem('billTemplateSettings', JSON.stringify(settings));
+        window.notificationManager.success('Đã lưu cài đặt bill template', 2000);
+        closeBillTemplateSettings();
+    } catch (e) {
+        console.error('[BILL-SETTINGS] Error saving settings:', e);
+        window.notificationManager.error('Lỗi khi lưu cài đặt', 2000);
+    }
+}
+
+/**
+ * Reset bill template settings to default
+ */
+function resetBillTemplateSettings() {
+    localStorage.removeItem('billTemplateSettings');
+    loadBillSettingsToForm();
+    window.notificationManager.info('Đã đặt lại cài đặt mặc định', 2000);
+}
+
+/**
+ * Preview bill template with sample data
+ */
+function previewBillTemplate() {
+    const sampleOrder = {
+        Number: 'NJD/2026/SAMPLE',
+        PartnerDisplayName: 'Nguyễn Văn A',
+        Partner: { Name: 'Nguyễn Văn A', Phone: '0901234567', Street: '123 Đường ABC, Quận 1, TP.HCM' },
+        CarrierName: 'Giao hàng nhanh (GHN)',
+        DeliveryPrice: 25000,
+        CashOnDelivery: 350000,
+        AmountDeposit: 50000,
+        Discount: 10000,
+        Ship_Note: 'Gọi trước khi giao. Ship COD.',
+        SessionIndex: '123',
+        OrderLines: [
+            { ProductName: 'Áo thun nam size L', Quantity: 2, PriceUnit: 150000 },
+            { ProductName: 'Quần jean nữ size M', Quantity: 1, PriceUnit: 250000, Note: 'Màu xanh đậm' }
+        ]
+    };
+
+    const html = window.generateCustomBillHTML(sampleOrder, {});
+    const container = document.getElementById('billPreviewContainer');
+    if (container) {
+        container.innerHTML = `<div style="background: white; padding: 10px; max-width: 320px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">${html}</div>`;
+    }
+}
+
+// Make functions globally accessible
+window.openBillTemplateSettings = openBillTemplateSettings;
+window.closeBillTemplateSettings = closeBillTemplateSettings;
+window.switchBillSettingsTab = switchBillSettingsTab;
+window.saveBillTemplateSettings = saveBillTemplateSettings;
+window.resetBillTemplateSettings = resetBillTemplateSettings;
+window.previewBillTemplate = previewBillTemplate;
+window.getBillTemplateSettings = getBillTemplateSettings;
+
+// #endregion BILL TEMPLATE SETTINGS

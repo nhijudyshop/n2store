@@ -10,6 +10,15 @@ const fetch = require('node-fetch');
 // AbortController is global in Node.js 18+, but fallback for older versions
 const AbortController = globalThis.AbortController || require('abort-controller');
 
+// =====================================================
+// BLACKLIST: Các số cần bỏ qua khi extract phone
+// Bao gồm: số tài khoản ngân hàng của shop, mã giao dịch, etc.
+// =====================================================
+const PHONE_EXTRACTION_BLACKLIST = [
+    '75918',    // Số tài khoản ACB của shop
+    // Thêm các số khác cần bỏ qua ở đây
+];
+
 /**
  * Fetch with timeout to prevent hanging requests
  * @param {string} url - URL to fetch
@@ -318,13 +327,19 @@ router.get('/history', async (req, res) => {
             gateway,
             startDate,
             endDate,
-            search
+            search,
+            showHidden = 'false' // 'true' = show all, 'false' = hide hidden transactions
         } = req.query;
 
         const offset = (page - 1) * limit;
         let queryConditions = [];
         let queryParams = [];
         let paramCounter = 1;
+
+        // Filter hidden transactions (default: hide hidden)
+        if (showHidden !== 'true') {
+            queryConditions.push(`(bh.is_hidden = FALSE OR bh.is_hidden IS NULL)`);
+        }
 
         // Filter by transfer type
         if (type && ['in', 'out'].includes(type)) {
@@ -383,10 +398,11 @@ router.get('/history', async (req, res) => {
                 bh.id, bh.sepay_id, bh.gateway, bh.transaction_date, bh.account_number,
                 bh.code, bh.content, bh.transfer_type, bh.transfer_amount, bh.accumulated,
                 bh.sub_account, bh.reference_code, bh.description, bh.created_at,
-                bh.debt_added,
+                bh.debt_added, bh.is_hidden,
                 bci.customer_phone,
                 bci.customer_name,
                 bci.unique_code as qr_code,
+                bci.extraction_note,
                 -- Pending match info
                 pcm.id as pending_match_id,
                 pcm.status as pending_match_status,
@@ -655,12 +671,62 @@ function extractPhoneFromContent(content) {
     }
 
     let textToParse = content;
+    let isMomo = false; // Track if this is a Momo transaction
 
     // Step 1: If has "GD", take part before " GD" or "-GD"
     const gdMatch = content.match(/^(.*?)(?:\s*-?\s*GD)/i);
     if (gdMatch) {
         textToParse = gdMatch[1].trim();
         console.log('[EXTRACT] Found GD, parsing before GD:', textToParse);
+    }
+
+    // Step 1.5: MOMO PATTERN DETECTION
+    // Format: {12-digit-random}-{10-digit-sender-phone}-{customer-content}
+    // Example: 113524023776-0396513324-652722
+    // We need to extract the LAST part (customer content), not the sender phone
+    const momoPattern = /^(\d{12})-(0\d{9})-(.+)$/;
+    const momoMatch = textToParse.match(momoPattern);
+    if (momoMatch) {
+        const momoCode = momoMatch[1];      // 113524023776 (ignore)
+        const senderPhone = momoMatch[2];   // 0396513324 (ignore - sender's phone)
+        const customerContent = momoMatch[3]; // 652722 (extract this!)
+
+        console.log('[EXTRACT] 🟣 Detected MOMO pattern:', {
+            momoCode,
+            senderPhone: senderPhone + ' (ignored)',
+            customerContent
+        });
+
+        // Mark as Momo transaction
+        isMomo = true;
+
+        // Replace textToParse with just the customer content
+        textToParse = customerContent.trim();
+        console.log('[EXTRACT] 🟣 Parsing MOMO customer content:', textToParse);
+    }
+
+    // Step 1.6: VIETCOMBANK (MBVCB) PATTERN DETECTION
+    // Format: MBVCB.{random}.{random}.{phone}.CT tu ...
+    // Example: MBVCB.12459068036.249370.228666.CT tu 0141000833447 NGUYEN THI...
+    // We need to extract the number before ".CT" (228666)
+    // Note: MBVCB = Mobile Banking Vietcombank
+    const mbvcbPattern = /MBVCB\.[^.]+\.[^.]+\.(\d{5,10})\.CT/i;
+    const mbvcbMatch = textToParse.match(mbvcbPattern);
+    if (mbvcbMatch) {
+        const customerPhone = mbvcbMatch[1]; // 228666
+
+        console.log('[EXTRACT] 🔵 Detected Vietcombank (MBVCB) pattern:', {
+            fullMatch: mbvcbMatch[0],
+            customerPhone
+        });
+
+        // Return directly with the extracted phone
+        return {
+            type: 'partial_phone',
+            value: customerPhone,
+            uniqueCode: null,
+            note: 'VCB:PARTIAL_PHONE_EXTRACTED'
+        };
     }
 
     // Step 2: Check for QR Code N2 (starts with N2, exactly 18 chars)
@@ -684,34 +750,49 @@ function extractPhoneFromContent(content) {
     if (exactPhones && exactPhones.length > 0) {
         const exactPhone = exactPhones[exactPhones.length - 1]; // Take last match
         console.log('[EXTRACT] ✅ Found EXACT 10-digit phone:', exactPhone);
+        const baseNote = exactPhones.length > 1 ? 'MULTIPLE_EXACT_PHONES_FOUND' : 'EXACT_PHONE_EXTRACTED';
         return {
             type: 'exact_phone',
             value: exactPhone,
             uniqueCode: `PHONE${exactPhone}`, // Direct unique code
-            note: exactPhones.length > 1 ? 'MULTIPLE_EXACT_PHONES_FOUND' : 'EXACT_PHONE_EXTRACTED'
+            note: isMomo ? `MOMO:${baseNote}` : baseNote
         };
     }
 
     // Step 4: Extract partial phone number (5-10 digits)
     // Will search TPOS to get full 10-digit phone
     // Strategy: Prioritize numbers with phone-like length (5-10 digits), take FIRST match
+    // IMPORTANT: Filter out blacklisted numbers (bank account numbers, etc.)
     const partialPhonePattern = /\d{5,}/g;
     const allNumbers = textToParse.match(partialPhonePattern);
 
     if (allNumbers && allNumbers.length > 0) {
-        // Filter numbers to reasonable phone length (5-10 digits) and take first match
-        const phoneLikeNumbers = allNumbers.filter(num => num.length >= 5 && num.length <= 10);
-        const partialPhone = phoneLikeNumbers.length > 0
-            ? phoneLikeNumbers[0]  // Take FIRST phone-like number
-            : allNumbers[0];         // Fallback to first number if no phone-like numbers
+        // Filter numbers:
+        // 1. Reasonable phone length (5-10 digits)
+        // 2. NOT in blacklist (bank account numbers, etc.)
+        const phoneLikeNumbers = allNumbers.filter(num => {
+            const isValidLength = num.length >= 5 && num.length <= 10;
+            const isBlacklisted = PHONE_EXTRACTION_BLACKLIST.includes(num);
+            if (isBlacklisted) {
+                console.log('[EXTRACT] ⏭️ Skipping blacklisted number:', num);
+            }
+            return isValidLength && !isBlacklisted;
+        });
 
-        console.log('[EXTRACT] ✅ Found partial phone (5-10 digits, first occurrence):', partialPhone, 'from:', allNumbers);
-        return {
-            type: 'partial_phone',
-            value: partialPhone,
-            uniqueCode: null, // Will be determined after TPOS search
-            note: allNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED'
-        };
+        if (phoneLikeNumbers.length > 0) {
+            const partialPhone = phoneLikeNumbers[0];  // Take FIRST non-blacklisted phone-like number
+            console.log('[EXTRACT] ✅ Found partial phone (5-10 digits, first non-blacklisted):', partialPhone, 'from:', allNumbers);
+            const baseNote = phoneLikeNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED';
+            return {
+                type: 'partial_phone',
+                value: partialPhone,
+                uniqueCode: null, // Will be determined after TPOS search
+                note: isMomo ? `MOMO:${baseNote}` : baseNote
+            };
+        }
+
+        // All numbers were blacklisted
+        console.log('[EXTRACT] ⚠️ All numbers were blacklisted:', allNumbers);
     }
 
     console.log('[EXTRACT] ❌ No phone or QR found in:', textToParse);
@@ -719,7 +800,7 @@ function extractPhoneFromContent(content) {
         type: 'none',
         value: null,
         uniqueCode: null,
-        note: 'NO_PHONE_FOUND'
+        note: isMomo ? 'MOMO:NO_PHONE_FOUND' : 'NO_PHONE_FOUND'
     };
 }
 
@@ -1558,25 +1639,7 @@ router.post('/customer-info', async (req, res) => {
             customerPhone
         });
 
-        // Sync to customers table if phone is available
-        if (customerPhone) {
-            try {
-                await db.query(`
-                    INSERT INTO customers (phone, name, status, active)
-                    VALUES ($1, $2, 'Bình thường', true)
-                    ON CONFLICT (phone) DO UPDATE SET
-                        name = COALESCE(EXCLUDED.name, customers.name),
-                        updated_at = CURRENT_TIMESTAMP
-                `, [
-                    customerPhone,
-                    customerName || customerPhone
-                ]);
-                console.log('[CUSTOMER-INFO] ✅ Synced to customers table:', customerPhone);
-            } catch (syncError) {
-                console.error('[CUSTOMER-INFO] ⚠️ Failed to sync to customers table:', syncError.message);
-                // Don't fail the main request if sync fails
-            }
-        }
+        // NOTE: customers table has been removed - data is now only in balance_customer_info
 
         res.json({
             success: true,
@@ -2969,6 +3032,62 @@ router.put('/transaction/:id/phone', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to update transaction phone',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * PUT /api/sepay/transaction/:id/hidden
+ * Toggle hidden status of a transaction
+ * Body: { hidden: boolean }
+ */
+router.put('/transaction/:id/hidden', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { hidden } = req.body;
+
+    try {
+        // Validate inputs
+        if (!id || isNaN(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid transaction ID'
+            });
+        }
+
+        if (typeof hidden !== 'boolean') {
+            return res.status(400).json({
+                success: false,
+                error: 'hidden must be a boolean'
+            });
+        }
+
+        // Update the transaction's hidden status
+        const updateResult = await db.query(
+            'UPDATE balance_history SET is_hidden = $1 WHERE id = $2 RETURNING id, is_hidden',
+            [hidden, id]
+        );
+
+        if (updateResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Transaction not found'
+            });
+        }
+
+        console.log(`[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden = ${hidden}`);
+
+        res.json({
+            success: true,
+            data: updateResult.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[TRANSACTION-HIDDEN] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update transaction hidden status',
             message: error.message
         });
     }

@@ -9,9 +9,10 @@
 
     const TPOS_CONFIG = {
         // =====================================================
-        // API VERSION - Update this when TPOS requires new version
+        // API VERSION - Dynamically fetched from server
         // =====================================================
-        tposAppVersion: '5.12.29.1',
+        tposAppVersion: null, // Will be fetched dynamically
+        _fallbackVersion: '5.12.29.1', // Fallback only if dynamic fetch fails
 
         // =====================================================
         // PROXY URLS
@@ -25,13 +26,33 @@
         tposBaseUrl: 'https://tomato.tpos.vn',
 
         // =====================================================
+        // DYNAMIC HEADERS FETCH
+        // =====================================================
+        async fetchDynamicHeaders() {
+            try {
+                const response = await fetch(`${this.fallbackApiUrl}/dynamic-headers`);
+                const data = await response.json();
+                if (data.success && data.data.currentHeaders.tposappversion) {
+                    this.tposAppVersion = data.data.currentHeaders.tposappversion;
+                    console.log('[TPOS-CONFIG] ✅ Dynamic headers loaded:', this.tposAppVersion);
+                } else {
+                    this.tposAppVersion = this._fallbackVersion;
+                    console.log('[TPOS-CONFIG] ⚠️ Using fallback version:', this._fallbackVersion);
+                }
+            } catch (error) {
+                this.tposAppVersion = this._fallbackVersion;
+                console.log('[TPOS-CONFIG] ⚠️ Failed to fetch dynamic headers, using fallback:', this._fallbackVersion);
+            }
+        },
+
+        // =====================================================
         // COMMON HEADERS
         // =====================================================
         getHeaders: function (token) {
             return {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'tposappversion': this.tposAppVersion,
+                'tposappversion': this.tposAppVersion || this._fallbackVersion,
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             };
         },
@@ -39,13 +60,15 @@
         // Get just the version header
         getVersionHeader: function () {
             return {
-                'tposappversion': this.tposAppVersion
+                'tposappversion': this.tposAppVersion || this._fallbackVersion
             };
         }
     };
 
-    // Freeze to prevent accidental modifications
-    Object.freeze(TPOS_CONFIG);
+    // Initialize dynamic headers on load
+    if (typeof window !== 'undefined') {
+        TPOS_CONFIG.fetchDynamicHeaders();
+    }
 
     // Export for different module systems
     if (typeof module !== 'undefined' && module.exports) {

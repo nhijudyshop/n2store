@@ -11,15 +11,11 @@ class DynamicHeaderManager {
         this.storageType = options.storageType || process.env.DYNAMIC_HEADERS_STORAGE || "file";
         this.filePath = options.filePath || process.env.DYNAMIC_HEADERS_FILE || path.join(__dirname, "../../dynamic-headers.json");
 
-        // Default headers (fallback values)
-        this.defaults = {
-            "API-Version": "1.0",
-            "tposappversion": "5.9.10.1",
-            "X-Client-Version": "1.0.0",
-        };
+        // Default headers (empty - will be learned dynamically)
+        this.defaults = {};
 
         // Current dynamic headers (will be loaded from storage)
-        this.headers = { ...this.defaults };
+        this.headers = {};
 
         // Update history for monitoring
         this.updateHistory = [];

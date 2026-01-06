@@ -445,27 +445,55 @@ class TposRealtimeClient {
         if (this.isConnected || !this.token) return;
 
         console.log('[TPOS-WS] Connecting to TPOS... (attempt', this.reconnectAttempts + 1, ')');
+
+        // Add token to connection URL as query parameter
+        const urlWithToken = `${this.url}&token=${encodeURIComponent(this.token)}`;
+        console.log('[TPOS-WS] Connection URL:', this.url.split('?')[0] + '?...(with token)');
+
         const headers = {
             'Origin': 'https://nhijudyshop.github.io',
+            'Authorization': `Bearer ${this.token}`, // Also try in header
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
         };
 
-        this.ws = new WebSocket(this.url, {
+        this.ws = new WebSocket(urlWithToken, {
             headers: headers
         });
 
         this.ws.on('open', () => {
-            console.log('[TPOS-WS] WebSocket connected, sending handshake...');
+            console.log('[TPOS-WS] ✅ WebSocket connected, sending handshake...');
             this.reconnectAttempts = 0; // Reset on successful connect
+
             // Socket.IO namespace connect
-            this.ws.send('40/chatomni,');
+            const namespaceMsg = '40/chatomni,';
+            this.ws.send(namespaceMsg);
+            console.log('[TPOS-WS] 📤 Sent namespace connect:', namespaceMsg);
         });
 
         this.ws.on('close', (code, reason) => {
-            console.log('[TPOS-WS] Closed', code, reason?.toString());
+            const reasonText = reason?.toString() || 'No reason provided';
+            console.log(`[TPOS-WS] Closed - Code: ${code}, Reason: ${reasonText}`);
+
+            // Log close code meanings for debugging
+            const closeReasons = {
+                1000: 'Normal Closure',
+                1001: 'Going Away (server/browser closing)',
+                1002: 'Protocol Error',
+                1003: 'Unsupported Data',
+                1005: 'No Status Received (abnormal closure)',
+                1006: 'Abnormal Closure (no close frame)',
+                1007: 'Invalid Frame Payload Data',
+                1008: 'Policy Violation',
+                1009: 'Message Too Big',
+                1010: 'Mandatory Extension Missing',
+                1011: 'Internal Server Error',
+                1015: 'TLS Handshake Failed'
+            };
+            console.log(`[TPOS-WS] Close reason: ${closeReasons[code] || 'Unknown'}`);
+
             this.isConnected = false;
             this.stopHeartbeat();
 
@@ -473,11 +501,11 @@ class TposRealtimeClient {
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
                 this.reconnectAttempts++;
-                console.log(`[TPOS-WS] Reconnecting in ${delay/1000}s...`);
+                console.log(`[TPOS-WS] Reconnecting in ${delay/1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
                 clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = setTimeout(() => this.connect(), delay);
             } else {
-                console.error('[TPOS-WS] Max reconnect attempts reached. Stopping.');
+                console.error('[TPOS-WS] ❌ Max reconnect attempts reached. Stopping reconnection.');
             }
         });
 
@@ -487,6 +515,10 @@ class TposRealtimeClient {
 
         this.ws.on('message', (data) => {
             const message = data.toString();
+            // Log all raw messages for debugging (can comment out after troubleshooting)
+            if (!message.startsWith('2') && !message.startsWith('3')) {
+                console.log('[TPOS-WS] 📥 Raw message:', message.substring(0, 200)); // Truncate long messages
+            }
             this.handleMessage(message);
         });
     }
@@ -497,12 +529,14 @@ class TposRealtimeClient {
             // Ping from server, respond with pong immediately
             this.ws.send('3');
             this.lastPongTime = Date.now();
+            // console.log('[TPOS-WS] 🏓 Received ping, sent pong'); // Uncomment for verbose logging
             return;
         }
 
         if (data === '3') {
             // Pong response from server (for our ping)
             this.lastPongTime = Date.now();
+            // console.log('[TPOS-WS] 🏓 Received pong from server'); // Uncomment for verbose logging
             return;
         }
 
@@ -528,7 +562,8 @@ class TposRealtimeClient {
 
         if (data.startsWith('40/chatomni,')) {
             // Namespace connected, now join room
-            console.log('[TPOS-WS] Namespace connected, joining room:', this.room);
+            console.log('[TPOS-WS] ✅ Namespace connected successfully');
+            console.log('[TPOS-WS] Joining room:', this.room);
             this.isConnected = true;
             this.joinRoom();
             this.startHeartbeat();
@@ -548,7 +583,17 @@ class TposRealtimeClient {
     }
 
     handleEvent(eventName, payload) {
-        console.log('[TPOS-WS] Event:', eventName);
+        console.log('[TPOS-WS] 📨 Event received:', eventName);
+
+        // Handle join response
+        if (eventName === 'join') {
+            console.log('[TPOS-WS] ✅ Join room response:', JSON.stringify(payload));
+        }
+
+        // Handle authentication errors
+        if (eventName === 'error' || eventName === 'unauthorized') {
+            console.error('[TPOS-WS] ❌ Authentication/Error event:', JSON.stringify(payload));
+        }
 
         // Broadcast to connected frontend clients
         broadcastToClients({
@@ -575,11 +620,14 @@ class TposRealtimeClient {
     }
 
     joinRoom() {
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            console.log('[TPOS-WS] ⚠️ Cannot join room - WebSocket not ready');
+            return;
+        }
 
-        const joinMessage = `42/chatomni,["join",{"room":"${this.room}","token":"${this.token}"}]`;
-        this.ws.send(joinMessage);
-        console.log('[TPOS-WS] Joined room:', this.room);
+        const joinMessage = `42/chatomni,["join",{"room":"${this.room}","token":"${this.token ? '***' : 'MISSING'}"}]`;
+        this.ws.send(`42/chatomni,["join",{"room":"${this.room}","token":"${this.token}"}]`);
+        console.log('[TPOS-WS] 📤 Sent join request:', joinMessage);
     }
 
     startHeartbeat() {
@@ -590,12 +638,22 @@ class TposRealtimeClient {
         // We send our own ping at 80% of pingInterval to stay ahead
         const heartbeatMs = Math.floor(this.pingInterval * 0.8);
 
-        console.log(`[TPOS-WS] Starting heartbeat every ${heartbeatMs}ms`);
+        console.log(`[TPOS-WS] ❤️ Starting heartbeat every ${heartbeatMs}ms`);
 
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                // Check if we received pong recently
+                const timeSinceLastPong = Date.now() - (this.lastPongTime || 0);
+                if (this.lastPongTime && timeSinceLastPong > this.pingTimeout) {
+                    console.error(`[TPOS-WS] ⚠️ No pong received for ${timeSinceLastPong}ms (timeout: ${this.pingTimeout}ms)`);
+                    console.log('[TPOS-WS] Connection appears dead, forcing reconnect...');
+                    this.ws.close();
+                    return;
+                }
+
                 this.ws.send('2'); // Ping
                 this.lastPingTime = Date.now();
+                // console.log('[TPOS-WS] 💓 Ping sent'); // Uncomment for verbose logging
             }
         }, heartbeatMs);
     }

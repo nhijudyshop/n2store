@@ -1487,107 +1487,211 @@ body {
 }
 
 /* =====================================================
-   COLUMN VISIBILITY DROPDOWN STYLES
+   PENDING MATCH - Styles cho chọn khách hàng từ dropdown
    ===================================================== */
 
-.column-dropdown {
-    position: absolute;
-    top: calc(100% + 5px);
-    right: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-xl);
-    min-width: 200px;
-    z-index: 1000;
-    animation: slideDown 0.2s ease-out;
+/* Row highlighting for pending matches */
+.row-pending-match {
+    background: linear-gradient(90deg, #FEF3C7 0%, #FFFBEB 50%, #FEF3C7 100%) !important;
+    border-left: 4px solid #F59E0B !important;
+    animation: pendingPulse 2s ease-in-out infinite;
 }
 
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
+.row-pending-match:hover {
+    background: linear-gradient(90deg, #FDE68A 0%, #FEF3C7 50%, #FDE68A 100%) !important;
+}
+
+@keyframes pendingPulse {
+    0%, 100% {
         opacity: 1;
-        transform: translateY(0);
+    }
+    50% {
+        opacity: 0.85;
     }
 }
 
-.column-dropdown-header {
-    padding: var(--spacing-md) var(--spacing-lg);
-    background: var(--gray-50);
-    border-bottom: 1px solid var(--border);
+/* Row highlighting for skipped matches */
+.row-skipped-match {
+    background: #F3F4F6 !important;
+    border-left: 4px solid #9CA3AF !important;
+    opacity: 0.8;
+}
+
+.row-skipped-match:hover {
+    opacity: 1;
+    background: #E5E7EB !important;
+}
+
+/* Pending match cell */
+.customer-info-cell.pending-match {
+    background: rgba(245, 158, 11, 0.1);
+}
+
+/* Pending match selector container */
+.pending-match-selector {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    gap: 8px;
 }
 
-.column-dropdown-header span {
-    font-weight: 600;
-    font-size: 0.875rem;
-    color: var(--text-primary);
-}
-
-.btn-link {
-    background: none;
-    border: none;
-    color: var(--primary);
-    font-size: 0.75rem;
+/* Dropdown style */
+.pending-match-dropdown {
+    padding: 6px 10px;
+    border: 2px solid #F59E0B;
+    border-radius: 6px;
+    background: #FFFBEB;
+    color: #92400E;
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
-    transition: var(--transition-fast);
+    min-width: 180px;
+    max-width: 250px;
+    transition: all 0.2s ease;
+}
+
+.pending-match-dropdown:hover {
+    border-color: #D97706;
+    background: #FEF3C7;
+}
+
+.pending-match-dropdown:focus {
+    outline: none;
+    border-color: #D97706;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+.pending-match-dropdown:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Dropdown option styling */
+.pending-match-dropdown option {
+    padding: 8px;
+    background: white;
+    color: #374151;
+}
+
+.pending-match-dropdown option:first-child {
+    font-weight: 600;
+    color: #92400E;
+}
+
+.pending-match-dropdown option:last-child {
+    color: #DC2626;
     font-weight: 500;
 }
 
-.btn-link:hover {
-    background: var(--primary-bg);
-    color: var(--primary-dark);
+/* Save button (if needed later) */
+.pending-match-save-btn {
+    padding: 6px 12px;
+    background: #10B981;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.column-dropdown-content {
-    padding: var(--spacing-sm);
-    max-height: 400px;
-    overflow-y: auto;
+.pending-match-save-btn:hover {
+    background: #059669;
 }
 
-.column-checkbox {
-    display: flex;
+.pending-match-save-btn:disabled {
+    background: #9CA3AF;
+    cursor: not-allowed;
+}
+
+/* Extracted phone hint */
+.pending-extracted-phone {
+    color: #F59E0B;
+    font-style: italic;
+    font-size: 12px;
+}
+
+/* Skipped status text */
+.skipped-status {
+    color: #9CA3AF;
+    font-style: italic;
+}
+
+/* Undo button for skipped */
+.btn-undo-skip {
+    padding: 2px 6px;
+    background: #FEF3C7;
+    color: #92400E;
+    border: 1px solid #F59E0B;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-undo-skip:hover {
+    background: #FDE68A;
+    border-color: #D97706;
+}
+/* =====================================================
+   HIDDEN TRANSACTIONS STYLES
+   ===================================================== */
+
+/* Hidden row styling */
+.row-hidden {
+    opacity: 0.5;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(156, 163, 175, 0.1) 10px,
+        rgba(156, 163, 175, 0.1) 20px
+    ) !important;
+}
+
+.row-hidden:hover {
+    opacity: 0.8;
+}
+
+/* Toggle hidden button */
+.btn-toggle-hidden {
+    display: inline-flex;
     align-items: center;
-    padding: var(--spacing-sm) var(--spacing-md);
+    gap: 6px;
+    padding: 6px 12px;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
     cursor: pointer;
-    transition: var(--transition-fast);
-    border-radius: var(--radius);
-    font-size: 0.875rem;
-    color: var(--text-primary);
-    user-select: none;
+    transition: all 0.2s ease;
 }
 
-.column-checkbox:hover {
-    background: var(--gray-50);
+.btn-toggle-hidden:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
 }
 
-.column-checkbox input[type="checkbox"] {
-    margin-right: var(--spacing-sm);
-    cursor: pointer;
+.btn-toggle-hidden.active {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #f59e0b;
+}
+
+.btn-toggle-hidden i {
     width: 16px;
     height: 16px;
-    accent-color: var(--primary);
 }
 
-/* Hide columns */
-.data-table th[data-column].hidden,
-.data-table td[data-column].hidden {
-    display: none;
+/* Outline secondary button */
+.btn-outline-secondary {
+    background: transparent;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
 }
 
-/* Mobile responsive for column dropdown */
-@media (max-width: 768px) {
-    .column-dropdown {
-        right: 0;
-        left: 0;
-        min-width: auto;
-    }
+.btn-outline-secondary:hover {
+    background: #f3f4f6;
+    color: #374151;
 }

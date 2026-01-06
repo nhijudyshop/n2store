@@ -4,6 +4,49 @@
  */
 
 // =====================================================
+// DYNAMIC HEADERS CACHE (In-memory)
+// =====================================================
+const dynamicHeaders = {
+  tposappversion: null,
+  lastUpdated: null,
+  updateCooldown: 60 * 60 * 1000 // 1 hour
+};
+
+/**
+ * Get dynamic header value
+ * @param {string} headerName - Header name
+ * @returns {string|null}
+ */
+function getDynamicHeader(headerName) {
+  return dynamicHeaders[headerName] || null;
+}
+
+/**
+ * Update dynamic header from response
+ * @param {Response} response - Response object
+ */
+function learnFromResponse(response) {
+  try {
+    const tposVersion = response.headers.get('tposappversion');
+    if (tposVersion && /^\d+\.\d+\.\d+\.\d+$/.test(tposVersion)) {
+      const now = Date.now();
+      const lastUpdate = dynamicHeaders.lastUpdated || 0;
+
+      // Only update if cooldown has passed
+      if (now - lastUpdate > dynamicHeaders.updateCooldown) {
+        if (dynamicHeaders.tposappversion !== tposVersion) {
+          console.log(`[DYNAMIC-HEADERS] Updated tposappversion: ${dynamicHeaders.tposappversion || '(none)'} → ${tposVersion}`);
+          dynamicHeaders.tposappversion = tposVersion;
+          dynamicHeaders.lastUpdated = now;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[DYNAMIC-HEADERS] Learning error:', error.message);
+  }
+}
+
+// =====================================================
 // TPOS TOKEN CACHE (In-memory)
 // =====================================================
 const tokenCache = {
@@ -1062,7 +1105,8 @@ export default {
         // Set required headers for TPOS
         tposHeaders.set('Accept', '*/*');
         tposHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
-        tposHeaders.set('tposappversion', '5.11.16.1');
+        // Dynamic version from learned responses, fallback for initial requests only
+        tposHeaders.set('tposappversion', getDynamicHeader('tposappversion') || '5.12.29.1');
         tposHeaders.set('Origin', 'https://tomato.tpos.vn');
         tposHeaders.set('Referer', 'https://tomato.tpos.vn/');
         tposHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
@@ -1075,6 +1119,9 @@ export default {
 
           console.log('[FACEBOOK-GRAPH-LIVE] TPOS Response status:', tposResponse.status);
           console.log('[FACEBOOK-GRAPH-LIVE] ========================================');
+
+          // Learn from TPOS response
+          learnFromResponse(tposResponse);
 
           // Clone response and add CORS headers
           const newResponse = new Response(tposResponse.body, tposResponse);
@@ -1239,12 +1286,12 @@ export default {
         targetUrl = `https://pancake.vn/api/v1/${apiPath}${url.search}`;
         isPancakeRequest = true;
       } else if (pathname === '/api/realtime/start') {
-        // Realtime Server (Render)
-        targetUrl = `https://n2store-fallback.onrender.com/api/realtime/start`;
+        // Realtime Server (Render) - NEW SERVER
+        targetUrl = `https://n2store-realtime.onrender.com/api/realtime/start`;
       } else if (pathname.startsWith('/api/realtime/tpos/')) {
-        // TPOS Realtime Server (Render) - for tpos-chat.js
+        // TPOS Realtime Server (Render) - NEW SERVER
         const tposPath = pathname.replace(/^\/api\/realtime\/tpos\//, '');
-        targetUrl = `https://n2store-fallback.onrender.com/api/realtime/tpos/${tposPath}${url.search}`;
+        targetUrl = `https://n2store-realtime.onrender.com/api/realtime/tpos/${tposPath}${url.search}`;
       } else if (pathname.startsWith('/api/chat/')) {
         // Chat Server (Render) - Using same server as realtime
         const chatPath = pathname.replace(/^\/api\/chat\//, '');
@@ -1296,7 +1343,7 @@ export default {
               'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
               'Cache-Control': 'no-cache',
               'Pragma': 'no-cache',
-              'tposappversion': '5.12.29.1',
+              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1', // Dynamic header, fallback for initial requests
               'X-Requested-With': 'XMLHttpRequest',
               'Referer': 'https://tomato.tpos.vn/',
               'Origin': 'https://tomato.tpos.vn'
@@ -1306,6 +1353,9 @@ export default {
           if (!odataResponse.ok) {
             throw new Error(`TPOS API error: ${odataResponse.status}`);
           }
+
+          // Learn from TPOS response
+          learnFromResponse(odataResponse);
 
           const odataResult = await odataResponse.json();
 
@@ -1322,6 +1372,146 @@ export default {
 
         } catch (error) {
           console.error('[TPOS-ORDER-LINES] Error:', error);
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      } else if (pathname.startsWith('/tpos/order-ref/') && pathname.endsWith('/lines')) {
+        // ========== TPOS ORDER LINES BY REFERENCE (e.g., NJD/2026/42623) ==========
+        // Example: /tpos/order-ref/NJD%2F2026%2F42623/lines
+        // First search for order by Number (reference), then fetch OrderLines
+        const refMatch = pathname.match(/^\/tpos\/order-ref\/(.+)\/lines$/);
+        const orderRef = refMatch ? decodeURIComponent(refMatch[1]) : null;
+
+        console.log('[TPOS-ORDER-REF] Searching OrderLines for reference:', orderRef);
+
+        if (!orderRef) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Invalid order reference'
+          }), {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+
+        try {
+          // Get or fetch TPOS token
+          let token = getCachedToken()?.access_token;
+
+          if (!token) {
+            console.log('[TPOS-ORDER-REF] No cached token, fetching new one...');
+            const tokenResponse = await fetch('https://tomato.tpos.vn/token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: 'grant_type=password&username=nvkt&password=Aa@123456789&client_id=tmtWebApp',
+            });
+
+            if (!tokenResponse.ok) {
+              throw new Error('Failed to get TPOS token');
+            }
+
+            const tokenData = await tokenResponse.json();
+            cacheToken(tokenData);
+            token = tokenData.access_token;
+          }
+
+          // Step 1: Search for order by Number (reference) using ODataService.GetView
+          // Use contains filter: contains(Number,'NJD/2026/42586')
+          const encodedRef = encodeURIComponent(orderRef);
+          const searchUrl = `https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.GetView?$top=1&$filter=contains(Number,'${encodedRef}')&$select=Id,Number`;
+
+          console.log('[TPOS-ORDER-REF] Search URL:', searchUrl);
+
+          const searchResponse = await fetch(searchUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json, text/javascript, */*; q=0.01',
+              'Authorization': `Bearer ${token}`,
+              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1', // Dynamic header, fallback for initial requests
+              'x-requested-with': 'XMLHttpRequest',
+              'Referer': 'https://tomato.tpos.vn/',
+              'Origin': 'https://tomato.tpos.vn'
+            },
+          });
+
+          if (!searchResponse.ok) {
+            throw new Error(`TPOS search API error: ${searchResponse.status}`);
+          }
+
+          // Learn from TPOS response
+          learnFromResponse(searchResponse);
+
+          const searchResult = await searchResponse.json();
+
+          if (!searchResult.value || searchResult.value.length === 0) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'Order not found',
+              reference: orderRef
+            }), {
+              status: 404,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+
+          const orderId = searchResult.value[0].Id;
+          console.log('[TPOS-ORDER-REF] Found order ID:', orderId);
+
+          // Step 2: Fetch OrderLines using the order ID
+          const odataUrl = `https://tomato.tpos.vn/odata/FastSaleOrder(${orderId})/OrderLines?$expand=Product,ProductUOM,Account,SaleLine,User`;
+
+          const odataResponse = await fetch(odataUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': '*/*',
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+              'tposappversion': getDynamicHeader('tposappversion') || '5.12.29.1', // Dynamic header, fallback for initial requests
+              'Referer': 'https://tomato.tpos.vn/',
+              'Origin': 'https://tomato.tpos.vn'
+            },
+          });
+
+          if (!odataResponse.ok) {
+            throw new Error(`TPOS OrderLines API error: ${odataResponse.status}`);
+          }
+
+          // Learn from TPOS response
+          learnFromResponse(odataResponse);
+
+          const odataResult = await odataResponse.json();
+
+          return new Response(JSON.stringify({
+            success: true,
+            orderId: orderId,
+            reference: orderRef,
+            data: odataResult.value || []
+          }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+
+        } catch (error) {
+          console.error('[TPOS-ORDER-REF] Error:', error);
           return new Response(JSON.stringify({
             success: false,
             error: error.message
@@ -1353,7 +1543,8 @@ export default {
         // Set required headers for TPOS
         tposRestHeaders.set('Accept', '*/*');
         tposRestHeaders.set('Content-Type', 'application/json;IEEE754Compatible=false;charset=utf-8');
-        tposRestHeaders.set('tposappversion', '5.11.16.1');
+        // Dynamic version from learned responses, fallback for initial requests only
+        tposRestHeaders.set('tposappversion', getDynamicHeader('tposappversion') || '5.12.29.1');
         tposRestHeaders.set('Origin', 'https://tomato.tpos.vn');
         tposRestHeaders.set('Referer', 'https://tomato.tpos.vn/');
         tposRestHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
@@ -1368,6 +1559,9 @@ export default {
           });
 
           console.log('[TPOS-REST-API] Response status:', restResponse.status);
+
+          // Learn from TPOS response
+          learnFromResponse(restResponse);
 
           const newRestResponse = new Response(restResponse.body, restResponse);
           newRestResponse.headers.set('Access-Control-Allow-Origin', '*');

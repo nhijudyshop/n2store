@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="style.css">
     <!-- Mermaid.js for Flow Diagrams -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <!-- Lucide Icons for Notifications -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 
 </head>
 
@@ -24,6 +26,8 @@
                 <button id="btn-create-ticket" class="btn btn-primary">+ Tạo Phiếu Mới</button>
                 <button id="btn-open-reconcile" class="btn btn-secondary"
                     style="margin-left: 10px; background: #8b5cf6; border: none;">📋 Đối Soát</button>
+                <button id="btn-open-settings" class="btn btn-secondary"
+                    style="margin-left: 10px; background: #64748b; border: none; padding: 8px 12px;" title="Cài đặt">⚙️</button>
             </div>
 
         </header>
@@ -334,6 +338,32 @@ Ví dụ:
         </div>
     </div>
 
+    <!-- Modal: Settings -->
+    <div id="modal-settings" class="modal">
+        <div class="modal-content small-modal">
+            <span class="close-modal">&times;</span>
+            <h2>⚙️ Cài đặt</h2>
+
+            <div class="settings-group">
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <label for="setting-print-bill">In bill khi nhận hàng</label>
+                        <p class="setting-desc">Tự động mở cửa sổ in phiếu trả hàng sau khi xử lý "Nhận hàng"</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="setting-print-bill">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button id="btn-save-settings" class="btn btn-primary">Lưu cài đặt</button>
+                <button class="btn btn-secondary close-modal-btn">Đóng</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -347,6 +377,7 @@ Ví dụ:
     <!-- Module Scripts -->
     <script src="firebase-init.js"></script>
     <script src="api-service.js"></script>
+    <script src="notification-system.js"></script>
     <script src="script.js"></script>
 </body>
 

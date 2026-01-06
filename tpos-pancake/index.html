@@ -308,14 +308,15 @@
     <script src="api-config.js?v=20241219"></script>
     <script src="pancake-token-manager.js?v=20241219"></script>
     <script src="pancake-data-manager.js?v=20241219"></script>
-    <script src="pancake-chat.js?v=20241219"></script>
+    <!-- [DISABLED - ĐANG PHÁT TRIỂN] pancake-chat.js tạm tắt -->
+    <!-- <script src="pancake-chat.js?v=20241219"></script> -->
 
     <!-- Realtime WebSocket Manager (Server Mode) -->
     <script src="realtime-manager.js?v=20241220"></script>
 
-    <!-- TPOS Token Manager & Chat Manager -->
+    <!-- TPOS Token Manager -->
     <script src="tpos-token-manager.js?v=20241220"></script>
-    <script src="tpos-chat.js?v=20241220"></script>
+    <!-- tpos-chat.js removed - TPOS realtime handled by render.com/server.js -->
 
     <script>
         // =====================================================
@@ -375,7 +376,9 @@
                 }
             }
 
+            // [DISABLED - ĐANG PHÁT TRIỂN] Pancake Chat Manager tạm tắt
             // Initialize Pancake Chat Manager
+            /*
             if (typeof PancakeChatManager !== "undefined" && window.pancakeChatManager) {
                 try {
                     // Wait a bit for managers to be ready
@@ -397,18 +400,11 @@
                     console.error("[UI] Error initializing PancakeChatManager:", error);
                 }
             }
+            */
+            console.log("[UI] ⚠️ PancakeChatManager DISABLED - đang phát triển");
 
-            // Initialize TPOS Chat Manager
-            if (typeof TposChatManager !== "undefined" && window.tposChatManager) {
-                try {
-                    setTimeout(async () => {
-                        await window.tposChatManager.initialize('tposContent');
-                        console.log("[UI] TposChatManager initialized");
-                    }, 400);
-                } catch (error) {
-                    console.error("[UI] Error initializing TposChatManager:", error);
-                }
-            }
+            // TPOS Chat Manager removed - TPOS realtime is now handled by render.com/server.js
+            // The server maintains persistent WebSocket connection to TPOS and broadcasts events via SSE
 
             // Listen for realtime conversation updates
             // Uses Messenger/Zalo-style in-place update - no loading spinner!
