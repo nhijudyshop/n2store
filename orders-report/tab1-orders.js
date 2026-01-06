@@ -26540,12 +26540,72 @@ async function printSuccessOrders(type) {
     if (type === 'invoice') {
         console.log('[FAST-SALE] Using custom bill for invoice printing...');
 
-        for (const order of selectedOrders) {
-            // Open print popup with custom bill
-            openPrintPopup(order);
+        // Clear currentSaleOrderData to prevent old data interference
+        currentSaleOrderData = null;
 
-            // Find original order data to get chat info
-            // Try multiple matching strategies
+        for (let i = 0; i < selectedOrders.length; i++) {
+            const order = selectedOrders[i];
+
+            // Find original order by matching SaleOnlineIds or Reference
+            const originalOrderIndex = fastSaleOrdersData.findIndex(o =>
+                (o.SaleOnlineIds && order.SaleOnlineIds &&
+                    JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
+                (o.Reference && o.Reference === order.Reference)
+            );
+            const originalOrder = originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
+
+            // Also try to find saleOnline order from displayedData for additional data
+            const saleOnlineId = order.SaleOnlineIds?.[0];
+            const saleOnlineOrderForData = saleOnlineId
+                ? displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId))
+                : null;
+
+            // Get CarrierName from form dropdown (same logic as collectFastSaleData)
+            const carrierSelect = originalOrderIndex >= 0 ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`) : null;
+            const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text || order.CarrierName || '';
+            const shippingFee = originalOrderIndex >= 0
+                ? parseFloat(document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)?.value) || 0
+                : order.DeliveryPrice || 0;
+
+            // Get OrderLines - priority: originalOrder (from FastSale API) > saleOnlineOrder.Details > order.OrderLines
+            let orderLines = originalOrder?.OrderLines || order.OrderLines || [];
+            if ((!orderLines || orderLines.length === 0) && saleOnlineOrderForData?.Details) {
+                // Map saleOnline Details to OrderLines format
+                orderLines = saleOnlineOrderForData.Details.map(d => ({
+                    ProductName: d.ProductName || d.ProductNameGet || '',
+                    ProductNameGet: d.ProductNameGet || d.ProductName || '',
+                    ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
+                    Quantity: d.Quantity || d.ProductUOMQty || 1,
+                    PriceUnit: d.Price || d.PriceUnit || 0,
+                    Note: d.Note || ''
+                }));
+            }
+
+            // Merge data: API result + original OrderLines + form values
+            const enrichedOrder = {
+                ...order,
+                OrderLines: orderLines,
+                CarrierName: carrierName,
+                DeliveryPrice: shippingFee,
+                // Also copy customer info from original order
+                PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
+            };
+
+            console.log('[FAST-SALE] Enriched order for bill:', {
+                number: enrichedOrder.Number,
+                reference: order.Reference,
+                carrierName: enrichedOrder.CarrierName,
+                orderLinesCount: enrichedOrder.OrderLines?.length,
+                orderLines: enrichedOrder.OrderLines,
+                deliveryPrice: enrichedOrder.DeliveryPrice,
+                originalOrderIndex,
+                foundOriginal: !!originalOrder
+            });
+
+            // Open print popup with enriched order data
+            openPrintPopup(enrichedOrder);
+
+            // Find original SaleOnline order to get chat info
             const saleOnlineId = order.SaleOnlineIds?.[0];
             const saleOnlineName = order.SaleOnlineNames?.[0];
 
@@ -26582,7 +26642,8 @@ async function printSuccessOrders(type) {
 
                 if (psid && channelId) {
                     console.log('[FAST-SALE] Sending bill to Messenger for order:', order.Number, 'to customer:', saleOnlineOrder.Name);
-                    sendBillToCustomer(order, channelId, psid)
+                    // Send enriched order to get correct bill content
+                    sendBillToCustomer(enrichedOrder, channelId, psid)
                         .then(res => {
                             if (res.success) {
                                 console.log(`[FAST-SALE] ✅ Bill sent for ${order.Number} to ${saleOnlineOrder.Name}`);
