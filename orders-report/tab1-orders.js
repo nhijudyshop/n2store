@@ -26186,52 +26186,47 @@ async function saveFastSaleOrders(isApprove = false) {
             console.log('[FAST-SALE] Sending bills to customers for successful orders...');
 
             for (const successOrder of result.OrdersSucessed) {
-                // Find original order data to get chat info
-                const originalOrder = fastSaleOrdersData.find(o =>
-                    o.SaleOnlineIds?.some(id => successOrder.SaleOnlineIds?.includes(id))
-                );
+                // Find original order data to get chat info using multiple strategies
+                const saleOnlineId = successOrder.SaleOnlineIds?.[0];
+                const saleOnlineName = successOrder.SaleOnlineNames?.[0];
 
-                if (!originalOrder) {
-                    // Try to find from displayedData using SaleOnlineIds
-                    const saleOnlineId = successOrder.SaleOnlineIds?.[0];
-                    const saleOnlineOrder = saleOnlineId ? displayedData.find(o => o.Id === saleOnlineId) : null;
+                console.log('[FAST-SALE] Looking for customer for order:', successOrder.Number, {
+                    saleOnlineId,
+                    saleOnlineName,
+                    partnerId: successOrder.PartnerId
+                });
 
-                    if (saleOnlineOrder) {
-                        const psid = saleOnlineOrder.Facebook_ASUserId;
-                        const postId = saleOnlineOrder.Facebook_PostId;
-                        const channelId = postId ? postId.split('_')[0] : null;
+                // Strategy 1: Match by SaleOnlineId
+                let saleOnlineOrder = saleOnlineId
+                    ? displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId))
+                    : null;
 
-                        if (psid && channelId) {
-                            console.log('[FAST-SALE] Sending bill for order:', successOrder.Number);
-                            sendBillToCustomer(successOrder, channelId, psid)
-                                .then(res => {
-                                    if (res.success) {
-                                        console.log(`[FAST-SALE] ✅ Bill sent for ${successOrder.Number}`);
-                                    }
-                                })
-                                .catch(err => console.error(`[FAST-SALE] ❌ Failed to send bill for ${successOrder.Number}:`, err));
-                        }
-                    }
-                    continue;
+                // Strategy 2: Match by SaleOnlineName (Code)
+                if (!saleOnlineOrder && saleOnlineName) {
+                    saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
                 }
 
-                // Get chat info from original order
-                const saleOnlineId = originalOrder.SaleOnlineIds?.[0];
-                const saleOnlineOrder = saleOnlineId ? displayedData.find(o => o.Id === saleOnlineId) : null;
+                // Strategy 3: Match by PartnerId
+                if (!saleOnlineOrder && successOrder.PartnerId) {
+                    saleOnlineOrder = displayedData.find(o => o.PartnerId === successOrder.PartnerId);
+                }
 
-                const psid = saleOnlineOrder?.Facebook_ASUserId;
-                const postId = saleOnlineOrder?.Facebook_PostId;
-                const channelId = postId ? postId.split('_')[0] : null;
+                console.log('[FAST-SALE] Found saleOnlineOrder:', saleOnlineOrder?.Id, saleOnlineOrder?.Code, saleOnlineOrder?.Name);
 
-                if (psid && channelId) {
-                    console.log('[FAST-SALE] Sending bill for order:', successOrder.Number);
-                    sendBillToCustomer(successOrder, channelId, psid)
-                        .then(res => {
-                            if (res.success) {
-                                console.log(`[FAST-SALE] ✅ Bill sent for ${successOrder.Number}`);
-                            }
-                        })
-                        .catch(err => console.error(`[FAST-SALE] ❌ Failed to send bill for ${successOrder.Number}:`, err));
+                if (saleOnlineOrder) {
+                    const psid = saleOnlineOrder.Facebook_ASUserId;
+                    const postId = saleOnlineOrder.Facebook_PostId;
+                    const channelId = postId ? postId.split('_')[0] : null;
+
+                    if (psid && channelId) {
+                        console.log('[FAST-SALE] Sending bill for order:', successOrder.Number, 'to:', saleOnlineOrder.Name);
+                        sendBillToCustomer(successOrder, channelId, psid)
+                            .then(res => {
+                                if (res.success) {
+                                    console.log(`[FAST-SALE] ✅ Bill sent for ${successOrder.Number} to ${saleOnlineOrder.Name}`);
+                                }
+                            })
+                            .catch(err => console.error(`[FAST-SALE] ❌ Failed to send bill for ${successOrder.Number}:`, err));
                 }
             }
         }
@@ -26598,25 +26593,56 @@ async function printSuccessOrders(type) {
             openPrintPopup(order);
 
             // Find original order data to get chat info
+            // Try multiple matching strategies
             const saleOnlineId = order.SaleOnlineIds?.[0];
-            const saleOnlineOrder = saleOnlineId ? displayedData.find(o => o.Id === saleOnlineId) : null;
+            const saleOnlineName = order.SaleOnlineNames?.[0];
+
+            console.log('[FAST-SALE] Looking for customer for order:', order.Number, {
+                saleOnlineId,
+                saleOnlineName,
+                partnerId: order.PartnerId,
+                partnerName: order.PartnerDisplayName
+            });
+
+            // Strategy 1: Match by SaleOnlineId
+            let saleOnlineOrder = saleOnlineId
+                ? displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId))
+                : null;
+
+            // Strategy 2: Match by SaleOnlineName (Code)
+            if (!saleOnlineOrder && saleOnlineName) {
+                saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
+            }
+
+            // Strategy 3: Match by PartnerId
+            if (!saleOnlineOrder && order.PartnerId) {
+                saleOnlineOrder = displayedData.find(o => o.PartnerId === order.PartnerId);
+            }
+
+            console.log('[FAST-SALE] Found saleOnlineOrder:', saleOnlineOrder?.Id, saleOnlineOrder?.Code, saleOnlineOrder?.Name);
 
             if (saleOnlineOrder) {
                 const psid = saleOnlineOrder.Facebook_ASUserId;
                 const postId = saleOnlineOrder.Facebook_PostId;
                 const channelId = postId ? postId.split('_')[0] : null;
 
+                console.log('[FAST-SALE] Chat info:', { psid, postId, channelId, customerName: saleOnlineOrder.Name });
+
                 if (psid && channelId) {
-                    console.log('[FAST-SALE] Sending bill to Messenger for order:', order.Number);
+                    console.log('[FAST-SALE] Sending bill to Messenger for order:', order.Number, 'to customer:', saleOnlineOrder.Name);
                     sendBillToCustomer(order, channelId, psid)
                         .then(res => {
                             if (res.success) {
-                                console.log(`[FAST-SALE] ✅ Bill sent for ${order.Number}`);
+                                console.log(`[FAST-SALE] ✅ Bill sent for ${order.Number} to ${saleOnlineOrder.Name}`);
                                 window.notificationManager.success(`Đã gửi bill ${order.Number} qua Messenger`, 2000);
                             }
                         })
                         .catch(err => console.error(`[FAST-SALE] ❌ Failed to send bill:`, err));
+                } else {
+                    console.log('[FAST-SALE] ⚠️ No chat info for order:', order.Number);
                 }
+            } else {
+                console.log('[FAST-SALE] ⚠️ Could not find saleOnlineOrder for:', order.Number);
             }
         }
 
