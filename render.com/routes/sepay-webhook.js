@@ -664,6 +664,7 @@ function extractPhoneFromContent(content) {
     }
 
     let textToParse = content;
+    let isMomo = false; // Track if this is a Momo transaction
 
     // Step 1: If has "GD", take part before " GD" or "-GD"
     const gdMatch = content.match(/^(.*?)(?:\s*-?\s*GD)/i);
@@ -688,6 +689,9 @@ function extractPhoneFromContent(content) {
             senderPhone: senderPhone + ' (ignored)',
             customerContent
         });
+
+        // Mark as Momo transaction
+        isMomo = true;
 
         // Replace textToParse with just the customer content
         textToParse = customerContent.trim();
@@ -715,11 +719,12 @@ function extractPhoneFromContent(content) {
     if (exactPhones && exactPhones.length > 0) {
         const exactPhone = exactPhones[exactPhones.length - 1]; // Take last match
         console.log('[EXTRACT] ✅ Found EXACT 10-digit phone:', exactPhone);
+        const baseNote = exactPhones.length > 1 ? 'MULTIPLE_EXACT_PHONES_FOUND' : 'EXACT_PHONE_EXTRACTED';
         return {
             type: 'exact_phone',
             value: exactPhone,
             uniqueCode: `PHONE${exactPhone}`, // Direct unique code
-            note: exactPhones.length > 1 ? 'MULTIPLE_EXACT_PHONES_FOUND' : 'EXACT_PHONE_EXTRACTED'
+            note: isMomo ? `MOMO:${baseNote}` : baseNote
         };
     }
 
@@ -746,11 +751,12 @@ function extractPhoneFromContent(content) {
         if (phoneLikeNumbers.length > 0) {
             const partialPhone = phoneLikeNumbers[0];  // Take FIRST non-blacklisted phone-like number
             console.log('[EXTRACT] ✅ Found partial phone (5-10 digits, first non-blacklisted):', partialPhone, 'from:', allNumbers);
+            const baseNote = phoneLikeNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED';
             return {
                 type: 'partial_phone',
                 value: partialPhone,
                 uniqueCode: null, // Will be determined after TPOS search
-                note: phoneLikeNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED'
+                note: isMomo ? `MOMO:${baseNote}` : baseNote
             };
         }
 
