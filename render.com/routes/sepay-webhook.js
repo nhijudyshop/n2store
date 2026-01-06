@@ -705,6 +705,29 @@ function extractPhoneFromContent(content) {
         console.log('[EXTRACT] 🟣 Parsing MOMO customer content:', textToParse);
     }
 
+    // Step 1.6: MB BANK (MBVCB) PATTERN DETECTION
+    // Format: MBVCB.{random}.{random}.{phone}.CT tu ...
+    // Example: MBVCB.12459068036.249370.228666.CT tu 0141000833447 NGUYEN THI...
+    // We need to extract the number before ".CT" (228666)
+    const mbvcbPattern = /MBVCB\.[^.]+\.[^.]+\.(\d{5,10})\.CT/i;
+    const mbvcbMatch = textToParse.match(mbvcbPattern);
+    if (mbvcbMatch) {
+        const customerPhone = mbvcbMatch[1]; // 228666
+
+        console.log('[EXTRACT] 🔵 Detected MB BANK (MBVCB) pattern:', {
+            fullMatch: mbvcbMatch[0],
+            customerPhone
+        });
+
+        // Return directly with the extracted phone
+        return {
+            type: 'partial_phone',
+            value: customerPhone,
+            uniqueCode: null,
+            note: 'MBBANK:PARTIAL_PHONE_EXTRACTED'
+        };
+    }
+
     // Step 2: Check for QR Code N2 (starts with N2, exactly 18 chars)
     const qrCodeMatch = textToParse.match(/\bN2[A-Z0-9]{16}\b/);
     if (qrCodeMatch) {

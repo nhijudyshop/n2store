@@ -836,6 +836,16 @@ function getMappingSource(row, uniqueCode) {
         };
     }
 
+    // Priority 0.5: Check for MB BANK pattern
+    if (extractionNote.startsWith('MBBANK:')) {
+        return {
+            label: 'MB Bank',
+            icon: 'building-2',
+            color: '#1e40af', // MB Bank blue
+            title: 'Giao dịch từ MB Bank - SĐT trích xuất từ mã MBVCB'
+        };
+    }
+
     // Priority 1: Check unique_code format
     if (uniqueCode) {
         // QR Code: N2 + 16 chars (but NOT N2TX which is auto-generated)
