@@ -2253,7 +2253,7 @@ async function toggleHideTransaction(transactionId, hidden) {
 
         if (result.success) {
             // Refresh data to show updated state
-            await fetchData();
+            await loadData();
 
             if (window.NotificationManager) {
                 window.NotificationManager.showNotification(
