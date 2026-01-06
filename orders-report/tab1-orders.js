@@ -26589,6 +26589,45 @@ async function printSuccessOrders(type) {
 
     console.log(`[FAST-SALE] Printing ${type} for ${orderIds.length} orders:`, orderIds);
 
+    // For invoice type, use custom bill and send to Messenger
+    if (type === 'invoice') {
+        console.log('[FAST-SALE] Using custom bill for invoice printing...');
+
+        for (const order of selectedOrders) {
+            // Open print popup with custom bill
+            openPrintPopup(order);
+
+            // Find original order data to get chat info
+            const saleOnlineId = order.SaleOnlineIds?.[0];
+            const saleOnlineOrder = saleOnlineId ? displayedData.find(o => o.Id === saleOnlineId) : null;
+
+            if (saleOnlineOrder) {
+                const psid = saleOnlineOrder.Facebook_ASUserId;
+                const postId = saleOnlineOrder.Facebook_PostId;
+                const channelId = postId ? postId.split('_')[0] : null;
+
+                if (psid && channelId) {
+                    console.log('[FAST-SALE] Sending bill to Messenger for order:', order.Number);
+                    sendBillToCustomer(order, channelId, psid)
+                        .then(res => {
+                            if (res.success) {
+                                console.log(`[FAST-SALE] ✅ Bill sent for ${order.Number}`);
+                                window.notificationManager.success(`Đã gửi bill ${order.Number} qua Messenger`, 2000);
+                            }
+                        })
+                        .catch(err => console.error(`[FAST-SALE] ❌ Failed to send bill:`, err));
+                }
+            }
+        }
+
+        window.notificationManager.success(
+            `Đã mở ${selectedOrders.length} cửa sổ in hóa đơn`,
+            2000
+        );
+        return;
+    }
+
+    // For shipping and picking types, use TPOS API
     try {
         const headers = await window.tokenManager.getAuthHeader();
         const idsParam = orderIds.join(',');
@@ -26597,10 +26636,7 @@ async function printSuccessOrders(type) {
         let printLabel = '';
 
         // Determine endpoint based on print type
-        if (type === 'invoice') {
-            printEndpoint = 'print1'; // In hóa đơn
-            printLabel = 'hóa đơn';
-        } else if (type === 'shipping') {
+        if (type === 'shipping') {
             printEndpoint = 'print2'; // In phiếu ship
             printLabel = 'phiếu ship';
         } else if (type === 'picking') {
