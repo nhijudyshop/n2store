@@ -672,6 +672,28 @@ function extractPhoneFromContent(content) {
         console.log('[EXTRACT] Found GD, parsing before GD:', textToParse);
     }
 
+    // Step 1.5: MOMO PATTERN DETECTION
+    // Format: {12-digit-random}-{10-digit-sender-phone}-{customer-content}
+    // Example: 113524023776-0396513324-652722
+    // We need to extract the LAST part (customer content), not the sender phone
+    const momoPattern = /^(\d{12})-(0\d{9})-(.+)$/;
+    const momoMatch = textToParse.match(momoPattern);
+    if (momoMatch) {
+        const momoCode = momoMatch[1];      // 113524023776 (ignore)
+        const senderPhone = momoMatch[2];   // 0396513324 (ignore - sender's phone)
+        const customerContent = momoMatch[3]; // 652722 (extract this!)
+
+        console.log('[EXTRACT] 🟣 Detected MOMO pattern:', {
+            momoCode,
+            senderPhone: senderPhone + ' (ignored)',
+            customerContent
+        });
+
+        // Replace textToParse with just the customer content
+        textToParse = customerContent.trim();
+        console.log('[EXTRACT] 🟣 Parsing MOMO customer content:', textToParse);
+    }
+
     // Step 2: Check for QR Code N2 (starts with N2, exactly 18 chars)
     const qrCodeMatch = textToParse.match(/\bN2[A-Z0-9]{16}\b/);
     if (qrCodeMatch) {
