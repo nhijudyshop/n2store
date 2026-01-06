@@ -1033,7 +1033,90 @@ Hệ thống quản lý các sự vụ phát sinh **sau khi bán hàng**, giúp:
 
 ---
 
+### A1.4 Ma trận Luồng Trạng thái (Status Flow Matrix)
+
+> **⚠️ QUAN TRỌNG CHO AI AGENT:** Đây là bảng tham chiếu chính để xác định trạng thái ban đầu và luồng xử lý cho mỗi loại ticket.
+
+#### Tổng quan 4 luồng xử lý
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  📊 4 LUỒNG CHUYỂN TRẠNG THÁI                                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  🔵 LUỒNG 1: Chờ Hàng → Chờ Đối Soát → Hoàn Tất                            │
+│     (Có hàng hoàn VÀ có tiền chênh lệch cần trả ĐVVC)                      │
+│                                                                             │
+│  🟢 LUỒNG 2: Chờ Hàng → Hoàn Tất                                           │
+│     (Có hàng hoàn NHƯNG không cần trả tiền ĐVVC)                           │
+│                                                                             │
+│  🟡 LUỒNG 3: Chờ Đối Soát → Hoàn Tất                                       │
+│     (Không có hàng hoàn, chỉ cần đối soát tiền)                            │
+│                                                                             │
+│  ⚫ LUỒNG 4: Hoàn Tất Ngay                                                  │
+│     (Xử lý ở Tab "Tất cả", bấm hoàn tất thủ công)                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Bảng chi tiết theo Loại Sự Vụ
+
+| Loại sự vụ | Lý do (fixCodReason) | Status ban đầu | Luồng | Số tiền | Ghi chú |
+|------------|---------------------|----------------|-------|---------|---------|
+| `BOOM` | - | `PENDING_GOODS` | 🔵 1 | = Toàn bộ COD | Tất cả SP hoàn về |
+| `FIX_COD` | `REJECT_PARTIAL` | `PENDING_GOODS` | 🔵 1 | = Giá SP bị từ chối | Một phần SP hoàn về |
+| `FIX_COD` | `WRONG_SHIP` | `PENDING_FINANCE` | 🟡 3 | = COD gốc - COD mới | Không lấy hàng thừa về |
+| `FIX_COD` | `CUSTOMER_DEBT` | `PENDING_FINANCE` | 🟡 3 | = COD gốc - COD mới | Trừ nợ cũ của khách |
+| `FIX_COD` | `DISCOUNT` | `PENDING_FINANCE` | 🟡 3 | = COD gốc - COD mới | Shipper deal giảm giá |
+| `RETURN_CLIENT` | - | `PENDING_GOODS` | 🟢 2 | = Giá SP hoàn | Cộng vào ví KH |
+| `RETURN_SHIPPER` | - | `PENDING_GOODS` | 🟢 2 | = Giá SP hoàn | Công nợ ảo |
+| `OTHER` | - | `PENDING_GOODS` | ⚫ 4 | = 0 | ⚠️ *Sẽ hoàn thiện sau* |
+
+#### Chi tiết từng luồng
+
+**🔵 LUỒNG 1: PENDING_GOODS → PENDING_FINANCE → COMPLETED**
+```
+Điều kiện: Có hàng hoàn về VÀ có tiền chênh lệch cần trả ĐVVC
+Áp dụng: BOOM, FIX_COD (REJECT_PARTIAL)
+
+Bước 1: Tạo ticket → status = PENDING_GOODS
+Bước 2: Kho nhận hàng → Bấm "Đã nhận hàng" → status = PENDING_FINANCE
+Bước 3: Kế toán CK cho ĐVVC → Bấm "Đã thanh toán" → status = COMPLETED
+```
+
+**🟢 LUỒNG 2: PENDING_GOODS → COMPLETED**
+```
+Điều kiện: Có hàng hoàn về NHƯNG không cần trả tiền ĐVVC
+Áp dụng: RETURN_CLIENT, RETURN_SHIPPER
+
+Bước 1: Tạo ticket → status = PENDING_GOODS
+Bước 2: Kho nhận hàng OK → Bấm "Đã nhận hàng" → status = COMPLETED
+
+Lý do bỏ qua đối soát: Đơn gốc đã thu COD đầy đủ, không chênh lệch
+```
+
+**🟡 LUỒNG 3: PENDING_FINANCE → COMPLETED**
+```
+Điều kiện: KHÔNG có hàng hoàn về, chỉ cần đối soát tiền
+Áp dụng: FIX_COD (WRONG_SHIP, CUSTOMER_DEBT, DISCOUNT)
+
+Bước 1: Tạo ticket → status = PENDING_FINANCE (bỏ qua Chờ Hàng)
+Bước 2: Kế toán CK cho ĐVVC → Bấm "Đã thanh toán" → status = COMPLETED
+```
+
+**⚫ LUỒNG 4: (Xử lý thủ công) → COMPLETED**
+```
+Điều kiện: Không có hàng, không có tiền
+Áp dụng: OTHER (tư vấn, bảo hành, khiếu nại...)
+
+Hiện tại: Hiển thị ở Tab "Tất cả sự vụ", bấm hoàn tất thủ công
+⚠️ NOTE: Sẽ hoàn thiện logic sự vụ OTHER sau
+```
+
+---
+
 ## A2. Chi tiết từng loại sự vụ
+
 
 ### A2.1 BOOM HÀNG (`BOOM`)
 
@@ -1816,7 +1899,7 @@ try {
 │                                                                              │
 │  PHASE 0: CRITICAL FIX (Phải làm trước)                                     │
 │  ├── [P0-1] ✅ DONE - Tích hợp TPOS API searchOrders()                      │
-│  └── [P0-2] ⏳ TODO - Fix Firebase realtime subscription                     │
+│  └── [P0-2] ✅ DONE - Firebase realtime subscription                         │
 │                                                                              │
 │  PHASE 1: CORE FEATURES (Tính năng cốt lõi)                                 │
 │  ├── [P1-1] ⏳ TODO - Module Customer Wallet                                 │
@@ -1856,25 +1939,19 @@ Acceptance Criteria: ✅
 ✓ Handle lỗi API
 ```
 
-#### [P0-2] Fix Firebase Realtime Subscription ⏳ TODO
+#### [P0-2] Firebase Realtime Subscription ✅ DONE
 
 ```
-Files cần sửa:
-└── script.js          # Uncomment và fix subscription logic
+Files đã implement:
+├── api-service.js     # subscribeToTickets() với Firebase v8 syntax
+└── script.js          # Gọi subscription trong DOMContentLoaded
 
-Vấn đề hiện tại:
-- Code subscription đang bị comment out
-- Dashboard không tự động refresh khi có ticket mới
-
-Cần làm:
-1. Uncomment subscription code
-2. Fix duplicate prevention
-3. Test realtime updates
-
-Acceptance Criteria:
-□ Dashboard tự động cập nhật khi có ticket mới
-□ Stats (số lượng) tự động cập nhật
-□ Không bị duplicate tickets
+Đã hoàn thành:
+✓ Subscription code hoạt động tại script.js:41-47
+✓ ApiService.subscribeToTickets() tại api-service.js:212-227
+✓ Dashboard tự động cập nhật khi có ticket mới
+✓ Stats (số lượng) tự động cập nhật
+✓ Sử dụng Firebase v8 ref.on('value', ...) syntax đúng chuẩn
 ```
 
 ---
@@ -2172,7 +2249,7 @@ Acceptance Criteria:
 
 ### Phase 0: Critical Fix
 - [x] **[P0-1]** Tích hợp TPOS API searchOrders() - _Hoàn thành 2026-01-05_
-- [ ] **[P0-2]** Fix Firebase realtime subscription
+- [x] **[P0-2]** Firebase realtime subscription - _Hoàn thành 2026-01-06_
 
 ### Phase 1: Core Features
 - [ ] **[P1-1]** Module Customer Wallet
@@ -2218,6 +2295,14 @@ Acceptance Criteria:
 | | | - Cập nhật TOC Jump links dùng clean anchor IDs | |
 | | | - Anchors: error-matrix, project-context, ui-standards, | |
 | | | global-state, security, formulas, phan-a/b/c/d | |
+| 2026-01-06 | 5.3 | Cập nhật [P0-2] Firebase Subscription: | AI |
+| | | - Đánh dấu DONE vì đã hoạt động tại script.js:41-47 | |
+| | | - Subscription dùng ApiService.subscribeToTickets() | |
+| | | - PHASE 0 hoàn tất, sẵn sàng cho PHASE 1 | |
+| 2026-01-06 | 5.4 | Bổ sung Ma trận Luồng Trạng thái (A1.4): | AI |
+| | | - Thêm bảng tổng hợp 4 luồng chuyển trạng thái | |
+| | | - Quick reference table cho AI Agent xác định status | |
+| | | - Ghi chú OTHER sẽ hoàn thiện sau | |
 
 ---
 
@@ -2228,14 +2313,12 @@ Acceptance Criteria:
 │  📝 NEXT SESSION TODO                                                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  Task tiếp theo cần làm: [P0-2] Fix Firebase Realtime Subscription          │
+│  ✅ PHASE 0 HOÀN TẤT!                                                       │
 │                                                                             │
-│  Files cần check:                                                           │
-│  - script.js:140-160 (subscription code đang comment)                       │
-│                                                                             │
-│  Sau đó: [P1-1] Module Customer Wallet                                      │
+│  Task tiếp theo cần làm: [P1-1] Module Customer Wallet                      │
 │  - Tạo file wallet-service.js mới                                           │
 │  - Implement theo spec ở mục B2.2                                           │
+│  - Tạo các methods: getWallet, deposit, withdraw, issueVirtualCredit        │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```

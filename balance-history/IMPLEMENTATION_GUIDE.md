@@ -1,8 +1,10 @@
-đoc# Hướng Dẫn Hiện Thực Tính Năng Lịch Sử Biến Động Số Dư
+# Hướng Dẫn Hiện Thực Tính Năng Lịch Sử Biến Động Số Dư
 
 Tài liệu này mô tả chi tiết cách hiện thực tính năng **Lịch sử biến động số dư** với tích hợp **SePay Webhook API** để theo dõi giao dịch ngân hàng realtime.
 
-![Architecture Overview](/absolute/path/to/architecture.png)
+> [!NOTE]
+> **Cập nhật lần cuối:** 2026-01-06
+> Tài liệu này được tạo dựa trên phân tích mã nguồn thực tế trong thư mục `balance-history/`.
 
 ---
 
@@ -23,6 +25,12 @@ Tài liệu này mô tả chi tiết cách hiện thực tính năng **Lịch s�
 13. [Phát Hiện Giao Dịch Thiếu (Gap Detection)](#13-phát-hiện-giao-dịch-thiếu-gap-detection)
 14. [Realtime Updates (SSE)](#14-realtime-updates-sse)
 15. [Triển Khai](#15-triển-khai)
+16. [Column Visibility Control](#16-column-visibility-control)
+17. [Fetch Missing Transaction](#17-fetch-missing-transaction)
+18. [Tổng Hợp Các Hàm Chính](#18-tổng-hợp-các-hàm-chính-trong-mainjs)
+19. [Cấu Trúc Dữ Liệu Cho Customer Wallet](#19-cấu-trúc-dữ-liệu-cho-customer-wallet-integration)
+
+
 
 ---
 
@@ -80,17 +88,30 @@ flowchart TD
 
 ```
 balance-history/
-├── index.html              # Giao diện chính (HTML structure)
+├── index.html              # Giao diện chính (561 dòng)
+├── main.js                 # Logic chính (2592 dòng)
+├── config.js               # Cấu hình API endpoints (32 dòng)
+├── auth.js                 # Hệ thống xác thực (223 dòng)
+├── cache.js                # Quản lý cache với localStorage (197 dòng)
+├── customer-info.js        # Quản lý thông tin khách hàng (443 dòng)
+├── qr-generator.js         # Tạo QR code VietQR (223 dòng)
+├── notification-system.js  # Hệ thống thông báo (438 dòng)
 ├── modern.css              # CSS framework/design system
 ├── styles.css              # Custom styles cho trang
-├── main.js                 # Logic chính (2494 dòng)
-├── config.js               # Cấu hình API endpoints
-├── auth.js                 # Hệ thống xác thực
-├── cache.js                # Quản lý cache với localStorage
-├── customer-info.js        # Quản lý thông tin khách hàng
-├── qr-generator.js         # Tạo QR code VietQR
-├── notification-system.js  # Hệ thống thông báo
-└── README.md               # Tài liệu cơ bản
+│
+├── IMPLEMENTATION_GUIDE.md # Tài liệu hướng dẫn chi tiết (file này)
+├── DEPLOYMENT_GUIDE.md     # Hướng dẫn triển khai
+├── README.md               # Tài liệu cơ bản
+├── QR_DEBT_FLOW.md         # Tài liệu flow QR và công nợ
+├── PHONE_EXTRACTION_FEATURE.md     # Tài liệu trích xuất SĐT
+├── PHONE_EXTRACTION_IMPROVEMENTS.md # Cải tiến trích xuất SĐT
+├── PARTIAL_PHONE_TPOS_SEARCH.md    # Tìm kiếm SĐT một phần
+├── PHONE_PARTNER_FETCH_GUIDE.md    # Hướng dẫn fetch partner
+├── PR_SUMMARY.md           # Tóm tắt PR
+│
+├── SETUP_ALL.sql           # Script SQL khởi tạo database
+├── ADD_EXTRACTION_COLUMNS.sql      # Script bổ sung cột extraction
+└── DEBUG_SCRIPT.sql        # Script debug
 
 ../js/
 ├── firebase-config.js      # Cấu hình Firebase (shared)
@@ -117,7 +138,11 @@ balance-history/
 | `/api/sepay/gaps/:id/ignore` | POST | Bỏ qua gap |
 | `/api/sepay/stream` | GET | SSE stream realtime |
 | `/api/sepay/debt-summary` | GET | Tổng công nợ theo SĐT |
+| `/api/sepay/fetch-by-reference/:code` | POST | Lấy lại GD thiếu từ SePay |
+| `/api/sepay/transactions-by-phone` | GET | Lấy GD theo số điện thoại |
+| `/api/sepay/retry-failed-queue` | POST | Retry tất cả webhooks failed |
 | `/api/customers/search` | GET | Tìm kiếm khách hàng |
+
 
 ### 3.2 Cấu Hình API (config.js)
 
@@ -2209,6 +2234,762 @@ curl -X POST https://your-worker.workers.dev/api/sepay/webhook \
 
 ---
 
+## 16. Column Visibility Control
+
+Tính năng cho phép người dùng ẩn/hiện các cột trong bảng dữ liệu.
+
+### 16.1 UI Components
+
+```html
+<!-- Column Visibility Dropdown (trong Filters) -->
+<div class="filter-group" style="position: relative;">
+    <label><i data-lucide="columns"></i> Hiển thị cột:</label>
+    <button id="columnVisibilityBtn" class="btn btn-secondary">
+        <i data-lucide="eye"></i> Chọn cột
+    </button>
+    <div id="columnVisibilityDropdown" class="column-dropdown" style="display: none;">
+        <div class="column-dropdown-header">
+            <span>Chọn cột hiển thị</span>
+            <button id="selectAllColumnsBtn" class="btn-link">Chọn tất cả</button>
+        </div>
+        <div class="column-dropdown-content">
+            <label class="column-checkbox">
+                <input type="checkbox" value="datetime" checked> Ngày giờ
+            </label>
+            <label class="column-checkbox">
+                <input type="checkbox" value="gateway" checked> Ngân hàng
+            </label>
+            <!-- ... các cột khác -->
+        </div>
+    </div>
+</div>
+```
+
+### 16.2 JavaScript Implementation
+
+```javascript
+// Load column visibility preferences from localStorage
+function loadColumnVisibility() {
+    const savedVisibility = localStorage.getItem('columnVisibility');
+    if (savedVisibility) {
+        const visibility = JSON.parse(savedVisibility);
+        Object.entries(visibility).forEach(([column, isVisible]) => {
+            const checkbox = document.querySelector(`.column-checkbox input[value="${column}"]`);
+            if (checkbox) {
+                checkbox.checked = isVisible;
+                toggleColumn(column, isVisible);
+            }
+        });
+    }
+}
+
+// Toggle column visibility
+function toggleColumn(columnName, isVisible) {
+    const headers = document.querySelectorAll(`th[data-column="${columnName}"]`);
+    const cells = document.querySelectorAll(`td[data-column="${columnName}"]`);
+
+    headers.forEach(header => {
+        header.classList.toggle('hidden', !isVisible);
+    });
+
+    cells.forEach(cell => {
+        cell.classList.toggle('hidden', !isVisible);
+    });
+}
+
+// Save column visibility preferences to localStorage
+function saveColumnVisibility() {
+    const checkboxes = document.querySelectorAll('.column-checkbox input[type="checkbox"]');
+    const visibility = {};
+    checkboxes.forEach(checkbox => {
+        visibility[checkbox.value] = checkbox.checked;
+    });
+    localStorage.setItem('columnVisibility', JSON.stringify(visibility));
+}
+```
+
+### 16.3 Các Cột Có Thể Ẩn/Hiện
+
+| Column Key | Tên Cột | Mặc Định |
+|------------|---------|----------|
+| `datetime` | Ngày giờ | ✅ Hiện |
+| `gateway` | Ngân hàng | ✅ Hiện |
+| `type` | Loại | ✅ Hiện |
+| `amount` | Số tiền | ✅ Hiện |
+| `balance` | Số dư | ✅ Hiện |
+| `content` | Nội dung | ✅ Hiện |
+| `reference` | Mã tham chiếu | ✅ Hiện |
+| `customer_name` | Tên khách hàng | ✅ Hiện |
+| `customer_phone` | Số điện thoại | ✅ Hiện |
+| `qr_code` | QR Code | ✅ Hiện |
+| `actions` | Thao tác | ✅ Hiện |
+
+---
+
+## 17. Fetch Missing Transaction
+
+Khi phát hiện giao dịch thiếu (gap), có thể gọi API để lấy lại từ SePay.
+
+### 17.1 API Endpoint
+
+```
+POST /api/sepay/fetch-by-reference/{referenceCode}
+```
+
+### 17.2 Implementation
+
+```javascript
+/**
+ * Fetch missing transaction from Sepay API by reference code
+ */
+async function fetchMissingTransaction(referenceCode) {
+    if (window.NotificationManager) {
+        window.NotificationManager.showNotification(
+            `Đang lấy giao dịch ${referenceCode}...`, 'info'
+        );
+    }
+
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/api/sepay/fetch-by-reference/${referenceCode}`,
+            { method: 'POST' }
+        );
+        const result = await response.json();
+
+        if (result.success) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(
+                    `Đã lấy được giao dịch ${referenceCode}!`, 'success'
+                );
+            }
+
+            // Reload data to show the new transaction
+            await loadGapData();
+            loadData();
+            loadStatistics();
+        } else {
+            throw new Error(result.error || 'Không tìm thấy giao dịch');
+        }
+
+    } catch (error) {
+        console.error('[GAPS] Error fetching missing transaction:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(
+                `Không thể lấy GD ${referenceCode}: ${error.message}`, 'error'
+            );
+        }
+    }
+}
+```
+
+---
+
+## 18. Tổng Hợp Các Hàm Chính Trong main.js
+
+### 18.1 Data Loading Functions
+
+| Hàm | Mô Tả |
+|-----|-------|
+| `loadData()` | Tải dữ liệu giao dịch với pagination và filters |
+| `loadStatistics()` | Tải thống kê (tổng tiền vào/ra, số dư) |
+| `loadGapData()` | Tải danh sách giao dịch thiếu (gaps) |
+
+### 18.2 Filter Functions
+
+| Hàm | Mô Tả |
+|-----|-------|
+| `applyQuickFilter(filterType)` | Áp dụng quick filter (today, yesterday, thisMonth, etc.) |
+| `getQuickFilterDates(filterType)` | Tính toán khoảng ngày cho quick filter |
+| `applyFilters()` | Áp dụng tất cả filters từ UI |
+| `resetFilters()` | Reset filters về mặc định (tháng này) |
+| `parseAmountInput(input)` | Parse số tiền (hỗ trợ 100k, 1m, 1.5tr) |
+
+### 18.3 Render Functions
+
+| Hàm | Mô Tả |
+|-----|-------|
+| `renderTable(data)` | Render bảng giao dịch với gap detection |
+| `renderTransactionRow(row)` | Render 1 dòng giao dịch |
+| `renderGapRow(missingRef, ...)` | Render dòng cảnh báo gap |
+| `renderStatistics(stats)` | Render thống kê cards |
+| `updatePagination(pagination)` | Cập nhật UI pagination |
+
+### 18.4 QR Code Functions
+
+| Hàm | Mô Tả |
+|-----|-------|
+| `generateDepositQR()` | Tạo QR mới (popup modal) |
+| `generateDepositQRInline()` | Tạo QR inline (header) với thông tin KH |
+| `showTransactionQR(uniqueCode, amount)` | Hiển thị QR cho giao dịch có sẵn |
+| `showQRModal(qrData, isNewQR)` | Hiển thị modal QR |
+| `createCustomQRImage(qrUrl, customerInfo)` | Tạo ảnh QR custom (không có STK) |
+| `copyQRUrl(qrUrl)` | Copy QR URL |
+| `copyUniqueCode(uniqueCode)` | Copy mã giao dịch |
+| `downloadQR(qrUrl, uniqueCode)` | Download ảnh QR |
+
+### 18.5 Customer Functions
+
+| Hàm | Mô Tả |
+|-----|-------|
+| `saveQRCustomerInfo(uniqueCode)` | Lưu thông tin KH từ QR modal |
+| `editCustomerInfo(uniqueCode)` | Mở modal sửa thông tin KH |
+| `saveEditCustomerInfo(event)` | Lưu thông tin KH từ modal sửa |
+| `showCustomersByPhone(phone)` | Hiển thị danh sách KH theo SĐT |
+| `renderCustomerList(customers, stats, phone)` | Render danh sách KH trong modal |
+| `mergeCustomersByPhone(customers)` | Gộp KH cùng SĐT |
+| `loadDebtForPhone(phone)` | Tải công nợ cho SĐT |
+| `toggleDebtDetail()` | Mở/đóng chi tiết công nợ |
+
+### 18.6 Gap Detection Functions
+
+| Hàm | Mô Tả |
+|-----|-------|
+| `loadGapData()` | Tải dữ liệu gaps từ backend |
+| `updateGapCard(count)` | Cập nhật card hiển thị số gaps |
+| `showGapsModal()` | Mở modal danh sách gaps |
+| `renderGapsList(gaps)` | Render danh sách gaps trong modal |
+| `closeGapsModal()` | Đóng modal gaps |
+| `ignoreGap(referenceCode)` | Bỏ qua 1 gap |
+| `rescanGaps()` | Quét lại gaps |
+| `retryFailedQueue()` | Retry tất cả webhooks failed |
+| `fetchMissingTransaction(referenceCode)` | Lấy lại GD thiếu từ SePay |
+
+### 18.7 Realtime (SSE) Functions
+
+| Hàm | Mô Tả |
+|-----|-------|
+| `connectRealtimeUpdates()` | Kết nối SSE |
+| `disconnectRealtimeUpdates()` | Ngắt kết nối SSE |
+| `handleNewTransaction(transaction)` | Xử lý giao dịch mới từ SSE |
+| `transactionMatchesFilters(transaction)` | Kiểm tra GD có match filters |
+| `showNotification(transaction)` | Hiển thị notification cho GD mới |
+| `showNewDataBanner()` | Hiển thị banner "có dữ liệu mới" |
+| `showRealtimeStatus(status)` | Hiển thị trạng thái kết nối SSE |
+
+### 18.8 Column Visibility Functions
+
+| Hàm | Mô Tả |
+|-----|-------|
+| `loadColumnVisibility()` | Load preferences từ localStorage |
+| `saveColumnVisibility()` | Lưu preferences vào localStorage |
+| `toggleColumn(columnName, isVisible)` | Ẩn/hiện cột cụ thể |
+
+### 18.9 Helper Functions
+
+| Hàm | Mô Tả |
+|-----|-------|
+| `formatCurrency(amount)` | Format số tiền VND |
+| `formatDateTime(dateString)` | Format ngày giờ vi-VN |
+| `truncateText(text, maxLength)` | Cắt ngắn text |
+| `showLoading()` | Hiển thị loading indicator |
+| `hideLoading()` | Ẩn loading indicator |
+| `showError(message)` | Hiển thị lỗi |
+| `escapeHtmlForCustomer(text)` | Escape HTML cho display |
+| `getStatusBadgeClass(status)` | Lấy CSS class cho status badge |
+
+---
+
+## 19. Cấu Trúc Dữ Liệu Cho Customer Wallet Integration
+
+> [!IMPORTANT]
+> **Section này dành cho tích hợp Customer Wallet**
+> Mô tả chi tiết cách dữ liệu SĐT và công nợ được lưu trữ, liên kết, và tính toán.
+
+### 19.1 Tổng Quan Data Flow
+
+```mermaid
+flowchart TD
+    subgraph Frontend["Frontend (balance-history)"]
+        QR[Tạo QR với mã N2xxx]
+        INPUT[Nhập SĐT/Tên KH]
+    end
+
+    subgraph Storage["Lưu Trữ"]
+        LOCAL[localStorage]
+        PG[(PostgreSQL)]
+        FB[(Firebase)]
+    end
+
+    subgraph Tables["Database Tables"]
+        BCI[balance_customer_info]
+        BH[balance_history]
+        CUST[customers]
+    end
+
+    subgraph Output["Kết Quả"]
+        DEBT[Công nợ khách hàng]
+        WALLET[Customer Wallet]
+    end
+
+    QR --> INPUT
+    INPUT --> LOCAL
+    INPUT --> PG
+    INPUT --> FB
+    PG --> BCI
+    BH -->|Extract N2xxx| BCI
+    BCI -->|Lookup phone| CUST
+    CUST --> DEBT
+    DEBT --> WALLET
+```
+
+### 19.2 Database Schema Chi Tiết
+
+#### 19.2.1 Bảng `balance_history` - Lưu Giao Dịch
+
+```sql
+CREATE TABLE balance_history (
+    id SERIAL PRIMARY KEY,
+    
+    -- SePay webhook data
+    sepay_id INTEGER UNIQUE NOT NULL,        -- ID giao dịch từ SePay
+    gateway VARCHAR(100) NOT NULL,           -- Ngân hàng: ACB, VCB, TCB...
+    transaction_date TIMESTAMP NOT NULL,     -- Thời gian giao dịch
+    account_number VARCHAR(50) NOT NULL,     -- Số tài khoản nhận
+    code VARCHAR(100),                       -- Mã giao dịch ngân hàng
+    content TEXT,                            -- ⭐ NỘI DUNG CHỨA MÃ QR (N2xxx)
+    transfer_type VARCHAR(10) NOT NULL,      -- 'in' (tiền vào) hoặc 'out' (tiền ra)
+    transfer_amount BIGINT NOT NULL,         -- Số tiền (VND, không thập phân)
+    accumulated BIGINT NOT NULL,             -- Số dư sau giao dịch
+    sub_account VARCHAR(100),
+    reference_code VARCHAR(100),             -- Mã tham chiếu (dùng cho gap detection)
+    description TEXT,
+    
+    -- ⭐ Flag cho việc đã cộng vào công nợ chưa
+    debt_added BOOLEAN DEFAULT FALSE,
+    
+    -- Metadata
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    webhook_received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    raw_data JSONB                           -- Raw webhook payload
+);
+
+-- Indexes quan trọng
+CREATE INDEX idx_bh_transaction_date ON balance_history(transaction_date DESC);
+CREATE INDEX idx_bh_transfer_type ON balance_history(transfer_type);
+CREATE INDEX idx_bh_debt_added ON balance_history(debt_added);
+CREATE INDEX idx_bh_content ON balance_history USING GIN(to_tsvector('simple', content));
+```
+
+**Ví dụ data:**
+```json
+{
+    "id": 123,
+    "sepay_id": 92704,
+    "gateway": "ACB",
+    "transaction_date": "2024-12-21T14:02:37",
+    "content": "CT DEN:0901234567 ND:N2M5K8H2P9Q3R7T1 NGUYEN VAN A CK",
+    "transfer_type": "in",
+    "transfer_amount": 500000,
+    "accumulated": 19077000,
+    "debt_added": true
+}
+```
+
+---
+
+#### 19.2.2 Bảng `balance_customer_info` - Mapping QR → Khách Hàng
+
+```sql
+CREATE TABLE balance_customer_info (
+    id SERIAL PRIMARY KEY,
+    
+    -- ⭐ MÃ QR UNIQUE (khóa chính thực tế)
+    unique_code VARCHAR(50) UNIQUE NOT NULL,  -- Format: N2 + 16 chars = 18 chars
+    
+    -- ⭐ THÔNG TIN KHÁCH HÀNG
+    customer_name VARCHAR(255),               -- Tên khách hàng
+    customer_phone VARCHAR(50),               -- SĐT (chuẩn hóa, không có 0 đầu hoặc +84)
+    
+    -- Metadata
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX idx_bci_unique_code ON balance_customer_info(unique_code);
+CREATE INDEX idx_bci_phone ON balance_customer_info(customer_phone);
+```
+
+**Ví dụ data:**
+```json
+{
+    "id": 1,
+    "unique_code": "N2M5K8H2P9Q3R7T1",
+    "customer_name": "Nguyễn Văn A",
+    "customer_phone": "0901234567"
+}
+```
+
+---
+
+#### 19.2.3 Bảng `customers` - Thông Tin & Công Nợ Khách Hàng
+
+```sql
+CREATE TABLE customers (
+    id SERIAL PRIMARY KEY,
+    
+    -- ⭐ SĐT LÀ KHÓA UNIQUE (dùng để join với balance_customer_info)
+    phone VARCHAR(50) UNIQUE NOT NULL,
+    
+    -- Thông tin khách
+    name VARCHAR(255),
+    email VARCHAR(255),
+    address TEXT,
+    
+    -- ⭐ CÔNG NỢ
+    debt DECIMAL(15,2) DEFAULT 0,             -- Tổng công nợ hiện tại (đã điều chỉnh)
+    debt_adjusted_at TIMESTAMP,               -- Thời điểm admin điều chỉnh lần cuối
+    
+    -- Trạng thái
+    status VARCHAR(50) DEFAULT 'Bình thường', -- Bình thường, VIP, Cảnh báo, Bom hàng, Nguy hiểm
+    active BOOLEAN DEFAULT true,
+    
+    -- Metadata
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Ví dụ data:**
+```json
+{
+    "id": 1,
+    "phone": "0901234567",
+    "name": "Nguyễn Văn A",
+    "debt": 1500000,
+    "debt_adjusted_at": null,
+    "status": "VIP"
+}
+```
+
+---
+
+#### 19.2.4 Bảng `pending_customer_matches` - Giao Dịch Chờ Xác Nhận
+
+Khi trích xuất được SĐT từ content nhưng có nhiều khách hàng trùng SĐT.
+
+```sql
+CREATE TABLE pending_customer_matches (
+    id SERIAL PRIMARY KEY,
+    
+    -- Reference đến giao dịch
+    transaction_id INTEGER NOT NULL REFERENCES balance_history(id),
+    
+    -- SĐT trích xuất được
+    extracted_phone VARCHAR(50) NOT NULL,
+    
+    -- Danh sách khách hàng matching (JSONB array)
+    matched_customers JSONB NOT NULL,
+    -- Format: [{"id": 1, "phone": "0901234567", "name": "Nguyen Van A"}, ...]
+    
+    -- Khách hàng được chọn (sau khi admin xác nhận)
+    selected_customer_id INTEGER,
+    
+    -- Trạng thái: pending, resolved, skipped
+    status VARCHAR(20) DEFAULT 'pending',
+    
+    resolution_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP,
+    resolved_by VARCHAR(100)
+);
+```
+
+---
+
+### 19.3 Cách Lưu Trữ Và Tính Công Nợ
+
+> [!IMPORTANT]
+> **Công nợ được LƯU CỘNG DỒN vào `customers.debt`**, KHÔNG phải tính lại từ đầu mỗi lần xem.
+
+#### 19.3.1 Quy Trình Cập Nhật Công Nợ (Khi Webhook Đến)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  1. Webhook nhận giao dịch mới (transfer_type = 'in')                  │
+│  2. Extract mã QR (N2xxx) hoặc SĐT từ content                          │
+│  3. Tìm SĐT từ balance_customer_info                                    │
+│  4. ⭐ CỘNG DỒN số tiền vào customers.debt                              │
+│  5. Đánh dấu balance_history.debt_added = TRUE                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Code Backend (UPSERT):**
+
+```javascript
+// Khi có giao dịch mới với mã QR đã liên kết SĐT
+const phone = infoResult.rows[0].customer_phone;
+const amount = parseInt(tx.transfer_amount) || 0;
+
+// ⭐ CỘNG DỒN vào customers.debt (không tính lại từ đầu)
+await db.query(
+    `INSERT INTO customers (phone, name, debt, status, active)
+     VALUES ($1, $1, $2, 'Bình thường', true)
+     ON CONFLICT (phone) DO UPDATE SET
+         debt = COALESCE(customers.debt, 0) + $2,   -- ⭐ += amount
+         updated_at = CURRENT_TIMESTAMP
+     RETURNING id, phone, debt`,
+    [phone, amount]
+);
+
+// Đánh dấu giao dịch đã xử lý (tránh cộng trùng)
+await db.query(
+    `UPDATE balance_history SET debt_added = TRUE WHERE id = $1`,
+    [transactionId]
+);
+```
+
+#### 19.3.2 Vai Trò Của Từng Field
+
+| Field | Bảng | Mục Đích |
+|-------|------|----------|
+| `debt` | `customers` | ⭐ **LƯU CÔNG NỢ TỔNG** (được cộng dồn tự động) |
+| `debt_added` | `balance_history` | ⭐ **FLAG tránh cộng trùng** (TRUE = đã xử lý) |
+| `debt_adjusted_at` | `customers` | Thời điểm admin điều chỉnh thủ công |
+
+#### 19.3.3 Trường Hợp Admin Điều Chỉnh Công Nợ
+
+Khi admin điều chỉnh công nợ thủ công:
+
+```sql
+-- Admin set công nợ mới
+UPDATE customers SET 
+    debt = 500000,                    -- Giá trị mới
+    debt_adjusted_at = NOW()          -- Đánh dấu thời điểm điều chỉnh
+WHERE phone = '0901234567';
+```
+
+Sau đó, các giao dịch MỚI sẽ tiếp tục cộng dồn vào `debt` như bình thường.
+
+#### 19.3.4 Khi Nào Cần Tính Lại Từ Đầu?
+
+Chỉ cần tính lại khi **KIỂM TRA/ĐỒNG BỘ** dữ liệu:
+
+```sql
+-- Query này chỉ dùng để KIỂM TRA, không phải cách tính chính
+SELECT SUM(bh.transfer_amount) AS calculated_debt
+FROM balance_history bh
+JOIN balance_customer_info bci ON bh.content ILIKE '%' || bci.unique_code || '%'
+WHERE bci.customer_phone = '0901234567'
+  AND bh.transfer_type = 'in'
+  AND bh.debt_added = TRUE;
+
+-- So sánh với giá trị lưu
+SELECT debt AS stored_debt FROM customers WHERE phone = '0901234567';
+```
+
+#### 19.3.5 Tóm Tắt
+
+| Câu hỏi | Trả lời |
+|---------|---------|
+| Công nợ lưu ở đâu? | `customers.debt` |
+| Có tính lại từ đầu mỗi lần xem? | ❌ **KHÔNG** - đọc trực tiếp từ `customers.debt` |
+| Làm sao tránh cộng trùng? | Flag `balance_history.debt_added = TRUE` |
+| Khi nào dùng query SUM? | Chỉ khi kiểm tra/đồng bộ dữ liệu |
+
+---
+
+### 19.4 API Response Format Cho Customer Wallet
+
+#### GET `/api/sepay/debt-summary?phone={phone}`
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": {
+        "phone": "0901234567",
+        "total_debt": 1500000,
+        "baseline_debt": null,
+        "new_transactions_after_adjustment": null,
+        "debt_adjusted_at": null,
+        "source": "balance_history",
+        "transaction_count": 3,
+        "transactions": [
+            {
+                "id": 123,
+                "amount": 500000,
+                "date": "2024-12-21T14:02:37",
+                "content": "N2M5K8H2P9Q3R7T1",
+                "qr_code": "N2M5K8H2P9Q3R7T1",
+                "debt_added": true
+            },
+            {
+                "id": 124,
+                "amount": 700000,
+                "date": "2024-12-20T10:15:00",
+                "content": "N2X7Y9Z1A2B3C4D5",
+                "qr_code": "N2X7Y9Z1A2B3C4D5",
+                "debt_added": true
+            }
+        ]
+    }
+}
+```
+
+**Giải thích các trường:**
+
+| Field | Type | Mô tả |
+|-------|------|-------|
+| `total_debt` | number | Tổng công nợ hiện tại (VND) |
+| `baseline_debt` | number\|null | Công nợ baseline nếu admin đã điều chỉnh |
+| `new_transactions_after_adjustment` | number\|null | Tổng GD sau khi điều chỉnh |
+| `debt_adjusted_at` | string\|null | Thời điểm điều chỉnh cuối |
+| `source` | string | Nguồn tính toán: `balance_history`, `admin_adjusted_plus_new`, `customers_table`, `no_data` |
+| `transactions` | array | Danh sách giao dịch chi tiết |
+
+#### POST `/api/sepay/debt-summary-batch`
+
+**Request:**
+```json
+{
+    "phones": ["0901234567", "0912345678", "0987654321"]
+}
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": {
+        "0901234567": {
+            "total_debt": 1500000,
+            "source": "balance_history",
+            "transaction_count": 3
+        },
+        "0912345678": {
+            "total_debt": 0,
+            "source": "no_data",
+            "transaction_count": 0
+        },
+        "0987654321": {
+            "total_debt": 800000,
+            "source": "admin_adjusted_plus_new",
+            "transaction_count": 1
+        }
+    }
+}
+```
+
+---
+
+### 19.5 LocalStorage Structure
+
+**Key:** `balance_history_customer_info`
+
+```json
+{
+    "N2M5K8H2P9Q3R7T1": {
+        "name": "Nguyễn Văn A",
+        "phone": "0901234567",
+        "updatedAt": "2024-12-21T14:05:00.000Z"
+    },
+    "N2X7Y9Z1A2B3C4D5": {
+        "name": "Trần Thị B",
+        "phone": "0912345678",
+        "updatedAt": "2024-12-20T10:20:00.000Z"
+    }
+}
+```
+
+---
+
+### 19.6 Tích Hợp Với Customer Wallet
+
+#### Để đọc công nợ từ Customer Wallet:
+
+```javascript
+// 1. Gọi API lấy công nợ theo SĐT
+const response = await fetch(
+    `${API_BASE_URL}/api/sepay/debt-summary?phone=${customerPhone}`
+);
+const result = await response.json();
+
+if (result.success) {
+    const debtData = result.data;
+    
+    // Công nợ tổng
+    const totalDebt = debtData.total_debt;
+    
+    // Nguồn tính toán
+    const source = debtData.source;
+    // - "balance_history": từ giao dịch ngân hàng
+    // - "admin_adjusted_plus_new": đã điều chỉnh + GD mới
+    // - "customers_table": từ bảng customers
+    // - "no_data": không có dữ liệu
+    
+    // Danh sách giao dịch chi tiết
+    const transactions = debtData.transactions;
+}
+```
+
+#### Để cập nhật công nợ thủ công (Admin):
+
+```javascript
+// Gọi API cập nhật công nợ
+const response = await fetch(`${API_BASE_URL}/api/customers/${customerId}/debt`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        newDebt: 500000,
+        reason: "Điều chỉnh theo yêu cầu khách hàng"
+    })
+});
+
+// Response sẽ update:
+// - customers.debt = newDebt
+// - customers.debt_adjusted_at = CURRENT_TIMESTAMP
+// - Thêm record vào debt_adjustment_log
+```
+
+---
+
+### 19.7 Relationship Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              DATA FLOW                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                    Webhook từ SePay
+                           │
+                           ▼
+              ┌────────────────────────┐
+              │    balance_history     │
+              │  (sepay_id, content,   │
+              │   transfer_amount...)  │
+              └────────────────────────┘
+                           │
+                           │ Extract N2xxx từ content
+                           ▼
+              ┌────────────────────────┐
+              │ balance_customer_info  │
+              │  (unique_code, phone)  │◀──── Frontend nhập SĐT/Tên
+              └────────────────────────┘
+                           │
+                           │ Lookup by phone
+                           ▼
+              ┌────────────────────────┐
+              │      customers         │
+              │  (phone, debt,         │──────▶ Customer Wallet
+              │   debt_adjusted_at)    │
+              └────────────────────────┘
+                           │
+                           │ UPSERT debt
+                           ▼
+              ┌────────────────────────┐
+              │  debt_adjustment_log   │
+              │  (history điều chỉnh)  │
+              └────────────────────────┘
+
+ ┌──────────────────────────────────────────────────────────────────────────┐
+ │ THAM KHẢO THÊM: file `QR_DEBT_FLOW.md` có flow chi tiết với diagrams    │
+ └──────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Tài Liệu Tham Khảo
 
 - [SePay Webhook Documentation](https://docs.sepay.vn/tich-hop-webhooks.html)
@@ -2220,4 +3001,9 @@ curl -X POST https://your-worker.workers.dev/api/sepay/webhook \
 ---
 
 > [!NOTE]
-> Tài liệu này được tạo dựa trên phân tích mã nguồn tại `https://nhijudyshop.github.io/n2store/balance-history/index.html`. Để hiện thực lại, cần thay đổi các thông tin cấu hình (bank account, API URLs, Firebase config) phù hợp với dự án của bạn.
+> **Lưu ý khi triển khai:**
+> - Tài liệu này được tạo dựa trên phân tích mã nguồn thực tế tại `balance-history/`
+> - Cần thay đổi các thông tin cấu hình (bank account, API URLs, Firebase config) phù hợp với dự án của bạn
+> - Mã nguồn sử dụng nhiều tính năng JavaScript ES6+ (async/await, optional chaining, etc.)
+> - Tham khảo thêm các file documentation khác trong thư mục: `QR_DEBT_FLOW.md`, `PHONE_EXTRACTION_FEATURE.md`, `DEPLOYMENT_GUIDE.md`
+
