@@ -26181,56 +26181,7 @@ async function saveFastSaleOrders(isApprove = false) {
         // Show results modal
         showFastSaleResultsModal(result);
 
-        // Send bill to customers for successful orders (async, don't block)
-        if (result.OrdersSucessed && result.OrdersSucessed.length > 0) {
-            console.log('[FAST-SALE] Sending bills to customers for successful orders...');
-
-            for (const successOrder of result.OrdersSucessed) {
-                // Find original order data to get chat info using multiple strategies
-                const saleOnlineId = successOrder.SaleOnlineIds?.[0];
-                const saleOnlineName = successOrder.SaleOnlineNames?.[0];
-
-                console.log('[FAST-SALE] Looking for customer for order:', successOrder.Number, {
-                    saleOnlineId,
-                    saleOnlineName,
-                    partnerId: successOrder.PartnerId
-                });
-
-                // Strategy 1: Match by SaleOnlineId
-                let saleOnlineOrder = saleOnlineId
-                    ? displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId))
-                    : null;
-
-                // Strategy 2: Match by SaleOnlineName (Code)
-                if (!saleOnlineOrder && saleOnlineName) {
-                    saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
-                }
-
-                // Strategy 3: Match by PartnerId
-                if (!saleOnlineOrder && successOrder.PartnerId) {
-                    saleOnlineOrder = displayedData.find(o => o.PartnerId === successOrder.PartnerId);
-                }
-
-                console.log('[FAST-SALE] Found saleOnlineOrder:', saleOnlineOrder?.Id, saleOnlineOrder?.Code, saleOnlineOrder?.Name);
-
-                if (saleOnlineOrder) {
-                    const psid = saleOnlineOrder.Facebook_ASUserId;
-                    const postId = saleOnlineOrder.Facebook_PostId;
-                    const channelId = postId ? postId.split('_')[0] : null;
-
-                    if (psid && channelId) {
-                        console.log('[FAST-SALE] Sending bill for order:', successOrder.Number, 'to:', saleOnlineOrder.Name);
-                        sendBillToCustomer(successOrder, channelId, psid)
-                            .then(res => {
-                                if (res.success) {
-                                    console.log(`[FAST-SALE] ✅ Bill sent for ${successOrder.Number} to ${saleOnlineOrder.Name}`);
-                                }
-                            })
-                            .catch(err => console.error(`[FAST-SALE] ❌ Failed to send bill for ${successOrder.Number}:`, err));
-                    }
-                }
-            }
-        }
+        // Note: Bill sending is handled manually via "In hóa đơn" button in printSuccessOrders()
 
     } catch (error) {
         console.error('[FAST-SALE] Error saving orders:', error);
