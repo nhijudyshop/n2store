@@ -2252,8 +2252,35 @@ async function toggleHideTransaction(transactionId, hidden) {
         const result = await response.json();
 
         if (result.success) {
-            // Refresh data to show updated state
-            await loadData();
+            // Find the row in DOM
+            const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+
+            if (row) {
+                if (hidden && !showHidden) {
+                    // If hiding and not showing hidden transactions, remove row with animation
+                    row.style.transition = 'opacity 0.3s, transform 0.3s';
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(-20px)';
+                    setTimeout(() => row.remove(), 300);
+                } else {
+                    // Update row styling
+                    if (hidden) {
+                        row.classList.add('row-hidden');
+                    } else {
+                        row.classList.remove('row-hidden');
+                    }
+
+                    // Update the hide button in this row
+                    const hideBtn = row.querySelector('button[onclick^="toggleHideTransaction"]');
+                    if (hideBtn) {
+                        hideBtn.className = `btn btn-sm ${hidden ? 'btn-warning' : 'btn-outline-secondary'}`;
+                        hideBtn.title = hidden ? 'Bỏ ẩn giao dịch' : 'Ẩn giao dịch';
+                        hideBtn.setAttribute('onclick', `toggleHideTransaction(${transactionId}, ${!hidden})`);
+                        hideBtn.innerHTML = `<i data-lucide="${hidden ? 'eye' : 'eye-off'}"></i>`;
+                        lucide.createIcons();
+                    }
+                }
+            }
 
             if (window.NotificationManager) {
                 window.NotificationManager.showNotification(
