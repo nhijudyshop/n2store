@@ -3019,11 +3019,54 @@ router.put('/transaction/:id/phone', async (req, res) => {
 
         console.log(`[TRANSACTION-PHONE-UPDATE] Transaction #${id}: ${oldPhone || 'NULL'} → ${newPhone}`);
 
+        // Try to get customer name from TPOS for the new phone
+        let customerName = null;
+        let tposResult = null;
+        try {
+            console.log(`[TRANSACTION-PHONE-UPDATE] Searching TPOS for phone: ${newPhone}`);
+            tposResult = await searchTPOSByPartialPhone(newPhone);
+
+            if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                const phoneData = tposResult.uniquePhones.find(p => p.phone === newPhone);
+                if (phoneData && phoneData.customers.length > 0) {
+                    customerName = phoneData.customers[0].name;
+                    console.log(`[TRANSACTION-PHONE-UPDATE] Found customer from TPOS: ${customerName}`);
+
+                    // Save/update to balance_customer_info
+                    await db.query(
+                        `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+                         VALUES ($1, $2, $3, $4, $5)
+                         ON CONFLICT (unique_code) DO UPDATE SET
+                             customer_phone = EXCLUDED.customer_phone,
+                             customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, ''), balance_customer_info.customer_name),
+                             extraction_note = EXCLUDED.extraction_note,
+                             name_fetch_status = EXCLUDED.name_fetch_status,
+                             updated_at = CURRENT_TIMESTAMP`,
+                        [
+                            `PHONE${newPhone}`,
+                            newPhone,
+                            customerName,
+                            'MANUAL_ENTRY_TPOS_LOOKUP',
+                            'SUCCESS'
+                        ]
+                    );
+                    console.log(`[TRANSACTION-PHONE-UPDATE] Saved customer info to balance_customer_info`);
+                }
+            } else {
+                console.log(`[TRANSACTION-PHONE-UPDATE] No customer found in TPOS for: ${newPhone}`);
+            }
+        } catch (tposError) {
+            console.error(`[TRANSACTION-PHONE-UPDATE] TPOS lookup error:`, tposError.message);
+            // Continue without TPOS data - phone is still updated
+        }
+
         res.json({
             success: true,
             data: updateResult.rows[0],
             old_phone: oldPhone,
-            new_phone: newPhone
+            new_phone: newPhone,
+            customer_name: customerName,
+            tpos_lookup: tposResult ? 'success' : 'failed'
         });
 
     } catch (error) {
