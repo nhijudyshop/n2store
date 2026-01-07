@@ -1145,29 +1145,47 @@ async function processDebtUpdate(db, transactionId) {
 
     const amount = parseInt(tx.transfer_amount) || 0;
 
-    // 9. Handle exact 10-digit phone (no TPOS search needed for matching)
+    // 9. Handle exact 10-digit phone
     if (extractResult.type === 'exact_phone') {
         const exactPhone = extractResult.value;
         const uniqueCode = extractResult.uniqueCode; // Already PHONE{phone}
 
         console.log('[DEBT-UPDATE] Exact 10-digit phone found:', exactPhone);
 
-        // Try to get customer name from TPOS (optional, for enrichment)
+        // OPTIMIZATION: Check local DB first before calling TPOS
         let customerName = null;
-        try {
-            const tposResult = await searchTPOSByPartialPhone(exactPhone);
+        let dataSource = 'NEW';
 
-            if (tposResult.success && tposResult.uniquePhones.length > 0) {
-                // Find matching phone data
-                const phoneData = tposResult.uniquePhones.find(p => p.phone === exactPhone);
-                if (phoneData && phoneData.customers.length > 0) {
-                    customerName = phoneData.customers[0].name;
-                    console.log('[DEBT-UPDATE] Found customer name from TPOS:', customerName);
+        // Step 1: Search in local balance_customer_info
+        const localResult = await db.query(
+            `SELECT customer_name, customer_phone FROM balance_customer_info
+             WHERE customer_phone = $1 AND customer_name IS NOT NULL AND customer_name != ''
+             ORDER BY updated_at DESC LIMIT 1`,
+            [exactPhone]
+        );
+
+        if (localResult.rows.length > 0) {
+            // Found in local DB - use it, skip TPOS!
+            customerName = localResult.rows[0].customer_name;
+            dataSource = 'LOCAL_DB';
+            console.log('[DEBT-UPDATE] ✅ Found customer in LOCAL DB (skipping TPOS):', customerName);
+        } else {
+            // Step 2: Not in local DB - try TPOS
+            console.log('[DEBT-UPDATE] Not found in local DB, searching TPOS...');
+            try {
+                const tposResult = await searchTPOSByPartialPhone(exactPhone);
+
+                if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                    const phoneData = tposResult.uniquePhones.find(p => p.phone === exactPhone);
+                    if (phoneData && phoneData.customers.length > 0) {
+                        customerName = phoneData.customers[0].name;
+                        dataSource = 'TPOS';
+                        console.log('[DEBT-UPDATE] Found customer name from TPOS:', customerName);
+                    }
                 }
+            } catch (error) {
+                console.error('[DEBT-UPDATE] Error fetching from TPOS:', error.message);
             }
-        } catch (error) {
-            console.error('[DEBT-UPDATE] Error fetching from TPOS:', error.message);
-            // Continue without name - we still have the phone
         }
 
         // Save to balance_customer_info
@@ -1176,7 +1194,7 @@ async function processDebtUpdate(db, transactionId) {
              VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (unique_code) DO UPDATE SET
                  customer_phone = EXCLUDED.customer_phone,
-                 customer_name = EXCLUDED.customer_name,
+                 customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, ''), balance_customer_info.customer_name),
                  extraction_note = EXCLUDED.extraction_note,
                  name_fetch_status = EXCLUDED.name_fetch_status,
                  updated_at = CURRENT_TIMESTAMP`,
@@ -1202,6 +1220,7 @@ async function processDebtUpdate(db, transactionId) {
             exactPhone,
             linkedPhone: exactPhone,
             customerName,
+            dataSource,
             amount
         });
 
@@ -1212,21 +1231,52 @@ async function processDebtUpdate(db, transactionId) {
             fullPhone: exactPhone,
             linkedPhone: exactPhone,
             customerName,
+            dataSource,
             amount
         };
     }
 
-    // 10. Search TPOS with partial phone
+    // 10. Search with partial phone - LOCAL DB FIRST, then TPOS
     if (extractResult.type === 'partial_phone') {
         const partialPhone = extractResult.value;
-        console.log('[DEBT-UPDATE] Searching TPOS with partial phone:', partialPhone);
+        console.log('[DEBT-UPDATE] Partial phone found:', partialPhone);
 
-        const tposResult = await searchTPOSByPartialPhone(partialPhone);
+        // OPTIMIZATION: Step 1 - Search LOCAL DB first
+        const localResult = await db.query(
+            `SELECT DISTINCT customer_phone, customer_name FROM balance_customer_info
+             WHERE customer_phone LIKE $1
+             AND customer_name IS NOT NULL AND customer_name != ''
+             ORDER BY customer_phone`,
+            [`%${partialPhone}`]
+        );
 
-        if (!tposResult.success || tposResult.uniquePhones.length === 0) {
-            console.log('[DEBT-UPDATE] No customers found in TPOS for:', partialPhone);
+        let matchedPhones = [];
+        let dataSource = 'LOCAL_DB';
 
-            // Save to balance_customer_info with note
+        if (localResult.rows.length > 0) {
+            console.log(`[DEBT-UPDATE] ✅ Found ${localResult.rows.length} matches in LOCAL DB (skipping TPOS)`);
+            matchedPhones = localResult.rows.map(row => ({
+                phone: row.customer_phone,
+                customers: [{ name: row.customer_name, id: null }],
+                count: 1
+            }));
+        } else {
+            // Step 2: Not in local DB - try TPOS
+            console.log('[DEBT-UPDATE] Not found in local DB, searching TPOS...');
+            dataSource = 'TPOS';
+
+            const tposResult = await searchTPOSByPartialPhone(partialPhone);
+
+            if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                matchedPhones = tposResult.uniquePhones;
+                console.log(`[DEBT-UPDATE] Found ${matchedPhones.length} matches from TPOS`);
+            }
+        }
+
+        // No matches found anywhere
+        if (matchedPhones.length === 0) {
+            console.log('[DEBT-UPDATE] No customers found for:', partialPhone);
+
             await db.query(
                 `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
                  VALUES ($1, $2, $3, $4, $5)
@@ -1238,37 +1288,35 @@ async function processDebtUpdate(db, transactionId) {
                     `PARTIAL${partialPhone}`,
                     null,
                     null,
-                    `PARTIAL_PHONE_NO_TPOS_MATCH:${partialPhone}`,
-                    'NOT_FOUND_IN_TPOS'
+                    `PARTIAL_PHONE_NO_MATCH:${partialPhone}`,
+                    'NOT_FOUND'
                 ]
             );
 
             return {
                 success: false,
-                reason: 'No TPOS matches',
+                reason: 'No matches found',
                 partialPhone,
-                note: 'NOT_FOUND_IN_TPOS'
+                note: 'NOT_FOUND'
             };
         }
 
-        // 10. Check if single unique phone or multiple
-        if (tposResult.uniquePhones.length === 1) {
-            // AUTO SAVE: Only 1 unique phone found
-            const phoneData = tposResult.uniquePhones[0];
+        // Single match - auto link
+        if (matchedPhones.length === 1) {
+            const phoneData = matchedPhones[0];
             const fullPhone = phoneData.phone;
-            const firstCustomer = phoneData.customers[0]; // Take first customer with this phone
+            const firstCustomer = phoneData.customers[0];
 
-            console.log(`[DEBT-UPDATE] ✅ Single phone found: ${fullPhone} (${phoneData.count} customer(s))`);
-            console.log(`[DEBT-UPDATE] Auto-selecting: ${firstCustomer.name} (ID: ${firstCustomer.id})`);
+            console.log(`[DEBT-UPDATE] ✅ Single phone found: ${fullPhone} from ${dataSource}`);
+            console.log(`[DEBT-UPDATE] Auto-selecting: ${firstCustomer.name}`);
 
-            // Save to balance_customer_info
             const uniqueCode = `PHONE${fullPhone}`;
             await db.query(
                 `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
                  VALUES ($1, $2, $3, $4, $5)
                  ON CONFLICT (unique_code) DO UPDATE SET
                      customer_phone = EXCLUDED.customer_phone,
-                     customer_name = EXCLUDED.customer_name,
+                     customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, ''), balance_customer_info.customer_name),
                      extraction_note = EXCLUDED.extraction_note,
                      name_fetch_status = EXCLUDED.name_fetch_status,
                      updated_at = CURRENT_TIMESTAMP`,
@@ -1281,7 +1329,6 @@ async function processDebtUpdate(db, transactionId) {
                 ]
             );
 
-            // Mark transaction as processed AND link to customer phone
             await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE, linked_customer_phone = $2
@@ -1289,34 +1336,36 @@ async function processDebtUpdate(db, transactionId) {
                 [transactionId, fullPhone]
             );
 
-            console.log('[DEBT-UPDATE] ✅ Success (auto-matched from TPOS):', {
+            console.log('[DEBT-UPDATE] ✅ Success (auto-matched):', {
                 transactionId,
                 partialPhone,
                 fullPhone,
                 linkedPhone: fullPhone,
                 customerName: firstCustomer.name,
+                dataSource,
                 amount
             });
 
             return {
                 success: true,
-                method: 'tpos_auto_match',
+                method: 'single_match',
                 transactionId,
                 partialPhone,
                 fullPhone,
                 linkedPhone: fullPhone,
                 customerName: firstCustomer.name,
+                dataSource,
                 amount
             };
 
         } else {
             // MULTIPLE PHONES: Create pending match for admin to choose
-            console.log(`[DEBT-UPDATE] ⚠️ Multiple phones found (${tposResult.uniquePhones.length}), creating pending match...`);
+            console.log(`[DEBT-UPDATE] ⚠️ Multiple phones found (${matchedPhones.length}) from ${dataSource}, creating pending match...`);
 
             // Format matched_customers JSONB
-            const matchedCustomers = tposResult.uniquePhones.map(phoneData => ({
+            const matchedCustomersJson = matchedPhones.map(phoneData => ({
                 phone: phoneData.phone,
-                count: phoneData.count,
+                count: phoneData.count || 1,
                 customers: phoneData.customers
             }));
 
@@ -1327,15 +1376,15 @@ async function processDebtUpdate(db, transactionId) {
                 [
                     transactionId,
                     partialPhone,
-                    JSON.stringify(matchedCustomers),
+                    JSON.stringify(matchedCustomersJson),
                     'pending'
                 ]
             );
 
             console.log('[DEBT-UPDATE] 📋 Created pending match for transaction:', transactionId);
-            console.log(`[DEBT-UPDATE] Found ${tposResult.uniquePhones.length} unique phones:`);
-            tposResult.uniquePhones.forEach(({phone, count}) => {
-                console.log(`  - ${phone}: ${count} customer(s)`);
+            console.log(`[DEBT-UPDATE] Found ${matchedPhones.length} unique phones from ${dataSource}:`);
+            matchedPhones.forEach(({phone, count}) => {
+                console.log(`  - ${phone}: ${count || 1} customer(s)`);
             });
 
             return {
@@ -1343,7 +1392,8 @@ async function processDebtUpdate(db, transactionId) {
                 method: 'pending_match_created',
                 transactionId,
                 partialPhone,
-                uniquePhonesCount: tposResult.uniquePhones.length,
+                uniquePhonesCount: matchedPhones.length,
+                dataSource,
                 pendingMatch: true
             };
         }

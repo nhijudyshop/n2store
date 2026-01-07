@@ -13,7 +13,7 @@ const API_BASE_URL = window.CONFIG?.API_BASE_URL || (
 let currentPage = 1;
 let totalPages = 1;
 let currentQuickFilter = 'last30days'; // Default quick filter
-let viewMode = 'all'; // View mode: 'all', 'visible', 'hidden'
+let showHidden = false; // Toggle to show/hide hidden transactions
 let allLoadedData = []; // Cache all loaded data (including hidden) for client-side filtering
 let filters = {
     type: '',
@@ -125,9 +125,9 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
         if (result.success) {
             showNotification(`Đã chọn khách hàng: ${customerName} (${customerPhone})`, 'success');
 
-            // Small delay to ensure DB is updated, then refresh table (force refresh)
+            // Small delay to ensure DB is updated, then refresh table
             setTimeout(async () => {
-                await loadData(true);
+                await loadData();
             }, 300);
         } else {
             console.error('[RESOLVE-MATCH] Error response:', result);
@@ -178,9 +178,9 @@ async function skipPendingMatch(pendingMatchId, selectElement) {
 
         if (result.success) {
             showNotification('Đã bỏ qua giao dịch này', 'info');
-            // Small delay to ensure DB is updated, then refresh table (force refresh)
+            // Small delay to ensure DB is updated, then refresh table
             setTimeout(async () => {
-                await loadData(true);
+                await loadData();
             }, 300);
         } else {
             showNotification(`Lỗi: ${result.error || 'Không thể bỏ qua'}`, 'error');
@@ -227,9 +227,9 @@ async function undoSkipMatch(pendingMatchId) {
 
         if (result.success) {
             showNotification('Đã hoàn tác - có thể chọn lại khách hàng', 'success');
-            // Small delay to ensure DB is updated, then refresh table (force refresh)
+            // Small delay to ensure DB is updated, then refresh table
             setTimeout(async () => {
-                await loadData(true);
+                await loadData();
             }, 300);
         } else {
             showNotification(`Lỗi: ${result.error || 'Không thể hoàn tác'}`, 'error');
@@ -398,11 +398,6 @@ function applyQuickFilter(filterType) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize view mode from localStorage
-    if (typeof initViewMode === 'function') {
-        initViewMode();
-    }
-
     // Set default date first (synchronous, fast)
     setDefaultCurrentMonth();
     setupEventListeners();
@@ -864,29 +859,17 @@ async function fetchAndUpdateIfChanged(cachedData) {
     }
 }
 
-// Render current view based on viewMode (no API call)
+// Render current view based on showHidden flag (no API call)
 function renderCurrentView() {
-    // Filter data based on viewMode
-    // 'all': Show ALL transactions (default)
-    // 'visible': Show only non-hidden transactions
-    // 'hidden': Show ONLY hidden transactions
-    let dataToRender;
-    switch (viewMode) {
-        case 'hidden':
-            dataToRender = allLoadedData.filter(item => item.is_hidden);
-            break;
-        case 'visible':
-            dataToRender = allLoadedData.filter(item => !item.is_hidden);
-            break;
-        case 'all':
-        default:
-            dataToRender = allLoadedData;
-            break;
-    }
+    // Filter data based on showHidden flag
+    // showHidden = false: Show ALL transactions (default)
+    // showHidden = true: Show ONLY hidden transactions
+    const dataToRender = showHidden
+        ? allLoadedData.filter(item => item.is_hidden)  // Only hidden items
+        : allLoadedData;  // Show all
 
-    // Skip gap detection when searching or filtering by view mode
-    const skipGapDetection = !!filters.search || viewMode !== 'all';
-    renderTable(dataToRender, skipGapDetection);
+    // Skip gap detection when searching
+    renderTable(dataToRender, !!filters.search);
 }
 
 // Update hidden count badge
@@ -894,7 +877,7 @@ function updateHiddenCount() {
     const hiddenCount = allLoadedData.filter(item => item.is_hidden).length;
     const countEl = document.getElementById('hiddenCount');
     if (countEl) {
-        countEl.textContent = hiddenCount > 0 ? `(${hiddenCount})` : '';
+        countEl.textContent = hiddenCount > 0 ? `(${hiddenCount} GD đã ẩn)` : '';
     }
 }
 
@@ -1167,18 +1150,13 @@ function renderTransactionRow(row) {
             </div>
         `;
     } else if (isSkipped) {
-        // SKIPPED: Show "Đã bỏ qua" with undo option AND edit button
+        // SKIPPED: Show "Đã bỏ qua" with undo option
         customerNameCell = `
             <div style="display: flex; align-items: center; gap: 5px;">
                 <span style="color: #9ca3af; font-style: italic;">Đã bỏ qua</span>
                 ${hasDetailedPermission('balance-history', 'undoSkip') ? `
                     <button class="btn btn-warning btn-sm" onclick="undoSkipMatch(${pendingMatchId})" title="Hoàn tác" style="padding: 2px 6px;">
                         <i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i>
-                    </button>
-                ` : ''}
-                ${hasPermission(2) ? `
-                    <button class="btn btn-secondary btn-sm" onclick="editTransactionCustomer(${row.id}, '${row.linked_customer_phone || ''}', 'Đã bỏ qua')" title="Thêm thông tin khách hàng" style="padding: 4px 6px;">
-                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
                     </button>
                 ` : ''}
             </div>
@@ -2447,11 +2425,8 @@ async function toggleHideTransaction(transactionId, hidden) {
             const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
 
             if (row) {
-                // Remove row if it doesn't belong in current view
-                const shouldRemove = (hidden && viewMode === 'visible') || (!hidden && viewMode === 'hidden');
-
-                if (shouldRemove) {
-                    // Animate row removal
+                if (hidden && !showHidden) {
+                    // If hiding and not showing hidden transactions, remove row with animation
                     row.style.transition = 'opacity 0.3s, transform 0.3s';
                     row.style.opacity = '0';
                     row.style.transform = 'translateX(-20px)';
@@ -2534,8 +2509,8 @@ async function saveQRCustomerInfo(uniqueCode) {
         } else {
             alert('Đã lưu thông tin khách hàng!');
         }
-        // Reload table to show updated customer info (force refresh)
-        loadData(true);
+        // Reload table to show updated customer info
+        loadData();
     } else {
         if (window.NotificationManager) {
             window.NotificationManager.showNotification('Không thể lưu thông tin', 'error');
@@ -2598,9 +2573,9 @@ async function saveEditCustomerInfo(event) {
                 alert('Đã cập nhật SĐT cho giao dịch!');
             }
 
-            // Close modal and reload (force refresh to bypass cache)
+            // Close modal and reload
             document.getElementById('editCustomerModal').style.display = 'none';
-            loadData(true);
+            loadData();
 
             // Clear flags
             delete form.dataset.isTransactionEdit;
@@ -2641,8 +2616,8 @@ async function saveEditCustomerInfo(event) {
         // Close modal
         document.getElementById('editCustomerModal').style.display = 'none';
 
-        // Reload table to show updated customer info (force refresh)
-        loadData(true);
+        // Reload table to show updated customer info
+        loadData();
     } else {
         if (window.NotificationManager) {
             window.NotificationManager.showNotification('Không thể cập nhật thông tin', 'error');
