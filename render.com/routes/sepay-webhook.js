@@ -394,6 +394,7 @@ router.get('/history', async (req, res) => {
 
         // Get paginated data with customer info AND pending matches
         // Use linked_customer_phone for fast JOIN instead of expensive regex matching
+        // Use subquery with DISTINCT ON to avoid duplicates when multiple customer_info records exist
         const paginatedQuery = `
             SELECT
                 bh.id, bh.sepay_id, bh.gateway, bh.transaction_date, bh.account_number,
@@ -411,9 +412,14 @@ router.get('/history', async (req, res) => {
                 pcm.matched_customers as pending_match_options,
                 pcm.resolution_notes as pending_resolution_notes
             FROM balance_history bh
-            LEFT JOIN balance_customer_info bci ON (
-                bci.customer_phone = bh.linked_customer_phone
-            )
+            LEFT JOIN (
+                SELECT DISTINCT ON (customer_phone)
+                    customer_phone, customer_name, unique_code, extraction_note
+                FROM balance_customer_info
+                ORDER BY customer_phone,
+                    CASE WHEN customer_name IS NOT NULL AND customer_name != '' THEN 0 ELSE 1 END,
+                    created_at DESC
+            ) bci ON bci.customer_phone = bh.linked_customer_phone
             LEFT JOIN pending_customer_matches pcm ON (
                 pcm.transaction_id = bh.id
             )
