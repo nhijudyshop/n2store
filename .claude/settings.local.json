@@ -23,7 +23,9 @@
       "Bash(psql:*)",
       "Bash(git rebase:*)",
       "Bash(git revert:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(Get-ChildItem:*)",
+      "Bash(Select-Object:*)"
     ]
   }
 }

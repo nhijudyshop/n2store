@@ -340,6 +340,7 @@ const ApiService = {
                             ...ticket,
                             firebaseId: ticket.ticket_code,  // For backwards compatibility
                             orderId: ticket.order_id,
+                tposId: ticket.tpos_order_id,  // TPOS internal ID for refund processing
                             trackingCode: ticket.tracking_code,
                             customer: ticket.customer_name,
                             originalCod: ticket.original_cod,
@@ -1000,6 +1001,7 @@ const ApiService = {
                 ...ticket,
                 firebaseId: ticket.ticket_code,
                 orderId: ticket.order_id,
+                tposId: ticket.tpos_order_id,  // TPOS internal ID for refund processing
                 trackingCode: ticket.tracking_code,
                 customer: ticket.customer_name,
                 originalCod: ticket.original_cod,
