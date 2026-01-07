@@ -105,6 +105,116 @@ router.post('/run-migration', async (req, res) => {
 });
 
 /**
+ * POST /api/admin/run-customer360-migration
+ * Chạy migration SQL cho Customer 360° system
+ */
+router.post('/run-customer360-migration', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        console.log('[MIGRATION] Starting Customer 360° migration...');
+
+        // Migration files in order
+        const migrationFiles = [
+            '001_create_customer_360_schema.sql',
+            '002_create_customer_360_triggers.sql'
+        ];
+
+        const results = [];
+
+        for (const fileName of migrationFiles) {
+            const migrationPath = path.join(__dirname, '../migrations', fileName);
+
+            if (!fs.existsSync(migrationPath)) {
+                console.log(`[MIGRATION] ⚠️ File not found: ${fileName}`);
+                results.push({ file: fileName, status: 'not_found' });
+                continue;
+            }
+
+            const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+            console.log(`[MIGRATION] Running ${fileName} (${migrationSQL.length} bytes)...`);
+
+            try {
+                const startTime = Date.now();
+                await db.query(migrationSQL);
+                const duration = Date.now() - startTime;
+                console.log(`[MIGRATION] ✅ ${fileName} completed in ${duration}ms`);
+                results.push({ file: fileName, status: 'success', duration: duration + 'ms' });
+            } catch (err) {
+                // Some errors are OK (already exists, etc)
+                if (err.message.includes('already exists')) {
+                    console.log(`[MIGRATION] ⚠️ ${fileName}: Some objects already exist (OK)`);
+                    results.push({ file: fileName, status: 'already_exists' });
+                } else {
+                    console.error(`[MIGRATION] ❌ ${fileName} error:`, err.message);
+                    results.push({ file: fileName, status: 'error', error: err.message });
+                }
+            }
+        }
+
+        // Verify tables created
+        const tableCheck = await db.query(`
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_name IN (
+                'customers', 'customer_wallets', 'wallet_transactions',
+                'virtual_credits', 'customer_tickets', 'customer_activities',
+                'customer_notes', 'balance_history'
+            )
+            ORDER BY table_name
+        `);
+
+        const createdTables = tableCheck.rows.map(r => r.table_name);
+
+        // Check balance_history columns
+        const bhColumns = await db.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'balance_history'
+            AND column_name IN ('linked_customer_phone', 'customer_phone', 'wallet_processed', 'transfer_amount', 'content')
+            ORDER BY column_name
+        `);
+
+        // Count records ready for sync
+        let syncStats = null;
+        try {
+            const syncCountResult = await db.query(`
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE linked_customer_phone IS NOT NULL) as with_phone,
+                    COUNT(*) FILTER (WHERE linked_customer_phone IS NOT NULL AND (wallet_processed = FALSE OR wallet_processed IS NULL)) as pending_sync
+                FROM balance_history
+            `);
+            syncStats = syncCountResult.rows[0];
+        } catch (e) {
+            syncStats = { error: e.message };
+        }
+
+        console.log('[MIGRATION] Customer 360° migration completed');
+
+        res.json({
+            success: true,
+            message: 'Customer 360° migration completed',
+            migrations: results,
+            tables: createdTables,
+            balanceHistoryColumns: bhColumns.rows.map(r => r.column_name),
+            syncStats: syncStats
+        });
+
+    } catch (error) {
+        console.error('[MIGRATION] ❌ Customer 360° migration error:', error);
+        res.status(500).json({
+            error: 'Migration failed',
+            message: error.message
+        });
+    }
+});
+
+/**
  * GET /api/admin/check-tables
  * Kiểm tra tables nào đã tồn tại
  */
