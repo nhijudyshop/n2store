@@ -185,6 +185,7 @@ const ApiService = {
                         phone: ticketData.phone,
                         customer_name: ticketData.customer,
                         order_id: ticketData.orderId,
+                        tpos_order_id: ticketData.tposId,  // TPOS internal ID (số)
                         tracking_code: ticketData.trackingCode,
                         carrier: ticketData.carrier || '',
                         type: ticketData.type,
@@ -194,7 +195,7 @@ const ApiService = {
                         original_cod: ticketData.originalCod,
                         new_cod: ticketData.newCod,
                         refund_amount: ticketData.money,
-                        fix_cod_reason: ticketData.fixReason,
+                        fix_cod_reason: ticketData.fixCodReason || ticketData.fixReason,
                         internal_note: ticketData.note,
                         created_by: ticketData.createdBy || 'system'
                     })

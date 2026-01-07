@@ -397,6 +397,27 @@ const PAGES_REGISTRY = {
         }
     },
 
+    "customer-hub": {
+        id: "customer-hub",
+        name: "Customer 360°",
+        shortName: "KH 360",
+        icon: "users",
+        href: "../customer-hub/index.html",
+        description: "Hệ thống Customer 360° - Xem toàn diện thông tin khách hàng",
+        adminOnly: true,
+        category: "admin",
+        detailedPermissions: {
+            view: { name: "Xem Customer 360", icon: "eye", description: "Xem tổng quan khách hàng" },
+            viewWallet: { name: "Xem ví tiền", icon: "wallet", description: "Xem số dư và giao dịch ví" },
+            manageWallet: { name: "Quản lý ví", icon: "credit-card", description: "Nạp/rút/cấp công nợ ảo" },
+            viewTickets: { name: "Xem sự vụ", icon: "clipboard-list", description: "Xem lịch sử sự vụ KH" },
+            createTicket: { name: "Tạo sự vụ", icon: "plus-circle", description: "Tạo sự vụ mới cho KH" },
+            viewActivities: { name: "Xem hoạt động", icon: "activity", description: "Xem timeline hoạt động" },
+            addNote: { name: "Thêm ghi chú", icon: "sticky-note", description: "Thêm ghi chú về KH" },
+            editCustomer: { name: "Sửa thông tin", icon: "edit", description: "Chỉnh sửa thông tin KH" }
+        }
+    },
+
     "invoice-compare": {
         id: "invoice-compare",
         name: "So Sánh Đơn Hàng",
