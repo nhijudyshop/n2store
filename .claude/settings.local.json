@@ -9,7 +9,11 @@
       "Bash(git commit:*)",
       "Bash(wc:*)",
       "Bash(git fetch:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(grep:*)",
+      "Bash(PGPASSWORD=iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0 psql:*)",
+      "Bash(node:*)",
+      "Bash(npm install:*)"
     ]
   }
 }
