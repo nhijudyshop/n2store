@@ -4,8 +4,9 @@
  */
 
 const CONFIG = {
-    // API Base URL - Render.com backend
-    API_BASE_URL: 'https://n2store-chat.onrender.com/api',
+    // API Base URL - Via Cloudflare Worker proxy to avoid CORS
+    // Worker proxies to n2store-fallback.onrender.com which has Customer 360° routes
+    API_BASE_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
 
     // Pagination
     PAGE_SIZE: 20,
