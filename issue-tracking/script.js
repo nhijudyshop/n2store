@@ -1520,7 +1520,9 @@ window.deleteTicket = async function (firebaseId) {
 
     showLoading(true);
     try {
-        await getTicketsRef().child(firebaseId).remove();
+        // Use ApiService.deleteTicket for PostgreSQL (hard delete = true)
+        await ApiService.deleteTicket(firebaseId, true);
+        console.log('[DELETE] Ticket deleted successfully:', firebaseId);
     } catch (error) {
         console.error('Delete ticket failed:', error);
         alert('Lỗi khi xóa phiếu: ' + error.message);
