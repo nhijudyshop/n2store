@@ -7,7 +7,8 @@ const ApiService = {
     mode: 'POSTGRESQL',  // Changed to use PostgreSQL by default
 
     // PostgreSQL API base URL (Render.com)
-    RENDER_API_URL: 'https://n2store.onrender.com/api',
+    // n2store-chat.onrender.com hosts Customer 360° routes (/api/customer, /api/wallet, /api/ticket)
+    RENDER_API_URL: 'https://n2store-chat.onrender.com/api',
 
     /**
      * Search orders from TPOS via TPOS OData Proxy
