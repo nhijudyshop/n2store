@@ -10,6 +10,10 @@
       "Bash(wc:*)",
       "Bash(git fetch:*)",
       "Bash(git merge:*)",
+      "Bash(grep:*)",
+      "Bash(PGPASSWORD=iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0 psql:*)",
+      "Bash(node:*)",
+      "Bash(npm install:*)"
       "Bash(npx wrangler deploy)",
       "Bash(git init:*)",
       "Bash(gh repo create:*)",
