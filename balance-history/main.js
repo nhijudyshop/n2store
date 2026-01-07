@@ -125,9 +125,9 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
         if (result.success) {
             showNotification(`Đã chọn khách hàng: ${customerName} (${customerPhone})`, 'success');
 
-            // Small delay to ensure DB is updated, then refresh table
+            // Small delay to ensure DB is updated, then refresh table (force refresh)
             setTimeout(async () => {
-                await loadData();
+                await loadData(true);
             }, 300);
         } else {
             console.error('[RESOLVE-MATCH] Error response:', result);
@@ -178,9 +178,9 @@ async function skipPendingMatch(pendingMatchId, selectElement) {
 
         if (result.success) {
             showNotification('Đã bỏ qua giao dịch này', 'info');
-            // Small delay to ensure DB is updated, then refresh table
+            // Small delay to ensure DB is updated, then refresh table (force refresh)
             setTimeout(async () => {
-                await loadData();
+                await loadData(true);
             }, 300);
         } else {
             showNotification(`Lỗi: ${result.error || 'Không thể bỏ qua'}`, 'error');
@@ -227,9 +227,9 @@ async function undoSkipMatch(pendingMatchId) {
 
         if (result.success) {
             showNotification('Đã hoàn tác - có thể chọn lại khách hàng', 'success');
-            // Small delay to ensure DB is updated, then refresh table
+            // Small delay to ensure DB is updated, then refresh table (force refresh)
             setTimeout(async () => {
-                await loadData();
+                await loadData(true);
             }, 300);
         } else {
             showNotification(`Lỗi: ${result.error || 'Không thể hoàn tác'}`, 'error');
@@ -2514,8 +2514,8 @@ async function saveQRCustomerInfo(uniqueCode) {
         } else {
             alert('Đã lưu thông tin khách hàng!');
         }
-        // Reload table to show updated customer info
-        loadData();
+        // Reload table to show updated customer info (force refresh)
+        loadData(true);
     } else {
         if (window.NotificationManager) {
             window.NotificationManager.showNotification('Không thể lưu thông tin', 'error');
@@ -2578,9 +2578,9 @@ async function saveEditCustomerInfo(event) {
                 alert('Đã cập nhật SĐT cho giao dịch!');
             }
 
-            // Close modal and reload
+            // Close modal and reload (force refresh to bypass cache)
             document.getElementById('editCustomerModal').style.display = 'none';
-            loadData();
+            loadData(true);
 
             // Clear flags
             delete form.dataset.isTransactionEdit;
@@ -2621,8 +2621,8 @@ async function saveEditCustomerInfo(event) {
         // Close modal
         document.getElementById('editCustomerModal').style.display = 'none';
 
-        // Reload table to show updated customer info
-        loadData();
+        // Reload table to show updated customer info (force refresh)
+        loadData(true);
     } else {
         if (window.NotificationManager) {
             window.NotificationManager.showNotification('Không thể cập nhật thông tin', 'error');
