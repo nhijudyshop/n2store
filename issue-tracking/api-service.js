@@ -352,10 +352,10 @@ const ApiService = {
      * @returns {Function} unsubscribe function
      */
     subscribeToTickets(callback, filters = {}) {
-        // Use PostgreSQL API with polling
+        // Use PostgreSQL API with SSE (Server-Sent Events)
         if (this.mode === 'POSTGRESQL') {
             let isActive = true;
-            let pollInterval = null;
+            let eventSource = null;
 
             const fetchTickets = async () => {
                 if (!isActive) return;
@@ -412,14 +412,56 @@ const ApiService = {
             // Initial fetch
             fetchTickets();
 
-            // Poll every 10 seconds
-            pollInterval = setInterval(fetchTickets, 10000);
+            // Use SSE for realtime updates instead of polling
+            const sseUrl = `${this.RENDER_API_URL.replace('/api', '')}/api/realtime/sse?keys=tickets`;
+            console.log('[API-SSE] Connecting to SSE:', sseUrl);
+            eventSource = new EventSource(sseUrl);
+
+            eventSource.addEventListener('connected', (event) => {
+                console.log('[API-SSE] Connected to SSE server');
+            });
+
+            eventSource.addEventListener('created', (event) => {
+                try {
+                    const { data } = JSON.parse(event.data);
+                    console.log('[API-SSE] Ticket created:', data);
+                    fetchTickets(); // Refresh list
+                } catch (e) {
+                    console.error('[API-SSE] Error parsing created event:', e);
+                }
+            });
+
+            eventSource.addEventListener('update', (event) => {
+                try {
+                    const { data } = JSON.parse(event.data);
+                    console.log('[API-SSE] Ticket updated:', data);
+                    fetchTickets(); // Refresh list
+                } catch (e) {
+                    console.error('[API-SSE] Error parsing update event:', e);
+                }
+            });
+
+            eventSource.addEventListener('deleted', (event) => {
+                try {
+                    const { data } = JSON.parse(event.data);
+                    console.log('[API-SSE] Ticket deleted:', data);
+                    fetchTickets(); // Refresh list
+                } catch (e) {
+                    console.error('[API-SSE] Error parsing deleted event:', e);
+                }
+            });
+
+            eventSource.onerror = (error) => {
+                console.error('[API-SSE] SSE connection error:', error);
+                // EventSource will auto-reconnect
+            };
 
             // Return unsubscribe function
             return () => {
                 isActive = false;
-                if (pollInterval) {
-                    clearInterval(pollInterval);
+                if (eventSource) {
+                    eventSource.close();
+                    console.log('[API-SSE] Disconnected from SSE');
                 }
                 console.log('[API-PG] Unsubscribed from tickets');
             };
