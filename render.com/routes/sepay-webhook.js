@@ -393,13 +393,13 @@ router.get('/history', async (req, res) => {
         const total = parseInt(countResult.rows[0].count);
 
         // Get paginated data with customer info AND pending matches
-        // Use DISTINCT ON to avoid duplicate rows when multiple customer_info records match
-        const dataQuery = `
-            SELECT DISTINCT ON (bh.id)
+        // Use linked_customer_phone for fast JOIN instead of expensive regex matching
+        const paginatedQuery = `
+            SELECT
                 bh.id, bh.sepay_id, bh.gateway, bh.transaction_date, bh.account_number,
                 bh.code, bh.content, bh.transfer_type, bh.transfer_amount, bh.accumulated,
                 bh.sub_account, bh.reference_code, bh.description, bh.created_at,
-                bh.debt_added, bh.is_hidden,
+                bh.debt_added, bh.is_hidden, bh.linked_customer_phone,
                 bci.customer_phone,
                 bci.customer_name,
                 bci.unique_code as qr_code,
@@ -412,27 +412,13 @@ router.get('/history', async (req, res) => {
                 pcm.resolution_notes as pending_resolution_notes
             FROM balance_history bh
             LEFT JOIN balance_customer_info bci ON (
-                -- Match by QR code (N2...) in content
-                (bh.content ~* 'N2[A-Z0-9]{16}' AND bci.unique_code = (regexp_match(UPPER(bh.content), 'N2[A-Z0-9]{16}'))[1])
-                OR
-                -- Match by partial phone search
-                (bci.extraction_note LIKE 'AUTO_MATCHED_FROM_PARTIAL:%'
-                 AND bh.content LIKE '%' || SUBSTRING(bci.extraction_note FROM 'AUTO_MATCHED_FROM_PARTIAL:(.*)') || '%')
-                OR
-                -- Match by exact phone
-                (bci.unique_code LIKE 'PHONE%' AND bh.content LIKE '%' || bci.customer_phone || '%')
+                bci.customer_phone = bh.linked_customer_phone
             )
             LEFT JOIN pending_customer_matches pcm ON (
                 pcm.transaction_id = bh.id
             )
             ${whereClause}
-            ORDER BY bh.id, bh.transaction_date DESC
-        `;
-
-        // Wrap with outer query for proper pagination after DISTINCT ON
-        const paginatedQuery = `
-            SELECT * FROM (${dataQuery}) sub
-            ORDER BY transaction_date DESC
+            ORDER BY bh.transaction_date DESC
             LIMIT $${paramCounter} OFFSET $${paramCounter + 1}
         `;
 
