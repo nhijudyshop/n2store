@@ -884,8 +884,9 @@ function renderCurrentView() {
             break;
     }
 
-    // Skip gap detection when searching
-    renderTable(dataToRender, !!filters.search);
+    // Skip gap detection when searching or filtering by view mode
+    const skipGapDetection = !!filters.search || viewMode !== 'all';
+    renderTable(dataToRender, skipGapDetection);
 }
 
 // Update hidden count badge
