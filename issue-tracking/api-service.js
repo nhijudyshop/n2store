@@ -6,9 +6,9 @@ const ApiService = {
     // API mode: 'FIREBASE' (legacy) or 'POSTGRESQL' (new Customer 360°)
     mode: 'POSTGRESQL',  // Changed to use PostgreSQL by default
 
-    // PostgreSQL API base URL (Render.com)
-    // n2store-chat.onrender.com hosts Customer 360° routes (/api/customer, /api/wallet, /api/ticket)
-    RENDER_API_URL: 'https://n2store-chat.onrender.com/api',
+    // PostgreSQL API base URL - Via Cloudflare Worker proxy to avoid CORS
+    // Worker proxies to n2store-chat.onrender.com which hosts Customer 360° routes
+    RENDER_API_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
 
     /**
      * Search orders from TPOS via TPOS OData Proxy
