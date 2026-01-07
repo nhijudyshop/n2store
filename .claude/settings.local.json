@@ -14,7 +14,15 @@
       "Bash(PGPASSWORD=iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0 psql:*)",
       "Bash(node:*)",
       "Bash(npm install:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(npx wrangler deploy)",
+      "Bash(git init:*)",
+      "Bash(gh repo create:*)",
+      "Bash(brew install:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh auth login:*)",
+      "Bash(psql:*)",
+      "Bash(git rebase:*)"
     ]
   }
 }
