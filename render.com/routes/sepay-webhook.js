@@ -3019,6 +3019,16 @@ router.put('/transaction/:id/phone', async (req, res) => {
 
         console.log(`[TRANSACTION-PHONE-UPDATE] Transaction #${id}: ${oldPhone || 'NULL'} → ${newPhone}`);
 
+        // Clear any pending_customer_matches (skipped or pending) for this transaction
+        // since we're manually setting the phone
+        const deletePendingResult = await db.query(
+            'DELETE FROM pending_customer_matches WHERE transaction_id = $1 RETURNING id, status',
+            [id]
+        );
+        if (deletePendingResult.rows.length > 0) {
+            console.log(`[TRANSACTION-PHONE-UPDATE] Cleared pending_customer_matches:`, deletePendingResult.rows[0]);
+        }
+
         // Try to get customer name from TPOS for the new phone
         let customerName = null;
         let tposResult = null;
