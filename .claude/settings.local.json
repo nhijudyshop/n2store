@@ -22,7 +22,9 @@
       "Bash(gh auth login:*)",
       "Bash(PGPASSWORD=iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0 psql:*)",
       "Bash(psql:*)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(git revert:*)",
+      "Bash(git stash:*)"
     ]
   }
 }
