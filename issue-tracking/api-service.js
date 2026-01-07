@@ -302,6 +302,48 @@ const ApiService = {
     },
 
     /**
+     * Delete a ticket
+     * @param {string} ticketCode - Ticket code to delete
+     * @param {boolean} hard - If true, permanently delete; otherwise soft delete
+     * @returns {Promise<Object>} Delete result
+     */
+    async deleteTicket(ticketCode, hard = false) {
+        if (this.mode === 'POSTGRESQL') {
+            try {
+                const url = `${this.RENDER_API_URL}/ticket/${ticketCode}${hard ? '?hard=true' : ''}`;
+                const response = await fetch(url, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to delete ticket');
+                }
+
+                const result = await response.json();
+                console.log('[API-PG] Ticket deleted:', ticketCode, hard ? '(hard)' : '(soft)');
+                return result;
+            } catch (error) {
+                console.error('[API-PG] Delete ticket failed:', error);
+                throw error;
+            }
+        }
+
+        // Fallback to Firebase (legacy)
+        try {
+            await getTicketsRef().child(ticketCode).remove();
+            console.log('[API-FB] Ticket deleted:', ticketCode);
+            return { success: true, ticketCode };
+        } catch (error) {
+            console.error('[API-FB] Delete ticket failed:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Listen to tickets (real-time for Firebase, polling for PostgreSQL)
      * @param {Function} callback - (tickets) => void
      * @param {Object} filters - Optional filters { status, type, phone }

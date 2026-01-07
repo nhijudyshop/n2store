@@ -1179,6 +1179,74 @@ router.post('/ticket/:code/action', async (req, res) => {
 });
 
 // =====================================================
+// DELETE TICKET
+// =====================================================
+
+/**
+ * DELETE /api/ticket/:code
+ * Delete a ticket (soft or hard delete)
+ * Query params:
+ *   - hard=true: permanently delete the ticket
+ *   - (default): soft delete - marks ticket as deleted
+ */
+router.delete('/ticket/:code', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { code } = req.params;
+    const { hard } = req.query;
+
+    try {
+        // Find the ticket first
+        const findResult = await db.query(
+            'SELECT * FROM customer_tickets WHERE ticket_code = $1',
+            [code]
+        );
+
+        if (findResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Ticket not found'
+            });
+        }
+
+        const ticket = findResult.rows[0];
+
+        if (hard === 'true') {
+            // Hard delete - permanently remove from database
+            await db.query('DELETE FROM customer_tickets WHERE ticket_code = $1', [code]);
+            console.log(`[DELETE] Hard deleted ticket: ${code}`);
+        } else {
+            // Soft delete - mark as deleted
+            await db.query(
+                `UPDATE customer_tickets
+                 SET status = 'DELETED', updated_at = NOW()
+                 WHERE ticket_code = $1`,
+                [code]
+            );
+            console.log(`[DELETE] Soft deleted ticket: ${code}`);
+        }
+
+        // Log activity
+        await db.query(`
+            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
+            VALUES ($1, $2, 'TICKET_DELETED', $3, $4, 'ticket', $5, 'trash', 'red')
+        `, [
+            ticket.phone, ticket.customer_id,
+            `Ticket deleted: ${code}`,
+            hard === 'true' ? 'Permanently deleted' : 'Soft deleted',
+            code,
+        ]);
+
+        res.json({
+            success: true,
+            message: hard === 'true' ? 'Ticket permanently deleted' : 'Ticket soft deleted',
+            ticketCode: code
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to delete ticket');
+    }
+});
+
+// =====================================================
 // EXPORT ROUTER
 // =====================================================
 
