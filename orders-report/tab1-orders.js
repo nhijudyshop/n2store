@@ -21948,6 +21948,7 @@ function formatDebtCurrency(amount) {
  * Render debt column HTML
  * NOTE: This now only shows cached value or loading spinner.
  * Actual fetching is done by batchFetchDebts() after table render.
+ * Click opens Customer 360° modal if WalletIntegration is available.
  * @param {string} phone - Phone number
  * @returns {string} HTML string for debt column
  */
@@ -21962,9 +21963,12 @@ function renderDebtColumn(phone) {
     const cachedDebt = getCachedDebt(normalizedPhone);
 
     if (cachedDebt !== null) {
-        // Has cached value - display immediately
+        // Has cached value - display immediately with click to open Customer 360° modal
         const color = cachedDebt > 0 ? '#10b981' : '#9ca3af';
-        return `<span style="color: ${color}; font-weight: 500; font-size: 12px;">${formatDebtCurrency(cachedDebt)}</span>`;
+        const clickHandler = typeof WalletIntegration !== 'undefined'
+            ? `onclick="WalletIntegration.showWalletModal('${normalizedPhone}'); event.stopPropagation();" style="cursor: pointer;" title="Click để xem chi tiết ví"`
+            : '';
+        return `<span ${clickHandler} style="color: ${color}; font-weight: 500; font-size: 12px;${typeof WalletIntegration !== 'undefined' ? ' cursor: pointer;' : ''}">${formatDebtCurrency(cachedDebt)}</span>`;
     }
 
     // No cache - show loading spinner (batchFetchDebts will update this later)
@@ -21979,7 +21983,11 @@ function renderDebtColumn(phone) {
  */
 function updateDebtCells(phone, debt) {
     const color = debt > 0 ? '#10b981' : '#9ca3af';
-    const html = `<span style="color: ${color}; font-weight: 500; font-size: 12px;">${formatDebtCurrency(debt)}</span>`;
+    // Add click handler if WalletIntegration is available
+    const clickHandler = typeof WalletIntegration !== 'undefined'
+        ? `onclick="WalletIntegration.showWalletModal('${phone}'); event.stopPropagation();" style="cursor: pointer;" title="Click để xem chi tiết ví"`
+        : '';
+    const html = `<span ${clickHandler} style="color: ${color}; font-weight: 500; font-size: 12px;${typeof WalletIntegration !== 'undefined' ? ' cursor: pointer;' : ''}">${formatDebtCurrency(debt)}</span>`;
 
     // Find all loading cells with this phone and update them
     document.querySelectorAll(`.debt-loading[data-phone="${phone}"]`).forEach(cell => {

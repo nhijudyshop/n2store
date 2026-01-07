@@ -184,6 +184,7 @@ const productsRoutes = require('./routes/products.routes');
 const attributeRoutes = require('./routes/attribute.routes');
 const facebookRoutes = require('./routes/facebook.routes');
 const dynamicHeadersRoutes = require('./routes/dynamic-headers.routes');
+const customer360Routes = require('./routes/customer-360');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -192,6 +193,7 @@ app.use('/api/pancake', pancakeRoutes);
 app.use('/api/image-proxy', imageProxyRoutes);
 app.use('/api/sepay', sepayWebhookRoutes);
 app.use('/api/customers', customersRoutes);
+app.use('/api', customer360Routes);  // Customer 360° routes: /api/customer, /api/wallet, /api/ticket
 app.use('/api/return-orders', returnOrdersRoutes);
 app.use('/api/realtime', realtimeRoutes);
 app.use('/api/gemini', geminiRoutes);
