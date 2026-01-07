@@ -393,8 +393,9 @@ router.get('/history', async (req, res) => {
         const total = parseInt(countResult.rows[0].count);
 
         // Get paginated data with customer info AND pending matches
+        // Use DISTINCT ON to avoid duplicate rows when multiple customer_info records match
         const dataQuery = `
-            SELECT
+            SELECT DISTINCT ON (bh.id)
                 bh.id, bh.sepay_id, bh.gateway, bh.transaction_date, bh.account_number,
                 bh.code, bh.content, bh.transfer_type, bh.transfer_amount, bh.accumulated,
                 bh.sub_account, bh.reference_code, bh.description, bh.created_at,
@@ -425,12 +426,18 @@ router.get('/history', async (req, res) => {
                 pcm.transaction_id = bh.id
             )
             ${whereClause}
-            ORDER BY bh.transaction_date DESC
+            ORDER BY bh.id, bh.transaction_date DESC
+        `;
+
+        // Wrap with outer query for proper pagination after DISTINCT ON
+        const paginatedQuery = `
+            SELECT * FROM (${dataQuery}) sub
+            ORDER BY transaction_date DESC
             LIMIT $${paramCounter} OFFSET $${paramCounter + 1}
         `;
 
         queryParams.push(limit, offset);
-        const dataResult = await db.query(dataQuery, queryParams);
+        const dataResult = await db.query(paginatedQuery, queryParams);
 
         // Transform data to include pending_match flags
         const transformedData = dataResult.rows.map(row => {

@@ -9,7 +9,16 @@
       "Bash(git commit:*)",
       "Bash(wc:*)",
       "Bash(git fetch:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(npx wrangler deploy)",
+      "Bash(git init:*)",
+      "Bash(gh repo create:*)",
+      "Bash(brew install:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh auth login:*)",
+      "Bash(PGPASSWORD=iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0 psql:*)",
+      "Bash(psql:*)",
+      "Bash(git rebase:*)"
     ]
   }
 }
