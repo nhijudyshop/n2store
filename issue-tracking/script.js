@@ -771,7 +771,7 @@ async function handleConfirmAction() {
             // Update ticket in Firebase with refund info
             await ApiService.updateTicket(pendingActionTicketId, {
                 status: 'COMPLETED',
-                completedAt: firebase.database.ServerValue.TIMESTAMP,
+                completedAt: Date.now(),
                 refundOrderId: result.refundOrderId,
                 refundNumber: result.confirmResult?.value?.[0]?.Number || null
             });
@@ -795,7 +795,7 @@ async function handleConfirmAction() {
 
             await ApiService.updateTicket(pendingActionTicketId, {
                 status: 'COMPLETED',
-                completedAt: firebase.database.ServerValue.TIMESTAMP
+                completedAt: Date.now()
             });
 
             notificationManager.remove(loadingId);
@@ -1075,7 +1075,7 @@ async function handleBatchConfirm() {
         const promises = validItems.map(item => {
             return ApiService.updateTicket(item.ticket.firebaseId, {
                 status: 'COMPLETED',
-                completedAt: firebase.database.ServerValue.TIMESTAMP,
+                completedAt: Date.now(),
                 reconcileNote: `Batch Settle via Excel: ${item.excel.rawId}`
             });
         });

@@ -261,9 +261,11 @@ const ApiService = {
                 if (updates.fixReason !== undefined) apiUpdates.fix_cod_reason = updates.fixReason;
                 if (updates.note !== undefined) apiUpdates.internal_note = updates.note;
                 if (updates.assignedTo !== undefined) apiUpdates.assigned_to = updates.assignedTo;
-                if (updates.receivedAt !== undefined) apiUpdates.received_at = updates.receivedAt;
-                if (updates.settledAt !== undefined) apiUpdates.settled_at = updates.settledAt;
-                if (updates.completedAt !== undefined) apiUpdates.completed_at = updates.completedAt;
+                if (updates.receivedAt !== undefined) apiUpdates.received_at = new Date(updates.receivedAt).toISOString();
+                if (updates.settledAt !== undefined) apiUpdates.settled_at = new Date(updates.settledAt).toISOString();
+                if (updates.completedAt !== undefined) apiUpdates.completed_at = new Date(updates.completedAt).toISOString();
+                if (updates.refundOrderId !== undefined) apiUpdates.refund_order_id = updates.refundOrderId;
+                if (updates.refundNumber !== undefined) apiUpdates.refund_number = updates.refundNumber;
 
                 const response = await fetch(`${this.RENDER_API_URL}/ticket/${firebaseId}`, {
                     method: 'PUT',
@@ -300,6 +302,7 @@ const ApiService = {
             throw error;
         }
     },
+/**     * Delete a ticket     * @param {string} ticketCode - Ticket code (TV-YYYY-NNNNN) or Firebase ID     * @param {boolean} hard - If true, permanently delete. Otherwise soft delete (cancel)     */    async deleteTicket(ticketCode, hard = false) {        // Use PostgreSQL API        if (this.mode === 'POSTGRESQL') {            try {                const url = `${this.RENDER_API_URL}/ticket/${ticketCode}${hard ? '?hard=true' : ''}`;                const response = await fetch(url, {                    method: 'DELETE',                    headers: {                        'Content-Type': 'application/json'                    }                });                if (!response.ok) {                    const errorData = await response.json();                    throw new Error(errorData.error || 'Failed to delete ticket');                }                const result = await response.json();                console.log('[API-PG] Ticket deleted:', ticketCode);                return result.data;            } catch (error) {                console.error('[API-PG] Delete ticket failed:', error);                throw error;            }        }        // Fallback to Firebase (legacy)        try {            await getTicketsRef().child(ticketCode).remove();            console.log('[API-FB] Ticket deleted:', ticketCode);        } catch (error) {            console.error('[API-FB] Delete ticket failed:', error);            throw error;        }    },
 
     /**
      * Listen to tickets (real-time for Firebase, polling for PostgreSQL)

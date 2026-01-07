@@ -1012,7 +1012,7 @@ router.put('/ticket/:code', async (req, res) => {
         const allowedFields = [
             'status', 'priority', 'products', 'original_cod', 'new_cod',
             'refund_amount', 'fix_cod_reason', 'assigned_to', 'internal_note',
-            'received_at', 'settled_at', 'completed_at',
+            'received_at', 'settled_at', 'completed_at', 'refund_order_id', 'refund_number',
         ];
 
         const setClauses = [];
@@ -1183,3 +1183,45 @@ router.post('/ticket/:code/action', async (req, res) => {
 // =====================================================
 
 module.exports = router;
+
+/**
+ * DELETE /api/ticket/:code
+ * Delete a ticket (soft delete by setting status to CANCELLED or hard delete)
+ */
+router.delete('/ticket/:code', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { code } = req.params;
+    const { hard } = req.query; // ?hard=true for permanent delete
+
+    try {
+        let result;
+        if (hard === 'true') {
+            // Hard delete
+            result = await db.query(`
+                DELETE FROM customer_tickets 
+                WHERE ticket_code = $1 OR firebase_id = $1
+                RETURNING id, ticket_code
+            `, [code]);
+        } else {
+            // Soft delete (set status to CANCELLED)
+            result = await db.query(`
+                UPDATE customer_tickets 
+                SET status = 'CANCELLED', updated_at = NOW()
+                WHERE ticket_code = $1 OR firebase_id = $1
+                RETURNING id, ticket_code, status
+            `, [code]);
+        }
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Ticket not found' });
+        }
+
+        res.json({ 
+            success: true, 
+            message: hard === 'true' ? 'Ticket permanently deleted' : 'Ticket cancelled',
+            data: result.rows[0] 
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to delete ticket');
+    }
+});
