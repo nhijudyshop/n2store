@@ -1150,13 +1150,18 @@ function renderTransactionRow(row) {
             </div>
         `;
     } else if (isSkipped) {
-        // SKIPPED: Show "Đã bỏ qua" with undo option
+        // SKIPPED: Show "Đã bỏ qua" with undo option AND edit button
         customerNameCell = `
             <div style="display: flex; align-items: center; gap: 5px;">
                 <span style="color: #9ca3af; font-style: italic;">Đã bỏ qua</span>
                 ${hasDetailedPermission('balance-history', 'undoSkip') ? `
                     <button class="btn btn-warning btn-sm" onclick="undoSkipMatch(${pendingMatchId})" title="Hoàn tác" style="padding: 2px 6px;">
                         <i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i>
+                    </button>
+                ` : ''}
+                ${hasPermission(2) ? `
+                    <button class="btn btn-secondary btn-sm" onclick="editTransactionCustomer(${row.id}, '${row.linked_customer_phone || ''}', 'Đã bỏ qua')" title="Thêm thông tin khách hàng" style="padding: 4px 6px;">
+                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
                     </button>
                 ` : ''}
             </div>
