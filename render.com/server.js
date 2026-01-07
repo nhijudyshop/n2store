@@ -416,7 +416,8 @@ class RealtimeClient {
 class TposRealtimeClient {
     constructor() {
         this.ws = null;
-        this.url = "wss://ws.chatomni.tpos.app/socket.io/?EIO=4&transport=websocket";
+        // Use rt-2.tpos.app with room parameter (from browser DevTools analysis)
+        this.baseUrl = "wss://rt-2.tpos.app/socket.io/";
         this.isConnected = false;
         this.heartbeatInterval = null;
         this.reconnectTimer = null;
@@ -436,6 +437,11 @@ class TposRealtimeClient {
         this.room = 'tomato.tpos.vn';
     }
 
+    getWebSocketUrl() {
+        // Build URL with room parameter like browser does
+        return `${this.baseUrl}?room=${encodeURIComponent(this.room)}&EIO=4&transport=websocket`;
+    }
+
     start(token, room = 'tomato.tpos.vn') {
         this.token = token;
         this.room = room;
@@ -448,20 +454,20 @@ class TposRealtimeClient {
 
         console.log('[TPOS-WS] Connecting to TPOS... (attempt', this.reconnectAttempts + 1, ')');
 
-        // Add token to connection URL as query parameter
-        const urlWithToken = `${this.url}&token=${encodeURIComponent(this.token)}`;
-        console.log('[TPOS-WS] Connection URL:', this.url.split('?')[0] + '?...(with token)');
+        // Build URL with room parameter
+        const wsUrl = this.getWebSocketUrl();
+        console.log('[TPOS-WS] Connection URL:', wsUrl.replace(/token=[^&]+/, 'token=***'));
 
         const headers = {
-            'Origin': 'https://nhijudyshop.github.io',
-            'Authorization': `Bearer ${this.token}`, // Also try in header
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Origin': 'https://tomato.tpos.vn',
+            'Authorization': `Bearer ${this.token}`,
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
         };
 
-        this.ws = new WebSocket(urlWithToken, {
+        this.ws = new WebSocket(wsUrl, {
             headers: headers
         });
 
@@ -597,26 +603,55 @@ class TposRealtimeClient {
             console.error('[TPOS-WS] ❌ Authentication/Error event:', JSON.stringify(payload));
         }
 
-        // Broadcast to connected frontend clients
+        // Broadcast raw event to connected frontend clients
         broadcastToClients({
             type: 'tpos:event',
             event: eventName,
             payload: payload
         });
 
-        // Handle specific events
+        // Handle 'on-events' - main TPOS realtime events
         if (eventName === 'on-events') {
             try {
+                // payload is a serialized JSON string, need to parse it
                 const eventData = typeof payload === 'string' ? JSON.parse(payload) : payload;
-                console.log('[TPOS-WS] TPOS Event:', eventData.EventName || eventData.Type);
 
-                // Broadcast parsed event data
+                // TPOS format: { C: "Conversation", d: { t: "SaleOnline_Order", ... } }
+                const context = eventData.C || eventData.Context;
+                const data = eventData.d || eventData.data || eventData;
+                const eventType = data.t || data.Type || data.EventName;
+
+                console.log('[TPOS-WS] 📦 TPOS Event:', {
+                    context: context,
+                    type: eventType,
+                    message: data.Message ? data.Message.substring(0, 50) + '...' : null
+                });
+
+                // Broadcast parsed event data with structured format
                 broadcastToClients({
                     type: 'tpos:parsed-event',
-                    data: eventData
+                    context: context,
+                    eventType: eventType,
+                    data: data
                 });
+
+                // Handle specific event types
+                if (eventType === 'SaleOnline_Order') {
+                    console.log('[TPOS-WS] 🔥 NEW ORDER:', data.Message);
+                    broadcastToClients({
+                        type: 'tpos:new-order',
+                        data: data
+                    });
+                } else if (eventType === 'SaleOnline_Update') {
+                    console.log('[TPOS-WS] 📝 ORDER UPDATE:', data.Id);
+                    broadcastToClients({
+                        type: 'tpos:order-update',
+                        data: data
+                    });
+                }
+
             } catch (e) {
-                // Already parsed or invalid
+                console.error('[TPOS-WS] Error parsing on-events payload:', e.message);
             }
         }
     }

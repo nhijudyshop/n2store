@@ -1,0 +1,100 @@
+# PHÂN TÍCH KỸ THUẬT: CƠ CHẾ HOẠT ĐỘNG SOCKET REALTIME (TPOS)
+
+**Ngày ghi nhận:** 07/01/2026
+**Nguồn dữ liệu:** Video phân tích Network Log (WebSocket)
+
+---
+
+## 1. Tổng quan Giao thức (Protocol Overview)
+Hệ thống sử dụng thư viện **Socket.IO** chạy trên nền giao thức **WebSocket (WSS)** để duy trì kết nối thời gian thực giữa Client (Trình duyệt) và Server.
+
+- **Endpoint:** `wss://[domain]/socket.io/?EIO=4&transport=websocket`
+- **Namespace:** `/chatomni` (Kênh riêng cho chat đa nền tảng)
+- **Cơ chế:** Event-based (Dựa trên sự kiện)
+
+---
+
+## 2. Cấu trúc Gói tin (Packet Structure)
+Dữ liệu được truyền tải dưới dạng Text Frame. Định dạng chuẩn của một gói tin nhận được từ Server:
+
+`42[SequenceID]/chatomni,["on-events","[Serialized_JSON]"]`
+
+**Giải thích các thành phần trong log video:**
+* **`4`**: Engine.IO Message packet (Gói tin dữ liệu).
+* **`2`**: Socket.IO Event packet (Gói tin sự kiện).
+* **`SequenceID`**: Số thứ tự tin nhắn (Ví dụ: `423`, `424`...).
+* **`/chatomni`**: Namespace đích.
+* **`on-events`**: Tên sự kiện client cần lắng nghe.
+* **`Serialized_JSON`**: Dữ liệu nghiệp vụ được đóng gói thành chuỗi String.
+
+---
+
+## 3. Chi tiết Dữ liệu Nghiệp vụ (Payload Analysis)
+Dữ liệu thực tế nằm trong phần tử thứ 2 của mảng JSON. Sau khi thực hiện `JSON.parse()`, ta có đối tượng sau:
+
+### 3.1. Cấu trúc JSON gốc
+```json
+{
+  "C": "Conversation",
+  "d": {
+    "Id": "65434898e35...",
+    "t": "SaleOnline_Order",
+    "Message": "Huyền Nhỏ: Áo đen 50kg...",
+    "ConversationId": "...",
+    "IsRead": false,
+    "Customer": { ... },
+    "Product": { ... }
+  }
+}
+
+Trường,Ý nghĩa,Mục đích sử dụng
+C,Context,"Xác định ngữ cảnh (thường là ""Conversation"")."
+d.t,Type,Loại sự kiện. Quan trọng nhất để điều hướng xử lý UI.  - SaleOnline_Order: Khách chốt đơn/Comment mới. - SaleOnline_Update: Cập nhật trạng thái đơn.
+d.Message,Content,Nội dung hiển thị bao gồm Tên khách và Comment.
+d.ConversationId,Scope ID,ID của phiên livestream hiện tại để gom nhóm comment.
+
+## 4. Luồng xử lý dữ liệu (Workflow)
+Để tái hiện lại việc bắt dữ liệu này (ví dụ viết Tool hoặc Extension), cần thực hiện theo luồng sau:
+
+Handshake: Kết nối tới WSS Server với các tham số EIO=4 và transport=websocket.
+
+Subscribe: Gửi gói tin 40/chatomni, để đăng ký vào namespace chat.
+
+Listen: Lắng nghe các frame bắt đầu bằng 42/chatomni.
+
+Parse:
+
+Tách phần header 42.../chatomni,.
+
+Lấy phần mảng JSON phía sau.
+
+Lấy phần tử index [1] của mảng.
+
+Parse chuỗi JSON đó ra object.
+
+Render: Kiểm tra d.t == 'SaleOnline_Order' để hiển thị thông báo chốt đơn lên màn hình.
+
+## 5. Ví dụ Code xử lý (JavaScript/Node.js)
+// Giả lập xử lý sự kiện khi nhận packet từ socket
+socket.on('on-events', (payloadString) => {
+    try {
+        // 1. Giải mã chuỗi JSON
+        const dataObj = JSON.parse(payloadString);
+        
+        // 2. Kiểm tra dữ liệu an toàn
+        if (!dataObj || !dataObj.d) return;
+
+        const eventData = dataObj.d;
+
+        // 3. Xử lý nghiệp vụ: Đơn hàng mới
+        if (eventData.t === 'SaleOnline_Order') {
+            console.log("🔥 CÓ ĐƠN HÀNG MỚI!");
+            console.log("- Khách hàng:", eventData.Message.split(':')[0]);
+            console.log("- Nội dung:", eventData.Message.split(':')[1]);
+            console.log("- ID Hội thoại:", eventData.ConversationId);
+        }
+
+    } catch (e) {
+        console.error("Lỗi parse JSON:", e);
+    }
+});

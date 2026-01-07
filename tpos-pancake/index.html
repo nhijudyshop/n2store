@@ -316,7 +316,10 @@
 
     <!-- TPOS Token Manager -->
     <script src="tpos-token-manager.js?v=20241220"></script>
-    <!-- tpos-chat.js removed - TPOS realtime handled by render.com/server.js -->
+    <!-- TPOS Realtime Manager (connects to render.com for WebSocket events) -->
+    <script src="tpos-realtime-manager.js?v=20250107"></script>
+    <!-- TPOS Chat UI Manager -->
+    <script src="tpos-chat.js?v=20250107"></script>
 
     <script>
         // =====================================================
@@ -403,8 +406,28 @@
             */
             console.log("[UI] ⚠️ PancakeChatManager DISABLED - đang phát triển");
 
-            // TPOS Chat Manager removed - TPOS realtime is now handled by render.com/server.js
-            // The server maintains persistent WebSocket connection to TPOS and broadcasts events via SSE
+            // Initialize TPOS Chat Manager
+            if (typeof TposChatManager !== "undefined" && window.tposChatManager) {
+                try {
+                    // Wait for token manager to be ready
+                    setTimeout(async () => {
+                        await window.tposChatManager.initialize('tposContent');
+                        console.log("[UI] TposChatManager initialized");
+
+                        // Initialize TPOS RealtimeManager after Chat Manager
+                        if (typeof TposRealtimeManager !== "undefined" && window.tposRealtimeManager) {
+                            try {
+                                await window.tposRealtimeManager.initialize();
+                                console.log("[UI] TposRealtimeManager initialized");
+                            } catch (error) {
+                                console.error("[UI] Error initializing TposRealtimeManager:", error);
+                            }
+                        }
+                    }, 500);
+                } catch (error) {
+                    console.error("[UI] Error initializing TposChatManager:", error);
+                }
+            }
 
             // Listen for realtime conversation updates
             // Uses Messenger/Zalo-style in-place update - no loading spinner!
