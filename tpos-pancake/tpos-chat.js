@@ -148,7 +148,8 @@ class TposChatManager {
     }
 
     /**
-     * Load conversations from API
+     * Load conversations - TPOS doesn't have a REST API for chat list
+     * Conversations are populated via WebSocket realtime events
      */
     async loadConversations(append = false) {
         if (this.isLoading) return;
@@ -156,72 +157,28 @@ class TposChatManager {
         this.isLoading = true;
         const listContainer = document.getElementById('tposConversationList');
 
+        // TPOS chat data comes from WebSocket realtime, not from REST API
+        // Show waiting state for realtime connection
         if (!append && listContainer) {
-            listContainer.innerHTML = `
-                <div class="tpos-loading">
-                    <i data-lucide="loader-2" class="spin"></i>
-                    <span>Loading conversations...</span>
-                </div>
-            `;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
-
-        try {
-            // Get token
-            if (!window.tposTokenManager) {
-                throw new Error('Token manager not available');
-            }
-
-            const token = await window.tposTokenManager.getToken();
-            if (!token) {
-                throw new Error('No token available');
-            }
-
-            // Build API URL - using TPOS OData API
-            const filter = document.getElementById('tposChannelFilter')?.value;
-            let apiUrl = `${this.apiBaseUrl}/api/odata/ChatOmni.GetConversations?$top=${this.pageSize}&$skip=${(this.page - 1) * this.pageSize}&$orderby=LastActivityOn desc`;
-
-            if (filter) {
-                apiUrl += `&$filter=ChannelType eq ${filter}`;
-            }
-
-            const response = await fetch(apiUrl, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`API error: ${response.status}`);
-            }
-
-            const data = await response.json();
-            const newConversations = data.value || [];
-
-            if (append) {
-                this.conversations = [...this.conversations, ...newConversations];
-            } else {
-                this.conversations = newConversations;
-            }
-
-            this.hasMore = newConversations.length === this.pageSize;
-            this.renderConversations();
-
-        } catch (error) {
-            console.error('[TPOS-CHAT] Error loading conversations:', error);
-            if (listContainer) {
+            if (this.conversations.length === 0) {
                 listContainer.innerHTML = `
-                    <div class="tpos-error">
-                        <i data-lucide="alert-circle"></i>
-                        <span>Error: ${error.message}</span>
-                        <button class="tpos-btn-retry" onclick="window.tposChatManager.refresh()">Retry</button>
+                    <div class="tpos-empty">
+                        <i data-lucide="radio"></i>
+                        <span>Đang chờ kết nối realtime...</span>
+                        <p style="font-size: 12px; color: #94a3b8; margin-top: 8px;">
+                            Tin nhắn mới sẽ tự động hiển thị khi có người comment/đặt hàng
+                        </p>
                     </div>
                 `;
                 if (typeof lucide !== 'undefined') lucide.createIcons();
+            } else {
+                // Already have conversations, just render them
+                this.renderConversations();
             }
-        } finally {
-            this.isLoading = false;
         }
+
+        this.isLoading = false;
+        this.hasMore = false; // No pagination for realtime data
     }
 
     /**
