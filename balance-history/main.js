@@ -429,7 +429,8 @@ function setupEventListeners() {
 
     refreshBtn.addEventListener('click', () => {
         currentPage = 1;
-        loadData();
+        clearAllCache(); // Clear cache on manual refresh
+        loadData(true);  // Force refresh from API
         loadStatistics();
     });
 
@@ -692,44 +693,117 @@ function filterByCustomerInfo(data, searchQuery) {
     });
 }
 
-// Load Data
-async function loadData() {
+// Cache helpers
+const CACHE_KEY_PREFIX = 'balance_history_cache_';
+const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCacheKey() {
+    const params = new URLSearchParams({
+        page: currentPage,
+        ...filters
+    });
+    // Remove empty params
+    for (let [key, value] of params.entries()) {
+        if (!value) params.delete(key);
+    }
+    return CACHE_KEY_PREFIX + params.toString();
+}
+
+function getCache() {
+    try {
+        const cacheKey = getCacheKey();
+        const cached = localStorage.getItem(cacheKey);
+        if (!cached) return null;
+
+        const parsed = JSON.parse(cached);
+        // Check if cache is expired
+        if (Date.now() - parsed.timestamp > CACHE_EXPIRY_MS) {
+            localStorage.removeItem(cacheKey);
+            return null;
+        }
+        return parsed;
+    } catch (e) {
+        return null;
+    }
+}
+
+function setCache(data, pagination) {
+    try {
+        const cacheKey = getCacheKey();
+        localStorage.setItem(cacheKey, JSON.stringify({
+            data,
+            pagination,
+            timestamp: Date.now()
+        }));
+    } catch (e) {
+        // localStorage full or disabled, ignore
+    }
+}
+
+function clearAllCache() {
+    try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(CACHE_KEY_PREFIX)) {
+                keysToRemove.push(key);
+            }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+    } catch (e) {
+        // Ignore errors
+    }
+}
+
+// Check if data has changed (compare by IDs and key fields)
+function hasDataChanged(oldData, newData) {
+    if (!oldData || !newData) return true;
+    if (oldData.length !== newData.length) return true;
+
+    for (let i = 0; i < newData.length; i++) {
+        const oldItem = oldData[i];
+        const newItem = newData[i];
+        if (oldItem.id !== newItem.id ||
+            oldItem.is_hidden !== newItem.is_hidden ||
+            oldItem.customer_name !== newItem.customer_name ||
+            oldItem.customer_phone !== newItem.customer_phone) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Load Data with localStorage cache
+async function loadData(forceRefresh = false) {
+    const cached = !forceRefresh ? getCache() : null;
+
+    // If cache exists, render immediately without loading spinner
+    if (cached) {
+        console.log('[CACHE] Using cached data');
+        allLoadedData = cached.data;
+        renderCurrentView();
+        updatePagination(cached.pagination);
+        updateHiddenCount();
+
+        // Fetch in background to check for updates
+        fetchAndUpdateIfChanged(cached.data);
+        return;
+    }
+
+    // No cache - show loading and fetch
     showLoading();
 
     try {
-        // Always fetch ALL data (including hidden) - we filter client-side for toggle
-        const queryParams = new URLSearchParams({
-            page: currentPage,
-            limit: 50,
-            showHidden: 'true', // Always get all data
-            ...filters
-        });
-
-        // Remove empty params
-        for (let [key, value] of queryParams.entries()) {
-            if (!value) queryParams.delete(key);
-        }
-
-        const response = await fetch(`${API_BASE_URL}/api/sepay/history?${queryParams}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
+        const result = await fetchFromAPI();
 
         if (result.success) {
-            // Store all data for client-side filtering
             allLoadedData = result.data;
-
-            // Render with current filter
             renderCurrentView();
-
-            // Update pagination info
             updatePagination(result.pagination);
-
-            // Update hidden count badge
             updateHiddenCount();
+
+            // Save to cache
+            setCache(result.data, result.pagination);
         } else {
             showError('Không thể tải dữ liệu: ' + result.error);
         }
@@ -738,6 +812,50 @@ async function loadData() {
         showError('Lỗi khi tải dữ liệu: ' + error.message);
     } finally {
         hideLoading();
+    }
+}
+
+// Fetch from API
+async function fetchFromAPI() {
+    const queryParams = new URLSearchParams({
+        page: currentPage,
+        limit: 50,
+        showHidden: 'true',
+        ...filters
+    });
+
+    for (let [key, value] of queryParams.entries()) {
+        if (!value) queryParams.delete(key);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/sepay/history?${queryParams}`);
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+}
+
+// Background fetch and update only if data changed
+async function fetchAndUpdateIfChanged(cachedData) {
+    try {
+        const result = await fetchFromAPI();
+
+        if (result.success && hasDataChanged(cachedData, result.data)) {
+            console.log('[CACHE] Data changed, updating UI');
+            allLoadedData = result.data;
+            renderCurrentView();
+            updatePagination(result.pagination);
+            updateHiddenCount();
+
+            // Update cache
+            setCache(result.data, result.pagination);
+        } else {
+            console.log('[CACHE] Data unchanged');
+        }
+    } catch (error) {
+        console.error('[CACHE] Background fetch error:', error);
     }
 }
 
@@ -2288,10 +2406,16 @@ async function toggleHideTransaction(transactionId, hidden) {
         const result = await response.json();
 
         if (result.success) {
-            // Update the cached data
+            // Update the in-memory data
             const itemIndex = allLoadedData.findIndex(item => item.id === transactionId);
             if (itemIndex !== -1) {
                 allLoadedData[itemIndex].is_hidden = hidden;
+            }
+
+            // Update localStorage cache with new data
+            const cached = getCache();
+            if (cached) {
+                setCache(allLoadedData, cached.pagination);
             }
 
             // Update hidden count badge
