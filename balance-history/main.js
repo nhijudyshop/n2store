@@ -13,7 +13,7 @@ const API_BASE_URL = window.CONFIG?.API_BASE_URL || (
 let currentPage = 1;
 let totalPages = 1;
 let currentQuickFilter = 'last30days'; // Default quick filter
-let showHidden = false; // Toggle to show/hide hidden transactions
+let viewMode = 'all'; // View mode: 'all', 'visible', 'hidden'
 let allLoadedData = []; // Cache all loaded data (including hidden) for client-side filtering
 let filters = {
     type: '',
@@ -398,6 +398,11 @@ function applyQuickFilter(filterType) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize view mode from localStorage
+    if (typeof initViewMode === 'function') {
+        initViewMode();
+    }
+
     // Set default date first (synchronous, fast)
     setDefaultCurrentMonth();
     setupEventListeners();
@@ -859,14 +864,25 @@ async function fetchAndUpdateIfChanged(cachedData) {
     }
 }
 
-// Render current view based on showHidden flag (no API call)
+// Render current view based on viewMode (no API call)
 function renderCurrentView() {
-    // Filter data based on showHidden flag
-    // showHidden = false: Show ALL transactions (default)
-    // showHidden = true: Show ONLY hidden transactions
-    const dataToRender = showHidden
-        ? allLoadedData.filter(item => item.is_hidden)  // Only hidden items
-        : allLoadedData;  // Show all
+    // Filter data based on viewMode
+    // 'all': Show ALL transactions (default)
+    // 'visible': Show only non-hidden transactions
+    // 'hidden': Show ONLY hidden transactions
+    let dataToRender;
+    switch (viewMode) {
+        case 'hidden':
+            dataToRender = allLoadedData.filter(item => item.is_hidden);
+            break;
+        case 'visible':
+            dataToRender = allLoadedData.filter(item => !item.is_hidden);
+            break;
+        case 'all':
+        default:
+            dataToRender = allLoadedData;
+            break;
+    }
 
     // Skip gap detection when searching
     renderTable(dataToRender, !!filters.search);
@@ -877,7 +893,7 @@ function updateHiddenCount() {
     const hiddenCount = allLoadedData.filter(item => item.is_hidden).length;
     const countEl = document.getElementById('hiddenCount');
     if (countEl) {
-        countEl.textContent = hiddenCount > 0 ? `(${hiddenCount} GD đã ẩn)` : '';
+        countEl.textContent = hiddenCount > 0 ? `(${hiddenCount})` : '';
     }
 }
 
@@ -2430,8 +2446,11 @@ async function toggleHideTransaction(transactionId, hidden) {
             const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
 
             if (row) {
-                if (hidden && !showHidden) {
-                    // If hiding and not showing hidden transactions, remove row with animation
+                // Remove row if it doesn't belong in current view
+                const shouldRemove = (hidden && viewMode === 'visible') || (!hidden && viewMode === 'hidden');
+
+                if (shouldRemove) {
+                    // Animate row removal
                     row.style.transition = 'opacity 0.3s, transform 0.3s';
                     row.style.opacity = '0';
                     row.style.transform = 'translateX(-20px)';

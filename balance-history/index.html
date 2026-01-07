@@ -106,15 +106,24 @@
                 </div>
             </header>
 
-            <!-- Filter Toggle Button -->
-            <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
+            <!-- Filter Toggle Button & Transaction View Tabs -->
+            <div style="margin-bottom: 10px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
                 <button id="toggleFiltersBtn" class="btn btn-secondary" onclick="toggleFilters()">
                     <i data-lucide="filter"></i> <span id="toggleFiltersText">Hiện bộ lọc</span>
                 </button>
-                <button id="toggleHiddenBtn" class="btn-toggle-hidden" onclick="toggleShowHidden()">
-                    <i data-lucide="eye-off"></i> <span id="toggleHiddenText">Xem GD đã ẩn</span>
-                </button>
-                <span id="hiddenCount" style="color: #6b7280; font-size: 13px;"></span>
+
+                <!-- Transaction View Tabs -->
+                <div class="view-tabs">
+                    <button class="view-tab active" data-view="all" onclick="setViewMode('all')">
+                        <i data-lucide="list"></i> Tất cả
+                    </button>
+                    <button class="view-tab" data-view="visible" onclick="setViewMode('visible')">
+                        <i data-lucide="eye"></i> Giao dịch hiện
+                    </button>
+                    <button class="view-tab" data-view="hidden" onclick="setViewMode('hidden')">
+                        <i data-lucide="eye-off"></i> Giao dịch ẩn <span id="hiddenCount" class="tab-badge"></span>
+                    </button>
+                </div>
             </div>
 
             <!-- Filters Container (hidden by default) -->
@@ -217,22 +226,17 @@
                     lucide.createIcons();
                 }
 
-                function toggleShowHidden() {
-                    // Toggle state (defined in main.js)
-                    showHidden = !showHidden;
+                function setViewMode(mode) {
+                    // Update global viewMode (defined in main.js)
+                    viewMode = mode;
 
-                    // Update button UI
-                    const btn = document.getElementById('toggleHiddenBtn');
+                    // Save to localStorage
+                    localStorage.setItem('bh_view_mode', mode);
 
-                    if (showHidden) {
-                        // Currently showing ONLY hidden items
-                        btn.classList.add('active');
-                        btn.innerHTML = '<i data-lucide="eye"></i> <span id="toggleHiddenText">Xem tất cả</span>';
-                    } else {
-                        // Currently showing ALL items (default)
-                        btn.classList.remove('active');
-                        btn.innerHTML = '<i data-lucide="eye-off"></i> <span id="toggleHiddenText">Xem GD đã ẩn</span>';
-                    }
+                    // Update tabs UI
+                    document.querySelectorAll('.view-tab').forEach(tab => {
+                        tab.classList.toggle('active', tab.dataset.view === mode);
+                    });
 
                     // Re-render icons
                     lucide.createIcons();
@@ -241,6 +245,17 @@
                     if (typeof renderCurrentView === 'function') {
                         renderCurrentView();
                     }
+                }
+
+                // Initialize view mode from localStorage on page load
+                function initViewMode() {
+                    const savedMode = localStorage.getItem('bh_view_mode') || 'all';
+                    viewMode = savedMode;
+
+                    // Update tabs UI
+                    document.querySelectorAll('.view-tab').forEach(tab => {
+                        tab.classList.toggle('active', tab.dataset.view === savedMode);
+                    });
                 }
             </script>
 

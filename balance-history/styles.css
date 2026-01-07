@@ -1684,6 +1684,57 @@ body {
     height: 16px;
 }
 
+/* View Tabs */
+.view-tabs {
+    display: inline-flex;
+    background: #f3f4f6;
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.view-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: transparent;
+    color: #6b7280;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.view-tab:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.view-tab.active {
+    background: #fff;
+    color: #059669;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    font-weight: 500;
+}
+
+.view-tab i {
+    width: 14px;
+    height: 14px;
+}
+
+.tab-badge {
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: normal;
+}
+
+.view-tab.active .tab-badge {
+    color: #059669;
+}
+
 /* Outline secondary button */
 .btn-outline-secondary {
     background: transparent;
