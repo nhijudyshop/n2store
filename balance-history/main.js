@@ -429,7 +429,7 @@ function setupEventListeners() {
 
     refreshBtn.addEventListener('click', () => {
         currentPage = 1;
-        clearAllCache(); // Clear cache on manual refresh
+        clearAllBHCache(); // Clear cache on manual refresh
         loadData(true);  // Force refresh from API
         loadStatistics();
     });
@@ -693,11 +693,11 @@ function filterByCustomerInfo(data, searchQuery) {
     });
 }
 
-// Cache helpers
-const CACHE_KEY_PREFIX = 'balance_history_cache_';
-const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+// Balance History Cache helpers (prefixed to avoid conflict with global cache.js)
+const BH_CACHE_KEY_PREFIX = 'bh_cache_';
+const BH_CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
-function getCacheKey() {
+function getBHCacheKey() {
     const params = new URLSearchParams({
         page: currentPage,
         ...filters
@@ -706,18 +706,18 @@ function getCacheKey() {
     for (let [key, value] of params.entries()) {
         if (!value) params.delete(key);
     }
-    return CACHE_KEY_PREFIX + params.toString();
+    return BH_CACHE_KEY_PREFIX + params.toString();
 }
 
-function getCache() {
+function getBHCache() {
     try {
-        const cacheKey = getCacheKey();
+        const cacheKey = getBHCacheKey();
         const cached = localStorage.getItem(cacheKey);
         if (!cached) return null;
 
         const parsed = JSON.parse(cached);
         // Check if cache is expired
-        if (Date.now() - parsed.timestamp > CACHE_EXPIRY_MS) {
+        if (Date.now() - parsed.timestamp > BH_CACHE_EXPIRY_MS) {
             localStorage.removeItem(cacheKey);
             return null;
         }
@@ -727,9 +727,9 @@ function getCache() {
     }
 }
 
-function setCache(data, pagination) {
+function setBHCache(data, pagination) {
     try {
-        const cacheKey = getCacheKey();
+        const cacheKey = getBHCacheKey();
         localStorage.setItem(cacheKey, JSON.stringify({
             data,
             pagination,
@@ -740,12 +740,12 @@ function setCache(data, pagination) {
     }
 }
 
-function clearAllCache() {
+function clearAllBHCache() {
     try {
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key && key.startsWith(CACHE_KEY_PREFIX)) {
+            if (key && key.startsWith(BH_CACHE_KEY_PREFIX)) {
                 keysToRemove.push(key);
             }
         }
@@ -775,11 +775,11 @@ function hasDataChanged(oldData, newData) {
 
 // Load Data with localStorage cache
 async function loadData(forceRefresh = false) {
-    const cached = !forceRefresh ? getCache() : null;
+    const cached = !forceRefresh ? getBHCache() : null;
 
     // If cache exists, render immediately without loading spinner
     if (cached) {
-        console.log('[CACHE] Using cached data');
+        console.log('[BH-CACHE] Using cached data');
         allLoadedData = cached.data;
         renderCurrentView();
         updatePagination(cached.pagination);
@@ -803,7 +803,7 @@ async function loadData(forceRefresh = false) {
             updateHiddenCount();
 
             // Save to cache
-            setCache(result.data, result.pagination);
+            setBHCache(result.data, result.pagination);
         } else {
             showError('Không thể tải dữ liệu: ' + result.error);
         }
@@ -843,19 +843,19 @@ async function fetchAndUpdateIfChanged(cachedData) {
         const result = await fetchFromAPI();
 
         if (result.success && hasDataChanged(cachedData, result.data)) {
-            console.log('[CACHE] Data changed, updating UI');
+            console.log('[BH-CACHE] Data changed, updating UI');
             allLoadedData = result.data;
             renderCurrentView();
             updatePagination(result.pagination);
             updateHiddenCount();
 
             // Update cache
-            setCache(result.data, result.pagination);
+            setBHCache(result.data, result.pagination);
         } else {
-            console.log('[CACHE] Data unchanged');
+            console.log('[BH-CACHE] Data unchanged');
         }
     } catch (error) {
-        console.error('[CACHE] Background fetch error:', error);
+        console.error('[BH-CACHE] Background fetch error:', error);
     }
 }
 
@@ -2413,9 +2413,9 @@ async function toggleHideTransaction(transactionId, hidden) {
             }
 
             // Update localStorage cache with new data
-            const cached = getCache();
+            const cached = getBHCache();
             if (cached) {
-                setCache(allLoadedData, cached.pagination);
+                setBHCache(allLoadedData, cached.pagination);
             }
 
             // Update hidden count badge
