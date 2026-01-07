@@ -96,6 +96,15 @@ const MENU_CONFIG = [
         permissionRequired: "issue-tracking",
     },
     {
+        href: "../customer-hub/index.html",
+        icon: "users",
+        text: "Customer 360°",
+        shortText: "KH 360",
+        pageIdentifier: "customer-hub",
+        permissionRequired: "customer-hub",
+        adminOnly: true,
+    },
+    {
         href: "../orders-report/main.html",
         icon: "shopping-cart",
         text: "Báo Cáo Sale-Online",
