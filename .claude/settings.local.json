@@ -22,7 +22,8 @@
       "Bash(gh auth status:*)",
       "Bash(gh auth login:*)",
       "Bash(psql:*)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(npx wrangler:*)"
     ]
   }
 }
