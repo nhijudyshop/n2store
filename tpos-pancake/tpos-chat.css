@@ -1517,28 +1517,26 @@
     background: var(--tpos-primary-dark);
 }
 
-/* Load More */
+/* Load More - Infinite Scroll Indicator */
 .tpos-load-more {
     display: flex;
     justify-content: center;
-    padding: 16px;
+    padding: 12px;
     border-top: 1px solid var(--tpos-border);
 }
 
-.tpos-btn-load-more {
-    padding: 8px 24px;
-    background: white;
-    border: 1px solid var(--tpos-border);
-    border-radius: 6px;
+.tpos-loading-more {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 13px;
-    color: var(--tpos-text-primary);
-    cursor: pointer;
-    transition: all 0.15s;
+    color: var(--tpos-text-secondary);
 }
 
-.tpos-btn-load-more:hover {
-    background: var(--tpos-hover-bg);
-    border-color: var(--tpos-primary);
+.tpos-loading-more i {
+    width: 16px;
+    height: 16px;
+    color: var(--tpos-primary);
 }
 
 /* =====================================================

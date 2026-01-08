@@ -110,11 +110,12 @@ class TposChatManager {
                     </div>
                 </div>
 
-                <!-- Load more button -->
+                <!-- Loading indicator for infinite scroll -->
                 <div class="tpos-load-more" id="tposLoadMore" style="display: none;">
-                    <button class="tpos-btn-load-more" id="btnTposLoadMore">
-                        Tải thêm comment cũ
-                    </button>
+                    <div class="tpos-loading-more">
+                        <i data-lucide="loader-2" class="spin"></i>
+                        <span>Đang tải thêm...</span>
+                    </div>
                 </div>
             </div>
         `;
@@ -150,10 +151,39 @@ class TposChatManager {
             btnRefresh.addEventListener('click', () => this.refresh());
         }
 
-        // Load more button
-        const btnLoadMore = document.getElementById('btnTposLoadMore');
-        if (btnLoadMore) {
-            btnLoadMore.addEventListener('click', () => this.loadMoreComments());
+        // Infinite scroll - auto load more when near bottom
+        const commentList = document.getElementById('tposCommentList');
+        if (commentList) {
+            commentList.addEventListener('scroll', () => this.handleScroll(commentList));
+        }
+    }
+
+    /**
+     * Handle scroll for infinite loading
+     */
+    handleScroll(container) {
+        // Check if near bottom (within 100px)
+        const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+
+        if (scrollBottom < 100 && this.hasMore && !this.isLoading) {
+            console.log('[TPOS-CHAT] Auto-loading more comments...');
+            this.loadMoreComments();
+        }
+    }
+
+    /**
+     * Update load more indicator visibility
+     */
+    updateLoadMoreIndicator() {
+        const loadMoreContainer = document.getElementById('tposLoadMore');
+        if (loadMoreContainer) {
+            // Show spinner when loading more or when there's more to load
+            loadMoreContainer.style.display = (this.isLoading && this.comments.length > 0) || this.hasMore ? 'flex' : 'none';
+
+            // Refresh icon if showing
+            if (loadMoreContainer.style.display !== 'none' && typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
         }
     }
 
@@ -242,6 +272,11 @@ class TposChatManager {
         this.isLoading = true;
         const listContainer = document.getElementById('tposCommentList');
 
+        // Show loading indicator for infinite scroll
+        if (append) {
+            this.updateLoadMoreIndicator();
+        }
+
         if (!append) {
             this.comments = [];
             this.nextPageUrl = null;
@@ -318,6 +353,7 @@ class TposChatManager {
             }
         } finally {
             this.isLoading = false;
+            this.updateLoadMoreIndicator();
         }
     }
 
@@ -568,11 +604,8 @@ class TposChatManager {
 
         listContainer.innerHTML = this.comments.map(comment => this.renderCommentItem(comment)).join('');
 
-        // Show/hide load more button
-        const loadMoreContainer = document.getElementById('tposLoadMore');
-        if (loadMoreContainer) {
-            loadMoreContainer.style.display = this.hasMore ? 'flex' : 'none';
-        }
+        // Update load more indicator (show when loading more)
+        this.updateLoadMoreIndicator();
 
         // Refresh Lucide icons
         if (typeof lucide !== 'undefined') lucide.createIcons();
