@@ -31,8 +31,9 @@ class TposChatManager {
         // SessionIndex map: ASUID -> { index, session, code }
         this.sessionIndexMap = new Map();
 
-        // API config - use render.com proxy to avoid CORS
+        // API config
         this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
+        this.tposPancakeUrl = 'https://n2store-tpos-pancake.onrender.com';
         this.tposBaseUrl = 'https://tomato.tpos.vn';
     }
 
@@ -1009,7 +1010,7 @@ class TposChatManager {
         }
 
         try {
-            const response = await fetch(`${this.proxyBaseUrl}/api/tpos-saved`, {
+            const response = await fetch(`${this.tposPancakeUrl}/api/tpos-saved`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

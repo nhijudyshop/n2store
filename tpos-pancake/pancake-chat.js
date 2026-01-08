@@ -13,6 +13,7 @@ class PancakeChatManager {
 
         // API config
         this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
+        this.tposPancakeUrl = 'https://n2store-tpos-pancake.onrender.com';
 
         // TPOS saved customers cache
         this.tposSavedCustomerIds = new Set();
@@ -3308,7 +3309,7 @@ class PancakeChatManager {
     async loadTposSavedCustomerIds() {
         try {
             console.log('[PANCAKE-CHAT] Loading TPOS saved customer IDs from database...');
-            const response = await fetch(`${this.proxyBaseUrl}/api/tpos-saved/ids`);
+            const response = await fetch(`${this.tposPancakeUrl}/api/tpos-saved/ids`);
             const data = await response.json();
 
             if (data.success) {
@@ -3337,7 +3338,7 @@ class PancakeChatManager {
         }
 
         try {
-            const response = await fetch(`${this.proxyBaseUrl}/api/tpos-saved/${encodeURIComponent(customerId)}`, {
+            const response = await fetch(`${this.tposPancakeUrl}/api/tpos-saved/${encodeURIComponent(customerId)}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
