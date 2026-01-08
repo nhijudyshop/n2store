@@ -10,6 +10,9 @@ const ApiService = {
     // Worker proxies to n2store-chat.onrender.com which hosts Customer 360° routes
     RENDER_API_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
 
+    // Direct Render.com URL for SSE (bypasses Cloudflare Worker to avoid timeout)
+    RENDER_SSE_URL: 'https://n2store-fallback.onrender.com',
+
     /**
      * Search orders from TPOS via TPOS OData Proxy
      * Uses tokenManager.authenticatedFetch() for proper auth handling
@@ -413,7 +416,8 @@ const ApiService = {
             fetchTickets();
 
             // Use SSE for realtime updates instead of polling
-            const sseUrl = `${this.RENDER_API_URL.replace('/api', '')}/api/realtime/sse?keys=tickets`;
+            // Connect directly to Render.com to avoid Cloudflare Worker timeout
+            const sseUrl = `${this.RENDER_SSE_URL}/api/realtime/sse?keys=tickets`;
             console.log('[API-SSE] Connecting to SSE:', sseUrl);
             eventSource = new EventSource(sseUrl);
 
