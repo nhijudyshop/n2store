@@ -794,8 +794,8 @@ class TposChatManager {
                     <div class="tpos-conv-message">${this.escapeHtml(message)}</div>
                 </div>
                 <div class="tpos-conv-actions">
-                    <button class="tpos-action-btn" title="Tạo đơn" onclick="event.stopPropagation(); window.tposChatManager.createOrder('${id}', '${this.escapeHtml(fromName)}', '${this.escapeHtml(message)}')">
-                        <i data-lucide="shopping-cart"></i>
+                    <button class="tpos-action-btn tpos-phone-btn" title="Gọi điện" onclick="event.stopPropagation(); window.tposChatManager.handlePhoneAction('${fromId}', '${this.escapeHtml(fromName)}')">
+                        <i data-lucide="phone"></i>
                     </button>
                     <button class="tpos-action-btn tpos-save-btn" title="Lưu vào Pancake" onclick="event.stopPropagation(); window.tposChatManager.saveToTposList('${fromId}', '${this.escapeHtml(fromName)}')">
                         <i data-lucide="plus"></i>
@@ -958,6 +958,17 @@ class TposChatManager {
     // =====================================================
     // ACTIONS
     // =====================================================
+
+    /**
+     * Handle phone action - placeholder for future functionality
+     */
+    handlePhoneAction(customerId, customerName) {
+        console.log('[TPOS-CHAT] Phone action:', { customerId, customerName });
+        // TODO: Add phone functionality here
+        if (window.notificationManager) {
+            window.notificationManager.show(`Gọi điện: ${customerName}`, 'info');
+        }
+    }
 
     /**
      * Create order from comment
