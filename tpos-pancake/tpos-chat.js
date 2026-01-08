@@ -653,10 +653,10 @@ class TposChatManager {
                  onclick="window.tposChatManager.selectComment('${id}')">
                 <div class="tpos-conv-avatar">
                     ${pictureUrl
-                        ? `<img src="${pictureUrl}" class="avatar-img" alt="${this.escapeHtml(fromName)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                ? `<img src="${pictureUrl}" class="avatar-img" alt="${this.escapeHtml(fromName)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                            <div class="avatar-placeholder" style="display: none; background: ${gradientColor};">${initial}</div>`
-                        : `<div class="avatar-placeholder" style="background: ${gradientColor};">${initial}</div>`
-                    }
+                : `<div class="avatar-placeholder" style="background: ${gradientColor};">${initial}</div>`
+            }
                     ${sessionIndexBadge}
                     <span class="channel-badge">
                         <i data-lucide="facebook" class="channel-icon fb"></i>
@@ -853,17 +853,25 @@ class TposChatManager {
 
     /**
      * Get avatar URL for a Facebook user
-     * Only uses direct URL from SSE - can't build URL for old comments
-     * Facebook profile picture URLs require signed parameters (eai, ext, hash)
+     * Uses Cloudflare Worker proxy that tries:
+     * 1. Pancake Avatar API: https://pancake.vn/api/v1/pages/{pageId}/avatar/{fbId}
+     * 2. Facebook Graph API: https://graph.facebook.com/{fbId}/picture
+     * 3. Default SVG placeholder
      */
     getAvatarUrl(userId, directUrl = null) {
-        // Only use direct URL from SSE stream (has signed params)
-        // Can't build avatar URL for old comments - Facebook requires signed URLs
+        // Priority 1: Use direct URL from SSE stream (has signed params)
         if (directUrl && directUrl.startsWith('http')) {
             return directUrl;
         }
 
-        // Return null - will use gradient placeholder
+        // Priority 2: Use Cloudflare Worker proxy for avatar
+        // This proxy tries Pancake first, then Facebook Graph API
+        if (userId) {
+            const pageId = this.selectedPage?.Facebook_PageId || '270136663390370';
+            return `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${userId}&page=${pageId}`;
+        }
+
+        // Fallback: Return null - will use gradient placeholder
         return null;
     }
 
