@@ -74,6 +74,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Flag to track if mermaid diagram has been rendered
+let mermaidRendered = false;
+
+/**
+ * Toggle flow details visibility and init mermaid on first show
+ */
+function toggleFlowDetails() {
+    const flowDetails = document.getElementById('flow-details');
+    if (!flowDetails) return;
+
+    const isHidden = flowDetails.classList.contains('hidden');
+    flowDetails.classList.toggle('hidden');
+
+    // Initialize mermaid only on first show (when element becomes visible)
+    if (isHidden && !mermaidRendered && typeof mermaid !== 'undefined') {
+        try {
+            mermaid.init(undefined, flowDetails.querySelectorAll('.mermaid'));
+            mermaidRendered = true;
+            console.log('[MERMAID] Diagram rendered successfully');
+        } catch (e) {
+            console.error('[MERMAID] Error rendering diagram:', e);
+        }
+    }
+}
+
 /**
  * SETTINGS MANAGEMENT
  */
@@ -1102,7 +1127,7 @@ const GUIDES = {
         <strong>Tất cả sự vụ:</strong> Tra cứu và Theo dõi toàn bộ lịch sử.
         <br/><br/>
         <!-- Trigger for Detailed Flow -->
-        <button class="btn btn-sm btn-secondary" onclick="document.getElementById('flow-details').classList.toggle('hidden')">
+        <button class="btn btn-sm btn-secondary" onclick="toggleFlowDetails()">
             📜 Xem Quy Trình Xử Lý Chi Tiết
         </button>
 
@@ -1188,10 +1213,8 @@ function renderDashboard(tabName, searchTerm = '') {
     if (GUIDES[tabName]) {
         guidePanel.classList.remove('hidden');
         guideContent.innerHTML = GUIDES[tabName];
-        // Re-init Mermaid if present
-        if (typeof mermaid !== 'undefined' && tabName === 'all') {
-            mermaid.init(undefined, document.querySelectorAll('.mermaid'));
-        }
+        // Note: Mermaid will be initialized when user clicks to show flow-details
+        // See initMermaidOnShow() function
     } else {
         guidePanel.classList.add('hidden');
     }
