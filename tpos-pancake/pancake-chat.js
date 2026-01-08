@@ -409,6 +409,18 @@ class PancakeChatManager {
 
         // Filter by type
         if (this.filterType === 'tpos-saved') {
+            // Debug: Log saved IDs and first few conversations
+            console.log('[TPOS-SAVED-FILTER] Saved IDs:', Array.from(this.tposSavedCustomerIds));
+            console.log('[TPOS-SAVED-FILTER] Total conversations before filter:', filtered.length);
+            if (filtered.length > 0) {
+                console.log('[TPOS-SAVED-FILTER] Sample conv[0] IDs:', {
+                    'from.id': filtered[0].from?.id,
+                    'from_psid': filtered[0].from_psid,
+                    'customer.psid': filtered[0].customers?.[0]?.psid,
+                    'customer.id': filtered[0].customers?.[0]?.id
+                });
+            }
+
             // Filter by saved customer IDs - check ALL possible ID fields
             filtered = filtered.filter(conv => {
                 const customer = conv.customers?.[0] || {};
@@ -421,6 +433,7 @@ class PancakeChatManager {
                 ].filter(Boolean);
                 return possibleIds.some(id => this.tposSavedCustomerIds.has(id));
             });
+            console.log('[TPOS-SAVED-FILTER] After filter:', filtered.length, 'conversations match');
         } else if (this.filterType === 'inbox') {
             filtered = filtered.filter(conv => conv.type === 'INBOX');
         } else if (this.filterType === 'comment') {
