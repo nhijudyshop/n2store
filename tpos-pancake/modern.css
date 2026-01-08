@@ -580,9 +580,9 @@ button {
     border-left: none;
 }
 
-/* Column Header */
+/* Column Header - HIDDEN: Headers are now merged inside column content */
 .column-header {
-    display: flex;
+    display: none !important;
     align-items: center;
     justify-content: space-between;
     padding: var(--spacing-md) var(--spacing-lg);

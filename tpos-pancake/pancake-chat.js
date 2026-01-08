@@ -192,28 +192,38 @@ class PancakeChatManager {
                         <div class="pk-conversations-layout">
                             <!-- Conversation List (Left Panel) -->
                             <div class="pk-conversation-list" id="pkConversationList">
-                    <!-- Page Selector -->
-                    <div class="pk-page-selector" style="position: relative;">
-                        <button class="pk-page-selector-btn" id="pkPageSelectorBtn">
-                            <div class="pk-page-avatar-placeholder" id="pkSelectedPageAvatar">
-                                <i data-lucide="layout-grid"></i>
-                            </div>
-                            <div class="pk-page-info">
-                                <div class="pk-page-name" id="pkSelectedPageName">Tất cả Pages</div>
-                                <div class="pk-page-hint" id="pkSelectedPageHint">Chọn page để lọc hội thoại</div>
-                            </div>
-                            <span class="pk-page-unread-badge" id="pkTotalUnreadBadge" style="display: none;">0</span>
-                            <i data-lucide="chevron-down" class="pk-page-selector-icon"></i>
-                        </button>
+                    <!-- Merged Header: Page Selector + actions in one row (title hidden for more space) -->
+                    <div class="pk-merged-header">
+                        <!-- Page Selector -->
+                        <div class="pk-page-selector" style="position: relative;">
+                            <button class="pk-page-selector-btn" id="pkPageSelectorBtn">
+                                <div class="pk-page-avatar-placeholder" id="pkSelectedPageAvatar">
+                                    <i data-lucide="layout-grid"></i>
+                                </div>
+                                <div class="pk-page-info">
+                                    <div class="pk-page-name" id="pkSelectedPageName">Tất cả Pages</div>
+                                    <div class="pk-page-hint" id="pkSelectedPageHint">Chọn page để lọc hội thoại</div>
+                                </div>
+                                <span class="pk-page-unread-badge" id="pkTotalUnreadBadge" style="display: none;">0</span>
+                                <i data-lucide="chevron-down" class="pk-page-selector-icon"></i>
+                            </button>
 
-                        <!-- Page Dropdown -->
-                        <div class="pk-page-dropdown" id="pkPageDropdown">
-                            <div class="pk-page-dropdown-header">Chọn Page</div>
-                            <div id="pkPageList">
-                                <div class="pk-loading">
-                                    <div class="pk-loading-spinner"></div>
+                            <!-- Page Dropdown -->
+                            <div class="pk-page-dropdown" id="pkPageDropdown">
+                                <div class="pk-page-dropdown-header">Chọn Page</div>
+                                <div id="pkPageList">
+                                    <div class="pk-loading">
+                                        <div class="pk-loading-spinner"></div>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Header Actions (only settings) -->
+                        <div class="pk-header-actions">
+                            <button class="pk-action-icon-btn" title="Cài đặt Pancake" onclick="openPancakeSettingsModal()">
+                                <i data-lucide="settings"></i>
+                            </button>
                         </div>
                     </div>
 

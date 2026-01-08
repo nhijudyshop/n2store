@@ -77,8 +77,15 @@ class TposChatManager {
 
         container.innerHTML = `
             <div class="tpos-chat-wrapper">
-                <!-- Header with selectors -->
-                <div class="tpos-chat-header">
+                <!-- Merged Header: TPOS title + selectors + actions in one row -->
+                <div class="tpos-chat-header tpos-merged-header">
+                    <!-- TPOS Logo/Title -->
+                    <div class="tpos-title-section">
+                        <i data-lucide="shopping-cart" class="tpos-icon"></i>
+                        <span class="tpos-title">TPOS</span>
+                    </div>
+
+                    <!-- Selectors -->
                     <div class="tpos-selectors">
                         <!-- CRM Team/Page Selector -->
                         <select id="tposCrmTeamSelect" class="tpos-filter-select" disabled>
@@ -91,13 +98,17 @@ class TposChatManager {
                         </select>
                     </div>
 
+                    <!-- Actions -->
                     <div class="tpos-header-actions">
                         <div class="tpos-status-indicator" id="tposStatusIndicator">
                             <span class="status-dot disconnected"></span>
-                            <span class="status-text">Offline</span>
+                            <span class="status-text">Live</span>
                         </div>
                         <button class="tpos-btn-refresh" id="btnTposRefresh" title="Refresh">
                             <i data-lucide="refresh-cw"></i>
+                        </button>
+                        <button class="tpos-btn-expand" id="btnTposExpand" title="Mở rộng" onclick="toggleFullscreen('tpos')">
+                            <i data-lucide="maximize-2"></i>
                         </button>
                     </div>
                 </div>
