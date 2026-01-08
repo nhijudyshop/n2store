@@ -13,7 +13,7 @@ const API_BASE_URL = window.CONFIG?.API_BASE_URL || (
 let currentPage = 1;
 let totalPages = 1;
 let currentQuickFilter = 'last30days'; // Default quick filter
-let showHidden = false; // Toggle to show/hide hidden transactions
+let viewMode = 'all'; // View mode: 'all', 'visible', 'hidden'
 let allLoadedData = []; // Cache all loaded data (including hidden) for client-side filtering
 let filters = {
     type: '',
@@ -859,17 +859,35 @@ async function fetchAndUpdateIfChanged(cachedData) {
     }
 }
 
-// Render current view based on showHidden flag (no API call)
+// Render current view based on viewMode (no API call)
+// viewMode is defined in index.html: 'all', 'visible', 'hidden'
 function renderCurrentView() {
-    // Filter data based on showHidden flag
-    // showHidden = false: Show ALL transactions (default)
-    // showHidden = true: Show ONLY hidden transactions
-    const dataToRender = showHidden
-        ? allLoadedData.filter(item => item.is_hidden)  // Only hidden items
-        : allLoadedData;  // Show all
+    // Filter data based on viewMode
+    // 'all': Show ALL transactions (default)
+    // 'visible': Show only non-hidden transactions
+    // 'hidden': Show only hidden transactions
+    let dataToRender;
 
-    // Skip gap detection when searching
-    renderTable(dataToRender, !!filters.search);
+    // Use global viewMode variable (defined in index.html)
+    const mode = typeof viewMode !== 'undefined' ? viewMode : 'all';
+
+    switch (mode) {
+        case 'hidden':
+            dataToRender = allLoadedData.filter(item => item.is_hidden);
+            break;
+        case 'visible':
+            dataToRender = allLoadedData.filter(item => !item.is_hidden);
+            break;
+        case 'all':
+        default:
+            dataToRender = allLoadedData;
+            break;
+    }
+
+    // Skip gap detection when searching OR when not in 'all' mode
+    // Gap detection only makes sense when viewing all transactions
+    const skipGapDetection = !!filters.search || mode !== 'all';
+    renderTable(dataToRender, skipGapDetection);
 }
 
 // Update hidden count badge
@@ -3360,8 +3378,8 @@ function renderGapsList(gaps) {
         const statusBadge = status === 'detected'
             ? '<span class="badge badge-warning">Phát hiện</span>'
             : status === 'ignored'
-            ? '<span class="badge badge-secondary">Bỏ qua</span>'
-            : '<span class="badge badge-success">Đã xử lý</span>';
+                ? '<span class="badge badge-secondary">Bỏ qua</span>'
+                : '<span class="badge badge-success">Đã xử lý</span>';
 
         return `
         <tr>
