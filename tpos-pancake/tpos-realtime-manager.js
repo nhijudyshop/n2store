@@ -12,9 +12,9 @@ class TposRealtimeManager {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
 
-        // Server URLs
-        this.serverBaseUrl = 'https://n2store-fallback.onrender.com';
-        this.wsUrl = 'wss://n2store-fallback.onrender.com';
+        // Server URLs - Use dedicated realtime server
+        this.serverBaseUrl = 'https://n2store-realtime.onrender.com';
+        this.wsUrl = 'wss://n2store-realtime.onrender.com';
 
         // Event callbacks
         this.onConversationUpdate = null;

@@ -92,7 +92,7 @@ The `objectId` from the Live Video API likely corresponds to the `ObjectId` or `
 
 ## 5. Implementation Recommendations for `tpos-realtime-manager.js`
 
-The current `tpos-realtime-manager.js` connects to a proxy (`n2store-fallback.onrender.com`). To match the native behavior:
+The current `tpos-realtime-manager.js` connects to a proxy (`n2store-realtime.onrender.com`). To match the native behavior:
 
 1.  **Direct Connection**: The client should connect directly to `wss://rt-2.tpos.app` if no proxy is needed.
 2.  **Socket.IO Client**: Use a standard Socket.IO client library or implement the EIO=4 protocol manually (as seen in the logs).

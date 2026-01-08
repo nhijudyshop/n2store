@@ -29,6 +29,85 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Database debug endpoint
+app.get('/api/debug/db', async (req, res) => {
+    try {
+        // Test connection
+        const connResult = await pool.query('SELECT NOW() as time');
+
+        // Check if table exists
+        const tableCheck = await pool.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'tpos_saved_customers'
+            ) as table_exists
+        `);
+
+        // Count rows if table exists
+        let rowCount = 0;
+        if (tableCheck.rows[0].table_exists) {
+            const countResult = await pool.query('SELECT COUNT(*) as count FROM tpos_saved_customers');
+            rowCount = parseInt(countResult.rows[0].count);
+        }
+
+        res.json({
+            success: true,
+            database: {
+                connected: true,
+                time: connResult.rows[0].time,
+                hasTable: tableCheck.rows[0].table_exists,
+                rowCount: rowCount
+            },
+            env: {
+                hasDbUrl: !!process.env.DATABASE_URL,
+                nodeEnv: process.env.NODE_ENV
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            env: {
+                hasDbUrl: !!process.env.DATABASE_URL,
+                nodeEnv: process.env.NODE_ENV
+            }
+        });
+    }
+});
+
+// Initialize table endpoint (run once to create table)
+app.post('/api/init-table', async (req, res) => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS tpos_saved_customers (
+                id SERIAL PRIMARY KEY,
+                customer_id VARCHAR(100) NOT NULL,
+                customer_name VARCHAR(255) NOT NULL,
+                page_id VARCHAR(100),
+                page_name VARCHAR(255),
+                saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                saved_by VARCHAR(100),
+                notes TEXT,
+                UNIQUE(customer_id)
+            )
+        `);
+
+        // Create indexes
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_tpos_saved_customers_customer_id ON tpos_saved_customers(customer_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_tpos_saved_customers_page_id ON tpos_saved_customers(page_id)`);
+
+        res.json({
+            success: true,
+            message: 'Table tpos_saved_customers created/verified successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 // =====================================================
 // TPOS SAVED CUSTOMERS API
 // =====================================================

@@ -1285,13 +1285,12 @@ export default {
         const apiPath = pathname.replace(/^\/api\/pancake\//, '');
         targetUrl = `https://pancake.vn/api/v1/${apiPath}${url.search}`;
         isPancakeRequest = true;
-      } else if (pathname === '/api/realtime/start') {
-        // Realtime Server (Render) - NEW SERVER
-        targetUrl = `https://n2store-realtime.onrender.com/api/realtime/start`;
-      } else if (pathname.startsWith('/api/realtime/tpos/')) {
-        // TPOS Realtime Server (Render) - NEW SERVER
-        const tposPath = pathname.replace(/^\/api\/realtime\/tpos\//, '');
-        targetUrl = `https://n2store-realtime.onrender.com/api/realtime/tpos/${tposPath}${url.search}`;
+      } else if (pathname.startsWith('/api/realtime/')) {
+        // ALL Realtime routes → dedicated n2store-realtime server
+        // Includes: /api/realtime/start, /api/realtime/stop, /api/realtime/status
+        //           /api/realtime/tpos/start, /api/realtime/tpos/stop, /api/realtime/tpos/status
+        const realtimePath = pathname.replace(/^\/api\/realtime\//, '');
+        targetUrl = `https://n2store-realtime.onrender.com/api/realtime/${realtimePath}${url.search}`;
       } else if (pathname.startsWith('/api/chat/')) {
         // Chat Server (Render) - Using same server as realtime
         const chatPath = pathname.replace(/^\/api\/chat\//, '');
