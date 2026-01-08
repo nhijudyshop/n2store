@@ -528,10 +528,25 @@ class TposChatManager {
         const fromId = comment.from?.id || '';
         const createdTime = comment.created_time;
         const isHidden = comment.is_hidden;
-        const pictureUrl = comment.from?.picture?.data?.url || '';
+
+        // Get avatar URL - prioritize SSE direct URL, fallback to building from PSID
+        const directPictureUrl = comment.from?.picture?.data?.url || '';
+        const pictureUrl = this.getAvatarUrl(fromId, directPictureUrl);
 
         // Format time
         const timeStr = this.formatTime(createdTime);
+
+        // Generate placeholder color based on name
+        const colors = [
+            'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+            'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
+        ];
+        const colorIndex = fromName.charCodeAt(0) % colors.length;
+        const gradientColor = colors[colorIndex];
+        const initial = fromName.charAt(0).toUpperCase();
 
         return `
             <div class="tpos-conversation-item ${isHidden ? 'is-hidden' : ''}"
@@ -539,8 +554,9 @@ class TposChatManager {
                  onclick="window.tposChatManager.selectComment('${id}')">
                 <div class="tpos-conv-avatar">
                     ${pictureUrl
-                        ? `<img src="${pictureUrl}" class="avatar-img" alt="${this.escapeHtml(fromName)}">`
-                        : `<div class="avatar-circle"><i data-lucide="user"></i></div>`
+                        ? `<img src="${pictureUrl}" class="avatar-img" alt="${this.escapeHtml(fromName)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                           <div class="avatar-placeholder" style="display: none; background: ${gradientColor};">${initial}</div>`
+                        : `<div class="avatar-placeholder" style="background: ${gradientColor};">${initial}</div>`
                     }
                     <span class="channel-badge">
                         <i data-lucide="facebook" class="channel-icon fb"></i>
@@ -734,6 +750,29 @@ class TposChatManager {
     // =====================================================
     // UTILITY FUNCTIONS
     // =====================================================
+
+    /**
+     * Get avatar URL for a Facebook user
+     * Uses Page Access Token to get profile picture from Facebook
+     */
+    getAvatarUrl(userId, directUrl = null) {
+        // 1. If direct URL provided (from SSE), use it
+        if (directUrl && directUrl.startsWith('http')) {
+            return directUrl;
+        }
+
+        // 2. If no userId, return null (will use placeholder)
+        if (!userId) {
+            return null;
+        }
+
+        // 3. Build Facebook profile picture URL using Page Access Token
+        if (this.selectedPage?.Facebook_PageToken) {
+            return `https://platform-lookaside.fbsbx.com/platform/profilepic/?psid=${userId}&access_token=${this.selectedPage.Facebook_PageToken}&height=50&width=50`;
+        }
+
+        return null;
+    }
 
     formatTime(dateStr) {
         if (!dateStr) return '';

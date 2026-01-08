@@ -1577,6 +1577,20 @@
     object-fit: cover;
 }
 
+/* Avatar Placeholder with gradient */
+.tpos-conv-avatar .avatar-placeholder {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: white;
+    text-transform: uppercase;
+}
+
 /* Hidden Comment State */
 .tpos-conversation-item.is-hidden {
     opacity: 0.6;
