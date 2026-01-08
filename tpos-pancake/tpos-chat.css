@@ -1591,6 +1591,27 @@
     text-transform: uppercase;
 }
 
+/* SessionIndex Badge - Order number on avatar */
+.tpos-conv-avatar .session-index-badge {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    background: var(--tpos-badge-order, #dc2626);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    z-index: 5;
+}
+
 /* Hidden Comment State */
 .tpos-conversation-item.is-hidden {
     opacity: 0.6;

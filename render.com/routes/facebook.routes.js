@@ -268,6 +268,56 @@ router.get("/facebook/comments/stream", async (req, res) => {
 });
 
 // =====================================================
+// SESSION INDEX (COMMENT ORDERS) API
+// =====================================================
+
+/**
+ * GET /facebook/comment-orders - Get SessionIndex for all commenters
+ * Headers:
+ * - Authorization: Bearer <token> (required)
+ * Query params:
+ * - postId: Full post ID in format pageId_postId (required)
+ */
+router.get("/facebook/comment-orders", async (req, res) => {
+    try {
+        const token = getAuthToken(req);
+        if (!token) {
+            return res.status(401).json({ success: false, error: "No authorization token" });
+        }
+
+        const { postId } = req.query;
+
+        if (!postId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing required parameter: postId",
+            });
+        }
+
+        console.log(`📥 Fetching comment orders for post ${postId}...`);
+
+        const url = `${TPOS_BASE_URL}/odata/SaleOnline_Facebook_Post/ODataService.GetCommentOrders?$expand=orders&PostId=${postId}`;
+
+        const response = await fetch(url, {
+            method: "GET",
+            headers: getTposHeaders(token),
+        });
+
+        if (!response.ok) {
+            throw new Error(`TPOS API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log(`✅ Retrieved ${data?.value?.length || 0} comment orders`);
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Comment Orders API error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
 // LIVE VIDEO API
 // =====================================================
 
@@ -336,6 +386,7 @@ router.get("/facebook/health", (req, res) => {
             "/facebook/live-campaigns",
             "/facebook/comments",
             "/facebook/comments/stream",
+            "/facebook/comment-orders",
             "/facebook/livevideo",
         ],
         timestamp: new Date().toISOString(),

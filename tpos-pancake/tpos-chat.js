@@ -26,6 +26,9 @@ class TposChatManager {
         this.eventSource = null;
         this.sseConnected = false;
 
+        // SessionIndex map: ASUID -> { index, session, code }
+        this.sessionIndexMap = new Map();
+
         // API config - use render.com proxy to avoid CORS
         this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
         this.tposBaseUrl = 'https://tomato.tpos.vn';
@@ -295,9 +298,10 @@ class TposChatManager {
             console.log('[TPOS-CHAT] Loaded comments:', newComments.length, 'Total:', this.comments.length);
             this.renderComments();
 
-            // Start SSE after loading initial comments
+            // Start SSE and load SessionIndex after loading initial comments
             if (!append) {
                 this.startSSE();
+                this.loadSessionIndex();
             }
 
         } catch (error) {
@@ -323,6 +327,62 @@ class TposChatManager {
     async loadMoreComments() {
         if (this.hasMore && !this.isLoading) {
             await this.loadComments(true);
+        }
+    }
+
+    /**
+     * Load SessionIndex (comment orders) for the current post
+     * Maps ASUID -> order index for displaying badges
+     */
+    async loadSessionIndex() {
+        if (!this.selectedCampaign) return;
+
+        try {
+            const token = await this.getToken();
+            if (!token) return;
+
+            // Facebook_LiveId format: "pageId_postId"
+            const fullPostId = this.selectedCampaign.Facebook_LiveId;
+
+            const url = `${this.proxyBaseUrl}/facebook/comment-orders?postId=${fullPostId}`;
+
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+            const data = await response.json();
+            const orders = data.value || [];
+
+            // Clear and rebuild map
+            this.sessionIndexMap.clear();
+
+            orders.forEach(item => {
+                const asuid = item.asuid || item.id;
+                if (asuid && item.orders && item.orders.length > 0) {
+                    // Use the first order's index (usually the earliest)
+                    const firstOrder = item.orders[0];
+                    this.sessionIndexMap.set(asuid, {
+                        index: firstOrder.index,
+                        session: firstOrder.session,
+                        code: firstOrder.code
+                    });
+                }
+            });
+
+            console.log('[TPOS-CHAT] Loaded SessionIndex for', this.sessionIndexMap.size, 'users');
+
+            // Re-render to show badges
+            if (this.comments.length > 0) {
+                this.renderComments();
+            }
+
+        } catch (error) {
+            console.error('[TPOS-CHAT] Error loading SessionIndex:', error);
         }
     }
 
@@ -536,6 +596,12 @@ class TposChatManager {
         // Format time
         const timeStr = this.formatTime(createdTime);
 
+        // Get SessionIndex badge for this user
+        const sessionInfo = this.sessionIndexMap.get(fromId);
+        const sessionIndexBadge = sessionInfo
+            ? `<span class="session-index-badge" title="${sessionInfo.code || '#' + sessionInfo.index}">${sessionInfo.index}</span>`
+            : '';
+
         // Generate placeholder color based on name
         const colors = [
             'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -558,6 +624,7 @@ class TposChatManager {
                            <div class="avatar-placeholder" style="display: none; background: ${gradientColor};">${initial}</div>`
                         : `<div class="avatar-placeholder" style="background: ${gradientColor};">${initial}</div>`
                     }
+                    ${sessionIndexBadge}
                     <span class="channel-badge">
                         <i data-lucide="facebook" class="channel-icon fb"></i>
                     </span>
