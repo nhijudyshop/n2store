@@ -524,6 +524,29 @@ class TposChatManager {
     }
 
     /**
+     * Check if a comment is from Page or Pancake accounts (not a customer)
+     */
+    isPageOrStaffComment(comment) {
+        const fromId = comment.from?.id;
+        if (!fromId) return false;
+
+        // Check if from current page
+        const pageId = this.selectedPage?.Facebook_PageId;
+        if (pageId && fromId === pageId) {
+            return true;
+        }
+
+        // Check if from any Pancake-managed pages
+        if (window.pancakeDataManager?.pageIds) {
+            if (window.pancakeDataManager.pageIds.includes(fromId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Handle SSE message
      */
     handleSSEMessage(data) {
@@ -538,23 +561,28 @@ class TposChatManager {
                 const exists = this.comments.some(c => c.id === comment.id);
 
                 if (!exists) {
-                    console.log('[TPOS-CHAT] 💬 New comment:', comment.from?.name, '-', comment.message?.substring(0, 30));
+                    const isStaff = this.isPageOrStaffComment(comment);
+                    console.log('[TPOS-CHAT] 💬 New comment:', comment.from?.name, '-', comment.message?.substring(0, 30), isStaff ? '(staff)' : '(customer)');
 
-                    // Add to beginning of list
-                    this.comments.unshift(comment);
+                    if (isStaff) {
+                        // Staff/Page comment - add to end, don't highlight or scroll
+                        this.comments.push(comment);
+                        this.renderComments();
+                    } else {
+                        // Customer comment - add to beginning and highlight
+                        this.comments.unshift(comment);
+                        this.renderComments();
 
-                    // Re-render
-                    this.renderComments();
-
-                    // Highlight new comment
-                    setTimeout(() => {
-                        const item = document.querySelector(`[data-comment-id="${comment.id}"]`);
-                        if (item) {
-                            item.classList.add('highlight');
-                            item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                            setTimeout(() => item.classList.remove('highlight'), 3000);
-                        }
-                    }, 100);
+                        // Highlight and scroll to new customer comment
+                        setTimeout(() => {
+                            const item = document.querySelector(`[data-comment-id="${comment.id}"]`);
+                            if (item) {
+                                item.classList.add('highlight');
+                                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                setTimeout(() => item.classList.remove('highlight'), 3000);
+                            }
+                        }, 100);
+                    }
                 }
             });
         } catch (error) {
