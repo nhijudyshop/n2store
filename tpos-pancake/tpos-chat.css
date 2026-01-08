@@ -1465,6 +1465,17 @@
     height: 16px;
 }
 
+/* Save to Tpos button - green color */
+.tpos-conv-actions .tpos-save-btn {
+    color: #16a34a;
+}
+
+.tpos-conv-actions .tpos-save-btn:hover {
+    background: #dcfce7;
+    border-color: #16a34a;
+    color: #16a34a;
+}
+
 /* Meta (time & status) */
 .tpos-conv-meta {
     display: flex;

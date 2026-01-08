@@ -797,8 +797,8 @@ class TposChatManager {
                     <button class="tpos-action-btn" title="Tạo đơn" onclick="event.stopPropagation(); window.tposChatManager.createOrder('${id}', '${this.escapeHtml(fromName)}', '${this.escapeHtml(message)}')">
                         <i data-lucide="shopping-cart"></i>
                     </button>
-                    <button class="tpos-action-btn" title="${isHidden ? 'Hiện comment' : 'Ẩn comment'}" onclick="event.stopPropagation(); window.tposChatManager.toggleHideComment('${id}', ${!isHidden})">
-                        <i data-lucide="${isHidden ? 'eye' : 'eye-off'}"></i>
+                    <button class="tpos-action-btn tpos-save-btn" title="Lưu vào Pancake" onclick="event.stopPropagation(); window.tposChatManager.saveToTposList('${fromId}', '${this.escapeHtml(fromName)}')">
+                        <i data-lucide="plus"></i>
                     </button>
                 </div>
                 <div class="tpos-conv-meta">
@@ -979,6 +979,62 @@ class TposChatManager {
         // Show notification
         if (window.notificationManager) {
             window.notificationManager.show(`Tạo đơn cho: ${customerName}`, 'info');
+        }
+    }
+
+    /**
+     * Save customer to TPOS saved list (for Pancake "Lưu Tpos" tab)
+     * Saves to database via API
+     */
+    async saveToTposList(customerId, customerName) {
+        console.log('[TPOS-CHAT] Save to TPOS list:', { customerId, customerName });
+
+        if (!customerId) {
+            console.error('[TPOS-CHAT] No customerId provided');
+            if (window.notificationManager) {
+                window.notificationManager.show('Không có ID khách hàng', 'error');
+            }
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.proxyBaseUrl}/api/tpos-saved`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    customerId,
+                    customerName,
+                    pageId: this.selectedPage?.id || '',
+                    pageName: this.selectedPage?.name || ''
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                console.log('[TPOS-CHAT] Saved to database:', data);
+
+                // Dispatch event so Pancake can react
+                window.dispatchEvent(new CustomEvent('tposSavedListUpdated', {
+                    detail: { customerId, customerName }
+                }));
+
+                if (window.notificationManager) {
+                    window.notificationManager.show(`Đã lưu ${customerName}`, 'success');
+                }
+            } else {
+                console.error('[TPOS-CHAT] API error:', data.message);
+                if (window.notificationManager) {
+                    window.notificationManager.show(data.message || 'Lỗi khi lưu', 'error');
+                }
+            }
+        } catch (e) {
+            console.error('[TPOS-CHAT] Error saving to database:', e);
+            if (window.notificationManager) {
+                window.notificationManager.show('Lỗi kết nối server', 'error');
+            }
         }
     }
 

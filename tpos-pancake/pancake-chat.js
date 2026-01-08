@@ -9,7 +9,13 @@ class PancakeChatManager {
         this.messages = [];
         this.isLoading = false;
         this.searchQuery = '';
-        this.filterType = 'all'; // 'all', 'unread', 'inbox', 'comment'
+        this.filterType = 'all'; // 'all', 'tpos-saved', 'inbox', 'comment'
+
+        // API config
+        this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
+
+        // TPOS saved customers cache
+        this.tposSavedCustomerIds = new Set();
 
         // Search state
         this.isSearching = false;
@@ -232,7 +238,7 @@ class PancakeChatManager {
                         <button class="pk-filter-tab active" data-filter="all">Tất cả</button>
                         <button class="pk-filter-tab" data-filter="inbox">Inbox</button>
                         <button class="pk-filter-tab" data-filter="comment">Comment</button>
-                        <button class="pk-filter-tab" data-filter="unread">Chưa đọc</button>
+                        <button class="pk-filter-tab" data-filter="tpos-saved">Lưu Tpos</button>
                     </div>
 
                     <!-- Search Header -->
@@ -271,6 +277,11 @@ class PancakeChatManager {
                             <i data-lucide="tag"></i>
                             <span>Quản lý nhãn</span>
                             <i data-lucide="chevron-right" class="pk-menu-arrow"></i>
+                        </button>
+                        <div class="pk-context-menu-divider pk-tpos-saved-divider" style="display: none;"></div>
+                        <button class="pk-context-menu-item pk-tpos-saved-action" data-action="remove-tpos-saved" style="display: none;">
+                            <i data-lucide="x-circle"></i>
+                            <span>Xóa khỏi Lưu Tpos</span>
                         </button>
                     </div>
 
@@ -396,8 +407,14 @@ class PancakeChatManager {
         }
 
         // Filter by type
-        if (this.filterType === 'unread') {
-            filtered = filtered.filter(conv => conv.unread_count > 0);
+        if (this.filterType === 'tpos-saved') {
+            // Filter by saved customer IDs (loaded from database)
+            filtered = filtered.filter(conv => {
+                // Try multiple ID fields: psid (Facebook), id, from.id
+                const customer = conv.customers?.[0] || {};
+                const customerId = customer.psid || customer.id || conv.from?.id || '';
+                return this.tposSavedCustomerIds.has(customerId);
+            });
         } else if (this.filterType === 'inbox') {
             filtered = filtered.filter(conv => conv.type === 'INBOX');
         } else if (this.filterType === 'comment') {
@@ -473,6 +490,12 @@ class PancakeChatManager {
                         <span class="pk-icon-indicator ${isInbox ? 'inbox' : 'comment'}" title="${isInbox ? 'Tin nhắn' : 'Bình luận'}">
                             <i data-lucide="${isInbox ? 'message-circle' : 'message-square'}"></i>
                         </span>
+                        <!-- Remove from Tpos saved button - only show in tpos-saved filter -->
+                        ${this.filterType === 'tpos-saved' ? `
+                        <button class="pk-remove-tpos-btn" title="Xóa khỏi Lưu Tpos" onclick="event.stopPropagation(); window.pancakeChatManager.removeFromTposSaved('${customer.psid || customer.id || conv.from?.id || ''}')">
+                            <i data-lucide="minus"></i>
+                        </button>
+                        ` : ''}
                     </div>
                 </div>
 
@@ -1653,6 +1676,16 @@ class PancakeChatManager {
                 this.hideContextMenu();
             }
         });
+
+        // Listen for TPOS saved list updates
+        window.addEventListener('tposSavedListUpdated', async () => {
+            console.log('[PANCAKE-CHAT] TPOS saved list updated, refreshing...');
+            // Reload saved IDs and re-render if on tpos-saved filter
+            if (this.filterType === 'tpos-saved') {
+                await this.loadTposSavedCustomerIds();
+                this.renderConversationList();
+            }
+        });
     }
 
     /**
@@ -1667,6 +1700,15 @@ class PancakeChatManager {
             menu.style.display = 'block';
             menu.style.left = `${x}px`;
             menu.style.top = `${y}px`;
+
+            // Show/hide "Xóa khỏi Lưu Tpos" option based on filter
+            const tposSavedDivider = menu.querySelector('.pk-tpos-saved-divider');
+            const tposSavedAction = menu.querySelector('.pk-tpos-saved-action');
+            if (tposSavedDivider && tposSavedAction) {
+                const showTposAction = this.filterType === 'tpos-saved';
+                tposSavedDivider.style.display = showTposAction ? 'block' : 'none';
+                tposSavedAction.style.display = showTposAction ? 'flex' : 'none';
+            }
 
             // Initialize lucide icons
             if (typeof lucide !== 'undefined') {
@@ -1740,6 +1782,14 @@ class PancakeChatManager {
                 // Show tags submenu
                 await this.showTagsSubmenu(pageId, convId);
                 return; // Don't hide menu
+            } else if (action === 'remove-tpos-saved') {
+                // Remove from TPOS saved list
+                const conv = this.conversations.find(c => c.id === convId);
+                const customer = conv?.customers?.[0] || {};
+                const customerId = customer.psid || customer.id || conv?.from?.id;
+                if (customerId) {
+                    this.removeFromTposSaved(customerId);
+                }
             }
         } catch (error) {
             console.error('[PANCAKE-CHAT] Context menu action error:', error);
@@ -1949,9 +1999,15 @@ class PancakeChatManager {
         this.renderConversationList();
     }
 
-    setFilterType(type) {
+    async setFilterType(type) {
         this.filterType = type;
         console.log('[PANCAKE-CHAT] Filter changed to:', this.filterType);
+
+        // Load TPOS saved customer IDs when switching to "Lưu Tpos" tab
+        if (type === 'tpos-saved') {
+            await this.loadTposSavedCustomerIds();
+        }
+
         this.renderConversationList();
     }
 
@@ -3241,6 +3297,74 @@ class PancakeChatManager {
         }
     }
 
+    /**
+     * Load TPOS saved customer IDs from database
+     * Called when switching to "Lưu Tpos" tab
+     */
+    async loadTposSavedCustomerIds() {
+        try {
+            console.log('[PANCAKE-CHAT] Loading TPOS saved customer IDs from database...');
+            const response = await fetch(`${this.proxyBaseUrl}/api/tpos-saved/ids`);
+            const data = await response.json();
+
+            if (data.success) {
+                this.tposSavedCustomerIds = new Set(data.data);
+                console.log('[PANCAKE-CHAT] Loaded', this.tposSavedCustomerIds.size, 'saved customer IDs');
+            } else {
+                console.error('[PANCAKE-CHAT] API error:', data.message);
+                this.tposSavedCustomerIds = new Set();
+            }
+        } catch (e) {
+            console.error('[PANCAKE-CHAT] Error loading TPOS saved IDs:', e);
+            this.tposSavedCustomerIds = new Set();
+        }
+    }
+
+    /**
+     * Remove customer from TPOS saved list via API
+     * @param {string} customerId - The customer ID to remove
+     */
+    async removeFromTposSaved(customerId) {
+        console.log('[PANCAKE-CHAT] removeFromTposSaved called with:', customerId);
+
+        if (!customerId) {
+            console.warn('[PANCAKE-CHAT] No customerId provided to removeFromTposSaved');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.proxyBaseUrl}/api/tpos-saved/${encodeURIComponent(customerId)}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                console.log('[PANCAKE-CHAT] Removed from database:', customerId);
+
+                // Update local cache
+                this.tposSavedCustomerIds.delete(customerId);
+
+                // Re-render if we're on the tpos-saved filter
+                if (this.filterType === 'tpos-saved') {
+                    this.renderConversationList();
+                }
+
+                if (window.notificationManager) {
+                    window.notificationManager.show('Đã xóa khỏi Lưu Tpos', 'success');
+                }
+            } else {
+                console.error('[PANCAKE-CHAT] API error:', data.message);
+                if (window.notificationManager) {
+                    window.notificationManager.show(data.message || 'Lỗi khi xóa', 'error');
+                }
+            }
+        } catch (e) {
+            console.error('[PANCAKE-CHAT] Error removing from TPOS saved:', e);
+            if (window.notificationManager) {
+                window.notificationManager.show('Lỗi kết nối server', 'error');
+            }
+        }
+    }
 
     formatMessageTime(timestamp) {
         if (!timestamp) return '';

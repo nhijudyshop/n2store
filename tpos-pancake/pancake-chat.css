@@ -596,6 +596,32 @@
     color: #ea580c;
 }
 
+/* Remove from Tpos saved button */
+.pk-remove-tpos-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: #fee2e2;
+    color: #dc2626;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.pk-remove-tpos-btn:hover {
+    background: #dc2626;
+    color: white;
+    transform: scale(1.1);
+}
+
+.pk-remove-tpos-btn i {
+    width: 14px;
+    height: 14px;
+}
+
 /* Keep original action buttons for backwards compatibility */
 .pk-action-buttons {
     display: flex;
