@@ -2705,11 +2705,11 @@ class PancakeChatManager {
     async initializeWebSocket() {
         try {
             // Check if server mode is enabled (handled by realtime-manager.js)
-            // In server mode, realtime-manager.js connects to wss://n2store-fallback.onrender.com
+            // In server mode, realtime-manager.js connects to wss://n2store-realtime.onrender.com
             // which proxies Pancake WebSocket events. No need for browser WebSocket.
             if (window.chatAPISettings && window.chatAPISettings.getRealtimeMode() === 'server') {
                 console.log('[PANCAKE-SOCKET] Server mode enabled, skipping browser WebSocket');
-                console.log('[PANCAKE-SOCKET] ✅ Using realtime-manager.js for WebSocket via wss://n2store-fallback.onrender.com');
+                console.log('[PANCAKE-SOCKET] ✅ Using realtime-manager.js for WebSocket via wss://n2store-realtime.onrender.com');
                 // Start auto-refresh as backup
                 this.startAutoRefresh();
                 return true;

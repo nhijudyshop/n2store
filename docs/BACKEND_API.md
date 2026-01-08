@@ -103,8 +103,8 @@ Server tự động kết nối lại WebSocket sau restart:
 ### Kiểm tra trạng thái
 
 ```bash
-curl https://n2store-api-fallback.onrender.com/api/realtime/status
-curl https://n2store-api-fallback.onrender.com/api/realtime/tpos/status
+curl https://n2store-realtime.onrender.com/api/realtime/status
+curl https://n2store-realtime.onrender.com/api/realtime/tpos/status
 ```
 
 ---

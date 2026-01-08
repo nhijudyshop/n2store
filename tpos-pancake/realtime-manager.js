@@ -150,9 +150,10 @@ class RealtimeManager {
                 // If using Cloudflare, we still need to connect WS to Render directly or via a WS-compatible proxy
                 // Cloudflare Workers don't easily proxy WebSockets without specific setup.
                 // For now, let's connect WS directly to Render (since WS doesn't have same CORS issues as fetch)
+                // Use dedicated realtime server
                 const wsUrl = mode === 'localhost'
                     ? 'ws://localhost:3000'
-                    : 'wss://n2store-fallback.onrender.com';
+                    : 'wss://n2store-realtime.onrender.com';
 
                 this.connectToProxyServer(wsUrl);
 
