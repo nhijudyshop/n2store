@@ -418,6 +418,29 @@ const PAGES_REGISTRY = {
         }
     },
 
+    "issue-tracking": {
+        id: "issue-tracking",
+        name: "CSKH - Quản Lý Sự Vụ",
+        shortName: "CSKH",
+        icon: "headphones",
+        href: "../issue-tracking/index.html",
+        description: "Chăm sóc khách hàng - Quản lý sự vụ, hoàn tiền, đổi COD",
+        adminOnly: true,
+        category: "admin",
+        detailedPermissions: {
+            view: { name: "Xem sự vụ", icon: "eye", description: "Xem danh sách sự vụ" },
+            create: { name: "Tạo sự vụ", icon: "plus-circle", description: "Tạo sự vụ mới" },
+            edit: { name: "Sửa sự vụ", icon: "edit", description: "Chỉnh sửa thông tin sự vụ" },
+            delete: { name: "Xóa sự vụ", icon: "trash-2", description: "Xóa sự vụ khỏi hệ thống" },
+            searchOrder: { name: "Tìm đơn hàng", icon: "search", description: "Tìm kiếm đơn hàng theo SĐT/mã đơn" },
+            processRefund: { name: "Xử lý hoàn tiền", icon: "dollar-sign", description: "Thực hiện hoàn tiền cho khách" },
+            receiveGoods: { name: "Nhận hàng hoàn", icon: "package-check", description: "Xác nhận nhận hàng hoàn" },
+            updateStatus: { name: "Cập nhật trạng thái", icon: "refresh-cw", description: "Thay đổi trạng thái sự vụ" },
+            viewFinance: { name: "Xem tài chính", icon: "wallet", description: "Xem thông tin tài chính sự vụ" },
+            export: { name: "Xuất báo cáo", icon: "download", description: "Export danh sách sự vụ" }
+        }
+    },
+
     "invoice-compare": {
         id: "invoice-compare",
         name: "So Sánh Đơn Hàng",
