@@ -3225,9 +3225,9 @@ window.UnifiedNavigationManager = UnifiedNavigationManager;
 
 window.APP_VERSION = {
     version: '1.0.0',
-    build: 8,
-    timestamp: '2025-11-18T12:09:20.187Z',
-    branch: 'claude/remove-local-storage-tab3-0177sTRWFVomHmtjVqnzazEo'
+    build: 9,
+    timestamp: '2026-01-08T12:00:00.000Z',
+    branch: 'main'
 };
 
 // console.log(`[VERSION] App version: ${window.APP_VERSION.version} (build ${window.APP_VERSION.build})`);
@@ -3394,35 +3394,27 @@ class VersionChecker {
 
     /**
      * Force logout: clear storage and redirect to login
+     * CHANGED: Now only shows notification, user must manually reload
      */
     forceLogout() {
-        console.log('[VERSION] 🚨 Forcing logout due to version mismatch...');
+        console.log('[VERSION] ⚠️ Version mismatch detected, showing notification...');
 
-        // Show notification if available
+        // Show notification for user to manually reload
         if (window.notificationManager) {
             window.notificationManager.warning(
-                'Phiên bản mới đã được cập nhật. Đang đăng xuất để tải lại...',
+                'Có phiên bản mới! Vui lòng nhấn F5 hoặc reload trang để cập nhật.',
                 0,
                 'Cập nhật phiên bản',
-                { persistent: true, showOverlay: true }
+                { persistent: true }
             );
+        } else {
+            // Fallback: show alert
+            alert('Có phiên bản mới! Vui lòng reload trang để cập nhật.');
         }
 
-        // Wait a bit for notification to show
-        setTimeout(() => {
-            // Clear all localStorage
-            localStorage.clear();
-            console.log('[VERSION] ✅ localStorage cleared');
-
-            // Clear sessionStorage
-            sessionStorage.clear();
-            console.log('[VERSION] ✅ sessionStorage cleared');
-
-            // Redirect to login page
-            const loginUrl = 'https://nhijudyshop.github.io/n2store/index.html';
-            console.log('[VERSION] 🔄 Redirecting to:', loginUrl);
-            window.location.href = loginUrl;
-        }, 1500);
+        // DO NOT auto-logout - let user decide when to reload
+        // This prevents unexpected logouts
+        console.log('[VERSION] User should manually reload to update');
     }
 
     /**
