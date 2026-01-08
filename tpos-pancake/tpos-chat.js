@@ -753,24 +753,17 @@ class TposChatManager {
 
     /**
      * Get avatar URL for a Facebook user
-     * Uses Page Access Token to get profile picture from Facebook
+     * Only uses direct URL from SSE - can't build URL for old comments
+     * Facebook profile picture URLs require signed parameters (eai, ext, hash)
      */
     getAvatarUrl(userId, directUrl = null) {
-        // 1. If direct URL provided (from SSE), use it
+        // Only use direct URL from SSE stream (has signed params)
+        // Can't build avatar URL for old comments - Facebook requires signed URLs
         if (directUrl && directUrl.startsWith('http')) {
             return directUrl;
         }
 
-        // 2. If no userId, return null (will use placeholder)
-        if (!userId) {
-            return null;
-        }
-
-        // 3. Build Facebook profile picture URL using Page Access Token
-        if (this.selectedPage?.Facebook_PageToken) {
-            return `https://platform-lookaside.fbsbx.com/platform/profilepic/?psid=${userId}&access_token=${this.selectedPage.Facebook_PageToken}&height=50&width=50`;
-        }
-
+        // Return null - will use gradient placeholder
         return null;
     }
 
