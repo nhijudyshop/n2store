@@ -167,8 +167,15 @@
 }
 
 @keyframes tpos-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 .tpos-header-btn {
@@ -379,7 +386,7 @@
     align-items: center;
     justify-content: center;
     border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Comment Content */
@@ -542,7 +549,9 @@
 }
 
 @keyframes tpos-spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .tpos-empty-state {
@@ -586,9 +595,11 @@
         background-color: rgba(124, 58, 237, 0.2);
         transform: translateX(-10px);
     }
+
     50% {
         background-color: rgba(124, 58, 237, 0.1);
     }
+
     100% {
         background-color: transparent;
         transform: translateX(0);
@@ -676,7 +687,7 @@
     background: white;
     border: 1px solid var(--tpos-border);
     border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     max-height: 400px;
     overflow-y: auto;
     z-index: 100;
@@ -791,8 +802,15 @@
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 /* Modal styles */
@@ -1282,8 +1300,13 @@
 }
 
 @keyframes tposHighlight {
-    0% { background: rgba(124, 58, 237, 0.3); }
-    100% { background: white; }
+    0% {
+        background: rgba(124, 58, 237, 0.3);
+    }
+
+    100% {
+        background: white;
+    }
 }
 
 /* Avatar */
@@ -1320,7 +1343,7 @@
     align-items: center;
     justify-content: center;
     border: 2px solid white;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .tpos-conv-avatar .channel-icon {
@@ -1519,7 +1542,8 @@
 
 /* Load More - Infinite Scroll Indicator */
 .tpos-load-more {
-    display: flex;
+    display: none !important;
+    /* HIDDEN: Thanh "Đang tải thêm..." */
     justify-content: center;
     padding: 12px;
     border-top: 1px solid var(--tpos-border);

@@ -84,7 +84,8 @@
    HEADER TABS
    ===================================================== */
 .pk-header-tabs {
-    display: flex;
+    display: none !important;
+    /* HIDDEN: Thanh navigation bar */
     align-items: center;
     justify-content: space-between;
     height: 56px;
@@ -1342,7 +1343,8 @@
    LOAD MORE MESSAGES
    ===================================================== */
 .pk-load-more-indicator {
-    display: flex;
+    display: none !important;
+    /* HIDDEN: Thanh "Đang tải thêm..." */
     align-items: center;
     justify-content: center;
     gap: 8px;
@@ -2200,10 +2202,14 @@
 }
 
 @keyframes pk-typing-bounce {
-    0%, 60%, 100% {
+
+    0%,
+    60%,
+    100% {
         transform: translateY(0);
         opacity: 0.5;
     }
+
     30% {
         transform: translateY(-4px);
         opacity: 1;

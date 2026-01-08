@@ -125,10 +125,10 @@ class PancakeChatManager {
             this.startAutoRefresh();
         }
 
-        // Request notification permission
-        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
+        // Request notification permission - DISABLED to remove browser popup
+        // if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        //     Notification.requestPermission();
+        // }
 
         console.log('[PANCAKE-CHAT] Initialized successfully');
         return true;
@@ -911,7 +911,7 @@ class PancakeChatManager {
         // Check if this is the currently active conversation
         const isActiveConversation = this.activeConversation &&
             (this.activeConversation.id === convId ||
-             this.activeConversation.id === updatedConv.id);
+                this.activeConversation.id === updatedConv.id);
 
         if (existingIndex !== -1) {
             // Update existing conversation data
@@ -2104,7 +2104,7 @@ class PancakeChatManager {
         if (savedRecent) {
             try {
                 this.emojiData.recent = JSON.parse(savedRecent);
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // Toggle emoji picker
