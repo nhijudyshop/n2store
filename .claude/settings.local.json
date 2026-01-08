@@ -25,7 +25,8 @@
       "Bash(git revert:*)",
       "Bash(git stash:*)",
       "Bash(Get-ChildItem:*)",
-      "Bash(Select-Object:*)"
+      "Bash(Select-Object:*)",
+      "Bash(ls:*)"
     ]
   }
 }

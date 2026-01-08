@@ -84,7 +84,8 @@
    HEADER TABS
    ===================================================== */
 .pk-header-tabs {
-    display: flex;
+    display: none !important;
+    /* HIDDEN: Thanh navigation bar */
     align-items: center;
     justify-content: space-between;
     height: 56px;
@@ -593,6 +594,32 @@
 .pk-icon-indicator.comment {
     background: #ffedd5;
     color: #ea580c;
+}
+
+/* Remove from Tpos saved button */
+.pk-remove-tpos-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: #fee2e2;
+    color: #dc2626;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.pk-remove-tpos-btn:hover {
+    background: #dc2626;
+    color: white;
+    transform: scale(1.1);
+}
+
+.pk-remove-tpos-btn i {
+    width: 14px;
+    height: 14px;
 }
 
 /* Keep original action buttons for backwards compatibility */
@@ -1342,7 +1369,8 @@
    LOAD MORE MESSAGES
    ===================================================== */
 .pk-load-more-indicator {
-    display: flex;
+    display: none !important;
+    /* HIDDEN: Thanh "Đang tải thêm..." */
     align-items: center;
     justify-content: center;
     gap: 8px;
@@ -2200,10 +2228,14 @@
 }
 
 @keyframes pk-typing-bounce {
-    0%, 60%, 100% {
+
+    0%,
+    60%,
+    100% {
         transform: translateY(0);
         opacity: 0.5;
     }
+
     30% {
         transform: translateY(-4px);
         opacity: 1;
@@ -2298,4 +2330,99 @@
 
 .pk-comment-action-btn.hidden {
     color: #f39c12;
+}
+
+/* =====================================================
+   PANCAKE MERGED HEADER - Single row header with title + page selector + actions
+   ===================================================== */
+.pk-merged-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #fffbeb 0%, #fffef5 100%);
+    border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+    flex-shrink: 0;
+}
+
+/* Pancake Title Section */
+.pk-title-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.pk-title-section .pk-icon {
+    width: 22px;
+    height: 22px;
+    color: #f59e0b;
+}
+
+.pk-title-section .pk-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f59e0b;
+}
+
+/* Adjust page selector for merged header */
+.pk-merged-header .pk-page-selector {
+    flex: 1;
+    min-width: 0;
+}
+
+.pk-merged-header .pk-page-selector-btn {
+    width: 100%;
+    max-width: 300px;
+}
+
+/* Header Actions for merged header */
+.pk-merged-header .pk-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* Action Icon Button */
+.pk-action-icon-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--pk-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.pk-action-icon-btn:hover {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+.pk-action-icon-btn i {
+    width: 18px;
+    height: 18px;
+}
+
+/* Responsive for merged header */
+@media (max-width: 600px) {
+    .pk-merged-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .pk-merged-header .pk-page-selector {
+        order: 3;
+        width: 100%;
+    }
+
+    .pk-merged-header .pk-page-selector-btn {
+        max-width: none;
+    }
 }

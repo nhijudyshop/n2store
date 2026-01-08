@@ -167,8 +167,15 @@
 }
 
 @keyframes tpos-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 .tpos-header-btn {
@@ -379,7 +386,7 @@
     align-items: center;
     justify-content: center;
     border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Comment Content */
@@ -542,7 +549,9 @@
 }
 
 @keyframes tpos-spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .tpos-empty-state {
@@ -586,9 +595,11 @@
         background-color: rgba(124, 58, 237, 0.2);
         transform: translateX(-10px);
     }
+
     50% {
         background-color: rgba(124, 58, 237, 0.1);
     }
+
     100% {
         background-color: transparent;
         transform: translateX(0);
@@ -676,7 +687,7 @@
     background: white;
     border: 1px solid var(--tpos-border);
     border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     max-height: 400px;
     overflow-y: auto;
     z-index: 100;
@@ -791,8 +802,15 @@
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 /* Modal styles */
@@ -1282,8 +1300,13 @@
 }
 
 @keyframes tposHighlight {
-    0% { background: rgba(124, 58, 237, 0.3); }
-    100% { background: white; }
+    0% {
+        background: rgba(124, 58, 237, 0.3);
+    }
+
+    100% {
+        background: white;
+    }
 }
 
 /* Avatar */
@@ -1320,7 +1343,7 @@
     align-items: center;
     justify-content: center;
     border: 2px solid white;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .tpos-conv-avatar .channel-icon {
@@ -1442,6 +1465,17 @@
     height: 16px;
 }
 
+/* Save to Tpos button - green color */
+.tpos-conv-actions .tpos-save-btn {
+    color: #16a34a;
+}
+
+.tpos-conv-actions .tpos-save-btn:hover {
+    background: #dcfce7;
+    border-color: #16a34a;
+    color: #16a34a;
+}
+
 /* Meta (time & status) */
 .tpos-conv-meta {
     display: flex;
@@ -1517,26 +1551,204 @@
     background: var(--tpos-primary-dark);
 }
 
-/* Load More */
+/* Load More - Infinite Scroll Indicator */
 .tpos-load-more {
-    display: flex;
+    display: none !important;
+    /* HIDDEN: Thanh "Đang tải thêm..." */
     justify-content: center;
-    padding: 16px;
+    padding: 12px;
     border-top: 1px solid var(--tpos-border);
 }
 
-.tpos-btn-load-more {
-    padding: 8px 24px;
-    background: white;
-    border: 1px solid var(--tpos-border);
-    border-radius: 6px;
+.tpos-loading-more {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 13px;
-    color: var(--tpos-text-primary);
+    color: var(--tpos-text-secondary);
+}
+
+.tpos-loading-more i {
+    width: 16px;
+    height: 16px;
+    color: var(--tpos-primary);
+}
+
+/* =====================================================
+   TPOS CHAT HEADER - Selectors Layout
+   ===================================================== */
+
+.tpos-chat-header {
+    flex-wrap: wrap;
+}
+
+.tpos-selectors {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.tpos-selectors .tpos-filter-select {
+    flex: 1;
+    min-width: 120px;
+    max-width: 200px;
+}
+
+.tpos-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* Avatar Image */
+.tpos-conv-avatar .avatar-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Avatar Placeholder with gradient */
+.tpos-conv-avatar .avatar-placeholder {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: white;
+    text-transform: uppercase;
+}
+
+/* SessionIndex Badge - Order number on avatar */
+.tpos-conv-avatar .session-index-badge {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    background: var(--tpos-badge-order, #dc2626);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    z-index: 5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .tpos-selectors {
+        flex-direction: column;
+    }
+
+    .tpos-selectors .tpos-filter-select {
+        max-width: none;
+    }
+
+    .tpos-chat-header {
+        padding: 8px 12px;
+    }
+}
+
+/* =====================================================
+   TPOS MERGED HEADER - Single row header with title + selectors + actions
+   ===================================================== */
+.tpos-merged-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #eff6ff 0%, #f8faff 100%);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+    flex-shrink: 0;
+}
+
+/* TPOS Title Section */
+.tpos-title-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.tpos-title-section .tpos-icon {
+    width: 22px;
+    height: 22px;
+    color: #3b82f6;
+}
+
+.tpos-title-section .tpos-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #3b82f6;
+}
+
+/* Adjust selectors for merged header */
+.tpos-merged-header .tpos-selectors {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+}
+
+.tpos-merged-header .tpos-filter-select {
+    padding: 6px 12px;
+    max-width: 200px;
+}
+
+/* Adjust header actions for merged header */
+.tpos-merged-header .tpos-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* New Expand Button */
+.tpos-btn-expand {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tpos-text-secondary);
     cursor: pointer;
     transition: all 0.15s;
 }
 
-.tpos-btn-load-more:hover {
-    background: var(--tpos-hover-bg);
-    border-color: var(--tpos-primary);
+.tpos-btn-expand:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+
+.tpos-btn-expand i {
+    width: 18px;
+    height: 18px;
+}
+
+/* Responsive for merged header */
+@media (max-width: 600px) {
+    .tpos-merged-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .tpos-merged-header .tpos-selectors {
+        order: 3;
+        width: 100%;
+    }
 }
