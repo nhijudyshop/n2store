@@ -408,12 +408,17 @@ class PancakeChatManager {
 
         // Filter by type
         if (this.filterType === 'tpos-saved') {
-            // Filter by saved customer IDs (loaded from database)
+            // Filter by saved customer IDs - check ALL possible ID fields
             filtered = filtered.filter(conv => {
-                // Try multiple ID fields: psid (Facebook), id, from.id
                 const customer = conv.customers?.[0] || {};
-                const customerId = customer.psid || customer.id || conv.from?.id || '';
-                return this.tposSavedCustomerIds.has(customerId);
+                // Check all possible ID fields - any match = include
+                const possibleIds = [
+                    conv.from?.id,
+                    conv.from_psid,
+                    customer.psid,
+                    customer.id
+                ].filter(Boolean);
+                return possibleIds.some(id => this.tposSavedCustomerIds.has(id));
             });
         } else if (this.filterType === 'inbox') {
             filtered = filtered.filter(conv => conv.type === 'INBOX');
@@ -492,7 +497,7 @@ class PancakeChatManager {
                         </span>
                         <!-- Remove from Tpos saved button - only show in tpos-saved filter -->
                         ${this.filterType === 'tpos-saved' ? `
-                        <button class="pk-remove-tpos-btn" title="Xóa khỏi Lưu Tpos" onclick="event.stopPropagation(); window.pancakeChatManager.removeFromTposSaved('${customer.psid || customer.id || conv.from?.id || ''}')">
+                        <button class="pk-remove-tpos-btn" title="Xóa khỏi Lưu Tpos" onclick="event.stopPropagation(); window.pancakeChatManager.removeFromTposSaved('${conv.from?.id || conv.from_psid || customer.psid || customer.id || ''}')">
                             <i data-lucide="minus"></i>
                         </button>
                         ` : ''}
@@ -1783,10 +1788,10 @@ class PancakeChatManager {
                 await this.showTagsSubmenu(pageId, convId);
                 return; // Don't hide menu
             } else if (action === 'remove-tpos-saved') {
-                // Remove from TPOS saved list
+                // Remove from TPOS saved list - use from.id first
                 const conv = this.conversations.find(c => c.id === convId);
                 const customer = conv?.customers?.[0] || {};
-                const customerId = customer.psid || customer.id || conv?.from?.id;
+                const customerId = conv?.from?.id || conv?.from_psid || customer.psid || customer.id;
                 if (customerId) {
                     this.removeFromTposSaved(customerId);
                 }
@@ -2001,7 +2006,6 @@ class PancakeChatManager {
 
     async setFilterType(type) {
         this.filterType = type;
-        console.log('[PANCAKE-CHAT] Filter changed to:', this.filterType);
 
         // Load TPOS saved customer IDs when switching to "Lưu Tpos" tab
         if (type === 'tpos-saved') {
