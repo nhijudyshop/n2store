@@ -12,10 +12,12 @@ class TposChatManager {
         // Selected data
         this.selectedTeamId = null;
         this.selectedPage = null;
+        this.selectedPages = []; // Support multiple pages
         this.selectedCampaign = null;
 
         // Data lists
         this.crmTeams = [];
+        this.allPages = []; // All available pages
         this.liveCampaigns = [];
 
         // Pagination
@@ -296,6 +298,39 @@ class TposChatManager {
     }
 
     /**
+     * Load Live Campaigns from ALL pages
+     */
+    async loadLiveCampaignsFromAllPages() {
+        try {
+            const token = await this.getToken();
+            if (!token) return;
+
+            const response = await fetch(`${this.proxyBaseUrl}/facebook/live-campaigns?top=50`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+            const data = await response.json();
+            const allPageIds = this.allPages.map(p => p.Facebook_PageId);
+
+            // Filter campaigns that belong to any of the selected pages
+            this.liveCampaigns = (data.value || []).filter(c =>
+                allPageIds.includes(c.Facebook_UserId) && c.Facebook_LiveId
+            );
+
+            console.log('[TPOS-CHAT] Loaded Live Campaigns from all pages:', this.liveCampaigns.length);
+            this.renderLiveCampaignOptions();
+
+        } catch (error) {
+            console.error('[TPOS-CHAT] Error loading Live Campaigns:', error);
+        }
+    }
+
+    /**
      * Load comments for selected campaign
      */
     async loadComments(append = false) {
@@ -536,6 +571,14 @@ class TposChatManager {
             return true;
         }
 
+        // Check if from any selected pages (multi-page mode)
+        if (this.selectedPages.length > 0) {
+            const selectedPageIds = this.selectedPages.map(p => p.Facebook_PageId);
+            if (selectedPageIds.includes(fromId)) {
+                return true;
+            }
+        }
+
         // Check if from any Pancake-managed pages
         if (window.pancakeDataManager?.pageIds) {
             if (window.pancakeDataManager.pageIds.includes(fromId)) {
@@ -601,7 +644,28 @@ class TposChatManager {
         const select = document.getElementById('tposCrmTeamSelect');
         if (!select) return;
 
+        // Collect all pages first
+        this.allPages = [];
+        this.crmTeams.forEach(team => {
+            if (team.Childs && team.Childs.length > 0) {
+                team.Childs.forEach(page => {
+                    if (page.Facebook_PageId && page.Facebook_TypeId === 'Page') {
+                        this.allPages.push({
+                            ...page,
+                            teamId: team.Id,
+                            teamName: team.Name
+                        });
+                    }
+                });
+            }
+        });
+
         let options = '<option value="">Chọn Page...</option>';
+
+        // Add "All Pages" option if more than 1 page
+        if (this.allPages.length > 1) {
+            options += `<option value="all">📋 Tất cả Pages (${this.allPages.length})</option>`;
+        }
 
         this.crmTeams.forEach(team => {
             // Add parent team as optgroup
@@ -755,29 +819,25 @@ class TposChatManager {
         if (!value) {
             this.selectedTeamId = null;
             this.selectedPage = null;
+            this.selectedPages = [];
             this.liveCampaigns = [];
             this.renderLiveCampaignOptions();
             return;
         }
 
-        const [teamId, pageId] = value.split(':');
-        this.selectedTeamId = parseInt(teamId);
+        // Handle "all pages" selection
+        if (value === 'all') {
+            this.selectedTeamId = null;
+            this.selectedPage = this.allPages[0] || null; // Use first page as primary
+            this.selectedPages = [...this.allPages]; // All pages selected
 
-        // Find the selected page
-        for (const team of this.crmTeams) {
-            if (team.Id === this.selectedTeamId) {
-                this.selectedPage = team.Childs?.find(p => p.Id === parseInt(pageId));
-                break;
-            }
-        }
-
-        if (this.selectedPage) {
-            console.log('[TPOS-CHAT] Selected page:', this.selectedPage.Facebook_PageName);
+            console.log('[TPOS-CHAT] Selected ALL pages:', this.allPages.length);
 
             // Save to localStorage
             localStorage.setItem('tpos_selected_page', value);
 
-            await this.loadLiveCampaigns(this.selectedPage.Facebook_PageId);
+            // Load campaigns from all pages
+            await this.loadLiveCampaignsFromAllPages();
 
             // Auto-select first campaign if available
             if (this.liveCampaigns.length > 0) {
@@ -788,6 +848,40 @@ class TposChatManager {
                 }
                 await this.onLiveCampaignChange(firstCampaign.Id);
                 return;
+            }
+        } else {
+            // Single page selection
+            const [teamId, pageId] = value.split(':');
+            this.selectedTeamId = parseInt(teamId);
+
+            // Find the selected page
+            for (const team of this.crmTeams) {
+                if (team.Id === this.selectedTeamId) {
+                    this.selectedPage = team.Childs?.find(p => p.Id === parseInt(pageId));
+                    break;
+                }
+            }
+
+            this.selectedPages = this.selectedPage ? [this.selectedPage] : [];
+
+            if (this.selectedPage) {
+                console.log('[TPOS-CHAT] Selected page:', this.selectedPage.Facebook_PageName);
+
+                // Save to localStorage
+                localStorage.setItem('tpos_selected_page', value);
+
+                await this.loadLiveCampaigns(this.selectedPage.Facebook_PageId);
+
+                // Auto-select first campaign if available
+                if (this.liveCampaigns.length > 0) {
+                    const firstCampaign = this.liveCampaigns[0];
+                    const campaignSelect = document.getElementById('tposLiveCampaignSelect');
+                    if (campaignSelect) {
+                        campaignSelect.value = firstCampaign.Id;
+                    }
+                    await this.onLiveCampaignChange(firstCampaign.Id);
+                    return;
+                }
             }
         }
 
@@ -813,7 +907,13 @@ class TposChatManager {
         this.selectedCampaign = this.liveCampaigns.find(c => c.Id === campaignId);
 
         if (this.selectedCampaign) {
-            console.log('[TPOS-CHAT] Selected campaign:', this.selectedCampaign.Name);
+            // When multiple pages selected, update selectedPage to match campaign's page
+            if (this.selectedPages.length > 1) {
+                const campaignPageId = this.selectedCampaign.Facebook_UserId;
+                this.selectedPage = this.allPages.find(p => p.Facebook_PageId === campaignPageId) || this.selectedPage;
+            }
+
+            console.log('[TPOS-CHAT] Selected campaign:', this.selectedCampaign.Name, '- Page:', this.selectedPage?.Facebook_PageName);
             await this.loadComments();
         }
     }
