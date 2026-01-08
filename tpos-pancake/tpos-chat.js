@@ -26,8 +26,9 @@ class TposChatManager {
         this.eventSource = null;
         this.sseConnected = false;
 
-        // API config
-        this.apiBaseUrl = 'https://tomato.tpos.vn';
+        // API config - use render.com proxy to avoid CORS
+        this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
+        this.tposBaseUrl = 'https://tomato.tpos.vn';
     }
 
     /**
@@ -168,7 +169,7 @@ class TposChatManager {
     }
 
     /**
-     * Load CRM Teams with Pages
+     * Load CRM Teams with Pages (via proxy)
      */
     async loadCRMTeams() {
         try {
@@ -178,7 +179,7 @@ class TposChatManager {
                 return;
             }
 
-            const response = await fetch(`${this.apiBaseUrl}/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs`, {
+            const response = await fetch(`${this.proxyBaseUrl}/facebook/crm-teams`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
@@ -199,18 +200,17 @@ class TposChatManager {
     }
 
     /**
-     * Load Live Campaigns for selected page
+     * Load Live Campaigns for selected page (via proxy)
      */
     async loadLiveCampaigns(pageId) {
         try {
             const token = await this.getToken();
             if (!token) return;
 
-            const response = await fetch(`${this.apiBaseUrl}/odata/SaleOnline_LiveCampaign/ODataService.GetAvailables?$orderby=DateCreated%20desc&$top=20`, {
+            const response = await fetch(`${this.proxyBaseUrl}/facebook/live-campaigns?top=20`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8'
+                    'Accept': 'application/json'
                 }
             });
 
@@ -262,16 +262,18 @@ class TposChatManager {
 
             let url;
             if (append && this.nextPageUrl) {
-                url = this.nextPageUrl;
+                // For pagination, extract cursor and use proxy
+                const nextUrl = new URL(this.nextPageUrl);
+                const after = nextUrl.searchParams.get('after');
+                url = `${this.proxyBaseUrl}/facebook/comments?pageid=${pageId}&postId=${postId}&limit=50${after ? '&after=' + encodeURIComponent(after) : ''}`;
             } else {
-                url = `${this.apiBaseUrl}/api/facebook-graph/comment?pageid=${pageId}&facebook_type=Page&postId=${postId}&limit=50&order=reverse_chronological`;
+                url = `${this.proxyBaseUrl}/facebook/comments?pageid=${pageId}&postId=${postId}&limit=50`;
             }
 
             const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'Accept': '*/*',
-                    'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8'
+                    'Accept': 'application/json'
                 }
             });
 
@@ -329,7 +331,7 @@ class TposChatManager {
     // =====================================================
 
     /**
-     * Start SSE connection for realtime comments
+     * Start SSE connection for realtime comments (via proxy)
      */
     startSSE() {
         if (!this.selectedPage || !this.selectedCampaign) return;
@@ -347,9 +349,11 @@ class TposChatManager {
                 return;
             }
 
-            const sseUrl = `${this.apiBaseUrl}/api/facebook-graph/comment/stream?pageId=${pageId}&facebook_Type=Page&postId=${postId}&access_token=${token}`;
+            // Use proxy for SSE to avoid CORS
+            // Note: EventSource doesn't support custom headers, so we pass token in URL
+            const sseUrl = `${this.proxyBaseUrl}/facebook/comments/stream?pageid=${pageId}&postId=${postId}&token=${encodeURIComponent(token)}`;
 
-            console.log('[TPOS-CHAT] Starting SSE connection...');
+            console.log('[TPOS-CHAT] Starting SSE connection via proxy...');
 
             this.eventSource = new EventSource(sseUrl);
 
