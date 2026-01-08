@@ -860,12 +860,13 @@ async function fetchAndUpdateIfChanged(cachedData) {
 }
 
 // Render current view based on viewMode (no API call)
-// viewMode is defined in index.html: 'all', 'visible', 'hidden'
+// viewMode is defined in index.html: 'all', 'visible', 'hidden', 'no-phone'
 function renderCurrentView() {
     // Filter data based on viewMode
     // 'all': Show ALL transactions (default)
     // 'visible': Show only non-hidden transactions
     // 'hidden': Show only hidden transactions
+    // 'no-phone': Show only transactions without phone info
     let dataToRender;
 
     // Use global viewMode variable (defined in index.html)
@@ -877,6 +878,13 @@ function renderCurrentView() {
             break;
         case 'visible':
             dataToRender = allLoadedData.filter(item => !item.is_hidden);
+            break;
+        case 'no-phone':
+            // Filter transactions without phone info
+            dataToRender = allLoadedData.filter(item => {
+                // Check if customer_phone is missing or empty
+                return !item.customer_phone || item.customer_phone === '' || item.customer_phone === 'Chưa có';
+            });
             break;
         case 'all':
         default:
@@ -890,12 +898,21 @@ function renderCurrentView() {
     renderTable(dataToRender, skipGapDetection);
 }
 
-// Update hidden count badge
+// Update hidden count and no-phone count badges
 function updateHiddenCount() {
     const hiddenCount = allLoadedData.filter(item => item.is_hidden).length;
-    const countEl = document.getElementById('hiddenCount');
-    if (countEl) {
-        countEl.textContent = hiddenCount > 0 ? `(${hiddenCount} GD đã ẩn)` : '';
+    const hiddenEl = document.getElementById('hiddenCount');
+    if (hiddenEl) {
+        hiddenEl.textContent = hiddenCount > 0 ? `(${hiddenCount} GD đã ẩn)` : '';
+    }
+
+    // Update no-phone count
+    const noPhoneCount = allLoadedData.filter(item => {
+        return !item.customer_phone || item.customer_phone === '' || item.customer_phone === 'Chưa có';
+    }).length;
+    const noPhoneEl = document.getElementById('noPhoneCount');
+    if (noPhoneEl) {
+        noPhoneEl.textContent = noPhoneCount > 0 ? `(${noPhoneCount})` : '';
     }
 }
 
