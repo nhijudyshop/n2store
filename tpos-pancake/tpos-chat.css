@@ -1634,16 +1634,6 @@
     z-index: 5;
 }
 
-/* Hidden Comment State */
-.tpos-conversation-item.is-hidden {
-    opacity: 0.6;
-    background: #f8fafc;
-}
-
-.tpos-conversation-item.is-hidden:hover {
-    opacity: 0.8;
-}
-
 /* Responsive adjustments */
 @media (max-width: 480px) {
     .tpos-selectors {

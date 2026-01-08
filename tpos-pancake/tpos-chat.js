@@ -49,6 +49,27 @@ class TposChatManager {
 
         // Load CRM Teams
         await this.loadCRMTeams();
+
+        // Restore saved page selection from localStorage
+        this.restoreSelection();
+    }
+
+    /**
+     * Restore saved selection from localStorage
+     */
+    restoreSelection() {
+        const savedPage = localStorage.getItem('tpos_selected_page');
+        if (savedPage) {
+            const crmSelect = document.getElementById('tposCrmTeamSelect');
+            if (crmSelect) {
+                // Check if the saved value exists in options
+                const optionExists = Array.from(crmSelect.options).some(opt => opt.value === savedPage);
+                if (optionExists) {
+                    crmSelect.value = savedPage;
+                    this.onCrmTeamChange(savedPage);
+                }
+            }
+        }
     }
 
     /**
@@ -724,7 +745,22 @@ class TposChatManager {
 
         if (this.selectedPage) {
             console.log('[TPOS-CHAT] Selected page:', this.selectedPage.Facebook_PageName);
+
+            // Save to localStorage
+            localStorage.setItem('tpos_selected_page', value);
+
             await this.loadLiveCampaigns(this.selectedPage.Facebook_PageId);
+
+            // Auto-select first campaign if available
+            if (this.liveCampaigns.length > 0) {
+                const firstCampaign = this.liveCampaigns[0];
+                const campaignSelect = document.getElementById('tposLiveCampaignSelect');
+                if (campaignSelect) {
+                    campaignSelect.value = firstCampaign.Id;
+                }
+                await this.onLiveCampaignChange(firstCampaign.Id);
+                return;
+            }
         }
 
         // Reset campaign selection
