@@ -619,9 +619,13 @@
     <script src="customer-info.js"></script>
     <script src="main.js"></script>
 
-    <!-- Initialize Lucide Icons -->
+    <!-- Initialize Lucide Icons and View Mode -->
     <script>
         lucide.createIcons();
+        // Initialize view mode tabs from localStorage
+        if (typeof initViewMode === 'function') {
+            initViewMode();
+        }
     </script>
 </body>
 
