@@ -231,7 +231,10 @@ app.get('/api/pages/:pageId/conversations', async (req, res) => {
         const token = req.query.page_access_token || await getPageToken(pageId);
 
         if (!token) {
-            return res.status(400).json({ success: false, error: 'page_access_token required' });
+            return res.status(400).json({
+                success: false,
+                error: `No token found for page ${pageId}. Please add token via POST /api/tokens`
+            });
         }
 
         const fields = 'id,participants,updated_time,unread_count,snippet,can_reply';
@@ -289,7 +292,10 @@ app.get('/api/conversations/:convId/messages', async (req, res) => {
         const token = page_access_token || await getPageToken(page_id);
 
         if (!token) {
-            return res.status(400).json({ success: false, error: 'page_access_token required' });
+            return res.status(400).json({
+                success: false,
+                error: `No token found for page ${page_id}. Please add token via POST /api/tokens`
+            });
         }
 
         const fields = 'id,message,from,created_time,attachments';
@@ -331,7 +337,7 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
         const token = page_access_token || await getPageToken(pageId);
 
         if (!token) {
-            return res.status(400).json({ success: false, error: 'page_access_token required' });
+            return res.status(400).json({ success: false, error: `No token found for page. Please add token via POST /api/tokens` });
         }
 
         if (!recipient_id || !message) {
@@ -372,7 +378,7 @@ app.get('/api/pages/:pageId/feed', async (req, res) => {
         const token = req.query.page_access_token || await getPageToken(pageId);
 
         if (!token) {
-            return res.status(400).json({ success: false, error: 'page_access_token required' });
+            return res.status(400).json({ success: false, error: `No token found for page. Please add token via POST /api/tokens` });
         }
 
         const fields = 'id,message,created_time,permalink_url,comments.limit(0).summary(true)';
@@ -401,7 +407,7 @@ app.get('/api/posts/:postId/comments', async (req, res) => {
         const token = page_access_token || await getPageToken(page_id);
 
         if (!token) {
-            return res.status(400).json({ success: false, error: 'page_access_token required' });
+            return res.status(400).json({ success: false, error: `No token found for page. Please add token via POST /api/tokens` });
         }
 
         const fields = 'id,message,from,created_time,is_hidden,can_hide,can_reply_privately';
@@ -451,7 +457,7 @@ app.post('/api/comments/:commentId/reply', async (req, res) => {
         const token = page_access_token || await getPageToken(page_id);
 
         if (!token) {
-            return res.status(400).json({ success: false, error: 'page_access_token required' });
+            return res.status(400).json({ success: false, error: `No token found for page. Please add token via POST /api/tokens` });
         }
 
         if (!message) {
