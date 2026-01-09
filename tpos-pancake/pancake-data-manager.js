@@ -3161,6 +3161,215 @@ class PancakeDataManager {
     async fetchConversationsByFbId(pageId, fbId) {
         return this.fetchConversationsByCustomerFbId(pageId, fbId);
     }
+
+    // =====================================================
+    // N2STORE SERVER MODE - Facebook Graph API Direct
+    // =====================================================
+
+    /**
+     * Check if N2Store server mode is active
+     * @returns {boolean}
+     */
+    isN2StoreMode() {
+        return window.pancakeChatManager?.serverMode === 'n2store';
+    }
+
+    /**
+     * Get N2Store server URL
+     * @returns {string}
+     */
+    getN2StoreUrl() {
+        return window.pancakeChatManager?.n2storeUrl || 'https://n2store-facebook.onrender.com';
+    }
+
+    /**
+     * Get page access token for N2Store mode
+     * @param {string} pageId - Page ID
+     * @returns {string|null}
+     */
+    getPageAccessToken(pageId) {
+        if (!window.pancakeTokenManager) return null;
+        return window.pancakeTokenManager.getPageAccessToken(pageId);
+    }
+
+    /**
+     * Fetch pages from N2Store server (Facebook Graph API)
+     * @returns {Promise<Array>}
+     */
+    async fetchPagesN2Store() {
+        try {
+            const n2storeUrl = this.getN2StoreUrl();
+            const token = await this.getToken();
+
+            console.log('[N2STORE] Fetching pages from N2Store server...');
+
+            const response = await fetch(`${n2storeUrl}/api/pages?access_token=${token}`);
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch pages');
+            }
+
+            console.log(`[N2STORE] ✅ Fetched ${data.data.length} pages`);
+            return data.data;
+        } catch (error) {
+            console.error('[N2STORE] ❌ Error fetching pages:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch conversations from N2Store server (Facebook Graph API)
+     * @param {string} pageId - Page ID
+     * @returns {Promise<Array>}
+     */
+    async fetchConversationsN2Store(pageId) {
+        try {
+            const n2storeUrl = this.getN2StoreUrl();
+            const pageToken = this.getPageAccessToken(pageId);
+
+            if (!pageToken) {
+                console.warn('[N2STORE] No page access token for page:', pageId);
+                return [];
+            }
+
+            console.log('[N2STORE] Fetching conversations for page:', pageId);
+
+            const response = await fetch(
+                `${n2storeUrl}/api/pages/${pageId}/conversations?page_access_token=${pageToken}`
+            );
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch conversations');
+            }
+
+            console.log(`[N2STORE] ✅ Fetched ${data.data.length} conversations`);
+            return data.data;
+        } catch (error) {
+            console.error('[N2STORE] ❌ Error fetching conversations:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch all conversations from N2Store for all pages
+     * @returns {Promise<Array>}
+     */
+    async fetchAllConversationsN2Store() {
+        try {
+            // Get pages first
+            if (this.pageIds.length === 0) {
+                await this.fetchPages();
+            }
+
+            const allConversations = [];
+
+            for (const pageId of this.pageIds) {
+                const conversations = await this.fetchConversationsN2Store(pageId);
+                allConversations.push(...conversations);
+            }
+
+            // Sort by updated_at descending
+            allConversations.sort((a, b) => {
+                return new Date(b.updated_at) - new Date(a.updated_at);
+            });
+
+            this.conversations = allConversations;
+            this.lastFetchTime = Date.now();
+            this.buildConversationMap();
+
+            console.log(`[N2STORE] ✅ Total: ${allConversations.length} conversations`);
+            return allConversations;
+        } catch (error) {
+            console.error('[N2STORE] ❌ Error fetching all conversations:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch messages from N2Store server (Facebook Graph API)
+     * @param {string} pageId - Page ID
+     * @param {string} conversationId - Conversation ID
+     * @returns {Promise<Object>}
+     */
+    async fetchMessagesN2Store(pageId, conversationId) {
+        try {
+            const n2storeUrl = this.getN2StoreUrl();
+            const pageToken = this.getPageAccessToken(pageId);
+
+            if (!pageToken) {
+                console.warn('[N2STORE] No page access token for page:', pageId);
+                return { messages: [], pageMessages: [] };
+            }
+
+            console.log('[N2STORE] Fetching messages for conversation:', conversationId);
+
+            const response = await fetch(
+                `${n2storeUrl}/api/conversations/${conversationId}/messages?page_id=${pageId}&page_access_token=${pageToken}`
+            );
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch messages');
+            }
+
+            const messages = data.data?.messages || [];
+            console.log(`[N2STORE] ✅ Fetched ${messages.length} messages`);
+
+            return {
+                messages: messages,
+                pageMessages: messages,
+                from_page_messages: messages.filter(m => m.from?.id === pageId),
+                totalMessages: messages.length
+            };
+        } catch (error) {
+            console.error('[N2STORE] ❌ Error fetching messages:', error);
+            return { messages: [], pageMessages: [] };
+        }
+    }
+
+    /**
+     * Send message via N2Store server (Facebook Graph API)
+     * @param {string} pageId - Page ID
+     * @param {string} recipientId - Recipient PSID
+     * @param {string} message - Message text
+     * @returns {Promise<Object>}
+     */
+    async sendMessageN2Store(pageId, recipientId, message) {
+        try {
+            const n2storeUrl = this.getN2StoreUrl();
+            const pageToken = this.getPageAccessToken(pageId);
+
+            if (!pageToken) {
+                throw new Error('No page access token');
+            }
+
+            console.log('[N2STORE] Sending message to:', recipientId);
+
+            const response = await fetch(`${n2storeUrl}/api/pages/${pageId}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recipient_id: recipientId,
+                    message: message,
+                    page_access_token: pageToken
+                })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to send message');
+            }
+
+            console.log('[N2STORE] ✅ Message sent');
+            return data;
+        } catch (error) {
+            console.error('[N2STORE] ❌ Error sending message:', error);
+            throw error;
+        }
+    }
 }
 
 // Create global instance

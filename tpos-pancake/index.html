@@ -80,6 +80,18 @@
                     <i data-lucide="columns"></i>
                     <span>Tpos - Pancake</span>
                 </div>
+                <!-- Server Mode Indicator -->
+                <span id="serverModeIndicator" style="
+                    display: inline-block;
+                    padding: 2px 8px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: white;
+                    background: #3b82f6;
+                    margin-left: 8px;
+                    cursor: pointer;
+                " onclick="document.getElementById('settingsModal').style.display = 'block'" title="Click to change">Pancake</span>
             </div>
             <div class="top-bar-right">
                 <!-- Column Settings Button -->
@@ -283,6 +295,39 @@
                             style="flex: 1; font-size: 13px;">
                             <i data-lucide="save" style="width: 14px; height: 14px;"></i> Thêm Token
                         </button>
+                    </div>
+                </div>
+
+                <!-- Server Mode Switch -->
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 15px; color: #374151;">
+                            <i data-lucide="server" style="width: 16px; height: 16px; display: inline;"></i> Chat Server
+                        </h4>
+                    </div>
+                    <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
+                        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                            <label style="flex: 1; display: flex; align-items: center; padding: 12px; background: white; border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                   onclick="setServerMode('pancake')" id="serverModePancake">
+                                <input type="radio" name="serverMode" value="pancake" style="margin-right: 10px;" checked>
+                                <div>
+                                    <div style="font-weight: 600; color: #374151;">Pancake</div>
+                                    <div style="font-size: 11px; color: #6b7280;">Dùng Pancake API (mặc định)</div>
+                                </div>
+                            </label>
+                            <label style="flex: 1; display: flex; align-items: center; padding: 12px; background: white; border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                   onclick="setServerMode('n2store')" id="serverModeN2Store">
+                                <input type="radio" name="serverMode" value="n2store" style="margin-right: 10px;">
+                                <div>
+                                    <div style="font-weight: 600; color: #374151;">N2Store</div>
+                                    <div style="font-size: 11px; color: #6b7280;">Dùng Facebook API trực tiếp</div>
+                                </div>
+                            </label>
+                        </div>
+                        <div id="serverModeInfo" style="padding: 10px; background: #dbeafe; border-radius: 6px; font-size: 12px; color: #1e40af;">
+                            <i data-lucide="info" style="width: 14px; height: 14px; display: inline;"></i>
+                            Đang dùng: <strong>Pancake Server</strong>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -833,6 +878,80 @@
                 alert('❌ Lỗi: ' + error.message);
             }
         }
+
+        // =====================================================
+        // SERVER MODE SWITCH
+        // =====================================================
+
+        // Initialize server mode on page load
+        function initServerMode() {
+            const savedMode = localStorage.getItem('pancake_server_mode') || 'pancake';
+            setServerMode(savedMode, false);
+        }
+
+        // Set server mode
+        function setServerMode(mode, reload = true) {
+            localStorage.setItem('pancake_server_mode', mode);
+
+            // Update UI
+            const pancakeLabel = document.getElementById('serverModePancake');
+            const n2storeLabel = document.getElementById('serverModeN2Store');
+            const infoDiv = document.getElementById('serverModeInfo');
+
+            if (pancakeLabel && n2storeLabel) {
+                if (mode === 'pancake') {
+                    pancakeLabel.style.borderColor = '#3b82f6';
+                    pancakeLabel.style.background = '#eff6ff';
+                    n2storeLabel.style.borderColor = '#e5e7eb';
+                    n2storeLabel.style.background = 'white';
+                    pancakeLabel.querySelector('input').checked = true;
+                } else {
+                    n2storeLabel.style.borderColor = '#3b82f6';
+                    n2storeLabel.style.background = '#eff6ff';
+                    pancakeLabel.style.borderColor = '#e5e7eb';
+                    pancakeLabel.style.background = 'white';
+                    n2storeLabel.querySelector('input').checked = true;
+                }
+            }
+
+            if (infoDiv) {
+                if (mode === 'pancake') {
+                    infoDiv.innerHTML = '<i data-lucide="info" style="width: 14px; height: 14px; display: inline;"></i> Đang dùng: <strong>Pancake Server</strong>';
+                    infoDiv.style.background = '#dbeafe';
+                    infoDiv.style.color = '#1e40af';
+                } else {
+                    infoDiv.innerHTML = '<i data-lucide="info" style="width: 14px; height: 14px; display: inline;"></i> Đang dùng: <strong>N2Store Server</strong> (Facebook API trực tiếp)';
+                    infoDiv.style.background = '#dcfce7';
+                    infoDiv.style.color = '#166534';
+                }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+
+            // Update server mode indicator badge
+            const indicator = document.getElementById('serverModeIndicator');
+            if (indicator) {
+                indicator.textContent = mode === 'n2store' ? 'N2Store' : 'Pancake';
+                indicator.style.background = mode === 'n2store' ? '#10b981' : '#3b82f6';
+            }
+
+            // Update pancakeChatManager
+            if (window.pancakeChatManager) {
+                window.pancakeChatManager.serverMode = mode;
+                console.log('[SERVER-MODE] Switched to:', mode);
+
+                // Reload conversations if needed
+                if (reload) {
+                    window.pancakeChatManager.refresh();
+                }
+            }
+        }
+
+        // Initialize on settings modal open
+        const originalOpenSettings = openPancakeSettingsModal;
+        openPancakeSettingsModal = async function() {
+            await originalOpenSettings();
+            initServerMode();
+        };
 
         // Clear All Accounts
         async function clearAllPancakeAccounts() {

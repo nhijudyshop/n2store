@@ -15,6 +15,10 @@ class PancakeChatManager {
         this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
         this.tposPancakeUrl = 'https://n2store-tpos-pancake.onrender.com';
 
+        // Server mode: 'pancake' (default) or 'n2store' (Facebook Graph API)
+        this.serverMode = localStorage.getItem('pancake_server_mode') || 'pancake';
+        this.n2storeUrl = 'https://n2store-facebook.onrender.com';
+
         // TPOS saved customers cache
         this.tposSavedCustomerIds = new Set();
 
@@ -1379,10 +1383,16 @@ class PancakeChatManager {
         this.renderLoadingState();
 
         try {
-            // Fetch conversations
-            const conversations = await window.pancakeDataManager.fetchConversations(true);
+            // Fetch conversations based on server mode
+            let conversations;
+            if (this.serverMode === 'n2store') {
+                console.log('[PANCAKE-CHAT] Using N2Store mode (Facebook Graph API)');
+                conversations = await window.pancakeDataManager.fetchAllConversationsN2Store();
+            } else {
+                conversations = await window.pancakeDataManager.fetchConversations(true);
+            }
             this.conversations = conversations || [];
-            console.log('[PANCAKE-CHAT] Loaded conversations:', this.conversations.length);
+            console.log(`[PANCAKE-CHAT] Loaded ${this.conversations.length} conversations (mode: ${this.serverMode})`);
 
             // Render conversation list
             this.renderConversationList();
@@ -1442,24 +1452,29 @@ class PancakeChatManager {
             const convId = conv.id;
             const customerId = conv.customers?.[0]?.id || null;
 
-            console.log('[PANCAKE-CHAT] Loading messages for:', { pageId, convId, customerId });
+            console.log(`[PANCAKE-CHAT] Loading messages (mode: ${this.serverMode}):`, { pageId, convId, customerId });
 
             // Create a timeout promise (10 seconds)
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('Timeout: Qua lau khong phan hoi')), 10000);
             });
 
-            // Race between fetch and timeout
-            const result = await Promise.race([
-                window.pancakeDataManager.fetchMessagesForConversation(
+            // Fetch based on server mode
+            let fetchPromise;
+            if (this.serverMode === 'n2store') {
+                fetchPromise = window.pancakeDataManager.fetchMessagesN2Store(pageId, convId);
+            } else {
+                fetchPromise = window.pancakeDataManager.fetchMessagesForConversation(
                     pageId,
                     convId,
                     null,
                     customerId,
                     forceRefresh
-                ),
-                timeoutPromise
-            ]);
+                );
+            }
+
+            // Race between fetch and timeout
+            const result = await Promise.race([fetchPromise, timeoutPromise]);
 
             this.messages = (result.messages || []).reverse(); // Reverse to show oldest first
             console.log('[PANCAKE-CHAT] Loaded messages:', this.messages.length, result.fromCache ? '(from cache)' : '(from API)');
@@ -2602,15 +2617,23 @@ class PancakeChatManager {
                 this.clearImagePreview();
             }
 
-            console.log('[PANCAKE-CHAT] Sending message:', { pageId, convId, text, action, contentIds });
+            console.log(`[PANCAKE-CHAT] Sending message (mode: ${this.serverMode}):`, { pageId, convId, text, action, contentIds });
 
-            const sentMessage = await window.pancakeDataManager.sendMessage(pageId, convId, {
-                text: text,
-                action: action,
-                customerId: customerId,
-                content_ids: contentIds,
-                attachment_type: attachmentType
-            });
+            let sentMessage;
+            if (this.serverMode === 'n2store') {
+                // N2Store mode - send via Facebook Graph API
+                const recipientId = this.activeConversation.from_psid || this.activeConversation.from?.id;
+                sentMessage = await window.pancakeDataManager.sendMessageN2Store(pageId, recipientId, text);
+            } else {
+                // Pancake mode - send via Pancake API
+                sentMessage = await window.pancakeDataManager.sendMessage(pageId, convId, {
+                    text: text,
+                    action: action,
+                    customerId: customerId,
+                    content_ids: contentIds,
+                    attachment_type: attachmentType
+                });
+            }
 
             console.log('[PANCAKE-CHAT] ✅ Message sent successfully:', sentMessage);
 
@@ -3586,6 +3609,35 @@ class PancakeChatManager {
         const quickReplyBar = document.getElementById('pkQuickReplyBar');
         if (quickReplyBar) {
             quickReplyBar.innerHTML = this.renderQuickReplies();
+        }
+    }
+
+    /**
+     * Set server mode (pancake or n2store)
+     * @param {string} mode - 'pancake' or 'n2store'
+     */
+    setServerMode(mode) {
+        if (mode !== 'pancake' && mode !== 'n2store') {
+            console.warn('[PANCAKE-CHAT] Invalid server mode:', mode);
+            return;
+        }
+
+        this.serverMode = mode;
+        localStorage.setItem('pancake_server_mode', mode);
+        console.log(`[PANCAKE-CHAT] Server mode set to: ${mode}`);
+
+        // Update server mode indicator
+        this.updateServerModeIndicator();
+    }
+
+    /**
+     * Update server mode indicator in UI
+     */
+    updateServerModeIndicator() {
+        const indicator = document.getElementById('serverModeIndicator');
+        if (indicator) {
+            indicator.textContent = this.serverMode === 'n2store' ? 'N2Store' : 'Pancake';
+            indicator.style.background = this.serverMode === 'n2store' ? '#10b981' : '#3b82f6';
         }
     }
 }
