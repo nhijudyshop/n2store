@@ -414,6 +414,14 @@
                 lucide.createIcons();
             }
 
+            // Initialize server mode indicator from localStorage
+            const savedServerMode = localStorage.getItem('pancake_server_mode') || 'pancake';
+            const indicator = document.getElementById('serverModeIndicator');
+            if (indicator) {
+                indicator.textContent = savedServerMode === 'n2store' ? 'N2Store' : 'Pancake';
+                indicator.style.background = savedServerMode === 'n2store' ? '#10b981' : '#3b82f6';
+            }
+
             // Initialize Pancake Token Manager (for authentication)
             if (typeof PancakeTokenManager !== "undefined" && window.pancakeTokenManager) {
                 try {
