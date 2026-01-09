@@ -2592,6 +2592,7 @@ class PancakeChatManager {
             const action = this.activeConversation.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
 
             let contentIds = [];
+            let attachmentId = null;
             let attachmentType = null;
 
             // Upload image if selected
@@ -2600,31 +2601,37 @@ class PancakeChatManager {
 
                 let uploadResult;
                 if (this.serverMode === 'n2store') {
-                    // N2Store mode - upload via N2Store server
+                    // N2Store mode - upload via Facebook Graph API
                     uploadResult = await window.pancakeDataManager.uploadMediaN2Store(pageId, this.selectedImage);
+                    if (uploadResult.success && uploadResult.attachment_id) {
+                        attachmentId = uploadResult.attachment_id;
+                        attachmentType = uploadResult.attachment_type;
+                        console.log('[PANCAKE-CHAT] Image uploaded (Facebook):', uploadResult);
+                    } else {
+                        throw new Error('Upload ảnh thất bại');
+                    }
                 } else {
                     // Pancake mode - upload via Pancake API
                     uploadResult = await window.pancakeDataManager.uploadMedia(pageId, this.selectedImage);
-                }
-
-                if (uploadResult.success && uploadResult.id) {
-                    contentIds = [uploadResult.id];
-                    attachmentType = uploadResult.attachment_type;
-                    console.log('[PANCAKE-CHAT] Image uploaded:', uploadResult);
-                } else {
-                    throw new Error('Upload ảnh thất bại');
+                    if (uploadResult.success && uploadResult.id) {
+                        contentIds = [uploadResult.id];
+                        attachmentType = uploadResult.attachment_type;
+                        console.log('[PANCAKE-CHAT] Image uploaded (Pancake):', uploadResult);
+                    } else {
+                        throw new Error('Upload ảnh thất bại');
+                    }
                 }
 
                 // Clear preview
                 this.clearImagePreview();
             }
 
-            console.log(`[PANCAKE-CHAT] Sending message (mode: ${this.serverMode}):`, { pageId, convId, text, action, contentIds });
+            console.log(`[PANCAKE-CHAT] Sending message (mode: ${this.serverMode}):`, { pageId, convId, text, action, attachmentId, contentIds });
 
             let sentMessage;
             if (this.serverMode === 'n2store') {
-                // N2Store mode - send via N2Store server (Pancake Public API)
-                sentMessage = await window.pancakeDataManager.sendMessageN2Store(pageId, convId, text, action, contentIds, attachmentType);
+                // N2Store mode - send via Facebook Graph API (100%)
+                sentMessage = await window.pancakeDataManager.sendMessageN2Store(pageId, convId, text, action, attachmentId, attachmentType);
             } else {
                 // Pancake mode - send via Pancake API
                 sentMessage = await window.pancakeDataManager.sendMessage(pageId, convId, {

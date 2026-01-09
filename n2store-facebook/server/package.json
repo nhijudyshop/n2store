@@ -1,7 +1,7 @@
 {
   "name": "n2store-facebook",
   "version": "1.0.0",
-  "description": "N2Store Facebook Graph API Server - Alternative to Pancake",
+  "description": "N2Store Facebook Server - 100% Facebook Graph API, tokens from TPOS CRM",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

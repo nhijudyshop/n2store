@@ -3193,6 +3193,22 @@ class PancakeDataManager {
     }
 
     /**
+     * Get TPOS Bearer token for N2Store mode (100% Facebook API)
+     * @returns {Promise<string|null>}
+     */
+    async getTPOSToken() {
+        try {
+            if (window.tposTokenManager) {
+                return await window.tposTokenManager.getToken();
+            }
+            return null;
+        } catch (error) {
+            console.warn('[N2STORE] Could not get TPOS token:', error.message);
+            return null;
+        }
+    }
+
+    /**
      * Fetch pages from N2Store server (Facebook Graph API)
      * @returns {Promise<Array>}
      */
@@ -3226,17 +3242,15 @@ class PancakeDataManager {
     async fetchConversationsN2Store(pageId) {
         try {
             const n2storeUrl = this.getN2StoreUrl();
-            const pageToken = this.getPageAccessToken(pageId);
-
-            if (!pageToken) {
-                console.warn('[N2STORE] No page_access_token for page:', pageId);
-                return [];
-            }
+            const tposToken = await this.getTPOSToken();
 
             console.log('[N2STORE] Fetching conversations for page:', pageId);
 
             const response = await fetch(
-                `${n2storeUrl}/api/pages/${pageId}/conversations?page_access_token=${pageToken}`
+                `${n2storeUrl}/api/pages/${pageId}/conversations`,
+                {
+                    headers: tposToken ? { 'Authorization': `Bearer ${tposToken}` } : {}
+                }
             );
             const data = await response.json();
 
@@ -3296,17 +3310,15 @@ class PancakeDataManager {
     async fetchMessagesN2Store(pageId, conversationId) {
         try {
             const n2storeUrl = this.getN2StoreUrl();
-            const pageToken = this.getPageAccessToken(pageId);
-
-            if (!pageToken) {
-                console.warn('[N2STORE] No page_access_token for page:', pageId);
-                return { messages: [], pageMessages: [] };
-            }
+            const tposToken = await this.getTPOSToken();
 
             console.log('[N2STORE] Fetching messages for conversation:', conversationId);
 
             const response = await fetch(
-                `${n2storeUrl}/api/conversations/${conversationId}/messages?page_id=${pageId}&page_access_token=${pageToken}`
+                `${n2storeUrl}/api/conversations/${conversationId}/messages?page_id=${pageId}`,
+                {
+                    headers: tposToken ? { 'Authorization': `Bearer ${tposToken}` } : {}
+                }
             );
             const data = await response.json();
 
@@ -3339,35 +3351,33 @@ class PancakeDataManager {
      * @param {string} attachmentType - Attachment type (PHOTO, VIDEO, etc.)
      * @returns {Promise<Object>}
      */
-    async sendMessageN2Store(pageId, conversationId, message, action = 'reply_inbox', contentIds = [], attachmentType = null) {
+    async sendMessageN2Store(pageId, conversationId, message, action = 'reply_inbox', attachmentId = null, attachmentType = null) {
         try {
             const n2storeUrl = this.getN2StoreUrl();
-            const pageToken = this.getPageAccessToken(pageId);
-
-            if (!pageToken) {
-                throw new Error('No page_access_token available');
-            }
+            const tposToken = await this.getTPOSToken();
 
             console.log('[N2STORE] Sending message to conversation:', conversationId);
 
+            // Facebook API format - server gets token from TPOS CRM
             const body = {
                 conversation_id: conversationId,
-                page_access_token: pageToken,
-                message: message,
-                action: action
+                message: message
             };
 
-            // Add attachments if present
-            if (contentIds && contentIds.length > 0) {
-                body.content_ids = contentIds;
-                if (attachmentType) {
-                    body.attachment_type = attachmentType;
-                }
+            // Add attachment if present (Facebook format uses attachment_id)
+            if (attachmentId) {
+                body.attachment_id = attachmentId;
+                body.attachment_type = attachmentType?.toLowerCase() || 'image';
+            }
+
+            const headers = { 'Content-Type': 'application/json' };
+            if (tposToken) {
+                headers['Authorization'] = `Bearer ${tposToken}`;
             }
 
             const response = await fetch(`${n2storeUrl}/api/pages/${pageId}/messages`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: headers,
                 body: JSON.stringify(body)
             });
 
@@ -3378,7 +3388,7 @@ class PancakeDataManager {
             }
 
             console.log('[N2STORE] ✅ Message sent');
-            return data;
+            return data.data;
         } catch (error) {
             console.error('[N2STORE] ❌ Error sending message:', error);
             throw error;
@@ -3386,20 +3396,16 @@ class PancakeDataManager {
     }
 
     /**
-     * Upload media via N2Store server (Pancake Public API)
+     * Upload media via N2Store server (100% Facebook Graph API)
      * Supports image, video, audio, files
      * @param {string} pageId - Page ID
      * @param {File} file - File to upload
-     * @returns {Promise<Object>} { id: content_id, attachment_type, success }
+     * @returns {Promise<Object>} { id: attachment_id, attachment_type, success }
      */
     async uploadMediaN2Store(pageId, file) {
         try {
             const n2storeUrl = this.getN2StoreUrl();
-            const pageToken = this.getPageAccessToken(pageId);
-
-            if (!pageToken) {
-                throw new Error('No page_access_token available');
-            }
+            const tposToken = await this.getTPOSToken();
 
             console.log(`[N2STORE] Uploading media for page: ${pageId}`, file.name, file.type, file.size);
 
@@ -3407,12 +3413,18 @@ class PancakeDataManager {
             const formData = new FormData();
             formData.append('file', file);
 
+            // Server gets token from TPOS CRM
+            const headers = {};
+            if (tposToken) {
+                headers['Authorization'] = `Bearer ${tposToken}`;
+            }
+
             const response = await fetch(
-                `${n2storeUrl}/api/pages/${pageId}/upload?page_access_token=${pageToken}`,
+                `${n2storeUrl}/api/pages/${pageId}/upload`,
                 {
                     method: 'POST',
+                    headers: headers,
                     body: formData
-                    // Don't set Content-Type header - browser will set it with boundary
                 }
             );
 
@@ -3425,8 +3437,9 @@ class PancakeDataManager {
             console.log('[N2STORE] ✅ Upload success:', data);
 
             return {
-                id: data.id,
-                attachment_type: data.attachment_type || 'PHOTO',
+                id: data.attachment_id || data.id,
+                attachment_id: data.attachment_id || data.id,
+                attachment_type: data.attachment_type || 'IMAGE',
                 success: true
             };
         } catch (error) {
