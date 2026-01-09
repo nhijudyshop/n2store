@@ -1383,16 +1383,10 @@ class PancakeChatManager {
         this.renderLoadingState();
 
         try {
-            // Fetch conversations based on server mode
-            let conversations;
-            if (this.serverMode === 'n2store') {
-                console.log('[PANCAKE-CHAT] Using N2Store mode (Facebook Graph API)');
-                conversations = await window.pancakeDataManager.fetchAllConversationsN2Store();
-            } else {
-                conversations = await window.pancakeDataManager.fetchConversations(true);
-            }
+            // Conversations always from Pancake (N2Store mode only affects messages)
+            const conversations = await window.pancakeDataManager.fetchConversations(true);
             this.conversations = conversations || [];
-            console.log(`[PANCAKE-CHAT] Loaded ${this.conversations.length} conversations (mode: ${this.serverMode})`);
+            console.log(`[PANCAKE-CHAT] Loaded ${this.conversations.length} conversations (messages mode: ${this.serverMode})`);
 
             // Render conversation list
             this.renderConversationList();
