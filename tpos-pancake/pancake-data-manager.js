@@ -3219,18 +3219,25 @@ class PancakeDataManager {
     }
 
     /**
-     * Fetch conversations from N2Store server (Facebook Graph API)
-     * Server will look up token from its database
+     * Fetch conversations from N2Store server (Pancake Public API)
      * @param {string} pageId - Page ID
      * @returns {Promise<Array>}
      */
     async fetchConversationsN2Store(pageId) {
         try {
             const n2storeUrl = this.getN2StoreUrl();
+            const pageToken = this.getPageAccessToken(pageId);
+
+            if (!pageToken) {
+                console.warn('[N2STORE] No page_access_token for page:', pageId);
+                return [];
+            }
+
             console.log('[N2STORE] Fetching conversations for page:', pageId);
 
-            // Don't send token - server will look it up from database
-            const response = await fetch(`${n2storeUrl}/api/pages/${pageId}/conversations`);
+            const response = await fetch(
+                `${n2storeUrl}/api/pages/${pageId}/conversations?page_access_token=${pageToken}`
+            );
             const data = await response.json();
 
             if (!data.success) {
@@ -3281,8 +3288,7 @@ class PancakeDataManager {
     }
 
     /**
-     * Fetch messages from N2Store server (Facebook Graph API)
-     * Server will look up token from its database
+     * Fetch messages from N2Store server (Pancake Public API)
      * @param {string} pageId - Page ID
      * @param {string} conversationId - Conversation ID
      * @returns {Promise<Object>}
@@ -3290,11 +3296,17 @@ class PancakeDataManager {
     async fetchMessagesN2Store(pageId, conversationId) {
         try {
             const n2storeUrl = this.getN2StoreUrl();
+            const pageToken = this.getPageAccessToken(pageId);
+
+            if (!pageToken) {
+                console.warn('[N2STORE] No page_access_token for page:', pageId);
+                return { messages: [], pageMessages: [] };
+            }
+
             console.log('[N2STORE] Fetching messages for conversation:', conversationId);
 
-            // Don't send token - server will look it up from database
             const response = await fetch(
-                `${n2storeUrl}/api/conversations/${conversationId}/messages?page_id=${pageId}`
+                `${n2storeUrl}/api/conversations/${conversationId}/messages?page_id=${pageId}&page_access_token=${pageToken}`
             );
             const data = await response.json();
 
@@ -3318,26 +3330,32 @@ class PancakeDataManager {
     }
 
     /**
-     * Send message via N2Store server (Facebook Graph API)
-     * Server will look up token from its database
+     * Send message via N2Store server (Pancake Public API)
      * @param {string} pageId - Page ID
-     * @param {string} recipientId - Recipient PSID
+     * @param {string} conversationId - Conversation ID
      * @param {string} message - Message text
+     * @param {string} action - Action type (reply_inbox, reply_comment)
      * @returns {Promise<Object>}
      */
-    async sendMessageN2Store(pageId, recipientId, message) {
+    async sendMessageN2Store(pageId, conversationId, message, action = 'reply_inbox') {
         try {
             const n2storeUrl = this.getN2StoreUrl();
+            const pageToken = this.getPageAccessToken(pageId);
 
-            console.log('[N2STORE] Sending message to:', recipientId);
+            if (!pageToken) {
+                throw new Error('No page_access_token available');
+            }
 
-            // Don't send token - server will look it up from database
+            console.log('[N2STORE] Sending message to conversation:', conversationId);
+
             const response = await fetch(`${n2storeUrl}/api/pages/${pageId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    recipient_id: recipientId,
-                    message: message
+                    conversation_id: conversationId,
+                    page_access_token: pageToken,
+                    message: message,
+                    action: action
                 })
             });
 

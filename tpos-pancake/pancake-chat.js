@@ -2615,9 +2615,8 @@ class PancakeChatManager {
 
             let sentMessage;
             if (this.serverMode === 'n2store') {
-                // N2Store mode - send via Facebook Graph API
-                const recipientId = this.activeConversation.from_psid || this.activeConversation.from?.id;
-                sentMessage = await window.pancakeDataManager.sendMessageN2Store(pageId, recipientId, text);
+                // N2Store mode - send via Pancake Public API
+                sentMessage = await window.pancakeDataManager.sendMessageN2Store(pageId, convId, text, action);
             } else {
                 // Pancake mode - send via Pancake API
                 sentMessage = await window.pancakeDataManager.sendMessage(pageId, convId, {
