@@ -10,6 +10,9 @@ const cors = require('cors');
 const multer = require('multer');
 const FormData = require('form-data');
 
+// Use node-fetch for better compatibility
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -152,8 +155,8 @@ app.get('/api/conversations/:convId/messages', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[N2STORE] Error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('[N2STORE] Error fetching messages:', error.message, error.cause || '');
+        res.status(500).json({ success: false, error: error.message, details: error.cause?.message || null });
     }
 });
 
