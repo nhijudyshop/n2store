@@ -11,6 +11,26 @@ const router = express.Router();
 const { getDynamicHeaderManager } = require('../helpers/dynamic-header-manager');
 const dynamicHeaders = getDynamicHeaderManager();
 
+async function fetchWithTimeout(url, options = {}, timeout = 15000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeout}ms`);
+        }
+        throw error;
+    }
+}
+
 // =====================================================
 // FACEBOOK/PANCAKE AVATAR PROXY
 // GET /api/fb-avatar?id=<facebook_user_id>&page=<page_id>&token=<jwt_token>
@@ -36,7 +56,7 @@ router.get('/fb-avatar', async (req, res) => {
 
         console.log('[FB-AVATAR] Fetching from Pancake:', pancakeUrl);
 
-        const pancakeRes = await fetch(pancakeUrl, {
+        const pancakeRes = await fetchWithTimeout(pancakeUrl, {
             method: 'GET',
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -61,7 +81,7 @@ router.get('/fb-avatar', async (req, res) => {
         // Fallback to Facebook Graph API
         console.log('[FB-AVATAR] Pancake failed, trying Facebook...');
         const fbUrl = `https://graph.facebook.com/${fbId}/picture?width=80&height=80&type=normal`;
-        const fbRes = await fetch(fbUrl, {
+        const fbRes = await fetchWithTimeout(fbUrl, {
             method: 'GET',
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -121,7 +141,7 @@ router.get('/pancake-avatar', async (req, res) => {
         const pancakeUrl = `https://content.pancake.vn/2.1-24/avatars/${avatarHash}`;
         console.log('[PANCAKE-AVATAR] Fetching:', pancakeUrl);
 
-        const response = await fetch(pancakeUrl, {
+        const response = await fetchWithTimeout(pancakeUrl, {
             method: 'GET',
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -208,7 +228,7 @@ router.all('/proxy', async (req, res) => {
             fetchOptions.body = JSON.stringify(req.body);
         }
 
-        const response = await fetch(targetUrl, fetchOptions);
+        const response = await fetchWithTimeout(targetUrl, fetchOptions);
         const contentType = response.headers.get('content-type') || 'application/json';
 
         // Get response body
@@ -230,8 +250,10 @@ router.all('/proxy', async (req, res) => {
 
     } catch (error) {
         console.error('[PROXY] Error:', error.message);
-        return res.status(500).json({
-            error: 'Failed to proxy request',
+        const statusCode = error.statusCode || 500;
+        return res.status(statusCode).json({
+            success: false,
+            error: error.name || 'ProxyError',
             message: error.message
         });
     }
@@ -297,7 +319,7 @@ router.all('/pancake-direct/*', async (req, res) => {
             fetchOptions.body = JSON.stringify(req.body);
         }
 
-        const response = await fetch(targetUrl, fetchOptions);
+        const response = await fetchWithTimeout(targetUrl, fetchOptions);
         const data = await response.json();
 
         console.log('[PANCAKE-DIRECT] Response status:', response.status);
@@ -312,8 +334,10 @@ router.all('/pancake-direct/*', async (req, res) => {
 
     } catch (error) {
         console.error('[PANCAKE-DIRECT] Error:', error.message);
-        return res.status(500).json({
-            error: 'Pancake direct API failed',
+        const statusCode = error.statusCode || 500;
+        return res.status(statusCode).json({
+            success: false,
+            error: error.name || 'PancakeDirectError',
             message: error.message
         });
     }
@@ -353,7 +377,7 @@ router.all('/pancake-official/*', async (req, res) => {
             fetchOptions.body = JSON.stringify(req.body);
         }
 
-        const response = await fetch(targetUrl, fetchOptions);
+        const response = await fetchWithTimeout(targetUrl, fetchOptions);
         const data = await response.json();
 
         console.log('[PANCAKE-OFFICIAL] Response status:', response.status);
@@ -368,8 +392,10 @@ router.all('/pancake-official/*', async (req, res) => {
 
     } catch (error) {
         console.error('[PANCAKE-OFFICIAL] Error:', error.message);
-        return res.status(500).json({
-            error: 'Pancake Official API failed',
+        const statusCode = error.statusCode || 500;
+        return res.status(statusCode).json({
+            success: false,
+            error: error.name || 'PancakeOfficialError',
             message: error.message
         });
     }
@@ -426,7 +452,7 @@ router.post('/facebook-send', async (req, res) => {
 
             console.log('[FACEBOOK-SEND] Sending image:', imageUrl);
 
-            const imageResponse = await fetch(graphApiUrl, {
+            const imageResponse = await fetchWithTimeout(graphApiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -466,7 +492,7 @@ router.post('/facebook-send', async (req, res) => {
                 textFbBody.messaging_type = 'RESPONSE';
             }
 
-            const textResponse = await fetch(graphApiUrl, {
+            const textResponse = await fetchWithTimeout(graphApiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -504,9 +530,10 @@ router.post('/facebook-send', async (req, res) => {
 
     } catch (error) {
         console.error('[FACEBOOK-SEND] Error:', error.message);
-        return res.status(500).json({
+        const statusCode = error.statusCode || 500;
+        return res.status(statusCode).json({
             success: false,
-            error: 'Failed to send message via Facebook',
+            error: error.name || 'FacebookSendError',
             message: error.message
         });
     }
@@ -548,7 +575,7 @@ router.all('/rest/*', async (req, res) => {
             fetchOptions.body = JSON.stringify(req.body);
         }
 
-        const response = await fetch(targetUrl, fetchOptions);
+        const response = await fetchWithTimeout(targetUrl, fetchOptions);
 
         console.log('[TPOS-REST-API] Response status:', response.status);
 
@@ -572,8 +599,10 @@ router.all('/rest/*', async (req, res) => {
 
     } catch (error) {
         console.error('[TPOS-REST-API] Error:', error.message);
-        return res.status(500).json({
-            error: 'TPOS REST API failed',
+        const statusCode = error.statusCode || 500;
+        return res.status(statusCode).json({
+            success: false,
+            error: error.name || 'TposRestApiError',
             message: error.message
         });
     }
