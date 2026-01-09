@@ -17,9 +17,13 @@ const PORT = process.env.PORT || 3000;
 // =====================================================
 
 // CORS - Allow requests from GitHub Pages
-// CORS - Allow all origins for testing
+// CORS - Allow specific origins
 app.use(cors({
-    origin: '*',
+    origin: [
+        'https://nhijudyshop.github.io', // Primary frontend
+        'http://localhost:5500',         // Local development for frontend
+        'http://localhost:3000'          // Local development for this server itself
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Auth-Data', 'X-User-Id'],
     credentials: false // credentials cannot be true when origin is *
@@ -45,7 +49,10 @@ app.use((req, res, next) => {
 // Initialize PostgreSQL connection pool for SePay and Customers routes
 const chatDbPool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    max: 20,                      // Maximum 20 connections
+    idleTimeoutMillis: 30000,     // Close idle connections after 30s
+    connectionTimeoutMillis: 10000 // Timeout waiting for connection
 });
 
 // Make pool available to routes via app.locals
@@ -133,13 +140,27 @@ async function autoConnectRealtimeClients(db) {
 // =====================================================
 
 // Health check
-app.get('/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        message: 'N2Store API Fallback Server is running',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-    });
+app.get('/health', async (req, res) => {
+    try {
+        await chatDbPool.query('SELECT 1'); // Test DB connection
+        res.json({
+            status: 'ok',
+            message: 'N2Store API Fallback Server is running',
+            database: 'connected',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime()
+        });
+    } catch (dbError) {
+        console.error('[HEALTH] Database check failed:', dbError.message);
+        res.status(503).json({
+            status: 'degraded',
+            message: 'N2Store API Fallback Server is running but database is disconnected',
+            database: 'disconnected',
+            error: dbError.message,
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime()
+        });
+    }
 });
 
 // Server time diagnostic endpoint for debugging Facebook 24-hour policy
@@ -239,6 +260,8 @@ class RealtimeClient {
         this.refCounter = 1;
         this.heartbeatInterval = null;
         this.reconnectTimer = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10; // New: Max reconnect attempts
         this.db = db; // PostgreSQL connection pool
 
         // User specific data
@@ -277,7 +300,7 @@ class RealtimeClient {
     connect() {
         if (this.isConnected || !this.token) return;
 
-        console.log('[SERVER-WS] Connecting to Pancake...');
+        console.log('[SERVER-WS] Connecting to Pancake... (attempt', this.reconnectAttempts + 1, ')');
         const headers = {
             'Origin': 'https://pancake.vn',
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -298,6 +321,7 @@ class RealtimeClient {
         this.ws.on('open', () => {
             console.log('[SERVER-WS] Connected');
             this.isConnected = true;
+            this.reconnectAttempts = 0; // Reset on successful connect
             this.startHeartbeat();
             this.joinChannels();
         });
@@ -307,9 +331,16 @@ class RealtimeClient {
             this.isConnected = false;
             this.stopHeartbeat();
 
-            // Reconnect
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = setTimeout(() => this.connect(), 5000);
+            // Exponential backoff reconnect
+            if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000); // 2s, 4s, 8s, ... max 60s
+                this.reconnectAttempts++;
+                console.log(`[SERVER-WS] Reconnecting in ${delay/1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = setTimeout(() => this.connect(), delay);
+            } else {
+                console.error('[SERVER-WS] ❌ Max reconnect attempts reached. Stopping reconnection.');
+            }
         });
 
         this.ws.on('error', (err) => {
@@ -883,10 +914,15 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-    console.error('[ERROR]', err);
-    res.status(500).json({
-        error: 'Internal Server Error',
-        message: err.message
+    console.error('[GLOBAL_ERROR]', err);
+    const statusCode = err.statusCode || 500;
+    const message = err.message || 'Internal Server Error';
+
+    res.status(statusCode).json({
+        success: false,
+        error: err.name || 'ServerError',
+        message: message,
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
 });
 

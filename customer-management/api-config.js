@@ -23,7 +23,7 @@ const API_ENDPOINTS = {
     CUSTOMERS_DUPLICATES: `${API_BASE_URL}/api/customers/duplicates`,
 
     // Transaction History (existing)
-    TRANSACTIONS_BY_PHONE: (phone) => `https://chatomni-proxy.nhijudyshop.workers.dev/api/sepay/transactions-by-phone?phone=${encodeURIComponent(phone)}&limit=100`
+    TRANSACTIONS_BY_PHONE: (phone) => `${API_BASE_URL}/api/sepay/transactions-by-phone?phone=${encodeURIComponent(phone)}&limit=100`
 };
 
 // API Helper Functions

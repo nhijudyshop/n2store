@@ -46,6 +46,74 @@ function learnFromResponse(response) {
   }
 }
 
+/**
+ * Delays for a given number of milliseconds.
+ * @param {number} ms - The number of milliseconds to delay.
+ * @returns {Promise<void>}
+ */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetches a URL with a timeout.
+ * @param {string|Request} resource - The resource to fetch.
+ * @param {RequestInit} options - The options for the fetch request.
+ * @param {number} timeout - The timeout in milliseconds.
+ * @returns {Promise<Response>}
+ */
+async function fetchWithTimeout(resource, options = {}, timeout = 10000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(resource, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+    } catch (error) {
+        clearTimeout(id);
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeout}ms`);
+        }
+        throw error;
+    }
+}
+
+/**
+ * Fetches a URL with retry logic and exponential backoff.
+ * @param {string|Request} resource - The resource to fetch.
+ * @param {RequestInit} options - The options for the fetch request.
+ * @param {number} retries - The number of retries.
+ * @param {number} delayMs - The initial delay for exponential backoff.
+ * @param {number} timeoutMs - The timeout for each fetch attempt.
+ * @returns {Promise<Response>}
+ */
+async function fetchWithRetry(resource, options = {}, retries = 3, delayMs = 1000, timeoutMs = 10000) {
+    for (let i = 0; i <= retries; i++) {
+        try {
+            const response = await fetchWithTimeout(resource, options, timeoutMs);
+            if (!response.ok && response.status >= 500) { // Retry on server errors
+                if (i < retries) {
+                    console.warn(`[FETCH-RETRY] Received ${response.status} for ${resource}. Retrying in ${delayMs * Math.pow(2, i)}ms...`);
+                    await delay(delayMs * Math.pow(2, i));
+                    continue;
+                }
+            }
+            return response;
+        } catch (error) {
+            if (i < retries && (error.name === 'AbortError' || error instanceof TypeError)) { // Retry on timeout or network errors
+                console.warn(`[FETCH-RETRY] Attempt ${i + 1}/${retries + 1} failed for ${resource}: ${error.message}. Retrying in ${delayMs * Math.pow(2, i)}ms...`);
+                await delay(delayMs * Math.pow(2, i));
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw new Error(`Failed to fetch ${resource} after ${retries + 1} attempts.`);
+}
+
 // =====================================================
 // TPOS TOKEN CACHE (In-memory)
 // =====================================================
@@ -147,11 +215,11 @@ export default {
           headers.set('Referer', 'https://tomato.tpos.vn/');
 
           // Forward to TPOS token endpoint
-          const tposResponse = await fetch('https://tomato.tpos.vn/token', {
+          const tposResponse = await fetchWithRetry('https://tomato.tpos.vn/token', {
             method: 'POST',
             headers: headers,
             body: await request.arrayBuffer(),
-          });
+          }, 3, 1000, 10000); // 3 retries, 1s initial delay, 10s timeout per attempt
 
           if (!tposResponse.ok) {
             const errorText = await tposResponse.text();
@@ -217,14 +285,14 @@ export default {
 
         try {
           // Fetch image from external source
-          const imageResponse = await fetch(imageUrl, {
+          const imageResponse = await fetchWithRetry(imageUrl, {
             method: 'GET',
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
               'Accept': 'image/*,*/*',
               'Referer': 'https://tomato.tpos.vn/'
             }
-          });
+          }, 3, 1000, 15000); // 3 retries, 1s initial delay, 15s timeout
 
           if (!imageResponse.ok) {
             console.error('[IMAGE-PROXY] Failed:', imageResponse.status, imageResponse.statusText);
@@ -300,7 +368,7 @@ export default {
 
         try {
           // Fetch from Pancake Avatar API (it will redirect to content.pancake.vn)
-          const avatarResponse = await fetch(pancakeAvatarUrl, {
+          const avatarResponse = await fetchWithRetry(pancakeAvatarUrl, {
             method: 'GET',
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -308,20 +376,20 @@ export default {
               'Referer': 'https://pancake.vn/'
             },
             redirect: 'follow'
-          });
+          }, 3, 1000, 15000);
 
           if (!avatarResponse.ok) {
             console.error('[FB-AVATAR] Pancake failed:', avatarResponse.status, '- falling back to Facebook');
             // Fallback to Facebook Graph API
             const fbAvatarUrl = `https://graph.facebook.com/${fbId}/picture?width=80&height=80&type=normal`;
-            const fbResponse = await fetch(fbAvatarUrl, {
+            const fbResponse = await fetchWithRetry(fbAvatarUrl, {
               method: 'GET',
               headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': 'image/*,*/*',
               },
               redirect: 'follow'
-            });
+            }, 3, 1000, 15000);
 
             if (fbResponse.ok) {
               const contentType = fbResponse.headers.get('content-type') || 'image/jpeg';
@@ -396,14 +464,14 @@ export default {
         console.log('[PANCAKE-AVATAR] Fetching:', pancakeAvatarUrl);
 
         try {
-          const avatarResponse = await fetch(pancakeAvatarUrl, {
+          const avatarResponse = await fetchWithRetry(pancakeAvatarUrl, {
             method: 'GET',
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
               'Accept': 'image/*,*/*',
               'Referer': 'https://pancake.vn/'
             }
-          });
+          }, 3, 1000, 15000);
 
           if (!avatarResponse.ok) {
             return new Response(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#e5e7eb"/><circle cx="20" cy="15" r="7" fill="#9ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="#9ca3af"/></svg>`, {
@@ -491,7 +559,7 @@ export default {
           console.log('[PROXY] Request method:', request.method);
           console.log('[PROXY] Headers:', JSON.stringify(fetchOptions.headers));
 
-          const proxyResponse = await fetch(targetUrl, fetchOptions);
+          const proxyResponse = await fetchWithRetry(targetUrl, fetchOptions, 3, 1000, 15000);
 
           console.log('[PROXY] Response status:', proxyResponse.status);
 
@@ -572,13 +640,13 @@ export default {
         }
 
         try {
-          const response = await fetch(targetUrl, {
+          const response = await fetchWithRetry(targetUrl, {
             method: request.method,
             headers: headers,
             body: request.method !== 'GET' && request.method !== 'HEAD'
               ? await request.arrayBuffer()
               : null,
-          });
+          }, 3, 1000, 15000);
 
           console.log('[PANCAKE-DIRECT] Response status:', response.status);
 
@@ -634,13 +702,13 @@ export default {
         }
 
         try {
-          const response = await fetch(targetUrl, {
+          const response = await fetchWithRetry(targetUrl, {
             method: request.method,
             headers: headers,
             body: request.method !== 'GET' && request.method !== 'HEAD'
               ? await request.arrayBuffer()
               : null,
-          });
+          }, 3, 1000, 15000);
 
           console.log('[PANCAKE-OFFICIAL] Response status:', response.status);
 
@@ -700,7 +768,7 @@ export default {
           console.log('[DEEPSEEK] Model:', body.model || 'deepseek-chat');
 
           // Forward to DeepSeek API
-          const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+          const deepseekResponse = await fetchWithRetry('https://api.deepseek.com/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -708,7 +776,7 @@ export default {
               'Accept': 'application/json',
             },
             body: JSON.stringify(body),
-          });
+          }, 3, 1000, 20000); // Higher timeout for AI API
 
           const result = await deepseekResponse.json();
           console.log('[DEEPSEEK] Response status:', deepseekResponse.status);
@@ -774,7 +842,7 @@ export default {
           // Forward to alphaXiv DeepSeek-OCR API (Modal endpoint)
           const requestId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
-          const ocrResponse = await fetch(`https://alphaxiv--deepseek-ocr-modal-serve.modal.run/run/image?_r=${requestId}`, {
+          const ocrResponse = await fetchWithRetry(`https://alphaxiv--deepseek-ocr-modal-serve.modal.run/run/image?_r=${requestId}`, {
             method: 'POST',
             headers: {
               'cache-control': 'no-cache, no-store',
@@ -783,7 +851,7 @@ export default {
               'Referer': 'https://alphaxiv.github.io/',
             },
             body: forwardFormData,
-          });
+          }, 3, 1000, 30000); // OCR can be slow, 30s timeout
 
           console.log('[DEEPSEEK-OCR] alphaXiv response status:', ocrResponse.status);
 
@@ -894,14 +962,14 @@ export default {
 
               console.log('[FACEBOOK-SEND] Sending image:', imageUrl);
 
-              const imageResponse = await fetch(`${graphApiUrl}?access_token=${pageToken}`, {
+              const imageResponse = await fetchWithRetry(`${graphApiUrl}?access_token=${pageToken}`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   'Accept': 'application/json',
                 },
                 body: JSON.stringify(imageFbBody),
-              });
+              }, 3, 1000, 15000);
 
               const imageResult = await imageResponse.json();
               console.log('[FACEBOOK-SEND] Image response:', JSON.stringify(imageResult));
@@ -950,14 +1018,14 @@ export default {
 
             console.log('[FACEBOOK-SEND] Sending text message');
 
-            const textResponse = await fetch(`${graphApiUrl}?access_token=${pageToken}`, {
+            const textResponse = await fetchWithRetry(`${graphApiUrl}?access_token=${pageToken}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
               },
               body: JSON.stringify(textFbBody),
-            });
+            }, 3, 1000, 15000);
 
             const textResult = await textResponse.json();
             console.log('[FACEBOOK-SEND] Text response:', JSON.stringify(textResult));
@@ -1050,11 +1118,11 @@ export default {
             console.log('[SEPAY-PROXY] Request body size:', requestBody.byteLength, 'bytes');
           }
 
-          const sepayResponse = await fetch(targetUrl, {
+          const sepayResponse = await fetchWithRetry(targetUrl, {
             method: request.method,
             headers: sepayHeaders,
             body: requestBody,
-          });
+          }, 3, 1000, 15000);
 
           console.log('[SEPAY-PROXY] Response status:', sepayResponse.status);
           console.log('[SEPAY-PROXY] ========================================');
@@ -1112,10 +1180,10 @@ export default {
         tposHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
 
         try {
-          const tposResponse = await fetch(targetUrl, {
+          const tposResponse = await fetchWithRetry(targetUrl, {
             method: 'GET',
             headers: tposHeaders,
-          });
+          }, 3, 1000, 15000);
 
           console.log('[FACEBOOK-GRAPH-LIVE] TPOS Response status:', tposResponse.status);
           console.log('[FACEBOOK-GRAPH-LIVE] ========================================');
@@ -1175,11 +1243,11 @@ export default {
         tposHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
 
         try {
-          const tposResponse = await fetch(targetUrl, {
+          const tposResponse = await fetchWithRetry(targetUrl, {
             method: 'POST',
             headers: tposHeaders,
             body: await request.text(),
-          });
+          }, 3, 1000, 15000);
 
           console.log('[TPOS-EXPORT-PRODUCT-V2] TPOS Response status:', tposResponse.status);
           console.log('[TPOS-EXPORT-PRODUCT-V2] Content-Type:', tposResponse.headers.get('Content-Type'));
@@ -1243,11 +1311,11 @@ export default {
         tposHeaders.set('sec-fetch-site', 'same-origin');
 
         try {
-          const tposResponse = await fetch(targetUrl, {
+          const tposResponse = await fetchWithRetry(targetUrl, {
             method: 'POST',
             headers: tposHeaders,
             body: await request.text(),
-          });
+          }, 3, 1000, 15000);
 
           console.log('[TPOS-EXCEL-STANDARD-PRICE] TPOS Response status:', tposResponse.status);
           console.log('[TPOS-EXCEL-STANDARD-PRICE] ========================================');
@@ -1325,13 +1393,13 @@ export default {
 
           if (!token) {
             console.log('[TPOS-ORDER-LINES] No cached token, fetching new one...');
-            const tokenResponse = await fetch('https://tomato.tpos.vn/token', {
+            const tokenResponse = await fetchWithRetry('https://tomato.tpos.vn/token', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
               },
               body: 'grant_type=password&username=nvkt&password=Aa@123456789&client_id=tmtWebApp',
-            });
+            }, 3, 1000, 10000);
 
             if (!tokenResponse.ok) {
               throw new Error('Failed to get TPOS token');
@@ -1345,7 +1413,7 @@ export default {
           // Fetch OrderLines from TPOS OData API
           const odataUrl = `https://tomato.tpos.vn/odata/FastSaleOrder(${orderId})/OrderLines?$expand=Product,ProductUOM,Account,SaleLine,User`;
 
-          const odataResponse = await fetch(odataUrl, {
+          const odataResponse = await fetchWithRetry(odataUrl, {
             method: 'GET',
             headers: {
               'Accept': '*/*',
@@ -1359,7 +1427,7 @@ export default {
               'Referer': 'https://tomato.tpos.vn/',
               'Origin': 'https://tomato.tpos.vn'
             },
-          });
+          }, 3, 1000, 15000);
 
           if (!odataResponse.ok) {
             throw new Error(`TPOS API error: ${odataResponse.status}`);
@@ -1422,13 +1490,13 @@ export default {
 
           if (!token) {
             console.log('[TPOS-ORDER-REF] No cached token, fetching new one...');
-            const tokenResponse = await fetch('https://tomato.tpos.vn/token', {
+            const tokenResponse = await fetchWithRetry('https://tomato.tpos.vn/token', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
               },
               body: 'grant_type=password&username=nvkt&password=Aa@123456789&client_id=tmtWebApp',
-            });
+            }, 3, 1000, 10000);
 
             if (!tokenResponse.ok) {
               throw new Error('Failed to get TPOS token');
@@ -1446,7 +1514,7 @@ export default {
 
           console.log('[TPOS-ORDER-REF] Search URL:', searchUrl);
 
-          const searchResponse = await fetch(searchUrl, {
+          const searchResponse = await fetchWithRetry(searchUrl, {
             method: 'GET',
             headers: {
               'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -1456,7 +1524,7 @@ export default {
               'Referer': 'https://tomato.tpos.vn/',
               'Origin': 'https://tomato.tpos.vn'
             },
-          });
+          }, 3, 1000, 15000);
 
           if (!searchResponse.ok) {
             throw new Error(`TPOS search API error: ${searchResponse.status}`);
@@ -1487,7 +1555,7 @@ export default {
           // Step 2: Fetch OrderLines using the order ID
           const odataUrl = `https://tomato.tpos.vn/odata/FastSaleOrder(${orderId})/OrderLines?$expand=Product,ProductUOM,Account,SaleLine,User`;
 
-          const odataResponse = await fetch(odataUrl, {
+          const odataResponse = await fetchWithRetry(odataUrl, {
             method: 'GET',
             headers: {
               'Accept': '*/*',
@@ -1497,7 +1565,7 @@ export default {
               'Referer': 'https://tomato.tpos.vn/',
               'Origin': 'https://tomato.tpos.vn'
             },
-          });
+          }, 3, 1000, 15000);
 
           if (!odataResponse.ok) {
             throw new Error(`TPOS OrderLines API error: ${odataResponse.status}`);
@@ -1561,13 +1629,13 @@ export default {
         tposRestHeaders.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36');
 
         try {
-          const restResponse = await fetch(targetUrl, {
+          const restResponse = await fetchWithRetry(targetUrl, {
             method: request.method,
             headers: tposRestHeaders,
             body: request.method !== 'GET' && request.method !== 'HEAD'
               ? await request.arrayBuffer()
               : null,
-          });
+          }, 3, 1000, 15000);
 
           console.log('[TPOS-REST-API] Response status:', restResponse.status);
 
@@ -1642,13 +1710,13 @@ export default {
       }
 
       // Forward request
-      const response = await fetch(targetUrl, {
+      const response = await fetchWithRetry(targetUrl, {
         method: request.method,
         headers: headers,
         body: request.method !== 'GET' && request.method !== 'HEAD'
           ? await request.arrayBuffer()
           : null,
-      });
+      }, 3, 1000, 15000);
 
       // Clone response and add CORS headers
       const newResponse = new Response(response.body, response);

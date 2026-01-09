@@ -20,6 +20,26 @@ const httpsAgent = new https.Agent({
     rejectUnauthorized: false
 });
 
+async function fetchWithTimeout(url, options = {}, timeout = 10000) { // 10 second timeout for token
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeout}ms`);
+        }
+        throw error;
+    }
+}
+
 // =====================================================
 // TPOS TOKEN CACHE (In-memory)
 // =====================================================
@@ -110,7 +130,7 @@ router.post('/', async (req, res) => {
         const formBody = `grant_type=${encodeURIComponent(grant_type)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&client_id=${encodeURIComponent(client_id)}`;
 
         // Request token from TPOS
-        const response = await fetch(TPOS_TOKEN_URL, {
+        const response = await fetchWithTimeout(TPOS_TOKEN_URL, {
             method: 'POST',
             headers: {
                 'accept': 'application/json, text/plain, */*',
@@ -126,15 +146,21 @@ router.post('/', async (req, res) => {
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`[TOKEN] ❌ TPOS error ${response.status}:`, errorText);
-            throw new Error(`TPOS API responded with ${response.status}: ${response.statusText}`);
+            throw new Error(`TPOS API responded with ${response.status}: ${response.statusText}. Details: ${errorText}`);
         }
 
-        const data = await response.json();
+        let data;
+        try {
+            data = await response.json();
+        } catch (parseError) {
+            const rawText = await response.text();
+            throw new Error(`Invalid JSON response from TPOS token endpoint. Original error: ${parseError.message}. Raw response: ${rawText}`);
+        }
 
         // Validate response contains access_token
-        if (!data.access_token) {
-            console.error('[RENDER-TOKEN] ❌ Response missing access_token:', data);
-            throw new Error('Invalid token response - missing access_token');
+        if (!data.access_token || !data.expires_in || !data.token_type) {
+            console.error('[RENDER-TOKEN] ❌ Response missing access_token or expiry:', data);
+            throw new Error('Invalid token response - missing access_token, expires_in, or token_type');
         }
 
         console.log('[RENDER-TOKEN] ✅ Token obtained successfully');
@@ -149,8 +175,10 @@ router.post('/', async (req, res) => {
 
     } catch (error) {
         console.error('[TOKEN] ❌ Error:', error.message);
-        res.status(500).json({
-            error: 'Failed to fetch token',
+        const statusCode = error.statusCode || 500;
+        res.status(statusCode).json({
+            success: false,
+            error: error.name || 'TokenError',
             message: error.message
         });
     }
