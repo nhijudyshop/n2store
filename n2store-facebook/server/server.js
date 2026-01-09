@@ -7,6 +7,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
+const FormData = require('form-data');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +16,12 @@ const PORT = process.env.PORT || 3000;
 // Pancake API URLs (same as orders-report)
 const PANCAKE_API_V1 = 'https://pages.fm/api/public_api/v1';
 const PANCAKE_API_V2 = 'https://pages.fm/api/public_api/v2';
+
+// Multer for file uploads (store in memory)
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 25 * 1024 * 1024 } // 25MB max
+});
 
 // Middleware
 app.use(cors({
@@ -39,6 +47,7 @@ app.get('/health', (req, res) => {
         status: 'ok',
         server: 'n2store-facebook',
         api: 'Pancake Public API',
+        features: ['conversations', 'messages', 'upload', 'tags'],
         timestamp: new Date().toISOString()
     });
 });
@@ -170,13 +179,18 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
 
         const body = {
             action: action || 'reply_inbox',
-            message: message
+            message: message || ''
         };
 
+        // Add attachments if present
         if (content_ids && content_ids.length > 0) {
             body.content_ids = content_ids;
-            body.attachment_type = attachment_type;
+            if (attachment_type) {
+                body.attachment_type = attachment_type;
+            }
         }
+
+        console.log('[N2STORE] Message body:', { ...body, content_ids: body.content_ids?.length || 0 });
 
         const response = await fetch(url, {
             method: 'POST',
@@ -197,6 +211,72 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
 
     } catch (error) {
         console.error('[N2STORE] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// PANCAKE PUBLIC API - UPLOAD MEDIA
+// =====================================================
+
+/**
+ * POST /api/pages/:pageId/upload - Upload media (image, video, file, audio)
+ * Proxies to Pancake Public API v1 with multipart/form-data
+ */
+app.post('/api/pages/:pageId/upload', upload.single('file'), async (req, res) => {
+    try {
+        const { pageId } = req.params;
+        const page_access_token = req.query.page_access_token || req.body.page_access_token;
+
+        if (!page_access_token) {
+            return res.status(400).json({ success: false, error: 'page_access_token required' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'No file uploaded' });
+        }
+
+        console.log('[N2STORE] Uploading file:', {
+            filename: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size
+        });
+
+        // Create FormData to forward to Pancake
+        const formData = new FormData();
+        formData.append('file', req.file.buffer, {
+            filename: req.file.originalname,
+            contentType: req.file.mimetype
+        });
+
+        const url = `${PANCAKE_API_V1}/pages/${pageId}/upload_contents?page_access_token=${page_access_token}`;
+
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: formData.getHeaders()
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error('[N2STORE] Upload error:', data);
+            return res.status(response.status).json({
+                success: false,
+                error: data.error || data.message || 'Upload failed'
+            });
+        }
+
+        console.log('[N2STORE] ✅ Upload success:', data);
+
+        res.json({
+            success: true,
+            id: data.id,
+            attachment_type: data.attachment_type || 'PHOTO'
+        });
+
+    } catch (error) {
+        console.error('[N2STORE] Upload error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -290,38 +370,6 @@ app.get('/api/pages/:pageId/tags', async (req, res) => {
 });
 
 // =====================================================
-// PANCAKE PUBLIC API - UPLOAD
-// =====================================================
-
-/**
- * POST /api/pages/:pageId/upload - Upload media
- */
-app.post('/api/pages/:pageId/upload', async (req, res) => {
-    try {
-        const { pageId } = req.params;
-        const { page_access_token } = req.query;
-
-        if (!page_access_token) {
-            return res.status(400).json({ success: false, error: 'page_access_token required' });
-        }
-
-        // Forward the request body directly to Pancake
-        const url = `${PANCAKE_API_V1}/pages/${pageId}/upload_contents?page_access_token=${page_access_token}`;
-
-        // Note: For file uploads, you'd need to handle multipart/form-data
-        // This is a simplified version
-        res.status(501).json({
-            success: false,
-            error: 'File upload not implemented yet. Use Pancake API directly.'
-        });
-
-    } catch (error) {
-        console.error('[N2STORE] Error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// =====================================================
 // START SERVER
 // =====================================================
 
@@ -330,4 +378,5 @@ app.listen(PORT, () => {
     console.log(`📡 Using Pancake Public API`);
     console.log(`   - V1: ${PANCAKE_API_V1}`);
     console.log(`   - V2: ${PANCAKE_API_V2}`);
+    console.log(`📎 File upload: Enabled (max 25MB)`);
 });

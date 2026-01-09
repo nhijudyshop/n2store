@@ -3335,9 +3335,11 @@ class PancakeDataManager {
      * @param {string} conversationId - Conversation ID
      * @param {string} message - Message text
      * @param {string} action - Action type (reply_inbox, reply_comment)
+     * @param {Array} contentIds - Array of content IDs for attachments
+     * @param {string} attachmentType - Attachment type (PHOTO, VIDEO, etc.)
      * @returns {Promise<Object>}
      */
-    async sendMessageN2Store(pageId, conversationId, message, action = 'reply_inbox') {
+    async sendMessageN2Store(pageId, conversationId, message, action = 'reply_inbox', contentIds = [], attachmentType = null) {
         try {
             const n2storeUrl = this.getN2StoreUrl();
             const pageToken = this.getPageAccessToken(pageId);
@@ -3348,15 +3350,25 @@ class PancakeDataManager {
 
             console.log('[N2STORE] Sending message to conversation:', conversationId);
 
+            const body = {
+                conversation_id: conversationId,
+                page_access_token: pageToken,
+                message: message,
+                action: action
+            };
+
+            // Add attachments if present
+            if (contentIds && contentIds.length > 0) {
+                body.content_ids = contentIds;
+                if (attachmentType) {
+                    body.attachment_type = attachmentType;
+                }
+            }
+
             const response = await fetch(`${n2storeUrl}/api/pages/${pageId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    conversation_id: conversationId,
-                    page_access_token: pageToken,
-                    message: message,
-                    action: action
-                })
+                body: JSON.stringify(body)
             });
 
             const data = await response.json();
@@ -3370,6 +3382,56 @@ class PancakeDataManager {
         } catch (error) {
             console.error('[N2STORE] ❌ Error sending message:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Upload media via N2Store server (Pancake Public API)
+     * Supports image, video, audio, files
+     * @param {string} pageId - Page ID
+     * @param {File} file - File to upload
+     * @returns {Promise<Object>} { id: content_id, attachment_type, success }
+     */
+    async uploadMediaN2Store(pageId, file) {
+        try {
+            const n2storeUrl = this.getN2StoreUrl();
+            const pageToken = this.getPageAccessToken(pageId);
+
+            if (!pageToken) {
+                throw new Error('No page_access_token available');
+            }
+
+            console.log(`[N2STORE] Uploading media for page: ${pageId}`, file.name, file.type, file.size);
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch(
+                `${n2storeUrl}/api/pages/${pageId}/upload?page_access_token=${pageToken}`,
+                {
+                    method: 'POST',
+                    body: formData
+                    // Don't set Content-Type header - browser will set it with boundary
+                }
+            );
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            console.log('[N2STORE] ✅ Upload success:', data);
+
+            return {
+                id: data.id,
+                attachment_type: data.attachment_type || 'PHOTO',
+                success: true
+            };
+        } catch (error) {
+            console.error('[N2STORE] ❌ Upload failed:', error);
+            return { id: null, success: false, error: error.message };
         }
     }
 }

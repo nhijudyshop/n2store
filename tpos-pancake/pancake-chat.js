@@ -2596,8 +2596,16 @@ class PancakeChatManager {
 
             // Upload image if selected
             if (hasImage) {
-                console.log('[PANCAKE-CHAT] Uploading image...');
-                const uploadResult = await window.pancakeDataManager.uploadMedia(pageId, this.selectedImage);
+                console.log(`[PANCAKE-CHAT] Uploading image (mode: ${this.serverMode})...`);
+
+                let uploadResult;
+                if (this.serverMode === 'n2store') {
+                    // N2Store mode - upload via N2Store server
+                    uploadResult = await window.pancakeDataManager.uploadMediaN2Store(pageId, this.selectedImage);
+                } else {
+                    // Pancake mode - upload via Pancake API
+                    uploadResult = await window.pancakeDataManager.uploadMedia(pageId, this.selectedImage);
+                }
 
                 if (uploadResult.success && uploadResult.id) {
                     contentIds = [uploadResult.id];
@@ -2615,8 +2623,8 @@ class PancakeChatManager {
 
             let sentMessage;
             if (this.serverMode === 'n2store') {
-                // N2Store mode - send via Pancake Public API
-                sentMessage = await window.pancakeDataManager.sendMessageN2Store(pageId, convId, text, action);
+                // N2Store mode - send via N2Store server (Pancake Public API)
+                sentMessage = await window.pancakeDataManager.sendMessageN2Store(pageId, convId, text, action, contentIds, attachmentType);
             } else {
                 // Pancake mode - send via Pancake API
                 sentMessage = await window.pancakeDataManager.sendMessage(pageId, convId, {
