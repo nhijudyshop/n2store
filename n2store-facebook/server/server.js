@@ -284,6 +284,14 @@ app.get('/api/pages/:pageId/conversations', async (req, res) => {
 // FACEBOOK GRAPH API - MESSAGES
 // =====================================================
 
+/**
+ * Check if conversation ID is a Comment (format: postId_commentId)
+ */
+function isCommentConversation(convId) {
+    // Comment IDs have format: postId_commentId (numbers_numbers)
+    return /^\d+_\d+$/.test(convId);
+}
+
 app.get('/api/conversations/:convId/messages', async (req, res) => {
     try {
         const { convId } = req.params;
@@ -298,38 +306,99 @@ app.get('/api/conversations/:convId/messages', async (req, res) => {
             });
         }
 
-        const fields = 'id,message,from,created_time,attachments,sticker';
-        const url = `${FB_GRAPH_URL}/${convId}/messages?fields=${fields}&access_token=${token}`;
+        let messages = [];
 
-        console.log('[FB] GET messages for conversation:', convId);
+        // Check if this is a Comment or Inbox conversation
+        if (isCommentConversation(convId)) {
+            // COMMENT: Get comment thread
+            console.log('[FB] GET comments for comment thread:', convId);
 
-        const response = await fetch(url);
-        const data = await response.json();
+            // Get the parent comment and its replies
+            const commentId = convId.split('_')[1]; // Get the comment ID part
+            const fields = 'id,message,from,created_time,attachment,comments{id,message,from,created_time,attachment}';
+            const url = `${FB_GRAPH_URL}/${commentId}?fields=${fields}&access_token=${token}`;
 
-        if (data.error) {
-            console.error('[FB] Error:', data.error);
-            return res.status(400).json({ success: false, error: data.error.message });
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('[FB] Comment Error:', data.error);
+                return res.status(400).json({ success: false, error: data.error.message });
+            }
+
+            // Add parent comment as first message
+            messages.push({
+                id: data.id,
+                conversation_id: convId,
+                from: {
+                    id: data.from?.id || '',
+                    name: data.from?.name || 'Unknown'
+                },
+                message: data.message || '',
+                inserted_at: data.created_time,
+                attachments: data.attachment ? [{
+                    type: data.attachment.type === 'photo' ? 'PHOTO' : 'FILE',
+                    url: data.attachment.media?.image?.src || data.attachment.url
+                }] : []
+            });
+
+            // Add replies
+            if (data.comments?.data) {
+                for (const reply of data.comments.data) {
+                    messages.push({
+                        id: reply.id,
+                        conversation_id: convId,
+                        from: {
+                            id: reply.from?.id || '',
+                            name: reply.from?.name || 'Unknown'
+                        },
+                        message: reply.message || '',
+                        inserted_at: reply.created_time,
+                        attachments: reply.attachment ? [{
+                            type: reply.attachment.type === 'photo' ? 'PHOTO' : 'FILE',
+                            url: reply.attachment.media?.image?.src || reply.attachment.url
+                        }] : []
+                    });
+                }
+            }
+
+            // Sort by time (oldest first)
+            messages.sort((a, b) => new Date(a.inserted_at) - new Date(b.inserted_at));
+
+        } else {
+            // INBOX: Get conversation messages
+            console.log('[FB] GET messages for inbox conversation:', convId);
+
+            const fields = 'id,message,from,created_time,attachments,sticker';
+            const url = `${FB_GRAPH_URL}/${convId}/messages?fields=${fields}&access_token=${token}`;
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('[FB] Inbox Error:', data.error);
+                return res.status(400).json({ success: false, error: data.error.message });
+            }
+
+            messages = (data.data || []).map(msg => ({
+                id: msg.id,
+                conversation_id: convId,
+                from: {
+                    id: msg.from?.id || '',
+                    name: msg.from?.name || 'Unknown'
+                },
+                message: msg.message || '',
+                inserted_at: msg.created_time,
+                attachments: (msg.attachments?.data || []).map(att => ({
+                    id: att.id,
+                    type: att.mime_type?.startsWith('image') ? 'PHOTO' :
+                          att.mime_type?.startsWith('video') ? 'VIDEO' : 'FILE',
+                    url: att.image_data?.url || att.video_data?.url || att.file_url,
+                    name: att.name
+                })),
+                sticker: msg.sticker
+            }));
         }
-
-        // Transform to Pancake-compatible format
-        const messages = (data.data || []).map(msg => ({
-            id: msg.id,
-            conversation_id: convId,
-            from: {
-                id: msg.from?.id || '',
-                name: msg.from?.name || 'Unknown'
-            },
-            message: msg.message || '',
-            inserted_at: msg.created_time,
-            attachments: (msg.attachments?.data || []).map(att => ({
-                id: att.id,
-                type: att.mime_type?.startsWith('image') ? 'PHOTO' :
-                      att.mime_type?.startsWith('video') ? 'VIDEO' : 'FILE',
-                url: att.image_data?.url || att.video_data?.url || att.file_url,
-                name: att.name
-            })),
-            sticker: msg.sticker
-        }));
 
         res.json({ success: true, data: { messages } });
     } catch (error) {
@@ -352,59 +421,86 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
             });
         }
 
-        // Need recipient_id (PSID) to send message via Facebook Send API
-        let psid = recipient_id;
-        if (!psid && conversation_id) {
-            const convUrl = `${FB_GRAPH_URL}/${conversation_id}?fields=participants&access_token=${token}`;
-            const convResponse = await fetch(convUrl);
-            const convData = await convResponse.json();
-            if (convData.participants?.data) {
-                const customer = convData.participants.data.find(p => p.id !== pageId);
-                psid = customer?.id;
+        let data;
+
+        // Check if this is a Comment or Inbox conversation
+        if (conversation_id && isCommentConversation(conversation_id)) {
+            // COMMENT: Reply to comment using POST /{comment_id}/comments
+            const commentId = conversation_id.split('_')[1];
+            const url = `${FB_GRAPH_URL}/${commentId}/comments?access_token=${token}`;
+
+            console.log('[FB] POST reply to comment:', commentId);
+
+            // For comments, we can only send text (no attachments via this API)
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message || '' })
+            });
+
+            data = await response.json();
+
+            if (data.error) {
+                console.error('[FB] Comment Error:', data.error);
+                return res.status(400).json({ success: false, error: data.error.message });
             }
-        }
 
-        if (!psid) {
-            return res.status(400).json({ success: false, error: 'recipient_id required' });
-        }
-
-        const url = `${FB_GRAPH_URL}/${pageId}/messages?access_token=${token}`;
-
-        // Build message payload
-        let messagePayload = {};
-
-        if (attachment_id) {
-            messagePayload = {
-                attachment: {
-                    type: attachment_type || 'image',
-                    payload: { attachment_id }
-                }
-            };
-        } else if (message) {
-            messagePayload = { text: message };
         } else {
-            return res.status(400).json({ success: false, error: 'message or attachment_id required' });
-        }
+            // INBOX: Send via Messenger Send API
+            // Need recipient_id (PSID) to send message
+            let psid = recipient_id;
+            if (!psid && conversation_id) {
+                const convUrl = `${FB_GRAPH_URL}/${conversation_id}?fields=participants&access_token=${token}`;
+                const convResponse = await fetch(convUrl);
+                const convData = await convResponse.json();
+                if (convData.participants?.data) {
+                    const customer = convData.participants.data.find(p => p.id !== pageId);
+                    psid = customer?.id;
+                }
+            }
 
-        const body = {
-            recipient: { id: psid },
-            message: messagePayload,
-            messaging_type: 'RESPONSE'
-        };
+            if (!psid) {
+                return res.status(400).json({ success: false, error: 'recipient_id required for inbox messages' });
+            }
 
-        console.log('[FB] POST message to:', psid);
+            const url = `${FB_GRAPH_URL}/${pageId}/messages?access_token=${token}`;
 
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
+            // Build message payload
+            let messagePayload = {};
 
-        const data = await response.json();
+            if (attachment_id) {
+                messagePayload = {
+                    attachment: {
+                        type: attachment_type || 'image',
+                        payload: { attachment_id }
+                    }
+                };
+            } else if (message) {
+                messagePayload = { text: message };
+            } else {
+                return res.status(400).json({ success: false, error: 'message or attachment_id required' });
+            }
 
-        if (data.error) {
-            console.error('[FB] Error:', data.error);
-            return res.status(400).json({ success: false, error: data.error.message });
+            const body = {
+                recipient: { id: psid },
+                message: messagePayload,
+                messaging_type: 'RESPONSE'
+            };
+
+            console.log('[FB] POST message to:', psid);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            data = await response.json();
+
+            if (data.error) {
+                console.error('[FB] Inbox Error:', data.error);
+                return res.status(400).json({ success: false, error: data.error.message });
+            }
         }
 
         res.json({

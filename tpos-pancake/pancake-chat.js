@@ -405,9 +405,12 @@ class PancakeChatManager {
         if (this.searchQuery && this.searchResults === null) {
             const query = this.searchQuery.toLowerCase();
             filtered = filtered.filter(conv => {
-                const name = (conv.from?.name || conv.customers?.[0]?.name || '').toLowerCase();
+                const customer = conv.customers?.[0] || {};
+                const name = (conv.from?.name || customer.name || '').toLowerCase();
+                const phone = (customer.phone || customer.phone_number || '').toLowerCase();
                 const snippet = (conv.snippet || '').toLowerCase();
-                return name.includes(query) || snippet.includes(query);
+                const fbId = (customer.fb_id || conv.from?.id || '').toLowerCase();
+                return name.includes(query) || snippet.includes(query) || phone.includes(query) || fbId.includes(query);
             });
         }
 
@@ -1608,7 +1611,7 @@ class PancakeChatManager {
             });
         });
 
-        // Search input with debounced API search
+        // Search input with instant local search + debounced API search
         const searchInput = document.getElementById('pkSearchInput');
         if (searchInput) {
             let searchTimeout = null;
@@ -1630,10 +1633,14 @@ class PancakeChatManager {
                     return;
                 }
 
-                // Debounce: wait 500ms before searching
+                // INSTANT: Local search first (no delay)
+                this.searchResults = null; // Reset to use local filter
+                this.renderConversationList(); // Will use local filter via searchQuery
+
+                // DEBOUNCED: API search for more results (300ms)
                 searchTimeout = setTimeout(async () => {
                     await this.performSearch(query);
-                }, 500);
+                }, 300);
             });
 
             // Clear search on Escape key
