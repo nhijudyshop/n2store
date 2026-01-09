@@ -539,6 +539,11 @@ class PancakeChatManager {
         const location = conv.customers?.[0]?.address?.province || '';
         const status = this.getChatStatus(conv);
 
+        // Check if this is a comment conversation (for Private Reply button)
+        const isComment = conv.type === 'COMMENT' || /^\d+_\d+$/.test(conv.id);
+        const commentId = isComment ? (conv.id.includes('_') ? conv.id.split('_')[1] : conv.id) : null;
+        const privateReplyStatus = commentId ? window.pancakeDataManager?.getPrivateReplyStatus(commentId) : null;
+
         chatWindow.innerHTML = `
             <!-- Chat Header -->
             <div class="pk-chat-header">
@@ -553,6 +558,16 @@ class PancakeChatManager {
                     </div>
                 </div>
                 <div class="pk-chat-header-right">
+                    ${isComment && this.serverMode === 'n2store' ? `
+                    <button class="pk-header-btn pk-private-reply-btn ${privateReplyStatus ? 'replied' : ''}"
+                            id="pkPrivateReplyBtn"
+                            title="${privateReplyStatus ? 'Đã gửi Private Reply' : 'Gửi tin nhắn riêng (Private Reply)'}"
+                            data-comment-id="${commentId}"
+                            ${privateReplyStatus ? 'disabled' : ''}>
+                        <i data-lucide="mail"></i>
+                        <span class="pk-btn-label">${privateReplyStatus ? 'Đã gửi' : 'Private Reply'}</span>
+                    </button>
+                    ` : ''}
                     <button class="pk-header-btn" title="Liên kết">
                         <i data-lucide="link"></i>
                     </button>
@@ -2175,6 +2190,173 @@ class PancakeChatManager {
 
         // Typing indicator (send typing status when user types)
         this.bindTypingIndicator();
+
+        // Private Reply button (for N2Store mode with comment conversations)
+        this.bindPrivateReplyButton();
+    }
+
+    /**
+     * Bind Private Reply button (N2Store mode only)
+     */
+    bindPrivateReplyButton() {
+        const privateReplyBtn = document.getElementById('pkPrivateReplyBtn');
+        if (privateReplyBtn && !privateReplyBtn.disabled) {
+            privateReplyBtn.addEventListener('click', () => {
+                this.showPrivateReplyModal();
+            });
+        }
+    }
+
+    /**
+     * Show Private Reply modal
+     */
+    showPrivateReplyModal() {
+        const conv = this.activeConversation;
+        if (!conv) return;
+
+        const commentId = conv.id.includes('_') ? conv.id.split('_')[1] : conv.id;
+        const customerName = conv.from?.name || conv.customers?.[0]?.name || 'Khách hàng';
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'pk-modal-overlay';
+        modal.id = 'pkPrivateReplyModal';
+        modal.innerHTML = `
+            <div class="pk-modal">
+                <div class="pk-modal-header">
+                    <h3><i data-lucide="mail"></i> Private Reply</h3>
+                    <button class="pk-modal-close" id="pkClosePrivateReplyModal">×</button>
+                </div>
+                <div class="pk-modal-body">
+                    <p class="pk-modal-info">
+                        Gửi tin nhắn riêng đến <strong>${this.escapeHtml(customerName)}</strong> qua Messenger.
+                    </p>
+                    <p class="pk-modal-warning">
+                        <i data-lucide="alert-triangle"></i>
+                        <span>Lưu ý: Private Reply chỉ gửi được <strong>1 lần</strong> cho mỗi comment và comment phải trong <strong>7 ngày</strong>.</span>
+                    </p>
+                    <textarea id="pkPrivateReplyMessage" class="pk-modal-textarea" placeholder="Nhập tin nhắn..." rows="4"></textarea>
+                </div>
+                <div class="pk-modal-footer">
+                    <button class="pk-modal-btn pk-modal-btn-cancel" id="pkCancelPrivateReply">Hủy</button>
+                    <button class="pk-modal-btn pk-modal-btn-primary" id="pkSendPrivateReply">
+                        <i data-lucide="send"></i> Gửi Private Reply
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Initialize Lucide icons in modal
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+
+        // Bind events
+        document.getElementById('pkClosePrivateReplyModal').addEventListener('click', () => modal.remove());
+        document.getElementById('pkCancelPrivateReply').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+        document.getElementById('pkSendPrivateReply').addEventListener('click', async () => {
+            const message = document.getElementById('pkPrivateReplyMessage').value.trim();
+            if (!message) {
+                alert('Vui lòng nhập tin nhắn');
+                return;
+            }
+
+            const sendBtn = document.getElementById('pkSendPrivateReply');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i data-lucide="loader"></i> Đang gửi...';
+
+            try {
+                const pageId = conv.page_id;
+                const result = await window.pancakeDataManager.privateReplyN2Store(pageId, commentId, message);
+
+                if (result.success) {
+                    modal.remove();
+
+                    // Update button status
+                    const btn = document.getElementById('pkPrivateReplyBtn');
+                    if (btn) {
+                        btn.classList.add('replied');
+                        btn.disabled = true;
+                        btn.querySelector('.pk-btn-label').textContent = 'Đã gửi';
+                        btn.title = 'Đã gửi Private Reply';
+                    }
+
+                    // Show success message
+                    this.showToast('Private Reply đã gửi thành công!', 'success');
+
+                    // Ask if user wants to go to the new conversation
+                    if (result.recipient_id) {
+                        const goToConv = confirm('Private Reply đã gửi thành công!\\n\\nBạn có muốn chuyển đến cuộc hội thoại Messenger mới không?');
+                        if (goToConv) {
+                            this.navigateToConversationByPsid(pageId, result.recipient_id);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('[PANCAKE-CHAT] Private Reply error:', error);
+                alert('Lỗi: ' + error.message);
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i data-lucide="send"></i> Gửi Private Reply';
+            }
+        });
+
+        // Focus textarea
+        document.getElementById('pkPrivateReplyMessage').focus();
+    }
+
+    /**
+     * Navigate to conversation by PSID (after Private Reply)
+     */
+    async navigateToConversationByPsid(pageId, psid) {
+        try {
+            this.showToast('Đang tìm cuộc hội thoại...', 'info');
+
+            const result = await window.pancakeDataManager.findConversationByPsidN2Store(pageId, psid);
+
+            if (result.success && result.conversation) {
+                // Refresh conversations and select the new one
+                await this.loadConversations();
+
+                // Find and select the conversation
+                const conv = this.conversations.find(c => c.id === result.conversation.id);
+                if (conv) {
+                    this.selectConversation(conv);
+                    this.showToast('Đã chuyển đến cuộc hội thoại mới', 'success');
+                } else {
+                    this.showToast('Không tìm thấy cuộc hội thoại trong danh sách', 'warning');
+                }
+            } else {
+                this.showToast('Cuộc hội thoại chưa được tạo. Thử lại sau vài giây.', 'warning');
+            }
+        } catch (error) {
+            console.error('[PANCAKE-CHAT] Navigate to conversation error:', error);
+            this.showToast('Lỗi: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Show toast notification
+     */
+    showToast(message, type = 'info') {
+        // Remove existing toast
+        const existingToast = document.querySelector('.pk-toast');
+        if (existingToast) existingToast.remove();
+
+        const toast = document.createElement('div');
+        toast.className = `pk-toast pk-toast-${type}`;
+        toast.innerHTML = `
+            <span>${this.escapeHtml(message)}</span>
+        `;
+        document.body.appendChild(toast);
+
+        // Auto remove after 3 seconds
+        setTimeout(() => toast.remove(), 3000);
     }
 
     /**

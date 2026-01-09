@@ -3447,6 +3447,155 @@ class PancakeDataManager {
             return { id: null, success: false, error: error.message };
         }
     }
+
+    /**
+     * Send Private Reply to a comment via N2Store server
+     * Creates a new Messenger conversation with the commenter
+     * @param {string} pageId - Page ID
+     * @param {string} commentId - Comment ID to reply to
+     * @param {string} message - Message text
+     * @returns {Promise<Object>} { success, recipient_id, message_id }
+     */
+    async privateReplyN2Store(pageId, commentId, message) {
+        try {
+            const n2storeUrl = this.getN2StoreUrl();
+            const tposToken = await this.getTPOSToken();
+
+            console.log('[N2STORE] Sending Private Reply to comment:', commentId);
+
+            const headers = { 'Content-Type': 'application/json' };
+            if (tposToken) {
+                headers['Authorization'] = `Bearer ${tposToken}`;
+            }
+
+            const response = await fetch(
+                `${n2storeUrl}/api/pages/${pageId}/comments/${commentId}/private-reply`,
+                {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ message })
+                }
+            );
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Private Reply failed');
+            }
+
+            console.log('[N2STORE] ✅ Private Reply sent, recipient_id:', data.recipient_id);
+
+            // Save to localStorage to track replied comments
+            this.markCommentAsPrivateReplied(commentId, data.recipient_id);
+
+            return {
+                success: true,
+                recipient_id: data.recipient_id,
+                message_id: data.message_id,
+                message: message
+            };
+        } catch (error) {
+            console.error('[N2STORE] ❌ Private Reply failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Find conversation by PSID (after Private Reply)
+     * @param {string} pageId - Page ID
+     * @param {string} psid - PSID (recipient_id from Private Reply)
+     * @returns {Promise<Object>} { success, conversation }
+     */
+    async findConversationByPsidN2Store(pageId, psid) {
+        try {
+            const n2storeUrl = this.getN2StoreUrl();
+            const tposToken = await this.getTPOSToken();
+
+            console.log('[N2STORE] Finding conversation for PSID:', psid);
+
+            const headers = {};
+            if (tposToken) {
+                headers['Authorization'] = `Bearer ${tposToken}`;
+            }
+
+            const response = await fetch(
+                `${n2storeUrl}/api/pages/${pageId}/conversations/find-by-psid?psid=${psid}`,
+                { headers }
+            );
+
+            const data = await response.json();
+
+            if (!data.success) {
+                console.warn('[N2STORE] Conversation not found for PSID:', psid);
+                return { success: false, error: data.error };
+            }
+
+            console.log('[N2STORE] ✅ Found conversation:', data.conversation.id);
+            return {
+                success: true,
+                conversation: data.conversation
+            };
+        } catch (error) {
+            console.error('[N2STORE] ❌ Error finding conversation:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Mark a comment as private replied (store in localStorage)
+     * @param {string} commentId - Comment ID
+     * @param {string} recipientId - PSID of recipient
+     */
+    markCommentAsPrivateReplied(commentId, recipientId) {
+        try {
+            const key = 'n2store_private_replied_comments';
+            const stored = JSON.parse(localStorage.getItem(key) || '{}');
+            stored[commentId] = {
+                recipient_id: recipientId,
+                replied_at: new Date().toISOString()
+            };
+            localStorage.setItem(key, JSON.stringify(stored));
+            console.log('[N2STORE] Marked comment as private replied:', commentId);
+        } catch (error) {
+            console.error('[N2STORE] Error saving private reply status:', error);
+        }
+    }
+
+    /**
+     * Check if a comment has been private replied
+     * @param {string} commentId - Comment ID
+     * @returns {Object|null} { recipient_id, replied_at } or null
+     */
+    getPrivateReplyStatus(commentId) {
+        try {
+            const key = 'n2store_private_replied_comments';
+            const stored = JSON.parse(localStorage.getItem(key) || '{}');
+            return stored[commentId] || null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    /**
+     * Check if conversation is a comment (format: postId_commentId)
+     * @param {string} conversationId
+     * @returns {boolean}
+     */
+    isCommentConversation(conversationId) {
+        return /^\d+_\d+$/.test(conversationId);
+    }
+
+    /**
+     * Get comment ID from conversation ID
+     * @param {string} conversationId - Format: postId_commentId
+     * @returns {string} Comment ID
+     */
+    getCommentIdFromConversation(conversationId) {
+        if (this.isCommentConversation(conversationId)) {
+            return conversationId.split('_')[1];
+        }
+        return conversationId;
+    }
 }
 
 // Create global instance

@@ -590,6 +590,159 @@ app.post('/api/pages/:pageId/upload', upload.single('file'), async (req, res) =>
 });
 
 // =====================================================
+// FACEBOOK GRAPH API - PRIVATE REPLY
+// =====================================================
+
+/**
+ * Send Private Reply from a comment
+ * This creates a new Messenger conversation with the commenter
+ *
+ * POST /api/pages/:pageId/comments/:commentId/private-reply
+ * Body: { message: "..." }
+ *
+ * Returns: { success: true, recipient_id: "psid", message_id: "..." }
+ */
+app.post('/api/pages/:pageId/comments/:commentId/private-reply', async (req, res) => {
+    try {
+        const { pageId, commentId } = req.params;
+        const { message } = req.body;
+        const tposToken = req.headers.authorization?.replace('Bearer ', '') || req.body.tpos_token;
+        const token = await getPageToken(pageId, tposToken);
+
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                error: `No token for page ${pageId}`
+            });
+        }
+
+        if (!message) {
+            return res.status(400).json({ success: false, error: 'message required' });
+        }
+
+        console.log('[FB] Private Reply to comment:', commentId);
+
+        // Facebook Private Reply API
+        // POST /{comment-id}/private_replies
+        const url = `${FB_GRAPH_URL}/${commentId}/private_replies?access_token=${token}`;
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            console.error('[FB] Private Reply Error:', data.error);
+
+            // Provide helpful error messages
+            let errorMessage = data.error.message;
+            if (data.error.code === 10903) {
+                errorMessage = 'Private Reply đã được gửi trước đó cho comment này (chỉ được 1 lần)';
+            } else if (data.error.code === 200) {
+                errorMessage = 'Không có quyền gửi Private Reply. Cần permission pages_messaging';
+            } else if (data.error.message?.includes('7 days')) {
+                errorMessage = 'Comment đã quá 7 ngày, không thể gửi Private Reply';
+            }
+
+            return res.status(400).json({
+                success: false,
+                error: errorMessage,
+                facebook_error: data.error
+            });
+        }
+
+        console.log('[FB] Private Reply success:', data);
+
+        // Response contains: { id: "m_xxx", recipient_id: "psid" }
+        res.json({
+            success: true,
+            message_id: data.id,
+            recipient_id: data.recipient_id,
+            message: message,
+            info: 'Cuộc hội thoại Messenger mới đã được tạo. Dùng recipient_id để gửi tin nhắn tiếp theo.'
+        });
+
+    } catch (error) {
+        console.error('[FB] Private Reply error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * Find conversation by PSID (recipient_id)
+ * Useful after Private Reply to find the new conversation
+ *
+ * GET /api/pages/:pageId/conversations/find-by-psid?psid=xxx
+ */
+app.get('/api/pages/:pageId/conversations/find-by-psid', async (req, res) => {
+    try {
+        const { pageId } = req.params;
+        const { psid } = req.query;
+        const tposToken = req.headers.authorization?.replace('Bearer ', '') || req.query.tpos_token;
+        const token = await getPageToken(pageId, tposToken);
+
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                error: `No token for page ${pageId}`
+            });
+        }
+
+        if (!psid) {
+            return res.status(400).json({ success: false, error: 'psid required' });
+        }
+
+        console.log('[FB] Finding conversation for PSID:', psid);
+
+        // Get conversations and find the one with this participant
+        const fields = 'id,participants,updated_time,snippet';
+        const url = `${FB_GRAPH_URL}/${pageId}/conversations?fields=${fields}&access_token=${token}`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.error) {
+            console.error('[FB] Error:', data.error);
+            return res.status(400).json({ success: false, error: data.error.message });
+        }
+
+        // Find conversation with matching participant
+        const conversation = (data.data || []).find(conv => {
+            const participants = conv.participants?.data || [];
+            return participants.some(p => p.id === psid);
+        });
+
+        if (!conversation) {
+            return res.json({
+                success: false,
+                error: 'Không tìm thấy cuộc hội thoại với PSID này',
+                hint: 'Conversation có thể chưa được tạo hoặc đã hết hạn'
+            });
+        }
+
+        const participant = conversation.participants?.data?.find(p => p.id === psid) || {};
+
+        res.json({
+            success: true,
+            conversation: {
+                id: conversation.id,
+                psid: psid,
+                customer_name: participant.name || 'Unknown',
+                snippet: conversation.snippet,
+                updated_time: conversation.updated_time
+            }
+        });
+
+    } catch (error) {
+        console.error('[FB] Error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
 // FACEBOOK GRAPH API - MARK AS READ
 // =====================================================
 
