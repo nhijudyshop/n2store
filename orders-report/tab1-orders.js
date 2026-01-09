@@ -11499,6 +11499,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     chatInput.removeEventListener('input', handleChatInputInput);
     chatInput.addEventListener('input', handleChatInputInput);
 
+    // Add file input listener for attachment button
+    const fileInput = document.getElementById('uploadFileInput');
+    if (fileInput) {
+        fileInput.removeEventListener('change', handleFileInputChange);
+        fileInput.addEventListener('change', handleFileInputChange);
+    }
 
     if (type === 'comment') {
         if (markReadBtn) {
@@ -12235,6 +12241,98 @@ function handleChatInputPaste(event) {
             reader.readAsDataURL(blob);
             break; // Only handle first image
         }
+    }
+}
+
+/**
+ * Handle file input change event (when user selects files via attachment button)
+ * Supports multiple files selection
+ */
+function handleFileInputChange(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const channelId = window.currentChatChannelId;
+    if (!channelId) {
+        if (window.notificationManager) {
+            window.notificationManager.show('Vui lòng mở chat trước khi gửi file', 'warning');
+        }
+        return;
+    }
+
+    // Initialize array if needed
+    if (!window.uploadedImagesData) {
+        window.uploadedImagesData = [];
+    }
+
+    // Process each selected file
+    Array.from(files).forEach(async (file) => {
+        // Only process image files for now
+        if (!file.type.startsWith('image/')) {
+            console.log('[FILE-INPUT] Skipping non-image file:', file.name, file.type);
+            if (window.notificationManager) {
+                window.notificationManager.show(`Bỏ qua file không phải ảnh: ${file.name}`, 'warning');
+            }
+            return;
+        }
+
+        console.log('[FILE-INPUT] Processing image:', file.name, file.size, file.type);
+
+        // Add to preview first (showing as uploading)
+        const tempIndex = window.uploadedImagesData.length;
+        window.uploadedImagesData.push({
+            blob: file,
+            productId: null,
+            productName: file.name,
+            uploading: true
+        });
+        updateMultipleImagesPreview();
+
+        try {
+            // Upload image
+            const result = await window.uploadImageWithCache(file, null, file.name, channelId, null);
+
+            if (result.success) {
+                // Update with success data
+                window.uploadedImagesData[tempIndex] = {
+                    ...result.data,
+                    blob: file,
+                    productId: null,
+                    productName: file.name
+                };
+                console.log('[FILE-INPUT] ✓ Upload success:', file.name);
+            } else {
+                // Update with error
+                window.uploadedImagesData[tempIndex] = {
+                    blob: file,
+                    productId: null,
+                    productName: file.name,
+                    error: result.error || 'Upload failed',
+                    uploadFailed: true
+                };
+                console.error('[FILE-INPUT] ✗ Upload failed:', file.name, result.error);
+            }
+        } catch (error) {
+            console.error('[FILE-INPUT] Error uploading:', file.name, error);
+            window.uploadedImagesData[tempIndex] = {
+                blob: file,
+                productId: null,
+                productName: file.name,
+                error: error.message || 'Lỗi không xác định',
+                uploadFailed: true
+            };
+        }
+
+        updateMultipleImagesPreview();
+    });
+
+    // Reset file input so same file can be selected again
+    event.target.value = '';
+
+    // Focus on chat input
+    const chatInput = document.getElementById('chatReplyInput');
+    if (chatInput) {
+        chatInput.focus();
     }
 }
 
