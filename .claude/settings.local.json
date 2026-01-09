@@ -26,7 +26,10 @@
       "Bash(git stash:*)",
       "Bash(Get-ChildItem:*)",
       "Bash(Select-Object:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(curl -s https://n2store-tpos-pancake.onrender.com/api/debug/db)",
+      "Bash(curl -s https://n2store-tpos-pancake.onrender.com/api/tpos-saved/ids)",
+      "Bash(curl:*)"
     ]
   }
 }

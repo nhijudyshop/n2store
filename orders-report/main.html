@@ -12,6 +12,48 @@
     <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!-- 🧹 Auto cleanup localStorage to prevent QuotaExceededError -->
+    <script>
+    (function() {
+        try {
+            var totalSize = 0;
+            for (var key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    totalSize += localStorage[key].length + key.length;
+                }
+            }
+            var sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+
+            // If over 4MB, clean up non-essential data
+            if (totalSize > 4 * 1024 * 1024) {
+                console.warn('[STORAGE] ⚠️ localStorage near quota (' + sizeMB + 'MB), auto cleaning...');
+                var cleaned = 0;
+                var keysToRemove = [];
+
+                for (var k in localStorage) {
+                    if (localStorage.hasOwnProperty(k)) {
+                        // Remove Firebase logs
+                        if (k.startsWith('firebase:')) keysToRemove.push(k);
+                        // Remove large caches
+                        if ((k === 'standard_price_cache' || k === 'product_excel_cache') && localStorage[k].length > 500000) {
+                            keysToRemove.push(k);
+                        }
+                    }
+                }
+
+                keysToRemove.forEach(function(key) {
+                    localStorage.removeItem(key);
+                    cleaned++;
+                });
+
+                console.log('[STORAGE] ✅ Auto cleaned ' + cleaned + ' items');
+            }
+        } catch (e) {
+            console.warn('[STORAGE] Cleanup error:', e);
+        }
+    })();
+    </script>
+
     <!-- External CSS -->
     <link rel="stylesheet" href="modern.css" />
 

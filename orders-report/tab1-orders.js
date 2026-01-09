@@ -767,6 +767,54 @@ window.addEventListener("DOMContentLoaded", async function () {
         }
     });
 
+    // 🧹 Clean up localStorage if near quota to prevent QuotaExceededError
+    (function cleanupLocalStorageIfNeeded() {
+        try {
+            // Estimate current localStorage usage
+            let totalSize = 0;
+            for (let key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    totalSize += localStorage[key].length + key.length;
+                }
+            }
+            const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+            console.log(`[STORAGE] Current localStorage usage: ${totalSizeMB} MB`);
+
+            // If over 4MB (localStorage limit is usually 5-10MB), clean up
+            if (totalSize > 4 * 1024 * 1024) {
+                console.warn('[STORAGE] ⚠️ localStorage near quota, cleaning up...');
+
+                // Keys to clean (low priority / can be regenerated)
+                const keysToClean = [];
+                for (let key in localStorage) {
+                    if (localStorage.hasOwnProperty(key)) {
+                        // Clean Firebase websocket failure logs
+                        if (key.startsWith('firebase:')) {
+                            keysToClean.push(key);
+                        }
+                        // Clean old standard price cache (large data)
+                        if (key === 'standard_price_cache' && localStorage[key].length > 500000) {
+                            keysToClean.push(key);
+                        }
+                        // Clean old product cache
+                        if (key === 'product_excel_cache' && localStorage[key].length > 500000) {
+                            keysToClean.push(key);
+                        }
+                    }
+                }
+
+                keysToClean.forEach(key => {
+                    localStorage.removeItem(key);
+                    console.log(`[STORAGE] Removed: ${key}`);
+                });
+
+                console.log(`[STORAGE] ✅ Cleaned ${keysToClean.length} items`);
+            }
+        } catch (e) {
+            console.warn('[STORAGE] Error checking localStorage:', e);
+        }
+    })();
+
     console.log("[CACHE] Clearing all cache on page load...");
     if (window.cacheManager) {
         window.cacheManager.clear("orders");
