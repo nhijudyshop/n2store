@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(git pull:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(wc:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(grep:*)",
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(mkdir:*)",
+      "Bash(npx wrangler deploy)",
+      "Bash(git init:*)",
+      "Bash(gh repo create:*)",
+      "Bash(brew install:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh auth login:*)",
+      "Bash(psql:*)",
+      "Bash(git rebase:*)",
+      "Bash(git revert:*)",
+      "Bash(git stash:*)",
+      "Bash(Get-ChildItem:*)",
+      "Bash(Select-Object:*)",
+      "Bash(ls:*)",
+      "Bash(curl -s https://n2store-tpos-pancake.onrender.com/api/debug/db)",
+      "Bash(curl -s https://n2store-tpos-pancake.onrender.com/api/tpos-saved/ids)",
+      "Bash(curl:*)",
+      "Bash(git restore:*)"
+    ]
+  }
+}
