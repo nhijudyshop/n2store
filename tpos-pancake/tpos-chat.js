@@ -1157,13 +1157,12 @@ class TposChatManager {
         const currentStatus = partner.StatusText || 'Bình thường';
         const currentStatusOption = statusOptions.find(s => s.text === currentStatus) || statusOptions[0];
 
-        // Build status dropdown options HTML
+        // Build status dropdown options HTML (simple text only)
         const statusOptionsHtml = statusOptions.map(opt =>
-            `<div class="status-option" data-value="${opt.value}" style="padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;"
+            `<div class="status-option" data-value="${opt.value}" style="padding: 8px 12px; cursor: pointer; font-size: 13px;"
                  onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"
-                 onclick="window.tposChatManager.selectStatus('${opt.value}', '${opt.text}', '${opt.color}')">
-                <span style="width: 12px; height: 12px; border-radius: 50%; background: ${opt.color};"></span>
-                <span>${opt.text}</span>
+                 onclick="window.tposChatManager.selectStatus('${opt.value}', '${opt.text}')">
+                ${opt.text}
             </div>`
         ).join('');
 
@@ -1194,9 +1193,8 @@ class TposChatManager {
                     <label>Trạng thái:</label>
                     <div class="status-dropdown-container" style="position: relative; display: inline-block;">
                         <button id="statusDropdownBtn" class="status-dropdown-btn"
-                                style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; font-size: 13px;"
+                                style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; font-size: 13px;"
                                 onclick="window.tposChatManager.toggleStatusDropdown()">
-                            <span id="statusColor" style="width: 10px; height: 10px; border-radius: 50%; background: ${currentStatusOption.color};"></span>
                             <span id="statusText">${currentStatus}</span>
                             <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
                         </button>
@@ -1310,7 +1308,7 @@ class TposChatManager {
     /**
      * Select status from dropdown and update via API
      */
-    async selectStatus(value, text, color) {
+    async selectStatus(value, text) {
         // Hide dropdown
         const dropdown = document.getElementById('statusDropdown');
         if (dropdown) {
@@ -1319,9 +1317,7 @@ class TposChatManager {
 
         // Update UI immediately
         const statusText = document.getElementById('statusText');
-        const statusColor = document.getElementById('statusColor');
         if (statusText) statusText.textContent = text;
-        if (statusColor) statusColor.style.background = color;
 
         // Call API to update status
         if (this.currentPartnerId) {
