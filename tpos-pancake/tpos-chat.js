@@ -1084,6 +1084,60 @@ class TposChatManager {
     }
 
     /**
+     * Status options for partner
+     */
+    getStatusOptions() {
+        return [
+            { value: '#5cb85c_Bình thường', text: 'Bình thường', color: '#5cb85c' },
+            { value: '#d9534f_Bom hàng', text: 'Bom hàng', color: '#d9534f' },
+            { value: '#f0ad4e_Cảnh báo', text: 'Cảnh báo', color: '#f0ad4e' },
+            { value: '#5bc0de_Khách sỉ', text: 'Khách sỉ', color: '#5bc0de' },
+            { value: '#d9534f_Nguy hiểm', text: 'Nguy hiểm', color: '#d9534f' },
+            { value: '#337ab7_Thân thiết', text: 'Thân thiết', color: '#337ab7' },
+            { value: '#9c27b0_Vip', text: 'Vip', color: '#9c27b0' },
+            { value: '#ff9800_VIP', text: 'VIP', color: '#ff9800' }
+        ];
+    }
+
+    /**
+     * Update partner status via TPOS API
+     */
+    async updatePartnerStatus(partnerId, statusValue) {
+        console.log('[TPOS-CHAT] Updating partner status:', partnerId, statusValue);
+
+        try {
+            const apiUrl = `${this.tposBaseUrl}/odata/Partner(${partnerId})/ODataService.UpdateStatus`;
+
+            const response = await this.authenticatedFetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json;charset=UTF-8'
+                },
+                body: JSON.stringify({ status: statusValue })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            // Extract status text from value (e.g., "#5cb85c_Bình thường" -> "Bình thường")
+            const statusText = statusValue.split('_')[1] || statusValue;
+
+            if (window.notificationManager) {
+                window.notificationManager.show(`Đã cập nhật trạng thái: ${statusText}`, 'success');
+            }
+
+            return true;
+        } catch (error) {
+            console.error('[TPOS-CHAT] Error updating status:', error);
+            if (window.notificationManager) {
+                window.notificationManager.show(`Lỗi cập nhật trạng thái: ${error.message}`, 'error');
+            }
+            return false;
+        }
+    }
+
+    /**
      * Render customer info data into modal
      */
     renderCustomerInfoModal(data, customerName) {
@@ -1095,12 +1149,23 @@ class TposChatManager {
         const conversation = data.Conversation || {};
         const revenue = data.Revenue || {};
 
-        // Status badge class
-        const getStatusClass = (status) => {
-            if (status === 0 || status === 'Bình thường') return 'status-normal';
-            if (status === 1 || status === 'Cảnh báo') return 'status-warning';
-            return 'status-danger';
-        };
+        // Store partner ID for status update
+        this.currentPartnerId = partner.Id;
+
+        // Status options
+        const statusOptions = this.getStatusOptions();
+        const currentStatus = partner.StatusText || 'Bình thường';
+        const currentStatusOption = statusOptions.find(s => s.text === currentStatus) || statusOptions[0];
+
+        // Build status dropdown options HTML
+        const statusOptionsHtml = statusOptions.map(opt =>
+            `<div class="status-option" data-value="${opt.value}" style="padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;"
+                 onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"
+                 onclick="window.tposChatManager.selectStatus('${opt.value}', '${opt.text}', '${opt.color}')">
+                <span style="width: 12px; height: 12px; border-radius: 50%; background: ${opt.color};"></span>
+                <span>${opt.text}</span>
+            </div>`
+        ).join('');
 
         // Format date
         const formatDate = (dateStr) => {
@@ -1119,7 +1184,18 @@ class TposChatManager {
                 </div>
                 <div class="customer-field">
                     <label>Trạng thái:</label>
-                    <span class="status-badge ${getStatusClass(partner.Status)}">${partner.StatusText || 'Bình thường'}</span>
+                    <div class="status-dropdown-container" style="position: relative; display: inline-block;">
+                        <button id="statusDropdownBtn" class="status-dropdown-btn"
+                                style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; font-size: 13px;"
+                                onclick="window.tposChatManager.toggleStatusDropdown()">
+                            <span id="statusColor" style="width: 10px; height: 10px; border-radius: 50%; background: ${currentStatusOption.color};"></span>
+                            <span id="statusText">${currentStatus}</span>
+                            <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
+                        </button>
+                        <div id="statusDropdown" style="display: none; position: absolute; top: 100%; left: 0; min-width: 160px; background: white; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; margin-top: 4px;">
+                            ${statusOptionsHtml}
+                        </div>
+                    </div>
                 </div>
                 <div class="customer-field">
                     <label>Điện thoại:</label>
@@ -1210,6 +1286,38 @@ class TposChatManager {
         const modal = document.getElementById('customerInfoModal');
         if (modal) {
             modal.style.display = 'none';
+        }
+    }
+
+    /**
+     * Toggle status dropdown visibility
+     */
+    toggleStatusDropdown() {
+        const dropdown = document.getElementById('statusDropdown');
+        if (dropdown) {
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
+    /**
+     * Select status from dropdown and update via API
+     */
+    async selectStatus(value, text, color) {
+        // Hide dropdown
+        const dropdown = document.getElementById('statusDropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
+
+        // Update UI immediately
+        const statusText = document.getElementById('statusText');
+        const statusColor = document.getElementById('statusColor');
+        if (statusText) statusText.textContent = text;
+        if (statusColor) statusColor.style.background = color;
+
+        // Call API to update status
+        if (this.currentPartnerId) {
+            await this.updatePartnerStatus(this.currentPartnerId, value);
         }
     }
 
