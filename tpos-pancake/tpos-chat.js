@@ -1167,6 +1167,14 @@ class TposChatManager {
             </div>`
         ).join('');
 
+        // Status badge class for order
+        const getStatusClass = (status) => {
+            if (status === 0 || status === 'Nháp') return 'status-normal';
+            if (status === 1 || status === 'Đã xác nhận') return 'status-normal';
+            if (status === 'cancel' || status === 'Huỷ bỏ') return 'status-danger';
+            return 'status-warning';
+        };
+
         // Format date
         const formatDate = (dateStr) => {
             if (!dateStr) return '-';
