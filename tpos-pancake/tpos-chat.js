@@ -237,22 +237,51 @@ class TposChatManager {
     }
 
     /**
+     * Authenticated fetch with auto-retry on 401
+     */
+    async authenticatedFetch(url, options = {}) {
+        const token = await this.getToken();
+        if (!token) {
+            throw new Error('No token available');
+        }
+
+        let response = await fetch(url, {
+            ...options,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+                ...options.headers
+            }
+        });
+
+        // Auto-retry on 401: refresh token and retry once
+        if (response.status === 401) {
+            console.log('[TPOS-CHAT] Got 401, refreshing token and retrying...');
+            if (window.tposTokenManager?.refresh) {
+                await window.tposTokenManager.refresh();
+                const newToken = await this.getToken();
+                if (newToken) {
+                    response = await fetch(url, {
+                        ...options,
+                        headers: {
+                            'Authorization': `Bearer ${newToken}`,
+                            'Accept': 'application/json',
+                            ...options.headers
+                        }
+                    });
+                }
+            }
+        }
+
+        return response;
+    }
+
+    /**
      * Load CRM Teams with Pages (via proxy)
      */
     async loadCRMTeams() {
         try {
-            const token = await this.getToken();
-            if (!token) {
-                console.error('[TPOS-CHAT] No token available');
-                return;
-            }
-
-            const response = await fetch(`${this.proxyBaseUrl}/facebook/crm-teams`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
+            const response = await this.authenticatedFetch(`${this.proxyBaseUrl}/facebook/crm-teams`);
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
 
@@ -272,15 +301,7 @@ class TposChatManager {
      */
     async loadLiveCampaigns(pageId) {
         try {
-            const token = await this.getToken();
-            if (!token) return;
-
-            const response = await fetch(`${this.proxyBaseUrl}/facebook/live-campaigns?top=20`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
+            const response = await this.authenticatedFetch(`${this.proxyBaseUrl}/facebook/live-campaigns?top=20`);
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
 
@@ -303,15 +324,7 @@ class TposChatManager {
      */
     async loadLiveCampaignsFromAllPages() {
         try {
-            const token = await this.getToken();
-            if (!token) return;
-
-            const response = await fetch(`${this.proxyBaseUrl}/facebook/live-campaigns?top=50`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
+            const response = await this.authenticatedFetch(`${this.proxyBaseUrl}/facebook/live-campaigns?top=50`);
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
 
