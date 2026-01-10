@@ -826,14 +826,20 @@ class TposChatManager {
                     </span>
                 </div>
                 <div class="tpos-conv-content" style="flex: 1; min-width: 0;">
-                    <!-- Row 1: Name + Status + Phone -->
-                    <div class="tpos-conv-header" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <!-- Row 1: Name + Hidden tag -->
+                    <div class="tpos-conv-header" style="display: flex; align-items: center; gap: 6px;">
                         <span class="customer-name" style="font-weight: 600;">${this.escapeHtml(fromName)}</span>
-                        ${isHidden ? '<span class="tpos-tag" style="background:#fee2e2;color:#dc2626;font-size:10px;padding:2px 6px;">Ẩn</span>' : ''}
+                        ${isHidden ? '<span class="tpos-tag" style="background:#fee2e2;color:#dc2626;font-size:10px;padding:2px 6px;border-radius:4px;">Ẩn</span>' : ''}
+                    </div>
 
+                    <!-- Row 2: COMMENT - Most important, prominent display -->
+                    <div class="tpos-conv-message" style="margin-top: 6px; color: #1f2937; font-size: 14px; font-weight: 500; line-height: 1.4; background: #f0f9ff; padding: 8px 10px; border-radius: 6px; border-left: 3px solid #3b82f6;">${this.escapeHtml(message)}</div>
+
+                    <!-- Row 3: Status + Phone + Address (compact row) -->
+                    <div class="tpos-conv-info" style="display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap;" onclick="event.stopPropagation();">
                         <!-- Status Dropdown -->
-                        <div class="inline-status-container" style="position: relative; display: inline-flex;" onclick="event.stopPropagation();">
-                            <button id="status-btn-${fromId}" style="display: flex; align-items: center; gap: 3px; padding: 2px 8px; border: 1px solid #e5e7eb; border-radius: 4px; background: white; cursor: pointer; font-size: 11px; color: #374151;"
+                        <div class="inline-status-container" style="position: relative; display: inline-flex;">
+                            <button id="status-btn-${fromId}" style="display: flex; align-items: center; gap: 3px; padding: 3px 8px; border: 1px solid #e5e7eb; border-radius: 4px; background: #f9fafb; cursor: pointer; font-size: 11px; color: #374151;"
                                     onclick="event.stopPropagation(); window.tposChatManager.toggleInlineStatusDropdown('${fromId}')">
                                 <span id="status-text-${fromId}">${statusText || 'Trạng thái'}</span>
                                 <i data-lucide="chevron-down" style="width: 10px; height: 10px;"></i>
@@ -844,30 +850,29 @@ class TposChatManager {
                         </div>
 
                         <!-- Phone Input -->
-                        <div class="inline-phone-container" style="display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation();">
+                        <div class="inline-phone-container" style="display: inline-flex; align-items: center; gap: 2px;">
                             <input type="text" id="phone-${fromId}" value="${this.escapeHtml(phone)}" placeholder="SĐT"
-                                   style="width: 95px; padding: 2px 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 11px;"
+                                   style="width: 100px; padding: 3px 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 11px; background: #f9fafb;"
                                    onclick="event.stopPropagation();">
-                            <button id="save-phone-${fromId}" style="padding: 2px 4px; border: none; background: transparent; cursor: pointer;"
-                                    onclick="event.stopPropagation(); window.tposChatManager.saveInlinePhone('${fromId}', 'phone-${fromId}')">
-                                <i data-lucide="save" style="width: 12px; height: 12px; color: #6b7280;"></i>
+                            <button id="save-phone-${fromId}" style="padding: 3px 4px; border: none; background: transparent; cursor: pointer;"
+                                    onclick="event.stopPropagation(); window.tposChatManager.saveInlinePhone('${fromId}', 'phone-${fromId}')"
+                                    title="Lưu SĐT">
+                                <i data-lucide="save" style="width: 14px; height: 14px; color: #6b7280;"></i>
+                            </button>
+                        </div>
+
+                        <!-- Address Input -->
+                        <div class="inline-addr-container" style="display: inline-flex; align-items: center; gap: 2px; flex: 1; min-width: 150px;">
+                            <input type="text" id="addr-${fromId}" value="${this.escapeHtml(address)}" placeholder="Địa chỉ"
+                                   style="flex: 1; padding: 3px 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 11px; background: #f9fafb; min-width: 0;"
+                                   onclick="event.stopPropagation();">
+                            <button id="save-addr-${fromId}" style="padding: 3px 4px; border: none; background: transparent; cursor: pointer;"
+                                    onclick="event.stopPropagation(); window.tposChatManager.saveInlineAddress('${fromId}', 'addr-${fromId}')"
+                                    title="Lưu địa chỉ">
+                                <i data-lucide="save" style="width: 14px; height: 14px; color: #6b7280;"></i>
                             </button>
                         </div>
                     </div>
-
-                    <!-- Row 2: Address -->
-                    <div class="tpos-conv-address" style="display: flex; align-items: center; gap: 2px; margin-top: 4px;" onclick="event.stopPropagation();">
-                        <input type="text" id="addr-${fromId}" value="${this.escapeHtml(address)}" placeholder="Địa chỉ"
-                               style="flex: 1; padding: 2px 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 11px; min-width: 0;"
-                               onclick="event.stopPropagation();">
-                        <button id="save-addr-${fromId}" style="padding: 2px 4px; border: none; background: transparent; cursor: pointer;"
-                                onclick="event.stopPropagation(); window.tposChatManager.saveInlineAddress('${fromId}', 'addr-${fromId}')">
-                            <i data-lucide="save" style="width: 12px; height: 12px; color: #6b7280;"></i>
-                        </button>
-                    </div>
-
-                    <!-- Row 3: Message -->
-                    <div class="tpos-conv-message" style="margin-top: 4px; color: #6b7280; font-size: 13px;">${this.escapeHtml(message)}</div>
                 </div>
                 <div class="tpos-conv-actions">
                     <button class="tpos-action-btn tpos-phone-btn" title="Xem thông tin khách hàng" onclick="event.stopPropagation(); window.tposChatManager.showCustomerInfo('${fromId}', '${this.escapeHtml(fromName)}')">
