@@ -31,6 +31,10 @@ class TposChatManager {
         // SessionIndex map: ASUID -> { index, session, code }
         this.sessionIndexMap = new Map();
 
+        // Partner cache: userId -> partner info (for inline display)
+        this.partnerCache = new Map();
+        this.partnerFetchPromises = new Map(); // Prevent duplicate fetches
+
         // API config
         this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
         this.tposPancakeUrl = 'https://n2store-tpos-pancake.onrender.com';
@@ -420,6 +424,9 @@ class TposChatManager {
                 this.loadSessionIndex();
             }
 
+            // Load partner info for comments (async, will re-render when done)
+            this.loadPartnerInfoForComments();
+
         } catch (error) {
             console.error('[TPOS-CHAT] Error loading comments:', error);
             if (listContainer) {
@@ -785,6 +792,24 @@ class TposChatManager {
         const gradientColor = colors[colorIndex];
         const initial = fromName.charAt(0).toUpperCase();
 
+        // Get partner info from cache
+        const partner = this.partnerCache.get(fromId) || {};
+        const statusText = partner.StatusText || '';
+        const phone = partner.Phone || '';
+        const address = partner.Street || '';
+
+        // Status dropdown options
+        const statusOptions = this.getStatusOptions();
+
+        // Build status dropdown HTML
+        const statusDropdownHtml = statusOptions.map(opt =>
+            `<div class="inline-status-option" style="padding: 6px 10px; cursor: pointer; font-size: 12px;"
+                 onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"
+                 onclick="event.stopPropagation(); window.tposChatManager.selectInlineStatus('${fromId}', '${opt.value}', '${opt.text}')">
+                ${opt.text}
+            </div>`
+        ).join('');
+
         return `
             <div class="tpos-conversation-item ${isHidden ? 'is-hidden' : ''}"
                  data-comment-id="${id}"
@@ -800,12 +825,49 @@ class TposChatManager {
                         <i data-lucide="facebook" class="channel-icon fb"></i>
                     </span>
                 </div>
-                <div class="tpos-conv-content">
-                    <div class="tpos-conv-header">
-                        <span class="customer-name">${this.escapeHtml(fromName)}</span>
-                        ${isHidden ? '<span class="tpos-tag" style="background:#fee2e2;color:#dc2626;">Ẩn</span>' : ''}
+                <div class="tpos-conv-content" style="flex: 1; min-width: 0;">
+                    <!-- Row 1: Name + Status + Phone -->
+                    <div class="tpos-conv-header" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span class="customer-name" style="font-weight: 600;">${this.escapeHtml(fromName)}</span>
+                        ${isHidden ? '<span class="tpos-tag" style="background:#fee2e2;color:#dc2626;font-size:10px;padding:2px 6px;">Ẩn</span>' : ''}
+
+                        <!-- Status Dropdown -->
+                        <div class="inline-status-container" style="position: relative; display: inline-flex;" onclick="event.stopPropagation();">
+                            <button id="status-btn-${fromId}" style="display: flex; align-items: center; gap: 3px; padding: 2px 8px; border: 1px solid #e5e7eb; border-radius: 4px; background: white; cursor: pointer; font-size: 11px; color: #374151;"
+                                    onclick="event.stopPropagation(); window.tposChatManager.toggleInlineStatusDropdown('${fromId}')">
+                                <span id="status-text-${fromId}">${statusText || 'Trạng thái'}</span>
+                                <i data-lucide="chevron-down" style="width: 10px; height: 10px;"></i>
+                            </button>
+                            <div id="status-dropdown-${fromId}" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #e5e7eb; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; min-width: 120px;">
+                                ${statusDropdownHtml}
+                            </div>
+                        </div>
+
+                        <!-- Phone Input -->
+                        <div class="inline-phone-container" style="display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation();">
+                            <input type="text" id="phone-${fromId}" value="${this.escapeHtml(phone)}" placeholder="SĐT"
+                                   style="width: 95px; padding: 2px 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 11px;"
+                                   onclick="event.stopPropagation();">
+                            <button id="save-phone-${fromId}" style="padding: 2px 4px; border: none; background: transparent; cursor: pointer;"
+                                    onclick="event.stopPropagation(); window.tposChatManager.saveInlinePhone('${fromId}', 'phone-${fromId}')">
+                                <i data-lucide="save" style="width: 12px; height: 12px; color: #6b7280;"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="tpos-conv-message">${this.escapeHtml(message)}</div>
+
+                    <!-- Row 2: Address -->
+                    <div class="tpos-conv-address" style="display: flex; align-items: center; gap: 2px; margin-top: 4px;" onclick="event.stopPropagation();">
+                        <input type="text" id="addr-${fromId}" value="${this.escapeHtml(address)}" placeholder="Địa chỉ"
+                               style="flex: 1; padding: 2px 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 11px; min-width: 0;"
+                               onclick="event.stopPropagation();">
+                        <button id="save-addr-${fromId}" style="padding: 2px 4px; border: none; background: transparent; cursor: pointer;"
+                                onclick="event.stopPropagation(); window.tposChatManager.saveInlineAddress('${fromId}', 'addr-${fromId}')">
+                            <i data-lucide="save" style="width: 12px; height: 12px; color: #6b7280;"></i>
+                        </button>
+                    </div>
+
+                    <!-- Row 3: Message -->
+                    <div class="tpos-conv-message" style="margin-top: 4px; color: #6b7280; font-size: 13px;">${this.escapeHtml(message)}</div>
                 </div>
                 <div class="tpos-conv-actions">
                     <button class="tpos-action-btn tpos-phone-btn" title="Xem thông tin khách hàng" onclick="event.stopPropagation(); window.tposChatManager.showCustomerInfo('${fromId}', '${this.escapeHtml(fromName)}')">
@@ -1322,6 +1384,279 @@ class TposChatManager {
         // Call API to update status
         if (this.currentPartnerId) {
             await this.updatePartnerStatus(this.currentPartnerId, value);
+        }
+    }
+
+    // =====================================================
+    // PARTNER INFO FOR LIST ITEMS
+    // =====================================================
+
+    /**
+     * Get partner info (with caching)
+     */
+    async getPartnerInfo(userId) {
+        // Return from cache if available
+        if (this.partnerCache.has(userId)) {
+            return this.partnerCache.get(userId);
+        }
+
+        // Return existing promise if already fetching
+        if (this.partnerFetchPromises.has(userId)) {
+            return this.partnerFetchPromises.get(userId);
+        }
+
+        // Fetch partner info
+        const fetchPromise = (async () => {
+            try {
+                const crmTeamId = this.selectedTeamId || this.selectedPage?.CRMTeamId || this.selectedPage?.Id;
+                if (!crmTeamId) return null;
+
+                const apiUrl = `${this.tposBaseUrl}/rest/v2.0/chatomni/info/${crmTeamId}_${userId}`;
+                const response = await this.authenticatedFetch(apiUrl);
+
+                if (!response.ok) return null;
+
+                const data = await response.json();
+                const partner = data?.Partner || {};
+
+                // Cache the result
+                this.partnerCache.set(userId, partner);
+                return partner;
+            } catch (error) {
+                console.error('[TPOS-CHAT] Error fetching partner info:', error);
+                return null;
+            } finally {
+                this.partnerFetchPromises.delete(userId);
+            }
+        })();
+
+        this.partnerFetchPromises.set(userId, fetchPromise);
+        return fetchPromise;
+    }
+
+    /**
+     * Load partner info for all comments (batch)
+     */
+    async loadPartnerInfoForComments() {
+        // Get unique user IDs
+        const userIds = [...new Set(this.comments.map(c => c.from?.id).filter(Boolean))];
+
+        // Fetch in parallel (limit to 5 concurrent requests)
+        const batchSize = 5;
+        for (let i = 0; i < userIds.length; i += batchSize) {
+            const batch = userIds.slice(i, i + batchSize);
+            await Promise.all(batch.map(userId => this.getPartnerInfo(userId)));
+        }
+
+        // Re-render to show partner info
+        this.renderComments();
+    }
+
+    /**
+     * Save partner data via CreateUpdatePartner API
+     */
+    async savePartnerData(partnerId, updates, teamId) {
+        try {
+            // Get current partner from cache or fetch
+            let partner = this.partnerCache.get(updates.userId);
+            if (!partner || !partner.Id) {
+                throw new Error('Partner not found in cache');
+            }
+
+            // Merge updates into partner model
+            const model = {
+                ...partner,
+                ...updates.fields
+            };
+
+            const apiUrl = `${this.proxyBaseUrl}/api/odata/SaleOnline_Order/ODataService.CreateUpdatePartner`;
+
+            const response = await this.authenticatedFetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json;IEEE754Compatible=false;charset=UTF-8',
+                    'tposappversion': '6.1.8.1',
+                    'x-requested-with': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    model: model,
+                    teamId: teamId || this.selectedTeamId || this.selectedPage?.CRMTeamId || this.selectedPage?.Id
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            // Update cache with new data
+            this.partnerCache.set(updates.userId, result);
+
+            return result;
+        } catch (error) {
+            console.error('[TPOS-CHAT] Error saving partner:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Save phone inline edit
+     */
+    async saveInlinePhone(userId, inputId) {
+        const input = document.getElementById(inputId);
+        const saveBtn = document.getElementById(`save-phone-${userId}`);
+        if (!input) return;
+
+        const newPhone = input.value.trim();
+        if (!newPhone) {
+            if (window.notificationManager) {
+                window.notificationManager.show('Vui lòng nhập số điện thoại', 'warning');
+            }
+            return;
+        }
+
+        // Show loading
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
+            saveBtn.disabled = true;
+        }
+
+        try {
+            await this.savePartnerData(null, {
+                userId: userId,
+                fields: { Phone: newPhone }
+            });
+
+            if (window.notificationManager) {
+                window.notificationManager.success('Đã lưu số điện thoại');
+            }
+
+            // Update UI
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
+                setTimeout(() => {
+                    saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
+                    saveBtn.disabled = false;
+                    if (window.lucide) lucide.createIcons();
+                }, 1500);
+            }
+        } catch (error) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Lỗi lưu SĐT: ' + error.message);
+            }
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
+                saveBtn.disabled = false;
+            }
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    /**
+     * Save address inline edit
+     */
+    async saveInlineAddress(userId, inputId) {
+        const input = document.getElementById(inputId);
+        const saveBtn = document.getElementById(`save-addr-${userId}`);
+        if (!input) return;
+
+        const newAddress = input.value.trim();
+
+        // Show loading
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
+            saveBtn.disabled = true;
+        }
+
+        try {
+            await this.savePartnerData(null, {
+                userId: userId,
+                fields: { Street: newAddress }
+            });
+
+            if (window.notificationManager) {
+                window.notificationManager.success('Đã lưu địa chỉ');
+            }
+
+            // Update UI
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
+                setTimeout(() => {
+                    saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
+                    saveBtn.disabled = false;
+                    if (window.lucide) lucide.createIcons();
+                }, 1500);
+            }
+        } catch (error) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Lỗi lưu địa chỉ: ' + error.message);
+            }
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
+                saveBtn.disabled = false;
+            }
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    /**
+     * Toggle inline status dropdown for list item
+     */
+    toggleInlineStatusDropdown(userId) {
+        const dropdown = document.getElementById(`status-dropdown-${userId}`);
+        if (dropdown) {
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
+    /**
+     * Select inline status and save
+     */
+    async selectInlineStatus(userId, value, text) {
+        // Hide dropdown
+        const dropdown = document.getElementById(`status-dropdown-${userId}`);
+        if (dropdown) dropdown.style.display = 'none';
+
+        // Update UI immediately
+        const statusText = document.getElementById(`status-text-${userId}`);
+        if (statusText) statusText.textContent = text;
+
+        // Get partner from cache
+        const partner = this.partnerCache.get(userId);
+        if (!partner || !partner.Id) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Không tìm thấy thông tin khách hàng');
+            }
+            return;
+        }
+
+        // Call UpdateStatus API
+        try {
+            const apiUrl = `${this.proxyBaseUrl}/api/odata/Partner(${partner.Id})/ODataService.UpdateStatus`;
+            const response = await this.authenticatedFetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json;charset=UTF-8',
+                    'tposappversion': '6.1.8.1'
+                },
+                body: JSON.stringify({ status: value })
+            });
+
+            if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+            // Update cache
+            partner.StatusText = text;
+            this.partnerCache.set(userId, partner);
+
+            if (window.notificationManager) {
+                window.notificationManager.success('Đã cập nhật trạng thái');
+            }
+        } catch (error) {
+            console.error('[TPOS-CHAT] Error updating status:', error);
+            if (window.notificationManager) {
+                window.notificationManager.error('Lỗi cập nhật: ' + error.message);
+            }
         }
     }
 
