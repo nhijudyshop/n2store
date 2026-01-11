@@ -1367,9 +1367,9 @@ export default {
         // Customers API (Render) - PostgreSQL backend
         const customersPath = pathname.replace(/^\/api\/customers\/?/, '');
         targetUrl = `https://n2store-fallback.onrender.com/api/customers/${customersPath}${url.search}`;
-      } else if (pathname.startsWith('/api/customer360/') || pathname.startsWith('/api/customer/') || pathname.startsWith('/api/wallet/') || pathname.startsWith('/api/ticket')) {
+      } else if (pathname.startsWith('/api/customer360/') || pathname.startsWith('/api/customer/') || pathname.startsWith('/api/wallet/') || pathname.startsWith('/api/ticket') || pathname.startsWith('/api/customer-search') || pathname.startsWith('/api/transactions/') || pathname.startsWith('/api/balance-history/')) {
         // ========== CUSTOMER 360° API (Render) ==========
-        // Routes: /api/customer/:phone, /api/wallet/:phone, /api/ticket
+        // Routes: /api/customer/:phone, /api/wallet/:phone, /api/ticket, /api/customer-search-v2, /api/transactions/consolidated, /api/balance-history/unlinked
         // Forward to n2store-fallback.onrender.com (has Customer 360 routes deployed)
         let apiPath;
         if (pathname.startsWith('/api/customer360/')) {
