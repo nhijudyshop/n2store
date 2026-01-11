@@ -217,23 +217,27 @@ export class TransactionActivityModule {
             }
         } catch (error) {
             console.error('Error loading transactions:', error);
-            // Check if it's a server error (500) - might be endpoint not implemented yet
-            const isServerError = error.message.includes('500') || error.message.includes('Internal Server Error');
+            // Check if it's a server error or endpoint not implemented
+            const errorMsg = error.message.toLowerCase();
+            const isServerError = errorMsg.includes('500') ||
+                                  errorMsg.includes('internal server') ||
+                                  errorMsg.includes('consolidated') ||
+                                  errorMsg.includes('not found') ||
+                                  errorMsg.includes('404');
+
             this.tableBody.innerHTML = `
                 <tr>
                     <td colspan="7" class="px-6 py-12 text-center">
                         <div class="flex flex-col items-center">
-                            <div class="w-16 h-16 rounded-full ${isServerError ? 'bg-warning/10' : 'bg-danger/10'} flex items-center justify-center mb-4">
-                                <span class="material-symbols-outlined ${isServerError ? 'text-warning' : 'text-danger'} text-3xl">${isServerError ? 'engineering' : 'error'}</span>
+                            <div class="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mb-4">
+                                <span class="material-symbols-outlined text-warning text-3xl">engineering</span>
                             </div>
-                            <p class="text-lg font-medium ${isServerError ? 'text-warning' : 'text-danger'} mb-1">${isServerError ? 'Feature Coming Soon' : 'Failed to load transactions'}</p>
-                            <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">${isServerError ? 'The transaction activity API is being developed' : error.message}</p>
-                            ${isServerError ? `
+                            <p class="text-lg font-medium text-warning mb-1">Feature Coming Soon</p>
+                            <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">The transaction activity API is being developed</p>
                             <button onclick="location.reload()" class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors">
                                 <span class="material-symbols-outlined text-lg">refresh</span>
                                 Retry
                             </button>
-                            ` : ''}
                         </div>
                     </td>
                 </tr>

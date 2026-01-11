@@ -7,8 +7,12 @@ export class CustomerSearchModule {
         this.container = document.getElementById(containerId);
         this.permissionHelper = permissionHelper;
         this.currentPage = 1;
-        this.limit = 10;
+        this.limit = 20;
         this.totalCustomers = 0;
+        this.customers = [];
+        this.isLoading = false;
+        this.hasMore = true;
+        this.isSearchMode = false; // false = recent customers, true = search results
         this.initUI();
     }
 
@@ -62,8 +66,8 @@ export class CustomerSearchModule {
                 <!-- Card Header -->
                 <div class="px-6 py-5 border-b border-border-light dark:border-border-dark flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Customer List</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Showing recent customers and search results</p>
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white" id="list-title">Recent Customers</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5" id="list-subtitle">Showing most recent customers</p>
                     </div>
                     <button class="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                         <span class="material-symbols-outlined text-lg">download</span>
@@ -71,10 +75,10 @@ export class CustomerSearchModule {
                     </button>
                 </div>
 
-                <!-- Table -->
-                <div class="overflow-x-auto custom-scrollbar">
+                <!-- Table Container with scroll -->
+                <div id="table-container" class="overflow-x-auto custom-scrollbar max-h-[600px] overflow-y-auto">
                     <table class="w-full">
-                        <thead class="bg-slate-50 dark:bg-slate-800/50">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 z-10">
                             <tr>
                                 <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Customer</th>
                                 <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Phone</th>
@@ -97,16 +101,26 @@ export class CustomerSearchModule {
                             </tr>
                         </tbody>
                     </table>
+
+                    <!-- Load More Indicator -->
+                    <div id="load-more-indicator" class="hidden px-6 py-4 text-center">
+                        <div class="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
+                            <span class="material-symbols-outlined text-xl animate-spin">progress_activity</span>
+                            <span>Loading more...</span>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Pagination -->
+                <!-- Footer with count -->
                 <div id="pagination-container" class="px-6 py-4 border-t border-border-light dark:border-border-dark flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
                     <p class="text-sm text-slate-600 dark:text-slate-400">
-                        Showing <span class="font-semibold text-slate-900 dark:text-white" id="showing-start">0</span>
-                        to <span class="font-semibold text-slate-900 dark:text-white" id="showing-end">0</span>
-                        of <span class="font-semibold text-slate-900 dark:text-white" id="total-count">0</span> results
+                        Showing <span class="font-semibold text-slate-900 dark:text-white" id="showing-count">0</span> customers
+                        <span id="total-info" class="hidden">of <span class="font-semibold text-slate-900 dark:text-white" id="total-count">0</span> total</span>
                     </p>
-                    <nav id="pagination-nav" class="flex items-center gap-1"></nav>
+                    <div id="scroll-hint" class="text-sm text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-base">keyboard_arrow_down</span>
+                        Scroll down to load more
+                    </div>
                 </div>
             </div>
         `;
@@ -116,7 +130,13 @@ export class CustomerSearchModule {
         this.statusFilter = this.container.querySelector('#status-filter');
         this.searchBtn = this.container.querySelector('#search-btn');
         this.tableBody = this.container.querySelector('#customer-table-body');
+        this.tableContainer = this.container.querySelector('#table-container');
+        this.loadMoreIndicator = this.container.querySelector('#load-more-indicator');
+        this.listTitle = this.container.querySelector('#list-title');
+        this.listSubtitle = this.container.querySelector('#list-subtitle');
+        this.scrollHint = this.container.querySelector('#scroll-hint');
 
+        // Event listeners
         this.searchBtn.addEventListener('click', () => this.performSearch());
         this.searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -124,8 +144,136 @@ export class CustomerSearchModule {
             }
         });
 
-        // Initial load
-        this.performSearch();
+        // Clear search and show recent when input is cleared
+        this.searchInput.addEventListener('input', (e) => {
+            if (e.target.value.trim() === '' && this.isSearchMode) {
+                this.resetToRecent();
+            }
+        });
+
+        // Infinite scroll
+        this.tableContainer.addEventListener('scroll', () => this.handleScroll());
+
+        // Initial load - show recent customers
+        this.loadRecentCustomers();
+    }
+
+    handleScroll() {
+        if (this.isLoading || !this.hasMore) return;
+
+        const { scrollTop, scrollHeight, clientHeight } = this.tableContainer;
+        // Load more when user scrolls to bottom (with 100px threshold)
+        if (scrollTop + clientHeight >= scrollHeight - 100) {
+            this.loadMore();
+        }
+    }
+
+    async loadMore() {
+        if (this.isLoading || !this.hasMore) return;
+
+        this.currentPage++;
+        this.loadMoreIndicator.classList.remove('hidden');
+
+        try {
+            let response;
+            if (this.isSearchMode) {
+                const query = this.searchInput.value.trim();
+                const searchType = this.searchType.value;
+                const status = this.statusFilter.value;
+                response = await apiService.searchCustomers(query, this.currentPage, this.limit, { searchType, status });
+            } else {
+                response = await apiService.getRecentCustomers(this.currentPage, this.limit);
+            }
+
+            if (response.success && response.data && response.data.length > 0) {
+                this.customers = [...this.customers, ...response.data];
+                this.appendResults(response.data);
+                this.hasMore = response.data.length === this.limit;
+            } else {
+                this.hasMore = false;
+            }
+        } catch (error) {
+            console.error('Load more error:', error);
+            this.hasMore = false;
+        } finally {
+            this.loadMoreIndicator.classList.add('hidden');
+            this.updateFooter();
+        }
+    }
+
+    resetToRecent() {
+        this.isSearchMode = false;
+        this.currentPage = 1;
+        this.customers = [];
+        this.hasMore = true;
+        this.listTitle.textContent = 'Recent Customers';
+        this.listSubtitle.textContent = 'Showing most recent customers';
+        this.loadRecentCustomers();
+    }
+
+    async loadRecentCustomers() {
+        this.isLoading = true;
+        this.isSearchMode = false;
+        this.currentPage = 1;
+        this.customers = [];
+        this.hasMore = true;
+
+        this.tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-6 py-12 text-center">
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
+                        </div>
+                        <p class="text-slate-500 dark:text-slate-400">Loading recent customers...</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        try {
+            const response = await apiService.getRecentCustomers(1, this.limit);
+            if (response.success && response.data && response.data.length > 0) {
+                this.customers = response.data;
+                this.totalCustomers = response.pagination?.total || response.data.length;
+                this.hasMore = response.data.length === this.limit;
+                this.renderResults(response.data);
+            } else {
+                this.tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center">
+                            <div class="flex flex-col items-center">
+                                <div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                                    <span class="material-symbols-outlined text-slate-400 text-2xl">group</span>
+                                </div>
+                                <p class="text-slate-500 dark:text-slate-400">No customers yet</p>
+                                <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Customers will appear here once added</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                this.hasMore = false;
+            }
+        } catch (error) {
+            console.error('Load recent customers error:', error);
+            this.tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center">
+                        <div class="flex flex-col items-center">
+                            <div class="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mb-4">
+                                <span class="material-symbols-outlined text-warning text-3xl">engineering</span>
+                            </div>
+                            <p class="text-lg font-medium text-warning mb-1">Loading Recent Customers</p>
+                            <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">The recent customers API is being developed. Try searching instead.</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            this.hasMore = false;
+        } finally {
+            this.isLoading = false;
+            this.updateFooter();
+        }
     }
 
     async performSearch() {
@@ -133,24 +281,38 @@ export class CustomerSearchModule {
         const searchType = this.searchType.value;
         const status = this.statusFilter.value;
 
-        // API requires at least 2 characters for search query
+        // If query is empty, show recent customers
         if (query.length < 2) {
-            this.tableBody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="px-6 py-12 text-center">
-                        <div class="flex flex-col items-center">
-                            <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                                <span class="material-symbols-outlined text-primary text-3xl">person_search</span>
+            if (query.length === 0) {
+                this.resetToRecent();
+            } else {
+                // Show hint for minimum characters
+                this.tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center">
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                                    <span class="material-symbols-outlined text-primary text-3xl">person_search</span>
+                                </div>
+                                <p class="text-lg font-medium text-slate-700 dark:text-slate-300 mb-1">Keep typing...</p>
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Enter at least 2 characters to search</p>
                             </div>
-                            <p class="text-lg font-medium text-slate-700 dark:text-slate-300 mb-1">Search for Customers</p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">Enter at least 2 characters to search by phone, name, or email</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            this.updatePagination(0);
+                        </td>
+                    </tr>
+                `;
+                this.updateFooter();
+            }
             return;
         }
+
+        this.isLoading = true;
+        this.isSearchMode = true;
+        this.currentPage = 1;
+        this.customers = [];
+        this.hasMore = true;
+
+        this.listTitle.textContent = 'Search Results';
+        this.listSubtitle.textContent = `Results for "${query}"`;
 
         this.tableBody.innerHTML = `
             <tr>
@@ -168,7 +330,9 @@ export class CustomerSearchModule {
         try {
             const response = await apiService.searchCustomers(query, this.currentPage, this.limit, { searchType, status });
             if (response.success && response.data && response.data.length > 0) {
+                this.customers = response.data;
                 this.totalCustomers = response.pagination?.total || response.data.length;
+                this.hasMore = response.data.length === this.limit;
                 this.renderResults(response.data);
             } else {
                 this.tableBody.innerHTML = `
@@ -184,7 +348,7 @@ export class CustomerSearchModule {
                         </td>
                     </tr>
                 `;
-                this.updatePagination(0);
+                this.hasMore = false;
             }
         } catch (error) {
             console.error('Customer search error:', error);
@@ -201,10 +365,27 @@ export class CustomerSearchModule {
                     </td>
                 </tr>
             `;
+            this.hasMore = false;
+        } finally {
+            this.isLoading = false;
+            this.updateFooter();
         }
     }
 
     renderResults(customers) {
+        this.tableBody.innerHTML = this.generateRowsHtml(customers);
+    }
+
+    appendResults(customers) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = `<table><tbody>${this.generateRowsHtml(customers, this.customers.length - customers.length)}</tbody></table>`;
+        const newRows = tempDiv.querySelector('tbody').children;
+        while (newRows.length > 0) {
+            this.tableBody.appendChild(newRows[0]);
+        }
+    }
+
+    generateRowsHtml(customers, startIndex = 0) {
         const avatarColors = [
             { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400' },
             { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400' },
@@ -216,7 +397,8 @@ export class CustomerSearchModule {
 
         let html = '';
         customers.forEach((customer, index) => {
-            const color = avatarColors[index % avatarColors.length];
+            const colorIndex = (startIndex + index) % avatarColors.length;
+            const color = avatarColors[colorIndex];
             const initials = this.getInitials(customer.name || 'CU');
             const statusBadge = this.getStatusBadge(customer.status);
             const tierInfo = this.getTierInfo(customer.tier);
@@ -261,8 +443,29 @@ export class CustomerSearchModule {
             `;
         });
 
-        this.tableBody.innerHTML = html;
-        this.updatePagination(this.totalCustomers);
+        return html;
+    }
+
+    updateFooter() {
+        const showingCount = this.container.querySelector('#showing-count');
+        const totalInfo = this.container.querySelector('#total-info');
+        const totalCount = this.container.querySelector('#total-count');
+
+        showingCount.textContent = this.customers.length;
+
+        if (this.totalCustomers > this.customers.length) {
+            totalInfo.classList.remove('hidden');
+            totalCount.textContent = this.totalCustomers;
+        } else {
+            totalInfo.classList.add('hidden');
+        }
+
+        // Show/hide scroll hint
+        if (this.hasMore && this.customers.length > 0) {
+            this.scrollHint.classList.remove('hidden');
+        } else {
+            this.scrollHint.classList.add('hidden');
+        }
     }
 
     getInitials(name) {
@@ -321,80 +524,6 @@ export class CustomerSearchModule {
         if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
 
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
-
-    updatePagination(total) {
-        const totalPages = Math.ceil(total / this.limit);
-        const showingStart = total > 0 ? (this.currentPage - 1) * this.limit + 1 : 0;
-        const showingEnd = Math.min(this.currentPage * this.limit, total);
-
-        this.container.querySelector('#showing-start').textContent = showingStart;
-        this.container.querySelector('#showing-end').textContent = showingEnd;
-        this.container.querySelector('#total-count').textContent = total;
-
-        const paginationNav = this.container.querySelector('#pagination-nav');
-        if (!paginationNav || totalPages <= 1) {
-            if (paginationNav) paginationNav.innerHTML = '';
-            return;
-        }
-
-        let html = `
-            <button class="prev-page w-9 h-9 flex items-center justify-center rounded-lg border border-border-light dark:border-border-dark text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${this.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${this.currentPage === 1 ? 'disabled' : ''}>
-                <span class="material-symbols-outlined text-xl">chevron_left</span>
-            </button>
-        `;
-
-        const pagesToShow = [];
-        pagesToShow.push(1);
-        if (this.currentPage > 3) pagesToShow.push('...');
-        for (let i = Math.max(2, this.currentPage - 1); i <= Math.min(totalPages - 1, this.currentPage + 1); i++) {
-            if (!pagesToShow.includes(i)) pagesToShow.push(i);
-        }
-        if (this.currentPage < totalPages - 2) pagesToShow.push('...');
-        if (totalPages > 1 && !pagesToShow.includes(totalPages)) pagesToShow.push(totalPages);
-
-        pagesToShow.forEach(page => {
-            if (page === '...') {
-                html += `<span class="px-2 text-slate-400">...</span>`;
-            } else if (page === this.currentPage) {
-                html += `<button class="w-9 h-9 flex items-center justify-center rounded-lg bg-primary text-white font-medium text-sm">${page}</button>`;
-            } else {
-                html += `<button class="page-btn w-9 h-9 flex items-center justify-center rounded-lg border border-border-light dark:border-border-dark text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium text-sm transition-colors" data-page="${page}">${page}</button>`;
-            }
-        });
-
-        html += `
-            <button class="next-page w-9 h-9 flex items-center justify-center rounded-lg border border-border-light dark:border-border-dark text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${this.currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}" ${this.currentPage === totalPages ? 'disabled' : ''}>
-                <span class="material-symbols-outlined text-xl">chevron_right</span>
-            </button>
-        `;
-
-        paginationNav.innerHTML = html;
-
-        // Add event listeners
-        paginationNav.querySelectorAll('.page-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.currentPage = parseInt(btn.dataset.page);
-                this.performSearch();
-            });
-        });
-
-        const prevBtn = paginationNav.querySelector('.prev-page');
-        const nextBtn = paginationNav.querySelector('.next-page');
-
-        if (prevBtn && this.currentPage > 1) {
-            prevBtn.addEventListener('click', () => {
-                this.currentPage--;
-                this.performSearch();
-            });
-        }
-
-        if (nextBtn && this.currentPage < totalPages) {
-            nextBtn.addEventListener('click', () => {
-                this.currentPage++;
-                this.performSearch();
-            });
-        }
     }
 
     render() {
