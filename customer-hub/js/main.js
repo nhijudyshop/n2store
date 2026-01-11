@@ -4,6 +4,10 @@ import { CustomerSearchModule } from './modules/customer-search.js';
 import { CustomerProfileModule } from './modules/customer-profile.js';
 import { LinkBankTransactionModule } from './modules/link-bank-transaction.js';
 import { TransactionActivityModule } from './modules/transaction-activity.js'; // NEW: Import TransactionActivityModule
+import { WalletPanelModule } from './modules/wallet-panel.js';
+import { TicketListModule } from './modules/ticket-list.js';
+// Ensure API_CONFIG is loaded before apiService for proper initialization
+import '../config.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Customer 360 Hub loaded!");
@@ -76,6 +80,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 case 'TransactionActivityModule': // NEW: Add TransactionActivityModule
                     moduleInstances[moduleName] = new TransactionActivityModule(containerId, permissionHelper);
+                    break;
+                case 'WalletPanelModule':
+                    moduleInstances[moduleName] = new WalletPanelModule(containerId, permissionHelper);
+                    break;
+                case 'TicketListModule':
+                    moduleInstances[moduleName] = new TicketListModule(containerId, permissionHelper);
                     break;
                 // Add other modules here
             }
