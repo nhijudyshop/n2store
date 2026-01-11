@@ -3476,93 +3476,37 @@ router.get('/debt/:phone', async (req, res) => {
 
 // =====================================================
 // TRANSFER STATS API ENDPOINTS
+// Now reads directly from balance_history table (transfer_type = 'in')
+// Uses columns: ts_checked, ts_verified, ts_notes in balance_history
 // =====================================================
 
-// Initialize transfer_stats table if not exists (with db parameter)
-async function initTransferStatsTableWithDb(db) {
-    try {
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS transfer_stats (
-                id SERIAL PRIMARY KEY,
-                transaction_id INTEGER UNIQUE REFERENCES balance_history(id) ON DELETE CASCADE,
-                customer_name VARCHAR(255),
-                customer_phone VARCHAR(20),
-                amount DECIMAL(15, 2),
-                content TEXT,
-                notes TEXT,
-                transaction_date TIMESTAMP,
-                is_checked BOOLEAN DEFAULT FALSE,
-                is_verified BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        // Add notes column if table already exists without it
-        await db.query(`
-            ALTER TABLE transfer_stats ADD COLUMN IF NOT EXISTS notes TEXT
-        `);
-        // Add is_verified column if table already exists without it
-        await db.query(`
-            ALTER TABLE transfer_stats ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE
-        `);
-        console.log('[TRANSFER-STATS] Table initialized');
-    } catch (error) {
-        console.error('[TRANSFER-STATS] Table init error:', error.message);
-    }
-}
-
-// Note: Table will be created on first API call since we don't have db at module load
-
-// Helper to check if transfer_stats table exists
-async function checkTransferStatsTable(db) {
-    try {
-        const result = await db.query(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables
-                WHERE table_name = 'transfer_stats'
-            )
-        `);
-        return result.rows[0].exists;
-    } catch (e) {
-        return false;
-    }
-}
-
-// GET /api/sepay/transfer-stats - Get all transfer stats
+// GET /api/sepay/transfer-stats - Get all incoming transactions from balance_history
 router.get('/transfer-stats', async (req, res) => {
     const db = req.app.locals.chatDb;
 
     try {
-        // Check if table exists
-        const tableExists = await checkTransferStatsTable(db);
-        if (!tableExists) {
-            return res.json({
-                success: true,
-                data: [],
-                total: 0,
-                message: 'Table not initialized yet'
-            });
-        }
+        // Ensure ts columns exist in balance_history
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_checked BOOLEAN DEFAULT FALSE`);
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_verified BOOLEAN DEFAULT FALSE`);
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_notes TEXT`);
 
-        // Ensure new columns exist (for existing tables)
-        await db.query(`ALTER TABLE transfer_stats ADD COLUMN IF NOT EXISTS notes TEXT`);
-        await db.query(`ALTER TABLE transfer_stats ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`);
-
+        // Query directly from balance_history where transfer_type = 'in'
         const result = await db.query(`
             SELECT
-                ts.id,
-                ts.transaction_id,
-                ts.customer_name,
-                ts.customer_phone,
-                ts.amount,
-                ts.content,
-                ts.notes,
-                ts.transaction_date,
-                ts.is_checked,
-                ts.is_verified,
-                ts.created_at
-            FROM transfer_stats ts
-            ORDER BY ts.transaction_date DESC, ts.id DESC
+                bh.id,
+                bh.id as transaction_id,
+                bh.customer_name,
+                bh.linked_customer_phone as customer_phone,
+                bh.transfer_amount as amount,
+                bh.content,
+                bh.ts_notes as notes,
+                bh.transaction_date,
+                bh.ts_checked as is_checked,
+                bh.ts_verified as is_verified,
+                bh.created_at
+            FROM balance_history bh
+            WHERE bh.transfer_type = 'in'
+            ORDER BY bh.transaction_date DESC, bh.id DESC
         `);
 
         res.json({
@@ -3584,21 +3528,12 @@ router.get('/transfer-stats/count', async (req, res) => {
     const db = req.app.locals.chatDb;
 
     try {
-        // Check if table exists
-        const tableExists = await checkTransferStatsTable(db);
-        if (!tableExists) {
-            return res.json({
-                success: true,
-                total: 0,
-                unchecked: 0
-            });
-        }
-
         const result = await db.query(`
             SELECT
                 COUNT(*) as total,
-                COUNT(*) FILTER (WHERE NOT is_checked) as unchecked
-            FROM transfer_stats
+                COUNT(*) FILTER (WHERE ts_checked IS NOT TRUE) as unchecked
+            FROM balance_history
+            WHERE transfer_type = 'in'
         `);
 
         res.json({
@@ -3615,94 +3550,6 @@ router.get('/transfer-stats/count', async (req, res) => {
     }
 });
 
-// POST /api/sepay/transfer-stats/add - Add transaction to transfer stats
-router.post('/transfer-stats/add', async (req, res) => {
-    const db = req.app.locals.chatDb;
-    const { transaction_id } = req.body;
-
-    if (!transaction_id) {
-        return res.status(400).json({
-            success: false,
-            error: 'transaction_id is required'
-        });
-    }
-
-    try {
-        // Ensure table exists
-        await initTransferStatsTableWithDb(db);
-
-        // Check if already exists
-        const existing = await db.query(
-            'SELECT id FROM transfer_stats WHERE transaction_id = $1',
-            [transaction_id]
-        );
-
-        if (existing.rows.length > 0) {
-            return res.json({
-                success: false,
-                error: 'Already exists'
-            });
-        }
-
-        // Get transaction data with customer info
-        const txResult = await db.query(`
-            SELECT
-                bh.id,
-                bh.transaction_date,
-                bh.transfer_amount,
-                bh.content,
-                bh.linked_customer_phone,
-                COALESCE(bci.customer_name, '') as customer_name
-            FROM balance_history bh
-            LEFT JOIN (
-                SELECT DISTINCT ON (customer_phone)
-                    customer_phone, customer_name
-                FROM balance_customer_info
-                ORDER BY customer_phone,
-                    CASE WHEN customer_name IS NOT NULL AND customer_name != '' THEN 0 ELSE 1 END,
-                    created_at DESC
-            ) bci ON bci.customer_phone = bh.linked_customer_phone
-            WHERE bh.id = $1
-        `, [transaction_id]);
-
-        if (txResult.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Transaction not found'
-            });
-        }
-
-        const tx = txResult.rows[0];
-
-        // Insert into transfer_stats
-        const insertResult = await db.query(`
-            INSERT INTO transfer_stats (transaction_id, customer_name, customer_phone, amount, content, transaction_date)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING *
-        `, [
-            transaction_id,
-            tx.customer_name || null,
-            tx.linked_customer_phone || null,
-            tx.transfer_amount,
-            tx.content,
-            tx.transaction_date
-        ]);
-
-        console.log(`[TRANSFER-STATS] Added transaction #${transaction_id}`);
-
-        res.json({
-            success: true,
-            data: insertResult.rows[0]
-        });
-    } catch (error) {
-        console.error('[TRANSFER-STATS] Error adding:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to add to transfer stats'
-        });
-    }
-});
-
 // PUT /api/sepay/transfer-stats/:id/check - Toggle check status
 router.put('/transfer-stats/:id/check', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -3711,8 +3558,8 @@ router.put('/transfer-stats/:id/check', async (req, res) => {
 
     try {
         const result = await db.query(`
-            UPDATE transfer_stats
-            SET is_checked = $1, updated_at = CURRENT_TIMESTAMP
+            UPDATE balance_history
+            SET ts_checked = $1
             WHERE id = $2
             RETURNING *
         `, [checked, id]);
@@ -3747,8 +3594,8 @@ router.put('/transfer-stats/:id/verify', async (req, res) => {
 
     try {
         const result = await db.query(`
-            UPDATE transfer_stats
-            SET is_verified = $1, updated_at = CURRENT_TIMESTAMP
+            UPDATE balance_history
+            SET ts_verified = $1
             WHERE id = $2
             RETURNING *
         `, [verified, id]);
@@ -3789,8 +3636,8 @@ router.put('/transfer-stats/mark-all-checked', async (req, res) => {
 
     try {
         const result = await db.query(`
-            UPDATE transfer_stats
-            SET is_checked = TRUE, updated_at = CURRENT_TIMESTAMP
+            UPDATE balance_history
+            SET ts_checked = TRUE
             WHERE id = ANY($1)
             RETURNING id
         `, [ids]);
@@ -3810,7 +3657,7 @@ router.put('/transfer-stats/mark-all-checked', async (req, res) => {
     }
 });
 
-// PUT /api/sepay/transfer-stats/:id - Edit transfer stats entry
+// PUT /api/sepay/transfer-stats/:id - Edit transfer stats entry (notes only, customer info is in balance_history)
 router.put('/transfer-stats/:id', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
@@ -3818,11 +3665,10 @@ router.put('/transfer-stats/:id', async (req, res) => {
 
     try {
         const result = await db.query(`
-            UPDATE transfer_stats
+            UPDATE balance_history
             SET customer_name = COALESCE($1, customer_name),
-                customer_phone = COALESCE($2, customer_phone),
-                notes = $3,
-                updated_at = CURRENT_TIMESTAMP
+                linked_customer_phone = COALESCE($2, linked_customer_phone),
+                ts_notes = $3
             WHERE id = $4
             RETURNING *
         `, [customer_name, customer_phone, notes || null, id]);
@@ -3848,88 +3694,5 @@ router.put('/transfer-stats/:id', async (req, res) => {
         });
     }
 });
-
-// Auto-add new incoming transactions to transfer_stats
-// This is called from the webhook handler with db passed as parameter
-async function autoAddToTransferStats(db, transactionId, transactionData) {
-    try {
-        // Only auto-add incoming transactions
-        if (transactionData.transfer_type !== 'in') {
-            return;
-        }
-
-        // Ensure table exists first
-        await initTransferStatsTableWithDb(db);
-
-        // Fetch customer info from balance_history (may have been updated by debt update)
-        const bhResult = await db.query(`
-            SELECT customer_name, linked_customer_phone
-            FROM balance_history
-            WHERE id = $1
-        `, [transactionId]);
-
-        const customerName = bhResult.rows[0]?.customer_name || transactionData.customer_name || null;
-        const customerPhone = bhResult.rows[0]?.linked_customer_phone || transactionData.customer_phone || null;
-
-        await db.query(`
-            INSERT INTO transfer_stats (transaction_id, customer_name, customer_phone, amount, content, transaction_date)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (transaction_id) DO UPDATE SET
-                customer_name = COALESCE(EXCLUDED.customer_name, transfer_stats.customer_name),
-                customer_phone = COALESCE(EXCLUDED.customer_phone, transfer_stats.customer_phone)
-        `, [
-            transactionId,
-            customerName,
-            customerPhone,
-            transactionData.transfer_amount,
-            transactionData.content,
-            transactionData.transaction_date
-        ]);
-
-        console.log(`[TRANSFER-STATS] Auto-added transaction #${transactionId} (customer: ${customerName || 'N/A'})`);
-    } catch (error) {
-        // Silently fail - this is a non-critical feature
-        console.error('[TRANSFER-STATS] Auto-add error:', error.message);
-    }
-}
-
-// POST /api/sepay/transfer-stats/sync - Sync customer info from balance_history
-router.post('/transfer-stats/sync', async (req, res) => {
-    const db = req.app.locals.chatDb;
-
-    try {
-        // Update transfer_stats with customer info from balance_history
-        const result = await db.query(`
-            UPDATE transfer_stats ts
-            SET
-                customer_name = COALESCE(bh.customer_name, ts.customer_name),
-                customer_phone = COALESCE(bh.linked_customer_phone, ts.customer_phone),
-                updated_at = CURRENT_TIMESTAMP
-            FROM balance_history bh
-            WHERE ts.transaction_id = bh.id
-            AND (
-                (ts.customer_name IS NULL AND bh.customer_name IS NOT NULL)
-                OR (ts.customer_phone IS NULL AND bh.linked_customer_phone IS NOT NULL)
-            )
-            RETURNING ts.id
-        `);
-
-        console.log(`[TRANSFER-STATS] Synced ${result.rows.length} records with customer info`);
-
-        res.json({
-            success: true,
-            synced: result.rows.length
-        });
-    } catch (error) {
-        console.error('[TRANSFER-STATS] Sync error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to sync'
-        });
-    }
-});
-
-// Export the auto-add function for use in webhook
-router.autoAddToTransferStats = autoAddToTransferStats;
 
 module.exports = router;

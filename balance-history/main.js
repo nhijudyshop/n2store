@@ -82,12 +82,6 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
 
     const transactionId = selectElement.dataset.transactionId;
 
-    // Handle skip option
-    if (selectedValue === 'skip') {
-        await skipPendingMatch(pendingMatchId, selectElement);
-        return;
-    }
-
     // Get selected customer info from data attributes
     const selectedOption = selectElement.options[selectElement.selectedIndex];
     const customerName = selectedOption.dataset.name || 'Unknown';
@@ -146,99 +140,6 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
     }
 }
 
-/**
- * Skip a pending match
- * @param {number} pendingMatchId - ID of pending_customer_matches record
- * @param {HTMLSelectElement} selectElement - The dropdown element
- */
-async function skipPendingMatch(pendingMatchId, selectElement) {
-    // Check permission
-    if (!hasDetailedPermission('balance-history', 'skipMatch') && !hasPermission(2)) {
-        showNotification('Bạn không có quyền bỏ qua', 'error');
-        selectElement.value = '';
-        return;
-    }
-
-    try {
-        selectElement.disabled = true;
-        selectElement.style.opacity = '0.5';
-
-        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/skip`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                reason: 'Skipped by user via dropdown',
-                resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
-            })
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            showNotification('Đã bỏ qua giao dịch này', 'info');
-            // Small delay to ensure DB is updated, then refresh table
-            setTimeout(async () => {
-                await loadData();
-            }, 300);
-        } else {
-            showNotification(`Lỗi: ${result.error || 'Không thể bỏ qua'}`, 'error');
-            selectElement.disabled = false;
-            selectElement.style.opacity = '1';
-            selectElement.value = '';
-        }
-    } catch (error) {
-        console.error('[SKIP-MATCH] Error:', error);
-        showNotification(`Lỗi kết nối: ${error.message}`, 'error');
-        selectElement.disabled = false;
-        selectElement.style.opacity = '1';
-        selectElement.value = '';
-    }
-}
-
-/**
- * Undo a skipped pending match
- * @param {number} pendingMatchId - ID of pending_customer_matches record
- */
-async function undoSkipMatch(pendingMatchId) {
-    // Check permission
-    if (!hasDetailedPermission('balance-history', 'undoSkip')) {
-        showNotification('Bạn không có quyền hoàn tác', 'error');
-        return;
-    }
-
-    if (!confirm('Bạn có chắc muốn hoàn tác trạng thái "Đã bỏ qua" cho giao dịch này?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/undo-skip`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
-            })
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            showNotification('Đã hoàn tác - có thể chọn lại khách hàng', 'success');
-            // Small delay to ensure DB is updated, then refresh table
-            setTimeout(async () => {
-                await loadData();
-            }, 300);
-        } else {
-            showNotification(`Lỗi: ${result.error || 'Không thể hoàn tác'}`, 'error');
-        }
-    } catch (error) {
-        console.error('[UNDO-SKIP] Error:', error);
-        showNotification(`Lỗi kết nối: ${error.message}`, 'error');
-    }
-}
 
 /**
  * Show notification (uses existing notification system or creates simple one)
@@ -1078,13 +979,13 @@ function getMappingSource(row, uniqueCode) {
         };
     }
 
-    // Priority 5: Skipped
-    if (row.pending_match_skipped === true) {
+    // Priority 5: Skipped but has options - show as pending since dropdown is displayed
+    if (row.pending_match_skipped === true && row.pending_match_options?.length > 0) {
         return {
-            label: 'Bỏ qua',
-            icon: 'x-circle',
-            color: '#9ca3af', // gray
-            title: 'Giao dịch đã được bỏ qua'
+            label: 'Chờ xác nhận',
+            icon: 'clock',
+            color: '#f97316', // orange-dark
+            title: 'Đang chờ xác nhận khách hàng'
         };
     }
 
@@ -1152,7 +1053,8 @@ function renderTransactionRow(row) {
 
     // Determine row class for highlighting
     const isHidden = row.is_hidden === true;
-    let rowClass = hasPendingMatch ? 'row-pending-match' : (isSkipped ? 'row-skipped-match' : '');
+    // Show as pending if has active pending match OR skipped but still has options
+    let rowClass = (hasPendingMatch || (isSkipped && pendingMatchOptions.length > 0)) ? 'row-pending-match' : '';
     if (isHidden) rowClass += ' row-hidden';
 
     // Build customer name cell content
@@ -1180,20 +1082,28 @@ function renderTransactionRow(row) {
                 <select class="pending-match-dropdown" onchange="resolvePendingMatch(${pendingMatchId}, this)" data-transaction-id="${row.id}">
                     <option value="">-- Chọn KH (${row.pending_extracted_phone}) --</option>
                     ${optionsHtml}
-                    <option value="skip">❌ Bỏ qua</option>
                 </select>
             </div>
         `;
-    } else if (isSkipped) {
-        // SKIPPED: Show "Đã bỏ qua" with undo option
+    } else if (isSkipped && pendingMatchOptions.length > 0) {
+        // SKIPPED but has options: Show dropdown again to allow re-selection
+        const optionsHtml = pendingMatchOptions.map(opt => {
+            const customers = opt.customers || [];
+            return customers.map(c => {
+                const customerId = c.id || c.customer_id || '';
+                const customerName = c.name || c.customer_name || 'N/A';
+                const customerPhone = c.phone || c.customer_phone || 'N/A';
+                if (!customerId) return '';
+                return `<option value="${customerId}" data-phone="${customerPhone}" data-name="${customerName}">${customerName} - ${customerPhone}</option>`;
+            }).join('');
+        }).join('');
+
         customerNameCell = `
-            <div style="display: flex; align-items: center; gap: 5px;">
-                <span style="color: #9ca3af; font-style: italic;">Đã bỏ qua</span>
-                ${hasDetailedPermission('balance-history', 'undoSkip') ? `
-                    <button class="btn btn-warning btn-sm" onclick="undoSkipMatch(${pendingMatchId})" title="Hoàn tác" style="padding: 2px 6px;">
-                        <i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i>
-                    </button>
-                ` : ''}
+            <div class="pending-match-selector">
+                <select class="pending-match-dropdown" onchange="resolvePendingMatch(${pendingMatchId}, this)" data-transaction-id="${row.id}">
+                    <option value="">-- Chọn KH (${row.pending_extracted_phone}) --</option>
+                    ${optionsHtml}
+                </select>
             </div>
         `;
     } else {
@@ -1269,19 +1179,6 @@ function renderTransactionRow(row) {
             <button class="btn btn-sm ${row.is_hidden ? 'btn-warning' : 'btn-outline-secondary'}" onclick="toggleHideTransaction(${row.id}, ${!row.is_hidden})" title="${row.is_hidden ? 'Bỏ ẩn giao dịch' : 'Ẩn giao dịch'}" style="margin-left: 4px;">
                 <i data-lucide="${row.is_hidden ? 'eye' : 'eye-off'}"></i>
             </button>
-            ${row.transfer_type === 'in' ? (() => {
-                const hasCustomerInfo = row.customer_name || row.linked_customer_phone;
-                const isTransferred = row.in_transfer_stats;
-                const canTransfer = hasCustomerInfo && !isTransferred;
-                const btnClass = isTransferred ? 'transferred' : (hasCustomerInfo ? '' : 'disabled');
-                const btnTitle = isTransferred ? 'Đã chuyển vào Thống Kê' : (hasCustomerInfo ? 'Chuyển vào Thống Kê Chuyển Khoản' : 'Cần mapping KH trước');
-                const btnIcon = isTransferred ? 'check' : 'arrow-right-to-line';
-                return `
-            <button class="btn-transfer ${btnClass}" onclick="${canTransfer ? `transferToStats(${row.id})` : ''}" title="${btnTitle}" style="margin-left: 4px;" ${!canTransfer && !isTransferred ? 'disabled' : ''}>
-                <i data-lucide="${btnIcon}"></i>
-            </button>
-                `;
-            })() : ''}
         </td>
     </tr>
     `;
