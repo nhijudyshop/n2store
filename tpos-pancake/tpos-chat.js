@@ -905,7 +905,7 @@ class TposChatManager {
                     <button class="tpos-action-btn tpos-phone-btn" title="Xem thông tin khách hàng" onclick="event.stopPropagation(); window.tposChatManager.showCustomerInfo('${fromId}', '${this.escapeHtml(fromName)}')">
                         <i data-lucide="phone"></i>
                     </button>
-                    <button class="tpos-action-btn tpos-save-btn" title="Lưu vào Tpos (Pancake)" onclick="event.stopPropagation(); window.tposChatManager.handleCreateOrder('${fromId}', '${this.escapeHtml(fromName)}')">
+                    <button class="tpos-action-btn tpos-save-btn" title="Lưu vào Tpos (Pancake)" onclick="event.stopPropagation(); window.tposChatManager.handleSaveToTpos('${fromId}', '${this.escapeHtml(fromName)}')">
                         <i data-lucide="plus"></i>
                     </button>
                 </div>
@@ -1086,7 +1086,7 @@ class TposChatManager {
      * Handle save to Tpos button click (the "+" button)
      * Saves customer to "Lưu Tpos" list on Pancake side
      */
-    async handleCreateOrder(customerId, customerName) {
+    async handleSaveToTpos(customerId, customerName) {
         console.log('[TPOS-CHAT] Save to Tpos:', { customerId, customerName });
 
         // Get partner info from cache for notes
