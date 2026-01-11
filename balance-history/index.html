@@ -17,6 +17,7 @@
     <!-- Modern CSS + Styles -->
     <link rel="stylesheet" href="modern.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="transfer-stats.css">
 </head>
 
 <body>
@@ -60,10 +61,24 @@
     <!-- Main Content -->
     <div class="main-content" id="mainContent">
         <div class="container">
+            <!-- Main Section Tabs -->
+            <div class="main-tabs">
+                <button class="main-tab active" data-section="balance-history" onclick="switchMainTab('balance-history')">
+                    <i data-lucide="wallet"></i> Lịch sử biến động số dư
+                </button>
+                <button class="main-tab" data-section="transfer-stats" onclick="switchMainTab('transfer-stats')">
+                    <i data-lucide="clipboard-check"></i> Thống Kê Chuyển Khoản
+                    <span id="uncheckedBadge" class="unchecked-badge" style="display: none;">0</span>
+                </button>
+            </div>
+
+            <!-- Tab Panel: Balance History -->
+            <div id="balanceHistoryPanel" class="main-tab-panel active">
+
             <!-- Header -->
             <header class="header">
                 <div class="header-content">
-                    <h1><i data-lucide="wallet"></i> Lịch sử biến động số dư</h1>
+                    <h1 style="font-size: 1.2rem;"><i data-lucide="wallet"></i> Lịch sử biến động số dư</h1>
                     <div class="header-actions">
                         <!-- Inline QR Generator with Customer Info -->
                         <div class="inline-qr-form">
@@ -301,6 +316,86 @@
                     Sau <i data-lucide="chevron-right"></i>
                 </button>
             </div>
+
+            </div><!-- End Balance History Panel -->
+
+            <!-- Tab Panel: Transfer Stats -->
+            <div id="transferStatsPanel" class="main-tab-panel">
+                <header class="header" style="margin-bottom: 15px;">
+                    <div class="header-content">
+                        <h1 style="font-size: 1.2rem;"><i data-lucide="clipboard-check"></i> Thống Kê Chuyển Khoản</h1>
+                        <div class="header-actions">
+                            <button id="markAllCheckedBtn" class="btn btn-success">
+                                <i data-lucide="check-check"></i> Đánh dấu tất cả đã kiểm tra
+                            </button>
+                            <button id="refreshTransferStatsBtn" class="btn btn-primary">
+                                <i data-lucide="refresh-cw"></i> Làm mới
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Transfer Stats Filters -->
+                <div class="ts-filters">
+                    <div class="ts-filter-group">
+                        <label>Trạng thái:</label>
+                        <select id="tsStatusFilter" onchange="filterTransferStats()">
+                            <option value="all">Tất cả</option>
+                            <option value="unchecked" selected>Chưa kiểm tra</option>
+                            <option value="checked">Đã kiểm tra</option>
+                        </select>
+                    </div>
+                    <div class="ts-filter-group">
+                        <label>Tìm kiếm:</label>
+                        <input type="text" id="tsSearchInput" placeholder="Tên, SĐT, nội dung..." oninput="filterTransferStats()">
+                    </div>
+                    <div class="ts-stats-summary">
+                        <span class="ts-stat">
+                            <i data-lucide="inbox"></i> Tổng: <strong id="tsTotalCount">0</strong>
+                        </span>
+                        <span class="ts-stat unchecked">
+                            <i data-lucide="clock"></i> Chưa KT: <strong id="tsUncheckedCount">0</strong>
+                        </span>
+                        <span class="ts-stat checked">
+                            <i data-lucide="check-circle"></i> Đã KT: <strong id="tsCheckedCount">0</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Transfer Stats Table -->
+                <div class="table-container">
+                    <table class="data-table ts-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">
+                                    <input type="checkbox" id="tsSelectAll" onchange="toggleSelectAllTS()" title="Chọn tất cả">
+                                </th>
+                                <th>Ngày giờ</th>
+                                <th>Tên khách hàng</th>
+                                <th>Số điện thoại</th>
+                                <th>Số tiền</th>
+                                <th>Nội dung</th>
+                                <th style="width: 120px;">Đã kiểm tra</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tsTableBody">
+                            <!-- Data will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Transfer Stats Pagination -->
+                <div class="pagination" id="tsPagination">
+                    <button id="tsPrevPageBtn" class="btn btn-secondary" disabled onclick="tsChangePage(-1)">
+                        <i data-lucide="chevron-left"></i> Trước
+                    </button>
+                    <span id="tsPageInfo">Trang 1 / 1</span>
+                    <button id="tsNextPageBtn" class="btn btn-secondary" disabled onclick="tsChangePage(1)">
+                        Sau <i data-lucide="chevron-right"></i>
+                    </button>
+                </div>
+            </div><!-- End Transfer Stats Panel -->
+
         </div>
     </div>
 
@@ -621,10 +716,50 @@
     <script src="qr-generator.js"></script>
     <script src="customer-info.js"></script>
     <script src="main.js"></script>
+    <script src="transfer-stats.js"></script>
 
-    <!-- Initialize Lucide Icons and View Mode -->
+    <!-- Initialize Lucide Icons, View Mode, and Main Tabs -->
     <script>
         lucide.createIcons();
+
+        // Main Tab Switching
+        function switchMainTab(section) {
+            // Update tab buttons
+            document.querySelectorAll('.main-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.section === section);
+            });
+
+            // Update panels
+            document.querySelectorAll('.main-tab-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+
+            if (section === 'balance-history') {
+                document.getElementById('balanceHistoryPanel').classList.add('active');
+            } else if (section === 'transfer-stats') {
+                document.getElementById('transferStatsPanel').classList.add('active');
+                // Load transfer stats when switching to this tab
+                if (typeof loadTransferStats === 'function') {
+                    loadTransferStats();
+                }
+            }
+
+            // Save to localStorage
+            localStorage.setItem('bh_main_tab', section);
+
+            // Re-render icons
+            lucide.createIcons();
+        }
+
+        // Initialize main tab from localStorage
+        function initMainTab() {
+            const savedTab = localStorage.getItem('bh_main_tab') || 'balance-history';
+            switchMainTab(savedTab);
+        }
+
+        // Initialize on load
+        initMainTab();
+
         // Initialize view mode tabs from localStorage
         if (typeof initViewMode === 'function') {
             initViewMode();

@@ -1269,6 +1269,11 @@ function renderTransactionRow(row) {
             <button class="btn btn-sm ${row.is_hidden ? 'btn-warning' : 'btn-outline-secondary'}" onclick="toggleHideTransaction(${row.id}, ${!row.is_hidden})" title="${row.is_hidden ? 'Bỏ ẩn giao dịch' : 'Ẩn giao dịch'}" style="margin-left: 4px;">
                 <i data-lucide="${row.is_hidden ? 'eye' : 'eye-off'}"></i>
             </button>
+            ${row.transfer_type === 'in' ? `
+            <button class="btn-transfer ${row.in_transfer_stats ? 'transferred' : ''}" onclick="${row.in_transfer_stats ? '' : `transferToStats(${row.id})`}" title="${row.in_transfer_stats ? 'Đã chuyển vào Thống Kê' : 'Chuyển vào Thống Kê Chuyển Khoản'}" style="margin-left: 4px;">
+                <i data-lucide="${row.in_transfer_stats ? 'check' : 'arrow-right-to-line'}"></i>
+            </button>
+            ` : ''}
         </td>
     </tr>
     `;

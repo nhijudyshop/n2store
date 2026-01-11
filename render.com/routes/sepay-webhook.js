@@ -274,6 +274,20 @@ router.post('/webhook', async (req, res) => {
             } catch (debtError) {
                 console.error('[SEPAY-WEBHOOK] Debt update error (non-critical):', debtError.message);
             }
+
+            // Auto-add to transfer stats for incoming transactions
+            try {
+                await autoAddToTransferStats(insertedId, {
+                    transfer_type: webhookData.transferType,
+                    transfer_amount: webhookData.transferAmount,
+                    content: webhookData.content,
+                    transaction_date: webhookData.transactionDate,
+                    customer_name: null, // Will be fetched later
+                    customer_phone: null // Will be fetched later
+                });
+            } catch (tsError) {
+                console.error('[SEPAY-WEBHOOK] Transfer stats auto-add error (non-critical):', tsError.message);
+            }
         }
 
         const processingTime = Date.now() - startTime;
@@ -410,7 +424,9 @@ router.get('/history', async (req, res) => {
                 pcm.status as pending_match_status,
                 pcm.extracted_phone as pending_extracted_phone,
                 pcm.matched_customers as pending_match_options,
-                pcm.resolution_notes as pending_resolution_notes
+                pcm.resolution_notes as pending_resolution_notes,
+                -- Transfer stats flag
+                CASE WHEN ts.id IS NOT NULL THEN TRUE ELSE FALSE END as in_transfer_stats
             FROM balance_history bh
             LEFT JOIN (
                 SELECT DISTINCT ON (customer_phone)
@@ -423,6 +439,7 @@ router.get('/history', async (req, res) => {
             LEFT JOIN pending_customer_matches pcm ON (
                 pcm.transaction_id = bh.id
             )
+            LEFT JOIN transfer_stats ts ON ts.transaction_id = bh.id
             ${whereClause}
             ORDER BY bh.transaction_date DESC
             LIMIT $${paramCounter} OFFSET $${paramCounter + 1}
@@ -3453,5 +3470,276 @@ router.get('/debt/:phone', async (req, res) => {
         });
     }
 });
+
+// =====================================================
+// TRANSFER STATS API ENDPOINTS
+// =====================================================
+
+// Initialize transfer_stats table if not exists
+async function initTransferStatsTable() {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS transfer_stats (
+                id SERIAL PRIMARY KEY,
+                transaction_id INTEGER UNIQUE REFERENCES balance_history(id) ON DELETE CASCADE,
+                customer_name VARCHAR(255),
+                customer_phone VARCHAR(20),
+                amount DECIMAL(15, 2),
+                content TEXT,
+                transaction_date TIMESTAMP,
+                is_checked BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('[TRANSFER-STATS] Table initialized');
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Table init error:', error.message);
+    }
+}
+
+// Initialize table on module load
+initTransferStatsTable();
+
+// GET /api/sepay/transfer-stats - Get all transfer stats
+router.get('/transfer-stats', async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT
+                ts.id,
+                ts.transaction_id,
+                ts.customer_name,
+                ts.customer_phone,
+                ts.amount,
+                ts.content,
+                ts.transaction_date,
+                ts.is_checked,
+                ts.created_at
+            FROM transfer_stats ts
+            ORDER BY ts.transaction_date DESC, ts.id DESC
+        `);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            total: result.rows.length
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error fetching:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch transfer stats'
+        });
+    }
+});
+
+// GET /api/sepay/transfer-stats/count - Get unchecked count
+router.get('/transfer-stats/count', async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE NOT is_checked) as unchecked
+            FROM transfer_stats
+        `);
+
+        res.json({
+            success: true,
+            total: parseInt(result.rows[0].total) || 0,
+            unchecked: parseInt(result.rows[0].unchecked) || 0
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error counting:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to count'
+        });
+    }
+});
+
+// POST /api/sepay/transfer-stats/add - Add transaction to transfer stats
+router.post('/transfer-stats/add', async (req, res) => {
+    const { transaction_id } = req.body;
+
+    if (!transaction_id) {
+        return res.status(400).json({
+            success: false,
+            error: 'transaction_id is required'
+        });
+    }
+
+    try {
+        // Check if already exists
+        const existing = await db.query(
+            'SELECT id FROM transfer_stats WHERE transaction_id = $1',
+            [transaction_id]
+        );
+
+        if (existing.rows.length > 0) {
+            return res.json({
+                success: false,
+                error: 'Already exists'
+            });
+        }
+
+        // Get transaction data with customer info
+        const txResult = await db.query(`
+            SELECT
+                bh.id,
+                bh.transaction_date,
+                bh.transfer_amount,
+                bh.content,
+                bh.linked_customer_phone,
+                COALESCE(bci.customer_name, '') as customer_name
+            FROM balance_history bh
+            LEFT JOIN (
+                SELECT DISTINCT ON (customer_phone)
+                    customer_phone, customer_name
+                FROM balance_customer_info
+                ORDER BY customer_phone,
+                    CASE WHEN customer_name IS NOT NULL AND customer_name != '' THEN 0 ELSE 1 END,
+                    created_at DESC
+            ) bci ON bci.customer_phone = bh.linked_customer_phone
+            WHERE bh.id = $1
+        `, [transaction_id]);
+
+        if (txResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Transaction not found'
+            });
+        }
+
+        const tx = txResult.rows[0];
+
+        // Insert into transfer_stats
+        const insertResult = await db.query(`
+            INSERT INTO transfer_stats (transaction_id, customer_name, customer_phone, amount, content, transaction_date)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+        `, [
+            transaction_id,
+            tx.customer_name || null,
+            tx.linked_customer_phone || null,
+            tx.transfer_amount,
+            tx.content,
+            tx.transaction_date
+        ]);
+
+        console.log(`[TRANSFER-STATS] Added transaction #${transaction_id}`);
+
+        res.json({
+            success: true,
+            data: insertResult.rows[0]
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error adding:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to add to transfer stats'
+        });
+    }
+});
+
+// PUT /api/sepay/transfer-stats/:id/check - Toggle check status
+router.put('/transfer-stats/:id/check', async (req, res) => {
+    const { id } = req.params;
+    const { checked } = req.body;
+
+    try {
+        const result = await db.query(`
+            UPDATE transfer_stats
+            SET is_checked = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING *
+        `, [checked, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Not found'
+            });
+        }
+
+        console.log(`[TRANSFER-STATS] Marked #${id} as ${checked ? 'checked' : 'unchecked'}`);
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error updating:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update'
+        });
+    }
+});
+
+// PUT /api/sepay/transfer-stats/mark-all-checked - Mark multiple as checked
+router.put('/transfer-stats/mark-all-checked', async (req, res) => {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+            success: false,
+            error: 'ids array is required'
+        });
+    }
+
+    try {
+        const result = await db.query(`
+            UPDATE transfer_stats
+            SET is_checked = TRUE, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ANY($1)
+            RETURNING id
+        `, [ids]);
+
+        console.log(`[TRANSFER-STATS] Marked ${result.rows.length} items as checked`);
+
+        res.json({
+            success: true,
+            updated: result.rows.length
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error marking all:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to mark all'
+        });
+    }
+});
+
+// Auto-add new incoming transactions to transfer_stats
+// This is called from the webhook handler
+async function autoAddToTransferStats(transactionId, transactionData) {
+    try {
+        // Only auto-add incoming transactions
+        if (transactionData.transfer_type !== 'in') {
+            return;
+        }
+
+        await db.query(`
+            INSERT INTO transfer_stats (transaction_id, customer_name, customer_phone, amount, content, transaction_date)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (transaction_id) DO NOTHING
+        `, [
+            transactionId,
+            transactionData.customer_name || null,
+            transactionData.customer_phone || null,
+            transactionData.transfer_amount,
+            transactionData.content,
+            transactionData.transaction_date
+        ]);
+
+        console.log(`[TRANSFER-STATS] Auto-added transaction #${transactionId}`);
+    } catch (error) {
+        // Silently fail - this is a non-critical feature
+        console.error('[TRANSFER-STATS] Auto-add error:', error.message);
+    }
+}
+
+// Export the auto-add function for use in webhook
+router.autoAddToTransferStats = autoAddToTransferStats;
 
 module.exports = router;
