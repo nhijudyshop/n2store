@@ -1099,10 +1099,25 @@ class TposChatManager {
      * Saves customer to "Lưu Tpos" list on Pancake side
      */
     async handleSaveToTpos(customerId, customerName) {
-        console.log('[TPOS-CHAT] Save to Tpos:', { customerId, customerName });
+        console.log('='.repeat(50));
+        console.log('[TPOS-SAVE] 🔵 BẮT ĐẦU LƯU VÀO TPOS');
+        console.log('[TPOS-SAVE] Customer ID:', customerId);
+        console.log('[TPOS-SAVE] Customer Name:', customerName);
+        console.log('[TPOS-SAVE] ID Type:', typeof customerId);
+        console.log('[TPOS-SAVE] ID Length:', customerId?.length);
+
+        // Validate inputs
+        if (!customerId || !customerName) {
+            console.error('[TPOS-SAVE] ❌ THIẾU DỮ LIỆU:', { customerId, customerName });
+            if (window.notificationManager) {
+                window.notificationManager.show('Thiếu thông tin khách hàng', 'error');
+            }
+            return;
+        }
 
         // Get partner info from cache for notes
         const partner = this.getPartnerCache(customerId) || {};
+        console.log('[TPOS-SAVE] Partner cache:', partner);
         const phone = partner.Phone || '';
         const address = partner.Street || '';
 
@@ -1113,29 +1128,41 @@ class TposChatManager {
             this.selectedCampaign?.title ? `Campaign: ${this.selectedCampaign.title}` : ''
         ].filter(Boolean).join(' | ');
 
+        const requestBody = {
+            customerId,
+            customerName,
+            pageId: this.selectedPage?.id || null,
+            pageName: this.selectedPage?.name || null,
+            savedBy: 'TPOS Comment',
+            notes: notes || null
+        };
+        console.log('[TPOS-SAVE] 📤 Request body:', JSON.stringify(requestBody, null, 2));
+        console.log('[TPOS-SAVE] API URL:', `${this.tposPancakeUrl}/api/tpos-saved`);
+
         try {
             const response = await fetch(`${this.tposPancakeUrl}/api/tpos-saved`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    customerId,
-                    customerName,
-                    pageId: this.selectedPage?.id || null,
-                    pageName: this.selectedPage?.name || null,
-                    savedBy: 'TPOS Comment',
-                    notes: notes || null
-                })
+                body: JSON.stringify(requestBody)
             });
 
+            console.log('[TPOS-SAVE] Response status:', response.status);
+            console.log('[TPOS-SAVE] Response ok:', response.ok);
+
             const result = await response.json();
+            console.log('[TPOS-SAVE] 📥 Response body:', JSON.stringify(result, null, 2));
 
             if (result.success) {
+                console.log('[TPOS-SAVE] ✅ LƯU THÀNH CÔNG!');
+
                 // Track locally to hide "+" button
                 this.savedToTposIds.add(customerId);
+                console.log('[TPOS-SAVE] Added to savedToTposIds:', Array.from(this.savedToTposIds));
 
                 // Update Pancake's saved IDs cache
                 if (window.pancakeChatManager) {
                     window.pancakeChatManager.tposSavedCustomerIds.add(customerId);
+                    console.log('[TPOS-SAVE] Added to Pancake cache');
                     // Re-render if on Lưu Tpos tab
                     if (window.pancakeChatManager.filterType === 'tpos-saved') {
                         window.pancakeChatManager.renderConversationList();
@@ -1149,14 +1176,19 @@ class TposChatManager {
                     window.notificationManager.show(`Đã lưu: ${customerName}`, 'success');
                 }
             } else {
+                console.error('[TPOS-SAVE] ❌ API TRẢ VỀ LỖI:', result);
                 throw new Error(result.message || 'Lỗi không xác định');
             }
         } catch (error) {
-            console.error('[TPOS-CHAT] Error saving to Tpos:', error);
+            console.error('[TPOS-SAVE] ❌ EXCEPTION:', error);
+            console.error('[TPOS-SAVE] Error name:', error.name);
+            console.error('[TPOS-SAVE] Error message:', error.message);
+            console.error('[TPOS-SAVE] Error stack:', error.stack);
             if (window.notificationManager) {
                 window.notificationManager.show(`Lỗi: ${error.message}`, 'error');
             }
         }
+        console.log('='.repeat(50));
     }
 
     /**
