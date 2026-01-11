@@ -1,7 +1,8 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Custom CSS for Customer 360 Hub */
-@config "../tailwind.config.js";
 
 html.dark {
     color-scheme: dark;
@@ -9,13 +10,11 @@ html.dark {
 
 /* Custom styles for active link in sidebar */
 .active-link {
-    background-color: theme('colors.primary');
-    color: white !important;
+    @apply bg-primary text-white;
 }
 
 .active-link:hover {
-    background-color: theme('colors.primary-hover') !important;
-    color: white !important;
+    @apply bg-primary-dark text-white;
 }
 
 /* Material Symbols Adjustments */
@@ -34,23 +33,21 @@ html.dark {
 }
 
 ::-webkit-scrollbar-track {
-    background: theme('colors.background-light');
-    border-radius: 10px;
+    @apply bg-background-light rounded-lg;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: theme('colors.border-light');
-    border-radius: 10px;
+    @apply bg-border-light rounded-lg;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: theme('colors.primary');
+    @apply bg-primary;
 }
 
 html.dark ::-webkit-scrollbar-track {
-    background: theme('colors.background-dark');
+    @apply bg-background-dark;
 }
 
 html.dark ::-webkit-scrollbar-thumb {
-    background: theme('colors.border-dark');
+    @apply bg-border-dark;
 }
