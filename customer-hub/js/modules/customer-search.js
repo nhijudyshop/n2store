@@ -133,6 +133,25 @@ export class CustomerSearchModule {
         const searchType = this.searchType.value;
         const status = this.statusFilter.value;
 
+        // API requires at least 2 characters for search query
+        if (query.length < 2) {
+            this.tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center">
+                        <div class="flex flex-col items-center">
+                            <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                                <span class="material-symbols-outlined text-primary text-3xl">person_search</span>
+                            </div>
+                            <p class="text-lg font-medium text-slate-700 dark:text-slate-300 mb-1">Search for Customers</p>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">Enter at least 2 characters to search by phone, name, or email</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            this.updatePagination(0);
+            return;
+        }
+
         this.tableBody.innerHTML = `
             <tr>
                 <td colspan="6" class="px-6 py-12 text-center">

@@ -173,10 +173,14 @@ export class TransactionActivityModule {
             </tr>
         `;
 
-        const filters = {
-            query: this.searchInput.value,
-            type: this.typeFilter.value,
-        };
+        const filters = {};
+        const searchQuery = this.searchInput.value.trim();
+        if (searchQuery) {
+            filters.query = searchQuery;
+        }
+        if (this.typeFilter.value) {
+            filters.type = this.typeFilter.value;
+        }
 
         const days = this.dateFilter.value;
         if (days) {
@@ -192,7 +196,8 @@ export class TransactionActivityModule {
             if (response.success && response.data && response.data.length > 0) {
                 this.totalItems = response.pagination?.total || response.data.length;
                 this.renderTransactions(response.data);
-            } else {
+            } else if (response.success) {
+                // API returned success but no data
                 this.tableBody.innerHTML = `
                     <tr>
                         <td colspan="7" class="px-6 py-12 text-center">
@@ -207,22 +212,33 @@ export class TransactionActivityModule {
                     </tr>
                 `;
                 this.updatePagination(0);
+            } else {
+                throw new Error(response.error || 'Failed to load transactions');
             }
         } catch (error) {
+            console.error('Error loading transactions:', error);
+            // Check if it's a server error (500) - might be endpoint not implemented yet
+            const isServerError = error.message.includes('500') || error.message.includes('Internal Server Error');
             this.tableBody.innerHTML = `
                 <tr>
                     <td colspan="7" class="px-6 py-12 text-center">
                         <div class="flex flex-col items-center">
-                            <div class="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center mb-3">
-                                <span class="material-symbols-outlined text-danger text-2xl">error</span>
+                            <div class="w-16 h-16 rounded-full ${isServerError ? 'bg-warning/10' : 'bg-danger/10'} flex items-center justify-center mb-4">
+                                <span class="material-symbols-outlined ${isServerError ? 'text-warning' : 'text-danger'} text-3xl">${isServerError ? 'engineering' : 'error'}</span>
                             </div>
-                            <p class="text-danger font-medium">Failed to load transactions</p>
-                            <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">${error.message}</p>
+                            <p class="text-lg font-medium ${isServerError ? 'text-warning' : 'text-danger'} mb-1">${isServerError ? 'Feature Coming Soon' : 'Failed to load transactions'}</p>
+                            <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">${isServerError ? 'The transaction activity API is being developed' : error.message}</p>
+                            ${isServerError ? `
+                            <button onclick="location.reload()" class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors">
+                                <span class="material-symbols-outlined text-lg">refresh</span>
+                                Retry
+                            </button>
+                            ` : ''}
                         </div>
                     </td>
                 </tr>
             `;
-            console.error('Error loading transactions:', error);
+            this.updatePagination(0);
         }
     }
 
