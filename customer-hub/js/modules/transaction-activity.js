@@ -84,8 +84,8 @@ export class TransactionActivityModule {
 
         try {
             const response = await apiService.getConsolidatedTransactions(this.currentPage, this.limit, filters);
-            if (response.success && response.data.data && response.data.data.length > 0) {
-                this.renderTransactions(response.data.data, response.data.pagination.total);
+            if (response.success && response.data && response.data.length > 0) {
+                this.renderTransactions(response.data, response.pagination.total);
             } else {
                 this.transactionActivityList.innerHTML = `<p class=\"text-gray-500 dark:text-gray-400\">Không có hoạt động giao dịch nào.</p>`;
                 this.prevPageBtn.disabled = true;

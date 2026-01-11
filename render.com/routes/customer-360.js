@@ -1197,17 +1197,20 @@ router.get('/balance-history/unlinked', async (req, res) => {
             SELECT COUNT(*) as total
             FROM balance_history
             WHERE linked_customer_phone IS NULL
-              AND amount > 0
+              AND transfer_amount > 0
+              AND transfer_type = 'in'
         `);
         const total = parseInt(countResult.rows[0].total);
 
         // Get unlinked transactions with pagination
         const result = await db.query(`
-            SELECT id, transaction_code, customer_name, amount, description,
-                   transaction_date, bank_account, qr_code, created_at
+            SELECT id, sepay_id, code as transaction_code, content as customer_name,
+                   transfer_amount as amount, description,
+                   transaction_date, account_number as bank_account, reference_code, created_at
             FROM balance_history
             WHERE linked_customer_phone IS NULL
-              AND amount > 0
+              AND transfer_amount > 0
+              AND transfer_type = 'in'
             ORDER BY transaction_date DESC
             LIMIT $1 OFFSET $2
         `, [limit, offset]);
@@ -1270,7 +1273,7 @@ router.post('/balance-history/link-customer', async (req, res) => {
         `, [phone, customerId, transaction_id]);
 
         // 4. Optional: Auto deposit to wallet
-        if (auto_deposit && tx.amount > 0) {
+        if (auto_deposit && tx.transfer_amount > 0) {
             // Get or create wallet (should exist after customer creation, but ensure)
             let walletResult = await db.query(`
                 INSERT INTO customer_wallets (phone, balance)
@@ -1281,12 +1284,12 @@ router.post('/balance-history/link-customer', async (req, res) => {
             const wallet = walletResult.rows[0];
 
             // Update wallet balance
-            const newBalance = parseFloat(wallet.balance) + parseFloat(tx.amount);
+            const newBalance = parseFloat(wallet.balance) + parseFloat(tx.transfer_amount);
             await db.query(`
                 UPDATE customer_wallets
                 SET balance = $2, total_deposited = total_deposited + $3, updated_at = NOW()
                 WHERE id = $1
-            `, [wallet.id, newBalance, tx.amount]);
+            `, [wallet.id, newBalance, tx.transfer_amount]);
 
             // Log wallet transaction
             await db.query(`
@@ -1297,7 +1300,7 @@ router.post('/balance-history/link-customer', async (req, res) => {
                 SELECT $1, id, 'DEPOSIT', $2, $3, $4, 'BANK_TRANSFER',
                        'balance_history', $5::text, $6
                 FROM customer_wallets WHERE phone = $1
-            `, [phone, tx.amount, wallet.balance, newBalance, transaction_id, `Nạp từ CK ${tx.transaction_code}`]);
+            `, [phone, tx.transfer_amount, wallet.balance, newBalance, transaction_id, `Nạp từ CK ${tx.code || tx.reference_code}`]);
 
             // Mark balance_history transaction as wallet processed
             await db.query(`
@@ -1310,7 +1313,7 @@ router.post('/balance-history/link-customer', async (req, res) => {
             await db.query(`
                 INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
                 VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
-            `, [phone, customerId, `Nạp tiền: ${tx.amount.toLocaleString()}đ`, `Chuyển khoản ngân hàng (${tx.transaction_code})`, transaction_id]);
+            `, [phone, customerId, `Nạp tiền: ${tx.transfer_amount.toLocaleString()}đ`, `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`, transaction_id]);
         }
 
         await db.query('COMMIT');
