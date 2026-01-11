@@ -406,6 +406,20 @@ router.get('/history', async (req, res) => {
         const countResult = await db.query(countQuery, queryParams);
         const total = parseInt(countResult.rows[0].count);
 
+        // Check if transfer_stats table exists
+        let tsTableExists = false;
+        try {
+            const tsCheck = await db.query(`
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables
+                    WHERE table_name = 'transfer_stats'
+                )
+            `);
+            tsTableExists = tsCheck.rows[0].exists;
+        } catch (e) {
+            console.log('[HISTORY] transfer_stats table check failed:', e.message);
+        }
+
         // Get paginated data with customer info AND pending matches
         // Use linked_customer_phone for fast JOIN instead of expensive regex matching
         // Use subquery with DISTINCT ON to avoid duplicates when multiple customer_info records exist
@@ -425,8 +439,8 @@ router.get('/history', async (req, res) => {
                 pcm.extracted_phone as pending_extracted_phone,
                 pcm.matched_customers as pending_match_options,
                 pcm.resolution_notes as pending_resolution_notes,
-                -- Transfer stats flag
-                CASE WHEN ts.id IS NOT NULL THEN TRUE ELSE FALSE END as in_transfer_stats
+                -- Transfer stats flag (only if table exists)
+                ${tsTableExists ? 'CASE WHEN ts.id IS NOT NULL THEN TRUE ELSE FALSE END' : 'FALSE'} as in_transfer_stats
             FROM balance_history bh
             LEFT JOIN (
                 SELECT DISTINCT ON (customer_phone)
@@ -439,7 +453,7 @@ router.get('/history', async (req, res) => {
             LEFT JOIN pending_customer_matches pcm ON (
                 pcm.transaction_id = bh.id
             )
-            LEFT JOIN transfer_stats ts ON ts.transaction_id = bh.id
+            ${tsTableExists ? 'LEFT JOIN transfer_stats ts ON ts.transaction_id = bh.id' : ''}
             ${whereClause}
             ORDER BY bh.transaction_date DESC
             LIMIT $${paramCounter} OFFSET $${paramCounter + 1}
@@ -3501,9 +3515,35 @@ async function initTransferStatsTable() {
 // Initialize table on module load
 initTransferStatsTable();
 
+// Helper to check if transfer_stats table exists
+async function checkTransferStatsTable() {
+    try {
+        const result = await db.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'transfer_stats'
+            )
+        `);
+        return result.rows[0].exists;
+    } catch (e) {
+        return false;
+    }
+}
+
 // GET /api/sepay/transfer-stats - Get all transfer stats
 router.get('/transfer-stats', async (req, res) => {
     try {
+        // Check if table exists
+        const tableExists = await checkTransferStatsTable();
+        if (!tableExists) {
+            return res.json({
+                success: true,
+                data: [],
+                total: 0,
+                message: 'Table not initialized yet'
+            });
+        }
+
         const result = await db.query(`
             SELECT
                 ts.id,
@@ -3536,6 +3576,16 @@ router.get('/transfer-stats', async (req, res) => {
 // GET /api/sepay/transfer-stats/count - Get unchecked count
 router.get('/transfer-stats/count', async (req, res) => {
     try {
+        // Check if table exists
+        const tableExists = await checkTransferStatsTable();
+        if (!tableExists) {
+            return res.json({
+                success: true,
+                total: 0,
+                unchecked: 0
+            });
+        }
+
         const result = await db.query(`
             SELECT
                 COUNT(*) as total,
