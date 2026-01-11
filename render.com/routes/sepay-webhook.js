@@ -3500,11 +3500,21 @@ async function initTransferStatsTableWithDb(db) {
                 customer_phone VARCHAR(20),
                 amount DECIMAL(15, 2),
                 content TEXT,
+                notes TEXT,
                 transaction_date TIMESTAMP,
                 is_checked BOOLEAN DEFAULT FALSE,
+                is_verified BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        `);
+        // Add notes column if table already exists without it
+        await db.query(`
+            ALTER TABLE transfer_stats ADD COLUMN IF NOT EXISTS notes TEXT
+        `);
+        // Add is_verified column if table already exists without it
+        await db.query(`
+            ALTER TABLE transfer_stats ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE
         `);
         console.log('[TRANSFER-STATS] Table initialized');
     } catch (error) {
@@ -3553,8 +3563,10 @@ router.get('/transfer-stats', async (req, res) => {
                 ts.customer_phone,
                 ts.amount,
                 ts.content,
+                ts.notes,
                 ts.transaction_date,
                 ts.is_checked,
+                ts.is_verified,
                 ts.created_at
             FROM transfer_stats ts
             ORDER BY ts.transaction_date DESC, ts.id DESC
@@ -3734,6 +3746,42 @@ router.put('/transfer-stats/:id/check', async (req, res) => {
     }
 });
 
+// PUT /api/sepay/transfer-stats/:id/verify - Toggle verify status
+router.put('/transfer-stats/:id/verify', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { verified } = req.body;
+
+    try {
+        const result = await db.query(`
+            UPDATE transfer_stats
+            SET is_verified = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING *
+        `, [verified, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Not found'
+            });
+        }
+
+        console.log(`[TRANSFER-STATS] Marked #${id} as ${verified ? 'verified' : 'unverified'}`);
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error updating verified:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update'
+        });
+    }
+});
+
 // PUT /api/sepay/transfer-stats/mark-all-checked - Mark multiple as checked
 router.put('/transfer-stats/mark-all-checked', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -3765,6 +3813,45 @@ router.put('/transfer-stats/mark-all-checked', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to mark all'
+        });
+    }
+});
+
+// PUT /api/sepay/transfer-stats/:id - Edit transfer stats entry
+router.put('/transfer-stats/:id', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { customer_name, customer_phone, notes } = req.body;
+
+    try {
+        const result = await db.query(`
+            UPDATE transfer_stats
+            SET customer_name = COALESCE($1, customer_name),
+                customer_phone = COALESCE($2, customer_phone),
+                notes = $3,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $4
+            RETURNING *
+        `, [customer_name, customer_phone, notes || null, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Not found'
+            });
+        }
+
+        console.log(`[TRANSFER-STATS] Updated #${id}`);
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error editing:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to edit'
         });
     }
 });

@@ -375,7 +375,10 @@
                                 <th>Số điện thoại</th>
                                 <th>Số tiền</th>
                                 <th>Nội dung</th>
-                                <th style="width: 120px;">Đã kiểm tra</th>
+                                <th>Ghi chú</th>
+                                <th style="width: 80px;">Ẩn/Hiện</th>
+                                <th style="width: 100px;">Đã Kiểm Tra</th>
+                                <th style="width: 80px;">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody id="tsTableBody">
@@ -612,6 +615,51 @@
             <div class="modal-footer"
                 style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeGapsModal()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Transfer Stats Modal -->
+    <div id="editTSModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2><i data-lucide="edit-3"></i> Chỉnh sửa Thống Kê</h2>
+                <button class="modal-close" id="closeEditTSModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editTSForm" style="display: flex; flex-direction: column; gap: 15px;">
+                    <input type="hidden" id="editTSId">
+
+                    <div>
+                        <label for="editTSCustomerName" style="display: block; margin-bottom: 5px; font-weight: 500;">
+                            <i data-lucide="user" style="width: 16px; height: 16px; vertical-align: middle;"></i> Tên khách hàng:
+                        </label>
+                        <input type="text" id="editTSCustomerName" class="filter-input" placeholder="Nhập tên khách hàng" style="width: 100%;">
+                    </div>
+
+                    <div>
+                        <label for="editTSCustomerPhone" style="display: block; margin-bottom: 5px; font-weight: 500;">
+                            <i data-lucide="phone" style="width: 16px; height: 16px; vertical-align: middle;"></i> Số điện thoại:
+                        </label>
+                        <input type="tel" id="editTSCustomerPhone" class="filter-input" placeholder="Nhập số điện thoại" style="width: 100%;">
+                    </div>
+
+                    <div>
+                        <label for="editTSNotes" style="display: block; margin-bottom: 5px; font-weight: 500;">
+                            <i data-lucide="file-text" style="width: 16px; height: 16px; vertical-align: middle;"></i> Ghi chú:
+                        </label>
+                        <textarea id="editTSNotes" class="filter-input" placeholder="Nhập ghi chú..." style="width: 100%; min-height: 80px; resize: vertical;"></textarea>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">
+                            <i data-lucide="save"></i> Lưu thay đổi
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="cancelEditTSBtn" style="flex: 1;">
+                            <i data-lucide="x"></i> Hủy
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

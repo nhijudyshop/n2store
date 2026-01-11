@@ -26,7 +26,7 @@ async function loadTransferStats() {
     // Show loading
     tableBody.innerHTML = `
         <tr>
-            <td colspan="7" class="ts-loading">
+            <td colspan="10" class="ts-loading">
                 <i data-lucide="loader-2"></i>
                 <p>Đang tải dữ liệu...</p>
             </td>
@@ -66,7 +66,8 @@ function filterTransferStats() {
             const searchFields = [
                 item.customer_name || '',
                 item.customer_phone || '',
-                item.content || ''
+                item.content || '',
+                item.notes || ''
             ].join(' ').toLowerCase();
 
             if (!searchFields.includes(searchInput)) return false;
@@ -100,12 +101,13 @@ function renderTSTable() {
 
     tableBody.innerHTML = pageData.map(item => {
         const rowClass = item.is_checked ? 'checked' : 'unchecked';
+        const verifiedClass = item.is_verified ? 'verified' : '';
         const amountClass = item.amount >= 0 ? '' : 'negative';
         const formattedAmount = formatCurrency(item.amount);
         const formattedDate = formatDateTime(item.transaction_date);
 
         return `
-            <tr class="${rowClass}" data-id="${item.id}">
+            <tr class="${rowClass} ${verifiedClass}" data-id="${item.id}">
                 <td style="text-align: center;">
                     <input type="checkbox" class="ts-checkbox ts-row-select"
                            data-id="${item.id}"
@@ -117,11 +119,24 @@ function renderTSTable() {
                 <td class="ts-customer-phone">${item.customer_phone || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="ts-amount ${amountClass}">${formattedAmount}</td>
                 <td class="ts-content" title="${escapeHtml(item.content || '')}">${item.content || '—'}</td>
+                <td class="ts-notes" title="${escapeHtml(item.notes || '')}">${item.notes || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td style="text-align: center;">
-                    <input type="checkbox" class="ts-checkbox"
+                    <input type="checkbox" class="ts-checkbox ts-hide-checkbox"
                            ${item.is_checked ? 'checked' : ''}
                            onchange="toggleTSChecked(${item.id}, this.checked)"
-                           title="${item.is_checked ? 'Đã kiểm tra' : 'Chưa kiểm tra'}">
+                           title="${item.is_checked ? 'Đang hiện' : 'Đang ẩn'}">
+                </td>
+                <td style="text-align: center;">
+                    <input type="checkbox" class="ts-checkbox ts-verify-checkbox"
+                           ${item.is_verified ? 'checked' : ''}
+                           ${!item.is_checked ? 'disabled' : ''}
+                           onchange="toggleTSVerified(${item.id}, this.checked)"
+                           title="${item.is_verified ? 'Đã kiểm tra' : 'Chưa kiểm tra'}">
+                </td>
+                <td style="text-align: center;">
+                    <button class="btn-edit-ts" onclick="openEditTSModal(${item.id})" title="Chỉnh sửa">
+                        <i data-lucide="pencil"></i>
+                    </button>
                 </td>
             </tr>
         `;
@@ -137,7 +152,7 @@ function showTSEmpty(message) {
 
     tableBody.innerHTML = `
         <tr>
-            <td colspan="7" class="ts-empty">
+            <td colspan="10" class="ts-empty">
                 <i data-lucide="inbox"></i>
                 <p>${message}</p>
             </td>
@@ -223,6 +238,10 @@ async function toggleTSChecked(id, checked) {
             const item = tsData.find(d => d.id === id);
             if (item) {
                 item.is_checked = checked;
+                // If unchecking, also uncheck verified
+                if (!checked) {
+                    item.is_verified = false;
+                }
             }
 
             // Update UI
@@ -230,6 +249,15 @@ async function toggleTSChecked(id, checked) {
             if (row) {
                 row.classList.toggle('checked', checked);
                 row.classList.toggle('unchecked', !checked);
+                // Update verified checkbox disabled state
+                const verifyCheckbox = row.querySelector('.ts-verify-checkbox');
+                if (verifyCheckbox) {
+                    verifyCheckbox.disabled = !checked;
+                    if (!checked) {
+                        verifyCheckbox.checked = false;
+                        row.classList.remove('verified');
+                    }
+                }
             }
 
             updateTSStats();
@@ -238,12 +266,50 @@ async function toggleTSChecked(id, checked) {
             // Show notification
             if (window.NotificationManager) {
                 window.NotificationManager.showNotification(
-                    checked ? 'Đã đánh dấu kiểm tra' : 'Đã bỏ đánh dấu',
+                    checked ? 'Đã hiện giao dịch' : 'Đã ẩn giao dịch',
                     'success'
                 );
             }
         } else {
             console.error('[TS] Error toggling check:', result.error);
+        }
+    } catch (error) {
+        console.error('[TS] Error:', error);
+    }
+}
+
+async function toggleTSVerified(id, verified) {
+    try {
+        const response = await fetch(`${TS_API_BASE_URL}/api/sepay/transfer-stats/${id}/verify`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ verified })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Update local data
+            const item = tsData.find(d => d.id === id);
+            if (item) {
+                item.is_verified = verified;
+            }
+
+            // Update UI
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if (row) {
+                row.classList.toggle('verified', verified);
+            }
+
+            // Show notification
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(
+                    verified ? 'Đã đánh dấu kiểm tra' : 'Đã bỏ đánh dấu kiểm tra',
+                    'success'
+                );
+            }
+        } else {
+            console.error('[TS] Error toggling verified:', result.error);
         }
     } catch (error) {
         console.error('[TS] Error:', error);
@@ -416,6 +482,33 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshBtn.addEventListener('click', loadTransferStats);
     }
 
+    // Edit modal close buttons
+    const closeEditTSModalBtn = document.getElementById('closeEditTSModalBtn');
+    if (closeEditTSModalBtn) {
+        closeEditTSModalBtn.addEventListener('click', closeEditTSModal);
+    }
+
+    const cancelEditTSBtn = document.getElementById('cancelEditTSBtn');
+    if (cancelEditTSBtn) {
+        cancelEditTSBtn.addEventListener('click', closeEditTSModal);
+    }
+
+    // Edit form submit
+    const editTSForm = document.getElementById('editTSForm');
+    if (editTSForm) {
+        editTSForm.addEventListener('submit', saveTSEdit);
+    }
+
+    // Close modal on background click
+    const editTSModal = document.getElementById('editTSModal');
+    if (editTSModal) {
+        editTSModal.addEventListener('click', (e) => {
+            if (e.target === editTSModal) {
+                closeEditTSModal();
+            }
+        });
+    }
+
     // Load initial badge count
     setTimeout(() => {
         fetch(`${TS_API_BASE_URL}/api/sepay/transfer-stats/count`)
@@ -433,12 +526,84 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 500);
 });
 
+// =====================================================
+// EDIT MODAL
+// =====================================================
+
+function openEditTSModal(id) {
+    const item = tsData.find(d => d.id === id);
+    if (!item) return;
+
+    document.getElementById('editTSId').value = id;
+    document.getElementById('editTSCustomerName').value = item.customer_name || '';
+    document.getElementById('editTSCustomerPhone').value = item.customer_phone || '';
+    document.getElementById('editTSNotes').value = item.notes || '';
+
+    document.getElementById('editTSModal').classList.add('active');
+    lucide.createIcons();
+}
+
+function closeEditTSModal() {
+    document.getElementById('editTSModal').classList.remove('active');
+}
+
+async function saveTSEdit(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('editTSId').value;
+    const customer_name = document.getElementById('editTSCustomerName').value.trim();
+    const customer_phone = document.getElementById('editTSCustomerPhone').value.trim();
+    const notes = document.getElementById('editTSNotes').value.trim();
+
+    try {
+        const response = await fetch(`${TS_API_BASE_URL}/api/sepay/transfer-stats/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customer_name, customer_phone, notes })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Update local data
+            const item = tsData.find(d => d.id === parseInt(id));
+            if (item) {
+                item.customer_name = customer_name || null;
+                item.customer_phone = customer_phone || null;
+                item.notes = notes || null;
+            }
+
+            // Re-render
+            filterTransferStats();
+            closeEditTSModal();
+
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Đã cập nhật thông tin', 'success');
+            }
+        } else {
+            console.error('[TS] Error saving edit:', result.error);
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Lỗi cập nhật: ' + result.error, 'error');
+            }
+        }
+    } catch (error) {
+        console.error('[TS] Error:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Lỗi kết nối', 'error');
+        }
+    }
+}
+
 // Make functions globally available
 window.loadTransferStats = loadTransferStats;
 window.filterTransferStats = filterTransferStats;
 window.toggleTSChecked = toggleTSChecked;
+window.toggleTSVerified = toggleTSVerified;
 window.toggleSelectAllTS = toggleSelectAllTS;
 window.toggleTSRowSelect = toggleTSRowSelect;
 window.tsChangePage = tsChangePage;
 window.transferToStats = transferToStats;
 window.markAllChecked = markAllChecked;
+window.openEditTSModal = openEditTSModal;
+window.closeEditTSModal = closeEditTSModal;
+window.saveTSEdit = saveTSEdit;

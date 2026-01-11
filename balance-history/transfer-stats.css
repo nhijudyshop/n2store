@@ -170,6 +170,39 @@
     background: #f9fafb;
 }
 
+/* Verified row with red stamp watermark */
+.ts-table tbody tr.verified {
+    position: relative;
+    background: #fef2f2 !important;
+}
+
+.ts-table tbody tr.verified::after {
+    content: 'ĐÃ KIỂM TRA';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-15deg);
+    font-size: 24px;
+    font-weight: 900;
+    color: rgba(220, 38, 38, 0.25);
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 1;
+}
+
+.ts-table tbody tr.verified td {
+    position: relative;
+    z-index: 2;
+}
+
+/* Disabled checkbox styling */
+.ts-verify-checkbox:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 /* Checkbox styling */
 .ts-checkbox {
     width: 18px;
@@ -201,12 +234,49 @@
 }
 
 .ts-content {
-    max-width: 300px;
+    max-width: 250px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 12px;
     color: #6b7280;
+}
+
+.ts-notes {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: #8b5cf6;
+    font-style: italic;
+}
+
+/* Edit Button */
+.btn-edit-ts {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-edit-ts:hover {
+    background: #e0e7ff;
+    color: #4f46e5;
+    border-color: #a5b4fc;
+}
+
+.btn-edit-ts i {
+    width: 14px;
+    height: 14px;
 }
 
 /* Transfer Button in Balance History */
@@ -312,5 +382,9 @@
 
     .ts-content {
         max-width: 150px;
+    }
+
+    .ts-notes {
+        max-width: 120px;
     }
 }
