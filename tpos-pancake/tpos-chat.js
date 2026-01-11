@@ -49,6 +49,9 @@ class TposChatManager {
         this.showDebt = true;
         this.showZeroDebt = false;
 
+        // Saved to Tpos tracking (to hide "+" button after saving)
+        this.savedToTposIds = new Set();
+
         // Start periodic cache cleanup
         this.startCacheCleanup();
 
@@ -824,6 +827,10 @@ class TposChatManager {
             (this.showZeroDebt && debt !== null && debt !== undefined) // Show zero debt if enabled
         );
 
+        // Check if already saved to Tpos (also check Pancake's cache)
+        const isSavedToTpos = this.savedToTposIds.has(fromId) ||
+            (window.pancakeChatManager?.tposSavedCustomerIds?.has(fromId));
+
         // Status dropdown options
         const statusOptions = this.getStatusOptions();
 
@@ -905,9 +912,14 @@ class TposChatManager {
                     <button class="tpos-action-btn tpos-phone-btn" title="Xem thông tin khách hàng" onclick="event.stopPropagation(); window.tposChatManager.showCustomerInfo('${fromId}', '${this.escapeHtml(fromName)}')">
                         <i data-lucide="phone"></i>
                     </button>
-                    <button class="tpos-action-btn tpos-save-btn" title="Lưu vào Tpos (Pancake)" onclick="event.stopPropagation(); window.tposChatManager.handleSaveToTpos('${fromId}', '${this.escapeHtml(fromName)}')">
-                        <i data-lucide="plus"></i>
-                    </button>
+                    ${isSavedToTpos
+                        ? `<span class="tpos-saved-badge" title="Đã lưu vào Tpos" style="color: #10b981; padding: 4px;">
+                               <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+                           </span>`
+                        : `<button class="tpos-action-btn tpos-save-btn" title="Lưu vào Tpos (Pancake)" onclick="event.stopPropagation(); window.tposChatManager.handleSaveToTpos('${fromId}', '${this.escapeHtml(fromName)}')">
+                               <i data-lucide="plus"></i>
+                           </button>`
+                    }
                 </div>
                 <div class="tpos-conv-meta">
                     <span class="tpos-conv-time">${timeStr}</span>
@@ -1118,6 +1130,9 @@ class TposChatManager {
             const result = await response.json();
 
             if (result.success) {
+                // Track locally to hide "+" button
+                this.savedToTposIds.add(customerId);
+
                 // Update Pancake's saved IDs cache
                 if (window.pancakeChatManager) {
                     window.pancakeChatManager.tposSavedCustomerIds.add(customerId);
@@ -1126,6 +1141,9 @@ class TposChatManager {
                         window.pancakeChatManager.renderConversationList();
                     }
                 }
+
+                // Re-render TPOS comments to show checkmark instead of "+"
+                this.renderComments();
 
                 if (window.notificationManager) {
                     window.notificationManager.show(`Đã lưu: ${customerName}`, 'success');
