@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Custom CSS for Customer 360 Hub */
 
 html.dark {
     color-scheme: dark;
