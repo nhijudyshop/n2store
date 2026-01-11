@@ -1108,6 +1108,21 @@
         let bearerToken = null;
         let tokenExpiry = null;
 
+        // Staff info for logging sales
+        const authManager = new AuthManager();
+        let staffName = 'Livestream Operator';
+        let staffUsername = 'livestream';
+
+        // Load staff info on page ready
+        (function loadStaffInfo() {
+            const userInfo = authManager.getUserInfo();
+            if (userInfo) {
+                staffName = userInfo.displayName || userInfo.username || 'Livestream Operator';
+                staffUsername = userInfo.username || 'livestream';
+                console.log('👤 Staff logged in:', staffName);
+            }
+        })();
+
         async function getAuthToken() {
             try {
                 const response = await fetch('https://tomato.tpos.vn/token', {
@@ -1890,7 +1905,11 @@
             // Let helper function update both local and Firebase
             // DO NOT update local here - helper will do it
             if (!isSyncingFromFirebase) {
-                updateProductQtyInFirebase(database, productId, change, soluongProducts).catch(error => {
+                updateProductQtyInFirebase(database, productId, change, soluongProducts, {
+                    source: 'livestream',
+                    staffName: staffName,
+                    staffUsername: staffUsername
+                }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -1916,7 +1935,11 @@
             // Let helper function update both local and Firebase
             // DO NOT update local here - helper will do it
             if (!isSyncingFromFirebase) {
-                updateProductQtyInFirebase(database, variantId, change, soluongProducts).catch(error => {
+                updateProductQtyInFirebase(database, variantId, change, soluongProducts, {
+                    source: 'livestream',
+                    staffName: staffName,
+                    staffUsername: staffUsername
+                }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }

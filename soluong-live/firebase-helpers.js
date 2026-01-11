@@ -134,8 +134,13 @@ async function removeProductFromFirebase(database, productId, localProductsObjec
 
 /**
  * Update product quantity (soldQty)
+ * @param {Object} database - Firebase database reference
+ * @param {number} productId - Product ID to update
+ * @param {number} change - Quantity change (+1 or -1)
+ * @param {Object} localProductsObject - Local products object reference
+ * @param {Object|null} logOptions - Optional log options { source, staffName, staffUsername }
  */
-async function updateProductQtyInFirebase(database, productId, change, localProductsObject) {
+async function updateProductQtyInFirebase(database, productId, change, localProductsObject, logOptions = null) {
     const productKey = `product_${productId}`;
     const product = localProductsObject[productKey];
     if (!product) return;
@@ -153,6 +158,18 @@ async function updateProductQtyInFirebase(database, productId, change, localProd
         soldQty: newSoldQty,
         remainingQty: product.remainingQty
     });
+
+    // Log transaction if logOptions provided
+    if (logOptions && logOptions.source) {
+        await logSaleTransaction(database, {
+            productId: productId,
+            productName: product.NameGet,
+            change: change,
+            source: logOptions.source,
+            staffName: logOptions.staffName,
+            staffUsername: logOptions.staffUsername
+        });
+    }
 }
 
 /**
@@ -607,4 +624,93 @@ async function deleteCartSnapshot(database, snapshotId) {
     });
 
     console.log(`✅ [deleteCartSnapshot] Metadata updated. Total snapshots now: ${newSortedIds.length}`);
+}
+
+/**
+ * ============================================================================
+ * SALES LOG FUNCTIONS
+ * ============================================================================
+ */
+
+/**
+ * Log a sale transaction
+ * @param {Object} database - Firebase database reference
+ * @param {Object} logData - Log data object
+ * @param {number} logData.productId - Product ID
+ * @param {string} logData.productName - Product name
+ * @param {number} logData.change - Quantity change (+1 or -1)
+ * @param {string} logData.source - Sale source ('livestream' | 'facebook' | etc.)
+ * @param {string} logData.staffName - Staff display name
+ * @param {string} logData.staffUsername - Staff username
+ * @returns {Promise<string>} Log entry key
+ */
+async function logSaleTransaction(database, logData) {
+    const logEntry = {
+        productId: logData.productId,
+        productName: logData.productName,
+        change: logData.change,                    // +1 or -1
+        source: logData.source || 'unknown',       // 'livestream' | 'facebook'
+        staffName: logData.staffName || 'Unknown',
+        staffUsername: logData.staffUsername || 'unknown',
+        timestamp: Date.now(),
+        date: new Date().toISOString().split('T')[0]  // 'YYYY-MM-DD' for filtering
+    };
+
+    const newLogRef = database.ref('soluongSalesLog').push();
+    await newLogRef.set(logEntry);
+
+    console.log('📝 Sale logged:', logEntry);
+    return newLogRef.key;
+}
+
+/**
+ * Get sales log for a specific date
+ * @param {Object} database - Firebase database reference
+ * @param {string} date - Date string 'YYYY-MM-DD'
+ * @returns {Promise<Array>} Array of log entries
+ */
+async function getSalesLogByDate(database, date) {
+    const snapshot = await database.ref('soluongSalesLog')
+        .orderByChild('date')
+        .equalTo(date)
+        .once('value');
+
+    const logs = [];
+    snapshot.forEach(child => {
+        logs.push({
+            id: child.key,
+            ...child.val()
+        });
+    });
+
+    // Sort by timestamp descending (newest first)
+    logs.sort((a, b) => b.timestamp - a.timestamp);
+
+    return logs;
+}
+
+/**
+ * Get all sales logs (for reporting)
+ * @param {Object} database - Firebase database reference
+ * @param {number} limit - Maximum number of logs to return (default: 1000)
+ * @returns {Promise<Array>} Array of log entries
+ */
+async function getAllSalesLogs(database, limit = 1000) {
+    const snapshot = await database.ref('soluongSalesLog')
+        .orderByChild('timestamp')
+        .limitToLast(limit)
+        .once('value');
+
+    const logs = [];
+    snapshot.forEach(child => {
+        logs.push({
+            id: child.key,
+            ...child.val()
+        });
+    });
+
+    // Sort by timestamp descending (newest first)
+    logs.sort((a, b) => b.timestamp - a.timestamp);
+
+    return logs;
 }
