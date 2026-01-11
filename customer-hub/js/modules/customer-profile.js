@@ -17,73 +17,81 @@ export class CustomerProfileModule {
     initUI() {
         this.container.innerHTML = `
             <!-- Modal Header -->
-            <header class="shrink-0 px-6 py-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <h1 id="modal-customer-name" class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Hồ sơ khách hàng</h1>
-                        <span id="modal-customer-id" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"></span>
+            <header class="shrink-0 px-6 py-5 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-3 mb-1">
+                            <h1 id="modal-customer-name" class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Customer Profile</h1>
+                            <span id="modal-customer-id" class="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-border-light dark:border-border-dark"></span>
+                        </div>
+                        <p id="modal-customer-meta" class="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-base">call</span>
+                            <span id="modal-phone-display"></span>
+                            <span class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                            <span class="material-symbols-outlined text-base">location_on</span>
+                            <span id="modal-address-display">No address</span>
+                        </p>
                     </div>
-                    <p id="modal-customer-meta" class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[14px]">call</span>
-                        <span id="modal-phone-display"></span>
-                        <span class="w-1 h-1 rounded-full bg-slate-300"></span>
-                        <span id="modal-address-display">Chưa có địa chỉ</span>
-                    </p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button id="audit-log-btn" class="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm">
-                        <span class="material-symbols-outlined text-[18px]">history</span>
-                        Lịch sử
-                    </button>
-                    <button onclick="window.closeCustomerModal()" class="ml-2 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
-                        <span class="material-symbols-outlined">close</span>
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <button id="audit-log-btn" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-soft">
+                            <span class="material-symbols-outlined text-lg">history</span>
+                            Audit Log
+                        </button>
+                        <button onclick="window.closeCustomerModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
+                            <span class="material-symbols-outlined text-2xl">close</span>
+                        </button>
+                    </div>
                 </div>
             </header>
 
             <!-- Modal Body - Scrollable -->
             <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-background-light dark:bg-background-dark">
                 <!-- Loading State -->
-                <div id="modal-loader" class="flex flex-col items-center justify-center py-16">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-                    <p class="text-slate-500 dark:text-slate-400">Đang tải thông tin khách hàng...</p>
+                <div id="modal-loader" class="flex flex-col items-center justify-center py-20">
+                    <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                        <span class="material-symbols-outlined text-primary text-3xl animate-spin">progress_activity</span>
+                    </div>
+                    <p class="text-slate-500 dark:text-slate-400 font-medium">Loading customer information...</p>
                 </div>
 
                 <!-- Content - Hidden until loaded -->
                 <div id="modal-content-loaded" class="hidden space-y-6">
-                    <!-- Top Row: 3 Columns -->
+                    <!-- Top Row: 2 Columns (Profile Left, Wallet + RFM Right) -->
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        <!-- Customer Info Card -->
-                        <div id="customer-info-card" class="lg:col-span-4 flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                        <!-- Customer Info Card (Left - Smaller) -->
+                        <div id="customer-info-card" class="lg:col-span-4 bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
                             <!-- Will be rendered dynamically -->
                         </div>
 
-                        <!-- Wallet Summary Card -->
-                        <div id="customer-wallet-panel" class="lg:col-span-4 flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden relative">
-                            <!-- Will be rendered by WalletPanelModule -->
-                        </div>
+                        <!-- Wallet + RFM Container (Right - Larger) -->
+                        <div class="lg:col-span-8 space-y-6">
+                            <!-- Wallet Summary Card -->
+                            <div id="customer-wallet-panel" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
+                                <!-- Will be rendered by WalletPanelModule -->
+                            </div>
 
-                        <!-- RFM Analysis Card -->
-                        <div id="rfm-analysis-card" class="lg:col-span-4 flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                            <!-- Will be rendered dynamically -->
+                            <!-- RFM Analysis Card -->
+                            <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
+                                <!-- Will be rendered dynamically -->
+                            </div>
                         </div>
                     </div>
 
                     <!-- Bottom Row: 2 Columns -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <!-- Recent Tickets -->
-                        <div id="customer-ticket-list" class="flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm min-h-[320px]">
+                        <div id="customer-ticket-list" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card min-h-[320px]">
                             <!-- Will be rendered by TicketListModule -->
                         </div>
 
-                        <!-- Recent Activities -->
-                        <div id="recent-activities-card" class="flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm min-h-[320px]">
+                        <!-- Recent Activities Timeline -->
+                        <div id="recent-activities-card" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card min-h-[320px]">
                             <!-- Will be rendered dynamically -->
                         </div>
                     </div>
 
                     <!-- Internal Notes Section -->
-                    <div id="internal-notes-section" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+                    <div id="internal-notes-section" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card p-6">
                         <!-- Will be rendered dynamically -->
                     </div>
                 </div>
@@ -123,21 +131,24 @@ export class CustomerProfileModule {
                 this.loader.classList.add('hidden');
                 this.contentLoaded.classList.remove('hidden');
             } else {
-                this._showError(`Không tìm thấy thông tin khách hàng cho SĐT: ${phone}`);
+                this._showError(`Customer not found for phone: ${phone}`);
             }
         } catch (error) {
-            this._showError(`Lỗi khi tải thông tin khách hàng: ${error.message}`);
+            this._showError(`Error loading customer: ${error.message}`);
             console.error('Customer profile load error:', error);
         }
     }
 
     _showError(message) {
         this.loader.innerHTML = `
-            <div class="flex flex-col items-center justify-center py-16">
-                <span class="material-symbols-outlined text-4xl text-red-500 mb-4">error</span>
-                <p class="text-red-500">${message}</p>
-                <button onclick="window.closeCustomerModal()" class="mt-4 px-4 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
-                    Đóng
+            <div class="flex flex-col items-center justify-center py-20">
+                <div class="w-14 h-14 rounded-full bg-danger/10 flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-danger text-3xl">error</span>
+                </div>
+                <p class="text-danger font-medium mb-2">Unable to load profile</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400">${message}</p>
+                <button onclick="window.closeCustomerModal()" class="mt-6 px-5 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-sm font-medium transition-colors">
+                    Close
                 </button>
             </div>
         `;
@@ -149,10 +160,10 @@ export class CustomerProfileModule {
         const phoneEl = this.container.querySelector('#modal-phone-display');
         const addressEl = this.container.querySelector('#modal-address-display');
 
-        nameEl.textContent = `Hồ sơ: ${customer.name || 'Khách hàng'}`;
+        nameEl.textContent = customer.name || 'Customer Profile';
         idEl.textContent = `ID: #${customer.id || 'N/A'}`;
         phoneEl.textContent = customer.phone;
-        addressEl.textContent = customer.address || 'Chưa có địa chỉ';
+        addressEl.textContent = customer.address || 'No address';
     }
 
     _renderCustomerInfoCard(customer) {
@@ -163,8 +174,9 @@ export class CustomerProfileModule {
         const tierBadge = this._getTierBadge(customer.tier);
 
         container.innerHTML = `
+            <!-- Header with Avatar -->
             <div class="p-6 pb-0 flex items-start justify-between">
-                <div class="size-16 rounded-full ${avatarColor.bg} flex items-center justify-center ${avatarColor.text} text-2xl font-bold border-2 border-white dark:border-slate-600 shadow-sm">
+                <div class="w-16 h-16 rounded-full ${avatarColor.bg} flex items-center justify-center ${avatarColor.text} text-2xl font-bold border-2 border-white dark:border-slate-600 shadow-soft">
                     ${initials}
                 </div>
                 <div class="flex gap-2">
@@ -172,43 +184,54 @@ export class CustomerProfileModule {
                     ${tierBadge}
                 </div>
             </div>
-            <div class="p-6 flex-1 flex flex-col gap-5">
+
+            <!-- Info Content -->
+            <div class="p-6 flex flex-col gap-5">
                 <div class="space-y-4">
+                    <!-- Email -->
                     <div class="group">
-                        <label class="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-1">Email</label>
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Email Address</label>
                         <div class="flex items-center justify-between">
-                            <span class="text-sm font-medium text-slate-900 dark:text-white select-all">${customer.email || 'Chưa có email'}</span>
+                            <span class="text-sm font-medium text-slate-900 dark:text-white select-all">${customer.email || 'No email'}</span>
                             ${customer.email ? `
                                 <button class="opacity-0 group-hover:opacity-100 text-primary transition-opacity" onclick="navigator.clipboard.writeText('${customer.email}')">
-                                    <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                                    <span class="material-symbols-outlined text-lg">content_copy</span>
                                 </button>
                             ` : ''}
                         </div>
                     </div>
+
+                    <!-- Address -->
                     <div class="group">
-                        <label class="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-1">Địa chỉ</label>
-                        <span class="text-sm font-medium text-slate-900 dark:text-white block">${customer.address || 'Chưa có địa chỉ'}</span>
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Primary Address</label>
+                        <span class="text-sm font-medium text-slate-900 dark:text-white block">${customer.address || 'No address'}</span>
                     </div>
+
+                    <!-- Tags -->
                     <div>
-                        <label class="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-2">Tags</label>
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-2">Tags</label>
                         <div class="flex flex-wrap gap-2">
                             ${this._renderTags(customer.tags)}
-                            <button class="size-6 flex items-center justify-center rounded-full border border-dashed border-slate-300 text-slate-400 hover:text-primary hover:border-primary transition-colors">
-                                <span class="material-symbols-outlined text-[14px]">add</span>
+                            <button class="w-7 h-7 flex items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 hover:text-primary hover:border-primary transition-colors">
+                                <span class="material-symbols-outlined text-base">add</span>
                             </button>
                         </div>
                     </div>
                 </div>
+
+                <!-- Action Buttons -->
                 ${this.permissionHelper.hasPermission('customer-hub', 'editCustomer') || this.permissionHelper.hasPermission('customer-hub', 'addNote') ? `
-                    <div class="mt-auto grid grid-cols-2 gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+                    <div class="mt-auto grid grid-cols-2 gap-3 pt-5 border-t border-border-light dark:border-border-dark">
                         ${this.permissionHelper.hasPermission('customer-hub', 'editCustomer') ? `
-                            <button id="edit-customer-btn" class="flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-all">
-                                <span class="material-symbols-outlined text-[18px]">edit</span> Sửa
+                            <button id="edit-customer-btn" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+                                <span class="material-symbols-outlined text-lg">edit</span>
+                                Edit
                             </button>
                         ` : ''}
                         ${this.permissionHelper.hasPermission('customer-hub', 'addNote') ? `
-                            <button id="add-note-shortcut-btn" class="flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-all">
-                                <span class="material-symbols-outlined text-[18px]">note_add</span> Ghi chú
+                            <button id="add-note-shortcut-btn" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+                                <span class="material-symbols-outlined text-lg">note_add</span>
+                                Note
                             </button>
                         ` : ''}
                     </div>
@@ -227,70 +250,72 @@ export class CustomerProfileModule {
         const percentile = rfm.percentile || null;
 
         container.innerHTML = `
-            <div class="p-6 h-full flex flex-col">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                        <span class="material-symbols-outlined text-purple-600 dark:text-purple-400">analytics</span>
-                        Phân tích RFM
+            <div class="p-6">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-purple-500">analytics</span>
+                        RFM Analysis
                     </h3>
                     ${percentile ? `
-                        <div class="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-100 dark:border-purple-800">
+                        <div class="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold px-3 py-1 rounded-lg border border-purple-200 dark:border-purple-800">
                             TOP ${percentile}%
                         </div>
                     ` : ''}
                 </div>
-                <div class="flex-1 grid grid-cols-2 gap-4">
-                    <!-- Overall Score -->
-                    <div class="col-span-2 flex items-center justify-between bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700">
-                        <div>
-                            <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">Điểm tổng</p>
-                            <p class="text-4xl font-bold text-slate-900 dark:text-white mt-1 tabular-nums">${score.toFixed(1)}<span class="text-lg text-slate-400 font-medium">/5</span></p>
+
+                <!-- Metrics Grid -->
+                <div class="grid grid-cols-4 gap-4">
+                    <!-- Overall Score - Large -->
+                    <div class="col-span-2 p-5 bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 rounded-xl border border-primary/10">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Overall Score</p>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-4xl font-bold text-slate-900 dark:text-white tabular-nums">${score.toFixed(1)}</span>
+                            <span class="text-lg text-slate-400 font-medium">/5</span>
                         </div>
-                        <div class="h-12 w-24">
-                            <svg class="w-full h-full text-purple-500 fill-current opacity-20" viewBox="0 0 100 40">
-                                <path d="M0 30 Q 25 35 50 10 T 100 20 V 40 H 0 Z"></path>
-                            </svg>
+                        <!-- Mini chart placeholder -->
+                        <div class="h-8 mt-3 bg-gradient-to-r from-primary/20 via-primary/40 to-primary/10 rounded-full overflow-hidden">
+                            <div class="h-full bg-primary rounded-full" style="width: ${(score / 5) * 100}%"></div>
                         </div>
                     </div>
 
                     <!-- Recency -->
-                    <div class="p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
-                        <div class="flex items-center gap-1.5 text-slate-500 mb-1">
-                            <span class="material-symbols-outlined text-[16px]">schedule</span>
-                            <span class="text-[10px] font-bold uppercase">Recency</span>
+                    <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-border-light dark:border-border-dark">
+                        <div class="flex items-center gap-1.5 text-slate-500 mb-2">
+                            <span class="material-symbols-outlined text-base">schedule</span>
+                            <span class="text-xs font-bold uppercase">Recency</span>
                         </div>
-                        <p class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
                             ${typeof recency === 'number' ? recency : recency}
-                            <span class="text-xs font-normal text-slate-500">${typeof recency === 'number' ? 'ngày trước' : ''}</span>
                         </p>
+                        <p class="text-xs text-slate-500 mt-0.5">${typeof recency === 'number' ? 'days ago' : ''}</p>
                     </div>
 
                     <!-- Frequency -->
-                    <div class="p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
-                        <div class="flex items-center gap-1.5 text-slate-500 mb-1">
-                            <span class="material-symbols-outlined text-[16px]">repeat</span>
-                            <span class="text-[10px] font-bold uppercase">Frequency</span>
+                    <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-border-light dark:border-border-dark">
+                        <div class="flex items-center gap-1.5 text-slate-500 mb-2">
+                            <span class="material-symbols-outlined text-base">repeat</span>
+                            <span class="text-xs font-bold uppercase">Frequency</span>
                         </div>
-                        <p class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-                            ${frequency} <span class="text-xs font-normal text-slate-500">đơn hàng</span>
-                        </p>
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">${frequency}</p>
+                        <p class="text-xs text-slate-500 mt-0.5">orders</p>
                     </div>
+                </div>
 
-                    <!-- Monetary -->
-                    <div class="col-span-2 p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between">
-                        <div>
-                            <div class="flex items-center gap-1.5 text-slate-500 mb-1">
-                                <span class="material-symbols-outlined text-[16px]">payments</span>
-                                <span class="text-[10px] font-bold uppercase">Monetary (LTV)</span>
-                            </div>
-                            <p class="text-xl font-bold text-slate-900 dark:text-white tabular-nums">${this.formatCurrency(monetary)}</p>
+                <!-- Monetary Value (Full Width) -->
+                <div class="mt-4 p-4 bg-success-light dark:bg-success/10 rounded-xl border border-success/20 flex items-center justify-between">
+                    <div>
+                        <div class="flex items-center gap-1.5 text-success mb-1">
+                            <span class="material-symbols-outlined text-base">payments</span>
+                            <span class="text-xs font-bold uppercase">Monetary (LTV)</span>
                         </div>
-                        ${rfm.yoy_change ? `
-                            <div class="h-8 w-20 ${rfm.yoy_change >= 0 ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'} rounded flex items-center justify-center text-xs font-bold">
-                                ${rfm.yoy_change >= 0 ? '+' : ''}${rfm.yoy_change}% YoY
-                            </div>
-                        ` : ''}
+                        <p class="text-2xl font-bold text-success tabular-nums">${this.formatCurrency(monetary)}</p>
                     </div>
+                    ${rfm.yoy_change ? `
+                        <div class="px-3 py-1.5 rounded-lg ${rfm.yoy_change >= 0 ? 'bg-success text-white' : 'bg-danger text-white'} text-sm font-bold">
+                            ${rfm.yoy_change >= 0 ? '+' : ''}${rfm.yoy_change}% YoY
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -302,9 +327,9 @@ export class CustomerProfileModule {
         let activitiesHtml = '';
         if (!activities || activities.length === 0) {
             activitiesHtml = `
-                <div class="flex flex-col items-center justify-center py-8 text-slate-400">
-                    <span class="material-symbols-outlined text-4xl mb-2">history</span>
-                    <p class="text-sm">Chưa có hoạt động nào</p>
+                <div class="flex flex-col items-center justify-center py-10 text-slate-400">
+                    <span class="material-symbols-outlined text-4xl mb-3">history</span>
+                    <p class="text-sm font-medium">No activities yet</p>
                 </div>
             `;
         } else {
@@ -313,16 +338,22 @@ export class CustomerProfileModule {
                 const timeAgo = this._getTimeAgo(activity.created_at || activity.timestamp);
 
                 return `
-                    <div class="relative pl-10">
-                        <div class="absolute left-0 top-1 size-7 rounded-full ${iconInfo.bgColor} border ${iconInfo.borderColor} flex items-center justify-center z-10">
-                            <span class="material-symbols-outlined text-[14px] ${iconInfo.iconColor}">${iconInfo.icon}</span>
+                    <div class="relative pl-10 ${index !== activities.slice(0, 5).length - 1 ? 'pb-6' : ''}">
+                        <!-- Timeline Line -->
+                        ${index !== activities.slice(0, 5).length - 1 ? `<div class="absolute left-[13px] top-7 bottom-0 w-px bg-slate-200 dark:bg-slate-700"></div>` : ''}
+
+                        <!-- Icon -->
+                        <div class="absolute left-0 top-0 w-7 h-7 rounded-full ${iconInfo.bgColor} border ${iconInfo.borderColor} flex items-center justify-center z-10">
+                            <span class="material-symbols-outlined text-sm ${iconInfo.iconColor}">${iconInfo.icon}</span>
                         </div>
-                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+
+                        <!-- Content -->
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
                             <div>
-                                <p class="text-sm font-medium text-slate-900 dark:text-white">${activity.title || activity.description || 'Hoạt động'}</p>
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">${activity.title || activity.description || 'Activity'}</p>
                                 ${activity.details ? `<p class="text-xs text-slate-500 mt-0.5">${activity.details}</p>` : ''}
                             </div>
-                            <span class="text-xs text-slate-400 mt-1 sm:mt-0">${timeAgo}</span>
+                            <span class="text-xs text-slate-400 whitespace-nowrap">${timeAgo}</span>
                         </div>
                     </div>
                 `;
@@ -330,17 +361,17 @@ export class CustomerProfileModule {
         }
 
         container.innerHTML = `
-            <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                <h3 class="text-base font-bold text-slate-800 dark:text-white">Hoạt động gần đây</h3>
-                <button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                    <span class="material-symbols-outlined">filter_list</span>
+            <!-- Header -->
+            <div class="px-6 py-4 border-b border-border-light dark:border-border-dark flex items-center justify-between">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Recent Activities</h3>
+                <button class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                    <span class="material-symbols-outlined text-xl">filter_list</span>
                 </button>
             </div>
-            <div class="p-6 relative">
-                ${activities && activities.length > 0 ? `<div class="absolute left-9 top-6 bottom-6 w-px bg-slate-200 dark:bg-slate-700"></div>` : ''}
-                <div class="space-y-6">
-                    ${activitiesHtml}
-                </div>
+
+            <!-- Timeline Content -->
+            <div class="p-6">
+                ${activitiesHtml}
             </div>
         `;
     }
@@ -351,13 +382,13 @@ export class CustomerProfileModule {
         let notesHtml = '';
         if (!notes || notes.length === 0) {
             notesHtml = `
-                <div class="text-center py-4 text-slate-400">
-                    <p class="text-sm">Chưa có ghi chú nội bộ nào</p>
+                <div class="text-center py-6 text-slate-400">
+                    <p class="text-sm">No internal notes yet</p>
                 </div>
             `;
         } else {
             notesHtml = notes.slice(0, 5).map(note => {
-                const date = new Date(note.created_at).toLocaleString('vi-VN', {
+                const date = new Date(note.created_at).toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     hour: '2-digit',
@@ -367,13 +398,13 @@ export class CustomerProfileModule {
 
                 return `
                     <div class="flex gap-3">
-                        <div class="size-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 text-xs font-bold shrink-0">
+                        <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 text-xs font-bold shrink-0">
                             ${initials}
                         </div>
-                        <div class="flex-1 bg-slate-50 dark:bg-slate-700/50 rounded-lg rounded-tl-none p-3 border border-slate-100 dark:border-slate-700">
-                            <div class="flex justify-between items-baseline mb-1">
-                                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${note.created_by || 'Hệ thống'}</span>
-                                <span class="text-[10px] text-slate-400">${date}</span>
+                        <div class="flex-1 bg-slate-50 dark:bg-slate-800/50 rounded-xl rounded-tl-none p-4 border border-border-light dark:border-border-dark">
+                            <div class="flex justify-between items-baseline mb-1.5">
+                                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${note.created_by || 'System'}</span>
+                                <span class="text-xs text-slate-400">${date}</span>
                             </div>
                             <p class="text-sm text-slate-600 dark:text-slate-300">${note.content}</p>
                         </div>
@@ -383,22 +414,25 @@ export class CustomerProfileModule {
         }
 
         container.innerHTML = `
-            <h3 class="text-base font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                 <span class="material-symbols-outlined text-slate-400">forum</span>
-                Ghi chú nội bộ
+                Internal Notes
             </h3>
-            <div class="space-y-4 mb-6 max-h-60 overflow-y-auto pr-2">
+            <div class="space-y-4 mb-6 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                 ${notesHtml}
             </div>
             ${this.permissionHelper.hasPermission('customer-hub', 'addNote') ? `
                 <div class="relative">
-                    <textarea id="new-note-textarea" class="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:ring-primary focus:border-primary min-h-[80px] pr-24 resize-none placeholder-slate-400" placeholder="Thêm ghi chú nội bộ..."></textarea>
+                    <textarea id="new-note-textarea"
+                        class="w-full rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px] p-4 pr-28 resize-none placeholder-slate-400"
+                        placeholder="Add an internal note..."></textarea>
                     <div class="absolute bottom-3 right-3 flex gap-2">
-                        <button class="p-1 text-slate-400 hover:text-slate-600 transition-colors" title="Đính kèm file">
-                            <span class="material-symbols-outlined text-[20px]">attach_file</span>
+                        <button class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Attach file">
+                            <span class="material-symbols-outlined text-xl">attach_file</span>
                         </button>
-                        <button id="add-note-btn" class="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded text-xs font-medium transition-colors">
-                            Thêm
+                        <button id="add-note-btn" class="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                            <span class="material-symbols-outlined text-lg">send</span>
+                            Add
                         </button>
                     </div>
                 </div>
@@ -428,7 +462,7 @@ export class CustomerProfileModule {
     _getAvatarColor(name) {
         const colors = [
             { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400' },
-            { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-600 dark:text-green-400' },
+            { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400' },
             { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400' },
             { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400' },
             { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-600 dark:text-rose-400' },
@@ -441,52 +475,53 @@ export class CustomerProfileModule {
     _getStatusBadge(status) {
         const statusLower = (status || 'active').toLowerCase();
         const statusMap = {
-            'active': { bg: 'bg-green-50 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-400', border: 'border-green-100 dark:border-green-800', label: 'Hoạt động' },
-            'inactive': { bg: 'bg-slate-50 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-400', border: 'border-slate-200 dark:border-slate-600', label: 'Không hoạt động' },
-            'pending': { bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-100 dark:border-amber-800', label: 'Chờ xử lý' },
-            'blocked': { bg: 'bg-red-50 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', border: 'border-red-100 dark:border-red-800', label: 'Bị chặn' },
+            'active': { bg: 'bg-success-light', text: 'text-success', label: 'Active' },
+            'inactive': { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-400', label: 'Inactive' },
+            'pending': { bg: 'bg-warning-light', text: 'text-warning', label: 'Pending' },
+            'blocked': { bg: 'bg-danger-light', text: 'text-danger', label: 'Blocked' },
         };
         const s = statusMap[statusLower] || statusMap['active'];
-        return `<span class="px-2.5 py-1 rounded-full ${s.bg} ${s.text} text-xs font-semibold border ${s.border}">${s.label}</span>`;
+        return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg ${s.bg} ${s.text} text-xs font-semibold">${s.label}</span>`;
     }
 
     _getTierBadge(tier) {
         const tierLower = (tier || 'new').toLowerCase();
         const tierMap = {
-            'gold': { bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800', label: 'Gold', icon: 'star' },
-            'silver': { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-300', border: 'border-slate-200 dark:border-slate-600', label: 'Silver', icon: 'star_half' },
-            'bronze': { bg: 'bg-orange-50 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-200 dark:border-orange-800', label: 'Bronze', icon: 'star_outline' },
-            'platinum': { bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-200 dark:border-purple-800', label: 'Platinum', icon: 'diamond' },
-            'new': { bg: 'bg-primary/10', text: 'text-primary dark:text-blue-300', border: 'border-primary/20', label: 'Mới', icon: 'person' },
+            'gold': { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-400', label: 'Gold', icon: 'star' },
+            'silver': { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-300', label: 'Silver', icon: 'star_half' },
+            'bronze': { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-400', label: 'Bronze', icon: 'star_outline' },
+            'platinum': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-400', label: 'Platinum', icon: 'diamond' },
+            'new': { bg: 'bg-primary/10', text: 'text-primary', label: 'New', icon: 'person' },
         };
         const t = tierMap[tierLower] || tierMap['new'];
-        return `<span class="px-2.5 py-1 rounded-full ${t.bg} ${t.text} text-xs font-semibold border ${t.border} flex items-center gap-1">
-            <span class="material-symbols-outlined text-[14px]">${t.icon}</span>${t.label}
+        return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg ${t.bg} ${t.text} text-xs font-semibold">
+            <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">${t.icon}</span>
+            ${t.label}
         </span>`;
     }
 
     _renderTags(tags) {
         if (!tags || tags.length === 0) {
-            return `<span class="text-sm text-slate-400">Chưa có tag</span>`;
+            return `<span class="text-sm text-slate-400">No tags</span>`;
         }
         return tags.map(tag => `
-            <span class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium border border-slate-200 dark:border-slate-600">${tag}</span>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium border border-border-light dark:border-border-dark">${tag}</span>
         `).join('');
     }
 
     _getActivityIcon(type) {
         const typeMap = {
-            'purchase': { icon: 'shopping_cart', bgColor: 'bg-blue-50 dark:bg-blue-900/20', borderColor: 'border-blue-200 dark:border-blue-800', iconColor: 'text-primary' },
-            'order': { icon: 'shopping_cart', bgColor: 'bg-blue-50 dark:bg-blue-900/20', borderColor: 'border-blue-200 dark:border-blue-800', iconColor: 'text-primary' },
-            'login': { icon: 'login', bgColor: 'bg-slate-50 dark:bg-slate-700', borderColor: 'border-slate-200 dark:border-slate-600', iconColor: 'text-slate-500' },
-            'email': { icon: 'mail', bgColor: 'bg-amber-50 dark:bg-amber-900/20', borderColor: 'border-amber-200 dark:border-amber-800', iconColor: 'text-amber-600' },
-            'wallet': { icon: 'account_balance_wallet', bgColor: 'bg-green-50 dark:bg-green-900/20', borderColor: 'border-green-200 dark:border-green-800', iconColor: 'text-green-600' },
-            'deposit': { icon: 'add_circle', bgColor: 'bg-green-50 dark:bg-green-900/20', borderColor: 'border-green-200 dark:border-green-800', iconColor: 'text-green-600' },
-            'withdraw': { icon: 'remove_circle', bgColor: 'bg-red-50 dark:bg-red-900/20', borderColor: 'border-red-200 dark:border-red-800', iconColor: 'text-red-600' },
-            'ticket': { icon: 'support_agent', bgColor: 'bg-purple-50 dark:bg-purple-900/20', borderColor: 'border-purple-200 dark:border-purple-800', iconColor: 'text-purple-600' },
-            'note': { icon: 'note', bgColor: 'bg-cyan-50 dark:bg-cyan-900/20', borderColor: 'border-cyan-200 dark:border-cyan-800', iconColor: 'text-cyan-600' },
+            'purchase': { icon: 'shopping_cart', bgColor: 'bg-primary/10', borderColor: 'border-primary/20', iconColor: 'text-primary' },
+            'order': { icon: 'shopping_cart', bgColor: 'bg-primary/10', borderColor: 'border-primary/20', iconColor: 'text-primary' },
+            'login': { icon: 'login', bgColor: 'bg-slate-100 dark:bg-slate-700', borderColor: 'border-slate-200 dark:border-slate-600', iconColor: 'text-slate-500' },
+            'email': { icon: 'mail', bgColor: 'bg-amber-100 dark:bg-amber-900/20', borderColor: 'border-amber-200 dark:border-amber-800', iconColor: 'text-amber-600' },
+            'wallet': { icon: 'account_balance_wallet', bgColor: 'bg-success-light', borderColor: 'border-success/20', iconColor: 'text-success' },
+            'deposit': { icon: 'add_circle', bgColor: 'bg-success-light', borderColor: 'border-success/20', iconColor: 'text-success' },
+            'withdraw': { icon: 'remove_circle', bgColor: 'bg-danger-light', borderColor: 'border-danger/20', iconColor: 'text-danger' },
+            'ticket': { icon: 'support_agent', bgColor: 'bg-purple-100 dark:bg-purple-900/20', borderColor: 'border-purple-200 dark:border-purple-800', iconColor: 'text-purple-600' },
+            'note': { icon: 'note', bgColor: 'bg-cyan-100 dark:bg-cyan-900/20', borderColor: 'border-cyan-200 dark:border-cyan-800', iconColor: 'text-cyan-600' },
         };
-        return typeMap[type] || { icon: 'event', bgColor: 'bg-slate-50 dark:bg-slate-700', borderColor: 'border-slate-200 dark:border-slate-600', iconColor: 'text-slate-500' };
+        return typeMap[type] || { icon: 'event', bgColor: 'bg-slate-100 dark:bg-slate-700', borderColor: 'border-slate-200 dark:border-slate-600', iconColor: 'text-slate-500' };
     }
 
     _getTimeAgo(dateString) {
@@ -498,18 +533,24 @@ export class CustomerProfileModule {
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
 
-        if (diffMins < 1) return 'Vừa xong';
-        if (diffMins < 60) return `${diffMins} phút trước`;
-        if (diffHours < 24) return `${diffHours} giờ trước`;
-        if (diffDays === 1) return 'Hôm qua';
-        if (diffDays < 7) return `${diffDays} ngày trước`;
-        return date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' });
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays === 1) return 'Yesterday';
+        if (diffDays < 7) return `${diffDays} days ago`;
+        return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
     }
 
     async _addCustomerNote(content) {
         if (!content || !content.trim()) {
-            alert('Vui lòng nhập nội dung ghi chú.');
+            alert('Please enter note content.');
             return;
+        }
+
+        const addNoteBtn = this.container.querySelector('#add-note-btn');
+        if (addNoteBtn) {
+            addNoteBtn.disabled = true;
+            addNoteBtn.innerHTML = `<span class="material-symbols-outlined text-lg animate-spin">progress_activity</span>`;
         }
 
         try {
@@ -518,11 +559,16 @@ export class CustomerProfileModule {
                 // Reload profile to show new note
                 this.render(this.customerPhone);
             } else {
-                alert('Lỗi khi thêm ghi chú: ' + (response.error || 'Unknown error'));
+                alert('Error adding note: ' + (response.error || 'Unknown error'));
             }
         } catch (error) {
-            alert('Lỗi khi thêm ghi chú: ' + error.message);
+            alert('Error adding note: ' + error.message);
             console.error('Add note error:', error);
+        } finally {
+            if (addNoteBtn) {
+                addNoteBtn.disabled = false;
+                addNoteBtn.innerHTML = `<span class="material-symbols-outlined text-lg">send</span> Add`;
+            }
         }
     }
 

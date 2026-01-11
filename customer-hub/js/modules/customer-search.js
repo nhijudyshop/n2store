@@ -14,103 +14,99 @@ export class CustomerSearchModule {
 
     initUI() {
         this.container.innerHTML = `
-            <!-- Search and Filter Section -->
-            <div class="bg-surface-light dark:bg-surface-dark p-6 rounded-lg border border-border-light dark:border-border-dark shadow-sm mb-8">
-                <div class="flex flex-col md:flex-row gap-4 items-end">
+            <!-- Search Section - Modern Enterprise Style -->
+            <div class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card p-6 mb-6">
+                <div class="flex flex-col lg:flex-row gap-4 items-end">
+                    <!-- Search Input with Icon -->
                     <div class="flex-1 w-full">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5" for="search-input">Tìm kiếm khách hàng</label>
-                        <div class="relative rounded-md shadow-sm">
-                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                <span class="material-symbols-outlined text-slate-400 text-[20px]">search</span>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Search Customer</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <span class="material-symbols-outlined text-slate-400 text-xl">search</span>
                             </div>
-                            <input class="block w-full rounded-md border-border-light dark:border-border-dark pl-10 pr-12 py-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary sm:text-sm" id="search-input" name="search" placeholder="Tìm theo số điện thoại hoặc tên..." type="text"/>
-                            <div class="absolute inset-y-0 right-0 flex items-center">
-                                <select class="h-full rounded-md border-0 bg-transparent py-0 pl-2 pr-7 text-slate-500 focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm" id="search-type" name="search-type">
-                                    <option value="">Tất cả</option>
-                                    <option value="phone">SĐT</option>
-                                    <option value="name">Tên</option>
+                            <input type="text" id="search-input"
+                                class="w-full pl-12 pr-32 py-3 bg-slate-50 dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-full text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                placeholder="Search by phone number, name, or email...">
+                            <div class="absolute inset-y-0 right-2 flex items-center">
+                                <select id="search-type" class="h-9 px-3 bg-white dark:bg-slate-700 border border-border-light dark:border-border-dark rounded-full text-sm text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer">
+                                    <option value="">All Fields</option>
+                                    <option value="phone">Phone</option>
+                                    <option value="name">Name</option>
                                     <option value="email">Email</option>
                                 </select>
                             </div>
                         </div>
                     </div>
-                    <div class="w-full md:w-48">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5" for="status-filter">Trạng thái</label>
-                        <select class="block w-full rounded-md border-border-light dark:border-border-dark py-3 pl-3 pr-10 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary sm:text-sm" id="status-filter" name="status">
-                            <option value="">Tất cả</option>
-                            <option value="active">Hoạt động</option>
-                            <option value="inactive">Ngừng hoạt động</option>
-                            <option value="pending">Chờ xử lý</option>
+
+                    <!-- Status Filter -->
+                    <div class="w-full lg:w-48">
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Status</label>
+                        <select id="status-filter" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer">
+                            <option value="">Any Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="pending">Pending</option>
                         </select>
                     </div>
-                    <div class="flex gap-3 w-full md:w-auto mt-2 md:mt-0">
-                        <button id="search-btn" class="flex-1 md:flex-none items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors">
-                            Tìm kiếm
-                        </button>
-                        <button class="flex-none items-center justify-center rounded-md bg-white dark:bg-slate-700 px-3 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors" title="Bộ lọc nâng cao">
-                            <span class="material-symbols-outlined text-[20px]">filter_list</span>
-                        </button>
-                    </div>
+
+                    <!-- Search Button -->
+                    <button id="search-btn" class="w-full lg:w-auto px-8 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl shadow-soft hover:shadow-glow transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-xl">search</span>
+                        Search
+                    </button>
                 </div>
             </div>
 
-            <!-- Data Card -->
-            <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark shadow-sm overflow-hidden">
+            <!-- Results Card -->
+            <div class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
                 <!-- Card Header -->
-                <div class="px-6 py-5 border-b border-border-light dark:border-border-dark flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-surface-dark">
+                <div class="px-6 py-5 border-b border-border-light dark:border-border-dark flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h3 class="text-base font-semibold leading-6 text-slate-900 dark:text-white">Danh sách khách hàng</h3>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Hiển thị kết quả tìm kiếm và hồ sơ khách hàng.</p>
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Customer List</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Showing recent customers and search results</p>
                     </div>
-                    <div class="flex gap-2">
-                        <button class="inline-flex items-center rounded-md bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-900 dark:text-white shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700" type="button">
-                            <span class="material-symbols-outlined text-[18px] mr-1.5 text-slate-500">download</span>
-                            Xuất Excel
-                        </button>
-                    </div>
+                    <button class="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
+                        <span class="material-symbols-outlined text-lg">download</span>
+                        Export
+                    </button>
                 </div>
+
                 <!-- Table -->
                 <div class="overflow-x-auto custom-scrollbar">
-                    <table class="min-w-full divide-y divide-border-light dark:divide-border-dark">
+                    <table class="w-full">
                         <thead class="bg-slate-50 dark:bg-slate-800/50">
                             <tr>
-                                <th class="py-3.5 pl-6 pr-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400" scope="col">Khách hàng</th>
-                                <th class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400" scope="col">Số điện thoại</th>
-                                <th class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400" scope="col">Trạng thái</th>
-                                <th class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400" scope="col">Cấp bậc</th>
-                                <th class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400" scope="col">Hoạt động gần đây</th>
-                                <th class="relative py-3.5 pl-3 pr-6" scope="col">
-                                    <span class="sr-only">Hành động</span>
-                                </th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Customer</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Phone</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tier</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Last Activity</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Action</th>
                             </tr>
                         </thead>
-                        <tbody id="customer-table-body" class="divide-y divide-border-light dark:divide-border-dark bg-white dark:bg-surface-dark">
+                        <tbody id="customer-table-body" class="divide-y divide-border-light dark:divide-border-dark">
                             <tr>
-                                <td colspan="6" class="py-8 text-center text-slate-500">
-                                    <span class="material-symbols-outlined text-4xl mb-2">hourglass_empty</span>
-                                    <p>Đang tải dữ liệu...</p>
+                                <td colspan="6" class="px-6 py-12 text-center">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                                            <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
+                                        </div>
+                                        <p class="text-slate-500 dark:text-slate-400">Loading customers...</p>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
+
                 <!-- Pagination -->
-                <div id="pagination-container" class="flex items-center justify-between border-t border-border-light dark:border-border-dark bg-white dark:bg-surface-dark px-4 py-3 sm:px-6">
-                    <div class="flex flex-1 justify-between sm:hidden">
-                        <button id="prev-page-mobile" class="relative inline-flex items-center rounded-md border border-border-light bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Trước</button>
-                        <button id="next-page-mobile" class="relative ml-3 inline-flex items-center rounded-md border border-border-light bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Tiếp</button>
-                    </div>
-                    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                        <div>
-                            <p class="text-sm text-slate-700 dark:text-slate-300">
-                                Hiển thị <span class="font-medium" id="showing-start">0</span> đến <span class="font-medium" id="showing-end">0</span> trong <span class="font-medium" id="total-count">0</span> kết quả
-                            </p>
-                        </div>
-                        <div>
-                            <nav aria-label="Pagination" class="isolate inline-flex -space-x-px rounded-md shadow-sm" id="pagination-nav">
-                            </nav>
-                        </div>
-                    </div>
+                <div id="pagination-container" class="px-6 py-4 border-t border-border-light dark:border-border-dark flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
+                        Showing <span class="font-semibold text-slate-900 dark:text-white" id="showing-start">0</span>
+                        to <span class="font-semibold text-slate-900 dark:text-white" id="showing-end">0</span>
+                        of <span class="font-semibold text-slate-900 dark:text-white" id="total-count">0</span> results
+                    </p>
+                    <nav id="pagination-nav" class="flex items-center gap-1"></nav>
                 </div>
             </div>
         `;
@@ -139,9 +135,13 @@ export class CustomerSearchModule {
 
         this.tableBody.innerHTML = `
             <tr>
-                <td colspan="6" class="py-8 text-center text-blue-500">
-                    <span class="material-symbols-outlined text-4xl mb-2 animate-spin">progress_activity</span>
-                    <p>Đang tìm kiếm...</p>
+                <td colspan="6" class="px-6 py-12 text-center">
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
+                        </div>
+                        <p class="text-slate-500 dark:text-slate-400">Searching...</p>
+                    </div>
                 </td>
             </tr>
         `;
@@ -154,9 +154,14 @@ export class CustomerSearchModule {
             } else {
                 this.tableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="py-8 text-center text-slate-500">
-                            <span class="material-symbols-outlined text-4xl mb-2">search_off</span>
-                            <p>Không tìm thấy khách hàng nào.</p>
+                        <td colspan="6" class="px-6 py-12 text-center">
+                            <div class="flex flex-col items-center">
+                                <div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                                    <span class="material-symbols-outlined text-slate-400 text-2xl">search_off</span>
+                                </div>
+                                <p class="text-slate-500 dark:text-slate-400">No customers found</p>
+                                <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Try adjusting your search criteria</p>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -166,9 +171,14 @@ export class CustomerSearchModule {
             console.error('Customer search error:', error);
             this.tableBody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="py-8 text-center text-red-500">
-                        <span class="material-symbols-outlined text-4xl mb-2">error</span>
-                        <p>Lỗi khi tìm kiếm: ${error.message}</p>
+                    <td colspan="6" class="px-6 py-12 text-center">
+                        <div class="flex flex-col items-center">
+                            <div class="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center mb-3">
+                                <span class="material-symbols-outlined text-danger text-2xl">error</span>
+                            </div>
+                            <p class="text-danger font-medium">Search failed</p>
+                            <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">${error.message}</p>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -176,47 +186,56 @@ export class CustomerSearchModule {
     }
 
     renderResults(customers) {
-        const avatarColors = ['indigo', 'pink', 'blue', 'teal', 'purple', 'orange', 'green', 'cyan'];
+        const avatarColors = [
+            { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400' },
+            { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400' },
+            { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400' },
+            { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400' },
+            { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-600 dark:text-rose-400' },
+            { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-600 dark:text-cyan-400' },
+        ];
 
         let html = '';
         customers.forEach((customer, index) => {
-            const colorClass = avatarColors[index % avatarColors.length];
-            const initials = this.getInitials(customer.name || 'KH');
+            const color = avatarColors[index % avatarColors.length];
+            const initials = this.getInitials(customer.name || 'CU');
             const statusBadge = this.getStatusBadge(customer.status);
             const tierInfo = this.getTierInfo(customer.tier);
             const lastActivity = this.formatLastActivity(customer.last_activity || customer.updated_at);
 
             html += `
-                <tr class="group hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                    <td class="whitespace-nowrap py-4 pl-6 pr-3">
-                        <div class="flex items-center">
-                            <div class="h-10 w-10 flex-shrink-0 rounded-full bg-${colorClass}-100 dark:bg-${colorClass}-900/30 flex items-center justify-center text-${colorClass}-600 dark:text-${colorClass}-400 font-bold text-sm">
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full ${color.bg} ${color.text} flex items-center justify-center font-semibold text-sm flex-shrink-0">
                                 ${initials}
                             </div>
-                            <div class="ml-4">
-                                <div class="font-medium text-slate-900 dark:text-white group-hover:text-primary transition-colors">${customer.name || 'Chưa có tên'}</div>
-                                <div class="text-xs text-slate-500 dark:text-slate-400">ID: #${customer.id || 'N/A'}</div>
+                            <div>
+                                <p class="font-medium text-slate-900 dark:text-white group-hover:text-primary transition-colors">${customer.name || 'No name'}</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">ID: #${customer.id || 'N/A'}</p>
                             </div>
                         </div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-600 dark:text-slate-300">
-                        <div class="flex items-center gap-1.5">
-                            <span class="material-symbols-outlined text-[16px] text-slate-400">call</span>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-base text-slate-400">call</span>
                             ${customer.phone || 'N/A'}
                         </div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm">
+                    <td class="px-6 py-4">
                         ${statusBadge}
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-500 dark:text-slate-400">
+                    <td class="px-6 py-4">
                         ${tierInfo}
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-500 dark:text-slate-400">
+                    <td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
                         ${lastActivity}
                     </td>
-                    <td class="relative whitespace-nowrap py-4 pl-3 pr-6 text-right text-sm font-medium">
-                        <button onclick="window.openCustomerModal('${customer.phone}')" class="text-primary hover:text-primary-dark font-semibold border border-primary/20 hover:border-primary/50 bg-primary/5 hover:bg-primary/10 rounded px-3 py-1.5 transition-all text-xs uppercase tracking-wide">
-                            Xem hồ sơ
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="window.openCustomerModal('${customer.phone}')"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary rounded-lg transition-all">
+                            <span class="material-symbols-outlined text-base">visibility</span>
+                            View
                         </button>
                     </td>
                 </tr>
@@ -228,7 +247,7 @@ export class CustomerSearchModule {
     }
 
     getInitials(name) {
-        if (!name) return 'KH';
+        if (!name) return 'CU';
         const words = name.trim().split(' ');
         if (words.length >= 2) {
             return (words[0][0] + words[words.length - 1][0]).toUpperCase();
@@ -237,37 +256,37 @@ export class CustomerSearchModule {
     }
 
     getStatusBadge(status) {
+        const statusLower = (status || 'active').toLowerCase();
         const statusMap = {
-            'active': { text: 'Hoạt động', class: 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 ring-green-600/20' },
-            'inactive': { text: 'Ngừng hoạt động', class: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 ring-slate-500/10' },
-            'pending': { text: 'Chờ xử lý', class: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400 ring-yellow-600/20' },
-            'VIP': { text: 'VIP', class: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 ring-purple-600/20' },
+            'active': { bg: 'bg-success-light', text: 'text-success', label: 'Active' },
+            'inactive': { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-400', label: 'Inactive' },
+            'pending': { bg: 'bg-warning-light', text: 'text-warning', label: 'Pending' },
+            'vip': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400', label: 'VIP' },
         };
-
-        const config = statusMap[status] || statusMap['active'];
-        return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.class} ring-1 ring-inset">${config.text}</span>`;
+        const s = statusMap[statusLower] || statusMap['active'];
+        return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${s.bg} ${s.text}">${s.label}</span>`;
     }
 
     getTierInfo(tier) {
+        const tierLower = (tier || 'new').toLowerCase();
         const tierMap = {
-            'platinum': { text: 'Platinum', icon: 'diamond', color: 'text-cyan-500' },
-            'gold': { text: 'Vàng', icon: 'stars', color: 'text-amber-500' },
-            'silver': { text: 'Bạc', icon: 'stars', color: 'text-slate-400' },
-            'bronze': { text: 'Đồng', icon: 'stars', color: 'text-orange-600' },
+            'platinum': { icon: 'diamond', color: 'text-purple-500', label: 'Platinum' },
+            'gold': { icon: 'star', color: 'text-amber-500', label: 'Gold' },
+            'silver': { icon: 'star_half', color: 'text-slate-400', label: 'Silver' },
+            'bronze': { icon: 'star_outline', color: 'text-orange-500', label: 'Bronze' },
+            'new': { icon: 'person', color: 'text-slate-400', label: 'New' },
         };
-
-        const config = tierMap[(tier || '').toLowerCase()] || { text: tier || 'Mới', icon: 'grade', color: 'text-slate-400' };
-
+        const t = tierMap[tierLower] || tierMap['new'];
         return `
-            <div class="flex items-center gap-1.5">
-                <span class="material-symbols-outlined text-[18px] ${config.color}" style="font-variation-settings: 'FILL' 1;">${config.icon}</span>
-                <span class="font-medium text-slate-700 dark:text-slate-200">${config.text}</span>
+            <div class="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300">
+                <span class="material-symbols-outlined text-lg ${t.color}" style="font-variation-settings: 'FILL' 1;">${t.icon}</span>
+                ${t.label}
             </div>
         `;
     }
 
     formatLastActivity(dateStr) {
-        if (!dateStr) return 'Chưa có';
+        if (!dateStr) return 'N/A';
 
         const date = new Date(dateStr);
         const now = new Date();
@@ -276,13 +295,13 @@ export class CustomerSearchModule {
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
 
-        if (diffMins < 1) return 'Vừa xong';
-        if (diffMins < 60) return `${diffMins} phút trước`;
-        if (diffHours < 24) return `${diffHours} giờ trước`;
-        if (diffDays < 7) return `${diffDays} ngày trước`;
-        if (diffDays < 30) return `${Math.floor(diffDays / 7)} tuần trước`;
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} mins ago`;
+        if (diffHours < 24) return `${diffHours} hours ago`;
+        if (diffDays < 7) return `${diffDays} days ago`;
+        if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
 
-        return date.toLocaleDateString('vi-VN');
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
     updatePagination(total) {
@@ -301,13 +320,11 @@ export class CustomerSearchModule {
         }
 
         let html = `
-            <button onclick="this.closest('[id]').querySelector('#customer-search-container')" class="prev-page relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 ${this.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${this.currentPage === 1 ? 'disabled' : ''}>
-                <span class="sr-only">Trước</span>
-                <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+            <button class="prev-page w-9 h-9 flex items-center justify-center rounded-lg border border-border-light dark:border-border-dark text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${this.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${this.currentPage === 1 ? 'disabled' : ''}>
+                <span class="material-symbols-outlined text-xl">chevron_left</span>
             </button>
         `;
 
-        // Show first page, current-1, current, current+1, last page
         const pagesToShow = [];
         pagesToShow.push(1);
         if (this.currentPage > 3) pagesToShow.push('...');
@@ -319,18 +336,17 @@ export class CustomerSearchModule {
 
         pagesToShow.forEach(page => {
             if (page === '...') {
-                html += `<span class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-slate-300 focus:outline-offset-0 dark:ring-slate-600 dark:text-slate-400">...</span>`;
+                html += `<span class="px-2 text-slate-400">...</span>`;
             } else if (page === this.currentPage) {
-                html += `<span aria-current="page" class="relative z-10 inline-flex items-center bg-primary px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">${page}</span>`;
+                html += `<button class="w-9 h-9 flex items-center justify-center rounded-lg bg-primary text-white font-medium text-sm">${page}</button>`;
             } else {
-                html += `<button class="page-btn relative inline-flex items-center px-4 py-2 text-sm font-semibold text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 dark:ring-slate-600 dark:text-white dark:hover:bg-slate-700" data-page="${page}">${page}</button>`;
+                html += `<button class="page-btn w-9 h-9 flex items-center justify-center rounded-lg border border-border-light dark:border-border-dark text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium text-sm transition-colors" data-page="${page}">${page}</button>`;
             }
         });
 
         html += `
-            <button class="next-page relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 ${this.currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}" ${this.currentPage === totalPages ? 'disabled' : ''}>
-                <span class="sr-only">Tiếp</span>
-                <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+            <button class="next-page w-9 h-9 flex items-center justify-center rounded-lg border border-border-light dark:border-border-dark text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${this.currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}" ${this.currentPage === totalPages ? 'disabled' : ''}>
+                <span class="material-symbols-outlined text-xl">chevron_right</span>
             </button>
         `;
 
