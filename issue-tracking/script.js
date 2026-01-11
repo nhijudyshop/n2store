@@ -7,6 +7,7 @@
 let TICKETS = [];
 let selectedOrder = null;
 let currentTicketSubscription = null;
+let currentCustomer = null; // NEW: Store current customer info
 
 // Settings Management
 const SETTINGS_KEY = 'issue_tracking_settings';
@@ -34,7 +35,15 @@ const elements = {
     btnSearchOrder: document.getElementById('btn-search-order'),
     inpSearchOrder: document.getElementById('order-search-input'),
     closeButtons: document.querySelectorAll('.close-modal, .close-modal-btn'),
-    loadingOverlay: document.createElement('div') // Creating loading overlay
+    loadingOverlay: document.createElement('div'), // Creating loading overlay
+
+    // NEW: Customer Info Elements
+    customerInfoSection: document.getElementById('customer-info-section'),
+    customerInfoName: document.getElementById('customer-info-name'),
+    customerInfoPhone: document.getElementById('customer-info-phone'),
+    customerInfoTier: document.getElementById('customer-info-tier'),
+    customerInfoWalletBalance: document.getElementById('customer-info-wallet-balance'),
+    customerInfoNewCustomerWarning: document.getElementById('customer-info-new-customer-warning')
 };
 
 /**
@@ -244,6 +253,21 @@ function initModalHandlers() {
 }
 
 /**
+ * NEW: Helper function to normalize phone numbers
+ */
+function normalizePhone(phone) {
+    if (!phone) return null;
+    let normalized = String(phone).replace(/\s/g, ''); // Remove all spaces
+    if (normalized.startsWith('+84')) {
+        normalized = '0' + normalized.substring(3);
+    }
+    if (!normalized.startsWith('0')) {
+        normalized = '0' + normalized;
+    }
+    return normalized;
+}
+
+/**
  * CORE LOGIC
  */
 
@@ -270,15 +294,108 @@ async function handleSearchOrder() {
                 showOrderSelectionList(orders);
             }
         } else {
-            alert("Không tìm thấy đơn hàng với SĐT này trong 30 ngày gần đây.");
-            document.getElementById('order-result').classList.add('hidden');
-            document.getElementById('issue-details-form').classList.add('hidden');
-            hideOrderSelectionList();
-            selectedOrder = null;
+            // No orders found, try to search for customer
+            hideOrderSelectionList(); // Hide any previous order selection list
+            await searchCustomerByPhone(query);
+            // If customer found, we'll display their info. If not, the "new customer" warning will show.
         }
     } catch (error) {
         console.error(error);
         alert("Lỗi khi tìm kiếm đơn hàng: " + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+/**
+ * Search for customer by phone and display info
+ * @param {string} phone - Customer phone number
+ */
+async function searchCustomerByPhone(phone) {
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) return;
+
+    showLoading(true);
+    try {
+        const customerData = await ApiService.getCustomer360(normalizedPhone); // Use getCustomer360 for now
+
+        if (customerData && customerData.customer) {
+            // Customer found, display info
+            currentCustomer = customerData.customer; // Store full customer object
+            elements.customerInfoSection.classList.remove('hidden');
+            elements.customerInfoName.textContent = currentCustomer.name || 'N/A';
+            elements.customerInfoPhone.textContent = currentCustomer.phone || 'N/A';
+            elements.customerInfoTier.textContent = currentCustomer.tier || 'New';
+            elements.customerInfoWalletBalance.textContent = formatCurrency(customerData.wallet?.balance || 0);
+            elements.customerInfoNewCustomerWarning.classList.add('hidden');
+
+            // Hide order result and show issue form directly
+            document.getElementById('order-result').classList.add('hidden');
+            document.getElementById('issue-details-form').classList.remove('hidden');
+
+        } else {
+            // Customer not found, show warning for new customer creation
+            currentCustomer = { // Minimal object for new customer
+                name: 'Khách hàng mới',
+                phone: normalizedPhone,
+                tier: 'New',
+                wallet_balance: 0
+            };
+            elements.customerInfoSection.classList.remove('hidden');
+            elements.customerInfoName.textContent = 'Khách hàng mới';
+            elements.customerInfoPhone.textContent = normalizedPhone;
+            elements.customerInfoTier.textContent = 'New';
+            elements.customerInfoWalletBalance.textContent = formatCurrency(0);
+            elements.customerInfoNewCustomerWarning.classList.remove('hidden');
+
+            document.getElementById('order-result').classList.add('hidden');
+            document.getElementById('issue-details-form').classList.remove('hidden');
+        }
+
+        // Set selectedOrder to a minimal object for new customer creation if no order was found
+        if (!selectedOrder || !selectedOrder.tposCode) { // Only if no order is currently selected
+            selectedOrder = {
+                customer: currentCustomer.name,
+                phone: currentCustomer.phone,
+                address: 'N/A', // Default for new customer
+                tposCode: null, // No TPOS order for new customer
+                id: null,
+                cod: 0,
+                products: [],
+                status: 'open',
+                stateCode: 'None',
+                carrier: 'N/A',
+                channel: 'TPOS',
+                createdAt: Date.now()
+            };
+             // Also update the order-info-header placeholders for consistency
+            document.getElementById('res-customer').textContent = currentCustomer.name;
+            document.getElementById('res-phone').textContent = currentCustomer.phone;
+            document.getElementById('res-order-code').textContent = 'N/A';
+            document.getElementById('res-address').textContent = 'N/A';
+            document.getElementById('res-products-table').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:10px;color:#64748b;">Không có sản phẩm</td></tr>';
+            document.getElementById('product-checklist').innerHTML = '<p style="color:#64748b;font-size:12px">Không có sản phẩm</p>';
+            document.getElementById('res-total-qty').textContent = '0';
+            document.getElementById('res-amount-total').textContent = '0đ';
+            document.getElementById('res-decrease-amount').textContent = '0đ';
+            document.getElementById('res-delivery-price').textContent = '0đ';
+            document.getElementById('res-final-total').textContent = '0đ';
+            document.getElementById('res-payment-amount').textContent = '0đ';
+            document.getElementById('res-cod').textContent = '0đ';
+        }
+
+    } catch (error) {
+        console.error('Error searching customer:', error);
+        // Fallback to showing warning if API fails
+        elements.customerInfoSection.classList.remove('hidden');
+        elements.customerInfoName.textContent = 'Lỗi tải thông tin';
+        elements.customerInfoPhone.textContent = normalizedPhone;
+        elements.customerInfoTier.textContent = 'N/A';
+        elements.customerInfoWalletBalance.textContent = '0đ';
+        elements.customerInfoNewCustomerWarning.classList.remove('hidden');
+
+        document.getElementById('order-result').classList.add('hidden');
+        document.getElementById('issue-details-form').classList.remove('hidden');
     } finally {
         showLoading(false);
     }
@@ -290,15 +407,59 @@ async function handleSearchOrder() {
  */
 async function selectOrder(order) {
     selectedOrder = order;
+    currentCustomer = null; // Reset current customer when an order is selected
 
     document.getElementById('order-result').classList.remove('hidden');
     document.getElementById('issue-details-form').classList.remove('hidden');
+    elements.customerInfoSection.classList.add('hidden'); // Hide customer info section when order is selected
+    elements.customerInfoNewCustomerWarning.classList.add('hidden'); // Hide new customer warning
 
     // Fill basic order info
     document.getElementById('res-customer').textContent = order.customer;
     document.getElementById('res-phone').textContent = order.phone;
     document.getElementById('res-order-code').textContent = order.tposCode;
     document.getElementById('res-address').textContent = order.address || 'Chưa có địa chỉ';
+
+    // NEW: Attempt to fetch and display customer info based on the order's phone
+    if (order.phone) {
+        try {
+            const customerDetails = await ApiService.getCustomer360(normalizePhone(order.phone));
+            if (customerDetails && customerDetails.customer) {
+                currentCustomer = customerDetails.customer;
+                elements.customerInfoSection.classList.remove('hidden');
+                elements.customerInfoName.textContent = currentCustomer.name || 'N/A';
+                elements.customerInfoPhone.textContent = currentCustomer.phone || 'N/A';
+                elements.customerInfoTier.textContent = currentCustomer.tier || 'New';
+                elements.customerInfoWalletBalance.textContent = formatCurrency(customerDetails.wallet?.balance || 0);
+            } else {
+                // If customer not found for this phone, still show warning as it will be created via ticket
+                elements.customerInfoSection.classList.remove('hidden');
+                elements.customerInfoName.textContent = 'Khách hàng mới';
+                elements.customerInfoPhone.textContent = order.phone;
+                elements.customerInfoTier.textContent = 'New';
+                elements.customerInfoWalletBalance.textContent = formatCurrency(0);
+                elements.customerInfoNewCustomerWarning.classList.remove('hidden');
+
+                currentCustomer = { // Minimal object for new customer related to this order
+                    name: 'Khách hàng mới',
+                    phone: normalizePhone(order.phone),
+                    tier: 'New',
+                    wallet_balance: 0
+                };
+            }
+        } catch (error) {
+            console.error('Error fetching customer details for selected order:', error);
+            // Fallback to new customer warning if API fails
+            elements.customerInfoSection.classList.remove('hidden');
+            elements.customerInfoName.textContent = 'Lỗi tải thông tin';
+            elements.customerInfoPhone.textContent = order.phone;
+            elements.customerInfoTier.textContent = 'N/A';
+            elements.customerInfoWalletBalance.textContent = '0đ';
+            elements.customerInfoNewCustomerWarning.classList.remove('hidden');
+
+            currentCustomer = null; // Clear if error
+        }
+    }
 
     // Show loading state
     document.getElementById('res-products-table').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:10px;color:#64748b;">Đang tải sản phẩm...</td></tr>';
@@ -429,8 +590,8 @@ function showOrderSelectionList(orders) {
                         ${o.tposCode} | COD: ${formatCurrency(o.cod)} | ${o.carrier || 'N/A'}
                     </div>
                     <div style="font-size:11px;color:#94a3b8;margin-top:2px">
-                        ${new Date(o.createdAt).toLocaleDateString('vi-VN')} - 
-                        <span style="color:#3b82f6;font-weight:500;">${translateState(o.status)}</span> | 
+                        ${new Date(o.createdAt).toLocaleDateString('vi-VN')} -
+                        <span style="color:#3b82f6;font-weight:500;">${translateState(o.status)}</span> |
                         <span style="color:${o.stateCode === 'CrossCheckComplete' ? '#10b981' : '#f59e0b'};">${translateStateCode(o.stateCode)}</span>
                     </div>
                 </div>
@@ -442,9 +603,7 @@ function showOrderSelectionList(orders) {
     // Hide order result and form until selection
     document.getElementById('order-result').classList.add('hidden');
     document.getElementById('issue-details-form').classList.add('hidden');
-
-    // Store orders for selection
-    window._searchedOrders = orders;
+    elements.customerInfoSection.classList.add('hidden'); // Also hide customer info section
 }
 
 /**
@@ -612,7 +771,10 @@ function updateCodReduceFromProducts() {
 window.updateCodReduceFromProducts = updateCodReduceFromProducts;
 
 async function handleSubmitTicket() {
-    if (!selectedOrder) return alert("Chưa chọn đơn hàng!");
+    // If selectedOrder is a minimal object for a new customer
+    const isNewCustomerTicket = selectedOrder && !selectedOrder.tposCode;
+
+    if (!selectedOrder && !currentCustomer) return alert("Chưa chọn đơn hàng hoặc SĐT khách hàng!");
 
     const type = document.getElementById('issue-type-select').value;
     if (!type) return alert("Vui lòng chọn loại vấn đề");
@@ -623,7 +785,7 @@ async function handleSubmitTicket() {
     let selectedProducts = [];
 
     // Determine channel: TP if HCM, J&T otherwise
-    const address = selectedOrder.address || '';
+    const address = selectedOrder?.address || (currentCustomer ? 'N/A' : ''); // Use customer address if no order
     const channel = address.includes('Hồ Chí Minh') || address.includes('HCM') || address.includes('TP HCM')
         ? 'TP'
         : 'J&T';
@@ -635,8 +797,8 @@ async function handleSubmitTicket() {
         money = codReduce; // COD Giảm chính là số tiền phải trả ĐVVC
 
         if (fixCodReason === 'REJECT_PARTIAL') {
-            // Validation: Đơn phải có >= 2 món
-            if (selectedOrder.products.length < 2) {
+            // Validation: Đơn phải có >= 2 món (only if an order is selected)
+            if (selectedOrder && selectedOrder.products && selectedOrder.products.length < 2) {
                 return alert("Đơn hàng chỉ có 1 món. Nếu khách không nhận, vui lòng chọn 'Boom Hàng'.");
             }
 
@@ -648,7 +810,7 @@ async function handleSubmitTicket() {
                 const productId = cb.value;
                 const qtyInput = document.getElementById(`prod-qty-${productId}`);
                 const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-                const product = selectedOrder.products.find(p => String(p.id) === String(productId));
+                const product = selectedOrder?.products?.find(p => String(p.id) === String(productId));
                 return {
                     ...product,
                     returnQuantity: returnQty
@@ -660,7 +822,7 @@ async function handleSubmitTicket() {
                 return alert("Vui lòng chọn ít nhất 1 món hàng khách trả lại.");
             }
             // Validation: Không được trả toàn bộ (đó là BOOM)
-            if (selectedProducts.length === selectedOrder.products.length) {
+            if (selectedOrder && selectedProducts.length === selectedOrder.products.length) {
                 return alert("Khách trả toàn bộ món hàng. Vui lòng chọn 'Boom Hàng' thay vì 'Nhận 1 phần'.");
             }
         } else {
@@ -670,25 +832,25 @@ async function handleSubmitTicket() {
         }
     } else if (type === 'BOOM') {
         // BOOM: COD giảm = toàn bộ COD (khách không nhận gì)
-        money = selectedOrder.cod;
+        money = selectedOrder?.cod || 0;
         status = 'PENDING_GOODS';
 
-        // Tất cả sản phẩm đều hoàn về
-        selectedProducts = selectedOrder.products.map(p => ({
+        // Tất cả sản phẩm đều hoàn về (if order selected)
+        selectedProducts = selectedOrder?.products?.map(p => ({
             ...p,
             returnQuantity: p.quantity
-        }));
+        })) || [];
     } else if (type === 'RETURN_CLIENT' || type === 'RETURN_SHIPPER') {
         // Thu về/Khách gửi: Đã thu COD xong, giờ là giá trị hàng hoàn
         status = 'PENDING_GOODS';
 
-        // Get selected products with return quantities
+        // Get selected products with return quantities (if order selected)
         const checkedInputs = document.querySelectorAll('#product-checklist input[type="checkbox"]:checked');
         selectedProducts = Array.from(checkedInputs).map(cb => {
             const productId = cb.value;
             const qtyInput = document.getElementById(`prod-qty-${productId}`);
             const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-            const product = selectedOrder.products.find(p => String(p.id) === String(productId));
+            const product = selectedOrder?.products?.find(p => String(p.id) === String(productId));
             return {
                 ...product,
                 returnQuantity: returnQty
@@ -703,18 +865,30 @@ async function handleSubmitTicket() {
         selectedProducts = [];
     }
 
+    // Use selectedOrder data if available, otherwise use currentCustomer data
+    const customerPhone = selectedOrder?.phone || currentCustomer?.phone;
+    const customerName = selectedOrder?.customer || currentCustomer?.name;
+    const tposOrderId = selectedOrder?.tposCode; // TPOS order code (e.g., NJD/2025/xxx)
+    const tposInternalId = selectedOrder?.id; // TPOS internal ID (number)
+    const orderAddress = selectedOrder?.address;
+    const orderStatus = selectedOrder?.status;
+    const orderStateCode = selectedOrder?.stateCode;
+
+    if (!customerPhone) return alert("Không tìm thấy thông tin số điện thoại khách hàng!");
+
+
     const ticketData = {
-        orderId: selectedOrder.tposCode, // Mã đơn NJD/2025/xxx
-        tposId: selectedOrder.id, // ID số
-        customer: selectedOrder.customer,
-        phone: selectedOrder.phone,
-        address: selectedOrder.address,
+        orderId: tposOrderId,
+        tposId: tposInternalId,
+        customer: customerName,
+        phone: customerPhone,
+        address: orderAddress,
         type: type,
         fixCodReason: type === 'FIX_COD' ? document.getElementById('fix-cod-reason').value : null,
         channel: channel,
         status: status,
-        orderState: selectedOrder.status || 'open', // Trạng thái đơn TPOS: open, paid
-        stateCode: selectedOrder.stateCode || 'None', // Trạng thái đối soát SP: CrossCheckComplete, None
+        orderState: orderStatus || 'open', // Trạng thái đơn TPOS: open, paid
+        stateCode: orderStateCode || 'None', // Trạng thái đối soát SP: CrossCheckComplete, None
         products: selectedProducts,
         money: money,
         note: note
@@ -725,6 +899,7 @@ async function handleSubmitTicket() {
         await ApiService.createTicket(ticketData);
         closeModal(elements.modalCreate);
         resetCreateForm();
+        notificationManager.success('Tạo phiếu thành công!');
     } catch (error) {
         console.error(error);
         alert("Lỗi khi tạo sự vụ: " + error.message);
@@ -922,7 +1097,7 @@ function parseExcelData(text) {
     lines.forEach(line => {
         if (!line.trim()) return;
 
-        // Strategy: 
+        // Strategy:
         // 1. Extract potential Phone (10-11 digits)
         // 2. Extract potential ID (First column usually)
         // 3. Extract Money (digits with optional commas/dots)
@@ -939,11 +1114,11 @@ function parseExcelData(text) {
 
         // Find money: Look for numbers > 1000
         const moneyMatch = cleanLine.match(/(\d{4,})/g);
-        // Heuristic: Money is usually the largest number or specific column. 
+        // Heuristic: Money is usually the largest number or specific column.
         // For simplicity, let's take largest number found (risk: OrderId might be number)
-        // Better: Expect user to check. Or user specific columns. 
+        // Better: Expect user to check. Or user specific columns.
         // Let's assume Column B (index 1) or D (index 3) based on user image.
-        // Image: Col B=325000, Col D=325000. 
+        // Image: Col B=325000, Col D=325000.
         // Let's try to parse money from Col B or D.
         let money = 0;
         if (cols[1]) money = parseInt(cols[1].replace(/\D/g, '')) || 0;
@@ -1137,29 +1312,29 @@ flowchart TD
     Start([Bắt đầu]) --> Search[Tìm kiếm Đơn hàng<br/>SĐT / Mã vận đơn]
     Search -->|Có dữ liệu| Found[Hiện thông tin Đơn]
     Search -->|Không thấy| NotFound[Báo lỗi / Kiểm tra lại]
-    
+
     Found --> SelectType{Chọn Loại Sự Vụ}
-    
+
     SelectType -->|Sửa COD| FixCOD[Form Sửa COD]
     FixCOD --> Reason{Lý do}
     Reason -->|Sai phí/Trừ nợ| InputMoney[Nhập COD mới]
     Reason -->|Khách nhận 1 phần| Partial[Hiện DS Sản phẩm]
     Partial --> CheckItem[Chọn SP khách trả lại]
     CheckItem --> InputMoney
-    
+
     SelectType -->|Khách Trả / Boom| Return[Form Trả Hàng]
     Return --> ReturnSource{Nguồn?}
     ReturnSource -->|Khách gửi| InputTracking[Nhập Mã VĐ Khách gửi]
     ReturnSource -->|Shipper thu| InputShipper[Nhập tên Shipper]
     ReturnSource -->|Boom hàng| ConfirmBoom[Xác nhận Boom]
-    
+
     InputMoney --> Submit[Tạo Ticket]
     InputTracking --> Submit
     InputShipper --> Submit
     ConfirmBoom --> Submit
-    
+
     Submit --> End([Lưu vào Hệ thống])
-    
+
     style Start fill:#dbeafe,stroke:#2563eb,stroke-width:2px
     style End fill:#dcfce7,stroke:#16a34a,stroke-width:2px
     style Submit fill:#fef3c7,stroke:#d97706,stroke-width:2px
@@ -1255,6 +1430,7 @@ function renderDashboard(tabName, searchTerm = '') {
         // Build customer cell
         const customerName = t.customer || 'N/A';
         const customerPhone = t.phone || 'N/A';
+        const customerTier = t.customer_tier || null; // NEW: Get customer tier from ticket
 
         // Helper: Get order state display for row
         const getOrderStateDisplay = () => {
@@ -1292,6 +1468,7 @@ function renderDashboard(tabName, searchTerm = '') {
             <td>
                 <div style="font-weight:500;color:#1e293b;">${customerName}</div>
                 <div style="font-weight:500;color:#1e293b;">${customerPhone}</div>
+                ${customerTier ? `<div style="font-size:11px;color:#64748b;">${customerTier}</div>` : ''}
             </td>
             <td>
                 ${renderTypeBadge(t.type, t.fixCodReason)}
@@ -1388,6 +1565,8 @@ window.openOrderDetailModal = async function (tposId) {
         // Show order result, hide issue form
         document.getElementById('order-result').classList.remove('hidden');
         document.getElementById('issue-details-form').classList.add('hidden');
+        elements.customerInfoSection.classList.add('hidden'); // Also hide customer info section
+        elements.customerInfoNewCustomerWarning.classList.add('hidden'); // Hide new customer warning
 
         // Fill order info
         document.getElementById('res-customer').textContent = details.customer || 'N/A';
@@ -1493,6 +1672,7 @@ function closeModal(el) { el.classList.remove('show'); }
 
 function resetCreateForm() {
     selectedOrder = null;
+    currentCustomer = null; // NEW: Reset current customer
     elements.inpSearchOrder.value = '';
     document.getElementById('order-result').classList.add('hidden');
     document.getElementById('issue-details-form').classList.add('hidden');
@@ -1502,6 +1682,14 @@ function resetCreateForm() {
     // Restore search section visibility (in case it was hidden by openOrderDetailModal)
     document.querySelector('.search-section label').style.display = '';
     document.querySelector('.search-section .input-group').style.display = '';
+
+    // NEW: Reset customer info section
+    elements.customerInfoSection.classList.add('hidden');
+    elements.customerInfoName.textContent = 'N/A';
+    elements.customerInfoPhone.textContent = 'N/A';
+    elements.customerInfoTier.textContent = 'N/A';
+    elements.customerInfoWalletBalance.textContent = '0đ';
+    elements.customerInfoNewCustomerWarning.classList.add('hidden');
 }
 
 function translateStatus(s) {

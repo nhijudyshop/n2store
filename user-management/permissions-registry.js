@@ -414,7 +414,8 @@ const PAGES_REGISTRY = {
             createTicket: { name: "Tạo sự vụ", icon: "plus-circle", description: "Tạo sự vụ mới cho KH" },
             viewActivities: { name: "Xem hoạt động", icon: "activity", description: "Xem timeline hoạt động" },
             addNote: { name: "Thêm ghi chú", icon: "sticky-note", description: "Thêm ghi chú về KH" },
-            editCustomer: { name: "Sửa thông tin", icon: "edit", description: "Chỉnh sửa thông tin KH" }
+            editCustomer: { name: "Sửa thông tin", icon: "edit", description: "Chỉnh sửa thông tin KH" },
+            linkTransactions: { name: "Liên kết giao dịch", icon: "link", description: "Liên kết giao dịch ngân hàng với KH" }
         }
     },
 

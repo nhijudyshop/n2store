@@ -141,6 +141,19 @@
                         </div>
                     </div>
 
+                    <!-- Customer Info Section (Dynamically updated by JS) -->
+                    <div id="customer-info-section" class="customer-info-section hidden" style="margin-top: 10px; padding: 10px; background: #e0f2f7; border-left: 5px solid #00bcd4; border-radius: 4px;">
+                        <p style="margin: 0; font-size: 14px; font-weight: 500; color: #263238;">
+                            <strong>Khách hàng:</strong> <span id="customer-info-name">N/A</span> (<span id="customer-info-phone">N/A</span>)
+                        </p>
+                        <p style="margin: 5px 0 0; font-size: 12px; color: #455a64;">
+                            Cấp bậc: <span id="customer-info-tier">N/A</span> | Số dư ví: <span id="customer-info-wallet-balance">0đ</span>
+                        </p>
+                        <p id="customer-info-new-customer-warning" class="hidden" style="margin: 5px 0 0; font-size: 12px; color: #f44336; font-weight: 500;">
+                            ⚠️ Khách hàng mới sẽ được tạo tự động khi tạo phiếu này.
+                        </p>
+                    </div>
+
                     <!-- Products Table -->
                     <div class="order-products-section">
                         <h4 style="margin:10px 0 8px 0;font-size:14px;font-weight:600;">Sản phẩm:</h4>

@@ -981,3 +981,6 @@ server.listen(PORT, () => {
         autoConnectRealtimeClients(chatDbPool);
     }, 3000);
 });
+
+// Start cron jobs
+require('./cron/scheduler');
