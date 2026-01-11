@@ -1614,7 +1614,7 @@ class TposChatManager {
         this.showZeroDebt = showZeroDebt;
         console.log('[TPOS-CHAT] Debt display settings:', { showDebt, showZeroDebt });
         // Re-render comment list
-        this.renderCommentList();
+        this.renderComments();
     }
 
     /**
