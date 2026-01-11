@@ -992,6 +992,113 @@
             }
         }
     </script>
+
+    <!-- Customer Info Modal -->
+    <div class="pk-modal-overlay" id="customerInfoModal" style="display: none;">
+        <div class="pk-modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+            <div class="pk-modal-header">
+                <h3><i data-lucide="user"></i> <span id="customerInfoTitle">Thông tin khách hàng</span></h3>
+                <button class="pk-modal-close" onclick="window.tposChatManager.closeCustomerInfoModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="pk-modal-body" id="customerInfoBody">
+                <div style="text-align: center; padding: 40px;">
+                    <i data-lucide="loader-2" class="spin" style="width: 32px; height: 32px; color: #3b82f6;"></i>
+                    <p style="margin-top: 12px; color: #6b7280;">Đang tải thông tin...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Customer Info Modal Styles */
+        #customerInfoModal .customer-section {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+        #customerInfoModal .customer-section h4 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #customerInfoModal .customer-field {
+            display: flex;
+            margin-bottom: 8px;
+        }
+        #customerInfoModal .customer-field label {
+            width: 120px;
+            font-weight: 500;
+            color: #6b7280;
+            font-size: 13px;
+        }
+        #customerInfoModal .customer-field span {
+            flex: 1;
+            color: #1f2937;
+            font-size: 13px;
+        }
+        #customerInfoModal .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        #customerInfoModal .status-normal { background: #dcfce7; color: #16a34a; }
+        #customerInfoModal .status-warning { background: #fef3c7; color: #d97706; }
+        #customerInfoModal .status-danger { background: #fee2e2; color: #dc2626; }
+        #customerInfoModal .order-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        #customerInfoModal .order-table th,
+        #customerInfoModal .order-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        #customerInfoModal .order-table th {
+            background: #f3f4f6;
+            font-weight: 600;
+            color: #374151;
+        }
+        #customerInfoModal .order-code {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #dbeafe;
+            color: #1d4ed8;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        #customerInfoModal .comment-item {
+            padding: 8px 12px;
+            background: #fff;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        #customerInfoModal .comment-text {
+            color: #1f2937;
+            font-size: 13px;
+        }
+        #customerInfoModal .comment-time {
+            color: #9ca3af;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .spin { animation: spin 1s linear infinite; }
+    </style>
 </body>
 
 </html>
