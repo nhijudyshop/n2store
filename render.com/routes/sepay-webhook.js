@@ -736,55 +736,27 @@ function extractPhoneFromContent(content) {
     }
 
     // Step 1.6: VIETCOMBANK (MBVCB) PATTERN DETECTION
-    // Format: MBVCB.{random}.{random}.{ref_code}.CT tu {sender_phone} {sender_name} toi...
-    // Example: MBVCB.12537861335.6011BFTVG2UW83KJ.56788.CT tu 9906952802 HUYNH THANH DAT toi 75918...
-    // Priority: Extract 10-digit phone after "CT tu" (sender's phone), NOT the ref_code before ".CT"
+    // Format: MBVCB.{random}.{random}.{phone}.CT tu ...
+    // Example: MBVCB.12459068036.249370.228666.CT tu 0141000833447 NGUYEN THI...
+    // We need to extract the number before ".CT" (228666)
     // Note: MBVCB = Mobile Banking Vietcombank
-    const mbvcbDetect = /MBVCB\.[^.]+\.[^.]+\.\d+\.CT/i;
-    if (mbvcbDetect.test(textToParse)) {
-        console.log('[EXTRACT] 🔵 Detected Vietcombank (MBVCB) pattern');
+    const mbvcbPattern = /MBVCB\.[^.]+\.[^.]+\.(\d{5,10})\.CT/i;
+    const mbvcbMatch = textToParse.match(mbvcbPattern);
+    if (mbvcbMatch) {
+        const customerPhone = mbvcbMatch[1]; // 228666
 
-        // Priority 1: Extract 10-digit phone after "CT tu" (most accurate)
-        const ctTuPhonePattern = /CT\s+tu\s+(0\d{9})\b/i;
-        const ctTuMatch = textToParse.match(ctTuPhonePattern);
-        if (ctTuMatch) {
-            const senderPhone = ctTuMatch[1];
-            console.log('[EXTRACT] 🔵 Found sender phone after "CT tu":', senderPhone);
-            return {
-                type: 'exact_phone',
-                value: senderPhone,
-                uniqueCode: `PHONE${senderPhone}`,
-                note: 'VCB:EXACT_PHONE_FROM_CT_TU'
-            };
-        }
+        console.log('[EXTRACT] 🔵 Detected Vietcombank (MBVCB) pattern:', {
+            fullMatch: mbvcbMatch[0],
+            customerPhone
+        });
 
-        // Priority 2: Extract partial phone (5-9 digits) after "CT tu"
-        const ctTuPartialPattern = /CT\s+tu\s+(\d{5,9})\b/i;
-        const ctTuPartialMatch = textToParse.match(ctTuPartialPattern);
-        if (ctTuPartialMatch) {
-            const partialPhone = ctTuPartialMatch[1];
-            console.log('[EXTRACT] 🔵 Found partial phone after "CT tu":', partialPhone);
-            return {
-                type: 'partial_phone',
-                value: partialPhone,
-                uniqueCode: null,
-                note: 'VCB:PARTIAL_PHONE_FROM_CT_TU'
-            };
-        }
-
-        // Priority 3: Fallback to ref_code before ".CT" (old logic, less accurate)
-        const mbvcbRefPattern = /MBVCB\.[^.]+\.[^.]+\.(\d{5,10})\.CT/i;
-        const mbvcbRefMatch = textToParse.match(mbvcbRefPattern);
-        if (mbvcbRefMatch) {
-            const refCode = mbvcbRefMatch[1];
-            console.log('[EXTRACT] 🔵 Fallback to ref_code before ".CT":', refCode);
-            return {
-                type: 'partial_phone',
-                value: refCode,
-                uniqueCode: null,
-                note: 'VCB:REF_CODE_FALLBACK'
-            };
-        }
+        // Return directly with the extracted phone
+        return {
+            type: 'partial_phone',
+            value: customerPhone,
+            uniqueCode: null,
+            note: 'VCB:PARTIAL_PHONE_EXTRACTED'
+        };
     }
 
     // Step 2: Check for QR Code N2 (starts with N2, exactly 18 chars)
@@ -3900,25 +3872,73 @@ async function autoAddToTransferStats(db, transactionId, transactionData) {
         // Ensure table exists first
         await initTransferStatsTableWithDb(db);
 
+        // Fetch customer info from balance_history (may have been updated by debt update)
+        const bhResult = await db.query(`
+            SELECT customer_name, linked_customer_phone
+            FROM balance_history
+            WHERE id = $1
+        `, [transactionId]);
+
+        const customerName = bhResult.rows[0]?.customer_name || transactionData.customer_name || null;
+        const customerPhone = bhResult.rows[0]?.linked_customer_phone || transactionData.customer_phone || null;
+
         await db.query(`
             INSERT INTO transfer_stats (transaction_id, customer_name, customer_phone, amount, content, transaction_date)
             VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (transaction_id) DO NOTHING
+            ON CONFLICT (transaction_id) DO UPDATE SET
+                customer_name = COALESCE(EXCLUDED.customer_name, transfer_stats.customer_name),
+                customer_phone = COALESCE(EXCLUDED.customer_phone, transfer_stats.customer_phone)
         `, [
             transactionId,
-            transactionData.customer_name || null,
-            transactionData.customer_phone || null,
+            customerName,
+            customerPhone,
             transactionData.transfer_amount,
             transactionData.content,
             transactionData.transaction_date
         ]);
 
-        console.log(`[TRANSFER-STATS] Auto-added transaction #${transactionId}`);
+        console.log(`[TRANSFER-STATS] Auto-added transaction #${transactionId} (customer: ${customerName || 'N/A'})`);
     } catch (error) {
         // Silently fail - this is a non-critical feature
         console.error('[TRANSFER-STATS] Auto-add error:', error.message);
     }
 }
+
+// POST /api/sepay/transfer-stats/sync - Sync customer info from balance_history
+router.post('/transfer-stats/sync', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        // Update transfer_stats with customer info from balance_history
+        const result = await db.query(`
+            UPDATE transfer_stats ts
+            SET
+                customer_name = COALESCE(bh.customer_name, ts.customer_name),
+                customer_phone = COALESCE(bh.linked_customer_phone, ts.customer_phone),
+                updated_at = CURRENT_TIMESTAMP
+            FROM balance_history bh
+            WHERE ts.transaction_id = bh.id
+            AND (
+                (ts.customer_name IS NULL AND bh.customer_name IS NOT NULL)
+                OR (ts.customer_phone IS NULL AND bh.linked_customer_phone IS NOT NULL)
+            )
+            RETURNING ts.id
+        `);
+
+        console.log(`[TRANSFER-STATS] Synced ${result.rows.length} records with customer info`);
+
+        res.json({
+            success: true,
+            synced: result.rows.length
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Sync error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to sync'
+        });
+    }
+});
 
 // Export the auto-add function for use in webhook
 router.autoAddToTransferStats = autoAddToTransferStats;

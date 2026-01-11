@@ -433,6 +433,48 @@ async function transferToStats(transactionId) {
 }
 
 // =====================================================
+// SYNC CUSTOMER INFO
+// =====================================================
+
+async function syncTransferStats() {
+    try {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Đang đồng bộ...', 'info');
+        }
+
+        const response = await fetch(`${TS_API_BASE_URL}/api/sepay/transfer-stats/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(
+                    `Đã đồng bộ ${result.synced} giao dịch`,
+                    result.synced > 0 ? 'success' : 'info'
+                );
+            }
+            // Reload data to show updated customer info
+            if (result.synced > 0) {
+                await loadTransferStats();
+            }
+        } else {
+            console.error('[TS] Sync error:', result.error);
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Lỗi đồng bộ', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('[TS] Sync error:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Lỗi kết nối', 'error');
+        }
+    }
+}
+
+// =====================================================
 // HELPERS
 // =====================================================
 
@@ -480,6 +522,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshBtn = document.getElementById('refreshTransferStatsBtn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', loadTransferStats);
+    }
+
+    // Sync button
+    const syncBtn = document.getElementById('syncTransferStatsBtn');
+    if (syncBtn) {
+        syncBtn.addEventListener('click', syncTransferStats);
     }
 
     // Edit modal close buttons
@@ -607,3 +655,4 @@ window.markAllChecked = markAllChecked;
 window.openEditTSModal = openEditTSModal;
 window.closeEditTSModal = closeEditTSModal;
 window.saveTSEdit = saveTSEdit;
+window.syncTransferStats = syncTransferStats;
