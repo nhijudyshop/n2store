@@ -1989,6 +1989,11 @@ async function handleNewTransaction(transaction) {
     // Show realtime notification
     showRealtimeNotification(transaction);
 
+    // If incoming transaction ('in'), also update Transfer Stats tab
+    if (transaction.transfer_type === 'in' && typeof window.addNewTransferStatRealtime === 'function') {
+        window.addNewTransferStatRealtime(transaction);
+    }
+
     // Check if transaction matches current filters
     if (!transactionMatchesFilters(transaction)) {
         console.log('[REALTIME] Transaction does not match current filters, skipping UI update');

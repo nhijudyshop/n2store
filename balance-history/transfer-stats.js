@@ -16,6 +16,42 @@ let tsTotalPages = 1;
 const TS_PAGE_SIZE = 50;
 
 // =====================================================
+// REALTIME UPDATE SUPPORT
+// =====================================================
+
+/**
+ * Add new transaction to Transfer Stats in realtime (called from main.js SSE handler)
+ * @param {Object} transaction - The new incoming transaction
+ */
+window.addNewTransferStatRealtime = function(transaction) {
+    console.log('[TS-REALTIME] New incoming transaction:', transaction);
+
+    // Convert transaction format to match transfer stats format
+    const newItem = {
+        id: transaction.id,
+        transaction_id: transaction.id,
+        customer_name: transaction.customer_name || '',
+        customer_phone: transaction.linked_customer_phone || '',
+        amount: transaction.transfer_amount,
+        content: transaction.content,
+        notes: '',
+        transaction_date: transaction.transaction_date,
+        is_checked: false,
+        is_verified: false,
+        created_at: transaction.created_at
+    };
+
+    // Add to beginning of data array
+    tsData.unshift(newItem);
+
+    // Re-filter and render
+    filterTransferStats();
+    updateUncheckedBadge();
+
+    console.log('[TS-REALTIME] Transfer Stats updated, total:', tsData.length);
+};
+
+// =====================================================
 // LOAD & DISPLAY DATA
 // =====================================================
 
@@ -512,24 +548,6 @@ function escapeHtml(str) {
 // =====================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Mark all checked button
-    const markAllBtn = document.getElementById('markAllCheckedBtn');
-    if (markAllBtn) {
-        markAllBtn.addEventListener('click', markAllChecked);
-    }
-
-    // Refresh button
-    const refreshBtn = document.getElementById('refreshTransferStatsBtn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', loadTransferStats);
-    }
-
-    // Sync button
-    const syncBtn = document.getElementById('syncTransferStatsBtn');
-    if (syncBtn) {
-        syncBtn.addEventListener('click', syncTransferStats);
-    }
-
     // Edit modal close buttons
     const closeEditTSModalBtn = document.getElementById('closeEditTSModalBtn');
     if (closeEditTSModalBtn) {
