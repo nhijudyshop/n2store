@@ -29,6 +29,10 @@ class PancakeChatManager {
             ttl: 10 * 60 * 1000  // 10 minutes
         };
 
+        // Debt display settings
+        this.showDebt = true;
+        this.showZeroDebt = false;
+
         // Search state
         this.isSearching = false;
         this.searchResults = null;
@@ -500,7 +504,11 @@ class PancakeChatManager {
         // Get debt from cache
         const phone = this.getPhoneFromConversation(conv);
         const debt = phone ? this.getDebtCache(phone) : null;
-        const hasDebt = debt && debt > 0;
+        // Respect debt display settings
+        const hasDebt = this.showDebt && (
+            (debt && debt > 0) || // Has positive debt
+            (this.showZeroDebt && debt !== null && debt !== undefined) // Show zero debt if enabled
+        );
         const debtDisplay = hasDebt ? this.formatDebt(debt) : '';
 
         return `
@@ -3917,6 +3925,17 @@ class PancakeChatManager {
         if (amount === null || amount === undefined) return '';
         if (amount === 0) return '0đ';
         return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+    }
+
+    /**
+     * Set debt display settings and re-render
+     */
+    setDebtDisplaySettings(showDebt, showZeroDebt) {
+        this.showDebt = showDebt;
+        this.showZeroDebt = showZeroDebt;
+        console.log('[PANCAKE-CHAT] Debt display settings:', { showDebt, showZeroDebt });
+        // Re-render conversation list
+        this.renderConversationList();
     }
 
     /**

@@ -45,6 +45,10 @@ class TposChatManager {
         // Debt cache: phone -> { amount, timestamp }
         this.debtCache = new Map();
 
+        // Debt display settings
+        this.showDebt = true;
+        this.showZeroDebt = false;
+
         // Start periodic cache cleanup
         this.startCacheCleanup();
 
@@ -814,7 +818,11 @@ class TposChatManager {
         // Get debt from cache
         const debt = this.getDebtForPhone(phone);
         const debtDisplay = debt !== null && debt !== undefined ? this.formatDebt(debt) : '';
-        const hasDebt = debt && debt > 0;
+        // Respect debt display settings
+        const hasDebt = this.showDebt && (
+            (debt && debt > 0) || // Has positive debt
+            (this.showZeroDebt && debt !== null && debt !== undefined) // Show zero debt if enabled
+        );
 
         // Status dropdown options
         const statusOptions = this.getStatusOptions();
@@ -1596,6 +1604,17 @@ class TposChatManager {
         if (amount === null || amount === undefined) return '';
         if (amount === 0) return '0đ';
         return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+    }
+
+    /**
+     * Set debt display settings and re-render
+     */
+    setDebtDisplaySettings(showDebt, showZeroDebt) {
+        this.showDebt = showDebt;
+        this.showZeroDebt = showZeroDebt;
+        console.log('[TPOS-CHAT] Debt display settings:', { showDebt, showZeroDebt });
+        // Re-render comment list
+        this.renderCommentList();
     }
 
     /**
