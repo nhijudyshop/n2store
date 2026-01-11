@@ -3528,6 +3528,11 @@ router.get('/transfer-stats/count', async (req, res) => {
     const db = req.app.locals.chatDb;
 
     try {
+        // Ensure ts columns exist in balance_history
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_checked BOOLEAN DEFAULT FALSE`);
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_verified BOOLEAN DEFAULT FALSE`);
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_notes TEXT`);
+
         const result = await db.query(`
             SELECT
                 COUNT(*) as total,
