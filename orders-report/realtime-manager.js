@@ -403,6 +403,7 @@ class RealtimeManager {
 
         // 3. Get Online Status (Mimic browser)
         setTimeout(() => {
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             const statusRef = this.makeRef();
             const statusMsg = [
                 pagesRef, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}

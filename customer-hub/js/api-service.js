@@ -1139,16 +1139,38 @@ const ApiService = {
     },
 
     // --- Customer Hub Specific Endpoints to be merged ---
-    searchCustomers: async (query, limit = 50) => {
+    searchCustomers: async (query, page = 1, limit = 50, options = {}) => {
         // This will need to call a PostgreSQL endpoint in the backend for Customer 360 searches
         // The endpoint should be similar to the GET /api/customers endpoint but with search capabilities
         return fetchJson(`${ApiService.RENDER_API_URL}/customer-search-v2`, {
             method: 'POST',
-            body: JSON.stringify({ query, limit })
+            body: JSON.stringify({
+                query,
+                page,
+                limit,
+                search_type: options.searchType || '',
+                status: options.status || ''
+            })
         });
+    },
+    getRecentCustomers: async (page = 1, limit = 20) => {
+        // Get recent customers sorted by last activity/created date
+        return fetchJson(`${ApiService.RENDER_API_URL}/customers/recent?page=${page}&limit=${limit}`);
     },
     getUnlinkedBankTransactions: async (page = 1, limit = 10) => {
         return fetchJson(`${ApiService.RENDER_API_URL}/balance-history/unlinked?page=${page}&limit=${limit}`);
+    },
+    getUnlinkedTransactionsCount: async () => {
+        try {
+            const response = await fetchJson(`${ApiService.RENDER_API_URL}/balance-history/unlinked?page=1&limit=1`);
+            return {
+                success: response.success,
+                count: response.pagination?.total || response.data?.length || 0
+            };
+        } catch (error) {
+            console.error('[API] getUnlinkedTransactionsCount failed:', error);
+            return { success: false, count: 0 };
+        }
     },
     linkBankTransaction: async (transaction_id, phone, auto_deposit) => {
         return fetchJson(`${ApiService.RENDER_API_URL}/balance-history/link-customer`, {

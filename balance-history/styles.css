@@ -1604,6 +1604,35 @@ body {
     cursor: not-allowed;
 }
 
+/* Refresh list button */
+.btn-refresh-list {
+    padding: 4px 8px;
+    background: #3B82F6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-refresh-list:hover {
+    background: #2563EB;
+}
+
+.btn-refresh-list:disabled {
+    background: #9CA3AF;
+    cursor: not-allowed;
+}
+
+/* Spin animation for refresh icon */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 /* Extracted phone hint */
 .pending-extracted-phone {
     color: #F59E0B;

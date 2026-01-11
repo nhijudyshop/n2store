@@ -274,6 +274,9 @@ router.post('/webhook', async (req, res) => {
             } catch (debtError) {
                 console.error('[SEPAY-WEBHOOK] Debt update error (non-critical):', debtError.message);
             }
+
+            // NOTE: Transfer stats is now manual-only
+            // User must click transfer button after customer info is mapped
         }
 
         const processingTime = Date.now() - startTime;
@@ -392,6 +395,20 @@ router.get('/history', async (req, res) => {
         const countResult = await db.query(countQuery, queryParams);
         const total = parseInt(countResult.rows[0].count);
 
+        // Check if transfer_stats table exists
+        let tsTableExists = false;
+        try {
+            const tsCheck = await db.query(`
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables
+                    WHERE table_name = 'transfer_stats'
+                )
+            `);
+            tsTableExists = tsCheck.rows[0].exists;
+        } catch (e) {
+            console.log('[HISTORY] transfer_stats table check failed:', e.message);
+        }
+
         // Get paginated data with customer info AND pending matches
         // Use linked_customer_phone for fast JOIN instead of expensive regex matching
         // Use subquery with DISTINCT ON to avoid duplicates when multiple customer_info records exist
@@ -410,7 +427,9 @@ router.get('/history', async (req, res) => {
                 pcm.status as pending_match_status,
                 pcm.extracted_phone as pending_extracted_phone,
                 pcm.matched_customers as pending_match_options,
-                pcm.resolution_notes as pending_resolution_notes
+                pcm.resolution_notes as pending_resolution_notes,
+                -- Transfer stats flag (only if table exists)
+                ${tsTableExists ? 'CASE WHEN ts.id IS NOT NULL THEN TRUE ELSE FALSE END' : 'FALSE'} as in_transfer_stats
             FROM balance_history bh
             LEFT JOIN (
                 SELECT DISTINCT ON (customer_phone)
@@ -423,6 +442,7 @@ router.get('/history', async (req, res) => {
             LEFT JOIN pending_customer_matches pcm ON (
                 pcm.transaction_id = bh.id
             )
+            ${tsTableExists ? 'LEFT JOIN transfer_stats ts ON ts.transaction_id = bh.id' : ''}
             ${whereClause}
             ORDER BY bh.transaction_date DESC
             LIMIT $${paramCounter} OFFSET $${paramCounter + 1}
@@ -3273,6 +3293,92 @@ router.get('/tpos/customer/:phone', async (req, res) => {
 });
 
 /**
+ * GET /api/sepay/tpos/search/:partialPhone
+ * Search TPOS by partial phone number (5+ digits)
+ * Returns customers whose phone ends with the partial phone
+ */
+router.get('/tpos/search/:partialPhone', async (req, res) => {
+    const { partialPhone } = req.params;
+
+    try {
+        // Validate partial phone (5-10 digits)
+        if (!partialPhone || !/^\d{5,10}$/.test(partialPhone)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid partial phone (must be 5-10 digits)'
+            });
+        }
+
+        console.log(`[TPOS-SEARCH] Searching for partial phone: ${partialPhone}`);
+
+        // Get TPOS token
+        const token = await tposTokenManager.getToken();
+
+        // Call TPOS Partner API
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${partialPhone}&$top=50&$orderby=DateCreated+desc&$count=true`;
+
+        const response = await fetchWithTimeout(tposUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        }, 15000);
+
+        if (!response.ok) {
+            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Group by unique 10-digit phone
+        const phoneGroups = {};
+
+        if (data.value && Array.isArray(data.value)) {
+            for (const customer of data.value) {
+                const custPhone = customer.Phone?.replace(/\D/g, '').slice(-10);
+                if (custPhone && custPhone.length === 10) {
+                    if (!phoneGroups[custPhone]) {
+                        phoneGroups[custPhone] = {
+                            phone: custPhone,
+                            count: 0,
+                            customers: []
+                        };
+                    }
+                    phoneGroups[custPhone].count++;
+                    phoneGroups[custPhone].customers.push({
+                        id: customer.Id,
+                        phone: custPhone,
+                        name: customer.Name || customer.FullName || 'N/A',
+                        email: customer.Email,
+                        status: customer.Status,
+                        credit: customer.Credit
+                    });
+                }
+            }
+        }
+
+        const uniquePhones = Object.values(phoneGroups);
+        console.log(`[TPOS-SEARCH] Found ${uniquePhones.length} unique phones for ${partialPhone}`);
+
+        res.json({
+            success: true,
+            data: uniquePhones,
+            totalResults: data['@odata.count'] || 0,
+            uniquePhoneCount: uniquePhones.length
+        });
+
+    } catch (error) {
+        console.error('[TPOS-SEARCH] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to search TPOS',
+            message: error.message
+        });
+    }
+});
+
+/**
  * POST /api/sepay/batch-update-phones
  * Batch update phone numbers for existing transactions
  * This is useful for retroactively extracting phone numbers from old transactions
@@ -3450,6 +3556,241 @@ router.get('/debt/:phone', async (req, res) => {
             success: false,
             error: 'Failed to fetch debt',
             message: error.message
+        });
+    }
+});
+
+// =====================================================
+// TRANSFER STATS API ENDPOINTS
+// Now reads directly from balance_history table (transfer_type = 'in')
+// Uses columns: ts_checked, ts_verified, ts_notes in balance_history
+// =====================================================
+
+// GET /api/sepay/transfer-stats - Get all incoming transactions from balance_history
+router.get('/transfer-stats', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        // Ensure ts columns exist in balance_history
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_checked BOOLEAN DEFAULT FALSE`);
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_verified BOOLEAN DEFAULT FALSE`);
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_notes TEXT`);
+
+        // Query from balance_history JOIN balance_customer_info for customer name
+        const result = await db.query(`
+            SELECT
+                bh.id,
+                bh.id as transaction_id,
+                COALESCE(bci.customer_name, '') as customer_name,
+                bh.linked_customer_phone as customer_phone,
+                bh.transfer_amount as amount,
+                bh.content,
+                bh.ts_notes as notes,
+                bh.transaction_date,
+                bh.ts_checked as is_checked,
+                bh.ts_verified as is_verified,
+                bh.created_at
+            FROM balance_history bh
+            LEFT JOIN (
+                SELECT DISTINCT ON (customer_phone)
+                    customer_phone, customer_name
+                FROM balance_customer_info
+                WHERE customer_phone IS NOT NULL
+                ORDER BY customer_phone,
+                    CASE WHEN customer_name IS NOT NULL AND customer_name != '' THEN 0 ELSE 1 END,
+                    created_at DESC
+            ) bci ON bci.customer_phone = bh.linked_customer_phone
+            WHERE bh.transfer_type = 'in'
+            ORDER BY bh.transaction_date DESC, bh.id DESC
+        `);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            total: result.rows.length
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error fetching:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch transfer stats'
+        });
+    }
+});
+
+// GET /api/sepay/transfer-stats/count - Get unchecked count
+router.get('/transfer-stats/count', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        // Ensure ts columns exist in balance_history
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_checked BOOLEAN DEFAULT FALSE`);
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_verified BOOLEAN DEFAULT FALSE`);
+        await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_notes TEXT`);
+
+        const result = await db.query(`
+            SELECT
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE ts_checked IS NOT TRUE) as unchecked
+            FROM balance_history
+            WHERE transfer_type = 'in'
+        `);
+
+        res.json({
+            success: true,
+            total: parseInt(result.rows[0].total) || 0,
+            unchecked: parseInt(result.rows[0].unchecked) || 0
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error counting:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to count'
+        });
+    }
+});
+
+// PUT /api/sepay/transfer-stats/:id/check - Toggle check status
+router.put('/transfer-stats/:id/check', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { checked } = req.body;
+
+    try {
+        const result = await db.query(`
+            UPDATE balance_history
+            SET ts_checked = $1
+            WHERE id = $2
+            RETURNING *
+        `, [checked, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Not found'
+            });
+        }
+
+        console.log(`[TRANSFER-STATS] Marked #${id} as ${checked ? 'checked' : 'unchecked'}`);
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error updating:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update'
+        });
+    }
+});
+
+// PUT /api/sepay/transfer-stats/:id/verify - Toggle verify status
+router.put('/transfer-stats/:id/verify', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { verified } = req.body;
+
+    try {
+        const result = await db.query(`
+            UPDATE balance_history
+            SET ts_verified = $1
+            WHERE id = $2
+            RETURNING *
+        `, [verified, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Not found'
+            });
+        }
+
+        console.log(`[TRANSFER-STATS] Marked #${id} as ${verified ? 'verified' : 'unverified'}`);
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error updating verified:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update'
+        });
+    }
+});
+
+// PUT /api/sepay/transfer-stats/mark-all-checked - Mark multiple as checked
+router.put('/transfer-stats/mark-all-checked', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+            success: false,
+            error: 'ids array is required'
+        });
+    }
+
+    try {
+        const result = await db.query(`
+            UPDATE balance_history
+            SET ts_checked = TRUE
+            WHERE id = ANY($1)
+            RETURNING id
+        `, [ids]);
+
+        console.log(`[TRANSFER-STATS] Marked ${result.rows.length} items as checked`);
+
+        res.json({
+            success: true,
+            updated: result.rows.length
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error marking all:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to mark all'
+        });
+    }
+});
+
+// PUT /api/sepay/transfer-stats/:id - Edit transfer stats entry (notes only, customer info is in balance_history)
+router.put('/transfer-stats/:id', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { customer_name, customer_phone, notes } = req.body;
+
+    try {
+        const result = await db.query(`
+            UPDATE balance_history
+            SET customer_name = COALESCE($1, customer_name),
+                linked_customer_phone = COALESCE($2, linked_customer_phone),
+                ts_notes = $3
+            WHERE id = $4
+            RETURNING *
+        `, [customer_name, customer_phone, notes || null, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Not found'
+            });
+        }
+
+        console.log(`[TRANSFER-STATS] Updated #${id}`);
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('[TRANSFER-STATS] Error editing:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to edit'
         });
     }
 });
