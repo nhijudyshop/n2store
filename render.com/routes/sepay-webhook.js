@@ -3555,6 +3555,10 @@ router.get('/transfer-stats', async (req, res) => {
             });
         }
 
+        // Ensure new columns exist (for existing tables)
+        await db.query(`ALTER TABLE transfer_stats ADD COLUMN IF NOT EXISTS notes TEXT`);
+        await db.query(`ALTER TABLE transfer_stats ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`);
+
         const result = await db.query(`
             SELECT
                 ts.id,
