@@ -277,7 +277,7 @@ router.post('/webhook', async (req, res) => {
 
             // Auto-add to transfer stats for incoming transactions
             try {
-                await autoAddToTransferStats(insertedId, {
+                await autoAddToTransferStats(db, insertedId, {
                     transfer_type: webhookData.transferType,
                     transfer_amount: webhookData.transferAmount,
                     content: webhookData.content,
@@ -3489,8 +3489,8 @@ router.get('/debt/:phone', async (req, res) => {
 // TRANSFER STATS API ENDPOINTS
 // =====================================================
 
-// Initialize transfer_stats table if not exists
-async function initTransferStatsTable() {
+// Initialize transfer_stats table if not exists (with db parameter)
+async function initTransferStatsTableWithDb(db) {
     try {
         await db.query(`
             CREATE TABLE IF NOT EXISTS transfer_stats (
@@ -3512,11 +3512,10 @@ async function initTransferStatsTable() {
     }
 }
 
-// Initialize table on module load
-initTransferStatsTable();
+// Note: Table will be created on first API call since we don't have db at module load
 
 // Helper to check if transfer_stats table exists
-async function checkTransferStatsTable() {
+async function checkTransferStatsTable(db) {
     try {
         const result = await db.query(`
             SELECT EXISTS (
@@ -3532,9 +3531,11 @@ async function checkTransferStatsTable() {
 
 // GET /api/sepay/transfer-stats - Get all transfer stats
 router.get('/transfer-stats', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
     try {
         // Check if table exists
-        const tableExists = await checkTransferStatsTable();
+        const tableExists = await checkTransferStatsTable(db);
         if (!tableExists) {
             return res.json({
                 success: true,
@@ -3575,9 +3576,11 @@ router.get('/transfer-stats', async (req, res) => {
 
 // GET /api/sepay/transfer-stats/count - Get unchecked count
 router.get('/transfer-stats/count', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
     try {
         // Check if table exists
-        const tableExists = await checkTransferStatsTable();
+        const tableExists = await checkTransferStatsTable(db);
         if (!tableExists) {
             return res.json({
                 success: true,
@@ -3609,6 +3612,7 @@ router.get('/transfer-stats/count', async (req, res) => {
 
 // POST /api/sepay/transfer-stats/add - Add transaction to transfer stats
 router.post('/transfer-stats/add', async (req, res) => {
+    const db = req.app.locals.chatDb;
     const { transaction_id } = req.body;
 
     if (!transaction_id) {
@@ -3619,6 +3623,9 @@ router.post('/transfer-stats/add', async (req, res) => {
     }
 
     try {
+        // Ensure table exists
+        await initTransferStatsTableWithDb(db);
+
         // Check if already exists
         const existing = await db.query(
             'SELECT id FROM transfer_stats WHERE transaction_id = $1',
@@ -3693,6 +3700,7 @@ router.post('/transfer-stats/add', async (req, res) => {
 
 // PUT /api/sepay/transfer-stats/:id/check - Toggle check status
 router.put('/transfer-stats/:id/check', async (req, res) => {
+    const db = req.app.locals.chatDb;
     const { id } = req.params;
     const { checked } = req.body;
 
@@ -3728,6 +3736,7 @@ router.put('/transfer-stats/:id/check', async (req, res) => {
 
 // PUT /api/sepay/transfer-stats/mark-all-checked - Mark multiple as checked
 router.put('/transfer-stats/mark-all-checked', async (req, res) => {
+    const db = req.app.locals.chatDb;
     const { ids } = req.body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -3761,13 +3770,16 @@ router.put('/transfer-stats/mark-all-checked', async (req, res) => {
 });
 
 // Auto-add new incoming transactions to transfer_stats
-// This is called from the webhook handler
-async function autoAddToTransferStats(transactionId, transactionData) {
+// This is called from the webhook handler with db passed as parameter
+async function autoAddToTransferStats(db, transactionId, transactionData) {
     try {
         // Only auto-add incoming transactions
         if (transactionData.transfer_type !== 'in') {
             return;
         }
+
+        // Ensure table exists first
+        await initTransferStatsTableWithDb(db);
 
         await db.query(`
             INSERT INTO transfer_stats (transaction_id, customer_name, customer_phone, amount, content, transaction_date)
