@@ -531,10 +531,13 @@ button {
    ===================================================== */
 
 .stats-section {
+    display: none; /* Ẩn phần thống kê theo yêu cầu */
+    /* Original styles preserved for future use:
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: var(--spacing-lg);
     padding: var(--spacing-xl);
+    */
 }
 
 .stat-card {
