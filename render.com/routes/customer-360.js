@@ -1179,6 +1179,57 @@ router.post('/ticket/:code/action', async (req, res) => {
 });
 
 /**
+ * GET /api/balance-history/unlinked
+ * Get unlinked bank transactions (balance_history without linked customer)
+ * Query params:
+ *   - page: page number (default 1)
+ *   - limit: items per page (default 10)
+ */
+router.get('/balance-history/unlinked', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    try {
+        // Get total count of unlinked transactions
+        const countResult = await db.query(`
+            SELECT COUNT(*) as total
+            FROM balance_history
+            WHERE linked_customer_phone IS NULL
+              AND amount > 0
+        `);
+        const total = parseInt(countResult.rows[0].total);
+
+        // Get unlinked transactions with pagination
+        const result = await db.query(`
+            SELECT id, transaction_code, customer_name, amount, description,
+                   transaction_date, bank_account, qr_code, created_at
+            FROM balance_history
+            WHERE linked_customer_phone IS NULL
+              AND amount > 0
+            ORDER BY transaction_date DESC
+            LIMIT $1 OFFSET $2
+        `, [limit, offset]);
+
+        res.json({
+            success: true,
+            data: {
+                data: result.rows,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: Math.ceil(total / limit)
+                }
+            }
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to fetch unlinked transactions');
+    }
+});
+
+/**
  * POST /api/balance-history/link-customer
  * Links a balance_history transaction to a customer and optionally deposits to wallet.
  * Auto-creates customer if not found.
@@ -1244,7 +1295,7 @@ router.post('/balance-history/link-customer', async (req, res) => {
                     reference_type, reference_id, note
                 )
                 SELECT $1, id, 'DEPOSIT', $2, $3, $4, 'BANK_TRANSFER',
-                       'balance_history', $5
+                       'balance_history', $5::text, $6
                 FROM customer_wallets WHERE phone = $1
             `, [phone, tx.amount, wallet.balance, newBalance, transaction_id, `Nạp từ CK ${tx.transaction_code}`]);
 
