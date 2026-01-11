@@ -736,27 +736,55 @@ function extractPhoneFromContent(content) {
     }
 
     // Step 1.6: VIETCOMBANK (MBVCB) PATTERN DETECTION
-    // Format: MBVCB.{random}.{random}.{phone}.CT tu ...
-    // Example: MBVCB.12459068036.249370.228666.CT tu 0141000833447 NGUYEN THI...
-    // We need to extract the number before ".CT" (228666)
+    // Format: MBVCB.{random}.{random}.{ref_code}.CT tu {sender_phone} {sender_name} toi...
+    // Example: MBVCB.12537861335.6011BFTVG2UW83KJ.56788.CT tu 9906952802 HUYNH THANH DAT toi 75918...
+    // Priority: Extract 10-digit phone after "CT tu" (sender's phone), NOT the ref_code before ".CT"
     // Note: MBVCB = Mobile Banking Vietcombank
-    const mbvcbPattern = /MBVCB\.[^.]+\.[^.]+\.(\d{5,10})\.CT/i;
-    const mbvcbMatch = textToParse.match(mbvcbPattern);
-    if (mbvcbMatch) {
-        const customerPhone = mbvcbMatch[1]; // 228666
+    const mbvcbDetect = /MBVCB\.[^.]+\.[^.]+\.\d+\.CT/i;
+    if (mbvcbDetect.test(textToParse)) {
+        console.log('[EXTRACT] 🔵 Detected Vietcombank (MBVCB) pattern');
 
-        console.log('[EXTRACT] 🔵 Detected Vietcombank (MBVCB) pattern:', {
-            fullMatch: mbvcbMatch[0],
-            customerPhone
-        });
+        // Priority 1: Extract 10-digit phone after "CT tu" (most accurate)
+        const ctTuPhonePattern = /CT\s+tu\s+(0\d{9})\b/i;
+        const ctTuMatch = textToParse.match(ctTuPhonePattern);
+        if (ctTuMatch) {
+            const senderPhone = ctTuMatch[1];
+            console.log('[EXTRACT] 🔵 Found sender phone after "CT tu":', senderPhone);
+            return {
+                type: 'exact_phone',
+                value: senderPhone,
+                uniqueCode: `PHONE${senderPhone}`,
+                note: 'VCB:EXACT_PHONE_FROM_CT_TU'
+            };
+        }
 
-        // Return directly with the extracted phone
-        return {
-            type: 'partial_phone',
-            value: customerPhone,
-            uniqueCode: null,
-            note: 'VCB:PARTIAL_PHONE_EXTRACTED'
-        };
+        // Priority 2: Extract partial phone (5-9 digits) after "CT tu"
+        const ctTuPartialPattern = /CT\s+tu\s+(\d{5,9})\b/i;
+        const ctTuPartialMatch = textToParse.match(ctTuPartialPattern);
+        if (ctTuPartialMatch) {
+            const partialPhone = ctTuPartialMatch[1];
+            console.log('[EXTRACT] 🔵 Found partial phone after "CT tu":', partialPhone);
+            return {
+                type: 'partial_phone',
+                value: partialPhone,
+                uniqueCode: null,
+                note: 'VCB:PARTIAL_PHONE_FROM_CT_TU'
+            };
+        }
+
+        // Priority 3: Fallback to ref_code before ".CT" (old logic, less accurate)
+        const mbvcbRefPattern = /MBVCB\.[^.]+\.[^.]+\.(\d{5,10})\.CT/i;
+        const mbvcbRefMatch = textToParse.match(mbvcbRefPattern);
+        if (mbvcbRefMatch) {
+            const refCode = mbvcbRefMatch[1];
+            console.log('[EXTRACT] 🔵 Fallback to ref_code before ".CT":', refCode);
+            return {
+                type: 'partial_phone',
+                value: refCode,
+                uniqueCode: null,
+                note: 'VCB:REF_CODE_FALLBACK'
+            };
+        }
     }
 
     // Step 2: Check for QR Code N2 (starts with N2, exactly 18 chars)
