@@ -1142,8 +1142,8 @@ class TposChatManager {
                     }
                 }
 
-                // Re-render TPOS comments to show checkmark instead of "+"
-                this.renderComments();
+                // Update only the specific button (not full re-render)
+                this.updateSaveButtonToCheckmark(customerId);
 
                 if (window.notificationManager) {
                     window.notificationManager.show(`Đã lưu: ${customerName}`, 'success');
@@ -1155,6 +1155,32 @@ class TposChatManager {
             console.error('[TPOS-CHAT] Error saving to Tpos:', error);
             if (window.notificationManager) {
                 window.notificationManager.show(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+    }
+
+    /**
+     * Update save button to checkmark without full re-render
+     */
+    updateSaveButtonToCheckmark(customerId) {
+        // Find all comment items and look for the one with this customer
+        const container = document.getElementById(this.containerId);
+        if (!container) return;
+
+        // Find button by onclick attribute containing the customerId
+        const saveBtn = container.querySelector(`button[onclick*="handleSaveToTpos('${customerId}'"]`);
+        if (saveBtn) {
+            // Replace button with checkmark span
+            const checkmark = document.createElement('span');
+            checkmark.className = 'tpos-saved-badge';
+            checkmark.title = 'Đã lưu vào Tpos';
+            checkmark.style.cssText = 'color: #10b981; padding: 4px;';
+            checkmark.innerHTML = '<i data-lucide="check" style="width: 16px; height: 16px;"></i>';
+            saveBtn.replaceWith(checkmark);
+
+            // Re-initialize lucide icons for the new element
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
             }
         }
     }
