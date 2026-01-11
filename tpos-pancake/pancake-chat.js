@@ -22,6 +22,13 @@ class PancakeChatManager {
         // TPOS saved customers cache
         this.tposSavedCustomerIds = new Set();
 
+        // Debt cache: phone -> { amount, timestamp }
+        this.debtCache = new Map();
+        this.debtCacheConfig = {
+            maxSize: 200,
+            ttl: 10 * 60 * 1000  // 10 minutes
+        };
+
         // Search state
         this.isSearching = false;
         this.searchResults = null;
@@ -490,6 +497,12 @@ class PancakeChatManager {
             conv.recent_phone_numbers?.length > 0 ||
             conv.has_phone === true;
 
+        // Get debt from cache
+        const phone = this.getPhoneFromConversation(conv);
+        const debt = phone ? this.getDebtCache(phone) : null;
+        const hasDebt = debt && debt > 0;
+        const debtDisplay = hasDebt ? this.formatDebt(debt) : '';
+
         return `
             <div class="pk-conversation-item ${isActive ? 'active' : ''}" data-conv-id="${conv.id}" data-page-id="${conv.page_id}">
                 <div class="pk-avatar">
@@ -502,7 +515,10 @@ class PancakeChatManager {
                         <span class="pk-conversation-time">${time}</span>
                     </div>
                     <div class="pk-conversation-preview ${isUnread ? 'unread' : ''}">${this.escapeHtml(this.parseMessageHtml(preview))}</div>
-                    ${tags ? `<div class="pk-tags-container">${tags}</div>` : ''}
+                    <div class="pk-conversation-meta" style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                        ${tags ? `<div class="pk-tags-container" style="display: inline-flex;">${tags}</div>` : ''}
+                        ${hasDebt ? `<span class="pk-debt-badge" style="padding: 2px 6px; background: #fef2f2; color: #dc2626; border-radius: 4px; font-size: 10px; font-weight: 600;">Nợ: ${debtDisplay}</span>` : ''}
+                    </div>
                 </div>
                 <div class="pk-conversation-actions">
                     <div class="pk-action-icons">
@@ -1408,6 +1424,9 @@ class PancakeChatManager {
 
             // Render conversation list
             this.renderConversationList();
+
+            // Load debt info for conversations (in background)
+            this.loadDebtForConversations();
 
             // Pre-load page access tokens in background for faster message loading
             this.preloadPageAccessTokens();
@@ -3835,6 +3854,109 @@ class PancakeChatManager {
         if (indicator) {
             indicator.textContent = this.serverMode === 'n2store' ? 'N2Store' : 'Pancake';
             indicator.style.background = this.serverMode === 'n2store' ? '#10b981' : '#3b82f6';
+        }
+    }
+
+    // =====================================================
+    // DEBT MANAGEMENT
+    // =====================================================
+
+    /**
+     * Normalize phone number
+     */
+    normalizePhone(phone) {
+        if (!phone) return '';
+        let normalized = phone.toString().trim().replace(/[\s-]/g, '');
+        if (normalized.startsWith('+84')) normalized = '0' + normalized.slice(3);
+        if (normalized.startsWith('84') && normalized.length > 9) normalized = '0' + normalized.slice(2);
+        return normalized;
+    }
+
+    /**
+     * Get phone from conversation
+     */
+    getPhoneFromConversation(conv) {
+        const customer = conv.customers?.[0] || conv.from || {};
+        const phone = customer.phone_numbers?.[0] ||
+                      customer.phone ||
+                      conv.recent_phone_numbers?.[0] ||
+                      null;
+        return phone ? this.normalizePhone(phone) : null;
+    }
+
+    /**
+     * Set debt in cache
+     */
+    setDebtCache(phone, amount) {
+        if (this.debtCache.size >= this.debtCacheConfig.maxSize) {
+            const entries = Array.from(this.debtCache.entries())
+                .sort((a, b) => a[1].timestamp - b[1].timestamp);
+            entries.slice(0, Math.floor(this.debtCacheConfig.maxSize * 0.2))
+                .forEach(([key]) => this.debtCache.delete(key));
+        }
+        this.debtCache.set(phone, { amount, timestamp: Date.now() });
+    }
+
+    /**
+     * Get debt from cache
+     */
+    getDebtCache(phone) {
+        const entry = this.debtCache.get(phone);
+        if (!entry) return null;
+        if (Date.now() - entry.timestamp > this.debtCacheConfig.ttl) {
+            this.debtCache.delete(phone);
+            return null;
+        }
+        return entry.amount;
+    }
+
+    /**
+     * Format debt for display
+     */
+    formatDebt(amount) {
+        if (amount === null || amount === undefined) return '';
+        if (amount === 0) return '0đ';
+        return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+    }
+
+    /**
+     * Load debt for all conversations
+     */
+    async loadDebtForConversations() {
+        const phones = [];
+        for (const conv of this.conversations) {
+            const phone = this.getPhoneFromConversation(conv);
+            if (phone && !this.debtCache.has(phone)) {
+                phones.push(phone);
+            }
+        }
+
+        if (phones.length === 0) return;
+
+        const uniquePhones = [...new Set(phones)];
+
+        try {
+            const response = await fetch(`${this.proxyBaseUrl}/api/sepay/debt-summary-batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phones: uniquePhones })
+            });
+
+            if (!response.ok) {
+                console.warn('[PANCAKE-CHAT] Debt API error:', response.status);
+                return;
+            }
+
+            const result = await response.json();
+            if (result.success && result.data) {
+                for (const [phone, info] of Object.entries(result.data)) {
+                    this.setDebtCache(this.normalizePhone(phone), info.total_debt || 0);
+                }
+                console.log('[PANCAKE-CHAT] Loaded debt for', Object.keys(result.data).length, 'phones');
+                this.renderConversationList();
+            }
+        } catch (error) {
+            console.warn('[PANCAKE-CHAT] Error loading debt:', error);
         }
     }
 }
