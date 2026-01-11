@@ -472,11 +472,11 @@ router.get('/recent', async (req, res) => {
         const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE active = true');
         const total = parseInt(countResult.rows[0].count);
 
-        // Get recent customers ordered by last_activity_at or updated_at
+        // Get recent customers ordered by last_interaction_date or updated_at
         const result = await db.query(`
             SELECT * FROM customers
             WHERE active = true
-            ORDER BY COALESCE(last_activity_at, updated_at, created_at) DESC
+            ORDER BY COALESCE(last_interaction_date, updated_at, created_at) DESC
             LIMIT $1 OFFSET $2
         `, [limitNum, offset]);
 
