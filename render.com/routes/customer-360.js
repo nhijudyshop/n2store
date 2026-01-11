@@ -1496,7 +1496,7 @@ router.get('/transactions/consolidated', async (req, res) => {
             ct.type as type,
             ct.created_at,
             ct.refund_amount as amount,
-            'Sự vụ ' || ct.type || ' - ' || ct.code as description,
+            'Sự vụ ' || ct.type || ' - ' || COALESCE(ct.ticket_code, '') as description,
             c.name as customer_name,
             ct.phone as customer_phone,
             'confirmation_number' as icon,
