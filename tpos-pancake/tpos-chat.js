@@ -1075,6 +1075,34 @@ class TposChatManager {
     }
 
     /**
+     * Handle create order button click
+     * Called from the "+" button in comment list
+     */
+    handleCreateOrder(customerId, customerName) {
+        console.log('[TPOS-CHAT] Handle create order:', { customerId, customerName });
+
+        // Get partner info from cache for additional details
+        const partner = this.getPartnerCache(customerId) || {};
+
+        // Dispatch event for order creation (Pancake will listen)
+        window.dispatchEvent(new CustomEvent('tposCreateOrder', {
+            detail: {
+                customerId,
+                customerName,
+                phone: partner.Phone || '',
+                address: partner.Street || '',
+                page: this.selectedPage,
+                campaign: this.selectedCampaign
+            }
+        }));
+
+        // Show notification
+        if (window.notificationManager) {
+            window.notificationManager.show(`Lưu vào Tpos: ${customerName}`, 'info');
+        }
+    }
+
+    /**
      * Create order from comment
      */
     createOrder(commentId, customerName, message) {
