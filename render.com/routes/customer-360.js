@@ -1400,87 +1400,149 @@ router.delete('/ticket/:code', async (req, res) => {
 
 /**
  * GET /api/transactions/consolidated
- * Get consolidated transactions and activities for a customer (paginated)
+ * Get consolidated transactions and activities for all customers (paginated)
+ * Includes: wallet_transactions, customer_activities, customer_tickets
  */
 router.get('/transactions/consolidated', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { page = 1, limit = 10, startDate, endDate, phone, customerId } = req.query;
+    const { page = 1, limit = 10, startDate, endDate, phone, type, query: searchQuery } = req.query;
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const params = [];
     let paramIndex = 1;
 
-    // Base query for wallet transactions
-    let walletQuery = `
-        SELECT
-            id,
-            'wallet_transaction' as source_type,
-            type as activity_type,
-            created_at,
-            amount as value,
-            note as description,
-            'dollar-sign' as icon,
-            CASE
-                WHEN type = 'DEPOSIT' OR type = 'VIRTUAL_CREDIT' THEN 'green'
-                WHEN type = 'WITHDRAW' OR type = 'VIRTUAL_DEBIT' THEN 'red'
-                ELSE 'blue'
-            END as color
-        FROM wallet_transactions
-        WHERE 1=1
-    `;
+    // Build WHERE conditions for each table
+    let walletWhereConditions = [];
+    let activityWhereConditions = [];
+    let ticketWhereConditions = [];
 
-    // Base query for customer activities
-    let activityQuery = `
-        SELECT
-            id,
-            'customer_activity' as source_type,
-            activity_type,
-            created_at,
-            NULL as value,
-            title as description,
-            icon,
-            color
-        FROM customer_activities
-        WHERE 1=1
-    `;
-
-    // Add filters based on query parameters
     if (phone) {
-        walletQuery += ` AND phone = $${paramIndex}`;
-        activityQuery += ` AND phone = $${paramIndex}`;
-        params.push(normalizePhone(phone));
-        paramIndex++;
-    }
-    if (customerId) {
-        walletQuery += ` AND wallet_id IN (SELECT id FROM customer_wallets WHERE customer_id = $${paramIndex})`;
-        activityQuery += ` AND customer_id = $${paramIndex}`;
-        params.push(parseInt(customerId));
+        const normalizedPhone = normalizePhone(phone);
+        walletWhereConditions.push(`wt.phone = $${paramIndex}`);
+        activityWhereConditions.push(`ca.phone = $${paramIndex}`);
+        ticketWhereConditions.push(`ct.phone = $${paramIndex}`);
+        params.push(normalizedPhone);
         paramIndex++;
     }
     if (startDate) {
-        walletQuery += ` AND created_at >= $${paramIndex}`;
-        activityQuery += ` AND created_at >= $${paramIndex}`;
+        walletWhereConditions.push(`wt.created_at >= $${paramIndex}`);
+        activityWhereConditions.push(`ca.created_at >= $${paramIndex}`);
+        ticketWhereConditions.push(`ct.created_at >= $${paramIndex}`);
         params.push(startDate);
         paramIndex++;
     }
     if (endDate) {
-        walletQuery += ` AND created_at <= $${paramIndex}`;
-        activityQuery += ` AND created_at <= $${paramIndex}`;
+        walletWhereConditions.push(`wt.created_at <= $${paramIndex}`);
+        activityWhereConditions.push(`ca.created_at <= $${paramIndex}`);
+        ticketWhereConditions.push(`ct.created_at <= $${paramIndex}`);
         params.push(endDate);
         paramIndex++;
     }
 
+    // Build WHERE clauses
+    const walletWhere = walletWhereConditions.length > 0 ? 'WHERE ' + walletWhereConditions.join(' AND ') : '';
+    const activityWhere = activityWhereConditions.length > 0 ? 'WHERE ' + activityWhereConditions.join(' AND ') : '';
+    const ticketWhere = ticketWhereConditions.length > 0 ? 'WHERE ' + ticketWhereConditions.join(' AND ') : '';
+
+    // Build queries based on type filter
+    let walletQuery, activityQuery, ticketQuery;
+    const nullQuery = `SELECT NULL::int as id, NULL as source_type, NULL as type, NULL::timestamp as created_at, NULL::bigint as amount, NULL as description, NULL as customer_name, NULL as customer_phone, NULL as icon, NULL as color WHERE false`;
+
+    // Wallet transactions query
+    walletQuery = `
+        SELECT
+            wt.id,
+            'wallet_transaction' as source_type,
+            wt.type as type,
+            wt.created_at,
+            wt.amount,
+            wt.note as description,
+            c.name as customer_name,
+            wt.phone as customer_phone,
+            'dollar-sign' as icon,
+            CASE
+                WHEN wt.type = 'DEPOSIT' OR wt.type = 'VIRTUAL_CREDIT' THEN 'green'
+                WHEN wt.type = 'WITHDRAW' OR wt.type = 'VIRTUAL_DEBIT' THEN 'red'
+                ELSE 'blue'
+            END as color
+        FROM wallet_transactions wt
+        LEFT JOIN customers c ON c.phone = wt.phone
+        ${walletWhere}
+    `;
+
+    // Customer activities query
+    activityQuery = `
+        SELECT
+            ca.id,
+            'customer_activity' as source_type,
+            ca.activity_type as type,
+            ca.created_at,
+            NULL::bigint as amount,
+            COALESCE(ca.title, '') || CASE WHEN ca.description IS NOT NULL THEN ' - ' || ca.description ELSE '' END as description,
+            c.name as customer_name,
+            ca.phone as customer_phone,
+            COALESCE(ca.icon, 'event') as icon,
+            COALESCE(ca.color, 'blue') as color
+        FROM customer_activities ca
+        LEFT JOIN customers c ON c.phone = ca.phone
+        ${activityWhere}
+    `;
+
+    // Customer tickets query
+    ticketQuery = `
+        SELECT
+            ct.id,
+            'customer_ticket' as source_type,
+            ct.type as type,
+            ct.created_at,
+            ct.refund_amount as amount,
+            'Sự vụ ' || ct.type || ' - ' || ct.code as description,
+            c.name as customer_name,
+            ct.phone as customer_phone,
+            'confirmation_number' as icon,
+            CASE
+                WHEN ct.status = 'pending' THEN 'yellow'
+                WHEN ct.status = 'completed' THEN 'green'
+                WHEN ct.status = 'cancelled' THEN 'red'
+                ELSE 'blue'
+            END as color
+        FROM customer_tickets ct
+        LEFT JOIN customers c ON c.phone = ct.phone
+        ${ticketWhere}
+    `;
+
+    // Apply type filter - only include relevant sources
+    if (type && type !== 'all' && type !== '') {
+        const walletTypes = ['DEPOSIT', 'WITHDRAW', 'VIRTUAL_CREDIT', 'VIRTUAL_DEBIT'];
+        const ticketTypes = ['RETURN_CLIENT', 'RETURN_SHIPPER', 'OTHER', 'COD_ADJUSTMENT'];
+
+        if (walletTypes.includes(type)) {
+            walletQuery += ` AND wt.type = '${type}'`;
+            activityQuery = nullQuery;
+            ticketQuery = nullQuery;
+        } else if (ticketTypes.includes(type)) {
+            walletQuery = nullQuery;
+            activityQuery = nullQuery;
+            ticketQuery += (ticketWhere ? ' AND ' : ' WHERE ') + `ct.type = '${type}'`;
+        } else {
+            walletQuery = nullQuery;
+            activityQuery += (activityWhere ? ' AND ' : ' WHERE ') + `ca.activity_type = '${type}'`;
+            ticketQuery = nullQuery;
+        }
+    }
+
     try {
         // Get total count of combined results
-        const countParams = [...params]; // Clone parameters for the count query
         const countQuery = `
             SELECT COUNT(*) FROM (
                 ${walletQuery}
                 UNION ALL
                 ${activityQuery}
+                UNION ALL
+                ${ticketQuery}
             ) as combined_counts
         `;
-        const countResult = await db.query(countQuery, countParams);
+        const countResult = await db.query(countQuery, params);
         const total = parseInt(countResult.rows[0].count);
 
         // Get combined and paginated data
@@ -1488,12 +1550,14 @@ router.get('/transactions/consolidated', async (req, res) => {
             ${walletQuery}
             UNION ALL
             ${activityQuery}
+            UNION ALL
+            ${ticketQuery}
             ORDER BY created_at DESC
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `;
-        params.push(parseInt(limit), offset);
+        const queryParams = [...params, parseInt(limit), offset];
 
-        const result = await db.query(combinedQuery, params);
+        const result = await db.query(combinedQuery, queryParams);
 
         res.json({
             success: true,
