@@ -1139,12 +1139,18 @@ const ApiService = {
     },
 
     // --- Customer Hub Specific Endpoints to be merged ---
-    searchCustomers: async (query, limit = 50) => {
+    searchCustomers: async (query, page = 1, limit = 50, options = {}) => {
         // This will need to call a PostgreSQL endpoint in the backend for Customer 360 searches
         // The endpoint should be similar to the GET /api/customers endpoint but with search capabilities
         return fetchJson(`${ApiService.RENDER_API_URL}/customer-search-v2`, {
             method: 'POST',
-            body: JSON.stringify({ query, limit })
+            body: JSON.stringify({
+                query,
+                page,
+                limit,
+                search_type: options.searchType || '',
+                status: options.status || ''
+            })
         });
     },
     getUnlinkedBankTransactions: async (page = 1, limit = 10) => {
