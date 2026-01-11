@@ -140,6 +140,87 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
     }
 }
 
+/**
+ * Refresh pending match list by fetching from TPOS
+ * @param {number} pendingMatchId - ID of pending_customer_matches record
+ * @param {string} partialPhone - The extracted partial phone number
+ * @param {HTMLButtonElement} buttonElement - The refresh button
+ */
+async function refreshPendingMatchList(pendingMatchId, partialPhone, buttonElement) {
+    // Check permission
+    if (!hasPermission(2)) {
+        showNotification('Bạn không có quyền thực hiện thao tác này', 'error');
+        return;
+    }
+
+    const dropdown = buttonElement.previousElementSibling;
+    if (!dropdown || !dropdown.classList.contains('pending-match-dropdown')) {
+        showNotification('Không tìm thấy dropdown', 'error');
+        return;
+    }
+
+    try {
+        // Disable button and show loading
+        buttonElement.disabled = true;
+        buttonElement.style.opacity = '0.5';
+        const icon = buttonElement.querySelector('i');
+        if (icon) icon.style.animation = 'spin 1s linear infinite';
+
+        console.log(`[REFRESH-LIST] Fetching TPOS for partial phone: ${partialPhone}`);
+
+        const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${partialPhone}`);
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to fetch from TPOS');
+        }
+
+        const uniquePhones = result.data || [];
+        console.log(`[REFRESH-LIST] Found ${uniquePhones.length} unique phones`);
+
+        if (uniquePhones.length === 0) {
+            showNotification(`Không tìm thấy khách hàng nào với SĐT "${partialPhone}"`, 'warning');
+            buttonElement.disabled = false;
+            buttonElement.style.opacity = '1';
+            if (icon) icon.style.animation = '';
+            return;
+        }
+
+        // Build new options HTML
+        const optionsHtml = uniquePhones.map(opt => {
+            const customers = opt.customers || [];
+            return customers.map(c => {
+                const customerId = c.id || '';
+                const customerName = c.name || 'N/A';
+                const customerPhone = c.phone || 'N/A';
+                if (!customerId) return '';
+                return `<option value="${customerId}" data-phone="${customerPhone}" data-name="${customerName}">${customerName} - ${customerPhone}</option>`;
+            }).join('');
+        }).join('');
+
+        // Update dropdown
+        dropdown.innerHTML = `
+            <option value="">-- Chọn KH (${partialPhone}) --</option>
+            ${optionsHtml}
+        `;
+
+        // Re-initialize lucide icons
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+
+        showNotification(`Đã tìm thấy ${uniquePhones.length} SĐT khác nhau`, 'success');
+
+    } catch (error) {
+        console.error('[REFRESH-LIST] Error:', error);
+        showNotification(`Lỗi: ${error.message}`, 'error');
+    } finally {
+        buttonElement.disabled = false;
+        buttonElement.style.opacity = '1';
+        const icon = buttonElement.querySelector('i');
+        if (icon) icon.style.animation = '';
+    }
+}
 
 /**
  * Show notification (uses existing notification system or creates simple one)
@@ -1079,10 +1160,13 @@ function renderTransactionRow(row) {
 
         customerNameCell = `
             <div class="pending-match-selector">
-                <select class="pending-match-dropdown" onchange="resolvePendingMatch(${pendingMatchId}, this)" data-transaction-id="${row.id}">
+                <select class="pending-match-dropdown" onchange="resolvePendingMatch(${pendingMatchId}, this)" data-transaction-id="${row.id}" data-extracted-phone="${row.pending_extracted_phone}">
                     <option value="">-- Chọn KH (${row.pending_extracted_phone}) --</option>
                     ${optionsHtml}
                 </select>
+                <button class="btn btn-sm btn-refresh-list" onclick="refreshPendingMatchList(${pendingMatchId}, '${row.pending_extracted_phone}', this)" title="Lấy lại danh sách từ TPOS">
+                    <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+                </button>
             </div>
         `;
     } else if (isSkipped && pendingMatchOptions.length > 0) {
@@ -1100,10 +1184,13 @@ function renderTransactionRow(row) {
 
         customerNameCell = `
             <div class="pending-match-selector">
-                <select class="pending-match-dropdown" onchange="resolvePendingMatch(${pendingMatchId}, this)" data-transaction-id="${row.id}">
+                <select class="pending-match-dropdown" onchange="resolvePendingMatch(${pendingMatchId}, this)" data-transaction-id="${row.id}" data-extracted-phone="${row.pending_extracted_phone}">
                     <option value="">-- Chọn KH (${row.pending_extracted_phone}) --</option>
                     ${optionsHtml}
                 </select>
+                <button class="btn btn-sm btn-refresh-list" onclick="refreshPendingMatchList(${pendingMatchId}, '${row.pending_extracted_phone}', this)" title="Lấy lại danh sách từ TPOS">
+                    <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+                </button>
             </div>
         `;
     } else {

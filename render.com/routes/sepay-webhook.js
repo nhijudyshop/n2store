@@ -3293,6 +3293,92 @@ router.get('/tpos/customer/:phone', async (req, res) => {
 });
 
 /**
+ * GET /api/sepay/tpos/search/:partialPhone
+ * Search TPOS by partial phone number (5+ digits)
+ * Returns customers whose phone ends with the partial phone
+ */
+router.get('/tpos/search/:partialPhone', async (req, res) => {
+    const { partialPhone } = req.params;
+
+    try {
+        // Validate partial phone (5-10 digits)
+        if (!partialPhone || !/^\d{5,10}$/.test(partialPhone)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid partial phone (must be 5-10 digits)'
+            });
+        }
+
+        console.log(`[TPOS-SEARCH] Searching for partial phone: ${partialPhone}`);
+
+        // Get TPOS token
+        const token = await tposTokenManager.getToken();
+
+        // Call TPOS Partner API
+        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${partialPhone}&$top=50&$orderby=DateCreated+desc&$count=true`;
+
+        const response = await fetchWithTimeout(tposUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        }, 15000);
+
+        if (!response.ok) {
+            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Group by unique 10-digit phone
+        const phoneGroups = {};
+
+        if (data.value && Array.isArray(data.value)) {
+            for (const customer of data.value) {
+                const custPhone = customer.Phone?.replace(/\D/g, '').slice(-10);
+                if (custPhone && custPhone.length === 10) {
+                    if (!phoneGroups[custPhone]) {
+                        phoneGroups[custPhone] = {
+                            phone: custPhone,
+                            count: 0,
+                            customers: []
+                        };
+                    }
+                    phoneGroups[custPhone].count++;
+                    phoneGroups[custPhone].customers.push({
+                        id: customer.Id,
+                        phone: custPhone,
+                        name: customer.Name || customer.FullName || 'N/A',
+                        email: customer.Email,
+                        status: customer.Status,
+                        credit: customer.Credit
+                    });
+                }
+            }
+        }
+
+        const uniquePhones = Object.values(phoneGroups);
+        console.log(`[TPOS-SEARCH] Found ${uniquePhones.length} unique phones for ${partialPhone}`);
+
+        res.json({
+            success: true,
+            data: uniquePhones,
+            totalResults: data['@odata.count'] || 0,
+            uniquePhoneCount: uniquePhones.length
+        });
+
+    } catch (error) {
+        console.error('[TPOS-SEARCH] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to search TPOS',
+            message: error.message
+        });
+    }
+});
+
+/**
  * POST /api/sepay/batch-update-phones
  * Batch update phone numbers for existing transactions
  * This is useful for retroactively extracting phone numbers from old transactions
