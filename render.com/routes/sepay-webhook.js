@@ -1275,9 +1275,10 @@ async function processDebtUpdate(db, transactionId) {
 
         if (localResult.rows.length > 0) {
             console.log(`[DEBT-UPDATE] ✅ Found ${localResult.rows.length} matches in LOCAL DB (skipping TPOS)`);
-            matchedPhones = localResult.rows.map(row => ({
+            matchedPhones = localResult.rows.map((row, index) => ({
                 phone: row.customer_phone,
-                customers: [{ name: row.customer_name, id: null }],
+                // Use phone as ID when from LOCAL_DB (prefix with LOCAL_ to distinguish)
+                customers: [{ name: row.customer_name, id: `LOCAL_${row.customer_phone}`, phone: row.customer_phone }],
                 count: 1
             }));
         } else {
@@ -2614,16 +2615,18 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
 
         // 3. Find customer in nested structure
         // Structure: [{phone, count, customers: [{id, name, phone}]}]
+        // Note: id can be integer (from TPOS) or string like "LOCAL_0901234567" (from local DB)
         let selectedCustomer = null;
-        const targetId = parseInt(customer_id);
+        const targetIdStr = String(customer_id);
+        const targetIdInt = parseInt(customer_id);
 
         for (const phoneGroup of matchedCustomers) {
             const customers = phoneGroup.customers || [];
             if (!Array.isArray(customers)) continue;
 
             for (const c of customers) {
-                // Compare both as int and string for safety
-                if (c.id === targetId || String(c.id) === String(customer_id)) {
+                // Compare as string first (handles both LOCAL_xxx and numeric IDs)
+                if (String(c.id) === targetIdStr || c.id === targetIdInt) {
                     selectedCustomer = c;
                     console.log('[RESOLVE-MATCH] ✓ Found customer:', c.name, c.phone);
                     break;

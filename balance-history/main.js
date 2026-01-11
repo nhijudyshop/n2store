@@ -190,9 +190,10 @@ async function refreshPendingMatchList(pendingMatchId, partialPhone, buttonEleme
         const optionsHtml = uniquePhones.map(opt => {
             const customers = opt.customers || [];
             return customers.map(c => {
-                const customerId = c.id || '';
+                // Use phone as fallback ID for LOCAL_DB records that may have null id
+                const customerId = c.id || (c.phone ? `LOCAL_${c.phone}` : '');
                 const customerName = c.name || 'N/A';
-                const customerPhone = c.phone || 'N/A';
+                const customerPhone = c.phone || opt.phone || 'N/A';
                 if (!customerId) return '';
                 return `<option value="${customerId}" data-phone="${customerPhone}" data-name="${customerName}">${customerName} - ${customerPhone}</option>`;
             }).join('');
@@ -1147,9 +1148,10 @@ function renderTransactionRow(row) {
             const customers = opt.customers || [];
             return customers.map(c => {
                 // Ensure we have required fields
-                const customerId = c.id || c.customer_id || '';
+                // Use phone as fallback ID for LOCAL_DB records that may have null id
+                const customerId = c.id || c.customer_id || (c.phone ? `LOCAL_${c.phone}` : '');
                 const customerName = c.name || c.customer_name || 'N/A';
-                const customerPhone = c.phone || c.customer_phone || 'N/A';
+                const customerPhone = c.phone || c.customer_phone || opt.phone || 'N/A';
                 if (!customerId) {
                     console.warn('[RENDER] Customer missing ID:', c);
                     return '';
@@ -1174,9 +1176,10 @@ function renderTransactionRow(row) {
         const optionsHtml = pendingMatchOptions.map(opt => {
             const customers = opt.customers || [];
             return customers.map(c => {
-                const customerId = c.id || c.customer_id || '';
+                // Use phone as fallback ID for LOCAL_DB records that may have null id
+                const customerId = c.id || c.customer_id || (c.phone ? `LOCAL_${c.phone}` : '');
                 const customerName = c.name || c.customer_name || 'N/A';
-                const customerPhone = c.phone || c.customer_phone || 'N/A';
+                const customerPhone = c.phone || c.customer_phone || opt.phone || 'N/A';
                 if (!customerId) return '';
                 return `<option value="${customerId}" data-phone="${customerPhone}" data-name="${customerName}">${customerName} - ${customerPhone}</option>`;
             }).join('');

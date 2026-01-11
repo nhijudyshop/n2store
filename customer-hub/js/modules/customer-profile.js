@@ -110,16 +110,17 @@ export class CustomerProfileModule {
         this.contentLoaded.classList.add('hidden');
 
         try {
-            const response = await apiService.getCustomer360(phone);
-            if (response.success && response.data) {
-                this.customerData = response.data;
+            const data = await apiService.getCustomer360(phone);
+            // apiService.getCustomer360 returns result.data directly (already unwrapped)
+            if (data && data.customer) {
+                this.customerData = data;
 
                 // Render all sections
-                this._renderHeader(response.data.customer);
-                this._renderCustomerInfoCard(response.data.customer);
-                this._renderRFMCard(response.data.customer);
-                this._renderActivitiesCard(response.data.activities || []);
-                this._renderNotesSection(response.data.customer.notes || []);
+                this._renderHeader(data.customer);
+                this._renderCustomerInfoCard(data.customer);
+                this._renderRFMCard(data.customer);
+                this._renderActivitiesCard(data.recentActivities || []);
+                this._renderNotesSection(data.notes || []);
 
                 // Initialize sub-modules
                 this.walletPanelModule = new WalletPanelModule('customer-wallet-panel', this.permissionHelper);
