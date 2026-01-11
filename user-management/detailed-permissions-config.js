@@ -197,6 +197,17 @@ const DETAILED_PERMISSIONS = {
             delete: { name: "Xóa lịch sử", icon: "trash-2" },
         },
     },
+    soluongLive: {
+        id: "soluongLive",
+        icon: "package-check",
+        name: "SỐ LƯỢNG LIVE",
+        description: "Theo dõi số lượng sản phẩm khi livestream và bán qua social",
+        subPermissions: {
+            livestream: { name: "Bán hàng Livestream", icon: "video" },
+            social: { name: "Bán hàng Social", icon: "message-circle" },
+            viewReport: { name: "Xem báo cáo bán", icon: "bar-chart" },
+        },
+    },
 };
 
 // Role Templates

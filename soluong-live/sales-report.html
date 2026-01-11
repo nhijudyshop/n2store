@@ -336,7 +336,7 @@
     <div class="container">
         <div class="header">
             <h1>📊 Báo cáo bán hàng</h1>
-            <a href="social-sales.html" class="back-link">← Quay lại</a>
+            <a href="#" class="back-link" id="backLink" onclick="goBack(); return false;">← Quay lại</a>
         </div>
 
         <div class="controls">
@@ -590,6 +590,29 @@
         document.getElementById('filterSource').addEventListener('change', applyFilters);
         document.getElementById('filterStaff').addEventListener('change', applyFilters);
         document.getElementById('reportDate').addEventListener('change', loadReport);
+
+        // Go back to referrer page (index.html or social-sales.html)
+        function goBack() {
+            const referrer = sessionStorage.getItem('soluongReportReferrer');
+            if (referrer) {
+                sessionStorage.removeItem('soluongReportReferrer');
+                window.location.href = referrer;
+            } else {
+                // Default to social-sales.html if no referrer saved
+                window.location.href = 'social-sales.html';
+            }
+        }
+
+        // Update back link text based on referrer
+        (function updateBackLinkText() {
+            const referrer = sessionStorage.getItem('soluongReportReferrer');
+            const backLink = document.getElementById('backLink');
+            if (referrer === 'index.html') {
+                backLink.textContent = '← Quay lại Livestream';
+            } else {
+                backLink.textContent = '← Quay lại Social';
+            }
+        })();
 
         // Load report on page load
         loadReport();

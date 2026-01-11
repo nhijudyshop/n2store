@@ -125,20 +125,43 @@
             gap: 15px;
         }
 
-        .btn-report {
+        /* Header Navigation Buttons */
+        .header-nav {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn-nav-header {
             padding: 8px 16px;
             font-size: 13px;
             font-weight: 600;
-            border: 2px solid #4caf50;
+            border: 2px solid #1e88e5;
             border-radius: 8px;
             background: white;
-            color: #4caf50;
+            color: #1e88e5;
             cursor: pointer;
             text-decoration: none;
             transition: all 0.3s;
         }
 
-        .btn-report:hover {
+        .btn-nav-header:hover {
+            background: #1e88e5;
+            color: white;
+        }
+
+        .btn-nav-header.active {
+            background: #1e88e5;
+            color: white;
+            cursor: default;
+        }
+
+        .btn-nav-header.btn-report {
+            border-color: #4caf50;
+            color: #4caf50;
+        }
+
+        .btn-nav-header.btn-report:hover {
             background: #4caf50;
             color: white;
         }
@@ -623,13 +646,17 @@
             <span class="staff-name" id="staffName">Loading...</span>
         </div>
         <div class="header-actions">
+            <div class="header-nav">
+                <a href="index.html" class="btn-nav-header" id="btnGoLive">📺 Livestream</a>
+                <a href="social-sales.html" class="btn-nav-header active">📱 Social</a>
+                <a href="sales-report.html" class="btn-nav-header btn-report" onclick="saveReferrer()">📊 Báo cáo</a>
+            </div>
             <div class="source-selector">
                 <label>📱 Nguồn:</label>
                 <select id="saleSource">
                     <option value="facebook">Facebook</option>
                 </select>
             </div>
-            <a href="sales-report.html" class="btn-report">📊 Xem báo cáo</a>
         </div>
     </div>
 
@@ -656,6 +683,55 @@
 
     <script src="../js/shared-auth-manager.js"></script>
     <script src="../js/shared-cache-manager.js"></script>
+
+    <!-- Save referrer function for report navigation -->
+    <script>
+        function saveReferrer() {
+            sessionStorage.setItem('soluongReportReferrer', 'social-sales.html');
+        }
+
+        // Auto-redirect based on permissions
+        // If user only has "livestream" permission (not "social"), redirect to index.html
+        (function checkPermissionAndRedirect() {
+            try {
+                const authManager = new AuthManager();
+                const authData = authManager.getAuthData();
+
+                // If not logged in or no auth data, continue (will handle in main script)
+                if (!authData || !authData.detailedPermissions) {
+                    console.log('⚠️ No auth data, continuing on social-sales...');
+                    return;
+                }
+
+                const soluongPerms = authData.detailedPermissions.soluongLive;
+
+                // If no soluongLive permissions at all, continue (default access)
+                if (!soluongPerms) {
+                    console.log('⚠️ No soluongLive permissions defined, continuing...');
+                    return;
+                }
+
+                const hasLivestream = soluongPerms.livestream === true;
+                const hasSocial = soluongPerms.social === true;
+
+                console.log('🔐 Permission check:', { hasLivestream, hasSocial });
+
+                // If user has livestream permission but NOT social, redirect to index.html
+                if (hasLivestream && !hasSocial) {
+                    console.log('🔄 Redirecting to index.html (livestream only)...');
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                // If user has social permission (or both), stay on social-sales.html
+                console.log('✅ User has social permission, staying on social-sales.html');
+            } catch (error) {
+                console.error('❌ Permission check error:', error);
+                // On error, continue on current page
+            }
+        })();
+    </script>
+
     <script>
         // ========================================
         // SOCIAL SALES - MAIN SCRIPT

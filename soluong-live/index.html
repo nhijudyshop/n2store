@@ -16,6 +16,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <script src="firebase-helpers.js"></script>
 
+    <!-- Auth Manager for permissions -->
+    <script src="../js/shared-auth-manager.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -50,6 +53,53 @@
         .header h1 {
             font-size: 2em;
             margin-bottom: 10px;
+        }
+
+        /* Header Navigation Buttons */
+        .header-nav {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-nav-header {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(10px);
+            text-decoration: none;
+        }
+
+        .btn-nav-header:hover {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-nav-header.active {
+            background: white;
+            color: #667eea;
+        }
+
+        .btn-nav-header.btn-report {
+            border-color: #4caf50;
+        }
+
+        .btn-nav-header.btn-report:hover {
+            background: #4caf50;
+            color: white;
         }
 
         /* Settings Button */
@@ -2016,6 +2066,12 @@
 
     <div class="container">
         <div class="header">
+            <!-- Navigation buttons -->
+            <div class="header-nav">
+                <a href="index.html" class="btn-nav-header active">📺 Livestream</a>
+                <a href="social-sales.html" class="btn-nav-header" id="btnGoSocial">📱 Social</a>
+                <a href="sales-report.html" class="btn-nav-header btn-report" onclick="saveReferrer()">📊 Báo cáo</a>
+            </div>
             <h1>📦 Quản lý Số lượng Live N2Shop</h1>
             <p>Tìm kiếm và quản lý tồn kho sản phẩm</p>
             <button class="btn-settings" id="btnSettings" onclick="toggleSettingsSidebar()">
@@ -4821,5 +4877,56 @@
             </div>
         </div>
     </div>
+
+    <!-- Permission-based redirect script -->
+    <script>
+        // Save referrer before going to report page
+        function saveReferrer() {
+            sessionStorage.setItem('soluongReportReferrer', 'index.html');
+        }
+
+        // Check permissions and auto-redirect if needed
+        (function checkPermissionAndRedirect() {
+            try {
+                const authManager = new AuthManager();
+                const authData = authManager.getAuthData();
+
+                if (!authData || !authData.detailedPermissions) {
+                    console.log('⚠️ No auth data or permissions, staying on current page');
+                    return;
+                }
+
+                const soluongPerms = authData.detailedPermissions.soluongLive;
+                if (!soluongPerms) {
+                    console.log('⚠️ No soluongLive permissions defined');
+                    return;
+                }
+
+                const hasLivestream = soluongPerms.livestream === true;
+                const hasSocial = soluongPerms.social === true;
+
+                console.log('🔐 Permissions - Livestream:', hasLivestream, 'Social:', hasSocial);
+
+                // If user only has social permission (not livestream), redirect to social page
+                if (hasSocial && !hasLivestream) {
+                    console.log('🔄 Redirecting to social-sales.html (user only has social permission)');
+                    window.location.href = 'social-sales.html';
+                    return;
+                }
+
+                // If user has neither permission, they shouldn't be here
+                if (!hasLivestream && !hasSocial) {
+                    console.log('⚠️ User has no soluongLive permissions');
+                    // Could redirect to access denied page if needed
+                }
+
+                // User has livestream permission, stay on this page
+                console.log('✅ User has livestream permission, staying on index.html');
+
+            } catch (error) {
+                console.error('Error checking permissions:', error);
+            }
+        })();
+    </script>
 </body>
 </html>
