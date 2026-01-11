@@ -1083,53 +1083,61 @@ class TposChatManager {
     }
 
     /**
-     * Handle create order button click
-     * Called from the "+" button in comment list
+     * Handle save to Tpos button click (the "+" button)
+     * Saves customer to "Lưu Tpos" list on Pancake side
      */
-    handleCreateOrder(customerId, customerName) {
-        console.log('[TPOS-CHAT] Handle create order:', { customerId, customerName });
+    async handleCreateOrder(customerId, customerName) {
+        console.log('[TPOS-CHAT] Save to Tpos:', { customerId, customerName });
 
-        // Get partner info from cache for additional details
+        // Get partner info from cache for notes
         const partner = this.getPartnerCache(customerId) || {};
+        const phone = partner.Phone || '';
+        const address = partner.Street || '';
 
-        // Dispatch event for order creation (Pancake will listen)
-        window.dispatchEvent(new CustomEvent('tposCreateOrder', {
-            detail: {
-                customerId,
-                customerName,
-                phone: partner.Phone || '',
-                address: partner.Street || '',
-                page: this.selectedPage,
-                campaign: this.selectedCampaign
+        // Build notes from partner info
+        const notes = [
+            phone ? `SĐT: ${phone}` : '',
+            address ? `Địa chỉ: ${address}` : '',
+            this.selectedCampaign?.title ? `Campaign: ${this.selectedCampaign.title}` : ''
+        ].filter(Boolean).join(' | ');
+
+        try {
+            const response = await fetch(`${this.tposPancakeUrl}/api/tpos-saved`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customerId,
+                    customerName,
+                    pageId: this.selectedPage?.id || null,
+                    pageName: this.selectedPage?.name || null,
+                    savedBy: 'TPOS Comment',
+                    notes: notes || null
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Update Pancake's saved IDs cache
+                if (window.pancakeChatManager) {
+                    window.pancakeChatManager.tposSavedCustomerIds.add(customerId);
+                    // Re-render if on Lưu Tpos tab
+                    if (window.pancakeChatManager.filterType === 'tpos-saved') {
+                        window.pancakeChatManager.renderConversationList();
+                    }
+                }
+
+                if (window.notificationManager) {
+                    window.notificationManager.show(`Đã lưu: ${customerName}`, 'success');
+                }
+            } else {
+                throw new Error(result.message || 'Lỗi không xác định');
             }
-        }));
-
-        // Show notification
-        if (window.notificationManager) {
-            window.notificationManager.show(`Lưu vào Tpos: ${customerName}`, 'info');
-        }
-    }
-
-    /**
-     * Create order from comment
-     */
-    createOrder(commentId, customerName, message) {
-        console.log('[TPOS-CHAT] Create order:', { commentId, customerName, message });
-
-        // Dispatch event for order creation
-        window.dispatchEvent(new CustomEvent('tposCreateOrder', {
-            detail: {
-                commentId,
-                customerName,
-                message,
-                page: this.selectedPage,
-                campaign: this.selectedCampaign
+        } catch (error) {
+            console.error('[TPOS-CHAT] Error saving to Tpos:', error);
+            if (window.notificationManager) {
+                window.notificationManager.show(`Lỗi: ${error.message}`, 'error');
             }
-        }));
-
-        // Show notification
-        if (window.notificationManager) {
-            window.notificationManager.show(`Tạo đơn cho: ${customerName}`, 'info');
         }
     }
 
