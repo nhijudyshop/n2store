@@ -1156,6 +1156,18 @@ const ApiService = {
     getUnlinkedBankTransactions: async (page = 1, limit = 10) => {
         return fetchJson(`${ApiService.RENDER_API_URL}/balance-history/unlinked?page=${page}&limit=${limit}`);
     },
+    getUnlinkedTransactionsCount: async () => {
+        try {
+            const response = await fetchJson(`${ApiService.RENDER_API_URL}/balance-history/unlinked?page=1&limit=1`);
+            return {
+                success: response.success,
+                count: response.pagination?.total || response.data?.length || 0
+            };
+        } catch (error) {
+            console.error('[API] getUnlinkedTransactionsCount failed:', error);
+            return { success: false, count: 0 };
+        }
+    },
     linkBankTransaction: async (transaction_id, phone, auto_deposit) => {
         return fetchJson(`${ApiService.RENDER_API_URL}/balance-history/link-customer`, {
             method: 'POST',
