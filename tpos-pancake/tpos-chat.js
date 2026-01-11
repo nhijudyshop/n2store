@@ -31,12 +31,22 @@ class TposChatManager {
         // SessionIndex map: ASUID -> { index, session, code }
         this.sessionIndexMap = new Map();
 
-        // Partner cache: userId -> partner info (for inline display)
-        this.partnerCache = new Map();
-        this.partnerFetchPromises = new Map(); // Prevent duplicate fetches
+        // Smart cache config
+        this.cacheConfig = {
+            maxSize: 200,           // Max entries per cache
+            ttl: 10 * 60 * 1000,    // 10 minutes TTL
+            cleanupInterval: 5 * 60 * 1000  // Cleanup every 5 minutes
+        };
 
-        // Debt cache: phone -> debt amount
+        // Partner cache: userId -> { data, timestamp }
+        this.partnerCache = new Map();
+        this.partnerFetchPromises = new Map();
+
+        // Debt cache: phone -> { amount, timestamp }
         this.debtCache = new Map();
+
+        // Start periodic cache cleanup
+        this.startCacheCleanup();
 
         // API config
         this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
@@ -795,8 +805,8 @@ class TposChatManager {
         const gradientColor = colors[colorIndex];
         const initial = fromName.charAt(0).toUpperCase();
 
-        // Get partner info from cache
-        const partner = this.partnerCache.get(fromId) || {};
+        // Get partner info from cache (using smart cache getter)
+        const partner = this.getPartnerCache(fromId) || {};
         const statusText = partner.StatusText || '';
         const phone = partner.Phone || '';
         const address = partner.Street || '';
@@ -990,9 +1000,13 @@ class TposChatManager {
             this.selectedCampaign = null;
             this.stopSSE();
             this.comments = [];
+            this.clearAllCaches(); // Clear caches when deselecting
             this.renderComments();
             return;
         }
+
+        // Clear caches when switching campaigns to free memory
+        this.clearAllCaches();
 
         this.selectedCampaign = this.liveCampaigns.find(c => c.Id === campaignId);
 
@@ -1406,12 +1420,13 @@ class TposChatManager {
     // =====================================================
 
     /**
-     * Get partner info (with caching)
+     * Get partner info (with smart caching)
      */
     async getPartnerInfo(userId) {
-        // Return from cache if available
-        if (this.partnerCache.has(userId)) {
-            return this.partnerCache.get(userId);
+        // Return from cache if available and not expired
+        const cached = this.getPartnerCache(userId);
+        if (cached) {
+            return cached;
         }
 
         // Return existing promise if already fetching
@@ -1433,8 +1448,8 @@ class TposChatManager {
                 const data = await response.json();
                 const partner = data?.Partner || {};
 
-                // Cache the result
-                this.partnerCache.set(userId, partner);
+                // Cache the result with timestamp
+                this.setPartnerCache(userId, partner);
                 return partner;
             } catch (error) {
                 console.error('[TPOS-CHAT] Error fetching partner info:', error);
@@ -1473,9 +1488,10 @@ class TposChatManager {
      * Load debt info for all partners that have phone numbers
      */
     async loadDebtForPartners() {
-        // Collect unique phones from partner cache
+        // Collect unique phones from partner cache (cache stores {data, timestamp})
         const phones = [];
-        for (const [userId, partner] of this.partnerCache) {
+        for (const [userId, entry] of this.partnerCache) {
+            const partner = entry.data || entry; // Support both formats
             if (partner.Phone) {
                 phones.push(this.normalizePhone(partner.Phone));
             }
@@ -1503,9 +1519,9 @@ class TposChatManager {
 
             const result = await response.json();
             if (result.success && result.data) {
-                // Store in debt cache
+                // Store in debt cache with smart caching
                 for (const [phone, info] of Object.entries(result.data)) {
-                    this.debtCache.set(this.normalizePhone(phone), info.total_debt || 0);
+                    this.setDebtCache(this.normalizePhone(phone), info.total_debt || 0);
                 }
 
                 console.log('[TPOS-CHAT] Loaded debt for', Object.keys(result.data).length, 'phones');
@@ -1519,11 +1535,11 @@ class TposChatManager {
     }
 
     /**
-     * Get debt for a phone number from cache
+     * Get debt for a phone number from cache (with TTL check)
      */
     getDebtForPhone(phone) {
         if (!phone) return null;
-        return this.debtCache.get(this.normalizePhone(phone));
+        return this.getDebtCache(this.normalizePhone(phone));
     }
 
     /**
@@ -1559,8 +1575,8 @@ class TposChatManager {
      */
     async savePartnerData(partnerId, updates, teamId) {
         try {
-            // Get current partner from cache or fetch
-            let partner = this.partnerCache.get(updates.userId);
+            // Get current partner from cache (using smart cache)
+            let partner = this.getPartnerCache(updates.userId);
             if (!partner || !partner.Id) {
                 throw new Error('Partner not found in cache');
             }
@@ -1592,8 +1608,8 @@ class TposChatManager {
 
             const result = await response.json();
 
-            // Update cache with new data
-            this.partnerCache.set(updates.userId, result);
+            // Update cache with new data (using smart cache)
+            this.setPartnerCache(updates.userId, result);
 
             return result;
         } catch (error) {
@@ -1724,8 +1740,8 @@ class TposChatManager {
         const statusText = document.getElementById(`status-text-${userId}`);
         if (statusText) statusText.textContent = text;
 
-        // Get partner from cache
-        const partner = this.partnerCache.get(userId);
+        // Get partner from cache (using smart cache)
+        const partner = this.getPartnerCache(userId);
         if (!partner || !partner.Id) {
             if (window.notificationManager) {
                 window.notificationManager.error('Không tìm thấy thông tin khách hàng');
@@ -1747,9 +1763,9 @@ class TposChatManager {
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
 
-            // Update cache
+            // Update cache (using smart cache)
             partner.StatusText = text;
-            this.partnerCache.set(userId, partner);
+            this.setPartnerCache(userId, partner);
 
             if (window.notificationManager) {
                 window.notificationManager.success('Đã cập nhật trạng thái');
@@ -1800,6 +1816,159 @@ class TposChatManager {
             dot?.classList.add('disconnected');
             if (text) text.textContent = 'Offline';
         }
+    }
+
+    // =====================================================
+    // SMART CACHE MANAGEMENT
+    // =====================================================
+
+    /**
+     * Start periodic cache cleanup
+     */
+    startCacheCleanup() {
+        // Clear any existing interval
+        if (this.cacheCleanupTimer) {
+            clearInterval(this.cacheCleanupTimer);
+        }
+
+        // Run cleanup periodically
+        this.cacheCleanupTimer = setInterval(() => {
+            this.cleanupExpiredCache();
+        }, this.cacheConfig.cleanupInterval);
+
+        console.log('[TPOS-CHAT] Cache cleanup started (interval:', this.cacheConfig.cleanupInterval / 1000, 's)');
+    }
+
+    /**
+     * Set value in partner cache with timestamp
+     */
+    setPartnerCache(userId, data) {
+        // Enforce max size - remove oldest entries if needed
+        if (this.partnerCache.size >= this.cacheConfig.maxSize) {
+            this.evictOldestEntries(this.partnerCache, Math.floor(this.cacheConfig.maxSize * 0.2));
+        }
+
+        this.partnerCache.set(userId, {
+            data: data,
+            timestamp: Date.now()
+        });
+    }
+
+    /**
+     * Get value from partner cache (returns null if expired)
+     */
+    getPartnerCache(userId) {
+        const entry = this.partnerCache.get(userId);
+        if (!entry) return null;
+
+        // Check if expired
+        if (Date.now() - entry.timestamp > this.cacheConfig.ttl) {
+            this.partnerCache.delete(userId);
+            return null;
+        }
+
+        // Update timestamp (LRU behavior)
+        entry.timestamp = Date.now();
+        return entry.data;
+    }
+
+    /**
+     * Set value in debt cache with timestamp
+     */
+    setDebtCache(phone, amount) {
+        // Enforce max size
+        if (this.debtCache.size >= this.cacheConfig.maxSize) {
+            this.evictOldestEntries(this.debtCache, Math.floor(this.cacheConfig.maxSize * 0.2));
+        }
+
+        this.debtCache.set(phone, {
+            amount: amount,
+            timestamp: Date.now()
+        });
+    }
+
+    /**
+     * Get value from debt cache (returns null if expired)
+     */
+    getDebtCache(phone) {
+        const entry = this.debtCache.get(phone);
+        if (!entry) return null;
+
+        // Check if expired
+        if (Date.now() - entry.timestamp > this.cacheConfig.ttl) {
+            this.debtCache.delete(phone);
+            return null;
+        }
+
+        return entry.amount;
+    }
+
+    /**
+     * Evict oldest entries from a cache map
+     */
+    evictOldestEntries(cacheMap, count) {
+        const entries = Array.from(cacheMap.entries())
+            .sort((a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0));
+
+        const toRemove = entries.slice(0, count);
+        toRemove.forEach(([key]) => cacheMap.delete(key));
+
+        console.log('[TPOS-CHAT] Evicted', toRemove.length, 'old cache entries');
+    }
+
+    /**
+     * Cleanup expired entries from all caches
+     */
+    cleanupExpiredCache() {
+        const now = Date.now();
+        let cleaned = 0;
+
+        // Cleanup partner cache
+        for (const [key, entry] of this.partnerCache) {
+            if (now - entry.timestamp > this.cacheConfig.ttl) {
+                this.partnerCache.delete(key);
+                cleaned++;
+            }
+        }
+
+        // Cleanup debt cache
+        for (const [key, entry] of this.debtCache) {
+            if (now - entry.timestamp > this.cacheConfig.ttl) {
+                this.debtCache.delete(key);
+                cleaned++;
+            }
+        }
+
+        // Cleanup fetch promises (shouldn't have old ones, but just in case)
+        this.partnerFetchPromises.clear();
+
+        if (cleaned > 0) {
+            console.log('[TPOS-CHAT] Cleaned up', cleaned, 'expired cache entries');
+        }
+    }
+
+    /**
+     * Clear all caches (call when switching campaigns)
+     */
+    clearAllCaches() {
+        this.partnerCache.clear();
+        this.debtCache.clear();
+        this.partnerFetchPromises.clear();
+        this.sessionIndexMap.clear();
+        console.log('[TPOS-CHAT] All caches cleared');
+    }
+
+    /**
+     * Get cache statistics
+     */
+    getCacheStats() {
+        return {
+            partnerCache: this.partnerCache.size,
+            debtCache: this.debtCache.size,
+            sessionIndexMap: this.sessionIndexMap.size,
+            maxSize: this.cacheConfig.maxSize,
+            ttlMinutes: this.cacheConfig.ttl / 60000
+        };
     }
 
     // =====================================================
