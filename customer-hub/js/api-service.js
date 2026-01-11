@@ -30,7 +30,7 @@ const apiService = {
         return fetchJson(`${API_BASE_URL}/customer/${phone}`);
     },
     searchCustomers: async (query, limit = 50) => {
-        return fetchJson(`${API_BASE_URL}/customer-search-360`, {
+        return fetchJson(`${API_BASE_URL}/customer-search-v2`, {
             method: 'POST',
             body: JSON.stringify({ query, limit })
         });

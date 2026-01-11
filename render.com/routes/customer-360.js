@@ -417,7 +417,7 @@ router.post('/customer/batch', async (req, res) => {
  * POST /api/customer/search
  * Search customers
  */
-router.post('/customer-search-360', async (req, res) => {
+router.post('/customer-search-v2', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { query, limit = 50 } = req.body;
 
@@ -1341,6 +1341,118 @@ router.delete('/ticket/:code', async (req, res) => {
         });
     } catch (error) {
         handleError(res, error, 'Failed to delete ticket');
+    }
+});
+
+/**
+ * GET /api/transactions/consolidated
+ * Get consolidated transactions and activities for a customer (paginated)
+ */
+router.get('/transactions/consolidated', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { page = 1, limit = 10, startDate, endDate, phone, customerId } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const params = [];
+    let paramIndex = 1;
+
+    // Base query for wallet transactions
+    let walletQuery = `
+        SELECT
+            id,
+            'wallet_transaction' as source_type,
+            type as activity_type,
+            created_at,
+            amount as value,
+            note as description,
+            'dollar-sign' as icon,
+            CASE
+                WHEN type = 'DEPOSIT' OR type = 'VIRTUAL_CREDIT' THEN 'green'
+                WHEN type = 'WITHDRAW' OR type = 'VIRTUAL_DEBIT' THEN 'red'
+                ELSE 'blue'
+            END as color
+        FROM wallet_transactions
+        WHERE 1=1
+    `;
+
+    // Base query for customer activities
+    let activityQuery = `
+        SELECT
+            id,
+            'customer_activity' as source_type,
+            activity_type,
+            created_at,
+            NULL as value,
+            title as description,
+            icon,
+            color
+        FROM customer_activities
+        WHERE 1=1
+    `;
+
+    // Add filters based on query parameters
+    if (phone) {
+        walletQuery += ` AND phone = $${paramIndex}`;
+        activityQuery += ` AND phone = $${paramIndex}`;
+        params.push(normalizePhone(phone));
+        paramIndex++;
+    }
+    if (customerId) {
+        walletQuery += ` AND wallet_id IN (SELECT id FROM customer_wallets WHERE customer_id = $${paramIndex})`;
+        activityQuery += ` AND customer_id = $${paramIndex}`;
+        params.push(parseInt(customerId));
+        paramIndex++;
+    }
+    if (startDate) {
+        walletQuery += ` AND created_at >= $${paramIndex}`;
+        activityQuery += ` AND created_at >= $${paramIndex}`;
+        params.push(startDate);
+        paramIndex++;
+    }
+    if (endDate) {
+        walletQuery += ` AND created_at <= $${paramIndex}`;
+        activityQuery += ` AND created_at <= $${paramIndex}`;
+        params.push(endDate);
+        paramIndex++;
+    }
+
+    try {
+        // Get total count of combined results
+        const countParams = [...params]; // Clone parameters for the count query
+        const countQuery = `
+            SELECT COUNT(*) FROM (
+                ${walletQuery}
+                UNION ALL
+                ${activityQuery}
+            ) as combined_counts
+        `;
+        const countResult = await db.query(countQuery, countParams);
+        const total = parseInt(countResult.rows[0].count);
+
+        // Get combined and paginated data
+        const combinedQuery = `
+            ${walletQuery}
+            UNION ALL
+            ${activityQuery}
+            ORDER BY created_at DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+        params.push(parseInt(limit), offset);
+
+        const result = await db.query(combinedQuery, params);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to fetch consolidated transactions');
     }
 });
 

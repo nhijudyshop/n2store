@@ -26,8 +26,7 @@ export class CustomerSearchModule {
                     </button>
                 </div>
                 <div id="customer-search-results">
-                    <!-- Results table will be rendered here -->
-                    <p class="text-gray-500 dark:text-gray-400">Không có kết quả tìm kiếm nào.</p>
+                    <p class="text-blue-500 dark:text-blue-400">Đang tải danh sách khách hàng...</p>
                 </div>
             </div>
         `;
@@ -43,6 +42,9 @@ export class CustomerSearchModule {
                 this.performSearch();
             }
         });
+
+        // Initial load of customers
+        this.performSearch(''); // Perform an initial search with an empty query
 
         // Check permission for adding new customer
         if (!this.permissionHelper.hasPermission('customer-hub', 'editCustomer')) { // Assuming 'editCustomer' permission allows adding
