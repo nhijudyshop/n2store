@@ -4896,9 +4896,9 @@
                     return;
                 }
 
-                const soluongPerms = authData.detailedPermissions.soluongLive;
+                const soluongPerms = authData.detailedPermissions['soluong-live'];
                 if (!soluongPerms) {
-                    console.log('⚠️ No soluongLive permissions defined');
+                    console.log('⚠️ No soluong-live permissions defined');
                     return;
                 }
 
@@ -4916,7 +4916,7 @@
 
                 // If user has neither permission, they shouldn't be here
                 if (!hasLivestream && !hasSocial) {
-                    console.log('⚠️ User has no soluongLive permissions');
+                    console.log('⚠️ User has no soluong-live permissions');
                     // Could redirect to access denied page if needed
                 }
 

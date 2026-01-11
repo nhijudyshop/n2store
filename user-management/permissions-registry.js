@@ -203,18 +203,17 @@ const PAGES_REGISTRY = {
 
     "soluong-live": {
         id: "soluong-live",
-        name: "Quản Lý Số Lượng",
+        name: "Số Lượng Live",
         shortName: "Số Lượng",
-        icon: "bar-chart",
+        icon: "package-check",
         href: "../soluong-live/index.html",
-        description: "Quản lý số lượng sản phẩm live",
+        description: "Theo dõi số lượng sản phẩm khi livestream và bán qua social",
         adminOnly: false,
         category: "warehouse",
         detailedPermissions: {
-            view: { name: "Xem số lượng", icon: "eye", description: "Xem thống kê số lượng" },
-            edit: { name: "Cập nhật số lượng", icon: "edit", description: "Thay đổi số lượng" },
-            adjust: { name: "Điều chỉnh", icon: "sliders", description: "Điều chỉnh tồn kho" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export báo cáo số lượng" }
+            livestream: { name: "Bán hàng Livestream", icon: "video", description: "Truy cập trang bán hàng Livestream" },
+            social: { name: "Bán hàng Social", icon: "message-circle", description: "Truy cập trang bán hàng Social (Facebook, etc.)" },
+            viewReport: { name: "Xem báo cáo bán", icon: "bar-chart", description: "Xem báo cáo thống kê bán hàng" }
         }
     },
 
