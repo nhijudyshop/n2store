@@ -275,19 +275,8 @@ router.post('/webhook', async (req, res) => {
                 console.error('[SEPAY-WEBHOOK] Debt update error (non-critical):', debtError.message);
             }
 
-            // Auto-add to transfer stats for incoming transactions
-            try {
-                await autoAddToTransferStats(db, insertedId, {
-                    transfer_type: webhookData.transferType,
-                    transfer_amount: webhookData.transferAmount,
-                    content: webhookData.content,
-                    transaction_date: webhookData.transactionDate,
-                    customer_name: null, // Will be fetched later
-                    customer_phone: null // Will be fetched later
-                });
-            } catch (tsError) {
-                console.error('[SEPAY-WEBHOOK] Transfer stats auto-add error (non-critical):', tsError.message);
-            }
+            // NOTE: Transfer stats is now manual-only
+            // User must click transfer button after customer info is mapped
         }
 
         const processingTime = Date.now() - startTime;
