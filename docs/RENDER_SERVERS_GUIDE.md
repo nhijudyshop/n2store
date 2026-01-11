@@ -365,10 +365,91 @@ Xem logs realtime trên Render Dashboard → Logs tab
 
 ---
 
+## Server 3: n2store-facebook (Facebook Graph API)
+
+### Thông tin cơ bản
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **URL** | Chưa deploy riêng (có thể tích hợp vào fallback) |
+| **Source Code** | `/n2store-facebook/server/server.js` |
+| **API** | Facebook Graph API v21.0 trực tiếp |
+
+### Chức năng
+
+Server gọi Facebook Graph API 100% trực tiếp, không qua Pancake:
+
+```bash
+# Lấy conversations
+GET /api/pages/:pageId/conversations
+
+# Lấy messages
+GET /api/conversations/:convId/messages?page_id=xxx
+
+# Gửi message
+POST /api/pages/:pageId/messages
+
+# Upload attachment
+POST /api/pages/:pageId/upload
+
+# Private Reply từ comment
+POST /api/pages/:pageId/comments/:commentId/private-reply
+
+# Refresh tokens từ TPOS CRM
+POST /api/refresh-tokens
+```
+
+### Token Management
+
+- Lấy Page Access Token từ TPOS CRM API (`/odata/CRMTeam/ODataService.GetAllFacebook`)
+- Cache tokens tối đa 5 phút
+- Lưu file `tokens.json` để persist qua restart
+
+---
+
+## Server 4: n2shop.onrender.com (Legacy Upload)
+
+### Thông tin cơ bản
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **URL** | `https://n2shop.onrender.com` |
+| **Source Code** | Không có trong repo (external/legacy) |
+
+### Chức năng
+
+Server upload hình ảnh, được sử dụng bởi:
+- `inventory-tracking/image-upload.js`
+- `inventory-tracking/order-booking-crud.js`
+
+```bash
+# Upload image
+POST /api/upload/image
+```
+
+---
+
+## Server 5: n2store-balance.onrender.com (Legacy)
+
+### Thông tin cơ bản
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **URL** | `https://n2store-balance.onrender.com` |
+| **Trạng thái** | Legacy - có thể đã merge vào n2store-fallback |
+
+### Chức năng
+
+- Balance history API (cũ)
+- Documented trong `orders-report/MODULE_MAP.md`
+
+---
+
 ## Changelog
 
 | Date | Change |
 |------|--------|
+| 2026-01-11 | Bổ sung thêm 3 servers: n2store-facebook, n2shop, n2store-balance |
 | 2026-01-05 | Tạo server mới `n2store-realtime` (Standard plan) |
 | 2026-01-05 | Chuyển WebSocket realtime sang server mới |
 | 2026-01-05 | Giữ database APIs trên `n2store-fallback` |
