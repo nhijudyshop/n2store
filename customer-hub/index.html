@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,58 +14,90 @@
 
     <!-- Tailwind CSS -->
     <link href="./styles/tailwind.css" rel="stylesheet">
+    <style>
+        /* Custom scrollbar for table container */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+        }
+    </style>
 </head>
-<body class="bg-background-light font-display text-gray-800 dark:bg-background-dark dark:text-gray-200 antialiased">
-    <div class="flex flex-col h-screen">
-        <!-- Main Header (Global Search, User Info, Theme Toggle) -->
-        <header class="bg-surface-light shadow-soft dark:bg-surface-dark p-4 flex items-center justify-between z-10">
-            <h1 class="text-xl font-semibold text-primary">Customer 360 Hub</h1>
-            <div class="flex items-center space-x-4">
-                <div class="relative w-72">
-                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
-                    <input type="text" placeholder="Tìm kiếm khách hàng..."
-                           class="w-full pl-10 pr-4 py-2 rounded-md border border-border-light dark:border-border-dark focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm">
+<body class="bg-background-light font-display text-slate-900 dark:bg-background-dark dark:text-slate-100 antialiased min-h-screen flex flex-col">
+    <!-- Top Navigation Bar -->
+    <header class="bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark sticky top-0 z-50">
+        <div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
+            <!-- Logo Area -->
+            <div class="flex items-center gap-3">
+                <div class="bg-primary/10 p-2 rounded-lg text-primary">
+                    <span class="material-symbols-outlined text-2xl">hub</span>
                 </div>
-                <button id="theme-toggle" class="flex items-center justify-center p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors duration-200">
-                    <span class="material-symbols-outlined" id="theme-icon">dark_mode</span>
+                <h1 class="font-bold text-xl tracking-tight">Customer 360 Hub</h1>
+            </div>
+            <!-- Global Actions -->
+            <div class="flex items-center gap-3">
+                <button id="theme-toggle" class="flex items-center justify-center h-9 w-9 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <span class="material-symbols-outlined text-[20px]" id="theme-icon">dark_mode</span>
                 </button>
-                <span class="text-gray-600 dark:text-gray-300">Nguyễn Tâm</span>
-                <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-semibold border-2 border-primary">
-                    <span class="material-symbols-outlined">person</span>
+                <button class="flex items-center justify-center h-9 w-9 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">notifications</span>
+                </button>
+                <button class="flex items-center justify-center h-9 w-9 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">settings</span>
+                </button>
+                <div class="h-8 w-px bg-border-light dark:bg-border-dark mx-1"></div>
+                <div class="flex items-center gap-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 py-1.5 px-3 rounded-full transition-colors">
+                    <div class="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm">
+                        NT
+                    </div>
+                    <span class="text-sm font-medium hidden sm:block">Nguyễn Tâm</span>
                 </div>
             </div>
-        </header>
+        </div>
+    </header>
 
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-[1440px] w-full mx-auto px-6 py-8">
         <!-- Tab Navigation -->
-        <nav class="bg-surface-light dark:bg-surface-dark shadow-soft-sm z-10">
-            <ul class="flex border-b border-border-light dark:border-border-dark max-w-7xl mx-auto px-4">
-                <li class="-mb-px mr-1">
-                    <a class="tab-link bg-white dark:bg-surface-dark inline-block py-2 px-4 text-primary font-semibold border-l border-t border-r border-primary rounded-t-lg" id="customer-search-tab" href="#customer-search">
-                        <span class="material-symbols-outlined align-middle text-base mr-1">person_search</span>
-                        Tìm kiếm khách hàng
-                    </a>
-                </li>
-                <li class="mr-1">
-                    <a class="tab-link bg-white dark:bg-surface-dark inline-block py-2 px-4 text-gray-500 hover:text-primary font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 border-l border-t border-r border-border-light dark:border-border-dark rounded-t-lg" id="transaction-activity-tab" href="#transaction-activity">
-                        <span class="material-symbols-outlined align-middle text-base mr-1">receipt_long</span>
-                        Hoạt động giao dịch
-                    </a>
-                </li>
-                <li class="mr-1">
-                    <a class="tab-link bg-white dark:bg-surface-dark inline-block py-2 px-4 text-gray-500 hover:text-primary font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 border-l border-t border-r border-border-light dark:border-border-dark rounded-t-lg" id="unlinked-transactions-tab" href="#unlinked-transactions">
-                        <span class="material-symbols-outlined align-middle text-base mr-1">link_off</span>
-                        Giao dịch chưa liên kết
-                    </a>
-                </li>
-            </ul>
-        </nav>
+        <div class="mb-8">
+            <nav aria-label="Tabs" class="flex space-x-1 border-b border-border-light dark:border-border-dark">
+                <a class="tab-link border-b-2 border-primary text-primary dark:text-white px-4 py-3 font-semibold text-sm flex items-center gap-2" id="customer-search-tab" href="#customer-search">
+                    <span class="material-symbols-outlined text-[20px]">search</span>
+                    Tìm kiếm khách hàng
+                </a>
+                <a class="tab-link border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 px-4 py-3 font-medium text-sm flex items-center gap-2 transition-colors" id="transaction-activity-tab" href="#transaction-activity">
+                    <span class="material-symbols-outlined text-[20px]">receipt_long</span>
+                    Hoạt động giao dịch
+                </a>
+                <a class="tab-link border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 px-4 py-3 font-medium text-sm flex items-center gap-2 transition-colors" id="unlinked-transactions-tab" href="#unlinked-transactions">
+                    <span class="material-symbols-outlined text-[20px]">link_off</span>
+                    Giao dịch chưa liên kết
+                    <span id="unlinked-badge" class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-bold px-2 py-0.5 rounded-full ml-1 hidden">0</span>
+                </a>
+            </nav>
+        </div>
 
-        <!-- Main Content Area -->
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-background-light dark:bg-background-dark p-4">
-            <div id="app-content" class="container mx-auto px-4 py-6">
-                <!-- Content will be loaded here by JavaScript -->
-            </div>
-        </main>
+        <!-- App Content Container -->
+        <div id="app-content">
+            <!-- Content will be loaded here by JavaScript -->
+        </div>
+    </main>
+
+    <!-- Customer Profile Modal Container -->
+    <div id="customer-profile-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="modal-backdrop"></div>
+        <div class="absolute inset-4 md:inset-8 bg-surface-light dark:bg-surface-dark rounded-xl shadow-2xl overflow-hidden flex flex-col" id="modal-content">
+            <!-- Modal content will be loaded here -->
+        </div>
     </div>
 
     <script src="./js/main.js" type="module"></script>

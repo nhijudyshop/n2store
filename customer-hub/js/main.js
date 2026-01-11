@@ -3,9 +3,10 @@ import { PermissionHelper } from './utils/permissions.js';
 import { CustomerSearchModule } from './modules/customer-search.js';
 import { CustomerProfileModule } from './modules/customer-profile.js';
 import { LinkBankTransactionModule } from './modules/link-bank-transaction.js';
-import { TransactionActivityModule } from './modules/transaction-activity.js'; // NEW: Import TransactionActivityModule
+import { TransactionActivityModule } from './modules/transaction-activity.js';
 import { WalletPanelModule } from './modules/wallet-panel.js';
 import { TicketListModule } from './modules/ticket-list.js';
+import apiService from './api-service.js';
 // Ensure API_CONFIG is loaded before apiService for proper initialization
 import '../config.js';
 
@@ -39,10 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         htmlTag.classList.add('dark');
         themeIcon.textContent = 'light_mode';
-        // Removed text content update for theme toggle as per new UI (only icon changes)
     } else {
         themeIcon.textContent = 'dark_mode';
-        // Removed text content update for theme toggle as per new UI (only icon changes)
     }
 
     themeToggleBtn.addEventListener('click', () => {
@@ -56,18 +55,77 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Removed Sidebar Toggle for Mobile logic
+    // --- Modal Functions ---
+    const modalContainer = document.getElementById('customer-profile-modal');
+    const modalBackdrop = document.getElementById('modal-backdrop');
+    const modalContent = document.getElementById('modal-content');
+    let customerProfileModule = null;
+
+    window.openCustomerModal = async function(phone) {
+        if (!modalContainer || !modalContent) return;
+
+        modalContainer.classList.remove('hidden');
+        document.body.style.overflow = 'hidden'; // Prevent background scroll
+
+        // Initialize or re-render customer profile
+        if (!customerProfileModule) {
+            customerProfileModule = new CustomerProfileModule('modal-content', permissionHelper);
+        }
+        await customerProfileModule.render(phone);
+    };
+
+    window.closeCustomerModal = function() {
+        if (!modalContainer) return;
+
+        modalContainer.classList.add('hidden');
+        document.body.style.overflow = ''; // Restore scroll
+    };
+
+    // Close modal on backdrop click
+    if (modalBackdrop) {
+        modalBackdrop.addEventListener('click', () => {
+            window.closeCustomerModal();
+        });
+    }
+
+    // Close modal on ESC key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modalContainer?.classList.contains('hidden')) {
+            window.closeCustomerModal();
+        }
+    });
+
+    // --- Update Unlinked Badge Count ---
+    async function updateUnlinkedBadge() {
+        const badge = document.getElementById('unlinked-badge');
+        if (!badge) return;
+
+        try {
+            const response = await apiService.getUnlinkedTransactionsCount();
+            if (response.success && response.count > 0) {
+                badge.textContent = response.count;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Failed to update unlinked badge:', error);
+            badge.classList.add('hidden');
+        }
+    }
+
+    // Update badge on load
+    updateUnlinkedBadge();
 
     // --- Routing Logic ---
     const appContent = document.getElementById('app-content');
-    const tabLinks = document.querySelectorAll('.tab-link'); // Changed from navLinks to tabLinks
+    const tabLinks = document.querySelectorAll('.tab-link');
 
     // Store module instances to avoid re-instantiation if needed
     const moduleInstances = {};
 
     function loadModule(moduleName, containerId, ...args) {
         if (!moduleInstances[moduleName]) {
-            // Dynamically import to avoid loading all modules at once
             switch (moduleName) {
                 case 'CustomerSearchModule':
                     moduleInstances[moduleName] = new CustomerSearchModule(containerId, permissionHelper);
@@ -76,9 +134,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     moduleInstances[moduleName] = new CustomerProfileModule(containerId, permissionHelper);
                     break;
                 case 'LinkBankTransactionModule':
-                    moduleInstances[moduleName] = new LinkBankTransactionModule(containerId, permissionHelper);
+                    moduleInstances[moduleName] = new LinkBankTransactionModule(containerId, permissionHelper, updateUnlinkedBadge);
                     break;
-                case 'TransactionActivityModule': // NEW: Add TransactionActivityModule
+                case 'TransactionActivityModule':
                     moduleInstances[moduleName] = new TransactionActivityModule(containerId, permissionHelper);
                     break;
                 case 'WalletPanelModule':
@@ -87,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'TicketListModule':
                     moduleInstances[moduleName] = new TicketListModule(containerId, permissionHelper);
                     break;
-                // Add other modules here
             }
         }
         return moduleInstances[moduleName];
@@ -101,53 +158,44 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 appContent.innerHTML = `<p class="text-red-500">Bạn không có quyền truy cập chức năng này.</p>`;
             }
-            setActiveTabLink('customer-search-tab'); // Updated function call
+            setActiveTabLink('customer-search-tab');
         },
         'customer-profile': (phone) => {
-            if (permissionHelper.hasPageAccess('customer-hub')) {
-                appContent.innerHTML = `<div id="customer-profile-container"></div>`;
-                const profileModule = loadModule('CustomerProfileModule', 'customer-profile-container');
-                profileModule.render(phone);
-            } else {
-                appContent.innerHTML = `<p class="text-red-500">Bạn không có quyền truy cập trang chi tiết khách hàng.</p>`;
-            }
-            // No active tab link for specific customer profile view
-            tabLinks.forEach(link => link.classList.remove('active-link', 'text-primary', 'border-primary')); // Deactivate all
-            tabLinks.forEach(link => {
-                link.classList.add('text-gray-500', 'hover:text-primary', 'border-border-light');
-            });
+            // Now opens as modal instead of route
+            window.openCustomerModal(phone);
         },
-        'transaction-activity': () => { // NEW: Transaction Activity Route
-            if (permissionHelper.hasPermission('customer-hub', 'viewActivities')) { // Assuming 'viewActivities' permission for this module
+        'transaction-activity': () => {
+            if (permissionHelper.hasPermission('customer-hub', 'viewActivities')) {
                 appContent.innerHTML = `<div id="transaction-activity-container"></div>`;
                 loadModule('TransactionActivityModule', 'transaction-activity-container');
             } else {
                 appContent.innerHTML = `<p class="text-red-500">Bạn không có quyền truy cập chức năng hoạt động giao dịch tổng hợp.</p>`;
             }
-            setActiveTabLink('transaction-activity-tab'); // Updated function call
+            setActiveTabLink('transaction-activity-tab');
         },
-        'unlinked-transactions': () => { // Renamed from 'bank-transactions' to 'unlinked-transactions' as per new UI
+        'unlinked-transactions': () => {
             if (permissionHelper.hasPermission('customer-hub', 'linkTransactions')) {
                 appContent.innerHTML = `<div id="unlinked-transactions-container"></div>`;
-                loadModule('LinkBankTransactionModule', 'unlinked-transactions-container'); // Retaining existing module
+                loadModule('LinkBankTransactionModule', 'unlinked-transactions-container');
             } else {
                 appContent.innerHTML = `<p class="text-red-500">Bạn không có quyền truy cập chức năng giao dịch chưa liên kết.</p>`;
             }
-            setActiveTabLink('unlinked-transactions-tab'); // Updated function call
+            setActiveTabLink('unlinked-transactions-tab');
         },
     };
 
-    function setActiveTabLink(tabId) { // Renamed function
+    function setActiveTabLink(tabId) {
         tabLinks.forEach(link => {
-            link.classList.remove('active-link', 'text-primary', 'border-primary');
-            link.classList.add('bg-white', 'dark:bg-surface-dark', 'text-gray-500', 'hover:text-primary', 'font-semibold', 'hover:bg-gray-100', 'dark:hover:bg-gray-700', 'border-l', 'border-t', 'border-r', 'border-border-light', 'dark:border-border-dark');
+            // Reset all tabs to inactive style
+            link.classList.remove('border-primary', 'text-primary', 'dark:text-white', 'font-semibold');
+            link.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400', 'font-medium');
         });
+
         const activeLink = document.getElementById(tabId);
         if (activeLink) {
-            activeLink.classList.add('active-link', 'text-primary', 'border-primary');
-            activeLink.classList.remove('bg-white', 'dark:bg-surface-dark', 'text-gray-500', 'hover:text-primary', 'font-semibold', 'hover:bg-gray-100', 'dark:hover:bg-gray-700', 'border-l', 'border-t', 'border-r', 'border-border-light', 'dark:border-border-dark');
-            // Re-add specific classes for active tab for proper styling
-            activeLink.classList.add('bg-white', 'dark:bg-surface-dark', 'inline-block', 'py-2', 'px-4', 'text-primary', 'font-semibold', 'border-l', 'border-t', 'border-r', 'border-primary', 'rounded-t-lg');
+            // Set active tab style
+            activeLink.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400', 'font-medium');
+            activeLink.classList.add('border-primary', 'text-primary', 'dark:text-white', 'font-semibold');
         }
     }
 
@@ -156,14 +204,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hash.startsWith('customer/')) {
             const phone = hash.split('/')[1];
             routes['customer-profile'](phone);
-        } else if (hash === '' || hash === 'customer-search') { // Default to customer-search
+        } else if (hash === '' || hash === 'customer-search') {
             routes['customer-search']();
-        } else if (hash === 'transaction-activity') { // NEW: Transaction Activity
+        } else if (hash === 'transaction-activity') {
             routes['transaction-activity']();
-        } else if (hash === 'unlinked-transactions') { // NEW: Unlinked Transactions
+        } else if (hash === 'unlinked-transactions') {
             routes['unlinked-transactions']();
         } else {
-            appContent.innerHTML = `<h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Trang không tìm thấy.</h2><p>Đường dẫn không hợp lệ: ${hash}</p>`;
+            appContent.innerHTML = `<h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Trang không tìm thấy.</h2><p>Đường dẫn không hợp lệ: ${hash}</p>`;
         }
     }
 
@@ -177,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tabLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
-            const tabId = link.id; // Get the ID of the clicked tab
+            const tabId = link.id;
             let hash = '';
             switch (tabId) {
                 case 'customer-search-tab':
@@ -190,17 +238,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     hash = 'unlinked-transactions';
                     break;
                 default:
-                    hash = 'customer-search'; // Fallback
+                    hash = 'customer-search';
             }
             if (hash) {
                 window.location.hash = hash;
             }
-            // Removed sidebar close logic
         });
     });
 
-    // Set initial content to Customer Search if no hash is present or handle the current hash
-    if (!window.location.hash || window.location.hash === '#dashboard') { // Default to customer-search
+    // Set initial content to Customer Search if no hash is present
+    if (!window.location.hash || window.location.hash === '#dashboard') {
         window.location.hash = 'customer-search';
     }
 });
