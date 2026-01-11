@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer 360 Hub</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     <!-- Material Symbols Outlined -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <!-- Inter Font -->
@@ -11,41 +12,8 @@
     <!-- JetBrains Mono Font -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#007bff",
-                        "primary-hover": "#0062cc",
-                        "background-light": "#f9fafb",
-                        "background-dark": "#1c212b",
-                        "surface-light": "#ffffff",
-                        "surface-dark": "#252b36",
-                        "border-light": "#e5e7eb",
-                        "border-dark": "#374151",
-                        "success": "#28a745",
-                        "danger": "#dc3545",
-                        "warning": "#ffc107",
-                        "info": "#17a2b8",
-                    },
-                    fontFamily: {
-                        "display": ["Inter", "sans-serif"],
-                        "mono": ["JetBrains Mono", "monospace"],
-                    },
-                    boxShadow: {
-                        'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-                        'soft-sm': '0 2px 4px -1px rgba(0, 0, 0, 0.05)',
-                        'glow': '0 0 15px rgba(0, 123, 255, 0.15)',
-                    }
-                },
-            },
-        }
-    </script>
-    <link rel="stylesheet" href="./styles/main.css">
+    <!-- Tailwind CSS -->
+    <link href="./styles/tailwind.css" rel="stylesheet">
 </head>
 <body class="bg-background-light font-display text-gray-800 dark:bg-background-dark dark:text-gray-200 antialiased">
     <div class="flex flex-col h-screen">
@@ -62,7 +30,9 @@
                     <span class="material-symbols-outlined" id="theme-icon">dark_mode</span>
                 </button>
                 <span class="text-gray-600 dark:text-gray-300">Nguyễn Tâm</span>
-                <img src="https://via.placeholder.com/40" alt="User Avatar" class="w-10 h-10 rounded-full object-cover border-2 border-primary">
+                <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-semibold border-2 border-primary">
+                    <span class="material-symbols-outlined">person</span>
+                </div>
             </div>
         </header>
 

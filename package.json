@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "echo 'Development server - Open index.html in browser'",
     "build": "node build-scripts/minify-all.js",
+    "build:customer-hub": "postcss customer-hub/styles/input.css -o customer-hub/styles/tailwind.css --config customer-hub",
     "minify": "node build-scripts/minify-all.js",
     "optimize": "node build-scripts/optimize.js",
     "lint": "eslint js/**/*.js --fix",
@@ -23,11 +24,13 @@
   "license": "UNLICENSED",
   "private": true,
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
     "autoprefixer": "^10.4.23",
     "clean-css-cli": "^5.6.3",
     "eslint": "^8.57.0",
     "html-minifier-terser": "^7.2.0",
     "postcss": "^8.5.6",
+    "postcss-cli": "^11.0.1",
     "prettier": "^3.2.5",
     "tailwindcss": "^4.1.18",
     "terser": "^5.31.0"
