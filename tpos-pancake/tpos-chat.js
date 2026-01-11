@@ -35,6 +35,9 @@ class TposChatManager {
         this.partnerCache = new Map();
         this.partnerFetchPromises = new Map(); // Prevent duplicate fetches
 
+        // Debt cache: phone -> debt amount
+        this.debtCache = new Map();
+
         // API config
         this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
         this.tposPancakeUrl = 'https://n2store-tpos-pancake.onrender.com';
@@ -798,6 +801,11 @@ class TposChatManager {
         const phone = partner.Phone || '';
         const address = partner.Street || '';
 
+        // Get debt from cache
+        const debt = this.getDebtForPhone(phone);
+        const debtDisplay = debt !== null && debt !== undefined ? this.formatDebt(debt) : '';
+        const hasDebt = debt && debt > 0;
+
         // Status dropdown options
         const statusOptions = this.getStatusOptions();
 
@@ -849,7 +857,7 @@ class TposChatManager {
                             </div>
                         </div>
 
-                        <!-- Phone Input -->
+                        <!-- Phone Input + Debt Badge -->
                         <div class="inline-phone-container" style="display: inline-flex; align-items: center; gap: 2px;">
                             <input type="text" id="phone-${fromId}" value="${this.escapeHtml(phone)}" placeholder="SĐT"
                                    style="width: 100px; padding: 3px 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 11px; background: #f9fafb;"
@@ -859,6 +867,7 @@ class TposChatManager {
                                     title="Lưu SĐT">
                                 <i data-lucide="save" style="width: 14px; height: 14px; color: #6b7280;"></i>
                             </button>
+                            ${hasDebt ? `<span class="debt-badge" style="padding: 2px 6px; background: #fef2f2; color: #dc2626; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap;" title="Công nợ">Nợ: ${debtDisplay}</span>` : ''}
                         </div>
 
                         <!-- Address Input -->
@@ -1455,6 +1464,94 @@ class TposChatManager {
 
         // Re-render to show partner info
         this.renderComments();
+
+        // Load debt info for all phones (async)
+        this.loadDebtForPartners();
+    }
+
+    /**
+     * Load debt info for all partners that have phone numbers
+     */
+    async loadDebtForPartners() {
+        // Collect unique phones from partner cache
+        const phones = [];
+        for (const [userId, partner] of this.partnerCache) {
+            if (partner.Phone) {
+                phones.push(this.normalizePhone(partner.Phone));
+            }
+        }
+
+        if (phones.length === 0) return;
+
+        // Remove duplicates
+        const uniquePhones = [...new Set(phones)];
+
+        try {
+            // Use batch API
+            const response = await fetch(`${this.proxyBaseUrl}/api/sepay/debt-summary-batch`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ phones: uniquePhones })
+            });
+
+            if (!response.ok) {
+                console.warn('[TPOS-CHAT] Debt API error:', response.status);
+                return;
+            }
+
+            const result = await response.json();
+            if (result.success && result.data) {
+                // Store in debt cache
+                for (const [phone, info] of Object.entries(result.data)) {
+                    this.debtCache.set(this.normalizePhone(phone), info.total_debt || 0);
+                }
+
+                console.log('[TPOS-CHAT] Loaded debt for', Object.keys(result.data).length, 'phones');
+
+                // Re-render to show debt
+                this.renderComments();
+            }
+        } catch (error) {
+            console.warn('[TPOS-CHAT] Error loading debt:', error);
+        }
+    }
+
+    /**
+     * Get debt for a phone number from cache
+     */
+    getDebtForPhone(phone) {
+        if (!phone) return null;
+        return this.debtCache.get(this.normalizePhone(phone));
+    }
+
+    /**
+     * Normalize phone number (remove +84, change 84 to 0)
+     */
+    normalizePhone(phone) {
+        if (!phone) return '';
+        let normalized = phone.toString().trim();
+        // Remove spaces and dashes
+        normalized = normalized.replace(/[\s-]/g, '');
+        // Remove +84
+        if (normalized.startsWith('+84')) {
+            normalized = '0' + normalized.slice(3);
+        }
+        // Change 84 to 0
+        if (normalized.startsWith('84') && normalized.length > 9) {
+            normalized = '0' + normalized.slice(2);
+        }
+        return normalized;
+    }
+
+    /**
+     * Format debt for display
+     */
+    formatDebt(amount) {
+        if (amount === null || amount === undefined) return '';
+        if (amount === 0) return '0đ';
+        return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
     }
 
     /**
