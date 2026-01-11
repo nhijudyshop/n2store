@@ -3576,12 +3576,12 @@ router.get('/transfer-stats', async (req, res) => {
         await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_verified BOOLEAN DEFAULT FALSE`);
         await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_notes TEXT`);
 
-        // Query directly from balance_history where transfer_type = 'in'
+        // Query from balance_history JOIN balance_customer_info for customer name
         const result = await db.query(`
             SELECT
                 bh.id,
                 bh.id as transaction_id,
-                bh.customer_name,
+                COALESCE(bci.customer_name, '') as customer_name,
                 bh.linked_customer_phone as customer_phone,
                 bh.transfer_amount as amount,
                 bh.content,
@@ -3591,6 +3591,15 @@ router.get('/transfer-stats', async (req, res) => {
                 bh.ts_verified as is_verified,
                 bh.created_at
             FROM balance_history bh
+            LEFT JOIN (
+                SELECT DISTINCT ON (customer_phone)
+                    customer_phone, customer_name
+                FROM balance_customer_info
+                WHERE customer_phone IS NOT NULL
+                ORDER BY customer_phone,
+                    CASE WHEN customer_name IS NOT NULL AND customer_name != '' THEN 0 ELSE 1 END,
+                    created_at DESC
+            ) bci ON bci.customer_phone = bh.linked_customer_phone
             WHERE bh.transfer_type = 'in'
             ORDER BY bh.transaction_date DESC, bh.id DESC
         `);

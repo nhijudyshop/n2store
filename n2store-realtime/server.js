@@ -168,6 +168,7 @@ class RealtimeClient {
 
         // 3. Get Online Status
         setTimeout(() => {
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             const statusRef = this.makeRef();
             const statusMsg = [
                 pagesRef, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}
@@ -297,7 +298,10 @@ class TposRealtimeClient {
 
     handleMessage(data) {
         if (data === '2') {
-            this.ws.send('3');
+            // Only send pong if WebSocket is open
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send('3');
+            }
             this.lastPongTime = Date.now();
             return;
         }

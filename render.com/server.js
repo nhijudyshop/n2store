@@ -401,6 +401,7 @@ class RealtimeClient {
 
         // 3. Get Online Status (Mimic browser)
         setTimeout(() => {
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             const statusRef = this.makeRef();
             const statusMsg = [
                 pagesRef, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}
@@ -568,7 +569,9 @@ class TposRealtimeClient {
         // Socket.IO protocol messages
         if (data === '2') {
             // Ping from server, respond with pong immediately
-            this.ws.send('3');
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send('3');
+            }
             this.lastPongTime = Date.now();
             // console.log('[TPOS-WS] 🏓 Received ping, sent pong'); // Uncomment for verbose logging
             return;
