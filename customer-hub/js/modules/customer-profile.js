@@ -48,7 +48,7 @@ export class CustomerProfileModule {
             </header>
 
             <!-- Modal Body - Scrollable -->
-            <div class="flex-1 overflow-y-auto p-6 bg-background-light dark:bg-background-dark">
+            <div class="flex-1 overflow-y-auto p-6 bg-background-light dark:bg-background-dark" style="height: calc(100% - 60px);">
                 <!-- Loading State -->
                 <div id="modal-loader" class="flex flex-col items-center justify-center py-20">
                     <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -58,28 +58,28 @@ export class CustomerProfileModule {
                 </div>
 
                 <!-- Content - Hidden until loaded -->
-                <div id="modal-content-loaded" class="hidden h-full">
-                    <!-- 3 Columns Layout - Full Height -->
-                    <div class="grid grid-cols-3 gap-5 h-full" style="min-height: calc(100vh - 200px);">
+                <div id="modal-content-loaded" class="hidden" style="height: 100%;">
+                    <!-- 3 Columns Layout - Side by Side -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; height: 100%;">
                         <!-- Column 1: Wallet Summary + Internal Notes -->
-                        <div class="flex flex-col gap-5 h-full">
+                        <div style="display: flex; flex-direction: column; gap: 20px; height: 100%;">
                             <!-- Wallet Summary Card -->
                             <div id="customer-wallet-panel" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm">
                                 <!-- Will be rendered by WalletPanelModule -->
                             </div>
                             <!-- Internal Notes Card -->
-                            <div id="internal-notes-section" class="flex-1 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden flex flex-col">
+                            <div id="internal-notes-section" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden" style="flex: 1; display: flex; flex-direction: column;">
                                 <!-- Will be rendered dynamically -->
                             </div>
                         </div>
 
                         <!-- Column 2: Recent Activities -->
-                        <div id="recent-activities-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden flex flex-col h-full">
+                        <div id="recent-activities-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden" style="display: flex; flex-direction: column; height: 100%;">
                             <!-- Will be rendered dynamically -->
                         </div>
 
                         <!-- Column 3: RFM Analysis -->
-                        <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden h-full">
+                        <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden" style="height: 100%;">
                             <!-- Will be rendered dynamically -->
                         </div>
                     </div>

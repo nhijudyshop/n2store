@@ -611,35 +611,30 @@
 
 ## 2026-01-12 (Night) - Unified Realtime Wallet Architecture
 
-### VẤN ĐỀ HIỆN TẠI
-- ❌ Wallet không realtime, phải chờ cron 5 phút
-- ❌ `processDebtUpdate()` chỉ link phone, **KHÔNG TẠO customer**
-- ❌ Customer thiếu thông tin đầy đủ từ TPOS (id, name, address, status)
+### ✅ IMPLEMENTATION COMPLETED - Đã hiện thực xong
 
-### YÊU CẦU MỚI
-- ✅ Cả link tự động và thủ công đều **TẠO CUSTOMER** với đầy đủ thông tin TPOS
-- ✅ Wallet update **REALTIME** ngay khi giao dịch được link
-- ✅ SSE broadcast cho frontend updates
-- ✅ **TÁCH FILE RIÊNG BIỆT** - mỗi chức năng 1 file để dễ bảo trì
+### VẤN ĐỀ ĐÃ GIẢI QUYẾT
+- ✅ Wallet realtime - không cần chờ cron 5 phút nữa
+- ✅ `processDebtUpdate()` giờ TẠO CUSTOMER với đầy đủ thông tin TPOS
+- ✅ Customer có đầy đủ fields: id, name, address, tpos_id, tpos_data
 
-### FILES MỚI CẦN TẠO
+### FILES MỚI ĐÃ TẠO
 
-| File | Chức năng | Priority |
-|------|-----------|----------|
-| `render.com/services/wallet-event-processor.js` | Event-driven wallet processing + SSE emit | **HIGH** |
-| `render.com/services/tpos-customer-service.js` | TPOS API calls, customer data fetching | **HIGH** |
-| `render.com/services/customer-creation-service.js` | Tạo customer với đầy đủ thông tin | **HIGH** |
+| File | Chức năng | Status |
+|------|-----------|--------|
+| `render.com/services/tpos-customer-service.js` | TPOS API calls (searchCustomerByPhone, getCustomerById, searchAllCustomersByPhone) | ✅ DONE |
+| `render.com/services/customer-creation-service.js` | Tạo customer với TPOS data (getOrCreateCustomerFromTPOS, ensureCustomerWithTPOS, batchEnsureCustomers) | ✅ DONE |
+| `render.com/services/wallet-event-processor.js` | Event-driven wallet + SSE (processWalletEvent, processDeposit, walletEvents emitter) | ✅ DONE |
 
-### FILES CẦN SỬA
+### FILES ĐÃ SỬA
 
-| File | Thay đổi | Priority |
-|------|----------|----------|
-| `render.com/utils/customer-helpers.js` | Thêm `getOrCreateCustomerFromTPOS()` | **CRITICAL** |
-| `render.com/routes/sepay-webhook.js` | `processDebtUpdate()` tạo customer + wallet realtime | HIGH |
-| `render.com/routes/v2/balance-history.js` | Link API lấy TPOS data + tạo customer | HIGH |
-| `render.com/routes/realtime-sse.js` | Add wallet event subscription | HIGH |
-| `render.com/cron/scheduler.js` | Keep as backup + tạo customer nếu thiếu | MEDIUM |
-| `customer-hub/js/modules/wallet-panel.js` | SSE subscription cho wallet updates | MEDIUM |
+| File | Thay đổi | Status |
+|------|----------|--------|
+| `render.com/routes/sepay-webhook.js` | Import services mới, processDebtUpdate() tạo customer + wallet realtime cho QR, exact_phone, single_match | ✅ DONE |
+| `render.com/routes/v2/balance-history.js` | Import services mới, POST /:id/link fetch TPOS + tạo customer + auto_deposit=true | ✅ DONE |
+| `render.com/routes/realtime-sse.js` | Import walletEvents, subscription on 'wallet:update' + broadcast to SSE clients | ✅ DONE |
+| `render.com/cron/scheduler.js` | Import ensureCustomerWithTPOS + processDeposit, cron job là BACKUP, tạo customer nếu thiếu | ✅ DONE |
+| `customer-hub/js/modules/wallet-panel.js` | SSE subscription (subscribeToRealtimeUpdates, handleWalletUpdate, showUpdateNotification, destroy) | ✅ DONE |
 
 ---
 
