@@ -132,11 +132,11 @@ export class CustomerProfileModule {
                 this.loader.classList.add('hidden');
                 this.contentLoaded.classList.remove('hidden');
             } else {
-                this._showError(`Customer not found for phone: ${phone}`);
+                this._showError(`Không tìm thấy khách hàng với SĐT: ${phone}`);
             }
         } catch (error) {
-            this._showError(`Error loading customer: ${error.message}`);
-            console.error('Customer profile load error:', error);
+            this._showError(`Lỗi khi tải thông tin: ${error.message}`);
+            console.error('Lỗi tải hồ sơ khách hàng:', error);
         }
     }
 
@@ -284,22 +284,22 @@ export class CustomerProfileModule {
                     <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-border-light dark:border-border-dark">
                         <div class="flex items-center gap-1.5 text-slate-500 mb-2">
                             <span class="material-symbols-outlined text-base">schedule</span>
-                            <span class="text-xs font-bold uppercase">Recency</span>
+                            <span class="text-xs font-bold uppercase">Gần đây</span>
                         </div>
                         <p class="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
                             ${typeof recency === 'number' ? recency : recency}
                         </p>
-                        <p class="text-xs text-slate-500 mt-0.5">${typeof recency === 'number' ? 'days ago' : ''}</p>
+                        <p class="text-xs text-slate-500 mt-0.5">${typeof recency === 'number' ? 'ngày trước' : ''}</p>
                     </div>
 
                     <!-- Frequency -->
                     <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-border-light dark:border-border-dark">
                         <div class="flex items-center gap-1.5 text-slate-500 mb-2">
                             <span class="material-symbols-outlined text-base">repeat</span>
-                            <span class="text-xs font-bold uppercase">Frequency</span>
+                            <span class="text-xs font-bold uppercase">Tần suất</span>
                         </div>
                         <p class="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">${frequency}</p>
-                        <p class="text-xs text-slate-500 mt-0.5">orders</p>
+                        <p class="text-xs text-slate-500 mt-0.5">đơn hàng</p>
                     </div>
                 </div>
 
@@ -308,7 +308,7 @@ export class CustomerProfileModule {
                     <div>
                         <div class="flex items-center gap-1.5 text-success mb-1">
                             <span class="material-symbols-outlined text-base">payments</span>
-                            <span class="text-xs font-bold uppercase">Monetary (LTV)</span>
+                            <span class="text-xs font-bold uppercase">Giá trị (LTV)</span>
                         </div>
                         <p class="text-2xl font-bold text-success tabular-nums">${this.formatCurrency(monetary)}</p>
                     </div>
@@ -330,7 +330,7 @@ export class CustomerProfileModule {
             activitiesHtml = `
                 <div class="flex flex-col items-center justify-center py-10 text-slate-400">
                     <span class="material-symbols-outlined text-4xl mb-3">history</span>
-                    <p class="text-sm font-medium">No activities yet</p>
+                    <p class="text-sm font-medium">Chưa có hoạt động</p>
                 </div>
             `;
         } else {
@@ -351,7 +351,7 @@ export class CustomerProfileModule {
                         <!-- Content -->
                         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
                             <div>
-                                <p class="text-sm font-medium text-slate-900 dark:text-white">${activity.title || activity.description || 'Activity'}</p>
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">${activity.title || activity.description || 'Hoạt động'}</p>
                                 ${activity.details ? `<p class="text-xs text-slate-500 mt-0.5">${activity.details}</p>` : ''}
                             </div>
                             <span class="text-xs text-slate-400 whitespace-nowrap">${timeAgo}</span>
@@ -364,7 +364,7 @@ export class CustomerProfileModule {
         container.innerHTML = `
             <!-- Header -->
             <div class="px-6 py-4 border-b border-border-light dark:border-border-dark flex items-center justify-between">
-                <h3 class="text-base font-bold text-slate-900 dark:text-white">Recent Activities</h3>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Hoạt động gần đây</h3>
                 <button class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
                     <span class="material-symbols-outlined text-xl">filter_list</span>
                 </button>
@@ -384,12 +384,12 @@ export class CustomerProfileModule {
         if (!notes || notes.length === 0) {
             notesHtml = `
                 <div class="text-center py-6 text-slate-400">
-                    <p class="text-sm">No internal notes yet</p>
+                    <p class="text-sm">Chưa có ghi chú nội bộ</p>
                 </div>
             `;
         } else {
             notesHtml = notes.slice(0, 5).map(note => {
-                const date = new Date(note.created_at).toLocaleString('en-US', {
+                const date = new Date(note.created_at).toLocaleString('vi-VN', {
                     month: 'short',
                     day: 'numeric',
                     hour: '2-digit',
@@ -417,7 +417,7 @@ export class CustomerProfileModule {
         container.innerHTML = `
             <h3 class="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                 <span class="material-symbols-outlined text-slate-400">forum</span>
-                Internal Notes
+                Ghi chú nội bộ
             </h3>
             <div class="space-y-4 mb-6 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                 ${notesHtml}
@@ -426,14 +426,14 @@ export class CustomerProfileModule {
                 <div class="relative">
                     <textarea id="new-note-textarea"
                         class="w-full rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px] p-4 pr-28 resize-none placeholder-slate-400"
-                        placeholder="Add an internal note..."></textarea>
+                        placeholder="Thêm ghi chú nội bộ..."></textarea>
                     <div class="absolute bottom-3 right-3 flex gap-2">
-                        <button class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Attach file">
+                        <button class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Đính kèm tệp">
                             <span class="material-symbols-outlined text-xl">attach_file</span>
                         </button>
                         <button id="add-note-btn" class="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
                             <span class="material-symbols-outlined text-lg">send</span>
-                            Add
+                            Thêm
                         </button>
                     </div>
                 </div>
@@ -503,7 +503,7 @@ export class CustomerProfileModule {
 
     _renderTags(tags) {
         if (!tags || tags.length === 0) {
-            return `<span class="text-sm text-slate-400">No tags</span>`;
+            return `<span class="text-sm text-slate-400">Chưa có nhãn</span>`;
         }
         return tags.map(tag => `
             <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium border border-border-light dark:border-border-dark">${tag}</span>
@@ -534,17 +534,17 @@ export class CustomerProfileModule {
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
 
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays === 1) return 'Yesterday';
-        if (diffDays < 7) return `${diffDays} days ago`;
-        return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffDays === 1) return 'Hôm qua';
+        if (diffDays < 7) return `${diffDays} ngày trước`;
+        return date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' });
     }
 
     async _addCustomerNote(content) {
         if (!content || !content.trim()) {
-            alert('Please enter note content.');
+            alert('Vui lòng nhập nội dung ghi chú.');
             return;
         }
 
@@ -560,15 +560,15 @@ export class CustomerProfileModule {
                 // Reload profile to show new note
                 this.render(this.customerPhone);
             } else {
-                alert('Error adding note: ' + (response.error || 'Unknown error'));
+                alert('Lỗi khi thêm ghi chú: ' + (response.error || 'Lỗi không xác định'));
             }
         } catch (error) {
-            alert('Error adding note: ' + error.message);
-            console.error('Add note error:', error);
+            alert('Lỗi khi thêm ghi chú: ' + error.message);
+            console.error('Lỗi thêm ghi chú:', error);
         } finally {
             if (addNoteBtn) {
                 addNoteBtn.disabled = false;
-                addNoteBtn.innerHTML = `<span class="material-symbols-outlined text-lg">send</span> Add`;
+                addNoteBtn.innerHTML = `<span class="material-symbols-outlined text-lg">send</span> Thêm`;
             }
         }
     }
