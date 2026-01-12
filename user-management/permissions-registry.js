@@ -377,25 +377,6 @@ const PAGES_REGISTRY = {
         }
     },
 
-    "customer-management": {
-        id: "customer-management",
-        name: "Quản Lý Khách Hàng",
-        shortName: "Khách Hàng",
-        icon: "user-check",
-        href: "../customer-management/index.html",
-        description: "Quản lý thông tin khách hàng",
-        adminOnly: true,
-        category: "admin",
-        detailedPermissions: {
-            view: { name: "Xem khách hàng", icon: "eye", description: "Xem danh sách KH" },
-            add: { name: "Thêm khách hàng", icon: "user-plus", description: "Thêm KH mới" },
-            edit: { name: "Sửa thông tin", icon: "edit", description: "Chỉnh sửa thông tin KH" },
-            delete: { name: "Xóa khách hàng", icon: "user-minus", description: "Xóa KH khỏi hệ thống" },
-            export: { name: "Xuất danh sách", icon: "download", description: "Export danh sách KH" },
-            viewHistory: { name: "Xem lịch sử", icon: "history", description: "Xem lịch sử mua hàng" }
-        }
-    },
-
     "customer-hub": {
         id: "customer-hub",
         name: "Customer 360°",

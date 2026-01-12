@@ -179,15 +179,6 @@ const MENU_CONFIG = [
         permissionRequired: "balance-history",
     },
     {
-        href: "../customer-management/index.html",
-        icon: "user-check",
-        text: "Quản Lý Khách Hàng",
-        shortText: "Khách Hàng",
-        pageIdentifier: "customer-management",
-        adminOnly: true,
-        permissionRequired: "customer-management",
-    },
-    {
         href: "../invoice-compare/index.html",
         icon: "file-check-2",
         text: "So Sánh Đơn Hàng",

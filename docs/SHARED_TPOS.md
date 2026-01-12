@@ -8,7 +8,7 @@
 |------|---------|
 | `token-manager.js` | orders-report |
 | `tpos-token-manager.js` | tpos-pancake |
-| `api-config.js` | orders-report, tpos-pancake, customer-management |
+| `api-config.js` | orders-report, tpos-pancake, customer-hub |
 
 ---
 

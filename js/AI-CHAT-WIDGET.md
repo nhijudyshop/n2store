@@ -68,7 +68,7 @@ Widget tự động nhận diện loại trang để cung cấp ngữ cảnh cho
 |-------------|------------|-------------------|
 | `order-management`, `hangdat` | `order` | Đơn hàng, thống kê |
 | `sanphamlive`, `product` | `product` | Sản phẩm, số lượng |
-| `customer-management` | `customer` | Thông tin khách hàng |
+| `customer-hub` | `customer` | Thông tin khách hàng |
 | `inventory`, `bangkiemhang` | `inventory` | Kho hàng |
 | `livestream`, `live` | `livestream` | Livestream |
 | `orders-report` | `report` | Báo cáo |

@@ -228,14 +228,6 @@ window.generateFullAdminPermissions = function() {
             export: true,
             adjust: true
         },
-        "customer-management": {
-            view: true,
-            add: true,
-            edit: true,
-            delete: true,
-            export: true,
-            viewHistory: true
-        },
         "invoice-compare": {
             view: true,
             compare: true,

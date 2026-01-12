@@ -172,7 +172,7 @@ const CustomerInfoManager = {
                 console.log('[CUSTOMER-INFO] ✅ Saved to database:', uniqueCode);
 
                 // 🆕 SYNC TO FIREBASE (Phase 1)
-                // After saving to PostgreSQL, sync to Firebase customer-management
+                // After saving to PostgreSQL, sync to Firebase for legacy compatibility
                 await this.syncToFirebase(customerInfo);
 
                 return true;
@@ -188,7 +188,7 @@ const CustomerInfoManager = {
     },
 
     /**
-     * 🆕 Sync customer info to Firebase (for customer-management integration)
+     * 🆕 Sync customer info to Firebase (for legacy compatibility)
      * ONLY maps existing customers - does NOT create new ones
      * @param {Object} customerInfo - Customer information
      * @param {string} customerInfo.name - Customer name
@@ -242,7 +242,7 @@ const CustomerInfoManager = {
                 });
             } else {
                 // Customer NOT found → Only log warning, DO NOT create new
-                console.warn('[CUSTOMER-INFO] ⚠️ Customer not found in Firebase (phone: ' + customerInfo.phone + '). Skipping sync. Customer must be created in customer-management first.');
+                console.warn('[CUSTOMER-INFO] ⚠️ Customer not found in Firebase (phone: ' + customerInfo.phone + '). Skipping sync. Customer must be created in Customer Hub first.');
             }
         } catch (error) {
             console.error('[CUSTOMER-INFO] ❌ Failed to sync to Firebase:', error);

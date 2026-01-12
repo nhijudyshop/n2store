@@ -58,7 +58,7 @@
         if (path.includes('sanphamlive') || path.includes('product') || path.includes('soluong-live')) {
             return 'product';
         }
-        if (path.includes('customer-management')) {
+        if (path.includes('customer-hub') || path.includes('customer-management')) {
             return 'customer';
         }
         if (path.includes('inventory') || path.includes('bangkiemhang')) {

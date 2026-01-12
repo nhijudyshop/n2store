@@ -1866,7 +1866,7 @@ flowchart TD
 ```javascript
 /**
  * Get TPOS bearer token from localStorage
- * Token được lưu bởi orders-report hoặc customer-management page
+ * Token được lưu bởi orders-report hoặc customer-hub page
  * @returns {string|null} - Bearer token or null if not found/expired
  */
 function getTposToken() {

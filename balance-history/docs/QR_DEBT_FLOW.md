@@ -245,7 +245,7 @@ await CustomerInfoManager.saveCustomerInfo(uniqueCode, {
 **Luồng lưu**:
 1. Lưu vào `localStorage` (offline support)
 2. Gọi API `POST /api/sepay/customer-info` lưu vào PostgreSQL
-3. Sync lên Firebase (nếu có) để đồng bộ với customer-management
+3. Sync lên Firebase (nếu có) để đồng bộ với Customer Hub
 
 ### 4.3 Quy trình cập nhật công nợ (Backend)
 
@@ -801,7 +801,7 @@ Server-Sent Events endpoint cho realtime updates.
 |-----------|-------|
 | **Multi-storage** | localStorage + PostgreSQL + Firebase |
 | **Offline-first** | Lưu local trước, sync sau |
-| **Firebase sync** | Đồng bộ với customer-management |
+| **Firebase sync** | Đồng bộ với Customer Hub (customer-hub) |
 | **Realtime SSE** | Push updates tới tất cả clients |
 
 ---

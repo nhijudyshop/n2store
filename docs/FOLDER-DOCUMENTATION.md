@@ -14,7 +14,7 @@
 5. [build-scripts](#5-build-scripts)
 6. [ck](#6-ck)
 7. [cloudflare-worker](#7-cloudflare-worker)
-8. [customer-management](#8-customer-management)
+8. [customer-hub](#8-customer-hub)
 9. [firebase-functions](#9-firebase-functions)
 10. [hangdat](#10-hangdat)
 11. [hanghoan](#11-hanghoan)
@@ -187,23 +187,17 @@ cloudflare-worker/
 
 ---
 
-## 8. customer-management
+## 8. customer-hub
 
-**Mục đích:** Quản lý khách hàng với PostgreSQL migration
+**Mục đích:** Customer 360 - Hệ thống quản lý khách hàng tích hợp (thay thế customer-management cũ)
 
 ### Chức Năng
-- CRUD khách hàng
-- Đồng bộ Firebase ↔ PostgreSQL
-- API config cho multiple backends
-- Delete all customers utility
-
-### Các File Chính
-| File | Mô tả |
-|------|-------|
-| `main.js` | Current main logic |
-| `main-postgres.js` | PostgreSQL version |
-| `main-firebase-backup.js` | Firebase backup version |
-| `api-config.js` | API configuration |
+- Quản lý hồ sơ khách hàng (Customer Profile)
+- Ví tiền ảo (Wallet) với nạp/rút/lịch sử giao dịch
+- Theo dõi công nợ (Debt Tracking)
+- Phân loại khách hàng (RFM Segmentation)
+- Tích hợp với TPOS Partner API
+- Realtime updates qua SSE
 
 ---
 
