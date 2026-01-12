@@ -255,22 +255,13 @@ async function copyPhoneToClipboard(phone, button) {
 }
 
 /**
- * Show notification (uses existing notification system or creates simple one)
+ * Show notification (uses NotificationManager)
  */
 function showNotification(message, type = 'info') {
-    // Try to use existing notification system
-    if (window.NotificationSystem?.show) {
-        window.NotificationSystem.show(message, type);
-        return;
-    }
-
-    // Fallback: simple alert
-    if (type === 'error') {
-        alert('❌ ' + message);
-    } else if (type === 'success') {
-        alert('✅ ' + message);
+    if (window.NotificationManager?.show) {
+        window.NotificationManager.show(message, type);
     } else {
-        alert('ℹ️ ' + message);
+        console.log(`[Notification] ${type}: ${message}`);
     }
 }
 
@@ -1557,7 +1548,7 @@ copyRawDataBtn?.addEventListener('click', async () => {
 
         lucide.createIcons();
     } catch (error) {
-        alert('Lỗi khi copy: ' + error.message);
+        showNotification('Lỗi khi copy: ' + error.message, 'error');
     }
 });
 
@@ -2434,17 +2425,9 @@ async function copyQRUrl(qrUrl) {
 
     const success = await window.QRGenerator.copyQRUrl(qrUrl);
     if (success) {
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Đã copy URL QR code!', 'success');
-        } else {
-            alert('Đã copy URL QR code!');
-        }
+        showNotification('Đã copy URL QR code!', 'success');
     } else {
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Không thể copy URL', 'error');
-        } else {
-            alert('Không thể copy URL');
-        }
+        showNotification('Không thể copy URL', 'error');
     }
 }
 
@@ -2454,17 +2437,9 @@ async function copyUniqueCode(uniqueCode) {
 
     const success = await window.QRGenerator.copyUniqueCode(uniqueCode);
     if (success) {
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification(`Đã copy mã: ${uniqueCode}`, 'success');
-        } else {
-            alert(`Đã copy mã: ${uniqueCode}`);
-        }
+        showNotification(`Đã copy mã: ${uniqueCode}`, 'success');
     } else {
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Không thể copy mã', 'error');
-        } else {
-            alert('Không thể copy mã');
-        }
+        showNotification('Không thể copy mã', 'error');
     }
 }
 
