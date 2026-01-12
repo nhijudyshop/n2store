@@ -2471,29 +2471,63 @@
     <script src="bill-service.js"></script>
     <!-- ⭐ Customer 360° Wallet Integration - Phase 5 -->
     <script src="wallet-integration.js"></script>
-    <!-- ⭐ TAB1 ORDERS - Main file (khôi phục do tách file chưa hoàn chỉnh) -->
-    <script src="tab1-orders.js"></script>
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- ⭐ TAB1 ORDERS - MODULAR ARCHITECTURE (17 files, 445 functions)          -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
 
-    <!--
-    ⚠️ MODULAR ARCHITECTURE - TẠM DỪNG
-    Các file tách chỉ chứa ~45% code, thiếu 123 functions.
-    Cần tách lại hoàn chỉnh trước khi sử dụng.
-
+    <!-- 1. Core: Global state, formatTimeVN, cache (lines 1-278) -->
     <script src="tab1-core.js"></script>
-    <script src="tab1-utils.js"></script>
+
+    <!-- 2. Firebase: Tag sync, KPI, filter prefs (lines 279-749) -->
     <script src="tab1-firebase.js"></script>
+
+    <!-- 3. Init: DOMContentLoaded, app initialization (lines 750-1385) -->
+    <script src="tab1-init.js"></script>
+
+    <!-- 4. Employee: Employee range management (lines 1386-1775) -->
     <script src="tab1-employee.js"></script>
+
+    <!-- 5. Tags: Single tag operations (lines 1776-2854) -->
     <script src="tab1-tags.js"></script>
+
+    <!-- 6. Bulk Tags: Bulk tag add/delete (lines 2855-5240) -->
     <script src="tab1-bulk-tags.js"></script>
+
+    <!-- 7. Search: Table search, campaign loading (lines 5241-6814) -->
     <script src="tab1-search.js"></script>
-    <script src="tab1-campaign.js"></script>
+
+    <!-- 8. Table: Rendering, sorting, row creation (lines 6815-8392) -->
     <script src="tab1-table.js"></script>
+
+    <!-- 9. Edit Modal: Order editing, inline search (lines 8393-10015) -->
     <script src="tab1-edit-modal.js"></script>
+
+    <!-- 10. Chat: Messaging, comments, realtime (lines 10016-16370) -->
     <script src="tab1-chat.js"></script>
-    <script src="tab1-qr-debt.js"></script>
-    <script src="tab1-sale.js"></script>
+
+    <!-- 11. Encoding: Note encoding/decoding (lines 16371-17195) -->
+    <script src="tab1-encoding.js"></script>
+
+    <!-- 12. Chat Products: Quick add, chat products panel (lines 17196-19144) -->
+    <script src="tab1-chat-products.js"></script>
+
+    <!-- 13. Merge: Order merge functions (lines 19145-20743) -->
     <script src="tab1-merge.js"></script>
-    -->
+
+    <!-- 14. Address & Stats: Address lookup, product stats (lines 20744-22045) -->
+    <script src="tab1-address-stats.js"></script>
+
+    <!-- 15. QR & Debt: QR code, VietQR, debt management (lines 22046-23805) -->
+    <script src="tab1-qr-debt.js"></script>
+
+    <!-- 16. Sale: Sale modal, carriers (lines 23806-24974) -->
+    <script src="tab1-sale.js"></script>
+
+    <!-- 17. Fast Sale: Fast sale modal, bill settings (lines 24975-26905) -->
+    <script src="tab1-fast-sale.js"></script>
+
+    <!-- Legacy file (backup - comment out when using modular) -->
+    <!-- <script src="tab1-orders.js"></script> -->
     <!-- Chat Products UI & Actions - separated for easier management -->
     <script src="chat-products-ui.js"></script>
     <script src="chat-products-actions.js"></script>

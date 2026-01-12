@@ -1,622 +1,1760 @@
-/**
- * TAB1-QR-DEBT.JS - QR Code & Debt Management Module
- * Handles QR code generation, debt tracking, payment confirmation
- * Depends on: tab1-core.js
- */
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                   SECTION 17: QR CODE & DEBT FUNCTIONS                      ║
+// ║                            search: #QR-DEBT                                 ║
+// #endregion ════════════════════════════════════════════════════════════════════
 
 // =====================================================
-// QR API CONFIGURATION
+// DEBT (CÔNG NỢ) FUNCTIONS #QR-DEBT
 // =====================================================
-const QR_API_URL = window.SEPAY_API_URL || 'https://n2-node-sepay.glitch.me';
 
-// Debt cache for performance
-const DEBT_CACHE_KEY = 'debt_cache';
+const DEBT_CACHE_KEY = 'orders_phone_debt_cache';
 const DEBT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// =====================================================
-// QR CODE FUNCTIONS
-// =====================================================
-async function showQRModal(orderId, phone, amount) {
-    console.log('[QR] Opening QR modal:', { orderId, phone, amount });
-
-    const modal = document.getElementById('qrModal');
-    const qrContainer = document.getElementById('qrCodeContainer');
-    const qrInfo = document.getElementById('qrInfo');
-
-    if (!modal || !qrContainer) {
-        console.error('[QR] Modal elements not found');
-        return;
-    }
-
-    modal.classList.add('show');
-
-    // Show loading
-    qrContainer.innerHTML = `
-        <div class="qr-loading">
-            <i class="fas fa-spinner fa-spin"></i>
-            <p>Đang tạo mã QR...</p>
-        </div>`;
-
-    try {
-        const normalizedPhone = normalizePhoneForQR(phone);
-
-        if (!normalizedPhone) {
-            throw new Error('Số điện thoại không hợp lệ');
-        }
-
-        // Get bank info from settings or use default
-        const bankInfo = window.BANK_INFO || {
-            bankId: 'MBBank',
-            accountNumber: '0981832233',
-            accountName: 'NHI JUDY SHOP'
-        };
-
-        // Generate QR content
-        const qrData = {
-            bankId: bankInfo.bankId,
-            accountNumber: bankInfo.accountNumber,
-            accountName: bankInfo.accountName,
-            amount: amount || 0,
-            description: `DH ${orderId} - ${normalizedPhone}`
-        };
-
-        // Use VietQR API
-        const qrUrl = `https://img.vietqr.io/image/${qrData.bankId}-${qrData.accountNumber}-print.jpg?amount=${qrData.amount}&addInfo=${encodeURIComponent(qrData.description)}&accountName=${encodeURIComponent(qrData.accountName)}`;
-
-        qrContainer.innerHTML = `
-            <img src="${qrUrl}" alt="QR Code" class="qr-image" onerror="handleQRError(this)">
-            <div class="qr-download-actions">
-                <a href="${qrUrl}" download="QR_${orderId}.jpg" class="btn-download-qr">
-                    <i class="fas fa-download"></i> Tải QR
-                </a>
-                <button class="btn-copy-qr" onclick="copyQRInfo('${qrData.accountNumber}', '${qrData.description}', ${amount})">
-                    <i class="fas fa-copy"></i> Copy TK
-                </button>
-            </div>`;
-
-        if (qrInfo) {
-            qrInfo.innerHTML = `
-                <div class="qr-info-item">
-                    <span class="qr-info-label">Ngân hàng:</span>
-                    <span class="qr-info-value">${bankInfo.bankId}</span>
-                </div>
-                <div class="qr-info-item">
-                    <span class="qr-info-label">Số tài khoản:</span>
-                    <span class="qr-info-value">${bankInfo.accountNumber}</span>
-                </div>
-                <div class="qr-info-item">
-                    <span class="qr-info-label">Chủ tài khoản:</span>
-                    <span class="qr-info-value">${bankInfo.accountName}</span>
-                </div>
-                <div class="qr-info-item">
-                    <span class="qr-info-label">Số tiền:</span>
-                    <span class="qr-info-value">${(amount || 0).toLocaleString('vi-VN')}đ</span>
-                </div>
-                <div class="qr-info-item">
-                    <span class="qr-info-label">Nội dung CK:</span>
-                    <span class="qr-info-value">${qrData.description}</span>
-                </div>`;
-        }
-
-    } catch (error) {
-        console.error('[QR] Error:', error);
-        qrContainer.innerHTML = `
-            <div class="qr-error">
-                <i class="fas fa-exclamation-triangle"></i>
-                <p>Lỗi tạo mã QR</p>
-                <p style="font-size: 12px;">${error.message}</p>
-            </div>`;
-    }
-}
-
-function closeQRModal() {
-    const modal = document.getElementById('qrModal');
-    if (modal) {
-        modal.classList.remove('show');
-    }
-}
-
-function handleQRError(img) {
-    img.style.display = 'none';
-    const parent = img.parentElement;
-    if (parent) {
-        const error = document.createElement('div');
-        error.className = 'qr-error';
-        error.innerHTML = `
-            <i class="fas fa-exclamation-triangle"></i>
-            <p>Không thể tải mã QR</p>`;
-        parent.insertBefore(error, img);
-    }
-}
-
-function copyQRInfo(accountNumber, description, amount) {
-    const text = `STK: ${accountNumber}\nNội dung: ${description}\nSố tiền: ${amount.toLocaleString('vi-VN')}đ`;
-
-    navigator.clipboard.writeText(text).then(() => {
-        if (window.notificationManager) {
-            window.notificationManager.success('Đã copy thông tin chuyển khoản');
-        }
-    }).catch(err => {
-        console.error('[QR] Copy failed:', err);
-        if (window.notificationManager) {
-            window.notificationManager.error('Không thể copy');
-        }
-    });
-}
-
-// =====================================================
-// DEBT MANAGEMENT FUNCTIONS
-// =====================================================
-async function fetchCustomerDebt(phone) {
-    const normalizedPhone = normalizePhoneForQR(phone);
-    if (!normalizedPhone) return null;
-
-    // Check cache first
-    const cached = getCachedDebt(normalizedPhone);
-    if (cached !== null) {
-        return cached;
-    }
-
-    try {
-        const response = await fetch(`${QR_API_URL}/api/sepay/debt/${normalizedPhone}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
-            const debt = data.debt || 0;
-            setCachedDebt(normalizedPhone, debt);
-            return debt;
-        }
-
-        return 0;
-
-    } catch (error) {
-        console.error('[DEBT] Error fetching debt:', error);
-        return null;
-    }
-}
-
-async function updateCustomerDebt(phone, newDebt, oldDebt, reason) {
-    const normalizedPhone = normalizePhoneForQR(phone);
-    if (!normalizedPhone) return false;
-
-    try {
-        const response = await fetch(`${QR_API_URL}/api/sepay/update-debt`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                phone: normalizedPhone,
-                new_debt: newDebt,
-                old_debt: oldDebt,
-                reason: reason || 'Cập nhật công nợ'
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            // Update cache
-            setCachedDebt(normalizedPhone, newDebt);
-
-            // Update table cells
-            updateDebtCellsInTable(normalizedPhone, newDebt);
-
-            return true;
-        }
-
-        return false;
-
-    } catch (error) {
-        console.error('[DEBT] Error updating debt:', error);
-        return false;
-    }
-}
-
-async function fetchDebtHistory(phone) {
-    const normalizedPhone = normalizePhoneForQR(phone);
-    if (!normalizedPhone) return [];
-
-    try {
-        const response = await fetch(`${QR_API_URL}/api/sepay/debt-history/${normalizedPhone}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.history || [];
-
-    } catch (error) {
-        console.error('[DEBT] Error fetching history:', error);
-        return [];
-    }
-}
-
-// =====================================================
-// DEBT CACHE MANAGEMENT
-// =====================================================
+/**
+ * Get debt cache from localStorage
+ * @returns {Object} Cache object { phone: { totalDebt, lastFetched } }
+ */
 function getDebtCache() {
     try {
-        const cached = localStorage.getItem(DEBT_CACHE_KEY);
-        if (cached) {
-            return JSON.parse(cached);
-        }
+        const cache = localStorage.getItem(DEBT_CACHE_KEY);
+        return cache ? JSON.parse(cache) : {};
     } catch (e) {
-        console.warn('[DEBT] Error reading cache:', e);
+        console.error('[DEBT] Error reading cache:', e);
+        return {};
     }
-    return {};
 }
 
+/**
+ * Save debt cache to localStorage
+ * @param {Object} cache - Cache object to save
+ */
 function saveDebtCache(cache) {
     try {
         localStorage.setItem(DEBT_CACHE_KEY, JSON.stringify(cache));
     } catch (e) {
-        console.warn('[DEBT] Error saving cache:', e);
+        console.error('[DEBT] Error saving cache:', e);
     }
 }
 
+/**
+ * Get cached debt for a phone number
+ * @param {string} phone - Phone number
+ * @returns {number|null} Total debt or null if not cached/expired
+ */
 function getCachedDebt(phone) {
-    const cache = getDebtCache();
-    const entry = cache[phone];
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return null;
 
-    if (entry && Date.now() - entry.timestamp < DEBT_CACHE_TTL) {
-        return entry.debt;
+    const cache = getDebtCache();
+    const cached = cache[normalizedPhone];
+
+    if (cached && (Date.now() - cached.lastFetched) < DEBT_CACHE_TTL) {
+        return cached.totalDebt;
     }
 
     return null;
 }
 
-function setCachedDebt(phone, debt) {
+/**
+ * Save debt to cache
+ * @param {string} phone - Phone number
+ * @param {number} totalDebt - Total debt amount
+ */
+function saveDebtToCache(phone, totalDebt) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return;
+
     const cache = getDebtCache();
-    cache[phone] = {
-        debt: debt,
-        timestamp: Date.now()
+    cache[normalizedPhone] = {
+        totalDebt: totalDebt,
+        lastFetched: Date.now()
     };
     saveDebtCache(cache);
 }
 
-function invalidateDebtCache(phone) {
-    const cache = getDebtCache();
-    if (cache[phone]) {
-        delete cache[phone];
-        saveDebtCache(cache);
+/**
+ * Fetch debt from API for a phone number
+ * @param {string} phone - Phone number
+ * @returns {Promise<number>} Total debt
+ */
+async function fetchDebtForPhone(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return 0;
+
+    try {
+        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(normalizedPhone)}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const totalDebt = result.data.total_debt || 0;
+            saveDebtToCache(normalizedPhone, totalDebt);
+            return totalDebt;
+        }
+    } catch (error) {
+        console.error('[DEBT] Error fetching:', error);
+    }
+
+    return 0;
+}
+
+/**
+ * Format currency for display
+ * @param {number} amount - Amount
+ * @returns {string} Formatted string
+ */
+function formatDebtCurrency(amount) {
+    if (!amount || amount === 0) return '0đ';
+    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+}
+
+/**
+ * Render debt column HTML
+ * NOTE: This now only shows cached value or loading spinner.
+ * Actual fetching is done by batchFetchDebts() after table render.
+ * Click opens Customer 360° modal if WalletIntegration is available.
+ * @param {string} phone - Phone number
+ * @returns {string} HTML string for debt column
+ */
+function renderDebtColumn(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+
+    if (!normalizedPhone) {
+        return `<span style="color: #9ca3af;">-</span>`;
+    }
+
+    // Check cache first
+    const cachedDebt = getCachedDebt(normalizedPhone);
+
+    if (cachedDebt !== null) {
+        // Has cached value - display immediately with click to open Customer 360° modal
+        const color = cachedDebt > 0 ? '#10b981' : '#9ca3af';
+        const clickHandler = typeof WalletIntegration !== 'undefined'
+            ? `onclick="WalletIntegration.showWalletModal('${normalizedPhone}'); event.stopPropagation();" style="cursor: pointer;" title="Click để xem chi tiết ví"`
+            : '';
+        return `<span ${clickHandler} style="color: ${color}; font-weight: 500; font-size: 12px;${typeof WalletIntegration !== 'undefined' ? ' cursor: pointer;' : ''}">${formatDebtCurrency(cachedDebt)}</span>`;
+    }
+
+    // No cache - show loading spinner (batchFetchDebts will update this later)
+    // Do NOT call fetchDebtForPhone here to avoid spam!
+    return `<span class="debt-loading" data-phone="${normalizedPhone}" style="color: #9ca3af; font-size: 11px;"><i class="fas fa-spinner fa-spin"></i></span>`;
+}
+
+/**
+ * Update all debt cells with a specific phone number
+ * @param {string} phone - Normalized phone number
+ * @param {number} debt - Debt amount
+ */
+function updateDebtCells(phone, debt) {
+    const color = debt > 0 ? '#10b981' : '#9ca3af';
+    // Add click handler if WalletIntegration is available
+    const clickHandler = typeof WalletIntegration !== 'undefined'
+        ? `onclick="WalletIntegration.showWalletModal('${phone}'); event.stopPropagation();" style="cursor: pointer;" title="Click để xem chi tiết ví"`
+        : '';
+    const html = `<span ${clickHandler} style="color: ${color}; font-weight: 500; font-size: 12px;${typeof WalletIntegration !== 'undefined' ? ' cursor: pointer;' : ''}">${formatDebtCurrency(debt)}</span>`;
+
+    // Find all loading cells with this phone and update them
+    document.querySelectorAll(`.debt-loading[data-phone="${phone}"]`).forEach(cell => {
+        cell.outerHTML = html;
+    });
+}
+
+/**
+ * Batch fetch debts for multiple phones using NEW batch API
+ * Reduces 80 API calls → 1 API call!
+ * @param {Array<string>} phones - Array of phone numbers
+ */
+async function batchFetchDebts(phones) {
+    // Validate input
+    if (!phones || !Array.isArray(phones)) {
+        console.warn('[DEBT-BATCH] Invalid input - phones must be an array');
+        return;
+    }
+
+    const uniquePhones = [...new Set(phones.map(p => normalizePhoneForQR(p)).filter(p => p))];
+    const uncachedPhones = uniquePhones.filter(p => getCachedDebt(p) === null);
+
+    // Double-check before API call to prevent 400 errors
+    if (!Array.isArray(uncachedPhones) || uncachedPhones.length === 0) {
+        console.log('[DEBT-BATCH] No uncached phones to fetch, skipping API call');
+        return;
+    }
+
+    console.log(`[DEBT-BATCH] Fetching ${uncachedPhones.length} phones in ONE request...`);
+
+    try {
+        // Call batch API - ONE request for ALL phones!
+        const requestBody = JSON.stringify({ phones: uncachedPhones });
+        console.log('[DEBT-BATCH] Request body:', requestBody);
+
+        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary-batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: requestBody
+        });
+
+        // Check response status first
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[DEBT-BATCH] ❌ HTTP ${response.status}: ${errorText}`);
+            // Fallback: set all to 0
+            for (const phone of uncachedPhones) {
+                updateDebtCells(phone, 0);
+            }
+            return;
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            console.log(`[DEBT-BATCH] ✅ Received ${result.count || Object.keys(result.data).length} results`);
+
+            // Update cache and UI for all phones
+            for (const [phone, debtData] of Object.entries(result.data)) {
+                const totalDebt = debtData.total_debt || 0;
+                saveDebtToCache(phone, totalDebt);
+                updateDebtCells(phone, totalDebt);
+            }
+
+            // Handle phones that weren't in the response (set to 0)
+            for (const phone of uncachedPhones) {
+                if (!result.data[phone]) {
+                    saveDebtToCache(phone, 0);
+                    updateDebtCells(phone, 0);
+                }
+            }
+        } else {
+            console.error('[DEBT-BATCH] ❌ API error:', result.error);
+            // Fallback: set all to 0
+            for (const phone of uncachedPhones) {
+                updateDebtCells(phone, 0);
+            }
+        }
+    } catch (error) {
+        console.error('[DEBT-BATCH] ❌ Network error:', error);
+        // Fallback: set all to 0
+        for (const phone of uncachedPhones) {
+            updateDebtCells(phone, 0);
+        }
     }
 }
 
+// Make QR and Debt functions globally accessible
+window.copyQRCode = copyQRCode;
+window.getOrCreateQRForPhone = getOrCreateQRForPhone;
+window.renderQRColumn = renderQRColumn;
+window.syncQRFromBalanceHistory = syncQRFromBalanceHistory;
+window.showOrderQRModal = showOrderQRModal;
+window.closeOrderQRModal = closeOrderQRModal;
+window.copyQRCodeFromModal = copyQRCodeFromModal;
+window.copyQRImageUrl = copyQRImageUrl;
+window.renderDebtColumn = renderDebtColumn;
+window.fetchDebtForPhone = fetchDebtForPhone;
+window.batchFetchDebts = batchFetchDebts;
+
 // =====================================================
-// DEBT UI HELPERS
+// REALTIME DEBT UPDATES (SSE)
+// Lắng nghe giao dịch mới để cập nhật công nợ
 // =====================================================
+
+let debtEventSource = null;
+let debtReconnectTimeout = null;
+let isDebtManualClose = false;
+
+/**
+ * Extract phone number from transaction content
+ * Tìm SĐT trong nội dung giao dịch hoặc từ customer-info mapping
+ * @param {Object} transaction - Transaction object
+ * @returns {string|null} Phone number or null
+ */
+function extractPhoneFromTransaction(transaction) {
+    const content = transaction.content || '';
+
+    // Try to find unique code (N2XXXXXXXXXX) in content
+    const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
+
+    if (uniqueCodeMatch) {
+        const uniqueCode = uniqueCodeMatch[0];
+        // Look up phone from QR cache (reverse lookup)
+        const qrCache = getQRCache();
+        for (const [phone, data] of Object.entries(qrCache)) {
+            if (data.uniqueCode === uniqueCode) {
+                return phone;
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Handle new transaction from SSE - update debt
+ * @param {Object} transaction - Transaction data
+ */
+async function handleDebtTransaction(transaction) {
+    // Only care about incoming transactions (deposits)
+    if (transaction.transfer_type !== 'in') return;
+
+    const phone = extractPhoneFromTransaction(transaction);
+
+    if (phone) {
+        console.log(`[DEBT-REALTIME] New transaction for phone ${phone}, refreshing debt...`);
+
+        // Invalidate cache for this phone
+        const cache = getDebtCache();
+        delete cache[phone];
+        saveDebtCache(cache);
+
+        // Re-fetch debt
+        const newDebt = await fetchDebtForPhone(phone);
+
+        // Update all cells in the table
+        updateDebtCellsInTable(phone, newDebt);
+
+        // Show notification
+        showNotification(`Cập nhật công nợ: ${formatDebtCurrency(newDebt)}`, 'info');
+    }
+}
+
+/**
+ * Update debt cells in the orders table
+ * @param {string} phone - Phone number
+ * @param {number} debt - New debt amount
+ */
 function updateDebtCellsInTable(phone, debt) {
-    // Find all cells with matching phone number
-    const rows = document.querySelectorAll('#tableBody tr');
+    const color = debt > 0 ? '#10b981' : '#9ca3af';
+    const html = `<span style="color: ${color}; font-weight: 500; font-size: 12px;">${formatDebtCurrency(debt)}</span>`;
 
-    rows.forEach(row => {
-        const phoneCell = row.querySelector('[data-column="phone"]');
-        const debtCell = row.querySelector('[data-column="debt"]');
-
-        if (phoneCell && debtCell) {
-            const cellPhone = normalizePhoneForQR(phoneCell.textContent);
-            if (cellPhone === phone) {
-                debtCell.textContent = debt > 0 ? `${debt.toLocaleString('vi-VN')}đ` : '-';
-                debtCell.className = debt > 0 ? 'debt-cell has-debt' : 'debt-cell';
+    // Find all debt cells and update those matching this phone
+    document.querySelectorAll('td[data-column="debt"]').forEach(cell => {
+        // Get the phone from the same row
+        const row = cell.closest('tr');
+        if (row) {
+            const phoneCell = row.querySelector('td[data-column="phone"]');
+            if (phoneCell) {
+                const cellPhone = normalizePhoneForQR(phoneCell.textContent.trim());
+                if (cellPhone === phone) {
+                    cell.innerHTML = html;
+                }
             }
         }
     });
 }
 
-function renderDebtBadge(debt) {
-    if (!debt || debt <= 0) return '';
-
-    return `
-        <span class="debt-badge" title="Công nợ: ${debt.toLocaleString('vi-VN')}đ">
-            <i class="fas fa-exclamation-circle"></i>
-            ${debt.toLocaleString('vi-VN')}đ
-        </span>`;
-}
-
-// =====================================================
-// DEBT MODAL
-// =====================================================
-async function showDebtModal(phone, customerName) {
-    const normalizedPhone = normalizePhoneForQR(phone);
-
-    const modal = document.getElementById('debtModal');
-    const modalBody = document.getElementById('debtModalBody');
-    const modalTitle = document.getElementById('debtModalTitle');
-
-    if (!modal || !modalBody) {
-        console.error('[DEBT] Modal elements not found');
-        return;
-    }
-
-    modal.classList.add('show');
-
-    if (modalTitle) {
-        modalTitle.textContent = `Công nợ - ${customerName || phone}`;
-    }
-
-    // Show loading
-    modalBody.innerHTML = `
-        <div class="debt-loading">
-            <i class="fas fa-spinner fa-spin"></i>
-            <p>Đang tải thông tin công nợ...</p>
-        </div>`;
+/**
+ * Connect to SSE endpoint for realtime debt updates
+ */
+function connectDebtRealtime() {
+    if (debtEventSource) return; // Already connected
 
     try {
-        // Fetch debt and history in parallel
-        const [debt, history] = await Promise.all([
-            fetchCustomerDebt(normalizedPhone),
-            fetchDebtHistory(normalizedPhone)
-        ]);
+        console.log('[DEBT-REALTIME] Connecting to SSE endpoint...');
+        debtEventSource = new EventSource(`${QR_API_URL}/api/sepay/stream`);
 
-        const currentDebt = debt || 0;
+        // Connection established
+        debtEventSource.addEventListener('connected', (e) => {
+            console.log('[DEBT-REALTIME] ✅ Connected to SSE');
+        });
 
-        modalBody.innerHTML = `
-            <div class="debt-summary">
-                <div class="debt-current">
-                    <span class="debt-label">Công nợ hiện tại</span>
-                    <span class="debt-amount ${currentDebt > 0 ? 'has-debt' : ''}">${currentDebt.toLocaleString('vi-VN')}đ</span>
-                </div>
-                <div class="debt-actions">
-                    <button class="btn-add-debt" onclick="showAddDebtForm('${normalizedPhone}', ${currentDebt})">
-                        <i class="fas fa-plus"></i> Thêm công nợ
-                    </button>
-                    <button class="btn-pay-debt" onclick="showPayDebtForm('${normalizedPhone}', ${currentDebt})" ${currentDebt <= 0 ? 'disabled' : ''}>
-                        <i class="fas fa-minus"></i> Thanh toán
-                    </button>
-                </div>
-            </div>
+        // New transaction received
+        debtEventSource.addEventListener('new-transaction', (e) => {
+            try {
+                const transaction = JSON.parse(e.data);
+                console.log('[DEBT-REALTIME] New transaction:', transaction.content?.substring(0, 50));
+                handleDebtTransaction(transaction);
+            } catch (err) {
+                console.error('[DEBT-REALTIME] Error parsing transaction:', err);
+            }
+        });
 
-            <div class="debt-form" id="debtForm" style="display: none;">
-                <!-- Form content will be inserted here -->
-            </div>
+        // Connection error
+        debtEventSource.onerror = (error) => {
+            console.error('[DEBT-REALTIME] SSE Error:', error);
 
-            <div class="debt-history">
-                <h4><i class="fas fa-history"></i> Lịch sử công nợ</h4>
-                ${renderDebtHistoryList(history)}
-            </div>`;
+            // Close current connection
+            if (debtEventSource) {
+                debtEventSource.close();
+                debtEventSource = null;
+            }
+
+            // Attempt to reconnect after 10 seconds (if not manually closed)
+            if (!isDebtManualClose) {
+                clearTimeout(debtReconnectTimeout);
+                debtReconnectTimeout = setTimeout(() => {
+                    console.log('[DEBT-REALTIME] Attempting to reconnect...');
+                    connectDebtRealtime();
+                }, 10000);
+            }
+        };
 
     } catch (error) {
-        console.error('[DEBT] Error loading debt modal:', error);
-        modalBody.innerHTML = `
-            <div class="debt-error">
-                <i class="fas fa-exclamation-triangle"></i>
-                <p>Lỗi khi tải thông tin công nợ</p>
-                <p style="font-size: 12px;">${error.message}</p>
-            </div>`;
+        console.error('[DEBT-REALTIME] Failed to connect:', error);
     }
 }
 
-function closeDebtModal() {
-    const modal = document.getElementById('debtModal');
-    if (modal) {
-        modal.classList.remove('show');
+/**
+ * Disconnect from SSE
+ */
+function disconnectDebtRealtime() {
+    isDebtManualClose = true;
+    clearTimeout(debtReconnectTimeout);
+
+    if (debtEventSource) {
+        debtEventSource.close();
+        debtEventSource = null;
+        console.log('[DEBT-REALTIME] Disconnected from SSE');
     }
 }
 
-function renderDebtHistoryList(history) {
-    if (!history || history.length === 0) {
-        return `
-            <div class="debt-history-empty">
-                <i class="fas fa-inbox"></i>
-                <p>Chưa có lịch sử công nợ</p>
-            </div>`;
-    }
+// Auto-connect realtime when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Delay connection to let page load first
+    setTimeout(() => {
+        connectDebtRealtime();
+    }, 3000);
+});
 
-    return `
-        <div class="debt-history-list">
-            ${history.slice(0, 20).map(entry => `
-                <div class="debt-history-item ${entry.amount > 0 ? 'debt-increase' : 'debt-decrease'}">
-                    <div class="debt-history-icon">
-                        <i class="fas ${entry.amount > 0 ? 'fa-arrow-up' : 'fa-arrow-down'}"></i>
-                    </div>
-                    <div class="debt-history-info">
-                        <div class="debt-history-amount ${entry.amount > 0 ? 'positive' : 'negative'}">
-                            ${entry.amount > 0 ? '+' : ''}${entry.amount.toLocaleString('vi-VN')}đ
-                        </div>
-                        <div class="debt-history-reason">${escapeHtml(entry.reason || '-')}</div>
-                        <div class="debt-history-time">${formatDebtTime(entry.timestamp)}</div>
-                    </div>
-                </div>
-            `).join('')}
-        </div>`;
-}
+// =====================================================
+// SALE BUTTON MODAL FUNCTIONS
+// =====================================================
+let currentSaleOrderData = null;
+let currentSalePartnerData = null;
 
-function showAddDebtForm(phone, currentDebt) {
-    const formContainer = document.getElementById('debtForm');
-    if (!formContainer) return;
+// =====================================================
+// DELIVERY CARRIER MANAGEMENT
+// =====================================================
+const DELIVERY_CARRIER_CACHE_KEY = 'tpos_delivery_carriers';
+const DELIVERY_CARRIER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
-    formContainer.style.display = 'block';
-    formContainer.innerHTML = `
-        <div class="debt-form-content">
-            <h4>Thêm công nợ</h4>
-            <div class="form-group">
-                <label>Số tiền</label>
-                <input type="number" id="debtAmount" placeholder="Nhập số tiền" min="0">
-            </div>
-            <div class="form-group">
-                <label>Lý do</label>
-                <input type="text" id="debtReason" placeholder="Nhập lý do">
-            </div>
-            <div class="form-actions">
-                <button class="btn-cancel" onclick="hideDebtForm()">Hủy</button>
-                <button class="btn-confirm" onclick="confirmAddDebt('${phone}', ${currentDebt})">Xác nhận</button>
-            </div>
-        </div>`;
+/**
+ * Get cached delivery carriers from localStorage
+ * @returns {Array|null} Cached carriers or null if expired/not found
+ */
+function getCachedDeliveryCarriers() {
+    try {
+        const cached = localStorage.getItem(DELIVERY_CARRIER_CACHE_KEY);
+        if (!cached) return null;
 
-    document.getElementById('debtAmount')?.focus();
-}
-
-function showPayDebtForm(phone, currentDebt) {
-    const formContainer = document.getElementById('debtForm');
-    if (!formContainer) return;
-
-    formContainer.style.display = 'block';
-    formContainer.innerHTML = `
-        <div class="debt-form-content">
-            <h4>Thanh toán công nợ</h4>
-            <div class="form-group">
-                <label>Số tiền thanh toán (Tối đa: ${currentDebt.toLocaleString('vi-VN')}đ)</label>
-                <input type="number" id="debtAmount" placeholder="Nhập số tiền" min="0" max="${currentDebt}" value="${currentDebt}">
-            </div>
-            <div class="form-group">
-                <label>Lý do</label>
-                <input type="text" id="debtReason" placeholder="Nhập lý do" value="Thanh toán công nợ">
-            </div>
-            <div class="form-actions">
-                <button class="btn-cancel" onclick="hideDebtForm()">Hủy</button>
-                <button class="btn-confirm" onclick="confirmPayDebt('${phone}', ${currentDebt})">Xác nhận</button>
-            </div>
-        </div>`;
-
-    document.getElementById('debtAmount')?.focus();
-}
-
-function hideDebtForm() {
-    const formContainer = document.getElementById('debtForm');
-    if (formContainer) {
-        formContainer.style.display = 'none';
-    }
-}
-
-async function confirmAddDebt(phone, currentDebt) {
-    const amountInput = document.getElementById('debtAmount');
-    const reasonInput = document.getElementById('debtReason');
-
-    const amount = parseFloat(amountInput?.value) || 0;
-    const reason = reasonInput?.value?.trim() || 'Thêm công nợ';
-
-    if (amount <= 0) {
-        if (window.notificationManager) {
-            window.notificationManager.warning('Vui lòng nhập số tiền hợp lệ');
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp > DELIVERY_CARRIER_CACHE_TTL) {
+            localStorage.removeItem(DELIVERY_CARRIER_CACHE_KEY);
+            return null;
         }
+        return data;
+    } catch (e) {
+        console.error('[DELIVERY-CARRIER] Error reading cache:', e);
+        return null;
+    }
+}
+
+/**
+ * Save delivery carriers to localStorage cache
+ * @param {Array} carriers - Array of carrier objects
+ */
+function saveDeliveryCarriersToCache(carriers) {
+    try {
+        localStorage.setItem(DELIVERY_CARRIER_CACHE_KEY, JSON.stringify({
+            data: carriers,
+            timestamp: Date.now()
+        }));
+    } catch (e) {
+        console.error('[DELIVERY-CARRIER] Error saving cache:', e);
+    }
+}
+
+/**
+ * Fetch delivery carriers from TPOS API
+ * @returns {Promise<Array>} Array of delivery carrier objects
+ */
+async function fetchDeliveryCarriers() {
+    // Check cache first
+    const cached = getCachedDeliveryCarriers();
+    if (cached) {
+        console.log('[DELIVERY-CARRIER] Using cached data:', cached.length, 'carriers');
+        return cached;
+    }
+
+    // Get auth token from various possible localStorage keys
+    // Priority: bearer_token_data > auth > tpos_token
+    let token = null;
+    try {
+        // Try bearer_token_data first (most common key used by TPOS)
+        const bearerData = localStorage.getItem('bearer_token_data');
+        if (bearerData) {
+            const parsed = JSON.parse(bearerData);
+            token = parsed.access_token || parsed.AccessToken;
+            console.log('[DELIVERY-CARRIER] Found token in bearer_token_data');
+        }
+
+        // Fallback to auth
+        if (!token) {
+            const authData = localStorage.getItem('auth');
+            if (authData) {
+                const parsed = JSON.parse(authData);
+                token = parsed.AccessToken || parsed.access_token;
+                console.log('[DELIVERY-CARRIER] Found token in auth');
+            }
+        }
+
+        // Fallback to tpos_token
+        if (!token) {
+            const tokenData = localStorage.getItem('tpos_token');
+            if (tokenData) {
+                const parsed = JSON.parse(tokenData);
+                token = parsed.AccessToken || parsed.access_token;
+                console.log('[DELIVERY-CARRIER] Found token in tpos_token');
+            }
+        }
+    } catch (e) {
+        console.error('[DELIVERY-CARRIER] Error parsing auth:', e);
+    }
+
+    if (!token) {
+        console.warn('[DELIVERY-CARRIER] No auth token found in: bearer_token_data, auth, tpos_token');
+        return [];
+    }
+
+    try {
+        // Use Cloudflare Worker proxy to bypass CORS
+        // Proxy: /api/odata/* → tomato.tpos.vn/odata/*
+        const proxyUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/DeliveryCarrier?$format=json&$orderby=DateCreated+desc&$filter=Active+eq+true&$count=true';
+        console.log('[DELIVERY-CARRIER] Fetching from proxy:', proxyUrl);
+
+        const response = await fetch(proxyUrl, {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'authorization': `Bearer ${token}`,
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const carriers = data.value || [];
+
+        console.log('[DELIVERY-CARRIER] Fetched:', carriers.length, 'carriers');
+
+        // Save to cache
+        saveDeliveryCarriersToCache(carriers);
+
+        return carriers;
+    } catch (error) {
+        console.error('[DELIVERY-CARRIER] Error fetching:', error);
+        return [];
+    }
+}
+
+/**
+ * Populate delivery partner dropdown with carriers
+ * @param {string} selectedId - Optional: ID of carrier to select
+ */
+async function populateDeliveryCarrierDropdown(selectedId = null) {
+    console.log('[DELIVERY-CARRIER] populateDeliveryCarrierDropdown called');
+
+    const select = document.getElementById('saleDeliveryPartner');
+    if (!select) {
+        console.error('[DELIVERY-CARRIER] Select element not found!');
         return;
     }
 
-    const newDebt = currentDebt + amount;
+    console.log('[DELIVERY-CARRIER] Found select element, showing loading...');
 
-    const success = await updateCustomerDebt(phone, newDebt, currentDebt, reason);
+    // Show loading
+    select.innerHTML = '<option value="">Đang tải...</option>';
+    select.disabled = true;
 
-    if (success) {
-        if (window.notificationManager) {
-            window.notificationManager.success(`Đã thêm ${amount.toLocaleString('vi-VN')}đ công nợ`);
+    const carriers = await fetchDeliveryCarriers();
+    console.log('[DELIVERY-CARRIER] Got carriers:', carriers.length);
+
+    // Build options
+    let optionsHtml = '<option value="">-- Chọn đối tác giao hàng --</option>';
+    carriers.forEach(carrier => {
+        const fee = carrier.Config_DefaultFee || carrier.FixedPrice || 0;
+        const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
+        const selected = selectedId && carrier.Id == selectedId ? 'selected' : '';
+        optionsHtml += `<option value="${carrier.Id}" data-fee="${fee}" data-name="${carrier.Name}"${selected}>${carrier.Name}${feeText}</option>`;
+    });
+
+    select.innerHTML = optionsHtml;
+    select.disabled = false;
+
+    // Add change event to update shipping fee
+    select.onchange = function () {
+        const selectedOption = this.options[this.selectedIndex];
+        const fee = parseFloat(selectedOption.dataset.fee) || 0;
+        const shippingFeeInput = document.getElementById('saleShippingFee');
+        if (shippingFeeInput) {
+            shippingFeeInput.value = fee;
+            // Trigger recalculation of COD
+            updateSaleCOD();
         }
-        // Refresh modal
-        const customerName = document.getElementById('debtModalTitle')?.textContent?.replace('Công nợ - ', '');
-        await showDebtModal(phone, customerName);
-    } else {
-        if (window.notificationManager) {
-            window.notificationManager.error('Không thể cập nhật công nợ');
-        }
+    };
+
+    // If a carrier was pre-selected, trigger the change event to set fee
+    if (selectedId) {
+        select.dispatchEvent(new Event('change'));
     }
 }
 
-async function confirmPayDebt(phone, currentDebt) {
-    const amountInput = document.getElementById('debtAmount');
-    const reasonInput = document.getElementById('debtReason');
+/**
+ * Update COD based on total amount, shipping fee, and prepaid amount
+ */
+function updateSaleCOD() {
+    const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+    const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
+    const codInput = document.getElementById('saleCOD');
 
-    const amount = parseFloat(amountInput?.value) || 0;
-    const reason = reasonInput?.value?.trim() || 'Thanh toán công nợ';
+    if (codInput) {
+        // COD = Total + Shipping (không trừ prepaid)
+        const cod = totalAmount + shippingFee;
+        codInput.value = cod;
+    }
 
-    if (amount <= 0 || amount > currentDebt) {
-        if (window.notificationManager) {
-            window.notificationManager.warning('Số tiền thanh toán không hợp lệ');
+    // Update remaining balance after COD changes
+    updateSaleRemainingBalance();
+}
+
+/**
+ * Update Remaining Balance (Còn lại) in the modal
+ * Logic:
+ * - If Prepaid >= COD: Remaining = 0
+ * - If Prepaid < COD: Remaining = COD - Prepaid
+ */
+function updateSaleRemainingBalance() {
+    const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    const remainingElement = document.getElementById('saleRemainingBalance');
+
+    if (remainingElement) {
+        let remaining = 0;
+        if (prepaidAmount < codValue) {
+            remaining = codValue - prepaidAmount;
         }
+        // Format the remaining balance
+        remainingElement.textContent = formatNumber(remaining);
+    }
+}
+
+// Export remaining balance function to window for debugging
+window.updateSaleRemainingBalance = updateSaleRemainingBalance;
+
+// Export delivery carrier functions to window for debugging
+window.fetchDeliveryCarriers = fetchDeliveryCarriers;
+window.populateDeliveryCarrierDropdown = populateDeliveryCarrierDropdown;
+window.getCachedDeliveryCarriers = getCachedDeliveryCarriers;
+
+/**
+ * Smart select delivery partner based on customer address
+ * Parses the carrier names to find matching district/ward
+ * @param {string} address - Full customer address string
+ * @param {object} extraAddress - Optional ExtraAddress object with District, Ward, City
+ */
+function smartSelectDeliveryPartner(address, extraAddress = null) {
+    console.log('[SMART-DELIVERY] Starting smart selection...');
+    console.log('[SMART-DELIVERY] Address:', address);
+    console.log('[SMART-DELIVERY] ExtraAddress:', extraAddress);
+
+    const select = document.getElementById('saleDeliveryPartner');
+    if (!select || select.options.length <= 1) {
+        console.log('[SMART-DELIVERY] Dropdown not ready, skipping');
         return;
     }
 
-    const newDebt = currentDebt - amount;
+    // Extract district info from address or ExtraAddress
+    let districtInfo = extractDistrictFromAddress(address, extraAddress);
+    console.log('[SMART-DELIVERY] Extracted district info:', districtInfo);
 
-    const success = await updateCustomerDebt(phone, newDebt, currentDebt, reason);
+    if (!districtInfo) {
+        console.log('[SMART-DELIVERY] Could not extract district, selecting SHIP TỈNH as fallback');
+        selectCarrierByName(select, 'SHIP TỈNH', true);
+        return;
+    }
 
-    if (success) {
+    // Try to find matching carrier based on district
+    const matchedCarrier = findMatchingCarrier(select, districtInfo);
+
+    if (matchedCarrier) {
+        console.log('[SMART-DELIVERY] ✅ Found matching carrier:', matchedCarrier.name);
+        select.value = matchedCarrier.id;
+        select.dispatchEvent(new Event('change'));
+
+        // Show success notification (subtle)
         if (window.notificationManager) {
-            window.notificationManager.success(`Đã thanh toán ${amount.toLocaleString('vi-VN')}đ công nợ`);
+            window.notificationManager.success(`Tự động chọn: ${matchedCarrier.name}`, 2000);
         }
-        // Refresh modal
-        const customerName = document.getElementById('debtModalTitle')?.textContent?.replace('Công nợ - ', '');
-        await showDebtModal(phone, customerName);
     } else {
-        if (window.notificationManager) {
-            window.notificationManager.error('Không thể cập nhật công nợ');
-        }
+        console.log('[SMART-DELIVERY] ⚠️ No matching carrier found, selecting SHIP TỈNH');
+        selectCarrierByName(select, 'SHIP TỈNH', true);
     }
 }
 
-// =====================================================
-// HELPER FUNCTIONS
-// =====================================================
-function normalizePhoneForQR(phone) {
-    if (!phone) return null;
+/**
+ * Extract district information from address string or ExtraAddress object
+ * @returns {object|null} - { districtName, districtNumber, wardName, cityName }
+ */
+function extractDistrictFromAddress(address, extraAddress) {
+    let result = {
+        districtName: null,
+        districtNumber: null,
+        wardName: null,
+        cityName: null,
+        originalText: address
+    };
 
-    // Remove all non-digit characters
-    let normalized = phone.toString().replace(/\D/g, '');
-
-    // Handle Vietnamese phone numbers
-    if (normalized.startsWith('84')) {
-        normalized = '0' + normalized.substring(2);
+    // Try to get structured data from ExtraAddress first
+    if (extraAddress) {
+        if (extraAddress.District?.name) {
+            result.districtName = extraAddress.District.name;
+            // Extract number from district name like "Quận 1", "Quận 12", etc.
+            const numMatch = extraAddress.District.name.match(/(\d+)/);
+            if (numMatch) {
+                result.districtNumber = numMatch[1];
+            }
+        }
+        if (extraAddress.Ward?.name) {
+            result.wardName = extraAddress.Ward.name;
+        }
+        if (extraAddress.City?.name) {
+            result.cityName = extraAddress.City.name;
+        }
     }
 
-    // Validate length
-    if (normalized.length < 9 || normalized.length > 11) {
+    // Also parse from address string as fallback/supplement
+    if (address) {
+        const normalizedAddress = address.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove Vietnamese diacritics for matching
+
+        // Try to match district patterns
+        // "Quận 1", "Q1", "Q.1", "Quan 1", "District 1"
+        const districtPatterns = [
+            /quan\s*(\d+)/i,
+            /q\.?\s*(\d+)/i,
+            /district\s*(\d+)/i
+        ];
+
+        for (const pattern of districtPatterns) {
+            const match = normalizedAddress.match(pattern);
+            if (match) {
+                result.districtNumber = match[1];
+                break;
+            }
+        }
+
+        // Match named districts (without diacritics)
+        const namedDistricts = [
+            { normalized: 'binh chanh', original: 'Bình Chánh' },
+            { normalized: 'binh tan', original: 'Bình Tân' },
+            { normalized: 'binh thanh', original: 'Bình Thạnh' },
+            { normalized: 'go vap', original: 'Gò Vấp' },
+            { normalized: 'phu nhuan', original: 'Phú Nhuận' },
+            { normalized: 'tan binh', original: 'Tân Bình' },
+            { normalized: 'tan phu', original: 'Tân Phú' },
+            { normalized: 'thu duc', original: 'Thủ Đức' },
+            { normalized: 'nha be', original: 'Nhà Bè' },
+            { normalized: 'hoc mon', original: 'Hóc Môn' },
+            { normalized: 'cu chi', original: 'Củ Chi' },
+            { normalized: 'can gio', original: 'Cần Giờ' }
+        ];
+
+        for (const district of namedDistricts) {
+            if (normalizedAddress.includes(district.normalized)) {
+                result.districtName = district.original;
+                break;
+            }
+        }
+    }
+
+    // Return null if we couldn't extract any district info
+    if (!result.districtName && !result.districtNumber) {
         return null;
     }
 
-    return normalized;
+    return result;
 }
 
-function formatDebtTime(timestamp) {
-    if (!timestamp) return '';
+/**
+ * Find matching carrier based on district information
+ * Parses carrier names to find coverage areas in parentheses
+ * @param {HTMLSelectElement} select - The delivery partner dropdown
+ * @param {object} districtInfo - Extracted district information
+ * @returns {object|null} - { id, name } of matching carrier
+ */
+function findMatchingCarrier(select, districtInfo) {
+    console.log('[SMART-DELIVERY] Searching for carrier matching:', districtInfo);
 
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    let bestMatch = null;
+    let bestMatchScore = 0;
 
-    if (diffDays === 0) {
-        return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    } else if (diffDays === 1) {
-        return 'Hôm qua';
-    } else if (diffDays < 7) {
-        return `${diffDays} ngày trước`;
+    for (let i = 0; i < select.options.length; i++) {
+        const option = select.options[i];
+        if (!option.value) continue; // Skip placeholder
+
+        const carrierName = option.dataset.name || option.text;
+
+        // Skip non-matching carriers (GỘP, BÁN HÀNG SHOP)
+        if (carrierName.includes('GỘP') || carrierName === 'BÁN HÀNG SHOP') {
+            continue;
+        }
+
+        // Extract coverage area from carrier name (text in parentheses)
+        const coverageMatch = carrierName.match(/\(([^)]+)\)/);
+        if (!coverageMatch) continue;
+
+        const coverageArea = coverageMatch[1].toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        let matchScore = 0;
+
+        // Check if district number matches
+        if (districtInfo.districtNumber) {
+            // Look for the number in coverage area
+            // Need to be careful: "1" shouldn't match "10" or "11"
+            const districtNum = districtInfo.districtNumber;
+
+            // Pattern to match standalone numbers or numbers at word boundaries
+            // For coverage like "1 3 4 5 6 7 8 10 11" or "Q2-12-Bình Tân"
+            const numPatterns = [
+                new RegExp(`\\b${districtNum}\\b`),           // Word boundary
+                new RegExp(`^${districtNum}\\s`),             // Start of string
+                new RegExp(`\\s${districtNum}\\s`),           // Space surrounded
+                new RegExp(`\\s${districtNum}$`),             // End of string
+                new RegExp(`-${districtNum}-`),               // Dash surrounded
+                new RegExp(`^${districtNum}-`),               // Start with dash
+                new RegExp(`-${districtNum}$`),               // End with dash
+                new RegExp(`q${districtNum}\\b`, 'i'),        // Q prefix (Q9, Q2)
+            ];
+
+            for (const pattern of numPatterns) {
+                if (pattern.test(coverageArea) || pattern.test(carrierName)) {
+                    matchScore = 10;
+                    console.log(`[SMART-DELIVERY] District number ${districtNum} matched in: ${carrierName}`);
+                    break;
+                }
+            }
+        }
+
+        // Check if district name matches
+        if (districtInfo.districtName && matchScore === 0) {
+            const normalizedDistrictName = districtInfo.districtName.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+            if (coverageArea.includes(normalizedDistrictName)) {
+                matchScore = 8;
+                console.log(`[SMART-DELIVERY] District name "${districtInfo.districtName}" matched in: ${carrierName}`);
+            }
+        }
+
+        // Update best match
+        if (matchScore > bestMatchScore) {
+            bestMatchScore = matchScore;
+            bestMatch = {
+                id: option.value,
+                name: carrierName
+            };
+        }
     }
 
-    return date.toLocaleDateString('vi-VN');
+    return bestMatch;
 }
 
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+/**
+ * Select carrier by name pattern (fallback selection)
+ * @param {HTMLSelectElement} select - The delivery partner dropdown
+ * @param {string} namePattern - Name to search for
+ * @param {boolean} showWarning - Whether to show a warning notification
+ */
+function selectCarrierByName(select, namePattern, showWarning = false) {
+    for (let i = 0; i < select.options.length; i++) {
+        const option = select.options[i];
+        const carrierName = option.dataset.name || option.text;
+
+        if (carrierName.includes(namePattern)) {
+            select.value = option.value;
+            select.dispatchEvent(new Event('change'));
+
+            if (showWarning && window.notificationManager) {
+                window.notificationManager.info(
+                    `Không xác định được quận/huyện, đã chọn: ${carrierName}`,
+                    3000
+                );
+            }
+            return true;
+        }
+    }
+    return false;
 }
 
-// =====================================================
-// EXPORTS
-// =====================================================
-window.showQRModal = showQRModal;
-window.closeQRModal = closeQRModal;
-window.handleQRError = handleQRError;
-window.copyQRInfo = copyQRInfo;
-window.fetchCustomerDebt = fetchCustomerDebt;
-window.updateCustomerDebt = updateCustomerDebt;
-window.fetchDebtHistory = fetchDebtHistory;
-window.showDebtModal = showDebtModal;
-window.closeDebtModal = closeDebtModal;
-window.showAddDebtForm = showAddDebtForm;
-window.showPayDebtForm = showPayDebtForm;
-window.hideDebtForm = hideDebtForm;
-window.confirmAddDebt = confirmAddDebt;
-window.confirmPayDebt = confirmPayDebt;
-window.normalizePhoneForQR = normalizePhoneForQR;
-window.renderDebtBadge = renderDebtBadge;
-window.updateDebtCellsInTable = updateDebtCellsInTable;
-window.getDebtCache = getDebtCache;
-window.saveDebtCache = saveDebtCache;
-window.invalidateDebtCache = invalidateDebtCache;
+// Export smart delivery functions for debugging
+window.smartSelectDeliveryPartner = smartSelectDeliveryPartner;
+window.extractDistrictFromAddress = extractDistrictFromAddress;
+window.findMatchingCarrier = findMatchingCarrier;
 
-console.log('[TAB1-QR-DEBT] Module loaded');
+/**
+ * Format currency in Vietnamese style
+ */
+function formatCurrencyVND(amount) {
+    if (!amount && amount !== 0) return '0đ';
+    return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND'
+    }).format(amount);
+}
+
+/**
+ * Open Sale Button Modal and fetch order details from API
+ */
+async function openSaleButtonModal() {
+    console.log('[SALE-MODAL] Opening Sale Button Modal...');
+
+    // Get the selected order ID (should be exactly 1)
+    if (selectedOrderIds.size !== 1) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Vui lòng chọn đúng 1 đơn hàng');
+        }
+        return;
+    }
+
+    const orderId = Array.from(selectedOrderIds)[0];
+    const order = allData.find(o => o.Id === orderId);
+
+    if (!order) {
+        if (window.notificationManager) {
+            window.notificationManager.error('Không tìm thấy đơn hàng');
+        }
+        return;
+    }
+
+    currentSaleOrderData = order;
+    console.log('[SALE-MODAL] Selected order:', order);
+
+    // Show modal with loading state
+    const modal = document.getElementById('saleButtonModal');
+    modal.style.display = 'flex';
+
+    // Check if user is admin and enable/disable Công nợ field accordingly
+    const prepaidAmountField = document.getElementById('salePrepaidAmount');
+    const confirmDebtBtn = document.getElementById('confirmDebtBtn');
+
+    // Check admin access via detailedPermissions
+    const authState = window.authManager ? window.authManager.getAuthState() : null;
+    let isAdmin = authState?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
+        authState?.roleTemplate === 'admin';
+    // Fallback: Check username for admin (legacy support)
+    if (!isAdmin) {
+        const currentUserType = window.authManager?.getCurrentUser?.()?.name || localStorage.getItem('current_user_name') || '';
+        const lowerName = currentUserType.toLowerCase();
+        if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
+            isAdmin = true;
+        }
+    }
+
+    if (prepaidAmountField) {
+        if (isAdmin) {
+            prepaidAmountField.disabled = false;
+            prepaidAmountField.style.background = '#ffffff';
+            if (confirmDebtBtn) confirmDebtBtn.style.display = 'inline-flex';
+            console.log('[SALE-MODAL] Admin detected - Công nợ field enabled with confirm button');
+        } else {
+            prepaidAmountField.disabled = true;
+            prepaidAmountField.style.background = '#f3f4f6';
+            if (confirmDebtBtn) confirmDebtBtn.style.display = 'none';
+        }
+
+        // Add event listener for prepaid amount changes (for admin)
+        prepaidAmountField.oninput = function () {
+            updateSaleRemainingBalance();
+        };
+    }
+
+    // Add event listener for COD input changes
+    const codInput = document.getElementById('saleCOD');
+    if (codInput) {
+        codInput.oninput = function () {
+            updateSaleRemainingBalance();
+        };
+    }
+
+    // Add event listener for shipping fee changes to update COD realtime
+    const shippingFeeInput = document.getElementById('saleShippingFee');
+    if (shippingFeeInput) {
+        shippingFeeInput.oninput = function () {
+            // Recalculate COD when shipping fee changes
+            const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
+            const shippingFee = parseFloat(this.value) || 0;
+            const codInput = document.getElementById('saleCOD');
+            if (codInput) {
+                codInput.value = finalTotal + shippingFee;
+                updateSaleRemainingBalance();
+            }
+        };
+    }
+
+    // Add event listener for discount changes to update totals realtime
+    const discountInput = document.getElementById('saleDiscount');
+    if (discountInput) {
+        discountInput.oninput = function () {
+            // Recalculate totals when discount changes
+            const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+            const totalQuantity = parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
+            updateSaleTotals(totalQuantity, totalAmount);
+        };
+    }
+
+    // Populate basic order data first (from local data)
+    populateSaleModalWithOrder(order);
+
+    // Fetch realtime debt for the phone number (same as debt column in table)
+    const phone = order.Telephone || order.PartnerPhone;
+    if (phone) {
+        fetchDebtForSaleModal(phone);
+    }
+
+    // Populate delivery carrier dropdown (async, with localStorage cache)
+    // Must await to ensure dropdown is ready for smart selection
+    await populateDeliveryCarrierDropdown();
+
+    // Fetch detailed order data from API (includes partner, orderLines)
+    const orderDetails = await fetchOrderDetailsForSale(orderId);
+
+    if (orderDetails) {
+        // Store partner data
+        currentSalePartnerData = orderDetails.partner;
+
+        // Populate partner data
+        if (orderDetails.partner) {
+            populatePartnerData(orderDetails.partner);
+
+            // Smart select delivery partner based on customer address
+            const receiverAddress = document.getElementById('saleReceiverAddress')?.value || '';
+            const extraAddress = orderDetails.partner.ExtraAddress || null;
+            smartSelectDeliveryPartner(receiverAddress, extraAddress);
+        }
+
+        // Populate order lines if available
+        if (orderDetails.orderLines && orderDetails.orderLines.length > 0) {
+            // 🔥 Map SaleOnlineDetailId from orderLine.Id for FastSaleOrder compatibility
+            const mappedOrderLines = orderDetails.orderLines.map(line => ({
+                ...line,
+                SaleOnlineDetailId: line.Id || line.SaleOnlineDetailId || null
+            }));
+            populateSaleOrderLinesFromAPI(mappedOrderLines);
+        }
+    } else {
+        // Fallback: try smart selection with basic order address if no partner details
+        const receiverAddress = order.PartnerAddress || order.Address || '';
+        if (receiverAddress) {
+            smartSelectDeliveryPartner(receiverAddress, null);
+        }
+    }
+
+    // Initialize product search for this modal
+    initSaleProductSearch();
+}
+
+/**
+ * Close Sale Button Modal
+ * @param {boolean} clearSelection - If true, clear checkbox selection and selectedOrderIds
+ */
+function closeSaleButtonModal(clearSelection = false) {
+    const modal = document.getElementById('saleButtonModal');
+    modal.style.display = 'none';
+    currentSaleOrderData = null;
+    currentSalePartnerData = null;
+
+    // Clear selection if requested (after successful order creation)
+    if (clearSelection) {
+        // Clear selectedOrderIds
+        selectedOrderIds.clear();
+
+        // Uncheck all checkboxes in table
+        const checkboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+
+        // Uncheck "Select All" checkbox
+        const selectAllCheckbox = document.getElementById('selectAll');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+        }
+
+        // Update action buttons visibility
+        updateActionButtons();
+    }
+}
+
+/**
+ * Confirm debt update - Admin only
+ * Updates the debt value in the database (customers.debt field on SQL Render)
+ */
+async function confirmDebtUpdate() {
+    const prepaidAmountField = document.getElementById('salePrepaidAmount');
+    const confirmBtn = document.getElementById('confirmDebtBtn');
+
+    if (!prepaidAmountField || !currentSaleOrderData) {
+        if (window.notificationManager) {
+            window.notificationManager.error('Không có dữ liệu để cập nhật');
+        }
+        return;
+    }
+
+    const phone = currentSaleOrderData.Telephone || currentSaleOrderData.PartnerPhone;
+    if (!phone) {
+        if (window.notificationManager) {
+            window.notificationManager.error('Không tìm thấy số điện thoại khách hàng');
+        }
+        return;
+    }
+
+    const newDebt = parseFloat(prepaidAmountField.value) || 0;
+
+    // Show loading state
+    const originalText = confirmBtn?.textContent;
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '...';
+    }
+
+    try {
+        console.log('[DEBT-UPDATE] Updating debt for phone:', phone, 'to:', newDebt);
+
+        const response = await fetch(`${QR_API_URL}/api/sepay/update-debt`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                phone: phone,
+                new_debt: newDebt,
+                reason: 'Admin manual adjustment from Sale Modal'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('[DEBT-UPDATE] ✅ Success:', result);
+            if (window.notificationManager) {
+                window.notificationManager.success(`Đã cập nhật Công nợ: ${newDebt.toLocaleString('vi-VN')}đ`);
+            }
+            // Update the field background to indicate saved
+            prepaidAmountField.style.background = '#d1fae5'; // Light green
+            setTimeout(() => {
+                prepaidAmountField.style.background = '#ffffff';
+            }, 2000);
+
+            // 🔄 REALTIME UPDATE: Invalidate cache and update table cells immediately
+            const normalizedPhone = normalizePhoneForQR(phone);
+            if (normalizedPhone) {
+                // Invalidate debt cache for this phone
+                const cache = getDebtCache();
+                delete cache[normalizedPhone];
+                saveDebtCache(cache);
+                console.log('[DEBT-UPDATE] Cache invalidated for phone:', normalizedPhone);
+
+                // Update debt cells in the orders table immediately
+                updateDebtCellsInTable(normalizedPhone, newDebt);
+                console.log('[DEBT-UPDATE] Table cells updated for phone:', normalizedPhone);
+
+                // Also update "Nợ cũ" display in modal
+                const oldDebtField = document.getElementById('saleOldDebt');
+                if (oldDebtField) {
+                    oldDebtField.textContent = newDebt > 0 ? `${newDebt.toLocaleString('vi-VN')} đ` : '0';
+                }
+            }
+        } else {
+            throw new Error(result.error || 'Failed to update debt');
+        }
+
+    } catch (error) {
+        console.error('[DEBT-UPDATE] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi cập nhật Công nợ: ' + error.message);
+        }
+    } finally {
+        // Restore button state
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = originalText || 'Xác nhận';
+        }
+    }
+}
+
+/**
+ * Switch tabs in Sale Modal
+ */
+function switchSaleTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.sale-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.tab === tabName) {
+            tab.classList.add('active');
+        }
+    });
+
+    // Update tab contents
+    document.querySelectorAll('.sale-tab-content').forEach(content => {
+        content.classList.remove('active');
+        content.style.display = 'none';
+    });
+
+    const activeContent = document.getElementById(`saleTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+    if (activeContent) {
+        activeContent.classList.add('active');
+        activeContent.style.display = 'block';
+    }
+}
+
+/**
+ * Populate modal with order data
+ */
+function populateSaleModalWithOrder(order) {
+    console.log('[SALE-MODAL] Populating order data:', order);
+
+    // Basic info - Update header (moved from Tab "Thông tin")
+    const customerName = order.PartnerName || order.Name || '';
+    document.getElementById('saleCustomerName').textContent = customerName;
+    document.getElementById('saleCustomerNameHeader').textContent = customerName;
+
+    // Customer status (will be updated by API)
+    document.getElementById('saleCustomerStatus').textContent = '';
+    document.getElementById('saleCustomerStatusHeader').textContent = '';
+    document.getElementById('saleLoyaltyPoints').textContent = '0';
+    document.getElementById('saleLoyaltyPointsHeader').textContent = '0';
+    document.getElementById('saleUsedPointsHeader').textContent = '0';
+    document.getElementById('saleRemainingPointsHeader').textContent = '0';
+    document.getElementById('saleOldDebt').textContent = '0';
+
+    // Tab "Thông tin người nhận"
+    document.getElementById('saleReceiverName').value = order.PartnerName || order.Name || '';
+    document.getElementById('saleReceiverPhone').value = order.PartnerPhone || order.Telephone || '';
+    document.getElementById('saleReceiverAddress').value = order.PartnerAddress || order.Address || '';
+    document.getElementById('saleReceiverNote').value = '';
+
+    // Tab "Thông tin giao hàng"
+    // 🔥 FIX: Use proper check to allow 0 value
+    const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
+    const shippingFee = (shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined)
+        ? parseInt(shippingFeeValue)
+        : 35000;
+    const totalAmount = order.TotalAmount || 0;
+
+    // COD = Tổng tiền hàng + phí ship (nếu khách trả ship)
+    document.getElementById('saleCOD').value = totalAmount + shippingFee;
+
+    // Ghi chú giao hàng mặc định
+    const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
+    document.getElementById('saleDeliveryNote').value = order.Comment || defaultDeliveryNote;
+
+    // Giá trị hàng hóa
+    document.getElementById('saleGoodsValue').value = totalAmount;
+
+    // Set delivery date
+    const now = new Date();
+    document.getElementById('saleDeliveryDate').value = formatDateTimeLocal(now);
+    document.getElementById('saleInvoiceDate').textContent = formatDateTimeDisplay(now);
+
+    // Populate order items (products)
+    populateSaleOrderItems(order);
+}
+
+/**
+ * Fetch order details (partner, orderLines) from TPOS API
+ */
+async function fetchOrderDetailsForSale(orderUuid) {
+    console.log('[SALE-MODAL] Fetching order details for UUID:', orderUuid);
+
+    try {
+        // Use tokenManager to get valid token (auto-refreshes if expired)
+        let token;
+        if (window.tokenManager) {
+            token = await window.tokenManager.getToken();
+        } else {
+            // Fallback: try to get from bearer_token_data storage
+            const storedData = localStorage.getItem('bearer_token_data');
+            if (storedData) {
+                const data = JSON.parse(storedData);
+                token = data.access_token;
+            }
+        }
+
+        if (!token) {
+            console.warn('[SALE-MODAL] No auth token found');
+            return null;
+        }
+
+        const response = await fetch('https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetDetails?$expand=orderLines($expand=Product,ProductUOM),partner,warehouse', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'authorization': `Bearer ${token}`,
+                'content-type': 'application/json;charset=UTF-8',
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
+                'x-tpos-lang': 'vi'
+            },
+            body: JSON.stringify({ ids: [orderUuid] })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('[SALE-MODAL] Order details response:', data);
+
+        return data;
+
+    } catch (error) {
+        console.error('[SALE-MODAL] Error fetching order details:', error);
+        if (window.notificationManager) {
+            window.notificationManager.warning('Không thể tải thông tin đơn hàng');
+        }
+        return null;
+    }
+}
+
+/**
+ * Populate partner data into modal
+ */
+function populatePartnerData(partner) {
+    if (!partner) return;
+
+    // Customer info - Update both hidden elements and header
+    const customerName = partner.DisplayName || partner.Name || '';
+    const customerStatus = partner.StatusText || 'Bình thường';
+    const loyaltyPoints = partner.LoyaltyPoints || 0;
+
+    // Hidden elements (for JS compatibility)
+    document.getElementById('saleCustomerName').textContent = customerName;
+    document.getElementById('saleCustomerStatus').textContent = customerStatus;
+    document.getElementById('saleLoyaltyPoints').textContent = loyaltyPoints;
+
+    // Header elements (visible)
+    document.getElementById('saleCustomerNameHeader').textContent = customerName;
+    document.getElementById('saleCustomerStatusHeader').textContent = customerStatus;
+    document.getElementById('saleLoyaltyPointsHeader').textContent = loyaltyPoints;
+    document.getElementById('saleUsedPointsHeader').textContent = '0';
+    document.getElementById('saleRemainingPointsHeader').textContent = loyaltyPoints;
+
+    // NOTE: Prepaid amount (salePrepaidAmount) and Old Debt (saleOldDebt) are now
+    // populated by fetchDebtForSaleModal() using REALTIME debt from balance-history API
+    // instead of TPOS partner.Debit/Credit data. This ensures consistency with
+    // the "Công Nợ" column in the orders table.
+
+    // Receiver info (update if not already set)
+    const receiverName = document.getElementById('saleReceiverName');
+    const receiverPhone = document.getElementById('saleReceiverPhone');
+    const receiverAddress = document.getElementById('saleReceiverAddress');
+
+    if (!receiverName.value) receiverName.value = partner.DisplayName || partner.Name || '';
+    if (!receiverPhone.value) receiverPhone.value = partner.Phone || partner.Mobile || '';
+
+    // Build address from ExtraAddress or FullAddress
+    if (!receiverAddress.value) {
+        let address = partner.FullAddress || partner.Street || '';
+        if (!address && partner.ExtraAddress) {
+            const ea = partner.ExtraAddress;
+            const parts = [ea.Street, ea.Ward?.name, ea.District?.name, ea.City?.name].filter(p => p);
+            address = parts.join(', ');
+        }
+        receiverAddress.value = address;
+    }
+}
+
+/**
+ * Fetch realtime debt for sale modal (same source as debt column in table)
+ * @param {string} phone - Phone number
+ */
+async function fetchDebtForSaleModal(phone) {
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return;
+
+    const prepaidAmountField = document.getElementById('salePrepaidAmount');
+    const oldDebtField = document.getElementById('saleOldDebt');
+
+    // Show loading state
+    if (prepaidAmountField) {
+        prepaidAmountField.value = '...';
+    }
+
+    try {
+        // Use the same API as the debt column in table
+        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(normalizedPhone)}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const totalDebt = result.data.total_debt || 0;
+            console.log('[SALE-MODAL] Realtime debt for phone:', normalizedPhone, '=', totalDebt);
+
+            // Update prepaid amount field
+            if (prepaidAmountField) {
+                prepaidAmountField.value = totalDebt > 0 ? totalDebt : 0;
+            }
+
+            // Also update the "Nợ cũ" display to show realtime debt
+            if (oldDebtField) {
+                oldDebtField.textContent = formatCurrencyVND(totalDebt);
+            }
+
+            // Cache it for later use
+            saveDebtToCache(normalizedPhone, totalDebt);
+
+            // Also update debt column in orders table to keep them in sync
+            updateDebtCellsInTable(normalizedPhone, totalDebt);
+
+            // Update remaining balance after prepaid amount changes
+            updateSaleRemainingBalance();
+        }
+    } catch (error) {
+        console.error('[SALE-MODAL] Error fetching realtime debt:', error);
+        // Fallback to 0 on error
+        if (prepaidAmountField) {
+            prepaidAmountField.value = 0;
+        }
+        // Update remaining balance even on error
+        updateSaleRemainingBalance();
+    }
+}
+
+/**
+ * Populate order items (products) into the modal
+ */
+function populateSaleOrderItems(order) {
+    const container = document.getElementById('saleOrderItems');
+
+    if (!order.Details || order.Details.length === 0) {
+        container.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <i class="fas fa-box-open"></i> Chưa có sản phẩm
+                </td>
+            </tr>
+        `;
+        updateSaleTotals(0, 0);
+        return;
+    }
+
+    let totalQuantity = 0;
+    let totalAmount = 0;
+
+    const itemsHTML = order.Details.map((item, index) => {
+        const qty = item.Quantity || item.ProductUOMQty || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        const total = qty * price;
+
+        totalQuantity += qty;
+        totalAmount += total;
+
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td>
+                    <div class="sale-product-name">${item.ProductNameGet || item.ProductName || ''}</div>
+                    <div style="font-size: 11px; color: #6b7280;">${item.Note || 'Ghi chú'}</div>
+                </td>
+                <td>
+                    <input type="number" class="sale-input" value="${qty}" min="1"
+                        onchange="updateSaleItemQuantity(${index}, this.value)"
+                        style="width: 60px; text-align: center;">
+                </td>
+                <td style="text-align: right;">${formatNumber(price)}</td>
+                <td style="text-align: right;">${formatNumber(total)}</td>
+                <td style="text-align: center;">
+                    <button onclick="removeSaleItem(${index})" style="background: none; border: none; color: #ef4444; cursor: pointer;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = itemsHTML;
+    updateSaleTotals(totalQuantity, totalAmount);
+}
+
+/**
+ * Populate order lines from API response (orderLines with Product, ProductUOM)
+ */
+function populateSaleOrderLinesFromAPI(orderLines) {
+    const container = document.getElementById('saleOrderItems');
+
+    if (!orderLines || orderLines.length === 0) {
+        container.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <i class="fas fa-box-open"></i> Chưa có sản phẩm
+                </td>
+            </tr>
+        `;
+        updateSaleTotals(0, 0);
+        return;
+    }
+
+    // Store order lines for editing
+    currentSaleOrderData.orderLines = orderLines;
+
+    let totalQuantity = 0;
+    let totalAmount = 0;
+
+    const itemsHTML = orderLines.map((item, index) => {
+        const qty = item.ProductUOMQty || item.Quantity || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        const total = qty * price;
+
+        // Get product info from nested Product object or direct field
+        const productName = item.Product?.NameGet || item.ProductName || '';
+        const productNote = item.Note || 'Ghi chú';
+        const productUOM = item.ProductUOMName || item.ProductUOM?.Name || 'Cái';
+
+        // Get product image (prefer thumbnail 128x128, fallback to ImageUrl)
+        const productImage = item.Product?.Thumbnails?.[1] || item.Product?.ImageUrl || '';
+        const imageHTML = productImage
+            ? `<img src="${productImage}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb;">`
+            : `<div style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af;"></i></div>`;
+
+        totalQuantity += qty;
+        totalAmount += total;
+
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        ${imageHTML}
+                        <div>
+                            <div class="sale-product-name">${productName}</div>
+                            <div style="font-size: 11px; color: #6b7280;">${productNote}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <input type="number" class="sale-input" value="${qty}" min="1"
+                        onchange="updateSaleItemQuantityFromAPI(${index}, this.value)"
+                        style="width: 60px; text-align: center;">
+                </td>
+                <td style="text-align: right;">${formatNumber(price)}</td>
+                <td style="text-align: right;">${formatNumber(total)}</td>
+                <td style="text-align: center;">
+                    <button onclick="removeSaleItemFromAPI(${index})" style="background: none; border: none; color: #ef4444; cursor: pointer;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = itemsHTML;
+    updateSaleTotals(totalQuantity, totalAmount);
+}
+
+/**
+ * Update item quantity from API order lines
+ */
+async function updateSaleItemQuantityFromAPI(index, value) {
+    if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
+
+    const oldQty = currentSaleOrderData.orderLines[index].ProductUOMQty || currentSaleOrderData.orderLines[index].Quantity || 1;
+    const newQty = parseInt(value) || 1;
+
+    // Update local data
+    currentSaleOrderData.orderLines[index].ProductUOMQty = newQty;
+    currentSaleOrderData.orderLines[index].Quantity = newQty;
+
+    // Recalculate totals
+    let totalQuantity = 0;
+    let totalAmount = 0;
+
+    currentSaleOrderData.orderLines.forEach(item => {
+        const itemQty = item.ProductUOMQty || item.Quantity || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        totalQuantity += itemQty;
+        totalAmount += itemQty * price;
+    });
+
+    updateSaleTotals(totalQuantity, totalAmount);
+
+    // 🔥 UPDATE ORDER VIA API
+    try {
+        console.log(`[SALE-UPDATE-QTY] Updating quantity ${oldQty} → ${newQty}, calling API...`);
+        await updateSaleOrderWithAPI();
+        console.log('[SALE-UPDATE-QTY] ✅ Order updated successfully via API');
+    } catch (apiError) {
+        console.error('[SALE-UPDATE-QTY] ⚠️ API update failed:', apiError);
+        // Rollback on error
+        currentSaleOrderData.orderLines[index].ProductUOMQty = oldQty;
+        currentSaleOrderData.orderLines[index].Quantity = oldQty;
+        populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
+
+        if (window.notificationManager) {
+            window.notificationManager.error('Không thể cập nhật số lượng. Vui lòng thử lại.');
+        }
+    }
+}
+
+/**
+ * Remove item from API order lines
+ */
+async function removeSaleItemFromAPI(index) {
+    if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
+
+    // Get product info for confirmation
+    const productName = currentSaleOrderData.orderLines[index].Product?.NameGet ||
+        currentSaleOrderData.orderLines[index].ProductName ||
+        'sản phẩm này';
+
+    // Confirm before removing
+    const confirmed = await window.notificationManager.confirm(
+        `Bạn có chắc muốn xóa ${productName}?`,
+        'Xóa sản phẩm'
+    );
+
+    if (!confirmed) return;
+
+    // Backup for rollback
+    const removedItem = currentSaleOrderData.orderLines[index];
+    const removedIndex = index;
+
+    // Remove from local data
+    currentSaleOrderData.orderLines.splice(index, 1);
+    populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
+
+    // 🔥 UPDATE ORDER VIA API
+    try {
+        console.log(`[SALE-REMOVE-PRODUCT] Removing product at index ${index}, calling API...`);
+        await updateSaleOrderWithAPI();
+        console.log('[SALE-REMOVE-PRODUCT] ✅ Order updated successfully via API');
+
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã xóa ${productName}`);
+        }
+    } catch (apiError) {
+        console.error('[SALE-REMOVE-PRODUCT] ⚠️ API update failed:', apiError);
+        // Rollback on error
+        currentSaleOrderData.orderLines.splice(removedIndex, 0, removedItem);
+        populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
+
+        if (window.notificationManager) {
+            window.notificationManager.error('Không thể xóa sản phẩm. Vui lòng thử lại.');
+        }
+    }
+}
+
+/**
+ * Update totals in the modal
+ */
+function updateSaleTotals(quantity, amount) {
+    document.getElementById('saleTotalQuantity').textContent = quantity;
+    document.getElementById('saleTotalAmount').textContent = formatNumber(amount);
+
+    const discount = parseInt(document.getElementById('saleDiscount').value) || 0;
+    const finalTotal = amount - discount;
+    document.getElementById('saleFinalTotal').textContent = formatNumber(finalTotal);
+
+    // Update COD = Tổng tiền hàng + Phí ship
+    // 🔥 FIX: Use proper check to allow 0 value (0 is valid, empty is not)
+    const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
+    const shippingFee = (shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined)
+        ? parseInt(shippingFeeValue)
+        : 0;
+    document.getElementById('saleCOD').value = finalTotal + shippingFee;
+
+    // Update Giá trị hàng hóa
+    document.getElementById('saleGoodsValue').value = finalTotal;
+
+    // Update remaining balance after COD changes
+    updateSaleRemainingBalance();
+}
+
+/**
+ * Update item quantity
+ */
+function updateSaleItemQuantity(index, value) {
+    if (!currentSaleOrderData || !currentSaleOrderData.Details) return;
+
+    const qty = parseInt(value) || 1;
+    currentSaleOrderData.Details[index].Quantity = qty;
+
+    // Recalculate totals
+    let totalQuantity = 0;
+    let totalAmount = 0;
+
+    currentSaleOrderData.Details.forEach(item => {
+        const itemQty = item.Quantity || item.ProductUOMQty || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        totalQuantity += itemQty;
+        totalAmount += itemQty * price;
+    });
+
+    updateSaleTotals(totalQuantity, totalAmount);
+}
+
+/**
+ * Remove item from order
+ */
+function removeSaleItem(index) {
+    if (!currentSaleOrderData || !currentSaleOrderData.Details) return;
+
+    currentSaleOrderData.Details.splice(index, 1);
+    populateSaleOrderItems(currentSaleOrderData);
+}
+
+/**
+ * Format date for datetime-local input
+ */
+function formatDateTimeLocal(date) {
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/**
+ * Format date for display
+ */
+function formatDateTimeDisplay(date) {
+    return date.toLocaleString('vi-VN');
+}
+
+/**
+ * Format number with thousand separator
+ */
+function formatNumber(num) {
+    return (num || 0).toLocaleString('vi-VN');
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function (e) {
+    const modal = document.getElementById('saleButtonModal');
+    if (e.target === modal) {
+        closeSaleButtonModal();
+    }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('saleButtonModal');
+        if (modal && modal.style.display === 'flex') {
+            closeSaleButtonModal();
+        }
+    }
+});
+
+// Disconnect when page unloads and cleanup held products
+window.addEventListener('beforeunload', () => {
+    disconnectDebtRealtime();
+
+    // Cleanup held products for current user
+    if (typeof window.cleanupHeldProductsSync === 'function') {
+        window.cleanupHeldProductsSync();
+    }
+
+    // Cleanup held products listener
+    if (typeof window.cleanupHeldProductsListener === 'function') {
+        window.cleanupHeldProductsListener();
+    }
+});
+
+// Export realtime functions
+window.connectDebtRealtime = connectDebtRealtime;
+window.disconnectDebtRealtime = disconnectDebtRealtime;
+

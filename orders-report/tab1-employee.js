@@ -1,16 +1,11 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════════════════╗
- * ║                           TAB1-EMPLOYEE.JS                                    ║
- * ║                   Employee Range Management                                   ║
- * ╠══════════════════════════════════════════════════════════════════════════════╣
- * ║  Module quản lý phân chia STT cho nhân viên                                  ║
- * ╚══════════════════════════════════════════════════════════════════════════════╝
- */
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                   SECTION 4: EMPLOYEE RANGE MANAGEMENT                      ║
+// ║                            search: #EMPLOYEE                                ║
+// #endregion ════════════════════════════════════════════════════════════════════
 
 // =====================================================
-// EMPLOYEE RANGE MANAGEMENT FUNCTIONS
+// EMPLOYEE RANGE MANAGEMENT FUNCTIONS #EMPLOYEE
 // =====================================================
-
 async function loadAndRenderEmployeeTable() {
     try {
         // Initialize user loader
@@ -37,7 +32,6 @@ async function loadAndRenderEmployeeTable() {
 
 function renderEmployeeTable(users) {
     const tbody = document.getElementById('employeeAssignmentBody');
-    const employeeRanges = window.tab1State.employeeRanges;
 
     // Use global employeeRanges which is synced from Firebase
     let savedRanges = {};
@@ -93,7 +87,6 @@ function sanitizeCampaignName(campaignName) {
 }
 
 function applyEmployeeRanges() {
-    const database = window.tab1State.database;
     const inputs = document.querySelectorAll('.employee-range-input');
     const rangesMap = {};
 
@@ -197,7 +190,6 @@ function applyEmployeeRanges() {
 }
 
 function getEmployeeName(stt) {
-    const employeeRanges = window.tab1State.employeeRanges;
     if (!stt || employeeRanges.length === 0) return null;
 
     const sttNum = parseInt(stt);
@@ -270,7 +262,11 @@ function toggleControlBar() {
         const isHidden = controlBar.style.display === 'none';
 
         if (isHidden) {
+            controlBar.style.display = 'flex'; // Or 'block' depending on layout, but flex is used in inline style in html sometimes. Let's check original css. 
+            // The original div.filter-section likely has display: flex in CSS. 
+            // Let's assume removing style.display will revert to CSS class definition, or set to '' to clear inline style.
             controlBar.style.display = '';
+
             btn.innerHTML = '<i class="fas fa-sliders-h"></i> Ẩn bộ lọc';
         } else {
             controlBar.style.display = 'none';
@@ -319,8 +315,6 @@ function normalizeEmployeeRanges(data) {
 }
 
 function loadEmployeeRangesForCampaign(campaignName = null) {
-    const database = window.tab1State.database;
-
     if (!database) {
         console.log('[EMPLOYEE] Database not initialized');
         return Promise.resolve();
@@ -338,15 +332,15 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
                 const normalized = normalizeEmployeeRanges(data);
 
                 if (normalized.length > 0) {
-                    window.tab1State.employeeRanges = normalized;
-                    console.log(`[EMPLOYEE] ✅ Loaded ${normalized.length} ranges for campaign: ${campaignName}`);
+                    employeeRanges = normalized;
+                    console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`);
                 } else {
                     // If no campaign-specific ranges found, fall back to general config
                     console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
                     return database.ref('settings/employee_ranges').once('value')
                         .then((snapshot) => {
-                            window.tab1State.employeeRanges = normalizeEmployeeRanges(snapshot.val());
-                            console.log(`[EMPLOYEE] ✅ Loaded ${window.tab1State.employeeRanges.length} ranges from general config (fallback)`);
+                            employeeRanges = normalizeEmployeeRanges(snapshot.val());
+                            console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`);
                         });
                 }
 
@@ -365,8 +359,8 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
 
         return database.ref('settings/employee_ranges').once('value')
             .then((snapshot) => {
-                window.tab1State.employeeRanges = normalizeEmployeeRanges(snapshot.val());
-                console.log(`[EMPLOYEE] ✅ Loaded ${window.tab1State.employeeRanges.length} ranges from general config`);
+                employeeRanges = normalizeEmployeeRanges(snapshot.val());
+                console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config`);
 
                 // Update employee table if drawer is open
                 const drawer = document.getElementById('employeeDrawer');
@@ -381,36 +375,16 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
 }
 
 function syncEmployeeRanges() {
-    const database = window.tab1State.database;
     if (!database) return;
 
     const rangesRef = database.ref('settings/employee_ranges');
     rangesRef.on('value', (snapshot) => {
         const data = snapshot.val();
-        window.tab1State.employeeRanges = normalizeEmployeeRanges(data);
-        console.log(`[EMPLOYEE] Synced ${window.tab1State.employeeRanges.length} ranges from Firebase`);
+        employeeRanges = normalizeEmployeeRanges(data);
+        console.log(`[EMPLOYEE] Synced ${employeeRanges.length} ranges from Firebase`);
 
         // Re-apply filter to current view
-        if (typeof performTableSearch === 'function') {
-            performTableSearch();
-        }
+        performTableSearch();
     });
 }
 
-// =====================================================
-// EXPORT FUNCTIONS
-// =====================================================
-window.loadAndRenderEmployeeTable = loadAndRenderEmployeeTable;
-window.renderEmployeeTable = renderEmployeeTable;
-window.sanitizeCampaignName = sanitizeCampaignName;
-window.applyEmployeeRanges = applyEmployeeRanges;
-window.getEmployeeName = getEmployeeName;
-window.populateEmployeeCampaignSelector = populateEmployeeCampaignSelector;
-window.toggleEmployeeDrawer = toggleEmployeeDrawer;
-window.toggleControlBar = toggleControlBar;
-window.checkAdminPermission = checkAdminPermission;
-window.normalizeEmployeeRanges = normalizeEmployeeRanges;
-window.loadEmployeeRangesForCampaign = loadEmployeeRangesForCampaign;
-window.syncEmployeeRanges = syncEmployeeRanges;
-
-console.log('[TAB1-EMPLOYEE] Module loaded successfully');

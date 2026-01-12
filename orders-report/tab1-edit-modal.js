@@ -1,75 +1,37 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════════════════╗
- * ║                        TAB1-EDIT-MODAL.JS                                    ║
- * ║              Edit Order Modal & Product Management                           ║
- * ╠══════════════════════════════════════════════════════════════════════════════╣
- * ║  Module chứa các function liên quan đến modal sửa đơn hàng:                  ║
- * ║  - Edit modal initialization & lifecycle                                     ║
- * ║  - Tab switching & content rendering                                         ║
- * ║  - Product editing (quantity, note, remove, price)                           ║
- * ║  - Inline product search                                                     ║
- * ║  - Address lookup                                                            ║
- * ║  - Save order changes                                                        ║
- * ╚══════════════════════════════════════════════════════════════════════════════╝
- *
- * Dependencies: tab1-core.js
- * Exports: Edit modal functions via window object
- */
-
-// =====================================================
-// MODULE STATE
-// =====================================================
-
-// Use state from tab1-core.js via window.tab1State
-let currentEditOrderId = null;
 let hasUnsavedOrderChanges = false;
-let inlineSearchTimeout = null;
 
-// Reference to currentEditOrderData from core module
-// This is managed by window.tab1State.currentEditOrderData
+// Toggle merged order edit dropdown
+function toggleMergedEditDropdown(button, event) {
+    event.stopPropagation();
+    const dropdown = button.parentElement;
+    const options = dropdown.querySelector('.merged-edit-options');
 
-// =====================================================
-// EDIT MODAL INITIALIZATION (IIFE)
-// =====================================================
-(function initEditModal() {
-    if (document.getElementById("editOrderModal")) return;
-    const modalHTML = `
-        <div id="editOrderModal" class="edit-modal">
-            <div class="edit-modal-content">
-                <div class="edit-modal-header">
-                    <h3><i class="fas fa-edit"></i> Sửa đơn hàng <span class="order-code" id="modalOrderCode">...</span></h3>
-                    <button class="edit-modal-close" onclick="closeEditModal()"><i class="fas fa-times"></i></button>
-                </div>
-                <div class="edit-tabs">
-                    <button class="edit-tab-btn active" onclick="switchEditTab('info')"><i class="fas fa-user"></i> Thông tin liên hệ</button>
-                    <button class="edit-tab-btn" onclick="switchEditTab('products')"><i class="fas fa-box"></i> Sản phẩm (<span id="productCount">0</span>)</button>
-                    <button class="edit-tab-btn" onclick="switchEditTab('delivery')"><i class="fas fa-shipping-fast"></i> Thông tin giao hàng</button>
-                    <button class="edit-tab-btn" onclick="switchEditTab('live')"><i class="fas fa-video"></i> Lịch sử đơn live</button>
-                    <button class="edit-tab-btn" onclick="switchEditTab('invoices')"><i class="fas fa-file-invoice-dollar"></i> Thông tin hóa đơn</button>
-                    <button class="edit-tab-btn" onclick="switchEditTab('invoice_history')"><i class="fas fa-history"></i> Lịch sử hóa đơn</button>
-                    <button class="edit-tab-btn" onclick="switchEditTab('history')"><i class="fas fa-clock"></i> Lịch sử chỉnh sửa</button>
-                </div>
-                <div class="edit-modal-body" id="editModalBody"><div class="loading-state"><div class="loading-spinner"></div></div></div>
-                <div class="edit-modal-footer">
-                    <div class="modal-footer-left"><i class="fas fa-info-circle"></i> Cập nhật lần cuối: <span id="lastUpdated">...</span></div>
-                    <div class="modal-footer-right">
-                        <button class="btn-modal btn-modal-print" onclick="printOrder()"><i class="fas fa-print"></i> In đơn</button>
-                        <button class="btn-modal btn-modal-cancel" onclick="closeEditModal()"><i class="fas fa-times"></i> Đóng</button>
-                        <button class="btn-modal btn-modal-save" onclick="saveAllOrderChanges()"><i class="fas fa-save"></i> Lưu tất cả thay đổi</button>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-    document.body.insertAdjacentHTML("beforeend", modalHTML);
-})();
+    // Close all other dropdowns first
+    document.querySelectorAll('.merged-edit-options').forEach(opt => {
+        if (opt !== options) opt.style.display = 'none';
+    });
 
-// =====================================================
-// OPEN/CLOSE EDIT MODAL
-// =====================================================
+    // Toggle this dropdown
+    options.style.display = options.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close all merged edit dropdowns
+function closeMergedEditDropdown() {
+    document.querySelectorAll('.merged-edit-options').forEach(opt => {
+        opt.style.display = 'none';
+    });
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.merged-edit-dropdown')) {
+        closeMergedEditDropdown();
+    }
+});
 
 async function openEditModal(orderId) {
     currentEditOrderId = orderId;
-    hasUnsavedOrderChanges = false;
+    hasUnsavedOrderChanges = false; // Reset dirty flag
     const modal = document.getElementById("editOrderModal");
     modal.classList.add("show");
     switchEditTab("info");
@@ -82,40 +44,8 @@ async function openEditModal(orderId) {
     }
 }
 
-function closeEditModal() {
-    if (hasUnsavedOrderChanges) {
-        window.notificationManager.confirm(
-            "Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng không?",
-            "Cảnh báo"
-        ).then(result => {
-            if (result) {
-                forceCloseEditModal();
-            }
-        });
-        return;
-    }
-    forceCloseEditModal();
-}
-
-function forceCloseEditModal() {
-    document.getElementById("editOrderModal").classList.remove("show");
-    window.tab1State.currentEditOrderData = null;
-    currentEditOrderId = null;
-    hasUnsavedOrderChanges = false;
-}
-
-function showErrorState(message) {
-    document.getElementById("editModalBody").innerHTML =
-        `<div class="empty-state" style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i><p>Lỗi: ${message}</p><button class="btn-primary" onclick="fetchOrderData('${currentEditOrderId}')">Thử lại</button></div>`;
-}
-
-function printOrder() {
-    window.print();
-}
-
-// =====================================================
-// FETCH ORDER DATA
-// =====================================================
+// Export to window for use in discount stats UI
+window.openEditModal = openEditModal;
 
 async function fetchOrderData(orderId) {
     const headers = await window.tokenManager.getAuthHeader();
@@ -129,9 +59,8 @@ async function fetchOrderData(orderId) {
     });
     if (!response.ok)
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    const data = await response.json();
-    window.tab1State.currentEditOrderData = data;
-    updateModalWithData(data);
+    currentEditOrderData = await response.json();
+    updateModalWithData(currentEditOrderData);
 }
 
 function updateModalWithData(data) {
@@ -143,15 +72,12 @@ function updateModalWithData(data) {
         data.Details?.length || 0;
     switchEditTab("info");
 
-    // Refresh inline search UI after data is loaded
+    // 🔄 Refresh inline search UI after data is loaded
+    // Use setTimeout to ensure DOM is ready
     setTimeout(() => {
         refreshInlineSearchUI();
     }, 100);
 }
-
-// =====================================================
-// TAB SWITCHING
-// =====================================================
 
 function switchEditTab(tabName) {
     document
@@ -167,7 +93,6 @@ function switchEditTab(tabName) {
 
 function renderTabContent(tabName) {
     const body = document.getElementById("editModalBody");
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
     if (!currentEditOrderData) {
         body.innerHTML = `<div class="loading-state"><div class="loading-spinner"></div></div>`;
         return;
@@ -186,10 +111,6 @@ function renderTabContent(tabName) {
         : `<div class="empty-state"><p>Tab không tồn tại</p></div>`;
 }
 
-// =====================================================
-// TAB RENDERERS
-// =====================================================
-
 function renderInfoTab(data) {
     return `
         <div class="info-card">
@@ -199,16 +120,16 @@ function renderInfoTab(data) {
                 <div class="info-field">
                     <div class="info-label">Điện thoại</div>
                     <div class="info-value">
-                        <input type="text" class="form-control" value="${data.Telephone || ""}"
-                            onchange="updateOrderInfo('Telephone', this.value)"
+                        <input type="text" class="form-control" value="${data.Telephone || ""}" 
+                            onchange="updateOrderInfo('Telephone', this.value)" 
                             style="width: 100%; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;">
                     </div>
                 </div>
                 <div class="info-field" style="grid-column: 1 / -1;">
                     <div class="info-label">Địa chỉ đầy đủ</div>
                     <div class="info-value">
-                        <textarea class="form-control"
-                            onchange="updateOrderInfo('Address', this.value)"
+                        <textarea class="form-control" 
+                            onchange="updateOrderInfo('Address', this.value)" 
                             style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; min-height: 60px; resize: vertical;">${data.Address || ""}</textarea>
                     </div>
                 </div>
@@ -216,7 +137,7 @@ function renderInfoTab(data) {
                     <div class="info-label" style="color: #2563eb; font-weight: 600;">Tra cứu địa chỉ</div>
                     <div class="info-value">
                         <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                            <input type="text" id="fullAddressLookupInput" class="form-control" placeholder="Nhập địa chỉ đầy đủ (VD: 28/6 phạm văn chiêu...)"
+                            <input type="text" id="fullAddressLookupInput" class="form-control" placeholder="Nhập địa chỉ đầy đủ (VD: 28/6 phạm văn chiêu...)" 
                                 style="flex: 1; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px;"
                                 onkeydown="if(event.key === 'Enter') handleFullAddressLookup()">
                             <button type="button" class="btn-primary" onclick="handleFullAddressLookup()" style="padding: 6px 12px; background: #059669; color: white; border: none; border-radius: 4px; cursor: pointer;">
@@ -224,6 +145,7 @@ function renderInfoTab(data) {
                             </button>
                         </div>
                         <div id="addressLookupResults" style="display: none; border: 1px solid #e5e7eb; border-radius: 4px; max-height: 400px; overflow-y: auto; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                            <!-- Results will be populated here -->
                         </div>
                     </div>
                 </div>
@@ -244,14 +166,13 @@ function renderInfoTab(data) {
 }
 
 function updateOrderInfo(field, value) {
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
     if (!currentEditOrderData) return;
     currentEditOrderData[field] = value;
-    window.tab1State.currentEditOrderData = currentEditOrderData;
-    hasUnsavedOrderChanges = true;
+    hasUnsavedOrderChanges = true; // Set dirty flag
 
+    // Show quick feedback
     if (window.showSaveIndicator) {
-        window.showSaveIndicator("success", "Đã cập nhật thông tin (chưa lưu)");
+        showSaveIndicator("success", "Đã cập nhật thông tin (chưa lưu)");
     } else if (window.notificationManager) {
         window.notificationManager.show("Đã cập nhật thông tin (chưa lưu)", "info");
     }
@@ -300,8 +221,8 @@ function renderProductsTab(data) {
 function renderDeliveryTab(data) {
     return `<div class="empty-state"><p>Thông tin giao hàng</p></div>`;
 }
-
 function renderLiveTab(data) {
+    // Display live stream information if available
     const liveInfo = data.CRMTeam || {};
     const hasLiveInfo = liveInfo && liveInfo.Name;
 
@@ -350,8 +271,8 @@ function renderLiveTab(data) {
         </div>
     `;
 }
-
 function renderInvoicesTab(data) {
+    // Display invoice/payment information
     const hasInvoice = data.InvoiceNumber || data.InvoiceDate;
 
     return `
@@ -398,7 +319,7 @@ function renderInvoicesTab(data) {
                 </div>
             </div>
         </div>
-
+        
         ${data.PaymentMethod ? `
         <div class="info-card">
             <h4><i class="fas fa-credit-card"></i> Phương thức thanh toán</h4>
@@ -416,7 +337,7 @@ function renderInvoicesTab(data) {
             </div>
         </div>
         ` : ''}
-
+        
         ${!hasInvoice ? `
         <div class="empty-state">
             <i class="fas fa-file-invoice" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
@@ -425,8 +346,8 @@ function renderInvoicesTab(data) {
         ` : ''}
     `;
 }
-
-function renderHistoryTab(data) {
+async function renderHistoryTab(data) {
+    // Show loading state initially
     const loadingHTML = `
         <div class="loading-state">
             <div class="loading-spinner"></div>
@@ -434,6 +355,7 @@ function renderHistoryTab(data) {
         </div>
     `;
 
+    // Return loading first, then fetch data
     setTimeout(async () => {
         try {
             await fetchAndDisplayAuditLog(data.Id);
@@ -455,7 +377,7 @@ function renderHistoryTab(data) {
     return loadingHTML;
 }
 
-function renderInvoiceHistoryTab(data) {
+async function renderInvoiceHistoryTab(data) {
     const loadingHTML = `
         <div class="loading-state">
             <div class="loading-spinner"></div>
@@ -463,6 +385,7 @@ function renderInvoiceHistoryTab(data) {
         </div>
     `;
 
+    // Return loading first, then fetch data
     setTimeout(async () => {
         try {
             const partnerId = data.PartnerId || (data.Partner && data.Partner.Id);
@@ -488,34 +411,8 @@ function renderInvoiceHistoryTab(data) {
     return loadingHTML;
 }
 
-// =====================================================
-// FETCH HISTORY DATA
-// =====================================================
-
-async function fetchAndDisplayAuditLog(orderId) {
-    const headers = await window.tokenManager.getAuthHeader();
-    const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=SaleOnline_Order&entityId=${orderId}&skip=0&take=50`;
-
-    console.log('[AUDIT LOG] Fetching audit log for order:', orderId);
-
-    const response = await API_CONFIG.smartFetch(apiUrl, {
-        headers: {
-            ...headers,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const auditData = await response.json();
-    console.log('[AUDIT LOG] Received audit log:', auditData);
-    document.getElementById('editModalBody').innerHTML = renderAuditLogTimeline(auditData.value || []);
-}
-
 async function fetchAndDisplayInvoiceHistory(partnerId) {
+    // Calculate date range (last 30 days)
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 30);
@@ -590,6 +487,31 @@ function renderInvoiceHistoryTable(invoices) {
     `;
 }
 
+async function fetchAndDisplayAuditLog(orderId) {
+    const headers = await window.tokenManager.getAuthHeader();
+    const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=SaleOnline_Order&entityId=${orderId}&skip=0&take=50`;
+
+    console.log('[AUDIT LOG] Fetching audit log for order:', orderId);
+
+    const response = await API_CONFIG.smartFetch(apiUrl, {
+        headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const auditData = await response.json();
+    console.log('[AUDIT LOG] Received audit log:', auditData);
+
+    // Display the audit log
+    document.getElementById('editModalBody').innerHTML = renderAuditLogTimeline(auditData.value || []);
+}
+
 function renderAuditLogTimeline(auditLogs) {
     if (auditLogs.length === 0) {
         return `
@@ -601,6 +523,7 @@ function renderAuditLogTimeline(auditLogs) {
         `;
     }
 
+    // Map action to icon and color
     const actionConfig = {
         'CREATE': { icon: 'plus-circle', color: '#3b82f6', label: 'Tạo mới' },
         'UPDATE': { icon: 'edit', color: '#8b5cf6', label: 'Cập nhật' },
@@ -667,7 +590,7 @@ function renderAuditLogTimeline(auditLogs) {
     }).join('')}
             </div>
         </div>
-
+        
         <div class="audit-summary">
             <h4><i class="fas fa-chart-bar"></i> Thống kê</h4>
             <div class="audit-stats">
@@ -693,41 +616,80 @@ function renderAuditLogTimeline(auditLogs) {
 function formatAuditDescription(description) {
     if (!description) return '';
 
+    // Try to decode encoded strings first
     if (window.DecodingUtility) {
+        // Find potential encoded strings (long, no spaces, Base64URL chars)
         description = description.replace(/\b([A-Za-z0-9\-_=]{20,})\b/g, (match) => {
+            // Check if it can be decoded
             const decoded = window.DecodingUtility.decodeProductLine(match);
             if (decoded) {
+                // Use the utility to format it
                 return window.DecodingUtility.formatNoteWithDecodedData(match);
             }
             return match;
         });
     }
 
+    // Replace \r\n with <br> and format the text
     let formatted = description
         .replace(/\r\n/g, '<br>')
         .replace(/\n/g, '<br>');
 
+    // Highlight changes with arrows (=>)
     formatted = formatted.replace(/(\d+(?:,\d+)*(?:\.\d+)?)\s*=>\s*(\d+(?:,\d+)*(?:\.\d+)?)/g,
         '<span class="change-from">$1</span> <i class="fas fa-arrow-right" style="color: #6b7280; font-size: 10px;"></i> <span class="change-to">$2</span>');
 
+    // Highlight product codes and names (e.g., "0610 A3 ÁO TN HT")
     formatted = formatted.replace(/(\d{4}\s+[A-Z0-9]+\s+[^:]+):/g,
         '<strong style="color: #3b82f6;">$1</strong>:');
 
+    // Highlight "Thêm chi tiết"
     formatted = formatted.replace(/Thêm chi tiết/g,
         '<span style="color: #10b981; font-weight: 600;"><i class="fas fa-plus-circle"></i> Thêm chi tiết</span>');
 
+    // Highlight "Xóa chi tiết"  
     formatted = formatted.replace(/Xóa chi tiết/g,
         '<span style="color: #ef4444; font-weight: 600;"><i class="fas fa-minus-circle"></i> Xóa chi tiết</span>');
 
     return formatted;
 }
 
-// =====================================================
-// PRODUCT EDITING
-// =====================================================
+function showErrorState(message) {
+    document.getElementById("editModalBody").innerHTML =
+        `<div class="empty-state" style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i><p>Lỗi: ${message}</p><button class="btn-primary" onclick="fetchOrderData('${currentEditOrderId}')">Thử lại</button></div>`;
+}
 
+function closeEditModal() {
+    if (hasUnsavedOrderChanges) {
+        // Use custom confirm popup since native confirm may be blocked
+        window.notificationManager.confirm(
+            "Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng không?",
+            "Cảnh báo"
+        ).then(result => {
+            if (result) {
+                forceCloseEditModal();
+            }
+        });
+        return;
+    }
+    forceCloseEditModal();
+}
+
+function forceCloseEditModal() {
+    document.getElementById("editOrderModal").classList.remove("show");
+    currentEditOrderData = null;
+    currentEditOrderId = null;
+    hasUnsavedOrderChanges = false;
+}
+
+function printOrder() {
+    window.print();
+}
+
+// =====================================================
+// IN-MODAL PRODUCT EDITING (NEW FUNCTIONS)
+// =====================================================
 function updateProductQuantity(index, change, value = null) {
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
     const product = currentEditOrderData.Details[index];
     let newQty =
         value !== null ? parseInt(value, 10) : (product.Quantity || 0) + change;
@@ -743,18 +705,18 @@ function updateProductQuantity(index, change, value = null) {
             (newQty * (product.Price || 0)).toLocaleString("vi-VN") + "đ";
     }
     recalculateTotals();
-    window.showSaveIndicator("success", "Số lượng đã cập nhật");
+    showSaveIndicator("success", "Số lượng đã cập nhật");
+
+    // 🔄 Refresh inline search UI to reflect quantity change
     refreshInlineSearchUI();
 }
 
 function updateProductNote(index, note) {
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
     currentEditOrderData.Details[index].Note = note;
-    window.showSaveIndicator("success", "Ghi chú đã cập nhật");
+    showSaveIndicator("success", "Ghi chú đã cập nhật");
 }
 
 async function removeProduct(index) {
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
     const product = currentEditOrderData.Details[index];
     const confirmed = await window.notificationManager.confirm(
         `Xóa sản phẩm "${product.ProductNameGet || product.ProductName}"?`,
@@ -762,15 +724,22 @@ async function removeProduct(index) {
     );
     if (!confirmed) return;
 
+    // Remove product from array
     currentEditOrderData.Details.splice(index, 1);
+
+    // Recalculate totals BEFORE re-rendering
     recalculateTotals();
+
+    // Re-render products tab with updated data
     switchEditTab("products");
-    window.showSaveIndicator("success", "Đã xóa sản phẩm");
+
+    showSaveIndicator("success", "Đã xóa sản phẩm");
+
+    // 🔄 Refresh inline search UI to remove green highlight and badge
     refreshInlineSearchUI();
 }
 
 function editProductDetail(index) {
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
     const row = document.querySelector(
         `#productsTableBody tr[data-index='${index}']`,
     );
@@ -785,14 +754,21 @@ function editProductDetail(index) {
 }
 
 function saveProductDetail(index) {
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
     const product = currentEditOrderData.Details[index];
     const newPrice = parseInt(document.getElementById(`price-edit-${index}`).value, 10) || 0;
 
+    // Update price
     product.Price = newPrice;
+
+    // Recalculate totals BEFORE re-rendering
     recalculateTotals();
+
+    // Re-render products tab with updated data
     switchEditTab("products");
-    window.showSaveIndicator("success", "Giá đã cập nhật");
+
+    showSaveIndicator("success", "Giá đã cập nhật");
+
+    // 🔄 Refresh inline search UI (in case price affects display)
     refreshInlineSearchUI();
 }
 
@@ -801,7 +777,6 @@ function cancelProductDetail() {
 }
 
 function recalculateTotals() {
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
     let totalQty = 0;
     let totalAmount = 0;
     currentEditOrderData.Details.forEach((p) => {
@@ -811,6 +786,7 @@ function recalculateTotals() {
     currentEditOrderData.TotalQuantity = totalQty;
     currentEditOrderData.TotalAmount = totalAmount;
 
+    // Update DOM elements if they exist (may not exist if tab is not rendered yet)
     const totalQuantityEl = document.getElementById("totalQuantity");
     const totalAmountEl = document.getElementById("totalAmount");
     const productCountEl = document.getElementById("productCount");
@@ -826,13 +802,10 @@ function recalculateTotals() {
     }
 }
 
-// =====================================================
-// SAVE ORDER CHANGES
-// =====================================================
-
 async function saveAllOrderChanges() {
     console.log('[SAVE DEBUG] saveAllOrderChanges called at:', new Date().toISOString());
 
+    // Use custom confirm popup since native confirm may be blocked
     const userConfirmed = await window.notificationManager.confirm(
         "Lưu tất cả thay đổi cho đơn hàng này?",
         "Xác nhận lưu"
@@ -842,15 +815,17 @@ async function saveAllOrderChanges() {
     if (!userConfirmed) return;
 
     let notifId = null;
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
 
     try {
+        // Show loading notification
         if (window.notificationManager) {
             notifId = window.notificationManager.saving("Đang lưu đơn hàng...");
         }
 
+        // Prepare payload
         const payload = prepareOrderPayload(currentEditOrderData);
 
+        // Validate payload (optional but recommended)
         const validation = validatePayloadBeforePUT(payload);
         if (!validation.valid) {
             throw new Error(
@@ -865,8 +840,10 @@ async function saveAllOrderChanges() {
             "bytes",
         );
 
+        // Get auth headers
         const headers = await window.tokenManager.getAuthHeader();
 
+        // PUT request
         const response = await API_CONFIG.smartFetch(
             `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentEditOrderId})`,
             {
@@ -886,36 +863,35 @@ async function saveAllOrderChanges() {
             throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
+        // Success
         if (window.notificationManager && notifId) {
             window.notificationManager.remove(notifId);
             window.notificationManager.success("Đã lưu thành công!", 2000);
         }
 
-        hasUnsavedOrderChanges = false;
+        hasUnsavedOrderChanges = false; // Reset dirty flag after save
 
+        // Clear cache và reload data từ API
         window.cacheManager.clear("orders");
 
-        // Preserve Tags
-        const allData = window.tab1State.allData;
+        // 🔒 Preserve Tags từ dữ liệu cũ trước khi fetch
         const existingOrder = allData.find(order => order.Id === currentEditOrderId);
         const preservedTags = existingOrder ? existingOrder.Tags : null;
 
         await fetchOrderData(currentEditOrderId);
 
-        const newEditOrderData = window.tab1State.currentEditOrderData;
-        if (newEditOrderData && !newEditOrderData.Tags && preservedTags) {
-            newEditOrderData.Tags = preservedTags;
-            window.tab1State.currentEditOrderData = newEditOrderData;
+        // 🔄 Restore Tags nếu API không trả về
+        if (currentEditOrderData && !currentEditOrderData.Tags && preservedTags) {
+            currentEditOrderData.Tags = preservedTags;
         }
 
-        // Update table if function exists
-        if (typeof window.updateOrderInTable === 'function') {
-            window.updateOrderInTable(currentEditOrderId, window.tab1State.currentEditOrderData);
-        }
+        // 🔄 CẬP NHẬT BẢNG CHÍNH VỚI DỮ LIỆU MỚI
+        updateOrderInTable(currentEditOrderId, currentEditOrderData);
 
+        // 🔄 Refresh inline search UI after save and reload
         refreshInlineSearchUI();
 
-        console.log("[SAVE] Order saved successfully");
+        console.log("[SAVE] Order saved successfully ✓");
     } catch (error) {
         console.error("[SAVE] Error:", error);
 
@@ -931,21 +907,28 @@ async function saveAllOrderChanges() {
     }
 }
 
+// =====================================================
+// PREPARE PAYLOAD FOR PUT REQUEST
+// =====================================================
 function prepareOrderPayload(orderData) {
     console.log("[PAYLOAD] Preparing payload for PUT request...");
 
+    // Clone dữ liệu để không ảnh hưởng original
     const payload = JSON.parse(JSON.stringify(orderData));
 
+    // THÊM @odata.context
     if (!payload["@odata.context"]) {
         payload["@odata.context"] =
             "http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity";
-        console.log("[PAYLOAD] Added @odata.context");
+        console.log("[PAYLOAD] ✓ Added @odata.context");
     }
 
+    // ✅ CRITICAL FIX: XỬ LÝ DETAILS ARRAY
     if (payload.Details && Array.isArray(payload.Details)) {
         payload.Details = payload.Details.map((detail, index) => {
             const cleaned = { ...detail };
 
+            // ✅ XÓA Id nếu null/undefined
             if (
                 !cleaned.Id ||
                 cleaned.Id === null ||
@@ -963,12 +946,14 @@ function prepareOrderPayload(orderData) {
                 );
             }
 
+            // Đảm bảo OrderId match
             cleaned.OrderId = payload.Id;
 
             return cleaned;
         });
     }
 
+    // Statistics
     const newDetailsCount = payload.Details?.filter((d) => !d.Id).length || 0;
     const existingDetailsCount =
         payload.Details?.filter((d) => d.Id).length || 0;
@@ -987,15 +972,17 @@ function prepareOrderPayload(orderData) {
         hasRowVersion: !!payload.RowVersion,
     };
 
-    console.log("[PAYLOAD] Payload prepared successfully:", summary);
+    console.log("[PAYLOAD] ✓ Payload prepared successfully:", summary);
 
+    // Validate critical fields
     if (!payload.RowVersion) {
-        console.warn("[PAYLOAD] WARNING: Missing RowVersion!");
+        console.warn("[PAYLOAD] ⚠️ WARNING: Missing RowVersion!");
     }
     if (!payload["@odata.context"]) {
-        console.error("[PAYLOAD] ERROR: Missing @odata.context!");
+        console.error("[PAYLOAD] ❌ ERROR: Missing @odata.context!");
     }
 
+    // ✅ VALIDATION: Check for Id: null
     const detailsWithNullId =
         payload.Details?.filter(
             (d) =>
@@ -1004,7 +991,7 @@ function prepareOrderPayload(orderData) {
 
     if (detailsWithNullId.length > 0) {
         console.error(
-            "[PAYLOAD] ERROR: Found details with null Id:",
+            "[PAYLOAD] ❌ ERROR: Found details with null Id:",
             detailsWithNullId,
         );
         throw new Error(
@@ -1015,50 +1002,15 @@ function prepareOrderPayload(orderData) {
     return payload;
 }
 
-function validatePayloadBeforePUT(payload) {
-    const errors = [];
-
-    if (!payload["@odata.context"]) {
-        errors.push("Missing @odata.context");
-    }
-
-    if (!payload.Id) errors.push("Missing Id");
-    if (!payload.Code) errors.push("Missing Code");
-    if (!payload.RowVersion) errors.push("Missing RowVersion");
-
-    if (payload.Details && Array.isArray(payload.Details)) {
-        payload.Details.forEach((detail, index) => {
-            if (!detail.ProductId) {
-                errors.push(`Detail[${index}]: Missing ProductId`);
-            }
-
-            const requiredComputedFields = [
-                "ProductName",
-                "ProductCode",
-                "UOMName",
-            ];
-            requiredComputedFields.forEach((field) => {
-                if (!detail[field]) {
-                    errors.push(
-                        `Detail[${index}]: Missing computed field ${field}`,
-                    );
-                }
-            });
-        });
-    }
-
-    if (errors.length > 0) {
-        console.error("[VALIDATE] Payload validation errors:", errors);
-        return { valid: false, errors };
-    }
-
-    console.log("[VALIDATE] Payload is valid");
-    return { valid: true, errors: [] };
-}
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                    SECTION 11: INLINE PRODUCT SEARCH                        ║
+// ║                            search: #PRODUCT                                 ║
+// #endregion ════════════════════════════════════════════════════════════════════
 
 // =====================================================
-// INLINE PRODUCT SEARCH
+// INLINE PRODUCT SEARCH #PRODUCT
 // =====================================================
+let inlineSearchTimeout = null;
 
 function initInlineSearchAfterRender() {
     setTimeout(() => {
@@ -1066,6 +1018,8 @@ function initInlineSearchAfterRender() {
         if (searchInput && typeof initInlineProductSearch === "function") {
             initInlineProductSearch();
         }
+
+        // 🔄 Refresh inline search UI when switching to products tab
         refreshInlineSearchUI();
     }, 100);
 }
@@ -1105,8 +1059,6 @@ async function performInlineSearch(query) {
 
 function displayInlineResults(results) {
     const resultsDiv = document.getElementById("inlineSearchResults");
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
-
     if (!results || results.length === 0) {
         resultsDiv.className = "inline-search-results empty show";
         resultsDiv.innerHTML = `<div>Không tìm thấy sản phẩm</div>`;
@@ -1114,6 +1066,7 @@ function displayInlineResults(results) {
     }
     resultsDiv.className = "inline-search-results show";
 
+    // Check which products are already in the order
     const productsInOrder = new Map();
     if (currentEditOrderData && currentEditOrderData.Details) {
         currentEditOrderData.Details.forEach(detail => {
@@ -1151,11 +1104,173 @@ function hideInlineResults() {
     if (resultsDiv) resultsDiv.classList.remove("show");
 }
 
+// =====================================================
+// HIGHLIGHT PRODUCT ROW AFTER UPDATE
+// =====================================================
+function highlightProductRow(index) {
+    // Wait for DOM to update
+    setTimeout(() => {
+        const row = document.querySelector(
+            `#productsTableBody tr[data-index="${index}"]`,
+        );
+        if (!row) return;
+
+        // Add highlight class
+        row.classList.add("product-row-highlight");
+
+        // Scroll to the row
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Remove highlight after animation
+        setTimeout(() => {
+            row.classList.remove("product-row-highlight");
+        }, 2000);
+    }, 100);
+}
+
+// =====================================================
+// UPDATE PRODUCT ITEM UI AFTER ADDING TO ORDER
+// =====================================================
+function updateProductItemUI(productId) {
+    // Find the product item in search results
+    const productItem = document.querySelector(
+        `.inline-result-item[data-product-id="${productId}"]`
+    );
+
+    if (!productItem) return;
+
+    // Add animation
+    productItem.classList.add("just-added");
+
+    // Remove animation class after it completes
+    setTimeout(() => {
+        productItem.classList.remove("just-added");
+    }, 500);
+
+    // Get updated quantity from order
+    let updatedQty = 0;
+    if (currentEditOrderData && currentEditOrderData.Details) {
+        const product = currentEditOrderData.Details.find(
+            p => p.ProductId == productId
+        );
+        updatedQty = product ? (product.Quantity || 0) : 0;
+    }
+
+    // Update the item to show it's in order
+    if (!productItem.classList.contains("in-order")) {
+        productItem.classList.add("in-order");
+    }
+
+    // Update or add quantity badge
+    let badge = productItem.querySelector(".inline-result-quantity-badge");
+    if (!badge) {
+        badge = document.createElement("div");
+        badge.className = "inline-result-quantity-badge";
+        productItem.insertBefore(badge, productItem.firstChild);
+    }
+
+    badge.innerHTML = `<i class="fas fa-shopping-cart"></i> SL: ${updatedQty}`;
+
+    // Update button
+    const button = productItem.querySelector(".inline-result-add");
+    if (button) {
+        const icon = button.querySelector("i");
+        if (icon) {
+            icon.className = "fas fa-check";
+        }
+        // Update button text
+        const textNode = Array.from(button.childNodes).find(
+            node => node.nodeType === Node.TEXT_NODE
+        );
+        if (textNode) {
+            textNode.textContent = " Thêm nữa";
+        }
+    }
+
+    console.log(`[UI UPDATE] Product ${productId} UI updated with quantity: ${updatedQty}`);
+}
+
+// =====================================================
+// REFRESH INLINE SEARCH UI AFTER ANY DATA CHANGE
+// =====================================================
+function refreshInlineSearchUI() {
+    // Get all product items currently displayed in search results
+    const productItems = document.querySelectorAll('.inline-result-item');
+
+    if (productItems.length === 0) {
+        console.log('[REFRESH UI] No search results to refresh');
+        return;
+    }
+
+    console.log(`[REFRESH UI] Refreshing ${productItems.length} items in search results`);
+
+    // Create a map of current quantities
+    const productsInOrder = new Map();
+    if (currentEditOrderData && currentEditOrderData.Details) {
+        currentEditOrderData.Details.forEach(detail => {
+            productsInOrder.set(detail.ProductId, detail.Quantity || 0);
+        });
+    }
+
+    // Update each product item
+    productItems.forEach(item => {
+        const productId = parseInt(item.getAttribute('data-product-id'));
+        if (!productId) return;
+
+        const isInOrder = productsInOrder.has(productId);
+        const currentQty = productsInOrder.get(productId) || 0;
+
+        // Update classes
+        if (isInOrder) {
+            if (!item.classList.contains('in-order')) {
+                item.classList.add('in-order');
+            }
+        } else {
+            item.classList.remove('in-order');
+        }
+
+        // Update or remove badge
+        let badge = item.querySelector('.inline-result-quantity-badge');
+
+        if (isInOrder && currentQty > 0) {
+            // Product is in order - show/update badge
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'inline-result-quantity-badge';
+                item.insertBefore(badge, item.firstChild);
+            }
+            badge.innerHTML = `<i class="fas fa-shopping-cart"></i> SL: ${currentQty}`;
+        } else if (badge) {
+            // Product removed from order - remove badge
+            badge.remove();
+        }
+
+        // Update button
+        const button = item.querySelector('.inline-result-add');
+        if (button) {
+            const icon = button.querySelector('i');
+            if (icon) {
+                icon.className = isInOrder ? 'fas fa-check' : 'fas fa-plus';
+            }
+
+            // Update button text
+            const textNode = Array.from(button.childNodes).find(
+                node => node.nodeType === Node.TEXT_NODE
+            );
+            if (textNode) {
+                textNode.textContent = isInOrder ? ' Thêm nữa' : ' Thêm';
+            }
+        }
+    });
+
+    console.log('[REFRESH UI] UI refresh completed');
+}
+
 async function addProductToOrderFromInline(productId) {
     let notificationId = null;
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
 
     try {
+        // Show loading notification
         if (window.notificationManager) {
             notificationId = window.notificationManager.show(
                 "Đang tải thông tin sản phẩm...",
@@ -1169,6 +1284,7 @@ async function addProductToOrderFromInline(productId) {
             );
         }
 
+        // Get full product details from API
         console.log(
             "[INLINE ADD] Fetching full product details for ID:",
             productId,
@@ -1182,19 +1298,23 @@ async function addProductToOrderFromInline(productId) {
 
         console.log("[INLINE ADD] Full product details:", fullProduct);
 
+        // Close loading notification
         if (window.notificationManager && notificationId) {
             window.notificationManager.remove(notificationId);
         }
 
+        // Ensure Details is an array
         if (!currentEditOrderData.Details) {
             currentEditOrderData.Details = [];
         }
 
+        // Check if product already exists in order
         const existingProductIndex = currentEditOrderData.Details.findIndex(
             (p) => p.ProductId == productId,
         );
 
         if (existingProductIndex > -1) {
+            // Product exists - increase quantity
             const existingProduct =
                 currentEditOrderData.Details[existingProductIndex];
             const oldQty = existingProduct.Quantity || 0;
@@ -1203,23 +1323,31 @@ async function addProductToOrderFromInline(productId) {
             updateProductQuantity(existingProductIndex, 1);
 
             console.log(
-                `[INLINE ADD] Product already exists, increased quantity: ${oldQty} -> ${newQty}`,
+                `[INLINE ADD] Product already exists, increased quantity: ${oldQty} → ${newQty}`,
             );
 
-            window.showSaveIndicator(
+            showSaveIndicator(
                 "success",
-                `${existingProduct.ProductNameGet || existingProduct.ProductName} (SL: ${oldQty} -> ${newQty})`,
+                `${existingProduct.ProductNameGet || existingProduct.ProductName} (SL: ${oldQty} → ${newQty})`,
             );
 
             highlightProductRow(existingProductIndex);
         } else {
+            // ============================================
+            // QUAN TRỌNG: Product mới - THÊM ĐẦY ĐỦ COMPUTED FIELDS
+            // ============================================
+            // Validate sale price (only use PriceVariant or ListPrice, never StandardPrice)
             const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
             if (salePrice == null || salePrice < 0) {
-                window.showSaveIndicator("error", `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+                showSaveIndicator("error", `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
                 throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
             }
 
             const newProduct = {
+                // ============================================
+                // REQUIRED FIELDS
+                // ============================================
+                // ✅ KHÔNG có Id: null cho sản phẩm mới
                 ProductId: fullProduct.Id,
                 Quantity: 1,
                 Price: salePrice,
@@ -1230,6 +1358,10 @@ async function addProductToOrderFromInline(productId) {
                 OrderId: currentEditOrderData.Id,
                 LiveCampaign_DetailId: null,
                 ProductWeight: 0,
+
+                // ============================================
+                // COMPUTED FIELDS - PHẢI CÓ!
+                // ============================================
                 ProductName: fullProduct.Name || fullProduct.NameTemplate,
                 ProductNameGet:
                     fullProduct.NameGet ||
@@ -1240,32 +1372,46 @@ async function addProductToOrderFromInline(productId) {
                 IsOrderPriority: null,
                 QuantityRegex: null,
                 IsDisabledLiveCampaignDetail: false,
+
+                // Creator ID
                 CreatedById:
                     currentEditOrderData.UserId ||
                     currentEditOrderData.CreatedById,
             };
 
             currentEditOrderData.Details.push(newProduct);
-            window.showSaveIndicator("success", "Đã thêm sản phẩm");
+            showSaveIndicator("success", "Đã thêm sản phẩm");
             console.log(
                 "[INLINE ADD] Product added with computed fields:",
                 newProduct,
             );
         }
 
+        // ⚠️ QUAN TRỌNG: KHÔNG xóa input và KHÔNG ẩn results 
+        // Điều này cho phép user tiếp tục thêm sản phẩm khác từ cùng danh sách gợi ý
+        // document.getElementById("inlineProductSearch").value = "";
+        // hideInlineResults();
+
+        // Update UI to show product was added
         updateProductItemUI(productId);
 
+        // Chỉ focus lại vào input để tiện thao tác
         const searchInput = document.getElementById("inlineProductSearch");
         if (searchInput) {
             searchInput.focus();
+            // Select text để user có thể tiếp tục search hoặc giữ nguyên
             searchInput.select();
         }
 
+        // Recalculate totals BEFORE re-rendering
         recalculateTotals();
+
+        // ✅ FIX: Use switchEditTab instead of renderTabContent to re-init event listeners
         switchEditTab("products");
     } catch (error) {
         console.error("[INLINE ADD] Error:", error);
 
+        // Close loading and show error
         if (window.notificationManager) {
             if (notificationId) {
                 window.notificationManager.remove(notificationId);
@@ -1280,268 +1426,198 @@ async function addProductToOrderFromInline(productId) {
     }
 }
 
-function refreshInlineSearchUI() {
-    const productItems = document.querySelectorAll('.inline-result-item');
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
+// ============================================
+// 3. VALIDATION HELPER (Optional)
+// ============================================
+function validatePayloadBeforePUT(payload) {
+    const errors = [];
 
-    if (productItems.length === 0) {
-        console.log('[REFRESH UI] No search results to refresh');
-        return;
+    // Check @odata.context
+    if (!payload["@odata.context"]) {
+        errors.push("Missing @odata.context");
     }
 
-    console.log(`[REFRESH UI] Refreshing ${productItems.length} items in search results`);
+    // Check required fields
+    if (!payload.Id) errors.push("Missing Id");
+    if (!payload.Code) errors.push("Missing Code");
+    if (!payload.RowVersion) errors.push("Missing RowVersion");
 
-    const productsInOrder = new Map();
-    if (currentEditOrderData && currentEditOrderData.Details) {
-        currentEditOrderData.Details.forEach(detail => {
-            productsInOrder.set(detail.ProductId, detail.Quantity || 0);
+    // Check Details
+    if (payload.Details && Array.isArray(payload.Details)) {
+        payload.Details.forEach((detail, index) => {
+            if (!detail.ProductId) {
+                errors.push(`Detail[${index}]: Missing ProductId`);
+            }
+
+            // Check computed fields (should exist for all products)
+            const requiredComputedFields = [
+                "ProductName",
+                "ProductCode",
+                "UOMName",
+            ];
+            requiredComputedFields.forEach((field) => {
+                if (!detail[field]) {
+                    errors.push(
+                        `Detail[${index}]: Missing computed field ${field}`,
+                    );
+                }
+            });
         });
     }
 
-    productItems.forEach(item => {
-        const productId = parseInt(item.getAttribute('data-product-id'));
-        if (!productId) return;
+    if (errors.length > 0) {
+        console.error("[VALIDATE] Payload validation errors:", errors);
+        return { valid: false, errors };
+    }
 
-        const isInOrder = productsInOrder.has(productId);
-        const currentQty = productsInOrder.get(productId) || 0;
+    console.log("[VALIDATE] Payload is valid ✓");
+    return { valid: true, errors: [] };
+}
 
-        if (isInOrder) {
-            if (!item.classList.contains('in-order')) {
-                item.classList.add('in-order');
-            }
-        } else {
-            item.classList.remove('in-order');
-        }
+// Debug payload trước khi gửi API
+function debugPayloadBeforeSend(payload) {
+    console.group("🔍 PAYLOAD DEBUG");
 
-        let badge = item.querySelector('.inline-result-quantity-badge');
-
-        if (isInOrder && currentQty > 0) {
-            if (!badge) {
-                badge = document.createElement('div');
-                badge.className = 'inline-result-quantity-badge';
-                item.insertBefore(badge, item.firstChild);
-            }
-            badge.innerHTML = `<i class="fas fa-shopping-cart"></i> SL: ${currentQty}`;
-        } else if (badge) {
-            badge.remove();
-        }
-
-        const button = item.querySelector('.inline-result-add');
-        if (button) {
-            const icon = button.querySelector('i');
-            if (icon) {
-                icon.className = isInOrder ? 'fas fa-check' : 'fas fa-plus';
-            }
-
-            const textNode = Array.from(button.childNodes).find(
-                node => node.nodeType === Node.TEXT_NODE
-            );
-            if (textNode) {
-                textNode.textContent = isInOrder ? ' Thêm nữa' : ' Thêm';
-            }
-        }
+    console.log("Order Info:", {
+        id: payload.Id,
+        code: payload.Code,
+        detailsCount: payload.Details?.length || 0,
     });
 
-    console.log('[REFRESH UI] UI refresh completed');
-}
+    if (payload.Details) {
+        console.log("\n📦 Details Analysis:");
 
-function highlightProductRow(index) {
-    setTimeout(() => {
-        const row = document.querySelector(
-            `#productsTableBody tr[data-index="${index}"]`,
+        const detailsWithId = payload.Details.filter((d) => d.Id);
+        const detailsWithoutId = payload.Details.filter((d) => !d.Id);
+        const detailsWithNullId = payload.Details.filter(
+            (d) =>
+                d.hasOwnProperty("Id") && (d.Id === null || d.Id === undefined),
         );
-        if (!row) return;
 
-        row.classList.add("product-row-highlight");
-        row.scrollIntoView({ behavior: "smooth", block: "center" });
-
-        setTimeout(() => {
-            row.classList.remove("product-row-highlight");
-        }, 2000);
-    }, 100);
-}
-
-function updateProductItemUI(productId) {
-    const currentEditOrderData = window.tab1State.currentEditOrderData;
-    const productItem = document.querySelector(
-        `.inline-result-item[data-product-id="${productId}"]`
-    );
-
-    if (!productItem) return;
-
-    productItem.classList.add("just-added");
-
-    setTimeout(() => {
-        productItem.classList.remove("just-added");
-    }, 500);
-
-    let updatedQty = 0;
-    if (currentEditOrderData && currentEditOrderData.Details) {
-        const product = currentEditOrderData.Details.find(
-            p => p.ProductId == productId
+        console.log(`  ✅ Details with valid Id: ${detailsWithId.length}`);
+        console.log(
+            `  ✅ Details without Id (new): ${detailsWithoutId.length}`,
         );
-        updatedQty = product ? (product.Quantity || 0) : 0;
-    }
+        console.log(
+            `  ${detailsWithNullId.length > 0 ? "❌" : "✅"} Details with null Id: ${detailsWithNullId.length}`,
+        );
 
-    if (!productItem.classList.contains("in-order")) {
-        productItem.classList.add("in-order");
-    }
-
-    let badge = productItem.querySelector(".inline-result-quantity-badge");
-    if (!badge) {
-        badge = document.createElement("div");
-        badge.className = "inline-result-quantity-badge";
-        productItem.insertBefore(badge, productItem.firstChild);
-    }
-
-    badge.innerHTML = `<i class="fas fa-shopping-cart"></i> SL: ${updatedQty}`;
-
-    const button = productItem.querySelector(".inline-result-add");
-    if (button) {
-        const icon = button.querySelector("i");
-        if (icon) {
-            icon.className = "fas fa-check";
+        if (detailsWithNullId.length > 0) {
+            console.error("\n❌ FOUND DETAILS WITH NULL ID:");
+            detailsWithNullId.forEach((d, i) => {
+                console.error(
+                    `  Detail[${i}]: ProductId=${d.ProductId}, Id=${d.Id}`,
+                );
+            });
         }
-        const textNode = Array.from(button.childNodes).find(
-            node => node.nodeType === Node.TEXT_NODE
-        );
-        if (textNode) {
-            textNode.textContent = " Thêm nữa";
-        }
+
+        console.log("\n📋 Details List:");
+        payload.Details.forEach((d, i) => {
+            console.log(
+                `  [${i}] ${d.Id ? "✅" : "🆕"} ProductId=${d.ProductId}, Id=${d.Id || "N/A"}`,
+            );
+        });
     }
 
-    console.log(`[UI UPDATE] Product ${productId} UI updated with quantity: ${updatedQty}`);
+    console.groupEnd();
+
+    // Return validation result
+    const hasNullIds =
+        payload.Details?.some(
+            (d) =>
+                d.hasOwnProperty("Id") && (d.Id === null || d.Id === undefined),
+        ) || false;
+
+    return {
+        valid: !hasNullIds,
+        message: hasNullIds
+            ? "Payload has details with null Id"
+            : "Payload is valid",
+    };
 }
 
 // =====================================================
-// ADDRESS LOOKUP
+// MESSAGE HANDLER FOR CROSS-TAB COMMUNICATION
 // =====================================================
+window.addEventListener("message", function (event) {
+    // Handle request for orders data from product assignment tab
+    if (event.data.type === "REQUEST_ORDERS_DATA") {
+        console.log('📨 Nhận request orders data, allData length:', allData.length);
 
-async function handleFullAddressLookup() {
-    const input = document.getElementById('fullAddressLookupInput');
-    const resultsContainer = document.getElementById('addressLookupResults');
-
-    if (!input || !resultsContainer) return;
-
-    const keyword = input.value.trim();
-    if (!keyword) {
-        alert('Vui lòng nhập địa chỉ đầy đủ');
-        return;
-    }
-
-    resultsContainer.style.display = 'block';
-    resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang phân tích địa chỉ...</div>';
-
-    try {
-        if (typeof window.searchFullAddress !== 'function') {
-            throw new Error('Hàm tìm kiếm không khả dụng (api-handler.js chưa được tải)');
-        }
-
-        const response = await window.searchFullAddress(keyword);
-
-        if (!response || !response.data || response.data.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444;">Không tìm thấy kết quả phù hợp</div>';
+        // Check if data is loaded
+        if (!allData || allData.length === 0) {
+            console.log('⚠️ allData chưa có dữ liệu, sẽ retry sau 1s');
+            // Retry after 1 second
+            setTimeout(() => {
+                if (allData && allData.length > 0) {
+                    sendOrdersDataToTab3();
+                } else {
+                    console.log('❌ Vẫn chưa có dữ liệu sau khi retry');
+                }
+            }, 1000);
             return;
         }
 
-        const items = response.data;
-        resultsContainer.innerHTML = items.map(item => {
-            const fullAddress = item.address;
-
-            return `
-            <div class="address-result-item"
-                 onclick="selectAddress('${fullAddress.replace(/'/g, "\\'")}', 'full')"
-                 style="padding: 10px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <div style="font-weight: 500; color: #374151;">${item.address}</div>
-                    ${item.note ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${item.note}</div>` : ''}
-                </div>
-                <i class="fas fa-check" style="font-size: 12px; color: #059669;"></i>
-            </div>
-            `;
-        }).join('');
-
-        const resultItems = resultsContainer.querySelectorAll('.address-result-item');
-        resultItems.forEach(item => {
-            item.onmouseover = () => item.style.backgroundColor = '#f9fafb';
-            item.onmouseout = () => item.style.backgroundColor = 'white';
-        });
-
-    } catch (error) {
-        console.error('Full address lookup error:', error);
-        resultsContainer.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444;">Lỗi: ${error.message}</div>`;
+        sendOrdersDataToTab3();
     }
-}
 
-async function selectAddress(fullAddress, type) {
-    const addressTextarea = document.querySelector('textarea[onchange*="updateOrderInfo(\'Address\'"]');
-    if (addressTextarea) {
-        let newAddress = fullAddress;
+    // Handle request for orders data from overview tab
+    if (event.data.type === "REQUEST_ORDERS_DATA_FROM_OVERVIEW") {
+        console.log('📨 [OVERVIEW] Nhận request orders data từ tab Báo Cáo Tổng Hợp');
+        console.log('📊 [OVERVIEW] allData length:', allData.length);
 
-        if (addressTextarea.value && addressTextarea.value.trim() !== '') {
-            if (!addressTextarea.value.includes(fullAddress)) {
-                const replaceAddress = await window.notificationManager.confirm(
-                    'Bạn có muốn thay thế địa chỉ hiện tại không?\n\nĐồng ý: Thay thế\nHủy: Nối thêm vào sau',
-                    'Chọn cách cập nhật địa chỉ'
-                );
-                if (replaceAddress) {
-                    newAddress = fullAddress;
+        // Check if data is loaded
+        if (!allData || allData.length === 0) {
+            console.log('⚠️ [OVERVIEW] allData chưa có dữ liệu, sẽ retry sau 1s');
+            // Retry after 1 second
+            setTimeout(() => {
+                if (allData && allData.length > 0) {
+                    sendOrdersDataToOverview();
                 } else {
-                    newAddress = addressTextarea.value + ', ' + fullAddress;
+                    console.log('❌ [OVERVIEW] Vẫn chưa có dữ liệu sau khi retry');
                 }
-            }
+            }, 1000);
+            return;
         }
 
-        addressTextarea.value = newAddress;
-        updateOrderInfo('Address', newAddress);
-
-        document.getElementById('addressLookupResults').style.display = 'none';
-        const lookupInput = document.getElementById('fullAddressLookupInput');
-        if (lookupInput) lookupInput.value = '';
-
-        if (window.notificationManager) {
-            window.notificationManager.show('Đã cập nhật địa chỉ', 'success');
-        }
+        sendOrdersDataToOverview();
     }
-}
 
-// =====================================================
-// EXPORTS
-// =====================================================
+    // Handle request to fetch conversations for orders loaded from Firebase
+    if (event.data.type === "FETCH_CONVERSATIONS_FOR_ORDERS") {
+        handleFetchConversationsRequest(event.data.orders || []);
+    }
 
-// Export functions to window for global access
-window.openEditModal = openEditModal;
-window.closeEditModal = closeEditModal;
-window.forceCloseEditModal = forceCloseEditModal;
-window.switchEditTab = switchEditTab;
-window.renderTabContent = renderTabContent;
-window.renderInfoTab = renderInfoTab;
-window.renderProductsTab = renderProductsTab;
-window.renderDeliveryTab = renderDeliveryTab;
-window.renderLiveTab = renderLiveTab;
-window.renderInvoicesTab = renderInvoicesTab;
-window.renderHistoryTab = renderHistoryTab;
-window.renderInvoiceHistoryTab = renderInvoiceHistoryTab;
-window.updateProductQuantity = updateProductQuantity;
-window.updateProductNote = updateProductNote;
-window.removeProduct = removeProduct;
-window.editProductDetail = editProductDetail;
-window.saveProductDetail = saveProductDetail;
-window.cancelProductDetail = cancelProductDetail;
-window.recalculateTotals = recalculateTotals;
-window.saveAllOrderChanges = saveAllOrderChanges;
-window.prepareOrderPayload = prepareOrderPayload;
-window.validatePayloadBeforePUT = validatePayloadBeforePUT;
-window.initInlineProductSearch = initInlineProductSearch;
-window.performInlineSearch = performInlineSearch;
-window.displayInlineResults = displayInlineResults;
-window.hideInlineResults = hideInlineResults;
-window.addProductToOrderFromInline = addProductToOrderFromInline;
-window.refreshInlineSearchUI = refreshInlineSearchUI;
-window.highlightProductRow = highlightProductRow;
-window.handleFullAddressLookup = handleFullAddressLookup;
-window.selectAddress = selectAddress;
-window.updateOrderInfo = updateOrderInfo;
-window.printOrder = printOrder;
+    // Handle request for employee ranges from overview tab
+    if (event.data.type === "REQUEST_EMPLOYEE_RANGES") {
+        console.log('📨 [EMPLOYEE] Nhận request employee ranges từ tab Báo Cáo Tổng Hợp');
+        console.log('📊 [EMPLOYEE] employeeRanges length:', employeeRanges.length);
 
-console.log('[TAB1-EDIT-MODAL] Module loaded successfully');
+        // Send employee ranges back to overview
+        window.parent.postMessage({
+            type: 'EMPLOYEE_RANGES_RESPONSE',
+            ranges: employeeRanges || []
+        }, '*');
+    }
+
+    // Handle request for campaign info from overview tab
+    if (event.data.type === "REQUEST_CAMPAIGN_INFO") {
+        console.log('📨 [CAMPAIGN] Nhận request campaign info từ tab Báo Cáo Tổng Hợp');
+
+        // Send campaign info back to overview
+        window.parent.postMessage({
+            type: 'CAMPAIGN_INFO_RESPONSE',
+            campaignInfo: {
+                allCampaigns: window.campaignManager?.allCampaigns || {},
+                activeCampaign: window.campaignManager?.activeCampaign || null,
+                activeCampaignId: window.campaignManager?.activeCampaignId || null
+            }
+        }, '*');
+
+        console.log('✅ [CAMPAIGN] Sent campaign info:', {
+            campaignCount: Object.keys(window.campaignManager?.allCampaigns || {}).length,
+            activeCampaign: window.campaignManager?.activeCampaign?.name
+        });
+    }
+});
+

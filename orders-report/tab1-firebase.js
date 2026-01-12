@@ -1,17 +1,23 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════════════════╗
- * ║                           TAB1-FIREBASE.JS                                    ║
- * ║                   Firebase & Realtime Tag Sync                                ║
- * ╠══════════════════════════════════════════════════════════════════════════════╣
- * ║  Module quản lý Firebase realtime sync cho tags và KPI base                  ║
- * ╚══════════════════════════════════════════════════════════════════════════════╝
- */
+// #region ═══════════════════════════════════════════════════════════════════════
+// ║                   SECTION 2: FIREBASE & REALTIME TAG SYNC                   ║
+// ║                            search: #FIREBASE                                ║
+// #endregion ════════════════════════════════════════════════════════════════════
 
 // =====================================================
-// FILTER PREFERENCES - Firebase Sync
+// FIREBASE DATABASE REFERENCE FOR NOTE TRACKING #FIREBASE
 // =====================================================
+// Note: Firebase is already initialized in config.js which loads before this file
+let database = null;
+try {
+    database = firebase.database();
+    console.log('[NOTE-TRACKER] Firebase database reference obtained');
+} catch (error) {
+    console.error('[NOTE-TRACKER] Firebase database reference error:', error);
+}
 
-let tagListenersSetup = false; // Flag to prevent duplicate listener setup
+// =====================================================
+// FILTER PREFERENCES - Firebase Sync #FIREBASE
+// =====================================================
 
 /**
  * Get current user ID for filter preferences (per-user storage)
@@ -67,14 +73,14 @@ async function loadFilterPreferencesFromFirebase() {
 }
 
 // =====================================================
-// REALTIME TAG SYNC - Firebase & WebSocket
+// REALTIME TAG SYNC - Firebase & WebSocket #FIREBASE
 // =====================================================
+let tagListenersSetup = false; // Flag to prevent duplicate listener setup
 
 /**
  * Emit TAG update to Firebase for realtime sync across users
  */
 async function emitTagUpdateToFirebase(orderId, tags) {
-    const database = window.tab1State.database;
     if (!database) {
         console.warn('[TAG-REALTIME] Firebase not available, skipping emit');
         return;
@@ -82,7 +88,6 @@ async function emitTagUpdateToFirebase(orderId, tags) {
 
     try {
         // Get current order data
-        const allData = window.tab1State.allData;
         const order = allData.find(o => o.Id === orderId);
         if (!order) {
             console.warn('[TAG-REALTIME] Order not found in allData:', orderId);
@@ -96,7 +101,7 @@ async function emitTagUpdateToFirebase(orderId, tags) {
             userName = auth.displayName;
         }
 
-        // Validate and normalize tags array
+        // ✅ Validate and normalize tags array
         const normalizedTags = Array.isArray(tags) ? tags : [];
 
         console.log('[TAG-REALTIME] Preparing to emit:', {
@@ -134,8 +139,6 @@ async function emitTagUpdateToFirebase(orderId, tags) {
  * Setup Firebase & WebSocket listeners for realtime TAG updates
  */
 function setupTagRealtimeListeners() {
-    const database = window.tab1State.database;
-
     // Prevent duplicate setup
     if (tagListenersSetup) {
         console.log('[TAG-REALTIME] Listeners already setup, skipping...');
@@ -199,13 +202,10 @@ function setupTagRealtimeListeners() {
  */
 function handleRealtimeTagUpdate(updateData, source) {
     const { orderId, orderCode, STT, tags, updatedBy } = updateData;
-    const allData = window.tab1State.allData;
-    const displayedData = window.tab1State.displayedData;
-    const currentEditingOrderId = window.tab1State.currentEditingOrderId;
 
     console.log(`[TAG-REALTIME] Processing update from ${source}:`, updateData);
 
-    // Validate tags - treat undefined/null as empty array for "delete all tags" case
+    // ✅ Validate tags - treat undefined/null as empty array for "delete all tags" case
     const normalizedTags = tags === undefined || tags === null ? [] : tags;
     if (!Array.isArray(normalizedTags)) {
         console.error('[TAG-REALTIME] Invalid tags data (not an array):', tags);
@@ -215,7 +215,7 @@ function handleRealtimeTagUpdate(updateData, source) {
 
     console.log('[TAG-REALTIME] Normalized tags:', normalizedTags);
 
-    // FIX SCROLL ISSUE: Check if order is in DISPLAYED data (after employee filter)
+    // ✅ FIX SCROLL ISSUE: Check if order is in DISPLAYED data (after employee filter)
     // This prevents unnecessary re-renders for orders not in current user's view
     const orderInDisplayed = displayedData.find(o => o.Id === orderId);
     if (!orderInDisplayed) {
@@ -223,25 +223,23 @@ function handleRealtimeTagUpdate(updateData, source) {
         // Still update allData silently for data consistency
         const indexInAll = allData.findIndex(o => o.Id === orderId);
         if (indexInAll !== -1) {
-            window.tab1State.allData[indexInAll].Tags = JSON.stringify(normalizedTags);
+            allData[indexInAll].Tags = JSON.stringify(normalizedTags);
         }
         return;
     }
 
-    // CONFLICT RESOLUTION: Check if user is currently editing this order's tags
+    // 🚨 CONFLICT RESOLUTION: Check if user is currently editing this order's tags
     if (currentEditingOrderId === orderId) {
         console.warn('[TAG-REALTIME] Conflict detected: User is editing this order!');
 
         // Close modal and show warning
         const modal = document.getElementById('tagModal');
         if (modal && modal.style.display !== 'none') {
-            if (typeof closeTagModal === 'function') {
-                closeTagModal();
-            }
+            closeTagModal();
         }
     }
 
-    // SIMPLIFIED: Always update TAG cell realtime (removed tag filter check)
+    // ✅ SIMPLIFIED: Always update TAG cell realtime (removed tag filter check)
     // updateTagCellOnly() only updates innerHTML of cell - NO scroll jump
     // Data arrays are updated inside updateTagCellOnly()
     updateTagCellOnly(orderId, orderCode, normalizedTags);
@@ -252,10 +250,6 @@ function handleRealtimeTagUpdate(updateData, source) {
  * This preserves scroll position when realtime tag updates occur
  */
 function updateTagCellOnly(orderId, orderCode, tags) {
-    const allData = window.tab1State.allData;
-    const filteredData = window.tab1State.filteredData;
-    const displayedData = window.tab1State.displayedData;
-
     console.log('[TAG-REALTIME] Updating only TAG cell for order:', orderId);
 
     // 1. Update data arrays first
@@ -263,17 +257,17 @@ function updateTagCellOnly(orderId, orderCode, tags) {
 
     const indexInAll = allData.findIndex(order => order.Id === orderId);
     if (indexInAll !== -1) {
-        window.tab1State.allData[indexInAll].Tags = tagsJson;
+        allData[indexInAll].Tags = tagsJson;
     }
 
     const indexInFiltered = filteredData.findIndex(order => order.Id === orderId);
     if (indexInFiltered !== -1) {
-        window.tab1State.filteredData[indexInFiltered].Tags = tagsJson;
+        filteredData[indexInFiltered].Tags = tagsJson;
     }
 
     const indexInDisplayed = displayedData.findIndex(order => order.Id === orderId);
     if (indexInDisplayed !== -1) {
-        window.tab1State.displayedData[indexInDisplayed].Tags = tagsJson;
+        displayedData[indexInDisplayed].Tags = tagsJson;
     }
 
     // 2. Find the row in DOM by checkbox value
@@ -300,23 +294,8 @@ function updateTagCellOnly(orderId, orderCode, tags) {
         return;
     }
 
-    // 4. Generate new tag HTML (use parseOrderTags if available)
-    let tagsHTML = '';
-    if (typeof parseOrderTags === 'function') {
-        tagsHTML = parseOrderTags(tagsJson, orderId, orderCode);
-    } else {
-        // Fallback simple rendering
-        try {
-            const tagArray = JSON.parse(tagsJson) || [];
-            tagsHTML = tagArray.map(tag => `
-                <span class="tag-pill" style="background-color: ${tag.Color || '#6b7280'}">
-                    ${tag.Name}
-                </span>
-            `).join('');
-        } catch (e) {
-            tagsHTML = '';
-        }
-    }
+    // 4. Generate new tag HTML
+    const tagsHTML = parseOrderTags(tagsJson, orderId, orderCode);
 
     // 5. Update only the tag cell content (preserve buttons)
     tagCell.innerHTML = `
@@ -343,7 +322,6 @@ function updateTagCellOnly(orderId, orderCode, tags) {
  * Cleanup Firebase listeners when changing campaign
  */
 function cleanupTagRealtimeListeners() {
-    const database = window.tab1State.database;
     if (database) {
         const refPath = `tag_updates`;
         database.ref(refPath).off();
@@ -356,9 +334,6 @@ function cleanupTagRealtimeListeners() {
  * Call from Console: testTagListeners()
  */
 window.testTagListeners = function () {
-    const database = window.tab1State.database;
-    const allData = window.tab1State.allData;
-
     console.log('=== TAG REALTIME LISTENER TEST ===');
     console.log('1. Firebase:', database ? '✅ Available' : '❌ Not available');
     console.log('2. Listeners setup:', tagListenersSetup ? '✅ Yes' : '❌ No');
@@ -401,7 +376,7 @@ window.testTagListeners = function () {
 };
 
 // =====================================================
-// KPI BASE STATUS PRELOAD
+// KPI BASE STATUS PRELOAD #FIREBASE
 // =====================================================
 
 /**
@@ -409,9 +384,6 @@ window.testTagListeners = function () {
  * This allows synchronous checking in createRowHTML
  */
 async function preloadKPIBaseStatus() {
-    const database = window.tab1State.database;
-    const ordersWithKPIBase = window.tab1State.ordersWithKPIBase;
-
     if (!database) {
         console.warn('[KPI-BASE] Firebase database not available');
         return;
@@ -430,8 +402,7 @@ async function preloadKPIBaseStatus() {
         console.log(`[KPI-BASE] Preloaded ${ordersWithKPIBase.size} orders with BASE`);
 
         // Re-render table if data is already loaded
-        const allData = window.tab1State.allData;
-        if (allData && allData.length > 0 && typeof performTableSearch === 'function') {
+        if (allData && allData.length > 0) {
             performTableSearch();
         }
     } catch (error) {
@@ -443,9 +414,6 @@ async function preloadKPIBaseStatus() {
  * Setup realtime listener for KPI BASE changes
  */
 function setupKPIBaseRealtimeListener() {
-    const database = window.tab1State.database;
-    const ordersWithKPIBase = window.tab1State.ordersWithKPIBase;
-
     if (!database) return;
 
     database.ref('kpi_base').on('child_added', (snapshot) => {
@@ -501,20 +469,3 @@ function updateKPIBaseIndicator(orderId, hasBase) {
     }
 }
 
-// =====================================================
-// EXPORT FUNCTIONS
-// =====================================================
-window.getFilterPrefsUserId = getFilterPrefsUserId;
-window.getFilterPrefsPath = getFilterPrefsPath;
-window.saveFilterPreferencesToFirebase = saveFilterPreferencesToFirebase;
-window.loadFilterPreferencesFromFirebase = loadFilterPreferencesFromFirebase;
-window.emitTagUpdateToFirebase = emitTagUpdateToFirebase;
-window.setupTagRealtimeListeners = setupTagRealtimeListeners;
-window.handleRealtimeTagUpdate = handleRealtimeTagUpdate;
-window.updateTagCellOnly = updateTagCellOnly;
-window.cleanupTagRealtimeListeners = cleanupTagRealtimeListeners;
-window.preloadKPIBaseStatus = preloadKPIBaseStatus;
-window.setupKPIBaseRealtimeListener = setupKPIBaseRealtimeListener;
-window.updateKPIBaseIndicator = updateKPIBaseIndicator;
-
-console.log('[TAB1-FIREBASE] Module loaded successfully');
