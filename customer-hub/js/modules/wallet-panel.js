@@ -35,7 +35,7 @@ export class WalletPanelModule {
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <span class="material-symbols-outlined text-green-600 dark:text-green-500">account_balance_wallet</span>
-                        Ví khách hàng
+                        Wallet Summary
                     </h3>
                 </div>
                 <div class="flex-1 flex items-center justify-center">
@@ -83,7 +83,7 @@ export class WalletPanelModule {
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <span class="material-symbols-outlined text-green-600 dark:text-green-500">account_balance_wallet</span>
-                        Ví khách hàng
+                        Wallet Summary
                     </h3>
                 </div>
                 <div class="flex-1 flex flex-col items-center justify-center text-slate-400">
@@ -108,21 +108,21 @@ export class WalletPanelModule {
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <span class="material-symbols-outlined text-green-600 dark:text-green-500">account_balance_wallet</span>
-                        Ví khách hàng
+                        Wallet Summary
                     </h3>
-                    <button id="view-history-btn" class="text-xs text-primary font-medium hover:underline">Xem lịch sử</button>
+                    <button id="view-history-btn" class="text-xs text-primary font-medium hover:underline">View History</button>
                 </div>
                 <div class="flex-1 flex flex-col justify-center gap-4 py-2">
                     <!-- Cash Balance -->
                     <div>
-                        <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Số dư thực</p>
+                        <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Cash Balance</p>
                         <p class="text-4xl font-bold text-green-600 dark:text-green-500 tracking-tight tabular-nums">${this.formatCurrency(realBalance)}</p>
                     </div>
 
                     <!-- Virtual Credit & Total -->
                     <div class="flex items-center gap-3 py-3 border-y border-dashed border-slate-200 dark:border-slate-700">
                         <div class="flex-1">
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Tín dụng ảo</p>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Virtual Credit</p>
                             <p class="text-xl font-semibold text-amber-500 tabular-nums flex items-center gap-1">
                                 <span class="material-symbols-outlined text-sm">token</span>
                                 ${this.formatCurrencyShort(virtualBalance)}
@@ -130,7 +130,7 @@ export class WalletPanelModule {
                         </div>
                         <div class="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
                         <div class="flex-1">
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Tổng sức mua</p>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Buying Power</p>
                             <p class="text-xl font-semibold text-slate-700 dark:text-slate-300 tabular-nums">${this.formatCurrencyShort(totalBalance)}</p>
                         </div>
                     </div>
@@ -140,13 +140,13 @@ export class WalletPanelModule {
                     <!-- Action Buttons -->
                     <div class="grid grid-cols-2 gap-2 mt-4">
                         <button id="deposit-btn" class="py-2 px-3 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1">
-                            <span class="material-symbols-outlined text-[16px]">add</span> Nạp tiền
+                            <span class="material-symbols-outlined text-[16px]">add</span> Deposit
                         </button>
                         <button id="withdraw-btn" class="py-2 px-3 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center justify-center gap-1">
-                            <span class="material-symbols-outlined text-[16px]">remove</span> Rút tiền
+                            <span class="material-symbols-outlined text-[16px]">remove</span> Withdraw
                         </button>
                         <button id="issue-vc-btn" class="col-span-2 py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 text-xs font-bold transition-all flex items-center justify-center gap-1">
-                            <span class="material-symbols-outlined text-[16px]">stars</span> Cấp tín dụng ảo
+                            <span class="material-symbols-outlined text-[16px]">stars</span> Issue Virtual Credit
                         </button>
                     </div>
                 ` : ''}
