@@ -13,7 +13,7 @@
 let isLoadingInBackground = false;
 let isLoadingConversations = false;
 let isFetchingOrders = false;
-let loadingAborted = false;
+// Note: loadingAborted is defined in tab1-core.js
 
 // =====================================================
 // DATE HELPERS
