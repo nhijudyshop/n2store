@@ -362,7 +362,7 @@ export class CustomerProfileModule {
                         <tr>
                             <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Mã ĐH</th>
                             <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Loại</th>
-                            <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Sản phẩm</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Ghi chú/Sản phẩm</th>
                             <th class="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Hoàn</th>
                             <th class="px-3 py-2 text-center text-xs font-semibold text-slate-500 uppercase">Trạng thái</th>
                         </tr>
@@ -371,8 +371,9 @@ export class CustomerProfileModule {
                         ${tickets.slice(0, 10).map(ticket => {
                             const orderId = ticket.order_id ? ticket.order_id.replace(/^NJD\/\d+\//, '') : '-';
                             const type = typeMap[ticket.type] || ticket.type;
-                            const products = this._formatProducts(ticket.products);
-                            const refund = ticket.refund_amount ? this._formatCurrencyShort(ticket.refund_amount) : '-';
+                            const noteAndProducts = this._formatNoteAndProducts(ticket.internal_note, ticket.products);
+                            // Only show refund if > 0, otherwise leave empty
+                            const refund = ticket.refund_amount && ticket.refund_amount > 0 ? this._formatCurrencyShort(ticket.refund_amount) : '';
                             const statusInfo = statusMap[ticket.status] || { label: ticket.status, color: 'bg-slate-100 text-slate-500' };
 
                             return `
@@ -381,8 +382,8 @@ export class CustomerProfileModule {
                                     <td class="px-3 py-2">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${this._getTypeColor(ticket.type)}">${type}</span>
                                     </td>
-                                    <td class="px-3 py-2 text-slate-600 dark:text-slate-400 max-w-[300px]">
-                                        <div class="space-y-0.5">${products}</div>
+                                    <td class="px-3 py-2 text-slate-600 dark:text-slate-400 max-w-[400px]">
+                                        <div class="space-y-0.5">${noteAndProducts}</div>
                                     </td>
                                     <td class="px-3 py-2 text-right font-medium text-emerald-600">${refund}</td>
                                     <td class="px-3 py-2 text-center">
@@ -435,6 +436,48 @@ export class CustomerProfileModule {
             const variant = p.variant || p.option || '';
             return `<div class="text-xs truncate">${qty}x ${name}${variant ? ` (${variant})` : ''}</div>`;
         }).join('');
+    }
+
+    _formatNoteAndProducts(internalNote, products) {
+        let parts = [];
+
+        // Add internal note if exists
+        if (internalNote && internalNote.trim()) {
+            parts.push(`<div class="text-xs text-slate-700 dark:text-slate-300 font-medium">${internalNote}</div>`);
+        }
+
+        // Add products if exists
+        if (products) {
+            let productList = [];
+            if (typeof products === 'string') {
+                try {
+                    productList = JSON.parse(products);
+                } catch {
+                    // If not JSON, treat as plain text
+                    if (products.trim()) {
+                        parts.push(`<div class="text-xs text-slate-500">${products}</div>`);
+                    }
+                }
+            } else if (Array.isArray(products)) {
+                productList = products;
+            }
+
+            if (productList.length > 0) {
+                const productLines = productList.map(p => {
+                    const qty = p.quantity || p.qty || 1;
+                    const name = p.name || p.product_name || p.sku || '';
+                    const variant = p.variant || p.option || '';
+                    return `${qty}x ${name}${variant ? ` (${variant})` : ''}`;
+                }).join(', ');
+                parts.push(`<div class="text-xs text-slate-500 truncate">${productLines}</div>`);
+            }
+        }
+
+        if (parts.length === 0) {
+            return '<span class="text-slate-400">-</span>';
+        }
+
+        return parts.join('');
     }
 
     _getTypeColor(type) {
