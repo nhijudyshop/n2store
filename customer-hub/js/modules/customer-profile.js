@@ -332,6 +332,8 @@ export class CustomerProfileModule {
             'FIX_COD': 'Sửa COD',
             'RETURN_CLIENT': 'Khách Gửi',
             'RETURN_SHIPPER': 'Thu Về',
+            'SALE_ORDER': 'Phiếu Bán Hàng',
+            'RETURN_ORDER': 'Phiếu Trả Hàng',
             'OTHER': 'Khác'
         };
 
@@ -340,6 +342,7 @@ export class CustomerProfileModule {
             'PENDING': { label: 'Chờ xử lý', color: 'bg-amber-100 text-amber-700' },
             'PROCESSING': { label: 'Đang xử lý', color: 'bg-blue-100 text-blue-700' },
             'WAITING_GOODS': { label: 'Chờ hàng về', color: 'bg-purple-100 text-purple-700' },
+            'PENDING_GOODS': { label: 'Chờ hàng về', color: 'bg-purple-100 text-purple-700' },
             'COMPLETED': { label: 'Hoàn thành', color: 'bg-green-100 text-green-700' },
             'CANCELLED': { label: 'Đã hủy', color: 'bg-slate-100 text-slate-500' }
         };
@@ -349,7 +352,7 @@ export class CustomerProfileModule {
             ticketsHtml = `
                 <div class="flex flex-col items-center justify-center py-10 text-slate-400">
                     <span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px;">confirmation_number</span>
-                    <p class="text-sm font-medium">Chưa có sự vụ</p>
+                    <p class="text-sm font-medium">Chưa có hoạt động</p>
                 </div>
             `;
         } else {
@@ -398,9 +401,9 @@ export class CustomerProfileModule {
             <div class="px-4 py-3 border-b border-border-light dark:border-border-dark flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-purple-500">confirmation_number</span>
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Sự vụ gần đây</h3>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Hoạt động gần đây</h3>
                 </div>
-                <span class="text-xs text-slate-400">${tickets?.length || 0} sự vụ</span>
+                <span class="text-xs text-slate-400">${tickets?.length || 0} hoạt động</span>
             </div>
 
             <!-- Table Content -->
@@ -440,6 +443,8 @@ export class CustomerProfileModule {
             'FIX_COD': 'bg-blue-100 text-blue-700',
             'RETURN_CLIENT': 'bg-purple-100 text-purple-700',
             'RETURN_SHIPPER': 'bg-amber-100 text-amber-700',
+            'SALE_ORDER': 'bg-green-100 text-green-700',
+            'RETURN_ORDER': 'bg-orange-100 text-orange-700',
             'OTHER': 'bg-slate-100 text-slate-600'
         };
         return colors[type] || 'bg-slate-100 text-slate-600';
