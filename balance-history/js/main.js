@@ -99,8 +99,13 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
         selectElement.disabled = true;
         selectElement.style.opacity = '0.5';
 
+        // Handle both LOCAL_xxx (string) and numeric customer IDs
+        const customerId = selectedValue.startsWith('LOCAL_')
+            ? selectedValue
+            : parseInt(selectedValue);
+
         const requestBody = {
-            customer_id: parseInt(selectedValue),
+            customer_id: customerId,
             resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
         };
         console.log('[RESOLVE-MATCH] Request body:', requestBody);
@@ -2927,7 +2932,7 @@ async function showCustomersByPhone(phone) {
 }
 
 /**
- * Merge customers with the same phone number (like customer-management)
+ * Merge customers with the same phone number (like Customer Hub)
  * @param {Array} customers - List of customers
  * @returns {Array} - Merged customer list
  */
@@ -3100,7 +3105,7 @@ function renderCustomerList(customers, balanceStats = null, phone = null) {
                 ${escapeHtmlForCustomer(customer.address || 'N/A')}
             </td>
             <td>
-                <a href="../customer-management/index.html?search=${encodeURIComponent(customer.phone || '')}"
+                <a href="../customer-hub/index.html?phone=${encodeURIComponent(customer.phone || '')}"
                    target="_blank"
                    class="btn btn-sm btn-secondary"
                    title="Xem chi tiết"

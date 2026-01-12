@@ -2753,21 +2753,34 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
 
         // 3. Find customer in nested structure
         // Structure: [{phone, count, customers: [{id, name, phone}]}]
-        // Note: id can be integer (from TPOS) or string like "LOCAL_0901234567" (from local DB)
+        // Note: id can be integer (from TPOS), string like "LOCAL_0901234567" (from local DB frontend), or null (from local DB stored)
         let selectedCustomer = null;
         const targetIdStr = String(customer_id);
         const targetIdInt = parseInt(customer_id);
+
+        // Check if customer_id is a LOCAL_xxx format (frontend generates this for null id customers)
+        const isLocalId = targetIdStr.startsWith('LOCAL_');
+        const localPhone = isLocalId ? targetIdStr.replace('LOCAL_', '') : null;
 
         for (const phoneGroup of matchedCustomers) {
             const customers = phoneGroup.customers || [];
             if (!Array.isArray(customers)) continue;
 
             for (const c of customers) {
-                // Compare as string first (handles both LOCAL_xxx and numeric IDs)
-                if (String(c.id) === targetIdStr || c.id === targetIdInt) {
-                    selectedCustomer = c;
-                    console.log('[RESOLVE-MATCH] ✓ Found customer:', c.name, c.phone);
-                    break;
+                // For LOCAL_xxx IDs, match by phone since stored id may be null
+                if (isLocalId) {
+                    if (c.phone === localPhone || (c.id === null && phoneGroup.phone === localPhone)) {
+                        selectedCustomer = c;
+                        console.log('[RESOLVE-MATCH] ✓ Found customer by LOCAL phone:', c.name, c.phone);
+                        break;
+                    }
+                } else {
+                    // Compare as string first (handles both stored LOCAL_xxx and numeric IDs)
+                    if (String(c.id) === targetIdStr || c.id === targetIdInt) {
+                        selectedCustomer = c;
+                        console.log('[RESOLVE-MATCH] ✓ Found customer by ID:', c.name, c.phone);
+                        break;
+                    }
                 }
             }
             if (selectedCustomer) break;
@@ -2794,16 +2807,74 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
 
         console.log('[RESOLVE-MATCH] Resolving match', id, 'with customer:', selectedCustomer.phone);
 
-        // 3. Mark transaction as processed AND link to customer phone
+        // 3. Create/update customer with TPOS data (NEW - consistent with other flows)
+        let customerId = null;
+        let customerName = selectedCustomer.name;
+        try {
+            // Fetch TPOS data for customer creation
+            let tposData = null;
+            try {
+                const tposResult = await searchCustomerByPhone(selectedCustomer.phone);
+                if (tposResult.success && tposResult.customer) {
+                    tposData = tposResult.customer;
+                    customerName = tposData.name || customerName;
+                    console.log('[RESOLVE-MATCH] Got TPOS data:', tposData.name);
+                }
+            } catch (e) {
+                console.log('[RESOLVE-MATCH] TPOS fetch failed, using selected customer name:', e.message);
+            }
+
+            // Create/update customer
+            if (!tposData) {
+                tposData = { name: customerName };
+            }
+            const customerResult = await getOrCreateCustomerFromTPOS(db, selectedCustomer.phone, tposData);
+            customerId = customerResult.customerId;
+            customerName = customerResult.customerName || customerName;
+            console.log(`[RESOLVE-MATCH] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+        } catch (err) {
+            console.error('[RESOLVE-MATCH] Customer creation failed:', err.message);
+        }
+
+        // 4. Mark transaction as processed AND link to customer phone + customer_id
         const amount = parseInt(match.transfer_amount) || 0;
         await db.query(
             `UPDATE balance_history
-             SET debt_added = TRUE, linked_customer_phone = $2
+             SET debt_added = TRUE,
+                 linked_customer_phone = $2,
+                 customer_id = COALESCE($3, customer_id)
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [match.transaction_id, selectedCustomer.phone]
+            [match.transaction_id, selectedCustomer.phone, customerId]
         );
 
-        console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone);
+        console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone, 'customer_id:', customerId);
+
+        // 5. Process wallet deposit immediately (NEW - realtime wallet update)
+        let walletProcessed = false;
+        if (amount > 0 && customerId) {
+            try {
+                const walletResult = await processDeposit(
+                    db,
+                    selectedCustomer.phone,
+                    amount,
+                    match.transaction_id,
+                    `Nạp từ CK (resolve-match ${id})`,
+                    customerId
+                );
+
+                // Mark balance_history as wallet processed
+                await db.query(`
+                    UPDATE balance_history
+                    SET wallet_processed = TRUE
+                    WHERE id = $1
+                `, [match.transaction_id]);
+
+                walletProcessed = true;
+                console.log(`[RESOLVE-MATCH] ✅ Wallet updated: TX ${walletResult.transactionId}, new balance: ${walletResult.wallet.balance}`);
+            } catch (walletErr) {
+                console.error('[RESOLVE-MATCH] Wallet update failed:', walletErr.message);
+            }
+        }
 
         // 4. Update pending match status with selected customer info as JSON
         const selectedCustomerJson = JSON.stringify({
@@ -2855,7 +2926,9 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
             match_id: id,
             transaction_id: match.transaction_id,
             customer_phone: selectedCustomer.phone,
-            amount
+            customer_id: customerId,
+            amount,
+            walletProcessed
         });
 
         res.json({
@@ -2865,10 +2938,12 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
                 match_id: id,
                 transaction_id: match.transaction_id,
                 customer: {
+                    id: customerId,
                     phone: selectedCustomer.phone,
-                    name: selectedCustomer.name
+                    name: customerName
                 },
-                amount_added: amount
+                amount_added: amount,
+                wallet_processed: walletProcessed
             }
         });
 
