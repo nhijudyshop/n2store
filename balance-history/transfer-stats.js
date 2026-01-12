@@ -260,6 +260,21 @@ function updateUncheckedBadge() {
 // =====================================================
 
 async function toggleTSChecked(id, checked) {
+    // Prevent unchecking if already verified
+    const item = tsData.find(d => d.id === id);
+    if (!checked && item && item.is_verified) {
+        // Revert checkbox state
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        if (row) {
+            const hideCheckbox = row.querySelector('.ts-hide-checkbox');
+            if (hideCheckbox) hideCheckbox.checked = true;
+        }
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Không thể bỏ "Ẩn/Hiện" khi đã "Kiểm Tra". Hãy bỏ check "Đã Kiểm Tra" trước.', 'warning');
+        }
+        return;
+    }
+
     try {
         const response = await fetch(`${TS_API_BASE_URL}/api/sepay/transfer-stats/${id}/check`, {
             method: 'PUT',
@@ -271,7 +286,6 @@ async function toggleTSChecked(id, checked) {
 
         if (result.success) {
             // Update local data
-            const item = tsData.find(d => d.id === id);
             if (item) {
                 item.is_checked = checked;
                 // If unchecking, also uncheck verified
