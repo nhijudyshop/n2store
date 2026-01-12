@@ -134,7 +134,7 @@ async function showBulkTagModal() {
     // Update UI
     updateBulkTagModalTable();
     updateBulkTagModalRowCount();
-    updateSelectAllCheckbox();
+    updateBulkTagSelectAllCheckbox();
     document.getElementById('bulkTagModalSearchInput').value = '';
 
     // Load tags for dropdown
@@ -498,11 +498,11 @@ function toggleBulkTagRowSelection(tagId) {
     }
 
     updateBulkTagModalTable();
-    updateSelectAllCheckbox();
+    updateBulkTagSelectAllCheckbox();
 }
 
 // Update select all checkbox state
-function updateSelectAllCheckbox() {
+function updateBulkTagSelectAllCheckbox() {
     const selectAllCheckbox = document.getElementById('bulkTagSelectAllCheckbox');
     const tagsWithSTT = bulkTagModalData.filter(t => t.sttList.length > 0);
 
@@ -591,7 +591,7 @@ function removeSTTFromBulkTagRow(tagId, stt) {
     }
 
     updateBulkTagModalTable();
-    updateSelectAllCheckbox();
+    updateBulkTagSelectAllCheckbox();
 }
 
 // Update the bulk tag modal table
@@ -1009,7 +1009,7 @@ async function executeBulkTagModalAssignment() {
         // Update modal UI
         updateBulkTagModalTable();
         updateBulkTagModalRowCount();
-        updateSelectAllCheckbox();
+        updateBulkTagSelectAllCheckbox();
 
         // Show result modal
         showBulkTagResultModal(successResults, failedResults);

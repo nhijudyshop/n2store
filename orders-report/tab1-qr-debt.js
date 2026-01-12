@@ -1701,11 +1701,9 @@ function removeSaleItem(index) {
 
 /**
  * Format date for datetime-local input
+ * NOTE: Đã có sẵn trong tab1-search.js, dùng chung function đó
  */
-function formatDateTimeLocal(date) {
-    const pad = (n) => n.toString().padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
+// function formatDateTimeLocal(date) { ... } // REMOVED - duplicate
 
 /**
  * Format date for display

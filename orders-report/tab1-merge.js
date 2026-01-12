@@ -752,7 +752,7 @@ function toggleMergeClusterSelection(clusterId, checked) {
     }
 
     // Update select all checkbox
-    updateSelectAllCheckbox();
+    updateMergeSelectAllCheckbox();
     updateConfirmButtonState();
 }
 
@@ -782,7 +782,7 @@ function toggleSelectAllMergeClusters(checked) {
 /**
  * Update select all checkbox state based on individual selections
  */
-function updateSelectAllCheckbox() {
+function updateMergeSelectAllCheckbox() {
     const selectAllCheckbox = document.getElementById('mergeSelectAllCheckbox');
     if (mergeClustersData.length === 0) {
         selectAllCheckbox.checked = false;
