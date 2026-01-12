@@ -372,6 +372,129 @@ router.post('/:id/unlink', async (req, res) => {
 });
 
 /**
+ * POST /api/v2/balance-history/:id/adjust
+ * Manual adjustment for accountant corrections
+ * Use cases:
+ *   - Wrong amount: Bank sent 815k but should be 850k → adjust +35k
+ *   - Duplicate fix: Remove extra amount → adjust -815k
+ *   - Refund: Customer requests refund → adjust -amount
+ */
+router.post('/:id/adjust', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { adjustment_amount, reason, adjusted_by } = req.body;
+
+    if (adjustment_amount === undefined || adjustment_amount === 0) {
+        return res.status(400).json({ success: false, error: 'adjustment_amount is required and cannot be 0' });
+    }
+
+    if (!reason) {
+        return res.status(400).json({ success: false, error: 'reason is required for audit trail' });
+    }
+
+    try {
+        await db.query('BEGIN');
+
+        // 1. Get transaction and verify it's linked
+        const txResult = await db.query(
+            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+            [parseInt(id)]
+        );
+
+        if (txResult.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Transaction not found' });
+        }
+
+        const tx = txResult.rows[0];
+
+        if (!tx.linked_customer_phone) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({ success: false, error: 'Transaction is not linked to any customer' });
+        }
+
+        // 2. Get current wallet
+        const walletResult = await db.query(
+            'SELECT * FROM customer_wallets WHERE phone = $1 FOR UPDATE',
+            [tx.linked_customer_phone]
+        );
+
+        if (walletResult.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({ success: false, error: 'Wallet not found for this customer' });
+        }
+
+        const wallet = walletResult.rows[0];
+        const adjustmentNum = parseFloat(adjustment_amount);
+        const newBalance = parseFloat(wallet.balance) + adjustmentNum;
+
+        // 3. Update wallet balance
+        await db.query(`
+            UPDATE customer_wallets
+            SET balance = $1, updated_at = NOW()
+            WHERE phone = $2
+        `, [newBalance, tx.linked_customer_phone]);
+
+        // 4. Create adjustment transaction record
+        // Note: This uses 'adjustment' as reference_type (not 'balance_history')
+        // so it won't conflict with the UNIQUE constraint
+        const adjTxResult = await db.query(`
+            INSERT INTO wallet_transactions (
+                phone, wallet_id, type, amount,
+                balance_before, balance_after,
+                source, reference_type, reference_id, note
+            )
+            VALUES ($1, $2, 'ADJUSTMENT', $3, $4, $5, 'MANUAL_ADJUSTMENT', 'adjustment', $6, $7)
+            RETURNING id
+        `, [
+            tx.linked_customer_phone,
+            wallet.id,
+            adjustmentNum,
+            wallet.balance,
+            newBalance,
+            `bh_${id}_adj_${Date.now()}`, // Unique reference for adjustment
+            `[${adjusted_by || 'admin'}] ${reason} (BH #${id})`
+        ]);
+
+        // 5. Log activity
+        await db.query(`
+            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
+            VALUES ($1, $2, 'WALLET_ADJUSTMENT', $3, $4, 'wallet_transaction', $5, 'edit', $6)
+        `, [
+            tx.linked_customer_phone,
+            tx.customer_id,
+            `Điều chỉnh: ${adjustmentNum > 0 ? '+' : ''}${adjustmentNum.toLocaleString()}đ`,
+            `${reason} (bởi ${adjusted_by || 'admin'})`,
+            adjTxResult.rows[0].id,
+            adjustmentNum > 0 ? 'blue' : 'orange'
+        ]);
+
+        await db.query('COMMIT');
+
+        console.log(`[BalanceHistory V2] ✅ Adjustment: ${tx.linked_customer_phone} ${adjustmentNum > 0 ? '+' : ''}${adjustmentNum} (reason: ${reason})`);
+
+        res.json({
+            success: true,
+            message: 'Đã điều chỉnh số dư ví',
+            data: {
+                transaction_id: id,
+                phone: tx.linked_customer_phone,
+                adjustment_amount: adjustmentNum,
+                balance_before: parseFloat(wallet.balance),
+                balance_after: newBalance,
+                adjustment_tx_id: adjTxResult.rows[0].id,
+                reason,
+                adjusted_by: adjusted_by || 'admin'
+            }
+        });
+
+    } catch (error) {
+        await db.query('ROLLBACK');
+        handleError(res, error, 'Failed to adjust transaction');
+    }
+});
+
+/**
  * GET /api/v2/balance-history/stats
  * Get balance history statistics
  */
