@@ -338,6 +338,7 @@ export class CustomerProfileModule {
             activitiesHtml = activities.slice(0, 8).map((activity, index) => {
                 const iconInfo = this._getActivityIcon(activity.type || activity.event_type);
                 const timeAgo = this._getTimeAgo(activity.created_at || activity.timestamp);
+                const translatedTitle = this._translateActivityTitle(activity);
 
                 return `
                     <div style="position: relative; padding-left: 32px; ${index !== activities.slice(0, 8).length - 1 ? 'padding-bottom: 16px;' : ''}">
@@ -347,7 +348,7 @@ export class CustomerProfileModule {
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                             <div style="flex: 1; min-width: 0;">
-                                <p class="text-sm font-medium text-slate-900 dark:text-white" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${activity.title || activity.description || 'Hoạt động'}</p>
+                                <p class="text-sm font-medium text-slate-900 dark:text-white" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${translatedTitle}</p>
                                 ${activity.details ? `<p class="text-xs text-slate-500" style="margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${activity.details}</p>` : ''}
                             </div>
                             <span class="text-xs text-slate-400" style="white-space: nowrap; flex-shrink: 0;">${timeAgo}</span>
@@ -413,7 +414,7 @@ export class CustomerProfileModule {
             <!-- Header -->
             <div class="px-5 py-4 border-b border-border-light dark:border-border-dark flex items-center gap-2">
                 <span class="material-symbols-outlined text-amber-500">speaker_notes</span>
-                <h3 class="text-base font-bold text-slate-900 dark:text-white">Ghi chú nội bộ</h3>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Ghi chú</h3>
             </div>
 
             <!-- Notes List -->
@@ -527,6 +528,53 @@ export class CustomerProfileModule {
         return typeMap[type] || { icon: 'event', bgColor: 'bg-slate-100 dark:bg-slate-700', borderColor: 'border-slate-200 dark:border-slate-600', iconColor: 'text-slate-500' };
     }
 
+    _translateActivityTitle(activity) {
+        const type = activity.type || activity.event_type || '';
+        const title = activity.title || activity.description || '';
+
+        // Ticket type translations (matching issue-tracking naming)
+        const ticketTypeMap = {
+            'BOOM': 'Boom Hàng',
+            'FIX_COD': 'Sửa COD',
+            'RETURN_CLIENT': 'Khách Gửi',
+            'RETURN_SHIPPER': 'Thu Về',
+            'OTHER': 'Vấn đề khác'
+        };
+
+        // Activity type translations
+        const activityTypeMap = {
+            'purchase': 'Đơn hàng',
+            'order': 'Đơn hàng',
+            'login': 'Đăng nhập',
+            'email': 'Email',
+            'wallet': 'Ví',
+            'deposit': 'Nạp tiền',
+            'withdraw': 'Rút tiền',
+            'ticket': 'Ticket',
+            'note': 'Ghi chú'
+        };
+
+        // Check if it's a ticket type first
+        if (ticketTypeMap[type]) {
+            return ticketTypeMap[type];
+        }
+
+        // Check if title contains ticket type codes
+        for (const [code, vn] of Object.entries(ticketTypeMap)) {
+            if (title.includes(code)) {
+                return title.replace(code, vn);
+            }
+        }
+
+        // Translate activity type
+        if (activityTypeMap[type]) {
+            return activityTypeMap[type] + (title ? ` - ${title}` : '');
+        }
+
+        // Return original title or default
+        return title || 'Hoạt động';
+    }
+
     _getTimeAgo(dateString) {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -557,12 +605,24 @@ export class CustomerProfileModule {
         }
 
         try {
-            const response = await apiService.addCustomerNote(this.customerPhone, content.trim());
-            if (response.success) {
+            // Get current user name from localStorage/sessionStorage
+            let createdBy = 'Hệ thống';
+            try {
+                const authData = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth');
+                if (authData) {
+                    const auth = JSON.parse(authData);
+                    createdBy = auth.userName || auth.userType || 'Hệ thống';
+                }
+            } catch (e) {
+                console.warn('Could not get user name:', e);
+            }
+
+            const response = await apiService.addCustomerNote(this.customerPhone, content.trim(), { created_by: createdBy });
+            if (response) {
                 // Reload profile to show new note
                 this.render(this.customerPhone);
             } else {
-                alert('Lỗi khi thêm ghi chú: ' + (response.error || 'Lỗi không xác định'));
+                alert('Lỗi khi thêm ghi chú: Lỗi không xác định');
             }
         } catch (error) {
             alert('Lỗi khi thêm ghi chú: ' + error.message);
@@ -570,7 +630,7 @@ export class CustomerProfileModule {
         } finally {
             if (addNoteBtn) {
                 addNoteBtn.disabled = false;
-                addNoteBtn.innerHTML = `<span class="material-symbols-outlined text-lg">send</span> Thêm`;
+                addNoteBtn.innerHTML = `Thêm`;
             }
         }
     }
