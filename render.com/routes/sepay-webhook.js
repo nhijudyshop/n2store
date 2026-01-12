@@ -10,6 +10,11 @@ const fetch = require('node-fetch');
 // AbortController is global in Node.js 18+, but fallback for older versions
 const AbortController = globalThis.AbortController || require('abort-controller');
 
+// NEW: Import customer and wallet services for realtime processing
+const { searchCustomerByPhone } = require('../services/tpos-customer-service');
+const { getOrCreateCustomerFromTPOS } = require('../services/customer-creation-service');
+const { processDeposit } = require('../services/wallet-event-processor');
+
 // =====================================================
 // BLACKLIST: Các số cần bỏ qua khi extract phone
 // Bao gồm: số tài khoản ngân hàng của shop, mã giao dịch, etc.
@@ -1117,12 +1122,53 @@ async function processDebtUpdate(db, transactionId) {
                 }
             }
 
-            // 6. Mark transaction as processed AND link to customer phone
+            // 6. NEW: Create/Update customer with TPOS data + process wallet realtime
+            let customerId = null;
+            let tposData = null;
+
+            try {
+                // Fetch full TPOS data for customer creation
+                const tposResult = await searchCustomerByPhone(phone);
+                if (tposResult.success && tposResult.customer) {
+                    tposData = tposResult.customer;
+                    customerName = tposData.name || customerName;
+                }
+
+                // Create or update customer with full TPOS data
+                const customerResult = await getOrCreateCustomerFromTPOS(db, phone, tposData);
+                customerId = customerResult.customerId;
+                console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+
+                // Process wallet deposit immediately
+                if (amount > 0) {
+                    try {
+                        const walletResult = await processDeposit(
+                            db,
+                            phone,
+                            amount,
+                            transactionId,
+                            `Nạp từ CK (QR: ${qrCode})`,
+                            customerId
+                        );
+                        console.log(`[DEBT-UPDATE] ✅ Wallet updated: TX ${walletResult.transactionId}`);
+                    } catch (walletErr) {
+                        console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                    }
+                }
+            } catch (err) {
+                console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
+                // Continue - we can still link the phone, cron will retry wallet
+            }
+
+            // 7. Mark transaction as processed AND link to customer phone + customer_id
             await db.query(
                 `UPDATE balance_history
-                 SET debt_added = TRUE, linked_customer_phone = $2
+                 SET debt_added = TRUE,
+                     linked_customer_phone = $2,
+                     customer_id = COALESCE($3, customer_id),
+                     wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, phone]
+                [transactionId, phone, customerId, amount]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (QR method):', {
@@ -1130,6 +1176,7 @@ async function processDebtUpdate(db, transactionId) {
                 qrCode,
                 phone,
                 linkedPhone: phone,
+                customerId,
                 customerName,
                 amount
             });
@@ -1140,8 +1187,10 @@ async function processDebtUpdate(db, transactionId) {
                 transactionId,
                 qrCode,
                 phone,
+                customerId,
                 customerName,
-                amount
+                amount,
+                walletProcessed: amount > 0
             };
         }
     }
@@ -1227,18 +1276,60 @@ async function processDebtUpdate(db, transactionId) {
             ]
         );
 
-        // Mark transaction as processed AND link to customer phone
+        // NEW: Create/Update customer with TPOS data + process wallet realtime
+        let customerId = null;
+        let tposData = null;
+
+        try {
+            // Fetch full TPOS data for customer creation
+            const tposResult = await searchCustomerByPhone(exactPhone);
+            if (tposResult.success && tposResult.customer) {
+                tposData = tposResult.customer;
+                customerName = tposData.name || customerName;
+            }
+
+            // Create or update customer with full TPOS data
+            const customerResult = await getOrCreateCustomerFromTPOS(db, exactPhone, tposData);
+            customerId = customerResult.customerId;
+            console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+
+            // Process wallet deposit immediately
+            if (amount > 0) {
+                try {
+                    const walletResult = await processDeposit(
+                        db,
+                        exactPhone,
+                        amount,
+                        transactionId,
+                        `Nạp từ CK (Phone: ${exactPhone})`,
+                        customerId
+                    );
+                    console.log(`[DEBT-UPDATE] ✅ Wallet updated: TX ${walletResult.transactionId}`);
+                } catch (walletErr) {
+                    console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                }
+            }
+        } catch (err) {
+            console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
+            // Continue - we can still link the phone, cron will retry wallet
+        }
+
+        // Mark transaction as processed AND link to customer phone + customer_id
         await db.query(
             `UPDATE balance_history
-             SET debt_added = TRUE, linked_customer_phone = $2
+             SET debt_added = TRUE,
+                 linked_customer_phone = $2,
+                 customer_id = COALESCE($3, customer_id),
+                 wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [transactionId, exactPhone]
+            [transactionId, exactPhone, customerId, amount]
         );
 
         console.log('[DEBT-UPDATE] ✅ Success (exact phone method):', {
             transactionId,
             exactPhone,
             linkedPhone: exactPhone,
+            customerId,
             customerName,
             dataSource,
             amount
@@ -1250,9 +1341,11 @@ async function processDebtUpdate(db, transactionId) {
             transactionId,
             fullPhone: exactPhone,
             linkedPhone: exactPhone,
+            customerId,
             customerName,
             dataSource,
-            amount
+            amount,
+            walletProcessed: amount > 0
         };
     }
 
@@ -1350,11 +1443,53 @@ async function processDebtUpdate(db, transactionId) {
                 ]
             );
 
+            // NEW: Create/Update customer with TPOS data + process wallet realtime
+            let customerId = null;
+            let tposData = null;
+            let customerName = firstCustomer.name;
+
+            try {
+                // Fetch full TPOS data for customer creation
+                const tposResult = await searchCustomerByPhone(fullPhone);
+                if (tposResult.success && tposResult.customer) {
+                    tposData = tposResult.customer;
+                    customerName = tposData.name || customerName;
+                }
+
+                // Create or update customer with full TPOS data
+                const customerResult = await getOrCreateCustomerFromTPOS(db, fullPhone, tposData);
+                customerId = customerResult.customerId;
+                console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+
+                // Process wallet deposit immediately
+                if (amount > 0) {
+                    try {
+                        const walletResult = await processDeposit(
+                            db,
+                            fullPhone,
+                            amount,
+                            transactionId,
+                            `Nạp từ CK (Auto-matched: ${partialPhone})`,
+                            customerId
+                        );
+                        console.log(`[DEBT-UPDATE] ✅ Wallet updated: TX ${walletResult.transactionId}`);
+                    } catch (walletErr) {
+                        console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                    }
+                }
+            } catch (err) {
+                console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
+            }
+
+            // Update balance_history with customer_id
             await db.query(
                 `UPDATE balance_history
-                 SET debt_added = TRUE, linked_customer_phone = $2
+                 SET debt_added = TRUE,
+                     linked_customer_phone = $2,
+                     customer_id = COALESCE($3, customer_id),
+                     wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, fullPhone]
+                [transactionId, fullPhone, customerId, amount]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (auto-matched):', {
@@ -1362,7 +1497,8 @@ async function processDebtUpdate(db, transactionId) {
                 partialPhone,
                 fullPhone,
                 linkedPhone: fullPhone,
-                customerName: firstCustomer.name,
+                customerId,
+                customerName,
                 dataSource,
                 amount
             });
@@ -1374,9 +1510,11 @@ async function processDebtUpdate(db, transactionId) {
                 partialPhone,
                 fullPhone,
                 linkedPhone: fullPhone,
-                customerName: firstCustomer.name,
+                customerId,
+                customerName,
                 dataSource,
-                amount
+                amount,
+                walletProcessed: amount > 0
             };
 
         } else {

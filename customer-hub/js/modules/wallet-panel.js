@@ -7,9 +7,16 @@ export class WalletPanelModule {
         this.container = document.getElementById(containerId);
         this.permissionHelper = permissionHelper;
         this.customerPhone = null;
+        this.eventSource = null; // SSE connection
+        this.lastWalletData = null; // Cache last wallet data for comparison
     }
 
     async render(phone) {
+        // Close previous SSE connection if phone changes
+        if (this.customerPhone && this.customerPhone !== phone) {
+            this.closeSSE();
+        }
+
         this.customerPhone = phone;
         if (!this.permissionHelper.hasPermission('customer-hub', 'viewWallet')) {
             this.container.innerHTML = `
@@ -47,7 +54,10 @@ export class WalletPanelModule {
         try {
             const wallet = await apiService.getWallet(this.customerPhone);
             if (wallet) {
+                this.lastWalletData = wallet;
                 this.renderWallet(wallet);
+                // Start SSE subscription for realtime updates
+                this.subscribeToRealtimeUpdates();
             } else {
                 this.renderEmpty();
             }
@@ -282,5 +292,129 @@ export class WalletPanelModule {
             return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(amount / 1000) + 'K';
         }
         return new Intl.NumberFormat('vi-VN').format(amount || 0);
+    }
+
+    // =====================================================
+    // SSE REALTIME SUBSCRIPTION
+    // =====================================================
+
+    /**
+     * Subscribe to wallet updates via SSE
+     */
+    subscribeToRealtimeUpdates() {
+        if (!this.customerPhone) return;
+
+        // Close existing connection first
+        this.closeSSE();
+
+        const sseUrl = `${apiService.RENDER_API_URL}/realtime/sse?keys=wallet:${this.customerPhone}`;
+        console.log(`[WalletPanel] Subscribing to SSE: ${sseUrl}`);
+
+        try {
+            this.eventSource = new EventSource(sseUrl);
+
+            this.eventSource.onopen = () => {
+                console.log(`[WalletPanel] SSE connected for wallet:${this.customerPhone}`);
+            };
+
+            // Listen for wallet_update events
+            this.eventSource.addEventListener('wallet_update', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('[WalletPanel] Received wallet update:', data);
+
+                    if (data.data && data.data.wallet) {
+                        this.handleWalletUpdate(data.data);
+                    }
+                } catch (e) {
+                    console.error('[WalletPanel] Error parsing SSE data:', e);
+                }
+            });
+
+            // Listen for generic update events
+            this.eventSource.addEventListener('update', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.event === 'wallet_update' && data.data && data.data.wallet) {
+                        this.handleWalletUpdate(data.data);
+                    }
+                } catch (e) {
+                    console.error('[WalletPanel] Error parsing SSE data:', e);
+                }
+            });
+
+            this.eventSource.onerror = (error) => {
+                console.warn('[WalletPanel] SSE error, will retry:', error);
+                // EventSource auto-reconnects, no need to manually handle
+            };
+
+        } catch (error) {
+            console.error('[WalletPanel] Failed to create SSE connection:', error);
+        }
+    }
+
+    /**
+     * Handle wallet update from SSE
+     */
+    handleWalletUpdate(data) {
+        const { wallet, transaction } = data;
+
+        // Update the panel with new wallet data
+        if (wallet) {
+            this.lastWalletData = wallet;
+            this.renderWallet(wallet);
+
+            // Show notification for deposit
+            if (transaction && transaction.amount > 0) {
+                this.showUpdateNotification(transaction);
+            }
+        }
+    }
+
+    /**
+     * Show notification when wallet is updated
+     */
+    showUpdateNotification(transaction) {
+        const { type, amount } = transaction;
+
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'fixed bottom-4 right-4 z-50 animate-pulse';
+        notification.innerHTML = `
+            <div class="bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3">
+                <span class="material-symbols-outlined">account_balance_wallet</span>
+                <div>
+                    <p class="font-bold">${type === 'DEPOSIT' ? 'Nạp tiền thành công!' : 'Cập nhật ví'}</p>
+                    <p class="text-sm">+${this.formatCurrency(amount)}</p>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Remove after 5 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+
+    /**
+     * Close SSE connection
+     */
+    closeSSE() {
+        if (this.eventSource) {
+            console.log(`[WalletPanel] Closing SSE connection for wallet:${this.customerPhone}`);
+            this.eventSource.close();
+            this.eventSource = null;
+        }
+    }
+
+    /**
+     * Cleanup when module is destroyed
+     */
+    destroy() {
+        this.closeSSE();
+        this.customerPhone = null;
+        this.lastWalletData = null;
     }
 }

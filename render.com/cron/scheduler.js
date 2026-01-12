@@ -1,6 +1,10 @@
 const cron = require('node-cron');
 const db = require('../db/pool');
 
+// NEW: Import services for customer creation and wallet processing
+const { ensureCustomerWithTPOS } = require('../services/customer-creation-service');
+const { processDeposit } = require('../services/wallet-event-processor');
+
 // Chạy mỗi giờ để expire virtual credits
 cron.schedule('0 * * * *', async () => {
     console.log('[CRON] Running expire_virtual_credits...');
@@ -37,9 +41,9 @@ cron.schedule('0 */6 * * *', async () => {
     }
 });
 
-// Chạy mỗi 5 phút để process bank transactions vào wallet
+// Chạy mỗi 5 phút để process bank transactions vào wallet (BACKUP cho realtime processing)
 cron.schedule('*/5 * * * *', async () => {
-    console.log('[CRON] Running process-bank-transactions...');
+    console.log('[CRON] Running process-bank-transactions (backup)...');
     try {
         // Get unprocessed bank transactions that have customer phone linked
         const unprocessedResult = await db.query(`
@@ -56,51 +60,43 @@ cron.schedule('*/5 * * * *', async () => {
         `);
 
         if (unprocessedResult.rows.length === 0) {
-            console.log('[CRON] No unprocessed bank transactions found');
+            console.log('[CRON] No unprocessed bank transactions found (realtime is working!)');
             return;
         }
+
+        console.log(`[CRON] Found ${unprocessedResult.rows.length} unprocessed transactions (catching up...)`);
 
         let processedCount = 0;
         let totalAmount = 0;
 
         for (const tx of unprocessedResult.rows) {
             try {
-                await db.query('BEGIN');
+                // NEW: Ensure customer exists with TPOS data (create if missing)
+                let customerId = tx.customer_id;
+                if (!customerId) {
+                    try {
+                        const customerResult = await ensureCustomerWithTPOS(db, tx.linked_customer_phone);
+                        customerId = customerResult.customerId;
+                        console.log(`[CRON] Created missing customer: ${tx.linked_customer_phone} -> ID ${customerId}`);
 
-                // Get or create wallet
-                let walletResult = await db.query(
-                    `INSERT INTO customer_wallets (phone, customer_id, balance, virtual_balance)
-                     VALUES ($1, $2, 0, 0)
-                     ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
-                     RETURNING id, balance`,
-                    [tx.linked_customer_phone, tx.customer_id]
-                );
+                        // Update balance_history with customer_id
+                        await db.query(
+                            'UPDATE balance_history SET customer_id = $1 WHERE id = $2',
+                            [customerId, tx.id]
+                        );
+                    } catch (custErr) {
+                        console.error(`[CRON] Failed to create customer for ${tx.linked_customer_phone}:`, custErr.message);
+                    }
+                }
 
-                const walletId = walletResult.rows[0].id;
-                const currentBalance = parseFloat(walletResult.rows[0].balance) || 0;
-                const newBalance = currentBalance + parseFloat(tx.transfer_amount);
-
-                // Log wallet transaction
-                await db.query(
-                    `INSERT INTO wallet_transactions (
-                        phone, wallet_id, type, amount,
-                        balance_before, balance_after,
-                        source, reference_type, reference_id, note
-                    ) VALUES ($1, $2, 'DEPOSIT', $3, $4, $5, 'BANK_TRANSFER', 'balance_history', $6, $7)`,
-                    [
-                        tx.linked_customer_phone, walletId, tx.transfer_amount,
-                        currentBalance, newBalance,
-                        tx.id.toString(),
-                        'Nap tu CK ' + (tx.code || tx.reference_code || 'N/A')
-                    ]
-                );
-
-                // Update wallet balance
-                await db.query(
-                    `UPDATE customer_wallets
-                     SET balance = $1, total_deposited = COALESCE(total_deposited, 0) + $2, updated_at = NOW()
-                     WHERE phone = $3`,
-                    [newBalance, tx.transfer_amount, tx.linked_customer_phone]
+                // NEW: Use wallet-event-processor instead of manual queries
+                const walletResult = await processDeposit(
+                    db,
+                    tx.linked_customer_phone,
+                    tx.transfer_amount,
+                    tx.id,
+                    `Nạp từ CK ${tx.code || tx.reference_code || 'N/A'} (cron backup)`,
+                    customerId
                 );
 
                 // Mark as processed
@@ -109,19 +105,18 @@ cron.schedule('*/5 * * * *', async () => {
                     [tx.id]
                 );
 
-                await db.query('COMMIT');
-
                 processedCount++;
                 totalAmount += parseFloat(tx.transfer_amount);
 
+                console.log(`[CRON] ✅ Processed tx ${tx.id}: +${tx.transfer_amount} VND (wallet TX: ${walletResult.transactionId})`);
+
             } catch (txError) {
-                await db.query('ROLLBACK');
                 console.error(`[CRON] ❌ Error processing balance_history id=${tx.id}:`, txError.message);
             }
         }
 
         if (processedCount > 0) {
-            console.log(`[CRON] ✅ Processed ${processedCount} bank transactions, total: ${totalAmount} VND`);
+            console.log(`[CRON] ✅ Backup processed ${processedCount} bank transactions, total: ${totalAmount} VND`);
         }
 
     } catch (error) {

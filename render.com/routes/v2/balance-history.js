@@ -17,7 +17,10 @@
 
 const express = require('express');
 const router = express.Router();
-const { normalizePhone, getOrCreateCustomer } = require('../../utils/customer-helpers');
+const { normalizePhone } = require('../../utils/customer-helpers');
+const { searchCustomerByPhone } = require('../../services/tpos-customer-service');
+const { getOrCreateCustomerFromTPOS } = require('../../services/customer-creation-service');
+const { processDeposit } = require('../../services/wallet-event-processor');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -143,11 +146,12 @@ router.get('/pending', async (req, res) => {
 /**
  * POST /api/v2/balance-history/:id/link
  * Link a balance_history transaction to a customer
+ * NEW: Fetches TPOS data and creates customer with full info
  */
 router.post('/:id/link', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { phone, customer_name, auto_deposit = false } = req.body;
+    const { phone, customer_name, auto_deposit = true } = req.body; // Default auto_deposit to true
 
     if (!phone) {
         return res.status(400).json({ success: false, error: 'Phone is required' });
@@ -184,10 +188,32 @@ router.post('/:id/link', async (req, res) => {
             });
         }
 
-        // 2. Get or create customer
-        const customerId = await getOrCreateCustomer(db, normalizedPhone, customer_name || tx.content);
+        // 2. NEW: Fetch TPOS data for customer creation
+        let tposData = null;
+        let customerName = customer_name;
 
-        // 3. Link transaction to customer
+        try {
+            const tposResult = await searchCustomerByPhone(normalizedPhone);
+            if (tposResult.success && tposResult.customer) {
+                tposData = tposResult.customer;
+                customerName = tposData.name || customerName || tx.content;
+                console.log(`[BalanceHistory V2] Got TPOS data: ${tposData.name} (ID: ${tposData.id})`);
+            }
+        } catch (e) {
+            console.log('[BalanceHistory V2] TPOS fetch failed, using provided name:', e.message);
+        }
+
+        // If no TPOS data and customer_name provided, use it
+        if (!tposData && customerName) {
+            tposData = { name: customerName };
+        }
+
+        // 3. Create/update customer with full TPOS data
+        const customerResult = await getOrCreateCustomerFromTPOS(db, normalizedPhone, tposData);
+        const customerId = customerResult.customerId;
+        console.log(`[BalanceHistory V2] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+
+        // 4. Link transaction to customer
         await db.query(`
             UPDATE balance_history
             SET linked_customer_phone = $1,
@@ -196,63 +222,52 @@ router.post('/:id/link', async (req, res) => {
             WHERE id = $3
         `, [normalizedPhone, customerId, id]);
 
-        // 4. Optional: Auto deposit to wallet
+        // 5. Process wallet deposit using wallet-event-processor
         let depositResult = null;
         if (auto_deposit && tx.transfer_amount > 0) {
-            // Get or create wallet
-            const walletResult = await db.query(`
-                INSERT INTO customer_wallets (phone, customer_id, balance)
-                VALUES ($1, $2, 0)
-                ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
-                RETURNING *
-            `, [normalizedPhone, customerId]);
+            try {
+                const walletResult = await processDeposit(
+                    db,
+                    normalizedPhone,
+                    tx.transfer_amount,
+                    id,
+                    `Nạp từ CK ${tx.code || tx.reference_code} (manual link)`,
+                    customerId
+                );
 
-            const wallet = walletResult.rows[0];
-            const newBalance = parseFloat(wallet.balance) + parseFloat(tx.transfer_amount);
+                // Mark balance_history as wallet processed
+                await db.query(`
+                    UPDATE balance_history
+                    SET wallet_processed = TRUE
+                    WHERE id = $1
+                `, [id]);
 
-            // Update wallet balance
-            await db.query(`
-                UPDATE customer_wallets
-                SET balance = $2, total_deposited = total_deposited + $3, updated_at = NOW()
-                WHERE id = $1
-            `, [wallet.id, newBalance, tx.transfer_amount]);
+                // Log activity
+                await db.query(`
+                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
+                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
+                `, [
+                    normalizedPhone, customerId,
+                    `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
+                    `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`,
+                    id
+                ]);
 
-            // Log wallet transaction
-            await db.query(`
-                INSERT INTO wallet_transactions (
-                    phone, wallet_id, type, amount, balance_before, balance_after, source,
-                    reference_type, reference_id, note
-                )
-                VALUES ($1, $2, 'DEPOSIT', $3, $4, $5, 'BANK_TRANSFER',
-                        'balance_history', $6::text, $7)
-            `, [
-                normalizedPhone, wallet.id, tx.transfer_amount, wallet.balance, newBalance,
-                id, `Nạp từ CK ${tx.code || tx.reference_code}`
-            ]);
+                depositResult = {
+                    deposited: true,
+                    amount: parseFloat(tx.transfer_amount),
+                    wallet_tx_id: walletResult.transactionId,
+                    newBalance: walletResult.wallet.balance
+                };
 
-            // Mark balance_history as wallet processed
-            await db.query(`
-                UPDATE balance_history
-                SET wallet_processed = TRUE
-                WHERE id = $1
-            `, [id]);
-
-            // Log activity
-            await db.query(`
-                INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
-                VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
-            `, [
-                normalizedPhone, customerId,
-                `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
-                `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`,
-                id
-            ]);
-
-            depositResult = {
-                deposited: true,
-                amount: parseFloat(tx.transfer_amount),
-                newBalance
-            };
+                console.log(`[BalanceHistory V2] ✅ Wallet updated: TX ${walletResult.transactionId}`);
+            } catch (walletErr) {
+                console.error('[BalanceHistory V2] Wallet update failed:', walletErr.message);
+                depositResult = {
+                    deposited: false,
+                    error: walletErr.message
+                };
+            }
         }
 
         // Remove from pending matches if exists
@@ -266,7 +281,9 @@ router.post('/:id/link', async (req, res) => {
             data: {
                 transaction_id: id,
                 customer_id: customerId,
+                customer_name: customerResult.customerName || customerName,
                 phone: normalizedPhone,
+                tpos_id: tposData?.id || null,
                 deposit: depositResult
             }
         });
