@@ -2,7 +2,6 @@
 import apiService from '../api-service.js';
 import { PermissionHelper } from '../utils/permissions.js';
 import { WalletPanelModule } from './wallet-panel.js';
-import { TicketListModule } from './ticket-list.js';
 
 export class CustomerProfileModule {
     constructor(containerId, permissionHelper) {
@@ -10,19 +9,18 @@ export class CustomerProfileModule {
         this.permissionHelper = permissionHelper;
         this.customerPhone = null;
         this.walletPanelModule = null;
-        this.ticketListModule = null;
         this.customerData = null;
     }
 
     initUI() {
         this.container.innerHTML = `
             <!-- Modal Header -->
-            <header class="shrink-0 px-6 py-5 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <header class="shrink-0 px-6 py-4 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
+                <div class="flex items-center justify-between">
                     <div>
                         <div class="flex items-center gap-3 mb-1">
                             <h1 id="modal-customer-name" class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Hồ sơ khách hàng</h1>
-                            <span id="modal-customer-id" class="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-border-light dark:border-border-dark"></span>
+                            <span id="modal-customer-status" class="px-2.5 py-0.5 rounded text-xs font-semibold"></span>
                         </div>
                         <p id="modal-customer-meta" class="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
                             <span class="material-symbols-outlined text-base">call</span>
@@ -33,11 +31,11 @@ export class CustomerProfileModule {
                         </p>
                     </div>
                     <div class="flex items-center gap-3">
-                        <button id="audit-log-btn" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-soft">
+                        <button id="audit-log-btn" class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
                             <span class="material-symbols-outlined text-lg">history</span>
                             Lịch sử
                         </button>
-                        <button onclick="window.closeCustomerModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
+                        <button onclick="window.closeCustomerModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
                             <span class="material-symbols-outlined text-2xl">close</span>
                         </button>
                     </div>
@@ -45,7 +43,7 @@ export class CustomerProfileModule {
             </header>
 
             <!-- Modal Body - Scrollable -->
-            <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-background-light dark:bg-background-dark">
+            <div class="flex-1 overflow-y-auto p-6 bg-background-light dark:bg-background-dark">
                 <!-- Loading State -->
                 <div id="modal-loader" class="flex flex-col items-center justify-center py-20">
                     <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -55,44 +53,30 @@ export class CustomerProfileModule {
                 </div>
 
                 <!-- Content - Hidden until loaded -->
-                <div id="modal-content-loaded" class="hidden space-y-6">
-                    <!-- Top Row: 2 Columns (Profile Left, Wallet + RFM Right) -->
-                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        <!-- Customer Info Card (Left - Smaller) -->
-                        <div id="customer-info-card" class="lg:col-span-4 bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
-                            <!-- Will be rendered dynamically -->
-                        </div>
-
-                        <!-- Wallet + RFM Container (Right - Larger) -->
-                        <div class="lg:col-span-8 space-y-6">
-                            <!-- Wallet Summary Card -->
-                            <div id="customer-wallet-panel" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
+                <div id="modal-content-loaded" class="hidden">
+                    <!-- 3 Columns Layout -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+                        <!-- Column 1: Wallet + Notes -->
+                        <div id="customer-info-card" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden flex flex-col">
+                            <!-- Wallet Panel at top -->
+                            <div id="customer-wallet-panel" class="border-b border-border-light dark:border-border-dark">
                                 <!-- Will be rendered by WalletPanelModule -->
                             </div>
-
-                            <!-- RFM Analysis Card -->
-                            <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
+                            <!-- Notes Section at bottom -->
+                            <div id="internal-notes-section" class="flex-1 p-4 overflow-y-auto">
                                 <!-- Will be rendered dynamically -->
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Bottom Row: 2 Columns -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Recent Tickets -->
-                        <div id="customer-ticket-list" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card min-h-[320px]">
-                            <!-- Will be rendered by TicketListModule -->
-                        </div>
-
-                        <!-- Recent Activities Timeline -->
-                        <div id="recent-activities-card" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card min-h-[320px]">
+                        <!-- Column 2: Recent Activities -->
+                        <div id="recent-activities-card" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
                             <!-- Will be rendered dynamically -->
                         </div>
-                    </div>
 
-                    <!-- Internal Notes Section -->
-                    <div id="internal-notes-section" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card p-6">
-                        <!-- Will be rendered dynamically -->
+                        <!-- Column 3: RFM Analysis -->
+                        <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
+                            <!-- Will be rendered dynamically -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -117,17 +101,13 @@ export class CustomerProfileModule {
 
                 // Render all sections
                 this._renderHeader(data.customer);
-                this._renderCustomerInfoCard(data.customer);
                 this._renderRFMCard(data.customer);
                 this._renderActivitiesCard(data.recentActivities || []);
                 this._renderNotesSection(data.notes || []);
 
-                // Initialize sub-modules
+                // Initialize wallet panel module
                 this.walletPanelModule = new WalletPanelModule('customer-wallet-panel', this.permissionHelper);
                 this.walletPanelModule.render(phone);
-
-                this.ticketListModule = new TicketListModule('customer-ticket-list', this.permissionHelper);
-                this.ticketListModule.render(phone);
 
                 this.loader.classList.add('hidden');
                 this.contentLoaded.classList.remove('hidden');
@@ -157,14 +137,27 @@ export class CustomerProfileModule {
 
     _renderHeader(customer) {
         const nameEl = this.container.querySelector('#modal-customer-name');
-        const idEl = this.container.querySelector('#modal-customer-id');
+        const statusEl = this.container.querySelector('#modal-customer-status');
         const phoneEl = this.container.querySelector('#modal-phone-display');
         const addressEl = this.container.querySelector('#modal-address-display');
 
         nameEl.textContent = customer.name || 'Hồ sơ khách hàng';
-        idEl.textContent = `ID: #${customer.id || 'N/A'}`;
         phoneEl.textContent = customer.phone;
         addressEl.textContent = customer.address || 'Chưa có địa chỉ';
+
+        // Render status badge with colors
+        const status = customer.status || 'Bình thường';
+        const statusColors = {
+            'bình thường': 'bg-green-500 text-white',
+            'bom hàng': 'bg-red-500 text-white',
+            'cảnh báo': 'bg-amber-500 text-white',
+            'nguy hiểm': 'bg-red-800 text-white',
+            'vip': 'bg-purple-500 text-white',
+            'active': 'bg-green-500 text-white',
+        };
+        const colorClass = statusColors[status.toLowerCase()] || 'bg-green-500 text-white';
+        statusEl.className = `px-2.5 py-0.5 rounded text-xs font-semibold ${colorClass}`;
+        statusEl.textContent = status;
     }
 
     _renderCustomerInfoCard(customer) {

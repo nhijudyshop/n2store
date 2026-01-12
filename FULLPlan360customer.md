@@ -609,6 +609,428 @@
 
 # CHANGELOG
 
+## 2026-01-12 (Night) - Unified Realtime Wallet Architecture
+
+### VẤN ĐỀ HIỆN TẠI
+- ❌ Wallet không realtime, phải chờ cron 5 phút
+- ❌ `processDebtUpdate()` chỉ link phone, **KHÔNG TẠO customer**
+- ❌ Customer thiếu thông tin đầy đủ từ TPOS (id, name, address, status)
+
+### YÊU CẦU MỚI
+- ✅ Cả link tự động và thủ công đều **TẠO CUSTOMER** với đầy đủ thông tin TPOS
+- ✅ Wallet update **REALTIME** ngay khi giao dịch được link
+- ✅ SSE broadcast cho frontend updates
+- ✅ **TÁCH FILE RIÊNG BIỆT** - mỗi chức năng 1 file để dễ bảo trì
+
+### FILES MỚI CẦN TẠO
+
+| File | Chức năng | Priority |
+|------|-----------|----------|
+| `render.com/services/wallet-event-processor.js` | Event-driven wallet processing + SSE emit | **HIGH** |
+| `render.com/services/tpos-customer-service.js` | TPOS API calls, customer data fetching | **HIGH** |
+| `render.com/services/customer-creation-service.js` | Tạo customer với đầy đủ thông tin | **HIGH** |
+
+### FILES CẦN SỬA
+
+| File | Thay đổi | Priority |
+|------|----------|----------|
+| `render.com/utils/customer-helpers.js` | Thêm `getOrCreateCustomerFromTPOS()` | **CRITICAL** |
+| `render.com/routes/sepay-webhook.js` | `processDebtUpdate()` tạo customer + wallet realtime | HIGH |
+| `render.com/routes/v2/balance-history.js` | Link API lấy TPOS data + tạo customer | HIGH |
+| `render.com/routes/realtime-sse.js` | Add wallet event subscription | HIGH |
+| `render.com/cron/scheduler.js` | Keep as backup + tạo customer nếu thiếu | MEDIUM |
+| `customer-hub/js/modules/wallet-panel.js` | SSE subscription cho wallet updates | MEDIUM |
+
+---
+
+### IMPLEMENTATION DETAIL: Tách File Riêng Biệt
+
+#### 1. `render.com/services/tpos-customer-service.js` (NEW)
+```javascript
+/**
+ * TPOS Customer Service
+ * Xử lý việc lấy thông tin khách hàng từ TPOS
+ */
+const tposTokenManager = require('./tpos-token-manager');
+
+/**
+ * Tìm khách hàng trên TPOS theo SĐT
+ * @param {string} phone - Số điện thoại đã normalize
+ * @returns {Object} { success, customer: {id, name, address, email, status, credit, debit}, totalResults }
+ */
+async function searchCustomerByPhone(phone) {
+    // Code từ searchTPOSByPhone() trong sepay-webhook.js
+    // Move ra đây để reuse
+}
+
+/**
+ * Lấy thông tin chi tiết customer từ TPOS ID
+ * @param {number} tposId - TPOS Partner ID
+ * @returns {Object} Customer details
+ */
+async function getCustomerById(tposId) {
+    // Gọi TPOS Partner API với ID
+}
+
+module.exports = {
+    searchCustomerByPhone,
+    getCustomerById
+};
+```
+
+#### 2. `render.com/services/customer-creation-service.js` (NEW)
+```javascript
+/**
+ * Customer Creation Service
+ * Tạo/update customer với đầy đủ thông tin từ TPOS
+ */
+const { normalizePhone } = require('../utils/customer-helpers');
+const tposService = require('./tpos-customer-service');
+
+/**
+ * Tạo hoặc update customer với thông tin TPOS đầy đủ
+ * @param {Object} db - Database connection
+ * @param {string} phone - Số điện thoại
+ * @param {Object} tposData - Data từ TPOS (optional, sẽ fetch nếu null)
+ * @returns {Object} { customerId, isNew, customer }
+ */
+async function createOrUpdateFromTPOS(db, phone, tposData = null) {
+    const normalized = normalizePhone(phone);
+
+    // 1. Nếu không có tposData, fetch từ TPOS
+    if (!tposData) {
+        try {
+            const result = await tposService.searchCustomerByPhone(normalized);
+            if (result.success && result.customer) {
+                tposData = result.customer;
+            }
+        } catch (e) {
+            console.log('[CUSTOMER] TPOS fetch failed:', e.message);
+        }
+    }
+
+    // 2. Check if exists
+    let result = await db.query('SELECT * FROM customers WHERE phone = $1', [normalized]);
+    const isNew = result.rows.length === 0;
+
+    // 3. Create or update với full fields
+    if (isNew) {
+        result = await db.query(`
+            INSERT INTO customers (
+                phone, name, address, email, tpos_id, tpos_data,
+                status, tier, created_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, 'Bình thường', 'new', CURRENT_TIMESTAMP)
+            RETURNING *
+        `, [
+            normalized,
+            tposData?.name || 'Khách hàng mới',
+            tposData?.address || null,
+            tposData?.email || null,
+            tposData?.id?.toString() || null,
+            tposData ? JSON.stringify(tposData) : null
+        ]);
+        console.log(`[CUSTOMER] Created: ${result.rows[0].name} (${normalized})`);
+    } else {
+        // Update với TPOS data nếu có
+        if (tposData) {
+            result = await db.query(`
+                UPDATE customers SET
+                    name = COALESCE($2, name),
+                    address = COALESCE($3, address),
+                    email = COALESCE($4, email),
+                    tpos_id = COALESCE($5, tpos_id),
+                    tpos_data = COALESCE($6, tpos_data),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE phone = $1
+                RETURNING *
+            `, [
+                normalized,
+                tposData.name,
+                tposData.address,
+                tposData.email,
+                tposData.id?.toString(),
+                JSON.stringify(tposData)
+            ]);
+            console.log(`[CUSTOMER] Updated: ${result.rows[0].name} with TPOS data`);
+        } else {
+            result = await db.query('SELECT * FROM customers WHERE phone = $1', [normalized]);
+        }
+    }
+
+    return {
+        customerId: result.rows[0].id,
+        isNew,
+        customer: result.rows[0]
+    };
+}
+
+module.exports = {
+    createOrUpdateFromTPOS
+};
+```
+
+#### 3. `render.com/services/wallet-event-processor.js` (NEW)
+```javascript
+/**
+ * Wallet Event Processor
+ * Event-driven wallet operations với SSE broadcast
+ */
+const EventEmitter = require('events');
+const walletEvents = new EventEmitter();
+
+const WALLET_EVENTS = {
+    DEPOSIT: 'wallet:deposit',
+    WITHDRAW: 'wallet:withdraw',
+    VIRTUAL_CREDIT_ISSUED: 'wallet:vc_issued',
+    VIRTUAL_CREDIT_USED: 'wallet:vc_used',
+    VIRTUAL_CREDIT_EXPIRED: 'wallet:vc_expired'
+};
+
+/**
+ * Get or create wallet for phone
+ */
+async function getOrCreateWallet(db, phone, customerId = null) {
+    const result = await db.query(`
+        INSERT INTO customer_wallets (phone, customer_id, balance, virtual_balance)
+        VALUES ($1, $2, 0, 0)
+        ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
+        RETURNING *
+    `, [phone, customerId]);
+    return result.rows[0];
+}
+
+/**
+ * Process wallet event atomically
+ * @param {Object} db - Database connection
+ * @param {Object} event - { type, phone, amount, source, referenceType, referenceId, note, customerId }
+ * @returns {number} wallet_transaction.id
+ */
+async function processWalletEvent(db, event) {
+    const { type, phone, amount, source, referenceType, referenceId, note, customerId } = event;
+
+    await db.query('BEGIN');
+    try {
+        // 1. Get or create wallet
+        const wallet = await getOrCreateWallet(db, phone, customerId);
+
+        // 2. Calculate new balance
+        let newBalance = parseFloat(wallet.balance);
+        if (type === 'DEPOSIT') {
+            newBalance += parseFloat(amount);
+        } else if (type === 'WITHDRAW') {
+            newBalance -= parseFloat(amount);
+        }
+
+        // 3. Update wallet
+        await db.query(`
+            UPDATE customer_wallets
+            SET balance = $1,
+                total_deposited = CASE WHEN $4 = 'DEPOSIT' THEN COALESCE(total_deposited, 0) + $3 ELSE total_deposited END,
+                updated_at = NOW()
+            WHERE phone = $2
+        `, [newBalance, phone, amount, type]);
+
+        // 4. Create transaction record
+        const txResult = await db.query(`
+            INSERT INTO wallet_transactions
+            (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_type, reference_id, note)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING id
+        `, [phone, wallet.id, type, amount, wallet.balance, newBalance, source, referenceType, referenceId, note]);
+
+        await db.query('COMMIT');
+
+        // 5. Emit SSE event
+        walletEvents.emit('update', {
+            phone,
+            wallet: { ...wallet, balance: newBalance },
+            transaction: { id: txResult.rows[0].id, type, amount, note }
+        });
+
+        console.log(`[WALLET] ${type}: ${phone} ${amount} -> ${newBalance}`);
+        return txResult.rows[0].id;
+    } catch (error) {
+        await db.query('ROLLBACK');
+        throw error;
+    }
+}
+
+module.exports = {
+    processWalletEvent,
+    getOrCreateWallet,
+    walletEvents,
+    WALLET_EVENTS
+};
+```
+
+---
+
+### SỬA FILE HIỆN TẠI
+
+#### 4. `render.com/routes/sepay-webhook.js` (MODIFY)
+```javascript
+// THÊM imports
+const customerService = require('../services/customer-creation-service');
+const { processWalletEvent } = require('../services/wallet-event-processor');
+
+// TRONG processDebtUpdate(), SAU khi searchTPOSByPhone thành công:
+async function processDebtUpdate(db, transactionId) {
+    // ... existing code to extract phone ...
+
+    // SAU khi tìm thấy phone (từ QR hoặc content):
+    if (phone) {
+        // Gọi TPOS để lấy thông tin
+        const tposResult = await require('../services/tpos-customer-service').searchCustomerByPhone(phone);
+
+        // TẠO/UPDATE customer với đầy đủ thông tin
+        const { customerId, customer } = await customerService.createOrUpdateFromTPOS(
+            db, phone, tposResult.success ? tposResult.customer : null
+        );
+
+        // Update balance_history với CẢ phone VÀ customer_id
+        await db.query(`
+            UPDATE balance_history
+            SET debt_added = TRUE,
+                linked_customer_phone = $2,
+                customer_id = $3
+            WHERE id = $1 AND linked_customer_phone IS NULL
+        `, [transactionId, phone, customerId]);
+
+        // Process wallet IMMEDIATELY
+        const walletTxId = await processWalletEvent(db, {
+            type: 'DEPOSIT',
+            phone: phone,
+            amount: tx.transfer_amount,
+            source: 'BANK_TRANSFER',
+            referenceType: 'balance_history',
+            referenceId: transactionId.toString(),
+            note: `Nạp từ CK ${content}`,
+            customerId
+        });
+
+        // Mark as wallet processed
+        await db.query(`
+            UPDATE balance_history
+            SET wallet_processed = TRUE, wallet_tx_id = $1
+            WHERE id = $2
+        `, [walletTxId, transactionId]);
+
+        return {
+            success: true,
+            phone,
+            customerId,
+            customerName: customer.name,
+            linkedPhone: phone,
+            walletTxId
+        };
+    }
+    // ... rest of code ...
+}
+```
+
+#### 5. `render.com/routes/v2/balance-history.js` (MODIFY)
+```javascript
+// THÊM imports
+const customerService = require('../../services/customer-creation-service');
+const { processWalletEvent } = require('../../services/wallet-event-processor');
+
+// POST /:id/link
+router.post('/:id/link', async (req, res) => {
+    const { phone, customer_name, auto_deposit = false } = req.body;
+    const normalizedPhone = normalizePhone(phone);
+
+    await db.query('BEGIN');
+
+    // 1. Get transaction
+    const tx = (await db.query('SELECT * FROM balance_history WHERE id = $1 FOR UPDATE', [id])).rows[0];
+
+    // 2. TẠO/UPDATE customer với TPOS data đầy đủ
+    const { customerId, customer } = await customerService.createOrUpdateFromTPOS(
+        db, normalizedPhone, customer_name ? { name: customer_name } : null
+    );
+
+    // 3. Link transaction
+    await db.query(`
+        UPDATE balance_history
+        SET linked_customer_phone = $1, customer_id = $2, updated_at = NOW()
+        WHERE id = $3
+    `, [normalizedPhone, customerId, id]);
+
+    // 4. Auto deposit nếu cần
+    let depositResult = null;
+    if (auto_deposit && tx.transfer_amount > 0) {
+        const walletTxId = await processWalletEvent(db, {
+            type: 'DEPOSIT',
+            phone: normalizedPhone,
+            amount: tx.transfer_amount,
+            source: 'BANK_TRANSFER',
+            referenceType: 'balance_history',
+            referenceId: id.toString(),
+            note: `Nạp từ CK ${tx.code || tx.reference_code} (manual link)`,
+            customerId
+        });
+
+        await db.query(`
+            UPDATE balance_history SET wallet_processed = TRUE, wallet_tx_id = $1 WHERE id = $2
+        `, [walletTxId, id]);
+
+        depositResult = { amount: tx.transfer_amount, walletTxId };
+    }
+
+    await db.query('COMMIT');
+
+    res.json({
+        success: true,
+        data: {
+            customer_id: customerId,
+            customer_name: customer.name,
+            phone: normalizedPhone,
+            deposit: depositResult
+        }
+    });
+});
+```
+
+#### 6. `render.com/routes/realtime-sse.js` (MODIFY)
+```javascript
+// THÊM imports
+const { walletEvents } = require('../services/wallet-event-processor');
+
+// THÊM subscription
+walletEvents.on('update', (data) => {
+    // Broadcast to clients subscribed to this phone's wallet
+    notifyClients(`wallet:${data.phone}`, data, 'wallet_update');
+
+    // Also broadcast to general 'wallets' channel
+    notifyClients('wallets', data, 'wallet_update');
+});
+```
+
+---
+
+### VERIFICATION CHECKLIST
+
+#### Test Case 1: SePay Webhook → Customer + Wallet
+1. Gửi test bank transfer với nội dung chứa SĐT
+2. ✅ Customer được tạo với đầy đủ thông tin TPOS
+3. ✅ Wallet được cập nhật ngay lập tức (không chờ cron)
+4. ✅ SSE event được gửi tới frontend
+
+#### Test Case 2: Manual Link → Customer + Wallet
+1. Link transaction thủ công với SĐT mới
+2. ✅ Customer được tạo với thông tin TPOS
+3. ✅ Wallet được cập nhật ngay (nếu auto_deposit = true)
+4. ✅ Frontend nhận SSE update
+
+#### Test Case 3: Cron Backup
+1. Tắt realtime processing
+2. Chờ cron 5 phút
+3. ✅ Transactions được process
+4. ✅ Customer được tạo nếu chưa có
+
+---
+
 ## 2026-01-12 (Evening) - Unified Architecture Implementation
 - ✅ **Trạng thái cập nhật: 95% → 100%** (Hoàn tất kiến trúc thống nhất)
 
