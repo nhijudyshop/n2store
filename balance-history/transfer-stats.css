@@ -173,14 +173,14 @@
 }
 
 /* Column widths */
-.col-date { width: 75px; }
-.col-name { width: 130px; }
-.col-phone { width: 90px; }
-.col-amount { width: 90px; text-align: right; }
+.col-date { width: 80px; }
+.col-name { width: 110px; }
+.col-phone { width: 95px; }
+.col-amount { width: 100px; text-align: right; }
 .col-content { width: auto; }
-.col-note { width: 70px; }
+.col-note { width: 55px; }
 .col-action {
-    width: 40px;
+    width: 45px;
     text-align: center;
 }
 
