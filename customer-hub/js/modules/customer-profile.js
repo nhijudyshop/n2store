@@ -230,92 +230,86 @@ export class CustomerProfileModule {
         const container = this.container.querySelector('#rfm-analysis-card');
         const rfm = customer.rfm || {};
         const score = rfm.score || 0;
-        const recency = rfm.recency_days || 'N/A';
+        const recency = rfm.recency_days || 0;
         const frequency = rfm.frequency || 0;
         const monetary = rfm.monetary || 0;
-        const yoyChange = rfm.yoy_change || 12;
+        const yoyChange = rfm.yoy_change || 0;
 
         // Calculate score percentage for the circular chart
         const scorePercent = (score / 5) * 100;
-        const circumference = 2 * Math.PI * 45; // radius = 45
+        const circumference = 2 * Math.PI * 40;
         const strokeDashoffset = circumference - (scorePercent / 100) * circumference;
 
         container.innerHTML = `
-            <div class="p-5 h-full flex flex-col">
+            <div class="p-5 h-full overflow-y-auto">
                 <!-- Header -->
-                <div class="flex items-center gap-2 mb-5">
-                    <span class="material-symbols-outlined text-purple-500 text-xl">analytics</span>
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">RFM Analysis</h3>
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-purple-500">analytics</span>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Phân tích RFM</h3>
+                    </div>
+                    ${rfm.percentile ? `<span class="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold rounded">TOP ${rfm.percentile}%</span>` : ''}
                 </div>
 
-                <!-- Overall Score with Circular Chart -->
-                <div class="flex items-center gap-5 mb-6">
-                    <div class="relative w-28 h-28 flex-shrink-0">
-                        <svg class="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
-                            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8" class="text-slate-100 dark:text-slate-700"></circle>
-                            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8"
+                <!-- Overall Score -->
+                <div class="flex items-center gap-4 mb-5 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                    <div class="relative" style="width: 80px; height: 80px;">
+                        <svg style="width: 80px; height: 80px; transform: rotate(-90deg);" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="40" fill="none" stroke="#e2e8f0" stroke-width="8"></circle>
+                            <circle cx="50" cy="50" r="40" fill="none" stroke="#8b5cf6" stroke-width="8"
                                 stroke-dasharray="${circumference}"
                                 stroke-dashoffset="${strokeDashoffset}"
-                                stroke-linecap="round"
-                                class="text-purple-500 transition-all duration-500"></circle>
+                                stroke-linecap="round"></circle>
                         </svg>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-2xl font-bold text-slate-900 dark:text-white">${score.toFixed(1)}</span>
+                        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <span class="text-xl font-bold text-slate-900 dark:text-white">${score.toFixed(1)}</span>
                             <span class="text-xs text-slate-400">/5</span>
                         </div>
                     </div>
                     <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Overall Score</p>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Customer value rating based on purchase behavior</p>
+                        <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Điểm tổng</p>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Đánh giá giá trị khách hàng</p>
                     </div>
                 </div>
 
-                <!-- RFM Metrics Grid -->
-                <div class="grid grid-cols-2 gap-3 mb-5">
-                    <!-- Recency -->
-                    <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                        <div class="flex items-center gap-1.5 text-slate-500 mb-2">
-                            <span class="material-symbols-outlined text-base">schedule</span>
-                            <span class="text-xs font-bold uppercase">Recency</span>
+                <!-- RFM Metrics -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                        <div class="flex items-center gap-1 text-slate-500 mb-1">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">schedule</span>
+                            <span class="text-xs font-bold uppercase">Gần đây</span>
                         </div>
-                        <p class="text-xl font-bold text-slate-900 dark:text-white">${typeof recency === 'number' ? recency : recency} <span class="text-sm font-normal text-slate-400">${typeof recency === 'number' ? 'days' : ''}</span></p>
+                        <p class="text-lg font-bold text-slate-900 dark:text-white">${recency} <span class="text-sm font-normal text-slate-400">ngày</span></p>
                     </div>
-
-                    <!-- Frequency -->
-                    <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                        <div class="flex items-center gap-1.5 text-slate-500 mb-2">
-                            <span class="material-symbols-outlined text-base">repeat</span>
-                            <span class="text-xs font-bold uppercase">Frequency</span>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                        <div class="flex items-center gap-1 text-slate-500 mb-1">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">repeat</span>
+                            <span class="text-xs font-bold uppercase">Tần suất</span>
                         </div>
-                        <p class="text-xl font-bold text-slate-900 dark:text-white">${frequency} <span class="text-sm font-normal text-slate-400">orders</span></p>
+                        <p class="text-lg font-bold text-slate-900 dark:text-white">${frequency} <span class="text-sm font-normal text-slate-400">đơn</span></p>
                     </div>
                 </div>
 
-                <!-- Monetary / LTV -->
-                <div class="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800/30 mb-5">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-1.5 text-emerald-600">
-                            <span class="material-symbols-outlined text-base">payments</span>
-                            <span class="text-xs font-bold uppercase">Monetary / LTV</span>
+                <!-- Monetary -->
+                <div class="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-800/30 mb-4">
+                    <div class="flex items-center justify-between mb-1">
+                        <div class="flex items-center gap-1 text-emerald-600">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">payments</span>
+                            <span class="text-xs font-bold uppercase">Giá trị (LTV)</span>
                         </div>
-                        <span class="px-2 py-0.5 rounded text-xs font-bold ${yoyChange >= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' : 'bg-red-100 text-red-700'}">${yoyChange >= 0 ? '+' : ''}${yoyChange}% YoY</span>
+                        ${yoyChange !== 0 ? `<span class="px-2 py-0.5 rounded text-xs font-bold ${yoyChange >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${yoyChange >= 0 ? '+' : ''}${yoyChange}%</span>` : ''}
                     </div>
-                    <p class="text-2xl font-bold text-emerald-600">${this.formatCurrency(monetary)}</p>
+                    <p class="text-xl font-bold text-emerald-600">${this.formatCurrency(monetary)}</p>
                 </div>
 
-                <!-- Spending Trend Chart (Simple SVG) -->
-                <div class="flex-1 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Spending Trend</p>
-                    <div class="h-20 flex items-end gap-1">
+                <!-- Spending Trend -->
+                <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
+                    <p class="text-xs font-semibold text-slate-500 uppercase mb-3">Xu hướng chi tiêu</p>
+                    <div style="height: 60px; display: flex; align-items: flex-end; gap: 4px;">
                         ${this._generateSpendingBars()}
                     </div>
-                    <div class="flex justify-between mt-2 text-xs text-slate-400">
-                        <span>Jan</span>
-                        <span>Feb</span>
-                        <span>Mar</span>
-                        <span>Apr</span>
-                        <span>May</span>
-                        <span>Jun</span>
+                    <div style="display: flex; justify-content: space-between; margin-top: 8px;" class="text-xs text-slate-400">
+                        <span>T1</span><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span>
                     </div>
                 </div>
             </div>
@@ -323,10 +317,9 @@ export class CustomerProfileModule {
     }
 
     _generateSpendingBars() {
-        // Generate random-ish bars for demo
         const heights = [40, 65, 45, 80, 55, 90];
         return heights.map((h, i) => `
-            <div class="flex-1 bg-purple-${i === heights.length - 1 ? '500' : '200'} dark:bg-purple-${i === heights.length - 1 ? '500' : '700'} rounded-t transition-all" style="height: ${h}%"></div>
+            <div style="flex: 1; height: ${h}%; background-color: ${i === heights.length - 1 ? '#8b5cf6' : '#c4b5fd'}; border-radius: 4px 4px 0 0;"></div>
         `).join('');
     }
 
@@ -337,8 +330,8 @@ export class CustomerProfileModule {
         if (!activities || activities.length === 0) {
             activitiesHtml = `
                 <div class="flex flex-col items-center justify-center py-10 text-slate-400">
-                    <span class="material-symbols-outlined text-4xl mb-3">history</span>
-                    <p class="text-sm font-medium">No recent activities</p>
+                    <span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px;">history</span>
+                    <p class="text-sm font-medium">Chưa có hoạt động</p>
                 </div>
             `;
         } else {
@@ -347,22 +340,17 @@ export class CustomerProfileModule {
                 const timeAgo = this._getTimeAgo(activity.created_at || activity.timestamp);
 
                 return `
-                    <div class="relative pl-9 ${index !== activities.slice(0, 8).length - 1 ? 'pb-5' : ''}">
-                        <!-- Timeline Line -->
-                        ${index !== activities.slice(0, 8).length - 1 ? `<div class="absolute left-[11px] top-6 bottom-0 w-px bg-slate-200 dark:bg-slate-700"></div>` : ''}
-
-                        <!-- Icon -->
-                        <div class="absolute left-0 top-0 w-6 h-6 rounded-full ${iconInfo.bgColor} flex items-center justify-center z-10">
-                            <span class="material-symbols-outlined text-xs ${iconInfo.iconColor}">${iconInfo.icon}</span>
+                    <div style="position: relative; padding-left: 32px; ${index !== activities.slice(0, 8).length - 1 ? 'padding-bottom: 16px;' : ''}">
+                        ${index !== activities.slice(0, 8).length - 1 ? `<div style="position: absolute; left: 11px; top: 24px; bottom: 0; width: 1px; background-color: #e2e8f0;"></div>` : ''}
+                        <div style="position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 1;" class="${iconInfo.bgColor}">
+                            <span class="material-symbols-outlined ${iconInfo.iconColor}" style="font-size: 14px;">${iconInfo.icon}</span>
                         </div>
-
-                        <!-- Content -->
-                        <div class="flex justify-between items-start gap-2">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium text-slate-900 dark:text-white truncate">${activity.title || activity.description || 'Activity'}</p>
-                                ${activity.details ? `<p class="text-xs text-slate-500 mt-0.5 truncate">${activity.details}</p>` : ''}
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                            <div style="flex: 1; min-width: 0;">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${activity.title || activity.description || 'Hoạt động'}</p>
+                                ${activity.details ? `<p class="text-xs text-slate-500" style="margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${activity.details}</p>` : ''}
                             </div>
-                            <span class="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">${timeAgo}</span>
+                            <span class="text-xs text-slate-400" style="white-space: nowrap; flex-shrink: 0;">${timeAgo}</span>
                         </div>
                     </div>
                 `;
@@ -372,12 +360,12 @@ export class CustomerProfileModule {
         container.innerHTML = `
             <!-- Header -->
             <div class="px-5 py-4 border-b border-border-light dark:border-border-dark flex items-center gap-2">
-                <span class="material-symbols-outlined text-blue-500 text-xl">history</span>
-                <h3 class="text-base font-bold text-slate-900 dark:text-white">Recent Activities</h3>
+                <span class="material-symbols-outlined text-blue-500">history</span>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Hoạt động gần đây</h3>
             </div>
 
-            <!-- Timeline Content - Scrollable -->
-            <div class="p-5 overflow-y-auto flex-1">
+            <!-- Timeline Content -->
+            <div class="p-5 overflow-y-auto" style="flex: 1;">
                 ${activitiesHtml}
             </div>
         `;
@@ -390,28 +378,28 @@ export class CustomerProfileModule {
         if (!notes || notes.length === 0) {
             notesHtml = `
                 <div class="text-center py-8 text-slate-400">
-                    <span class="material-symbols-outlined text-3xl mb-2">speaker_notes_off</span>
-                    <p class="text-sm">No internal notes yet</p>
+                    <span class="material-symbols-outlined" style="font-size: 32px; margin-bottom: 8px;">speaker_notes_off</span>
+                    <p class="text-sm">Chưa có ghi chú</p>
                 </div>
             `;
         } else {
             notesHtml = notes.slice(0, 5).map(note => {
-                const date = new Date(note.created_at).toLocaleString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
+                const date = new Date(note.created_at).toLocaleString('vi-VN', {
+                    day: '2-digit',
+                    month: '2-digit',
                     hour: '2-digit',
                     minute: '2-digit'
                 });
-                const initials = this._getInitials(note.created_by || 'System');
+                const initials = this._getInitials(note.created_by || 'Hệ thống');
 
                 return `
-                    <div class="flex gap-3">
-                        <div class="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 text-xs font-bold shrink-0">
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" class="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold">
                             ${initials}
                         </div>
-                        <div class="flex-1 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
-                            <div class="flex justify-between items-baseline mb-1">
-                                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${note.created_by || 'System'}</span>
+                        <div style="flex: 1;" class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+                                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${note.created_by || 'Hệ thống'}</span>
                                 <span class="text-xs text-slate-400">${date}</span>
                             </div>
                             <p class="text-sm text-slate-600 dark:text-slate-300">${note.content}</p>
@@ -424,24 +412,25 @@ export class CustomerProfileModule {
         container.innerHTML = `
             <!-- Header -->
             <div class="px-5 py-4 border-b border-border-light dark:border-border-dark flex items-center gap-2">
-                <span class="material-symbols-outlined text-amber-500 text-xl">speaker_notes</span>
-                <h3 class="text-base font-bold text-slate-900 dark:text-white">Internal Notes</h3>
+                <span class="material-symbols-outlined text-amber-500">speaker_notes</span>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Ghi chú nội bộ</h3>
             </div>
 
-            <!-- Notes List - Scrollable -->
-            <div class="p-5 space-y-3 overflow-y-auto flex-1">
+            <!-- Notes List -->
+            <div class="p-5 overflow-y-auto" style="flex: 1;">
                 ${notesHtml}
             </div>
 
             <!-- Add Note Input -->
             ${this.permissionHelper.hasPermission('customer-hub', 'addNote') ? `
                 <div class="p-4 border-t border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-800/50">
-                    <div class="flex gap-2">
+                    <div style="display: flex; gap: 8px;">
                         <input type="text" id="new-note-input"
-                            class="flex-1 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary px-3 py-2 placeholder-slate-400"
-                            placeholder="Add a note...">
+                            class="rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary px-3 py-2 placeholder-slate-400"
+                            style="flex: 1;"
+                            placeholder="Thêm ghi chú...">
                         <button id="add-note-btn" class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm font-medium transition-colors">
-                            Add
+                            Thêm
                         </button>
                     </div>
                 </div>
