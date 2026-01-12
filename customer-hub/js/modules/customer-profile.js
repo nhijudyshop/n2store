@@ -59,10 +59,10 @@ export class CustomerProfileModule {
 
                 <!-- Content - Hidden until loaded -->
                 <div id="modal-content-loaded" class="hidden" style="height: 100%;">
-                    <!-- 3 Columns Layout - Side by Side -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; height: 100%;">
-                        <!-- Column 1: Wallet Summary + Internal Notes -->
-                        <div style="display: flex; flex-direction: column; gap: 20px; height: 100%;">
+                    <!-- 3 Columns Layout - 20% / 60% / 20% -->
+                    <div style="display: grid; grid-template-columns: 1fr 3fr 1fr; gap: 16px; height: 100%;">
+                        <!-- Column 1: Wallet Summary + Internal Notes (20%) -->
+                        <div style="display: flex; flex-direction: column; gap: 16px; height: 100%; min-width: 0;">
                             <!-- Wallet Summary Card -->
                             <div id="customer-wallet-panel" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm">
                                 <!-- Will be rendered by WalletPanelModule -->
@@ -73,13 +73,13 @@ export class CustomerProfileModule {
                             </div>
                         </div>
 
-                        <!-- Column 2: Recent Activities -->
-                        <div id="recent-activities-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden" style="display: flex; flex-direction: column; height: 100%;">
+                        <!-- Column 2: Recent Tickets/Activities (60%) -->
+                        <div id="recent-activities-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden" style="display: flex; flex-direction: column; height: 100%; min-width: 0;">
                             <!-- Will be rendered dynamically -->
                         </div>
 
-                        <!-- Column 3: RFM Analysis -->
-                        <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden" style="height: 100%;">
+                        <!-- Column 3: RFM Analysis (20%) -->
+                        <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden" style="height: 100%; min-width: 0;">
                             <!-- Will be rendered dynamically -->
                         </div>
                     </div>
@@ -107,7 +107,7 @@ export class CustomerProfileModule {
                 // Render all sections
                 this._renderHeader(data.customer);
                 this._renderRFMCard(data.customer);
-                this._renderActivitiesCard(data.recentActivities || []);
+                this._renderTicketsCard(data.recentTickets || []);
                 this._renderNotesSection(data.notes || []);
 
                 // Initialize wallet panel module
@@ -323,53 +323,136 @@ export class CustomerProfileModule {
         `).join('');
     }
 
-    _renderActivitiesCard(activities) {
+    _renderTicketsCard(tickets) {
         const container = this.container.querySelector('#recent-activities-card');
 
-        let activitiesHtml = '';
-        if (!activities || activities.length === 0) {
-            activitiesHtml = `
+        // Ticket type translations
+        const typeMap = {
+            'BOOM': 'Boom Hàng',
+            'FIX_COD': 'Sửa COD',
+            'RETURN_CLIENT': 'Khách Gửi',
+            'RETURN_SHIPPER': 'Thu Về',
+            'OTHER': 'Khác'
+        };
+
+        // Status translations and colors
+        const statusMap = {
+            'PENDING': { label: 'Chờ xử lý', color: 'bg-amber-100 text-amber-700' },
+            'PROCESSING': { label: 'Đang xử lý', color: 'bg-blue-100 text-blue-700' },
+            'WAITING_GOODS': { label: 'Chờ hàng về', color: 'bg-purple-100 text-purple-700' },
+            'COMPLETED': { label: 'Hoàn thành', color: 'bg-green-100 text-green-700' },
+            'CANCELLED': { label: 'Đã hủy', color: 'bg-slate-100 text-slate-500' }
+        };
+
+        let ticketsHtml = '';
+        if (!tickets || tickets.length === 0) {
+            ticketsHtml = `
                 <div class="flex flex-col items-center justify-center py-10 text-slate-400">
-                    <span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px;">history</span>
-                    <p class="text-sm font-medium">Chưa có hoạt động</p>
+                    <span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px;">confirmation_number</span>
+                    <p class="text-sm font-medium">Chưa có sự vụ</p>
                 </div>
             `;
         } else {
-            activitiesHtml = activities.slice(0, 8).map((activity, index) => {
-                const iconInfo = this._getActivityIcon(activity.type || activity.event_type);
-                const timeAgo = this._getTimeAgo(activity.created_at || activity.timestamp);
-                const translatedTitle = this._translateActivityTitle(activity);
+            ticketsHtml = `
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50 dark:bg-slate-800/50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Mã ĐH</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Loại</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Sản phẩm</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Hoàn</th>
+                            <th class="px-3 py-2 text-center text-xs font-semibold text-slate-500 uppercase">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                        ${tickets.slice(0, 10).map(ticket => {
+                            const orderId = ticket.order_id ? ticket.order_id.replace(/^NJD\/\d+\//, '') : '-';
+                            const type = typeMap[ticket.type] || ticket.type;
+                            const products = this._formatProducts(ticket.products);
+                            const refund = ticket.refund_amount ? this._formatCurrencyShort(ticket.refund_amount) : '-';
+                            const statusInfo = statusMap[ticket.status] || { label: ticket.status, color: 'bg-slate-100 text-slate-500' };
 
-                return `
-                    <div style="position: relative; padding-left: 32px; ${index !== activities.slice(0, 8).length - 1 ? 'padding-bottom: 16px;' : ''}">
-                        ${index !== activities.slice(0, 8).length - 1 ? `<div style="position: absolute; left: 11px; top: 24px; bottom: 0; width: 1px; background-color: #e2e8f0;"></div>` : ''}
-                        <div style="position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 1;" class="${iconInfo.bgColor}">
-                            <span class="material-symbols-outlined ${iconInfo.iconColor}" style="font-size: 14px;">${iconInfo.icon}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-                            <div style="flex: 1; min-width: 0;">
-                                <p class="text-sm font-medium text-slate-900 dark:text-white" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${translatedTitle}</p>
-                                ${activity.details ? `<p class="text-xs text-slate-500" style="margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${activity.details}</p>` : ''}
-                            </div>
-                            <span class="text-xs text-slate-400" style="white-space: nowrap; flex-shrink: 0;">${timeAgo}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+                            return `
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                    <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">${orderId}</td>
+                                    <td class="px-3 py-2">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${this._getTypeColor(ticket.type)}">${type}</span>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-600 dark:text-slate-400 max-w-[300px]">
+                                        <div class="space-y-0.5">${products}</div>
+                                    </td>
+                                    <td class="px-3 py-2 text-right font-medium text-emerald-600">${refund}</td>
+                                    <td class="px-3 py-2 text-center">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusInfo.color}">${statusInfo.label}</span>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
         }
 
         container.innerHTML = `
             <!-- Header -->
-            <div class="px-5 py-4 border-b border-border-light dark:border-border-dark flex items-center gap-2">
-                <span class="material-symbols-outlined text-blue-500">history</span>
-                <h3 class="text-base font-bold text-slate-900 dark:text-white">Hoạt động gần đây</h3>
+            <div class="px-4 py-3 border-b border-border-light dark:border-border-dark flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-purple-500">confirmation_number</span>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Sự vụ gần đây</h3>
+                </div>
+                <span class="text-xs text-slate-400">${tickets?.length || 0} sự vụ</span>
             </div>
 
-            <!-- Timeline Content -->
-            <div class="p-5 overflow-y-auto" style="flex: 1;">
-                ${activitiesHtml}
+            <!-- Table Content -->
+            <div class="overflow-y-auto" style="flex: 1;">
+                ${ticketsHtml}
             </div>
         `;
+    }
+
+    _formatProducts(products) {
+        if (!products) return '<span class="text-slate-400">-</span>';
+
+        let productList = [];
+        if (typeof products === 'string') {
+            try {
+                productList = JSON.parse(products);
+            } catch {
+                return `<div class="text-xs truncate">${products}</div>`;
+            }
+        } else if (Array.isArray(products)) {
+            productList = products;
+        }
+
+        if (productList.length === 0) return '<span class="text-slate-400">-</span>';
+
+        return productList.map(p => {
+            const qty = p.quantity || p.qty || 1;
+            const name = p.name || p.product_name || p.sku || '';
+            const variant = p.variant || p.option || '';
+            return `<div class="text-xs truncate">${qty}x ${name}${variant ? ` (${variant})` : ''}</div>`;
+        }).join('');
+    }
+
+    _getTypeColor(type) {
+        const colors = {
+            'BOOM': 'bg-red-100 text-red-700',
+            'FIX_COD': 'bg-blue-100 text-blue-700',
+            'RETURN_CLIENT': 'bg-purple-100 text-purple-700',
+            'RETURN_SHIPPER': 'bg-amber-100 text-amber-700',
+            'OTHER': 'bg-slate-100 text-slate-600'
+        };
+        return colors[type] || 'bg-slate-100 text-slate-600';
+    }
+
+    _formatCurrencyShort(amount) {
+        if (!amount || amount === 0) return '-';
+        if (amount >= 1000000) {
+            return (amount / 1000000).toFixed(1).replace('.0', '') + 'M';
+        } else if (amount >= 1000) {
+            return Math.round(amount / 1000) + 'K';
+        }
+        return amount.toLocaleString('vi-VN');
     }
 
     _renderNotesSection(notes) {
