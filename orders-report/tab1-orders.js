@@ -1166,7 +1166,35 @@ async function initializeApp() {
             }
         }
 
-        // 4. No active campaign → Check further
+        // 4. No active campaign → Check localStorage fallback first
+        const savedFilterData = localStorage.getItem('tab1_filter_data');
+        if (savedFilterData) {
+            try {
+                const filterData = JSON.parse(savedFilterData);
+                if (filterData.startDate && filterData.endDate) {
+                    console.log('[APP] Found saved filter data in localStorage, using it...');
+
+                    // Convert UTC dates to local datetime-local format
+                    const startDate = new Date(filterData.startDate);
+                    const endDate = new Date(filterData.endDate);
+
+                    // Set date inputs
+                    document.getElementById('customStartDate').value = formatDateTimeLocal(startDate);
+                    document.getElementById('customEndDate').value = formatDateTimeLocal(endDate);
+
+                    // Fetch orders with saved dates (use window.fetchOrders from tab1-campaign.js)
+                    if (typeof window.fetchOrders === 'function') {
+                        await window.fetchOrders();
+                    } else if (typeof fetchOrders === 'function') {
+                        await fetchOrders();
+                    }
+                    return;
+                }
+            } catch (e) {
+                console.warn('[APP] Error parsing saved filter data:', e);
+            }
+        }
+
         if (Object.keys(campaigns).length === 0) {
             // No campaigns exist
             console.log('[APP] No campaigns found, showing create modal...');
