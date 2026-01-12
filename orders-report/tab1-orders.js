@@ -1320,6 +1320,8 @@ function updateActiveCampaignLabel(name) {
         label.innerHTML = `<i class="fas fa-bullhorn"></i> ${name}`;
     }
 }
+// Export to window for inline HTML scripts
+window.updateActiveCampaignLabel = updateActiveCampaignLabel;
 
 // #region ═══════════════════════════════════════════════════════════════════════
 // ║                   SECTION 4: EMPLOYEE RANGE MANAGEMENT                      ║
