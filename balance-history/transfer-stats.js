@@ -62,7 +62,7 @@ async function loadTransferStats() {
     // Show loading
     tableBody.innerHTML = `
         <tr>
-            <td colspan="9" class="ts-loading">
+            <td colspan="8" class="ts-loading">
                 <i data-lucide="loader-2"></i>
                 <p>Đang tải dữ liệu...</p>
             </td>
@@ -163,11 +163,6 @@ function renderTSTable() {
                            onchange="toggleTSVerified(${item.id}, this.checked)"
                            title="${item.is_verified ? 'Đã kiểm tra' : 'Chưa kiểm tra'}">
                 </td>
-                <td style="text-align: center;">
-                    <button class="btn-edit-ts" onclick="openEditTSModal(${item.id})" title="Chỉnh sửa">
-                        <i data-lucide="pencil"></i>
-                    </button>
-                </td>
             </tr>
         `;
     }).join('');
@@ -182,7 +177,7 @@ function showTSEmpty(message) {
 
     tableBody.innerHTML = `
         <tr>
-            <td colspan="9" class="ts-empty">
+            <td colspan="8" class="ts-empty">
                 <i data-lucide="inbox"></i>
                 <p>${message}</p>
             </td>
