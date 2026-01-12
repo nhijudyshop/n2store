@@ -246,25 +246,78 @@
     color: #6b7280;
     word-break: break-word;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
     cursor: pointer;
-    transition: background 0.2s;
 }
 
 .ts-content:hover {
-    background: #f3f4f6;
-    border-radius: 4px;
+    color: #3b82f6;
+    text-decoration: underline;
 }
 
-.ts-content.expanded {
-    display: block;
-    -webkit-line-clamp: unset;
-    background: #fefce8;
-    padding: 8px;
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+/* Content Popup */
+.ts-content-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.ts-content-popup-inner {
+    background: white;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.ts-content-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.ts-content-popup-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #374151;
+}
+
+.ts-content-popup-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6b7280;
+    line-height: 1;
+}
+
+.ts-content-popup-close:hover {
+    color: #ef4444;
+}
+
+.ts-content-popup-body {
+    padding: 20px;
+    overflow-y: auto;
+    max-height: calc(80vh - 60px);
+    font-size: 14px;
+    line-height: 1.6;
+    color: #374151;
+    word-break: break-word;
 }
 
 .ts-notes {

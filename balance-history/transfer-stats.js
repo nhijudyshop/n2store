@@ -148,7 +148,7 @@ function renderTSTable() {
                 <td class="ts-customer-name">${item.customer_name || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="ts-customer-phone">${item.customer_phone || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="ts-amount ${amountClass}">${formattedAmount}</td>
-                <td class="ts-content" onclick="toggleContentExpand(this)" title="Click để xem đầy đủ">${item.content || '—'}</td>
+                <td class="ts-content" onclick="showContentPopup('${escapeHtml(item.content || '—').replace(/'/g, "\\'")}')" title="Click để xem đầy đủ">${item.content || '—'}</td>
                 <td class="ts-notes" title="${escapeHtml(item.notes || '')}">${item.notes || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td style="text-align: center;">
                     <input type="checkbox" class="ts-checkbox ts-hide-checkbox"
@@ -667,16 +667,36 @@ async function saveTSEdit(e) {
 window.loadTransferStats = loadTransferStats;
 window.filterTransferStats = filterTransferStats;
 window.toggleTSChecked = toggleTSChecked;
-// Toggle content expand/collapse
-function toggleContentExpand(element) {
-    // Close any other expanded content first
-    document.querySelectorAll('.ts-content.expanded').forEach(el => {
-        if (el !== element) {
-            el.classList.remove('expanded');
-        }
+// Show content popup
+function showContentPopup(content) {
+    // Remove existing popup if any
+    const existing = document.querySelector('.ts-content-popup');
+    if (existing) existing.remove();
+
+    // Create popup
+    const popup = document.createElement('div');
+    popup.className = 'ts-content-popup';
+    popup.innerHTML = `
+        <div class="ts-content-popup-inner">
+            <div class="ts-content-popup-header">
+                <h3>Nội dung chuyển khoản</h3>
+                <button class="ts-content-popup-close" onclick="closeContentPopup()">&times;</button>
+            </div>
+            <div class="ts-content-popup-body">${content}</div>
+        </div>
+    `;
+
+    // Close on background click
+    popup.addEventListener('click', (e) => {
+        if (e.target === popup) closeContentPopup();
     });
-    // Toggle this one
-    element.classList.toggle('expanded');
+
+    document.body.appendChild(popup);
+}
+
+function closeContentPopup() {
+    const popup = document.querySelector('.ts-content-popup');
+    if (popup) popup.remove();
 }
 
 window.toggleTSVerified = toggleTSVerified;
@@ -689,4 +709,5 @@ window.openEditTSModal = openEditTSModal;
 window.closeEditTSModal = closeEditTSModal;
 window.saveTSEdit = saveTSEdit;
 window.syncTransferStats = syncTransferStats;
-window.toggleContentExpand = toggleContentExpand;
+window.showContentPopup = showContentPopup;
+window.closeContentPopup = closeContentPopup;
