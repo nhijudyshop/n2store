@@ -23,19 +23,19 @@ export class CustomerSearchModule {
                 <div class="flex flex-col lg:flex-row gap-4 items-end">
                     <!-- Search Input with Icon -->
                     <div class="flex-1 w-full">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Search Customer</label>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Tìm khách hàng</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <span class="material-symbols-outlined text-slate-400 text-xl">search</span>
                             </div>
                             <input type="text" id="search-input"
                                 class="w-full pl-12 pr-32 py-3 bg-slate-50 dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-full text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                placeholder="Search by phone number, name, or email...">
+                                placeholder="Tìm theo SĐT, tên hoặc email...">
                             <div class="absolute inset-y-0 right-2 flex items-center">
                                 <select id="search-type" class="h-9 px-3 bg-white dark:bg-slate-700 border border-border-light dark:border-border-dark rounded-full text-sm text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer">
-                                    <option value="">All Fields</option>
-                                    <option value="phone">Phone</option>
-                                    <option value="name">Name</option>
+                                    <option value="">Tất cả</option>
+                                    <option value="phone">SĐT</option>
+                                    <option value="name">Tên</option>
                                     <option value="email">Email</option>
                                 </select>
                             </div>
@@ -44,19 +44,20 @@ export class CustomerSearchModule {
 
                     <!-- Status Filter -->
                     <div class="w-full lg:w-48">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Status</label>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Trạng thái</label>
                         <select id="status-filter" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer">
-                            <option value="">Any Status</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="pending">Pending</option>
+                            <option value="">Tất cả</option>
+                            <option value="Bình thường">Bình thường</option>
+                            <option value="Bom hàng">Bom hàng</option>
+                            <option value="Cảnh báo">Cảnh báo</option>
+                            <option value="VIP">VIP</option>
                         </select>
                     </div>
 
                     <!-- Search Button -->
                     <button id="search-btn" class="w-full lg:w-auto px-8 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl shadow-soft hover:shadow-glow transition-all flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined text-xl">search</span>
-                        Search
+                        Tìm kiếm
                     </button>
                 </div>
             </div>
@@ -66,12 +67,12 @@ export class CustomerSearchModule {
                 <!-- Card Header -->
                 <div class="px-6 py-5 border-b border-border-light dark:border-border-dark flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white" id="list-title">Recent Customers</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5" id="list-subtitle">Showing most recent customers</p>
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white" id="list-title">Khách hàng gần đây</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5" id="list-subtitle">Hiển thị khách hàng hoạt động gần nhất</p>
                     </div>
                     <button class="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                         <span class="material-symbols-outlined text-lg">download</span>
-                        Export
+                        Xuất file
                     </button>
                 </div>
 
@@ -80,12 +81,12 @@ export class CustomerSearchModule {
                     <table class="w-full">
                         <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 z-10">
                             <tr>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Customer</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Phone</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tier</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Last Activity</th>
-                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Action</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Khách hàng</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">SĐT</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng thái</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hạng</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hoạt động</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody id="customer-table-body" class="divide-y divide-border-light dark:divide-border-dark">
@@ -95,7 +96,7 @@ export class CustomerSearchModule {
                                         <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                                             <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
                                         </div>
-                                        <p class="text-slate-500 dark:text-slate-400">Loading customers...</p>
+                                        <p class="text-slate-500 dark:text-slate-400">Đang tải...</p>
                                     </div>
                                 </td>
                             </tr>
@@ -106,7 +107,7 @@ export class CustomerSearchModule {
                     <div id="load-more-indicator" class="hidden px-6 py-4 text-center">
                         <div class="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
                             <span class="material-symbols-outlined text-xl animate-spin">progress_activity</span>
-                            <span>Loading more...</span>
+                            <span>Đang tải thêm...</span>
                         </div>
                     </div>
                 </div>
@@ -114,12 +115,12 @@ export class CustomerSearchModule {
                 <!-- Footer with count -->
                 <div id="pagination-container" class="px-6 py-4 border-t border-border-light dark:border-border-dark flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
                     <p class="text-sm text-slate-600 dark:text-slate-400">
-                        Showing <span class="font-semibold text-slate-900 dark:text-white" id="showing-count">0</span> customers
-                        <span id="total-info" class="hidden">of <span class="font-semibold text-slate-900 dark:text-white" id="total-count">0</span> total</span>
+                        Hiển thị <span class="font-semibold text-slate-900 dark:text-white" id="showing-count">0</span> khách hàng
+                        <span id="total-info" class="hidden">trên tổng <span class="font-semibold text-slate-900 dark:text-white" id="total-count">0</span></span>
                     </p>
                     <div id="scroll-hint" class="text-sm text-slate-400 dark:text-slate-500 flex items-center gap-1">
                         <span class="material-symbols-outlined text-base">keyboard_arrow_down</span>
-                        Scroll down to load more
+                        Cuộn xuống để tải thêm
                     </div>
                 </div>
             </div>
@@ -206,8 +207,8 @@ export class CustomerSearchModule {
         this.currentPage = 1;
         this.customers = [];
         this.hasMore = true;
-        this.listTitle.textContent = 'Recent Customers';
-        this.listSubtitle.textContent = 'Showing most recent customers';
+        this.listTitle.textContent = 'Khách hàng gần đây';
+        this.listSubtitle.textContent = 'Hiển thị khách hàng hoạt động gần nhất';
         this.loadRecentCustomers();
     }
 
@@ -225,7 +226,7 @@ export class CustomerSearchModule {
                         <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                             <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
                         </div>
-                        <p class="text-slate-500 dark:text-slate-400">Loading recent customers...</p>
+                        <p class="text-slate-500 dark:text-slate-400">Đang tải khách hàng gần đây...</p>
                     </div>
                 </td>
             </tr>
@@ -246,8 +247,8 @@ export class CustomerSearchModule {
                                 <div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
                                     <span class="material-symbols-outlined text-slate-400 text-2xl">group</span>
                                 </div>
-                                <p class="text-slate-500 dark:text-slate-400">No customers yet</p>
-                                <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Customers will appear here once added</p>
+                                <p class="text-slate-500 dark:text-slate-400">Chưa có khách hàng</p>
+                                <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Khách hàng sẽ xuất hiện ở đây khi được thêm vào</p>
                             </div>
                         </td>
                     </tr>
@@ -263,8 +264,8 @@ export class CustomerSearchModule {
                             <div class="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mb-4">
                                 <span class="material-symbols-outlined text-warning text-3xl">engineering</span>
                             </div>
-                            <p class="text-lg font-medium text-warning mb-1">Loading Recent Customers</p>
-                            <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">The recent customers API is being developed. Try searching instead.</p>
+                            <p class="text-lg font-medium text-warning mb-1">Đang tải khách hàng</p>
+                            <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">API đang được phát triển. Hãy thử tìm kiếm.</p>
                         </div>
                     </td>
                 </tr>
@@ -294,8 +295,8 @@ export class CustomerSearchModule {
                                 <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                                     <span class="material-symbols-outlined text-primary text-3xl">person_search</span>
                                 </div>
-                                <p class="text-lg font-medium text-slate-700 dark:text-slate-300 mb-1">Keep typing...</p>
-                                <p class="text-sm text-slate-500 dark:text-slate-400">Enter at least 2 characters to search</p>
+                                <p class="text-lg font-medium text-slate-700 dark:text-slate-300 mb-1">Tiếp tục nhập...</p>
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Nhập ít nhất 2 ký tự để tìm kiếm</p>
                             </div>
                         </td>
                     </tr>
@@ -311,8 +312,8 @@ export class CustomerSearchModule {
         this.customers = [];
         this.hasMore = true;
 
-        this.listTitle.textContent = 'Search Results';
-        this.listSubtitle.textContent = `Results for "${query}"`;
+        this.listTitle.textContent = 'Kết quả tìm kiếm';
+        this.listSubtitle.textContent = `Tìm kiếm "${query}"`;
 
         this.tableBody.innerHTML = `
             <tr>
@@ -321,7 +322,7 @@ export class CustomerSearchModule {
                         <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                             <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
                         </div>
-                        <p class="text-slate-500 dark:text-slate-400">Searching...</p>
+                        <p class="text-slate-500 dark:text-slate-400">Đang tìm kiếm...</p>
                     </div>
                 </td>
             </tr>
@@ -342,8 +343,8 @@ export class CustomerSearchModule {
                                 <div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
                                     <span class="material-symbols-outlined text-slate-400 text-2xl">search_off</span>
                                 </div>
-                                <p class="text-slate-500 dark:text-slate-400">No customers found</p>
-                                <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Try adjusting your search criteria</p>
+                                <p class="text-slate-500 dark:text-slate-400">Không tìm thấy khách hàng</p>
+                                <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Thử điều chỉnh tiêu chí tìm kiếm</p>
                             </div>
                         </td>
                     </tr>
@@ -359,7 +360,7 @@ export class CustomerSearchModule {
                             <div class="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center mb-3">
                                 <span class="material-symbols-outlined text-danger text-2xl">error</span>
                             </div>
-                            <p class="text-danger font-medium">Search failed</p>
+                            <p class="text-danger font-medium">Lỗi tìm kiếm</p>
                             <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">${error.message}</p>
                         </div>
                     </td>
@@ -412,7 +413,7 @@ export class CustomerSearchModule {
                                 ${initials}
                             </div>
                             <div>
-                                <p class="font-medium text-slate-900 dark:text-white group-hover:text-primary transition-colors">${customer.name || 'No name'}</p>
+                                <p class="font-medium text-slate-900 dark:text-white group-hover:text-primary transition-colors">${customer.name || 'Chưa có tên'}</p>
                                 <p class="text-xs text-slate-500 dark:text-slate-400">ID: #${customer.id || 'N/A'}</p>
                             </div>
                         </div>
@@ -436,7 +437,7 @@ export class CustomerSearchModule {
                         <button onclick="window.openCustomerModal('${customer.phone}')"
                             class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary rounded-lg transition-all">
                             <span class="material-symbols-outlined text-base">visibility</span>
-                            View
+                            Xem
                         </button>
                     </td>
                 </tr>
