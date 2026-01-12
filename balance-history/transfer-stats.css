@@ -173,13 +173,21 @@
 }
 
 /* Column widths */
-.col-date { width: 90px; }
+.col-date { width: 75px; }
 .col-name { width: 130px; }
-.col-phone { width: 95px; }
-.col-amount { width: 100px; text-align: right; }
+.col-phone { width: 90px; }
+.col-amount { width: 90px; text-align: right; }
 .col-content { width: auto; }
-.col-note { width: 80px; }
-.col-action { width: 50px; text-align: center; }
+.col-note { width: 70px; }
+.col-action {
+    width: 40px;
+    text-align: center;
+}
+
+.col-action input[type="checkbox"] {
+    margin: 0 auto;
+    display: block;
+}
 
 /* Truncate cell with tooltip */
 .truncate-cell {
