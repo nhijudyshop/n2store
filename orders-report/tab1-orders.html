@@ -12,13 +12,13 @@
     <title>Quản lý đơn hàng</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <link rel="stylesheet" href="tab1-orders.css" />
-    <link rel="stylesheet" href="message-template-modal.css" />
-    <link rel="stylesheet" href="quick-reply-modal.css" />
+    <link rel="stylesheet" href="css/tab1-orders.css" />
+    <link rel="stylesheet" href="css/message-template-modal.css" />
+    <link rel="stylesheet" href="css/quick-reply-modal.css" />
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="decoding-utility.js"></script>
-    <script src="api-handler.js"></script>
+    <script src="js/utils/decoding-utility.js"></script>
+    <script src="js/core/api-handler.js"></script>
     <style>
         /* Custom Dropdown Styles */
         .custom-dropdown {
@@ -2433,105 +2433,105 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <!-- API Configuration (load first!) -->
-    <script src="api-config.js"></script>
+    <script src="js/core/api-config.js"></script>
 
     <!-- Firebase Configuration (must load before firebase-image-cache.js) -->
-    <script src="config.js"></script>
+    <script src="js/core/config.js"></script>
 
     <!-- User Employee Loader -->
-    <script src="user-employee-loader.js"></script>
+    <script src="js/core/user-employee-loader.js"></script>
 
-    <script src="token-manager.js"></script>
-    <script src="cache.js"></script>
-    <script src="auth.js"></script>
-    <script src="notification-system.js"></script>
-    <script src="pancake-token-manager.js"></script>
-    <script src="pancake-data-manager.js"></script>
-    <script src="firebase-image-cache.js"></script>
+    <script src="js/core/token-manager.js"></script>
+    <script src="js/core/cache.js"></script>
+    <script src="js/core/auth.js"></script>
+    <script src="js/core/notification-system.js"></script>
+    <script src="js/managers/pancake-token-manager.js"></script>
+    <script src="js/managers/pancake-data-manager.js"></script>
+    <script src="js/utils/firebase-image-cache.js"></script>
     <!-- html2canvas for image generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="order-image-generator.js"></script>
-    <script src="message-template-manager.js"></script>
-    <script src="copy-template-helper.js"></script>
-    <script src="live-comments-readonly-modal.js"></script>
+    <script src="js/utils/order-image-generator.js"></script>
+    <script src="js/chat/message-template-manager.js"></script>
+    <script src="js/utils/copy-template-helper.js"></script>
+    <script src="js/chat/live-comments-readonly-modal.js"></script>
 
-    <script src="quick-reply-manager.js"></script>
-    <script src="product-search-manager.js"></script>
-    <script src="dropped-products-manager.js"></script>
-    <script src="held-products-manager.js"></script>
-    <script src="kpi-manager.js"></script>
-    <script src="search-functions.js"></script>
-    <script src="column-visibility-manager.js"></script>
-    <script src="realtime-manager.js"></script>
-    <script src="new-messages-notifier.js"></script>
-    <script src="debug-realtime.js"></script>
+    <script src="js/chat/quick-reply-manager.js"></script>
+    <script src="js/managers/product-search-manager.js"></script>
+    <script src="js/managers/dropped-products-manager.js"></script>
+    <script src="js/managers/held-products-manager.js"></script>
+    <script src="js/managers/kpi-manager.js"></script>
+    <script src="js/utils/search-functions.js"></script>
+    <script src="js/managers/column-visibility-manager.js"></script>
+    <script src="js/managers/realtime-manager.js"></script>
+    <script src="js/chat/new-messages-notifier.js"></script>
+    <script src="js/utils/debug-realtime.js"></script>
     <!-- ⭐ Image Compressor for Pancake API (500KB limit) -->
-    <script src="image-compressor.js"></script>
+    <script src="js/utils/image-compressor.js"></script>
     <!-- ⭐ Bill Service for custom bill generation, printing and sending -->
-    <script src="bill-service.js"></script>
+    <script src="js/utils/bill-service.js"></script>
     <!-- ⭐ Customer 360° Wallet Integration - Phase 5 -->
-    <script src="wallet-integration.js"></script>
+    <script src="js/utils/wallet-integration.js"></script>
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
     <!-- ⭐ TAB1 ORDERS - MODULAR ARCHITECTURE (17 files, 445 functions)          -->
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
 
     <!-- 1. Core: Global state, formatTimeVN, cache (lines 1-278) -->
-    <script src="tab1-core.js"></script>
+    <script src="js/tab1/tab1-core.js"></script>
 
     <!-- 2. Firebase: Tag sync, KPI, filter prefs (lines 279-749) -->
-    <script src="tab1-firebase.js"></script>
+    <script src="js/tab1/tab1-firebase.js"></script>
 
     <!-- 3. Init: DOMContentLoaded, app initialization (lines 750-1385) -->
-    <script src="tab1-init.js"></script>
+    <script src="js/tab1/tab1-init.js"></script>
 
     <!-- 4. Employee: Employee range management (lines 1386-1775) -->
-    <script src="tab1-employee.js"></script>
+    <script src="js/tab1/tab1-employee.js"></script>
 
     <!-- 5. Tags: Single tag operations (lines 1776-2854) -->
-    <script src="tab1-tags.js"></script>
+    <script src="js/tab1/tab1-tags.js"></script>
 
     <!-- 6. Bulk Tags: Bulk tag add/delete (lines 2855-5240) -->
-    <script src="tab1-bulk-tags.js"></script>
+    <script src="js/tab1/tab1-bulk-tags.js"></script>
 
     <!-- 7. Search: Table search, campaign loading (lines 5241-6814) -->
-    <script src="tab1-search.js"></script>
+    <script src="js/tab1/tab1-search.js"></script>
 
     <!-- 8. Table: Rendering, sorting, row creation (lines 6815-8392) -->
-    <script src="tab1-table.js"></script>
+    <script src="js/tab1/tab1-table.js"></script>
 
     <!-- 9. Edit Modal: Order editing, inline search (lines 8393-10015) -->
-    <script src="tab1-edit-modal.js"></script>
+    <script src="js/tab1/tab1-edit-modal.js"></script>
 
     <!-- 10. Chat: Messaging, comments, realtime (lines 10016-16370) -->
-    <script src="tab1-chat.js"></script>
+    <script src="js/tab1/tab1-chat.js"></script>
 
     <!-- 11. Encoding: Note encoding/decoding (lines 16371-17195) -->
-    <script src="tab1-encoding.js"></script>
+    <script src="js/tab1/tab1-encoding.js"></script>
 
     <!-- 12. Chat Products: Quick add, chat products panel (lines 17196-19144) -->
-    <script src="tab1-chat-products.js"></script>
+    <script src="js/tab1/tab1-chat-products.js"></script>
 
     <!-- 13. Merge: Order merge functions (lines 19145-20743) -->
-    <script src="tab1-merge.js"></script>
+    <script src="js/tab1/tab1-merge.js"></script>
 
     <!-- 14. Address & Stats: Address lookup, product stats (lines 20744-22045) -->
-    <script src="tab1-address-stats.js"></script>
+    <script src="js/tab1/tab1-address-stats.js"></script>
 
     <!-- 15. QR & Debt: QR code, VietQR, debt management (lines 22046-23805) -->
-    <script src="tab1-qr-debt.js"></script>
+    <script src="js/tab1/tab1-qr-debt.js"></script>
 
     <!-- 16. Sale: Sale modal, carriers (lines 23806-24974) -->
-    <script src="tab1-sale.js"></script>
+    <script src="js/tab1/tab1-sale.js"></script>
 
     <!-- 17. Fast Sale: Fast sale modal, bill settings (lines 24975-26905) -->
-    <script src="tab1-fast-sale.js"></script>
+    <script src="js/tab1/tab1-fast-sale.js"></script>
 
     <!-- Legacy file (backup - comment out when using modular) -->
-    <!-- <script src="tab1-orders.js"></script> -->
+    <!-- <script src="js/tab1/tab1-orders.js"></script> -->
     <!-- Chat Products UI & Actions - separated for easier management -->
-    <script src="chat-products-ui.js"></script>
-    <script src="chat-products-actions.js"></script>
-    <script src="comment-modal.js"></script>
+    <script src="js/chat/chat-products-ui.js"></script>
+    <script src="js/chat/chat-products-actions.js"></script>
+    <script src="js/chat/comment-modal.js"></script>
 
     <!-- Additional Script for Checkbox Handling -->
     <script>

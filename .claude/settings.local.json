@@ -32,7 +32,8 @@
       "Bash(curl:*)",
       "Bash(git restore:*)",
       "Read(//tmp/**)",
-      "Bash(comm -23:*)"
+      "Bash(comm -23:*)",
+      "Bash(xargs:*)"
     ]
   }
 }
