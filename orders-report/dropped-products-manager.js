@@ -71,6 +71,24 @@
     // Loading states for better UX during multi-user operations
     let operationsInProgress = new Set();
 
+    // Debounce timer for render functions to prevent stack overflow
+    let renderDebounceTimer = null;
+    const RENDER_DEBOUNCE_MS = 150;
+
+    /**
+     * Debounced render and update counts to prevent "Maximum call stack size exceeded"
+     * when multiple Firebase events fire simultaneously
+     */
+    function debouncedRenderAndUpdate() {
+        if (renderDebounceTimer) {
+            clearTimeout(renderDebounceTimer);
+        }
+        renderDebounceTimer = setTimeout(() => {
+            renderDroppedProductsTable();
+            updateDroppedCounts();
+        }, RENDER_DEBOUNCE_MS);
+    }
+
     // Product search state
     let productSearchInitialized = false;
     let searchSuggestionsVisible = false;
@@ -169,9 +187,8 @@
                     console.log('[DROPPED-PRODUCTS] ✓ Item added by user:', itemId, itemData.ProductNameGet);
                 }
 
-                // Update UI to show changes
-                renderDroppedProductsTable();
-                updateDroppedCounts();
+                // Update UI with debounce to prevent stack overflow
+                debouncedRenderAndUpdate();
             }, (error) => {
                 console.error('[DROPPED-PRODUCTS] ❌ child_added error:', error);
             });
@@ -195,9 +212,8 @@
                     console.warn('[DROPPED-PRODUCTS] ⚠️ Update for non-existent item:', itemId);
                 }
 
-                // Update UI to reflect changes from other users
-                renderDroppedProductsTable();
-                updateDroppedCounts();
+                // Update UI with debounce to prevent stack overflow
+                debouncedRenderAndUpdate();
             }, (error) => {
                 console.error('[DROPPED-PRODUCTS] ❌ child_changed error:', error);
             });
@@ -217,9 +233,8 @@
                     console.warn('[DROPPED-PRODUCTS] ⚠️ Remove for non-existent item:', itemId);
                 }
 
-                // Update UI to reflect removal
-                renderDroppedProductsTable();
-                updateDroppedCounts();
+                // Update UI with debounce to prevent stack overflow
+                debouncedRenderAndUpdate();
             }, (error) => {
                 console.error('[DROPPED-PRODUCTS] ❌ child_removed error:', error);
             });

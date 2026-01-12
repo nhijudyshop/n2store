@@ -17,6 +17,30 @@
 
     const DROPPED_PRODUCTS_COLLECTION = 'dropped_products';
 
+    // Debounce timer for render functions to prevent stack overflow
+    let renderDebounceTimer = null;
+    const RENDER_DEBOUNCE_MS = 150;
+
+    /**
+     * Debounced render function to prevent "Maximum call stack size exceeded"
+     * when multiple Firebase events fire simultaneously
+     */
+    function debouncedRender() {
+        if (renderDebounceTimer) {
+            clearTimeout(renderDebounceTimer);
+        }
+        renderDebounceTimer = setTimeout(() => {
+            // Re-render Orders tab
+            if (typeof window.renderChatProductsTable === 'function') {
+                window.renderChatProductsTable();
+            }
+            // Also re-render Dropped tab to update "Người giữ" status
+            if (typeof window.renderDroppedProductsTable === 'function') {
+                window.renderDroppedProductsTable();
+            }
+        }, RENDER_DEBOUNCE_MS);
+    }
+
     // =====================================================
     // HELPER FUNCTIONS
     // =====================================================
@@ -476,16 +500,9 @@
                     }
                 }
 
-                // Re-render Orders tab
-                if (typeof window.renderChatProductsTable === 'function') {
-                    window.renderChatProductsTable();
-                }
-
-                // Also re-render Dropped tab to update "Người giữ" status
-                // This ensures realtime updates across tabs when holders change
-                if (typeof window.renderDroppedProductsTable === 'function') {
-                    window.renderDroppedProductsTable();
-                }
+                // Use debounced render to prevent "Maximum call stack size exceeded"
+                // when multiple Firebase events fire simultaneously
+                debouncedRender();
             }
         });
 
