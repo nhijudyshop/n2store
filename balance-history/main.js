@@ -224,6 +224,37 @@ async function refreshPendingMatchList(pendingMatchId, partialPhone, buttonEleme
 }
 
 /**
+ * Copy phone number to clipboard
+ * @param {string} phone - Phone number to copy
+ * @param {HTMLButtonElement} button - The button element for visual feedback
+ */
+async function copyPhoneToClipboard(phone, button) {
+    try {
+        await navigator.clipboard.writeText(phone);
+
+        // Visual feedback - change icon temporarily
+        const icon = button.querySelector('i');
+        if (icon) {
+            icon.setAttribute('data-lucide', 'check');
+            icon.style.color = '#10b981';
+            lucide.createIcons();
+
+            // Revert after 1.5 seconds
+            setTimeout(() => {
+                icon.setAttribute('data-lucide', 'copy');
+                icon.style.color = '#6b7280';
+                lucide.createIcons();
+            }, 1500);
+        }
+
+        showNotification(`Đã copy: ${phone}`, 'success');
+    } catch (error) {
+        console.error('[COPY] Failed to copy:', error);
+        showNotification('Không thể copy', 'error');
+    }
+}
+
+/**
  * Show notification (uses existing notification system or creates simple one)
  */
 function showNotification(message, type = 'info') {
@@ -1219,10 +1250,15 @@ function renderTransactionRow(row) {
         phoneCell = `<span style="color: #9ca3af;">-</span>`;
     } else if (customerDisplay.hasInfo && customerDisplay.phone !== 'Chưa có') {
         phoneCell = `
-            <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
-                ${customerDisplay.phone}
-                <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
-            </a>
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <button class="btn-copy-phone" onclick="copyPhoneToClipboard('${customerDisplay.phone}', this)" title="Copy SĐT" style="padding: 2px 4px; background: transparent; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; display: flex; align-items: center;">
+                    <i data-lucide="copy" style="width: 12px; height: 12px; color: #6b7280;"></i>
+                </button>
+                <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                    ${customerDisplay.phone}
+                    <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
+                </a>
+            </div>
         `;
     } else {
         phoneCell = `<span style="color: #999; font-style: italic;">${customerDisplay.phone}</span>`;
