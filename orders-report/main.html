@@ -38,6 +38,10 @@
                         if ((k === 'standard_price_cache' || k === 'product_excel_cache') && localStorage[k].length > 500000) {
                             keysToRemove.push(k);
                         }
+                        // Always remove phone debt/qr caches when near quota
+                        if (k === 'orders_phone_debt_cache' || k === 'orders_phone_qr_cache') {
+                            keysToRemove.push(k);
+                        }
                     }
                 }
 
