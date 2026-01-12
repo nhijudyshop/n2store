@@ -547,6 +547,9 @@ async function selectOrder(order) {
  * @param {Array} orders - Array of order objects
  */
 function showOrderSelectionList(orders) {
+    // Store orders for selection by index
+    window._searchedOrders = orders;
+
     // Helper: translate State to Vietnamese
     const translateState = (state) => {
         const map = {
