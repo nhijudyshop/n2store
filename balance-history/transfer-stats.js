@@ -62,7 +62,7 @@ async function loadTransferStats() {
     // Show loading
     tableBody.innerHTML = `
         <tr>
-            <td colspan="10" class="ts-loading">
+            <td colspan="9" class="ts-loading">
                 <i data-lucide="loader-2"></i>
                 <p>Đang tải dữ liệu...</p>
             </td>
@@ -144,12 +144,6 @@ function renderTSTable() {
 
         return `
             <tr class="${rowClass} ${verifiedClass}" data-id="${item.id}">
-                <td style="text-align: center;">
-                    <input type="checkbox" class="ts-checkbox ts-row-select"
-                           data-id="${item.id}"
-                           ${item.is_checked ? 'checked' : ''}
-                           onchange="toggleTSRowSelect(${item.id})">
-                </td>
                 <td>${formattedDate}</td>
                 <td class="ts-customer-name">${item.customer_name || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="ts-customer-phone">${item.customer_phone || '<span style="color: #9ca3af;">—</span>'}</td>
@@ -188,7 +182,7 @@ function showTSEmpty(message) {
 
     tableBody.innerHTML = `
         <tr>
-            <td colspan="10" class="ts-empty">
+            <td colspan="9" class="ts-empty">
                 <i data-lucide="inbox"></i>
                 <p>${message}</p>
             </td>
