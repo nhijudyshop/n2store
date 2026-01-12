@@ -208,7 +208,9 @@
 .ts-table th:nth-child(7),
 .ts-table td:nth-child(7),
 .ts-table th:nth-child(8),
-.ts-table td:nth-child(8) {
+.ts-table td:nth-child(8),
+.ts-table th:nth-child(9),
+.ts-table td:nth-child(9) {
     width: 50px !important;
     text-align: center;
 }
