@@ -1214,9 +1214,29 @@ async function initializeApp() {
             return;
         }
 
-        // Campaigns exist but none selected
-        console.log('[APP] No active campaign selected, showing select modal...');
-        showSelectCampaignModal();
+        // 5. Auto-select the most recent campaign (by creation time or name)
+        const campaignEntries = Object.entries(campaigns);
+        // Sort by timestamp in ID (campaign_TIMESTAMP) or by customStartDate
+        campaignEntries.sort((a, b) => {
+            // Extract timestamp from ID if format is campaign_TIMESTAMP
+            const timestampA = parseInt(a[0].replace('campaign_', '')) || 0;
+            const timestampB = parseInt(b[0].replace('campaign_', '')) || 0;
+            return timestampB - timestampA; // Most recent first
+        });
+
+        const [latestCampaignId, latestCampaign] = campaignEntries[0];
+        console.log('[APP] Auto-selecting most recent campaign:', latestCampaign.name);
+
+        // Check if campaign has dates
+        if (latestCampaign.customStartDate) {
+            // Save as active and load
+            await saveActiveCampaign(latestCampaignId);
+            await continueAfterCampaignSelect(latestCampaignId);
+        } else {
+            // Campaign doesn't have dates, show modal to set dates
+            console.log('[APP] Most recent campaign has no dates, showing modal...');
+            showCampaignNoDatesModal(latestCampaignId);
+        }
 
     } catch (error) {
         console.error('[APP] ❌ Initialization error:', error);
