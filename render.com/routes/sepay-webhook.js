@@ -2878,8 +2878,8 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
 
         // 4. Update pending match status with selected customer info as JSON
         const selectedCustomerJson = JSON.stringify({
-            id: selectedCustomer.id,
-            name: selectedCustomer.name,
+            id: customerId,  // Use the created/found customerId
+            name: customerName,  // Use customerName updated from TPOS
             phone: selectedCustomer.phone
         });
 
@@ -2914,7 +2914,7 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
             [
                 uniqueCode,
                 selectedCustomer.phone,
-                selectedCustomer.name,
+                customerName,  // Use customerName which is updated from TPOS, not selectedCustomer.name
                 `RESOLVED_FROM_PENDING:${match.extracted_phone}`,
                 'SUCCESS'
             ]
