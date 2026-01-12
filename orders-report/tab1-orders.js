@@ -1182,6 +1182,18 @@ async function initializeApp() {
                     document.getElementById('customStartDate').value = formatDateTimeLocal(startDate);
                     document.getElementById('customEndDate').value = formatDateTimeLocal(endDate);
 
+                    // Update label with date range or campaign name
+                    const label = document.getElementById('activeCampaignLabel');
+                    if (label) {
+                        if (filterData.campaignName) {
+                            label.innerHTML = `<i class="fas fa-bullhorn"></i> ${filterData.campaignName}`;
+                        } else {
+                            const startDisplay = startDate.toLocaleDateString('vi-VN');
+                            const endDisplay = endDate.toLocaleDateString('vi-VN');
+                            label.innerHTML = `<i class="fas fa-calendar-check"></i> ${startDisplay} - ${endDisplay}`;
+                        }
+                    }
+
                     // Fetch orders with saved dates (use window.fetchOrders from tab1-campaign.js)
                     if (typeof window.fetchOrders === 'function') {
                         await window.fetchOrders();
