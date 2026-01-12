@@ -892,4 +892,27 @@ function updateActiveCampaignLabel(name) {
 }
 window.updateActiveCampaignLabel = updateActiveCampaignLabel;
 
+/**
+ * Send data to Tab2 (overview) via postMessage and localStorage
+ */
+function sendDataToTab2() {
+    const filterData = {
+        startDate: convertToUTC(document.getElementById("customStartDate")?.value || document.getElementById("startDate")?.value),
+        endDate: convertToUTC(document.getElementById("customEndDate")?.value || document.getElementById("endDate")?.value),
+        campaignId: selectedCampaign?.campaignId || null,
+        campaignName: selectedCampaign?.displayName || "",
+        data: allData,
+        totalRecords: allData.length,
+        timestamp: new Date().toISOString(),
+    };
+    if (window.parent) {
+        window.parent.postMessage(
+            { type: "FILTER_CHANGED", filter: filterData },
+            "*"
+        );
+    }
+    localStorage.setItem("tab1_filter_data", JSON.stringify(filterData));
+}
+window.sendDataToTab2 = sendDataToTab2;
+
 console.log('[TAB1-CAMPAIGN] Module loaded');
