@@ -8,7 +8,7 @@
 
 # EXECUTIVE SUMMARY: TÌNH TRẠNG HIỆN TẠI
 
-## ✅ PHẦN ĐÃ HOÀN THÀNH (95%)
+## ✅ PHẦN ĐÃ HOÀN THÀNH (100%)
 
 ### Database Layer (100% ✅)
 - **PostgreSQL Schema:** Hoàn chỉnh với customers, customer_wallets, wallet_transactions, virtual_credits, customer_tickets, customer_activities, customer_notes
@@ -609,7 +609,45 @@
 
 # CHANGELOG
 
-## 2026-01-12
+## 2026-01-12 (Evening) - Unified Architecture Implementation
+- ✅ **Trạng thái cập nhật: 95% → 100%** (Hoàn tất kiến trúc thống nhất)
+
+### Database Migrations mới
+- ✅ `005_rfm_configuration.sql` - RFM config table với thresholds có thể cấu hình
+- ✅ `006_schema_normalization.sql` - Schema normalization, indexes, utility functions
+- ✅ `007_updated_rfm_function.sql` - RFM v2 functions sử dụng config table
+
+### API v2 Structure (routes/v2/)
+- ✅ `index.js` - Router aggregator với deprecation middleware
+- ✅ `customers.js` - Customer CRUD, 360 view, RFM analysis, batch lookup
+- ✅ `wallets.js` - Wallet operations, FIFO withdrawal, cron endpoints
+- ✅ `tickets.js` - Ticket CRUD, resolve with compensation
+- ✅ `balance-history.js` - Transaction linking, unlink, statistics
+- ✅ `analytics.js` - Dashboard, RFM segments, metrics, configuration
+
+### Event System
+- ✅ `events/customer-events.js` - Event emitter module với handlers
+- ✅ `events/index.js` - Central exports
+
+### New Views
+- ✅ `customer_activity_summary` - Aggregated customer view
+- ✅ `rfm_segment_mapping` - RFM to segment mapping
+- ✅ `daily_wallet_summary` - Daily transaction summary
+- ✅ `rfm_segment_distribution` - Segment distribution
+- ✅ `ticket_resolution_metrics` - Ticket metrics by type
+
+### New Functions
+- ✅ `calculate_customer_rfm_v2(customer_id)` - RFM từ config table
+- ✅ `update_customer_rfm_v2(customer_id)` - Update single customer
+- ✅ `update_all_customers_rfm()` - Batch update với distribution
+- ✅ `update_rfm_threshold(...)` - Admin function cho RFM config
+- ✅ `analyze_customer_rfm(customer_id)` - Detailed analysis với recommendations
+- ✅ `normalize_phone(raw_phone)` - PostgreSQL normalize function
+- ✅ `get_or_create_customer(phone, name)` - PostgreSQL upsert
+
+---
+
+## 2026-01-12 (Morning)
 - ✅ Cập nhật trạng thái hoàn thành: 75% → 95%
 - ✅ Backend APIs: 70% → 100% (đã có getOrCreateCustomer, link-customer API)
 - ✅ Cron Jobs: 0% → 100% (đã có scheduler.js với 3 jobs)
@@ -623,3 +661,127 @@
 - Initial plan created
 - Database Layer: 100%
 - Identified missing components
+
+---
+
+# UNIFIED ARCHITECTURE - API V2 REFERENCE
+
+## API v2 Endpoints
+
+### Customers `/api/v2/customers`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | List customers (paginated, filtered) |
+| GET | `/:id` | Get customer 360° view (ID or phone) |
+| POST | `/` | Create customer |
+| PATCH | `/:id` | Update customer |
+| GET | `/:id/activity` | Get activity timeline |
+| GET | `/:id/rfm` | Get RFM analysis |
+| POST | `/:id/notes` | Add customer note |
+| POST | `/batch` | Batch lookup (phones/ids) |
+| POST | `/search` | Search customers |
+
+### Wallets `/api/v2/wallets`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/:customerId` | Get wallet summary |
+| POST | `/:customerId/deposit` | Add real balance |
+| POST | `/:customerId/credit` | Issue virtual credit |
+| POST | `/:customerId/withdraw` | FIFO withdrawal |
+| GET | `/:customerId/transactions` | Transaction history |
+| POST | `/batch-summary` | Batch wallet lookup |
+| POST | `/cron/expire` | Expire virtual credits |
+| POST | `/cron/process-bank` | Process bank transactions |
+
+### Tickets `/api/v2/tickets`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | List tickets (filtered) |
+| GET | `/stats` | Ticket statistics |
+| GET | `/:id` | Ticket detail |
+| POST | `/` | Create ticket |
+| PATCH | `/:id` | Update ticket |
+| POST | `/:id/notes` | Add note |
+| POST | `/:id/resolve` | Resolve with compensation |
+| DELETE | `/:id` | Delete ticket |
+
+### Balance History `/api/v2/balance-history`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | List transactions |
+| GET | `/pending` | Pending matches |
+| GET | `/stats` | Balance history stats |
+| POST | `/:id/link` | Link to customer |
+| POST | `/:id/unlink` | Unlink from customer |
+
+### Analytics `/api/v2/analytics`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/dashboard` | Overview stats |
+| GET | `/rfm-segments` | RFM segment distribution |
+| GET | `/ticket-metrics` | Ticket resolution metrics |
+| GET | `/wallet-summary` | Wallet statistics |
+| GET | `/daily-summary` | Daily transaction summary |
+| POST | `/rfm/recalculate` | Recalculate all RFM |
+| GET | `/rfm/config` | Get RFM config |
+| POST | `/rfm/config` | Update RFM threshold |
+
+---
+
+# FILES REFERENCE - UNIFIED ARCHITECTURE
+
+## New Backend Files (render.com/)
+
+### Migrations
+| File | Purpose |
+|------|---------|
+| `migrations/005_rfm_configuration.sql` | RFM config table, views |
+| `migrations/006_schema_normalization.sql` | Normalization, indexes, functions |
+| `migrations/007_updated_rfm_function.sql` | RFM v2 functions, triggers |
+
+### Routes v2
+| File | Purpose |
+|------|---------|
+| `routes/v2/index.js` | Router aggregator |
+| `routes/v2/customers.js` | Customer endpoints |
+| `routes/v2/wallets.js` | Wallet endpoints |
+| `routes/v2/tickets.js` | Ticket endpoints |
+| `routes/v2/balance-history.js` | Balance history endpoints |
+| `routes/v2/analytics.js` | Analytics endpoints |
+
+### Events
+| File | Purpose |
+|------|---------|
+| `events/index.js` | Central exports |
+| `events/customer-events.js` | Event emitter, handlers |
+
+---
+
+# BACKWARD COMPATIBILITY
+
+## v1 → v2 Migration
+
+### Strategy
+1. v1 endpoints continue working
+2. v2 endpoints added in parallel
+3. Deprecation headers added to v1
+4. 6-month sunset period
+
+### Deprecation Headers (v1 responses)
+```
+Deprecation: true
+Sunset: Sat, 01 Jul 2025 00:00:00 GMT
+Link: </api/v2/>; rel="successor-version"
+```
+
+### Usage in server.js
+```javascript
+const v2Router = require('./routes/v2');
+const { deprecationMiddleware } = require('./routes/v2');
+
+// Add deprecation warning to v1
+app.use(deprecationMiddleware);
+
+// Mount v2 routes
+app.use('/api/v2', v2Router);
+```
