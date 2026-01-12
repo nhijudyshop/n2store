@@ -324,8 +324,35 @@ async function processWalletEvent(db, event) {
 
 /**
  * Process bank deposit (from balance_history link)
+ * IMPORTANT: Includes idempotency check to prevent duplicate processing
  */
 async function processDeposit(db, phone, amount, balanceHistoryId, note, customerId = null) {
+    // IDEMPOTENCY CHECK: Verify balance_history not already processed
+    const checkResult = await db.query(
+        'SELECT wallet_processed FROM balance_history WHERE id = $1',
+        [balanceHistoryId]
+    );
+
+    if (checkResult.rows.length > 0 && checkResult.rows[0].wallet_processed === true) {
+        console.log(`[WALLET-PROCESSOR] ⚠️ Skipping duplicate deposit for balance_history ${balanceHistoryId} - already processed`);
+        // Return existing transaction info if available
+        const existingTx = await db.query(
+            'SELECT id, balance_after FROM wallet_transactions WHERE reference_type = $1 AND reference_id = $2 LIMIT 1',
+            ['balance_history', balanceHistoryId.toString()]
+        );
+        if (existingTx.rows.length > 0) {
+            const wallet = await getOrCreateWallet(db, phone, customerId);
+            return {
+                success: true,
+                transactionId: existingTx.rows[0].id,
+                wallet: wallet,
+                skipped: true,
+                reason: 'Already processed'
+            };
+        }
+        throw new Error(`Duplicate deposit attempt for balance_history ${balanceHistoryId}`);
+    }
+
     return processWalletEvent(db, {
         type: WALLET_EVENT_TYPES.DEPOSIT,
         phone,

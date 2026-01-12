@@ -71,6 +71,16 @@ cron.schedule('*/5 * * * *', async () => {
 
         for (const tx of unprocessedResult.rows) {
             try {
+                // DOUBLE-CHECK: Verify not processed by another thread/request
+                const recheck = await db.query(
+                    'SELECT wallet_processed FROM balance_history WHERE id = $1',
+                    [tx.id]
+                );
+                if (recheck.rows.length > 0 && recheck.rows[0].wallet_processed === true) {
+                    console.log(`[CRON] ⚠️ Skipping tx ${tx.id} - already processed by realtime`);
+                    continue;
+                }
+
                 // NEW: Ensure customer exists with TPOS data (create if missing)
                 let customerId = tx.customer_id;
                 if (!customerId) {
