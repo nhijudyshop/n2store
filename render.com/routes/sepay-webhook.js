@@ -3580,11 +3580,12 @@ router.get('/transfer-stats', async (req, res) => {
         await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_notes TEXT`);
 
         // Query from balance_history JOIN balance_customer_info for customer name
+        // Priority: bh.customer_name (edited) > bci.customer_name (from balance_customer_info)
         const result = await db.query(`
             SELECT
                 bh.id,
                 bh.id as transaction_id,
-                COALESCE(bci.customer_name, '') as customer_name,
+                COALESCE(NULLIF(bh.customer_name, ''), bci.customer_name, '') as customer_name,
                 bh.linked_customer_phone as customer_phone,
                 bh.transfer_amount as amount,
                 bh.content,
