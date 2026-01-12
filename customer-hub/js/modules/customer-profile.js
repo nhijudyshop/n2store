@@ -14,36 +14,35 @@ export class CustomerProfileModule {
 
     initUI() {
         this.container.innerHTML = `
-            <!-- Modal Header -->
-            <header class="shrink-0 px-6 py-4 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
+            <!-- Modal Header - Compact -->
+            <header class="shrink-0 px-6 py-3 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
                 <div class="flex items-center justify-between">
-                    <div>
-                        <div class="flex items-center gap-3 mb-1">
-                            <h1 id="modal-customer-name" class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Hồ sơ khách hàng</h1>
-                            <span id="modal-customer-status" class="px-2.5 py-0.5 rounded text-xs font-semibold"></span>
-                        </div>
-                        <p id="modal-customer-meta" class="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                    <div class="flex items-center gap-4">
+                        <h1 id="modal-customer-name" class="text-lg font-bold text-slate-900 dark:text-white">Hồ sơ khách hàng</h1>
+                        <span id="modal-customer-status" class="px-2.5 py-0.5 rounded text-xs font-semibold"></span>
+                        <span class="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
                             <span class="material-symbols-outlined text-base">call</span>
                             <span id="modal-phone-display"></span>
-                            <span class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                        </span>
+                        <span class="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
                             <span class="material-symbols-outlined text-base">location_on</span>
                             <span id="modal-address-display">Chưa có địa chỉ</span>
-                        </p>
+                        </span>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <button id="audit-log-btn" class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
-                            <span class="material-symbols-outlined text-lg">history</span>
+                    <div class="flex items-center gap-2">
+                        <button id="audit-log-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+                            <span class="material-symbols-outlined text-base">history</span>
                             Lịch sử
                         </button>
-                        <button onclick="window.closeCustomerModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                            <span class="material-symbols-outlined text-2xl">close</span>
+                        <button onclick="window.closeCustomerModal()" class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                            <span class="material-symbols-outlined text-xl">close</span>
                         </button>
                     </div>
                 </div>
             </header>
 
-            <!-- Modal Body - Scrollable -->
-            <div class="flex-1 overflow-y-auto p-6 bg-background-light dark:bg-background-dark">
+            <!-- Modal Body -->
+            <div class="flex-1 overflow-hidden bg-background-light dark:bg-background-dark">
                 <!-- Loading State -->
                 <div id="modal-loader" class="flex flex-col items-center justify-center py-20">
                     <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -52,29 +51,28 @@ export class CustomerProfileModule {
                     <p class="text-slate-500 dark:text-slate-400 font-medium">Đang tải thông tin khách hàng...</p>
                 </div>
 
-                <!-- Content - Hidden until loaded -->
-                <div id="modal-content-loaded" class="hidden">
-                    <!-- 3 Columns Layout -->
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+                <!-- Content - Hidden until loaded - 3 Columns side by side -->
+                <div id="modal-content-loaded" class="hidden h-full">
+                    <div class="grid grid-cols-3 gap-4 h-full p-4">
                         <!-- Column 1: Wallet + Notes -->
-                        <div id="customer-info-card" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden flex flex-col">
-                            <!-- Wallet Panel at top -->
-                            <div id="customer-wallet-panel" class="border-b border-border-light dark:border-border-dark">
+                        <div class="flex flex-col gap-4 h-full overflow-hidden">
+                            <!-- Wallet Panel -->
+                            <div id="customer-wallet-panel" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-card overflow-hidden shrink-0">
                                 <!-- Will be rendered by WalletPanelModule -->
                             </div>
-                            <!-- Notes Section at bottom -->
-                            <div id="internal-notes-section" class="flex-1 p-4 overflow-y-auto">
+                            <!-- Notes Section - Fills remaining space -->
+                            <div id="internal-notes-section" class="flex-1 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
                                 <!-- Will be rendered dynamically -->
                             </div>
                         </div>
 
                         <!-- Column 2: Recent Activities -->
-                        <div id="recent-activities-card" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
+                        <div id="recent-activities-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-card overflow-hidden h-full">
                             <!-- Will be rendered dynamically -->
                         </div>
 
                         <!-- Column 3: RFM Analysis -->
-                        <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark shadow-card overflow-hidden">
+                        <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-card overflow-hidden h-full">
                             <!-- Will be rendered dynamically -->
                         </div>
                     </div>
@@ -244,72 +242,71 @@ export class CustomerProfileModule {
         const percentile = rfm.percentile || null;
 
         container.innerHTML = `
-            <div class="p-6">
-                <!-- Header -->
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <span class="material-symbols-outlined text-purple-500">analytics</span>
-                        Phân tích RFM
-                    </h3>
-                    ${percentile ? `
-                        <div class="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold px-3 py-1 rounded-lg border border-purple-200 dark:border-purple-800">
-                            TOP ${percentile}%
-                        </div>
-                    ` : ''}
+            <!-- Header -->
+            <div class="p-3 border-b border-border-light dark:border-border-dark flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-base text-purple-500">analytics</span>
+                    Phân tích RFM
+                </h3>
+                ${percentile ? `
+                    <div class="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold px-2 py-0.5 rounded">
+                        TOP ${percentile}%
+                    </div>
+                ` : ''}
+            </div>
+
+            <!-- Metrics -->
+            <div class="p-3 space-y-3 overflow-y-auto" style="max-height: calc(100% - 50px);">
+                <!-- Overall Score -->
+                <div class="p-3 bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 rounded-lg border border-primary/10">
+                    <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Điểm tổng</p>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">${score.toFixed(1)}</span>
+                        <span class="text-base text-slate-400 font-medium">/5</span>
+                    </div>
+                    <div class="h-2 mt-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-primary rounded-full" style="width: ${(score / 5) * 100}%"></div>
+                    </div>
                 </div>
 
-                <!-- Metrics Grid -->
-                <div class="grid grid-cols-4 gap-4">
-                    <!-- Overall Score - Large -->
-                    <div class="col-span-2 p-5 bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 rounded-xl border border-primary/10">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Điểm tổng</p>
-                        <div class="flex items-baseline gap-1">
-                            <span class="text-4xl font-bold text-slate-900 dark:text-white tabular-nums">${score.toFixed(1)}</span>
-                            <span class="text-lg text-slate-400 font-medium">/5</span>
-                        </div>
-                        <!-- Mini chart placeholder -->
-                        <div class="h-8 mt-3 bg-gradient-to-r from-primary/20 via-primary/40 to-primary/10 rounded-full overflow-hidden">
-                            <div class="h-full bg-primary rounded-full" style="width: ${(score / 5) * 100}%"></div>
-                        </div>
-                    </div>
-
-                    <!-- Recency -->
-                    <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-border-light dark:border-border-dark">
-                        <div class="flex items-center gap-1.5 text-slate-500 mb-2">
-                            <span class="material-symbols-outlined text-base">schedule</span>
+                <!-- Recency & Frequency -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-border-light dark:border-border-dark">
+                        <div class="flex items-center gap-1 text-slate-500 mb-1">
+                            <span class="material-symbols-outlined text-sm">schedule</span>
                             <span class="text-xs font-bold uppercase">Gần đây</span>
                         </div>
-                        <p class="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+                        <p class="text-xl font-bold text-slate-900 dark:text-white tabular-nums">
                             ${typeof recency === 'number' ? recency : recency}
                         </p>
-                        <p class="text-xs text-slate-500 mt-0.5">${typeof recency === 'number' ? 'ngày trước' : ''}</p>
+                        <p class="text-xs text-slate-500">${typeof recency === 'number' ? 'ngày' : ''}</p>
                     </div>
-
-                    <!-- Frequency -->
-                    <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-border-light dark:border-border-dark">
-                        <div class="flex items-center gap-1.5 text-slate-500 mb-2">
-                            <span class="material-symbols-outlined text-base">repeat</span>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-border-light dark:border-border-dark">
+                        <div class="flex items-center gap-1 text-slate-500 mb-1">
+                            <span class="material-symbols-outlined text-sm">repeat</span>
                             <span class="text-xs font-bold uppercase">Tần suất</span>
                         </div>
-                        <p class="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">${frequency}</p>
-                        <p class="text-xs text-slate-500 mt-0.5">đơn hàng</p>
+                        <p class="text-xl font-bold text-slate-900 dark:text-white tabular-nums">${frequency}</p>
+                        <p class="text-xs text-slate-500">đơn hàng</p>
                     </div>
                 </div>
 
-                <!-- Monetary Value (Full Width) -->
-                <div class="mt-4 p-4 bg-success-light dark:bg-success/10 rounded-xl border border-success/20 flex items-center justify-between">
-                    <div>
-                        <div class="flex items-center gap-1.5 text-success mb-1">
-                            <span class="material-symbols-outlined text-base">payments</span>
-                            <span class="text-xs font-bold uppercase">Giá trị (LTV)</span>
+                <!-- Monetary Value -->
+                <div class="p-3 bg-success-light dark:bg-success/10 rounded-lg border border-success/20">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="flex items-center gap-1 text-success mb-1">
+                                <span class="material-symbols-outlined text-sm">payments</span>
+                                <span class="text-xs font-bold uppercase">Giá trị (LTV)</span>
+                            </div>
+                            <p class="text-xl font-bold text-success tabular-nums">${this.formatCurrency(monetary)}</p>
                         </div>
-                        <p class="text-2xl font-bold text-success tabular-nums">${this.formatCurrency(monetary)}</p>
+                        ${rfm.yoy_change ? `
+                            <div class="px-2 py-1 rounded ${rfm.yoy_change >= 0 ? 'bg-success text-white' : 'bg-danger text-white'} text-xs font-bold">
+                                ${rfm.yoy_change >= 0 ? '+' : ''}${rfm.yoy_change}%
+                            </div>
+                        ` : ''}
                     </div>
-                    ${rfm.yoy_change ? `
-                        <div class="px-3 py-1.5 rounded-lg ${rfm.yoy_change >= 0 ? 'bg-success text-white' : 'bg-danger text-white'} text-sm font-bold">
-                            ${rfm.yoy_change >= 0 ? '+' : ''}${rfm.yoy_change}% YoY
-                        </div>
-                    ` : ''}
                 </div>
             </div>
         `;
@@ -321,33 +318,24 @@ export class CustomerProfileModule {
         let activitiesHtml = '';
         if (!activities || activities.length === 0) {
             activitiesHtml = `
-                <div class="flex flex-col items-center justify-center py-10 text-slate-400">
-                    <span class="material-symbols-outlined text-4xl mb-3">history</span>
-                    <p class="text-sm font-medium">Chưa có hoạt động</p>
+                <div class="flex flex-col items-center justify-center py-8 text-slate-400">
+                    <span class="material-symbols-outlined text-3xl mb-2">history</span>
+                    <p class="text-sm">Chưa có hoạt động</p>
                 </div>
             `;
         } else {
-            activitiesHtml = activities.slice(0, 5).map((activity, index) => {
+            activitiesHtml = activities.slice(0, 10).map((activity, index) => {
                 const iconInfo = this._getActivityIcon(activity.type || activity.event_type);
                 const timeAgo = this._getTimeAgo(activity.created_at || activity.timestamp);
 
                 return `
-                    <div class="relative pl-10 ${index !== activities.slice(0, 5).length - 1 ? 'pb-6' : ''}">
-                        <!-- Timeline Line -->
-                        ${index !== activities.slice(0, 5).length - 1 ? `<div class="absolute left-[13px] top-7 bottom-0 w-px bg-slate-200 dark:bg-slate-700"></div>` : ''}
-
-                        <!-- Icon -->
-                        <div class="absolute left-0 top-0 w-7 h-7 rounded-full ${iconInfo.bgColor} border ${iconInfo.borderColor} flex items-center justify-center z-10">
-                            <span class="material-symbols-outlined text-sm ${iconInfo.iconColor}">${iconInfo.icon}</span>
+                    <div class="flex gap-2 py-2 ${index !== 0 ? 'border-t border-border-light dark:border-border-dark' : ''}">
+                        <div class="w-6 h-6 rounded-full ${iconInfo.bgColor} flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xs ${iconInfo.iconColor}">${iconInfo.icon}</span>
                         </div>
-
-                        <!-- Content -->
-                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
-                            <div>
-                                <p class="text-sm font-medium text-slate-900 dark:text-white">${activity.title || activity.description || 'Hoạt động'}</p>
-                                ${activity.details ? `<p class="text-xs text-slate-500 mt-0.5">${activity.details}</p>` : ''}
-                            </div>
-                            <span class="text-xs text-slate-400 whitespace-nowrap">${timeAgo}</span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-slate-900 dark:text-white truncate">${activity.title || activity.description || 'Hoạt động'}</p>
+                            <p class="text-xs text-slate-400">${timeAgo}</p>
                         </div>
                     </div>
                 `;
@@ -356,15 +344,15 @@ export class CustomerProfileModule {
 
         container.innerHTML = `
             <!-- Header -->
-            <div class="px-6 py-4 border-b border-border-light dark:border-border-dark flex items-center justify-between">
-                <h3 class="text-base font-bold text-slate-900 dark:text-white">Hoạt động gần đây</h3>
-                <button class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                    <span class="material-symbols-outlined text-xl">filter_list</span>
-                </button>
+            <div class="p-3 border-b border-border-light dark:border-border-dark flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-base text-slate-400">history</span>
+                    Hoạt động gần đây
+                </h3>
             </div>
 
-            <!-- Timeline Content -->
-            <div class="p-6">
+            <!-- Activities List -->
+            <div class="p-3 overflow-y-auto custom-scrollbar" style="max-height: calc(100% - 50px);">
                 ${activitiesHtml}
             </div>
         `;
@@ -376,57 +364,47 @@ export class CustomerProfileModule {
         let notesHtml = '';
         if (!notes || notes.length === 0) {
             notesHtml = `
-                <div class="text-center py-6 text-slate-400">
-                    <p class="text-sm">Chưa có ghi chú nội bộ</p>
+                <div class="text-center py-4 text-slate-400">
+                    <p class="text-sm">Chưa có ghi chú</p>
                 </div>
             `;
         } else {
-            notesHtml = notes.slice(0, 5).map(note => {
+            notesHtml = notes.slice(0, 10).map(note => {
                 const date = new Date(note.created_at).toLocaleString('vi-VN', {
                     month: 'short',
                     day: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit'
                 });
-                const initials = this._getInitials(note.created_by || 'System');
 
                 return `
-                    <div class="flex gap-3">
-                        <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 text-xs font-bold shrink-0">
-                            ${initials}
-                        </div>
-                        <div class="flex-1 bg-slate-50 dark:bg-slate-800/50 rounded-xl rounded-tl-none p-4 border border-border-light dark:border-border-dark">
-                            <div class="flex justify-between items-baseline mb-1.5">
-                                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${note.created_by || 'System'}</span>
-                                <span class="text-xs text-slate-400">${date}</span>
-                            </div>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">${note.content}</p>
-                        </div>
+                    <div class="flex gap-2 text-sm">
+                        <span class="text-slate-400 shrink-0">${date}</span>
+                        <span class="text-slate-700 dark:text-slate-300">${note.content}</span>
                     </div>
                 `;
             }).join('');
         }
 
         container.innerHTML = `
-            <h3 class="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                <span class="material-symbols-outlined text-slate-400">forum</span>
-                Ghi chú nội bộ
-            </h3>
-            <div class="space-y-4 mb-6 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+            <div class="p-3 border-b border-border-light dark:border-border-dark flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-base text-slate-400">forum</span>
+                    Ghi chú nội bộ
+                </h3>
+            </div>
+            <div class="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar" style="max-height: calc(100% - 120px);">
                 ${notesHtml}
             </div>
             ${this.permissionHelper.hasPermission('customer-hub', 'addNote') ? `
-                <div class="relative">
-                    <textarea id="new-note-textarea"
-                        class="w-full rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px] p-4 pr-28 resize-none placeholder-slate-400"
-                        placeholder="Thêm ghi chú nội bộ..."></textarea>
-                    <div class="absolute bottom-3 right-3 flex gap-2">
-                        <button class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Đính kèm tệp">
-                            <span class="material-symbols-outlined text-xl">attach_file</span>
-                        </button>
-                        <button id="add-note-btn" class="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                            <span class="material-symbols-outlined text-lg">send</span>
-                            Thêm
+                <div class="p-3 border-t border-border-light dark:border-border-dark">
+                    <div class="flex gap-2">
+                        <textarea id="new-note-textarea"
+                            class="flex-1 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary p-2 resize-none placeholder-slate-400"
+                            placeholder="Thêm ghi chú..."
+                            rows="2"></textarea>
+                        <button id="add-note-btn" class="shrink-0 bg-primary hover:bg-primary-dark text-white px-3 py-2 rounded-lg text-sm font-semibold transition-colors">
+                            <span class="material-symbols-outlined text-base">send</span>
                         </button>
                     </div>
                 </div>
