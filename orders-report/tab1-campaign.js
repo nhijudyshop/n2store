@@ -880,4 +880,16 @@ window.handleSearch = handleSearch;
 window.fetchOrders = fetchOrders;
 window.updateOrderInTable = updateOrderInTable;
 
+/**
+ * Update active campaign label in UI
+ * @param {string} name - Campaign name to display
+ */
+function updateActiveCampaignLabel(name) {
+    const label = document.getElementById('activeCampaignLabel');
+    if (label) {
+        label.innerHTML = `<i class="fas fa-bullhorn"></i> ${name}`;
+    }
+}
+window.updateActiveCampaignLabel = updateActiveCampaignLabel;
+
 console.log('[TAB1-CAMPAIGN] Module loaded');
