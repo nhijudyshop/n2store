@@ -330,11 +330,19 @@
                 <!-- Transfer Stats Filters -->
                 <div class="ts-filters">
                     <div class="ts-filter-group">
-                        <label>Trạng thái:</label>
-                        <select id="tsStatusFilter" onchange="filterTransferStats()">
+                        <label>Ẩn/Hiện:</label>
+                        <select id="tsVisibilityFilter" onchange="filterTransferStats()">
                             <option value="all" selected>Tất cả</option>
-                            <option value="unchecked">Chưa kiểm tra</option>
-                            <option value="checked">Đã kiểm tra</option>
+                            <option value="visible">Đang hiện</option>
+                            <option value="hidden">Đang ẩn</option>
+                        </select>
+                    </div>
+                    <div class="ts-filter-group">
+                        <label>Đã KT:</label>
+                        <select id="tsVerifiedFilter" onchange="filterTransferStats()">
+                            <option value="all" selected>Tất cả</option>
+                            <option value="verified">Đã kiểm tra</option>
+                            <option value="unverified">Chưa kiểm tra</option>
                         </select>
                     </div>
                     <div class="ts-filter-group">

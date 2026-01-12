@@ -89,13 +89,18 @@ async function loadTransferStats() {
 }
 
 function filterTransferStats() {
-    const statusFilter = document.getElementById('tsStatusFilter')?.value || 'all';
+    const visibilityFilter = document.getElementById('tsVisibilityFilter')?.value || 'all';
+    const verifiedFilter = document.getElementById('tsVerifiedFilter')?.value || 'all';
     const searchInput = document.getElementById('tsSearchInput')?.value?.toLowerCase() || '';
 
     tsFilteredData = tsData.filter(item => {
-        // Status filter
-        if (statusFilter === 'checked' && !item.is_checked) return false;
-        if (statusFilter === 'unchecked' && item.is_checked) return false;
+        // Visibility filter (Ẩn/Hiện)
+        if (visibilityFilter === 'visible' && !item.is_checked) return false;
+        if (visibilityFilter === 'hidden' && item.is_checked) return false;
+
+        // Verified filter (Đã KT)
+        if (verifiedFilter === 'verified' && !item.is_verified) return false;
+        if (verifiedFilter === 'unverified' && item.is_verified) return false;
 
         // Search filter
         if (searchInput) {
