@@ -142,21 +142,26 @@ function renderTSTable() {
         const formattedAmount = formatCurrency(item.amount);
         const formattedDate = formatDateTime(item.transaction_date);
 
+        // Format date with line break
+        const dateObj = new Date(item.transaction_date);
+        const datePart = dateObj.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timePart = dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
         return `
             <tr class="${rowClass} ${verifiedClass}" data-id="${item.id}">
-                <td>${formattedDate}</td>
-                <td class="ts-customer-name">${item.customer_name || '<span style="color: #9ca3af;">—</span>'}</td>
+                <td>${datePart}<br><small style="color:#888">${timePart}</small></td>
+                <td class="truncate-cell" data-tooltip="${escapeHtml(item.customer_name || '')}">${item.customer_name || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="ts-customer-phone">${item.customer_phone || '<span style="color: #9ca3af;">—</span>'}</td>
-                <td class="ts-amount ${amountClass}">${formattedAmount}</td>
-                <td class="ts-content" onclick="showContentPopup('${escapeHtml(item.content || '—').replace(/'/g, "\\'")}')" title="Click để xem đầy đủ">${item.content || '—'}</td>
-                <td class="ts-notes" title="${escapeHtml(item.notes || '')}">${item.notes || '<span style="color: #9ca3af;">—</span>'}</td>
-                <td style="text-align: center;">
+                <td class="col-amount ${amountClass}">${formattedAmount}</td>
+                <td class="truncate-cell" data-tooltip="${escapeHtml(item.content || '')}">${item.content || '—'}</td>
+                <td class="truncate-cell" data-tooltip="${escapeHtml(item.notes || '')}">${item.notes || '<span style="color: #9ca3af;">—</span>'}</td>
+                <td class="col-action">
                     <input type="checkbox" class="ts-checkbox ts-hide-checkbox"
                            ${item.is_checked ? 'checked' : ''}
                            onchange="toggleTSChecked(${item.id}, this.checked)"
                            title="${item.is_checked ? 'Đang hiện' : 'Đang ẩn'}">
                 </td>
-                <td style="text-align: center;">
+                <td class="col-action">
                     <input type="checkbox" class="ts-checkbox ts-verify-checkbox"
                            ${item.is_verified ? 'checked' : ''}
                            ${!item.is_checked ? 'disabled' : ''}
@@ -667,38 +672,6 @@ async function saveTSEdit(e) {
 window.loadTransferStats = loadTransferStats;
 window.filterTransferStats = filterTransferStats;
 window.toggleTSChecked = toggleTSChecked;
-// Show content popup
-function showContentPopup(content) {
-    // Remove existing popup if any
-    const existing = document.querySelector('.ts-content-popup');
-    if (existing) existing.remove();
-
-    // Create popup
-    const popup = document.createElement('div');
-    popup.className = 'ts-content-popup';
-    popup.innerHTML = `
-        <div class="ts-content-popup-inner">
-            <div class="ts-content-popup-header">
-                <h3>Nội dung chuyển khoản</h3>
-                <button class="ts-content-popup-close" onclick="closeContentPopup()">&times;</button>
-            </div>
-            <div class="ts-content-popup-body">${content}</div>
-        </div>
-    `;
-
-    // Close on background click
-    popup.addEventListener('click', (e) => {
-        if (e.target === popup) closeContentPopup();
-    });
-
-    document.body.appendChild(popup);
-}
-
-function closeContentPopup() {
-    const popup = document.querySelector('.ts-content-popup');
-    if (popup) popup.remove();
-}
-
 window.toggleTSVerified = toggleTSVerified;
 window.toggleSelectAllTS = toggleSelectAllTS;
 window.toggleTSRowSelect = toggleTSRowSelect;
@@ -709,5 +682,3 @@ window.openEditTSModal = openEditTSModal;
 window.closeEditTSModal = closeEditTSModal;
 window.saveTSEdit = saveTSEdit;
 window.syncTransferStats = syncTransferStats;
-window.showContentPopup = showContentPopup;
-window.closeContentPopup = closeContentPopup;
