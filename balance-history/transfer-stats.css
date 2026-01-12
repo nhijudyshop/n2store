@@ -172,19 +172,49 @@
     vertical-align: middle;
 }
 
-/* Column widths */
-.col-date { width: 80px; }
-.col-name { width: 110px; }
-.col-phone { width: 95px; }
-.col-amount { width: 100px; text-align: right; }
-.col-content { width: auto; }
-.col-note { width: 55px; }
-.col-action {
-    width: 45px;
+/* Column widths - use nth-child to override styles.css */
+.ts-table th:nth-child(1),
+.ts-table td:nth-child(1) {
+    width: 75px !important;
+}
+
+.ts-table th:nth-child(2),
+.ts-table td:nth-child(2) {
+    width: 110px !important;
+}
+
+.ts-table th:nth-child(3),
+.ts-table td:nth-child(3) {
+    width: 95px !important;
+}
+
+.ts-table th:nth-child(4),
+.ts-table td:nth-child(4) {
+    width: 95px !important;
+    text-align: right;
+}
+
+.ts-table th:nth-child(5),
+.ts-table td:nth-child(5) {
+    width: auto !important;
+    max-width: none !important;
+}
+
+.ts-table th:nth-child(6),
+.ts-table td:nth-child(6) {
+    width: 55px !important;
+}
+
+.ts-table th:nth-child(7),
+.ts-table td:nth-child(7),
+.ts-table th:nth-child(8),
+.ts-table td:nth-child(8) {
+    width: 50px !important;
     text-align: center;
 }
 
-.col-action input[type="checkbox"] {
+.ts-table td:nth-child(7) input[type="checkbox"],
+.ts-table td:nth-child(8) input[type="checkbox"] {
     margin: 0 auto;
     display: block;
 }
