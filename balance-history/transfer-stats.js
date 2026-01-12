@@ -150,11 +150,11 @@ function renderTSTable() {
         return `
             <tr class="${rowClass} ${verifiedClass}" data-id="${item.id}">
                 <td>${datePart}<br><small style="color:#888">${timePart}</small></td>
-                <td class="truncate-cell" data-tooltip="${escapeHtml(item.customer_name || '')}">${item.customer_name || '<span style="color: #9ca3af;">—</span>'}</td>
+                <td class="truncate-cell" data-tooltip="${escapeHtml(item.customer_name || '')}" onmouseenter="showTooltip(event, this.dataset.tooltip)" onmouseleave="hideTooltip()">${item.customer_name || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="ts-customer-phone">${item.customer_phone || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="col-amount ${amountClass}">${formattedAmount}</td>
-                <td class="truncate-cell" data-tooltip="${escapeHtml(item.content || '')}">${item.content || '—'}</td>
-                <td class="truncate-cell" data-tooltip="${escapeHtml(item.notes || '')}">${item.notes || '<span style="color: #9ca3af;">—</span>'}</td>
+                <td class="truncate-cell" data-tooltip="${escapeHtml(item.content || '')}" onmouseenter="showTooltip(event, this.dataset.tooltip)" onmouseleave="hideTooltip()">${item.content || '—'}</td>
+                <td class="truncate-cell" data-tooltip="${escapeHtml(item.notes || '')}" onmouseenter="showTooltip(event, this.dataset.tooltip)" onmouseleave="hideTooltip()">${item.notes || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="col-action">
                     <input type="checkbox" class="ts-checkbox ts-hide-checkbox"
                            ${item.is_checked ? 'checked' : ''}
@@ -682,3 +682,49 @@ window.openEditTSModal = openEditTSModal;
 window.closeEditTSModal = closeEditTSModal;
 window.saveTSEdit = saveTSEdit;
 window.syncTransferStats = syncTransferStats;
+
+// =====================================================
+// FLOATING TOOLTIP
+// =====================================================
+let tooltipElement = null;
+
+function showTooltip(event, text) {
+    if (!text || text === '—') return;
+
+    // Remove existing tooltip
+    hideTooltip();
+
+    // Create tooltip
+    tooltipElement = document.createElement('div');
+    tooltipElement.className = 'ts-floating-tooltip';
+    tooltipElement.textContent = text;
+    document.body.appendChild(tooltipElement);
+
+    // Position tooltip
+    const rect = event.target.getBoundingClientRect();
+    const tooltipRect = tooltipElement.getBoundingClientRect();
+
+    let left = rect.left;
+    let top = rect.bottom + 8;
+
+    // Adjust if tooltip goes off screen
+    if (left + tooltipRect.width > window.innerWidth - 20) {
+        left = window.innerWidth - tooltipRect.width - 20;
+    }
+    if (top + tooltipRect.height > window.innerHeight - 20) {
+        top = rect.top - tooltipRect.height - 8;
+    }
+
+    tooltipElement.style.left = left + 'px';
+    tooltipElement.style.top = top + 'px';
+}
+
+function hideTooltip() {
+    if (tooltipElement) {
+        tooltipElement.remove();
+        tooltipElement = null;
+    }
+}
+
+window.showTooltip = showTooltip;
+window.hideTooltip = hideTooltip;
