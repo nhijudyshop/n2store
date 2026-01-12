@@ -2893,7 +2893,7 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
              WHERE id = $1`,
             [
                 id,
-                customer_id,
+                customerId,  // Use the integer customerId from getOrCreateCustomerFromTPOS, not the original customer_id which may be LOCAL_xxx
                 resolved_by,
                 selectedCustomerJson
             ]
