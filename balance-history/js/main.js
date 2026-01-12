@@ -191,6 +191,25 @@ async function refreshPendingMatchList(pendingMatchId, partialPhone, buttonEleme
             return;
         }
 
+        // Update matched_customers in DB so resolve will work correctly
+        try {
+            const updateResponse = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/customers`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ matched_customers: uniquePhones })
+            });
+            const updateResult = await updateResponse.json();
+            if (!updateResult.success) {
+                console.warn('[REFRESH-LIST] Failed to update matched_customers in DB:', updateResult.error);
+            } else {
+                console.log('[REFRESH-LIST] Updated matched_customers in DB successfully');
+            }
+        } catch (updateErr) {
+            console.warn('[REFRESH-LIST] Failed to update matched_customers:', updateErr.message);
+        }
+
         // Build new options HTML
         const optionsHtml = uniquePhones.map(opt => {
             const customers = opt.customers || [];

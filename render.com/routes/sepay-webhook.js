@@ -2958,6 +2958,59 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
 });
 
 /**
+ * PUT /api/sepay/pending-matches/:id/customers
+ * Update matched_customers list for a pending match
+ * Called when user refreshes the list from TPOS
+ * Body:
+ *   - matched_customers: Array of phone groups with customers
+ */
+router.put('/pending-matches/:id/customers', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { matched_customers } = req.body;
+
+    if (!matched_customers || !Array.isArray(matched_customers)) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing or invalid matched_customers array'
+        });
+    }
+
+    try {
+        const result = await db.query(
+            `UPDATE pending_customer_matches
+             SET matched_customers = $2::jsonb
+             WHERE id = $1 AND status = 'pending'
+             RETURNING id, transaction_id, extracted_phone`,
+            [id, JSON.stringify(matched_customers)]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Pending match not found or already resolved'
+            });
+        }
+
+        console.log('[UPDATE-CUSTOMERS] Updated matched_customers for pending match:', id, '- new count:', matched_customers.length);
+
+        res.json({
+            success: true,
+            message: 'Matched customers updated successfully',
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[UPDATE-CUSTOMERS] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update matched customers',
+            message: error.message
+        });
+    }
+});
+
+/**
  * POST /api/sepay/pending-matches/:id/skip
  * Skip/ignore a pending match
  * Body:
