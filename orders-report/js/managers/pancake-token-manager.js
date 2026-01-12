@@ -89,48 +89,97 @@ class PancakeTokenManager {
     }
 
     /**
-     * Save page_access_tokens to localStorage
+     * Save page_access_tokens to IndexedDB (async)
      * @param {Object} tokens - { pageId: { token, pageId, pageName, timestamp, savedAt }, ... }
      */
-    savePageAccessTokensToLocalStorage(tokens = null) {
+    async savePageAccessTokensToStorage(tokens = null) {
         try {
             const data = tokens || this.pageAccessTokens;
-            localStorage.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, JSON.stringify(data));
-            console.log('[PANCAKE-TOKEN] ✅ Page access tokens saved to localStorage:', Object.keys(data).length);
+
+            if (window.indexedDBStorage) {
+                await window.indexedDBStorage.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, data);
+                console.log('[PANCAKE-TOKEN] ✅ Page access tokens saved to IndexedDB:', Object.keys(data).length);
+            } else {
+                // Fallback to localStorage
+                localStorage.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, JSON.stringify(data));
+                console.log('[PANCAKE-TOKEN] ✅ Page access tokens saved to localStorage (fallback):', Object.keys(data).length);
+            }
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error saving page access tokens to localStorage:', error);
+            console.error('[PANCAKE-TOKEN] Error saving page access tokens:', error);
         }
     }
 
+    // Alias for backwards compatibility
+    savePageAccessTokensToLocalStorage(tokens = null) {
+        this.savePageAccessTokensToStorage(tokens);
+    }
+
     /**
-     * Get page_access_tokens from localStorage
-     * @returns {Object} - { pageId: { token, ... }, ... }
+     * Get page_access_tokens from IndexedDB/localStorage
+     * @returns {Promise<Object>} - { pageId: { token, ... }, ... }
      */
-    getPageAccessTokensFromLocalStorage() {
+    async getPageAccessTokensFromStorage() {
         try {
-            const data = localStorage.getItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
-            if (!data) {
-                return {};
+            let data = null;
+
+            // Try IndexedDB first
+            if (window.indexedDBStorage) {
+                await window.indexedDBStorage.readyPromise;
+                data = await window.indexedDBStorage.getItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+
+                if (data) {
+                    console.log('[PANCAKE-TOKEN] ✅ Page access tokens loaded from IndexedDB:', Object.keys(data).length);
+                    return data;
+                }
             }
-            const parsed = JSON.parse(data);
-            console.log('[PANCAKE-TOKEN] ✅ Page access tokens loaded from localStorage:', Object.keys(parsed).length);
-            return parsed;
+
+            // Fallback to localStorage and migrate
+            const localData = localStorage.getItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+            if (localData) {
+                const parsed = JSON.parse(localData);
+                console.log('[PANCAKE-TOKEN] ✅ Page access tokens loaded from localStorage:', Object.keys(parsed).length);
+
+                // Migrate to IndexedDB
+                if (window.indexedDBStorage) {
+                    await window.indexedDBStorage.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, parsed);
+                    localStorage.removeItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+                    console.log('[PANCAKE-TOKEN] 🔄 Migrated page access tokens to IndexedDB');
+                }
+
+                return parsed;
+            }
+
+            return {};
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error getting page access tokens from localStorage:', error);
+            console.error('[PANCAKE-TOKEN] Error getting page access tokens:', error);
             return {};
         }
     }
 
+    // Sync version for backwards compatibility (returns cached data)
+    getPageAccessTokensFromLocalStorage() {
+        // Return cached in-memory data
+        return this.pageAccessTokens || {};
+    }
+
     /**
-     * Clear page_access_tokens from localStorage
+     * Clear page_access_tokens from storage
      */
-    clearPageAccessTokensFromLocalStorage() {
+    async clearPageAccessTokensFromStorage() {
         try {
+            if (window.indexedDBStorage) {
+                await window.indexedDBStorage.removeItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+            }
             localStorage.removeItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
-            console.log('[PANCAKE-TOKEN] Page access tokens cleared from localStorage');
+            console.log('[PANCAKE-TOKEN] Page access tokens cleared from storage');
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error clearing page access tokens from localStorage:', error);
+            console.error('[PANCAKE-TOKEN] Error clearing page access tokens:', error);
         }
+    }
+
+    // Alias for backwards compatibility
+    clearPageAccessTokensFromLocalStorage() {
+        this.clearPageAccessTokensFromStorage();
     }
 
     /**
@@ -138,9 +187,9 @@ class PancakeTokenManager {
      */
     async initialize() {
         try {
-            // PRIORITY 1: Load from localStorage first (instant, no network)
-            console.log('[PANCAKE-TOKEN] Loading from localStorage first...');
-            this.loadFromLocalStorage();
+            // PRIORITY 1: Load from storage first (instant, no network)
+            console.log('[PANCAKE-TOKEN] Loading from storage first...');
+            await this.loadFromLocalStorage();
 
             if (!window.firebase || !window.firebase.database) {
                 console.warn('[PANCAKE-TOKEN] Firebase not available, using localStorage only');
@@ -168,10 +217,10 @@ class PancakeTokenManager {
     }
 
     /**
-     * Load tokens from localStorage (fast, synchronous)
+     * Load tokens from storage (IndexedDB/localStorage)
      */
-    loadFromLocalStorage() {
-        // Load JWT token
+    async loadFromLocalStorage() {
+        // Load JWT token (from localStorage - small data)
         const localToken = this.getTokenFromLocalStorage();
         if (localToken) {
             this.currentToken = localToken.token;
@@ -179,11 +228,15 @@ class PancakeTokenManager {
             console.log('[PANCAKE-TOKEN] ✅ JWT token loaded from localStorage');
         }
 
-        // Load page access tokens
-        const localPageTokens = this.getPageAccessTokensFromLocalStorage();
-        if (Object.keys(localPageTokens).length > 0) {
-            this.pageAccessTokens = localPageTokens;
-            console.log('[PANCAKE-TOKEN] ✅ Page access tokens loaded from localStorage');
+        // Load page access tokens from IndexedDB (can be large)
+        try {
+            const storageTokens = await this.getPageAccessTokensFromStorage();
+            if (Object.keys(storageTokens).length > 0) {
+                this.pageAccessTokens = storageTokens;
+                console.log('[PANCAKE-TOKEN] ✅ Page access tokens loaded from storage');
+            }
+        } catch (error) {
+            console.warn('[PANCAKE-TOKEN] Error loading page tokens from storage:', error);
         }
 
         // Load active account ID

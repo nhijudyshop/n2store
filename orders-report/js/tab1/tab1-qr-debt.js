@@ -10,30 +10,80 @@
 const DEBT_CACHE_KEY = 'orders_phone_debt_cache';
 const DEBT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// In-memory cache for sync access
+let debtCacheMemory = {};
+let debtCacheLoaded = false;
+
 /**
- * Get debt cache from localStorage
+ * Initialize debt cache from IndexedDB
+ */
+async function initDebtCache() {
+    if (debtCacheLoaded) return;
+
+    try {
+        if (window.indexedDBStorage) {
+            await window.indexedDBStorage.readyPromise;
+            const cached = await window.indexedDBStorage.getItem(DEBT_CACHE_KEY);
+            if (cached) {
+                debtCacheMemory = cached;
+                console.log('[DEBT] ✅ Loaded cache from IndexedDB');
+            }
+        }
+
+        // Migrate from localStorage if exists
+        const localCache = localStorage.getItem(DEBT_CACHE_KEY);
+        if (localCache) {
+            const parsed = JSON.parse(localCache);
+            Object.assign(debtCacheMemory, parsed);
+            localStorage.removeItem(DEBT_CACHE_KEY);
+            await saveDebtCacheAsync();
+            console.log('[DEBT] 🔄 Migrated cache from localStorage to IndexedDB');
+        }
+
+        debtCacheLoaded = true;
+    } catch (e) {
+        console.error('[DEBT] Error initializing cache:', e);
+        debtCacheLoaded = true;
+    }
+}
+
+// Initialize on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(initDebtCache, 100));
+} else {
+    setTimeout(initDebtCache, 100);
+}
+
+/**
+ * Get debt cache (sync - from memory)
  * @returns {Object} Cache object { phone: { totalDebt, lastFetched } }
  */
 function getDebtCache() {
+    return debtCacheMemory;
+}
+
+/**
+ * Save debt cache to IndexedDB (async)
+ */
+async function saveDebtCacheAsync() {
     try {
-        const cache = localStorage.getItem(DEBT_CACHE_KEY);
-        return cache ? JSON.parse(cache) : {};
+        if (window.indexedDBStorage) {
+            await window.indexedDBStorage.setItem(DEBT_CACHE_KEY, debtCacheMemory);
+        }
     } catch (e) {
-        console.error('[DEBT] Error reading cache:', e);
-        return {};
+        console.error('[DEBT] Error saving cache to IndexedDB:', e);
     }
 }
 
 /**
- * Save debt cache to localStorage
+ * Save debt cache (updates memory and triggers async IndexedDB save)
  * @param {Object} cache - Cache object to save
  */
 function saveDebtCache(cache) {
-    try {
-        localStorage.setItem(DEBT_CACHE_KEY, JSON.stringify(cache));
-    } catch (e) {
-        console.error('[DEBT] Error saving cache:', e);
-    }
+    debtCacheMemory = cache;
+    // Debounced async save
+    if (saveDebtCache._timeout) clearTimeout(saveDebtCache._timeout);
+    saveDebtCache._timeout = setTimeout(() => saveDebtCacheAsync(), 1000);
 }
 
 /**
@@ -425,18 +475,79 @@ let currentSalePartnerData = null;
 const DELIVERY_CARRIER_CACHE_KEY = 'tpos_delivery_carriers';
 const DELIVERY_CARRIER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
+// In-memory cache for sync access
+let deliveryCarrierCacheMemory = null;
+let deliveryCarrierCacheLoaded = false;
+
 /**
- * Get cached delivery carriers from localStorage
+ * Initialize delivery carrier cache from IndexedDB
+ */
+async function initDeliveryCarrierCache() {
+    if (deliveryCarrierCacheLoaded) return;
+
+    try {
+        if (window.indexedDBStorage) {
+            await window.indexedDBStorage.readyPromise;
+            const cached = await window.indexedDBStorage.getItem(DELIVERY_CARRIER_CACHE_KEY);
+            if (cached) {
+                deliveryCarrierCacheMemory = cached;
+                console.log('[DELIVERY-CARRIER] ✅ Loaded cache from IndexedDB');
+            }
+        }
+
+        // Migrate from localStorage if exists
+        const localCache = localStorage.getItem(DELIVERY_CARRIER_CACHE_KEY);
+        if (localCache) {
+            const parsed = JSON.parse(localCache);
+            deliveryCarrierCacheMemory = parsed;
+            localStorage.removeItem(DELIVERY_CARRIER_CACHE_KEY);
+            await saveDeliveryCarriersAsync(parsed);
+            console.log('[DELIVERY-CARRIER] 🔄 Migrated cache from localStorage to IndexedDB');
+        }
+
+        deliveryCarrierCacheLoaded = true;
+    } catch (e) {
+        console.error('[DELIVERY-CARRIER] Error initializing cache:', e);
+        deliveryCarrierCacheLoaded = true;
+    }
+}
+
+// Initialize on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(initDeliveryCarrierCache, 200));
+} else {
+    setTimeout(initDeliveryCarrierCache, 200);
+}
+
+/**
+ * Save delivery carriers to IndexedDB (async)
+ */
+async function saveDeliveryCarriersAsync(cacheData) {
+    try {
+        if (window.indexedDBStorage) {
+            await window.indexedDBStorage.setItem(DELIVERY_CARRIER_CACHE_KEY, cacheData);
+            console.log('[DELIVERY-CARRIER] 💾 Saved to IndexedDB');
+        }
+    } catch (e) {
+        console.error('[DELIVERY-CARRIER] Error saving to IndexedDB:', e);
+    }
+}
+
+/**
+ * Get cached delivery carriers (from memory/IndexedDB)
  * @returns {Array|null} Cached carriers or null if expired/not found
  */
 function getCachedDeliveryCarriers() {
     try {
-        const cached = localStorage.getItem(DELIVERY_CARRIER_CACHE_KEY);
-        if (!cached) return null;
+        if (!deliveryCarrierCacheMemory) return null;
 
-        const { data, timestamp } = JSON.parse(cached);
+        const { data, timestamp } = deliveryCarrierCacheMemory;
         if (Date.now() - timestamp > DELIVERY_CARRIER_CACHE_TTL) {
-            localStorage.removeItem(DELIVERY_CARRIER_CACHE_KEY);
+            deliveryCarrierCacheMemory = null;
+            // Clean up IndexedDB async
+            if (window.indexedDBStorage) {
+                window.indexedDBStorage.removeItem(DELIVERY_CARRIER_CACHE_KEY);
+            }
             return null;
         }
         return data;
@@ -447,15 +558,18 @@ function getCachedDeliveryCarriers() {
 }
 
 /**
- * Save delivery carriers to localStorage cache
+ * Save delivery carriers to cache (memory + IndexedDB)
  * @param {Array} carriers - Array of carrier objects
  */
 function saveDeliveryCarriersToCache(carriers) {
     try {
-        localStorage.setItem(DELIVERY_CARRIER_CACHE_KEY, JSON.stringify({
+        const cacheData = {
             data: carriers,
             timestamp: Date.now()
-        }));
+        };
+        deliveryCarrierCacheMemory = cacheData;
+        // Async save to IndexedDB
+        saveDeliveryCarriersAsync(cacheData);
     } catch (e) {
         console.error('[DELIVERY-CARRIER] Error saving cache:', e);
     }

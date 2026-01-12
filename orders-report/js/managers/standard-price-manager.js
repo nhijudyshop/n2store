@@ -1,6 +1,7 @@
 // =====================================================
 // STANDARD PRICE MANAGER
 // Fetch và cache giá vốn từ API ExportProductV2
+// Sử dụng IndexedDB thay vì localStorage để lưu data lớn
 // =====================================================
 
 class StandardPriceManager {
@@ -10,43 +11,93 @@ class StandardPriceManager {
         this.isLoaded = false;
         this.isLoading = false;
         this.lastFetchTime = null;
-        this.storageKey = "standard_price_cache_v3"; // v3 for ExportFileWithStandardPriceV2
+
+        // IndexedDB config
+        this.DB_NAME = "StandardPriceDB";
+        this.DB_VERSION = 1;
+        this.STORE_NAME = "products_cache";
+        this.CACHE_KEY = "standard_price_cache_v3";
         this.CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
-        // Dùng ExportFileWithStandardPriceV2 giống như fetch gốc từ tomato.tpos.vn
+
+        // API endpoint
         this.API_ENDPOINT = "https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithStandardPriceV2";
 
+        this.db = null;
         this.init();
     }
 
-    init() {
-        console.log("[STANDARD-PRICE] Initializing Standard Price Manager...");
-        this.loadFromCache();
+    async init() {
+        console.log("[STANDARD-PRICE] Initializing Standard Price Manager with IndexedDB...");
+        try {
+            await this.openDatabase();
+            await this.loadFromCache();
+        } catch (error) {
+            console.error("[STANDARD-PRICE] Init error:", error);
+        }
     }
 
     // ========================================
-    // CACHE MANAGEMENT
+    // INDEXEDDB SETUP
     // ========================================
 
-    loadFromCache() {
+    openDatabase() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+
+            request.onerror = (event) => {
+                console.error("[STANDARD-PRICE] IndexedDB error:", event.target.error);
+                reject(event.target.error);
+            };
+
+            request.onsuccess = (event) => {
+                this.db = event.target.result;
+                console.log("[STANDARD-PRICE] IndexedDB opened successfully");
+                resolve(this.db);
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+
+                // Create object store if not exists
+                if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+                    db.createObjectStore(this.STORE_NAME, { keyPath: "key" });
+                    console.log("[STANDARD-PRICE] Object store created");
+                }
+            };
+        });
+    }
+
+    // ========================================
+    // CACHE MANAGEMENT (IndexedDB)
+    // ========================================
+
+    async loadFromCache() {
         try {
-            const cached = localStorage.getItem(this.storageKey);
-            if (!cached) {
-                console.log("[STANDARD-PRICE] No cache found");
+            if (!this.db) {
+                console.log("[STANDARD-PRICE] Database not ready");
                 return false;
             }
 
-            const data = JSON.parse(cached);
-            const age = Date.now() - data.timestamp;
+            const cached = await this.getFromIndexedDB(this.CACHE_KEY);
+
+            if (!cached) {
+                console.log("[STANDARD-PRICE] No cache found in IndexedDB");
+                // Try migrate from localStorage
+                await this.migrateFromLocalStorage();
+                return false;
+            }
+
+            const age = Date.now() - cached.timestamp;
 
             if (age > this.CACHE_DURATION) {
                 console.log("[STANDARD-PRICE] Cache expired");
-                localStorage.removeItem(this.storageKey);
+                await this.deleteFromIndexedDB(this.CACHE_KEY);
                 return false;
             }
 
             // Load into Maps
-            if (data.products && Array.isArray(data.products)) {
-                data.products.forEach(p => {
+            if (cached.products && Array.isArray(cached.products)) {
+                cached.products.forEach(p => {
                     this.products.set(p.Id, p);
                     if (p.Code) {
                         this.productsByCode.set(p.Code.toUpperCase(), p);
@@ -54,10 +105,10 @@ class StandardPriceManager {
                 });
             }
 
-            this.lastFetchTime = new Date(data.timestamp).toLocaleString("vi-VN");
+            this.lastFetchTime = new Date(cached.timestamp).toLocaleString("vi-VN");
             this.isLoaded = this.products.size > 0;
 
-            console.log(`[STANDARD-PRICE] Loaded ${this.products.size} products from cache`);
+            console.log(`[STANDARD-PRICE] Loaded ${this.products.size} products from IndexedDB cache`);
             console.log(`[STANDARD-PRICE] Cache age: ${Math.floor(age / 1000 / 60)} minutes`);
 
             return true;
@@ -67,25 +118,116 @@ class StandardPriceManager {
         }
     }
 
-    saveToCache() {
+    async saveToCache() {
         try {
+            if (!this.db) {
+                console.warn("[STANDARD-PRICE] Database not ready, skipping cache save");
+                return;
+            }
+
             const productsArray = Array.from(this.products.values());
             const cacheData = {
+                key: this.CACHE_KEY,
                 products: productsArray,
                 timestamp: Date.now(),
             };
 
-            localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
+            await this.saveToIndexedDB(cacheData);
             this.lastFetchTime = new Date().toLocaleString("vi-VN");
 
-            console.log(`[STANDARD-PRICE] Saved ${productsArray.length} products to cache`);
+            console.log(`[STANDARD-PRICE] Saved ${productsArray.length} products to IndexedDB cache`);
         } catch (error) {
-            console.error("[STANDARD-PRICE] Error saving to cache:", error);
+            console.error("[STANDARD-PRICE] Error saving to IndexedDB:", error);
+        }
+    }
 
-            if (error.name === "QuotaExceededError") {
-                console.warn("[STANDARD-PRICE] Storage quota exceeded, clearing old cache");
-                localStorage.removeItem(this.storageKey);
+    // IndexedDB CRUD operations
+    getFromIndexedDB(key) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) {
+                resolve(null);
+                return;
             }
+
+            const transaction = this.db.transaction([this.STORE_NAME], "readonly");
+            const store = transaction.objectStore(this.STORE_NAME);
+            const request = store.get(key);
+
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    saveToIndexedDB(data) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) {
+                reject(new Error("Database not ready"));
+                return;
+            }
+
+            const transaction = this.db.transaction([this.STORE_NAME], "readwrite");
+            const store = transaction.objectStore(this.STORE_NAME);
+            const request = store.put(data);
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    deleteFromIndexedDB(key) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) {
+                resolve();
+                return;
+            }
+
+            const transaction = this.db.transaction([this.STORE_NAME], "readwrite");
+            const store = transaction.objectStore(this.STORE_NAME);
+            const request = store.delete(key);
+
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    // Migrate old data from localStorage to IndexedDB
+    async migrateFromLocalStorage() {
+        try {
+            const oldKey = "standard_price_cache_v3";
+            const cached = localStorage.getItem(oldKey);
+
+            if (!cached) return;
+
+            console.log("[STANDARD-PRICE] Migrating from localStorage to IndexedDB...");
+
+            const data = JSON.parse(cached);
+            const age = Date.now() - data.timestamp;
+
+            // Only migrate if not expired
+            if (age <= this.CACHE_DURATION && data.products) {
+                // Load into Maps
+                data.products.forEach(p => {
+                    this.products.set(p.Id, p);
+                    if (p.Code) {
+                        this.productsByCode.set(p.Code.toUpperCase(), p);
+                    }
+                });
+
+                this.lastFetchTime = new Date(data.timestamp).toLocaleString("vi-VN");
+                this.isLoaded = this.products.size > 0;
+
+                // Save to IndexedDB
+                await this.saveToCache();
+
+                console.log(`[STANDARD-PRICE] Migrated ${this.products.size} products from localStorage`);
+            }
+
+            // Remove from localStorage to free space
+            localStorage.removeItem(oldKey);
+            console.log("[STANDARD-PRICE] Cleared old localStorage cache");
+
+        } catch (error) {
+            console.error("[STANDARD-PRICE] Migration error:", error);
         }
     }
 
@@ -131,7 +273,6 @@ class StandardPriceManager {
             const headers = await window.tokenManager.getAuthHeader();
 
             // POST request to get Excel file from ExportFileWithStandardPriceV2
-            // Request body format giống 100% như giá bán (ExportFileWithVariantPrice)
             const response = await fetch(this.API_ENDPOINT, {
                 method: "POST",
                 headers: {
@@ -172,7 +313,7 @@ class StandardPriceManager {
             });
 
             this.isLoaded = true;
-            this.saveToCache();
+            await this.saveToCache();
 
             // Success notification
             if (window.notificationManager && notificationId) {
@@ -259,7 +400,7 @@ class StandardPriceManager {
                             // Skip empty rows
                             if (!row || row.length === 0 || !row[0]) continue;
 
-                            // Excel structure based on image:
+                            // Excel structure:
                             // Column 0 (A): Id (*) - Product ID
                             // Column 1 (B): Mã sản phẩm - Product Code
                             // Column 2 (C): Tên sản phẩm - Product Name
@@ -386,7 +527,8 @@ class StandardPriceManager {
             totalProducts: this.products.size,
             isLoaded: this.isLoaded,
             lastFetchTime: this.lastFetchTime,
-            cacheKey: this.storageKey,
+            storageType: "IndexedDB",
+            dbName: this.DB_NAME,
         };
     }
 
@@ -394,11 +536,30 @@ class StandardPriceManager {
      * Clear cache và reload
      */
     async refresh() {
-        localStorage.removeItem(this.storageKey);
+        await this.deleteFromIndexedDB(this.CACHE_KEY);
         this.products.clear();
         this.productsByCode.clear();
         this.isLoaded = false;
         return this.fetchProducts(true);
+    }
+
+    /**
+     * Get storage size estimate
+     */
+    async getStorageEstimate() {
+        try {
+            if (navigator.storage && navigator.storage.estimate) {
+                const estimate = await navigator.storage.estimate();
+                return {
+                    usage: (estimate.usage / 1024 / 1024).toFixed(2) + " MB",
+                    quota: (estimate.quota / 1024 / 1024).toFixed(2) + " MB",
+                    percentUsed: ((estimate.usage / estimate.quota) * 100).toFixed(2) + "%"
+                };
+            }
+        } catch (e) {
+            console.warn("[STANDARD-PRICE] Cannot estimate storage:", e);
+        }
+        return null;
     }
 }
 

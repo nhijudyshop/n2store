@@ -284,20 +284,42 @@ class QuickReplyManager {
     async loadReplies() {
         console.log('[QUICK-REPLY] 📥 Loading replies...');
 
-        // Try to load from localStorage first (faster)
-        const stored = localStorage.getItem(this.STORAGE_KEY);
-        if (stored) {
-            try {
-                this.replies = JSON.parse(stored);
-                console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from localStorage (cached)');
-                return;
-            } catch (e) {
-                console.error('[QUICK-REPLY] ❌ Error parsing localStorage:', e);
-                // Continue to Firebase if localStorage is corrupted
+        // Try to load from IndexedDB first (faster)
+        let stored = null;
+        try {
+            if (window.indexedDBStorage) {
+                await window.indexedDBStorage.readyPromise;
+                stored = await window.indexedDBStorage.getItem(this.STORAGE_KEY);
+            }
+        } catch (e) {
+            console.warn('[QUICK-REPLY] ⚠️ IndexedDB read failed:', e);
+        }
+
+        // Fallback to localStorage if IndexedDB not available or empty
+        if (!stored) {
+            const localStored = localStorage.getItem(this.STORAGE_KEY);
+            if (localStored) {
+                try {
+                    stored = JSON.parse(localStored);
+                    // Migrate to IndexedDB
+                    if (window.indexedDBStorage) {
+                        await window.indexedDBStorage.setItem(this.STORAGE_KEY, stored);
+                        localStorage.removeItem(this.STORAGE_KEY);
+                        console.log('[QUICK-REPLY] 🔄 Migrated from localStorage to IndexedDB');
+                    }
+                } catch (e) {
+                    console.error('[QUICK-REPLY] ❌ Error parsing localStorage:', e);
+                }
             }
         }
 
-        // If no localStorage, load from Firebase and cache it
+        if (stored && Array.isArray(stored)) {
+            this.replies = stored;
+            console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from cache');
+            return;
+        }
+
+        // If no cache, load from Firebase and cache it
         if (this.db) {
             try {
                 console.log('[QUICK-REPLY] 🔄 Loading from Firebase...');
@@ -311,27 +333,41 @@ class QuickReplyManager {
                         docId: doc.id // Keep Firestore doc ID for updates
                     }));
 
-                    // Cache to localStorage
-                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
+                    // Cache to IndexedDB
+                    await this.saveToCache();
 
                     console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from Firebase');
                     return;
                 } else {
                     console.log('[QUICK-REPLY] ℹ️ No replies in Firebase, using defaults...');
                     this.replies = this.getDefaultReplies();
-                    // Cache defaults to localStorage
-                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
+                    // Cache defaults to IndexedDB
+                    await this.saveToCache();
                     return;
                 }
             } catch (error) {
                 console.error('[QUICK-REPLY] ❌ Firebase load error:', error);
                 this.replies = this.getDefaultReplies();
-                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
+                await this.saveToCache();
             }
         } else {
             console.log('[QUICK-REPLY] ⚠️ Firebase not available, using default replies');
             this.replies = this.getDefaultReplies();
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
+            await this.saveToCache();
+        }
+    }
+
+    async saveToCache() {
+        try {
+            if (window.indexedDBStorage) {
+                await window.indexedDBStorage.setItem(this.STORAGE_KEY, this.replies);
+                console.log('[QUICK-REPLY] 💾 Saved to IndexedDB cache');
+            } else {
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
+                console.log('[QUICK-REPLY] 💾 Saved to localStorage (fallback)');
+            }
+        } catch (error) {
+            console.error('[QUICK-REPLY] ❌ Failed to save cache:', error);
         }
     }
 
@@ -453,8 +489,11 @@ class QuickReplyManager {
                 await batch.commit();
                 console.log('[QUICK-REPLY] ✅ Synced', this.replies.length, 'replies to Firebase');
 
-                // Clear localStorage and reload from Firebase to get fresh data
-                console.log('[QUICK-REPLY] 🗑️ Clearing localStorage cache...');
+                // Clear cache and reload from Firebase to get fresh data
+                console.log('[QUICK-REPLY] 🗑️ Clearing cache...');
+                if (window.indexedDBStorage) {
+                    await window.indexedDBStorage.removeItem(this.STORAGE_KEY);
+                }
                 localStorage.removeItem(this.STORAGE_KEY);
 
                 console.log('[QUICK-REPLY] 🔄 Reloading from Firebase...');
