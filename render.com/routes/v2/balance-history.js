@@ -41,15 +41,30 @@ function handleError(res, error, message = 'Internal server error') {
  */
 router.get('/', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { page = 1, limit = 20, linked } = req.query;
+    const { page = 1, limit = 20, linked, wallet_processed } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     try {
-        // Build query based on linked filter
+        // Build query based on filters
         let whereClause = '';
         if (linked === 'true') {
             whereClause = 'WHERE bh.linked_customer_phone IS NOT NULL';
-        } else if (linked === 'false' || linked === undefined) {
+        } else if (linked === 'false') {
+            whereClause = `
+                WHERE bh.linked_customer_phone IS NULL
+                  AND bh.transfer_amount > 0
+                  AND bh.transfer_type = 'in'
+            `;
+        } else if (wallet_processed === 'false') {
+            // NEW: Transactions linked but wallet not processed
+            whereClause = `
+                WHERE bh.linked_customer_phone IS NOT NULL
+                  AND (bh.wallet_processed = FALSE OR bh.wallet_processed IS NULL)
+                  AND bh.transfer_amount > 0
+                  AND bh.transfer_type = 'in'
+            `;
+        } else if (linked === undefined && wallet_processed === undefined) {
+            // Default: unlinked
             whereClause = `
                 WHERE bh.linked_customer_phone IS NULL
                   AND bh.transfer_amount > 0
@@ -291,6 +306,97 @@ router.post('/:id/link', async (req, res) => {
     } catch (error) {
         await db.query('ROLLBACK');
         handleError(res, error, 'Failed to link transaction');
+    }
+});
+
+/**
+ * POST /api/v2/balance-history/:id/reprocess-wallet
+ * Reprocess wallet for linked transactions that failed wallet processing
+ * Use case: Transaction was linked but wallet deposit failed
+ */
+router.post('/:id/reprocess-wallet', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+
+    try {
+        await db.query('BEGIN');
+
+        // 1. Get transaction and verify it's linked but not wallet processed
+        const txResult = await db.query(
+            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+            [parseInt(id)]
+        );
+
+        if (txResult.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Transaction not found' });
+        }
+
+        const tx = txResult.rows[0];
+
+        if (!tx.linked_customer_phone) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({ success: false, error: 'Transaction is not linked to any customer. Use /link first.' });
+        }
+
+        if (tx.wallet_processed === true) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({ success: false, error: 'Wallet already processed for this transaction' });
+        }
+
+        if (tx.transfer_amount <= 0) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({ success: false, error: 'Transaction amount must be greater than 0' });
+        }
+
+        // 2. Process wallet deposit
+        const walletResult = await processDeposit(
+            db,
+            tx.linked_customer_phone,
+            tx.transfer_amount,
+            id,
+            `Nạp từ CK ${tx.code || tx.reference_code} (reprocess)`,
+            tx.customer_id
+        );
+
+        // 3. Mark as wallet processed
+        await db.query(`
+            UPDATE balance_history
+            SET wallet_processed = TRUE
+            WHERE id = $1
+        `, [id]);
+
+        // 4. Log activity
+        await db.query(`
+            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
+            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
+        `, [
+            tx.linked_customer_phone,
+            tx.customer_id,
+            `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
+            `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - reprocess`,
+            id
+        ]);
+
+        await db.query('COMMIT');
+
+        console.log(`[BalanceHistory V2] ✅ Reprocessed wallet: ${tx.linked_customer_phone} +${tx.transfer_amount}`);
+
+        res.json({
+            success: true,
+            message: 'Đã cộng tiền vào ví thành công',
+            data: {
+                transaction_id: id,
+                phone: tx.linked_customer_phone,
+                amount: parseFloat(tx.transfer_amount),
+                wallet_tx_id: walletResult.transactionId,
+                new_balance: walletResult.wallet.balance
+            }
+        });
+
+    } catch (error) {
+        await db.query('ROLLBACK');
+        handleError(res, error, 'Failed to reprocess wallet');
     }
 });
 
