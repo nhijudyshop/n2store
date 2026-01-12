@@ -1002,6 +1002,21 @@ router.put('/ticket/:code', async (req, res) => {
     const updates = req.body;
 
     try {
+        await db.query('BEGIN');
+
+        // Get current ticket state first
+        const currentTicket = await db.query(
+            'SELECT * FROM customer_tickets WHERE ticket_code = $1 OR firebase_id = $1 FOR UPDATE',
+            [code]
+        );
+
+        if (currentTicket.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Ticket not found' });
+        }
+
+        const ticket = currentTicket.rows[0];
+
         // Build dynamic update query
         const allowedFields = [
             'status', 'priority', 'products', 'original_cod', 'new_cod',
@@ -1021,7 +1036,60 @@ router.put('/ticket/:code', async (req, res) => {
         }
 
         if (setClauses.length === 0) {
+            await db.query('ROLLBACK');
             return res.status(400).json({ success: false, error: 'No valid fields to update' });
+        }
+
+        // Check if status is being changed to COMPLETED and needs virtual credit
+        const isCompletingTicket = updates.status === 'COMPLETED' && ticket.status !== 'COMPLETED';
+        const needsVirtualCredit = isCompletingTicket &&
+            ticket.type === 'RETURN_SHIPPER' &&
+            (updates.refund_amount || ticket.refund_amount) > 0 &&
+            !ticket.wallet_credited;
+
+        if (needsVirtualCredit) {
+            const refundAmount = updates.refund_amount || ticket.refund_amount;
+
+            // Create virtual credit
+            const vcResult = await db.query(`
+                INSERT INTO virtual_credits
+                (phone, original_amount, remaining_amount, expires_at, source_type, source_id, note)
+                VALUES ($1, $2, $2, NOW() + INTERVAL '15 days', 'RETURN_SHIPPER', $3, $4)
+                RETURNING id
+            `, [ticket.phone, refundAmount, ticket.ticket_code, `Cong no ao tu ticket ${ticket.ticket_code}`]);
+
+            // Update wallet virtual balance
+            await db.query(`
+                UPDATE customer_wallets
+                SET virtual_balance = virtual_balance + $2, total_virtual_issued = total_virtual_issued + $2, updated_at = NOW()
+                WHERE phone = $1
+            `, [ticket.phone, refundAmount]);
+
+            // Log wallet transaction
+            await db.query(`
+                INSERT INTO wallet_transactions
+                (phone, type, amount, source, reference_type, reference_id, note)
+                VALUES ($1, 'VIRTUAL_CREDIT', $2, 'VIRTUAL_CREDIT_ISSUE', 'ticket', $3, $4)
+            `, [ticket.phone, refundAmount, ticket.ticket_code, `Cong no ao tu ticket ${ticket.ticket_code}`]);
+
+            // Add virtual credit fields to update
+            setClauses.push(`virtual_credit_id = $${paramIndex++}`);
+            params.push(vcResult.rows[0].id);
+            setClauses.push(`virtual_credit_amount = $${paramIndex++}`);
+            params.push(refundAmount);
+            setClauses.push(`wallet_credited = $${paramIndex++}`);
+            params.push(true);
+
+            // Log activity
+            await db.query(`
+                INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
+                VALUES ($1, $2, 'WALLET_VIRTUAL_CREDIT', $3, $4, 'ticket', $5, 'gift', 'purple')
+            `, [
+                ticket.phone, ticket.customer_id,
+                `Cap cong no ao: ${parseFloat(refundAmount).toLocaleString()}d`,
+                `Tu ticket ${ticket.ticket_code}`,
+                ticket.ticket_code
+            ]);
         }
 
         const query = `
@@ -1033,15 +1101,14 @@ router.put('/ticket/:code', async (req, res) => {
 
         const result = await db.query(query, params);
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'Ticket not found' });
-        }
+        await db.query('COMMIT');
 
         // Notify SSE clients
         sseRouter.notifyClients('tickets', { action: 'updated', ticket: result.rows[0] }, 'update');
 
         res.json({ success: true, data: result.rows[0] });
     } catch (error) {
+        await db.query('ROLLBACK');
         handleError(res, error, 'Failed to update ticket');
     }
 });
