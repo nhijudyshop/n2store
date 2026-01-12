@@ -62,7 +62,7 @@ async function loadTransferStats() {
     // Show loading
     tableBody.innerHTML = `
         <tr>
-            <td colspan="9" class="ts-loading">
+            <td colspan="8" class="ts-loading">
                 <i data-lucide="loader-2"></i>
                 <p>Đang tải dữ liệu...</p>
             </td>
@@ -148,7 +148,7 @@ function renderTSTable() {
                 <td class="ts-customer-name">${item.customer_name || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="ts-customer-phone">${item.customer_phone || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="ts-amount ${amountClass}">${formattedAmount}</td>
-                <td class="ts-content" title="${escapeHtml(item.content || '')}">${item.content || '—'}</td>
+                <td class="ts-content" onclick="toggleContentExpand(this)" title="Click để xem đầy đủ">${item.content || '—'}</td>
                 <td class="ts-notes" title="${escapeHtml(item.notes || '')}">${item.notes || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td style="text-align: center;">
                     <input type="checkbox" class="ts-checkbox ts-hide-checkbox"
@@ -162,11 +162,6 @@ function renderTSTable() {
                            ${!item.is_checked ? 'disabled' : ''}
                            onchange="toggleTSVerified(${item.id}, this.checked)"
                            title="${item.is_verified ? 'Đã kiểm tra' : 'Chưa kiểm tra'}">
-                </td>
-                <td style="text-align: center;">
-                    <button class="btn-edit-ts" onclick="openEditTSModal(${item.id})" title="Chỉnh sửa">
-                        <i data-lucide="pencil"></i>
-                    </button>
                 </td>
             </tr>
         `;
@@ -182,7 +177,7 @@ function showTSEmpty(message) {
 
     tableBody.innerHTML = `
         <tr>
-            <td colspan="9" class="ts-empty">
+            <td colspan="8" class="ts-empty">
                 <i data-lucide="inbox"></i>
                 <p>${message}</p>
             </td>
@@ -672,6 +667,18 @@ async function saveTSEdit(e) {
 window.loadTransferStats = loadTransferStats;
 window.filterTransferStats = filterTransferStats;
 window.toggleTSChecked = toggleTSChecked;
+// Toggle content expand/collapse
+function toggleContentExpand(element) {
+    // Close any other expanded content first
+    document.querySelectorAll('.ts-content.expanded').forEach(el => {
+        if (el !== element) {
+            el.classList.remove('expanded');
+        }
+    });
+    // Toggle this one
+    element.classList.toggle('expanded');
+}
+
 window.toggleTSVerified = toggleTSVerified;
 window.toggleSelectAllTS = toggleSelectAllTS;
 window.toggleTSRowSelect = toggleTSRowSelect;
@@ -682,3 +689,4 @@ window.openEditTSModal = openEditTSModal;
 window.closeEditTSModal = closeEditTSModal;
 window.saveTSEdit = saveTSEdit;
 window.syncTransferStats = syncTransferStats;
+window.toggleContentExpand = toggleContentExpand;
