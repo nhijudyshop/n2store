@@ -3485,6 +3485,14 @@
                 });
 
                 console.log('[USER-CAMPAIGNS] Loaded', Object.keys(campaigns).length, 'campaigns');
+
+                // Auto-select active campaign if exists
+                if (window.campaignManager && window.campaignManager.activeCampaignId) {
+                    select.value = window.campaignManager.activeCampaignId;
+                    console.log('[USER-CAMPAIGNS] Auto-selected campaign:', window.campaignManager.activeCampaignId);
+                    // Trigger change to apply dates
+                    applyUserCampaign();
+                }
             } catch (error) {
                 console.error('[USER-CAMPAIGNS] Error loading campaigns:', error);
             }
