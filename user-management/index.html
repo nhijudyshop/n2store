@@ -19,7 +19,8 @@
 
     <!-- Lucide Icons -->
     <!-- N2Store Optimization: Core Utilities Loader -->
-    <script src="../shared/js/core-loader.js"></script>
+    <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
 
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -34,7 +35,6 @@
 
     <!-- Navigation & Utils -->
     <script src="../shared/js/navigation-modern.js"></script>
-    <script src="../shared/js/common-utils.js"></script>
 </head>
 
 <body>
@@ -505,7 +505,6 @@
     <!-- Scripts -->
     <script src="../orders-report/js/utils/decoding-utility.js"></script>
     <script src="js/menu-rename-manager.js"></script>
-    <script src="../shared/js/notification-system.js"></script>
 
     <!-- Permissions Registry - Single Source of Truth (phải load trước các UI) -->
     <script src="js/permissions-registry.js"></script>
@@ -552,7 +551,6 @@
     </script>
 
     <script src="js/image-system.js"></script>
-    <script src="../shared/js/shared-auth-manager.js"></script>
     <!-- detailed-permissions-config.js REMOVED - replaced by permissions-registry.js -->
     <script src="js/detailed-permissions-ui.js"></script>
     <script src="js/user-management-enhanced.js"></script>

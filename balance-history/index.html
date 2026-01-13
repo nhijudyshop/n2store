@@ -12,7 +12,8 @@
     <title>Lịch sử biến động số dư - Sepay</title>
 
     <!-- Core Loader -->
-    <script src="../shared/js/core-loader.js"></script>
+    <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
 
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -756,12 +757,8 @@
 
     <!-- Navigation & Auth -->
     <script src="../shared/js/navigation-modern.js"></script>
-    <script src="../shared/js/common-utils.js"></script>
 
     <!-- Page Scripts -->
-    <script src="../shared/js/notification-system.js"></script>
-    <script src="../shared/js/shared-auth-manager.js"></script>
-    <script src="../shared/js/shared-cache-manager.js"></script>
     <script src="js/config.js"></script>
     <script src="js/qr-generator.js"></script>
     <script src="js/customer-info.js"></script>

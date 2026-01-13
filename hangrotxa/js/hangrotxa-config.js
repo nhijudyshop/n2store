@@ -3,8 +3,6 @@
 // File 1/6: hangrotxa-config.js
 // =====================================================
 
-// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
-
 // Cache configuration
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
 const BATCH_SIZE = 50;
@@ -22,8 +20,25 @@ var newMetadata = {
     cacheControl: "public,max-age=31536000",
 };
 
-// Initialize Firebase (using global firebaseConfig from shared)
-const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
+// Firebase config fallback
+const FIREBASE_CONFIG_FALLBACK = {
+    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+    authDomain: "n2shop-69e37.firebaseapp.com",
+    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "n2shop-69e37",
+    storageBucket: "n2shop-69e37-ne0q1",
+    messagingSenderId: "598906493303",
+    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+    measurementId: "G-TEJH3S2T1D",
+};
+
+// Get Firebase config (from ES module, shared/js, or fallback)
+const _fbConfig = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG
+    : (typeof firebaseConfig !== 'undefined') ? firebaseConfig
+    : FIREBASE_CONFIG_FALLBACK;
+
+// Initialize Firebase
+const app = !firebase.apps.length ? firebase.initializeApp(_fbConfig) : firebase.app();
 const db = firebase.firestore();
 const storageRef = firebase.storage().ref();
 const collectionRef = db.collection("hangrotxa");

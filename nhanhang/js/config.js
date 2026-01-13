@@ -190,7 +190,7 @@ var newMetadata = {
 // firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
 
 // Initialize Firebase (using global firebaseConfig)
-const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
+const app = !firebase.apps.length ? firebase.initializeApp((typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : (typeof firebaseConfig !== 'undefined') ? firebaseConfig : {apiKey:"AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",authDomain:"n2shop-69e37.firebaseapp.com",projectId:"n2shop-69e37",storageBucket:"n2shop-69e37-ne0q1",messagingSenderId:"598906493303",appId:"1:598906493303:web:46d6236a1fdc2eff33e972"}) : firebase.app();
 const db = firebase.firestore();
 const storageRef = firebase.storage().ref();
 const collectionRef = db.collection("nhanhang");

@@ -17,7 +17,8 @@
 
         <!-- Lucide Icons CDN -->
         <!-- N2Store Optimization: Core Utilities Loader -->
-        <script src="../shared/js/core-loader.js"></script>
+        <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
 
         <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -31,7 +32,6 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
         <!-- Common Scripts -->
-        <script src="../shared/js/common-utils.js"></script>
         <script src="../shared/js/navigation-modern.js"></script>
     </head>
 
@@ -550,14 +550,12 @@
         </div>
 
         <!-- Scripts -->
-        <script src="../shared/js/shared-auth-manager.js"></script>
         <script src="js/config.js"></script>
         <script src="js/utility.js"></script>
         <script src="js/ui.js"></script>
         <script src="js/camera.js"></script>
         <script src="js/crud.js"></script>
         <script src="js/main.js"></script>
-        <script src="../shared/js/notification-system.js"></script>
 
         <script>
             // Initialize Lucide icons after DOM load

@@ -17,9 +17,9 @@
     <link rel="stylesheet" href="css/soorder.css" />
 
     <!-- Navigation Manager -->
-    <script src="../shared/js/core-loader.js"></script>
+    <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
     <script src="../shared/js/navigation-modern.js"></script>
-    <script src="../shared/js/common-utils.js"></script>
 
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -541,14 +541,12 @@
     <div id="toastContainer" class="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="../shared/js/shared-auth-manager.js"></script>
     <script src="js/soorder-config.js"></script>
     <script src="js/soorder-utils.js"></script>
     <script src="js/soorder-crud.js"></script>
     <script src="js/soorder-supplier-loader.js"></script>
     <script src="js/soorder-ui.js"></script>
     <script src="js/soorder-main.js"></script>
-    <script src="../shared/js/notification-system.js"></script>
 </body>
 
 </html>
