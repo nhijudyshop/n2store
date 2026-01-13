@@ -34,7 +34,10 @@
       "Read(//tmp/**)",
       "Bash(comm -23:*)",
       "Bash(xargs:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(__NEW_LINE_060a2e700f79b559__ echo \"=== Checking hangdat/index.html ===\")",
+      "Bash(__NEW_LINE_991cccd5f09f7524__ echo \"\")",
+      "Bash(__NEW_LINE_7617a5fc04108365__ echo \"\")"
     ]
   }
 }
