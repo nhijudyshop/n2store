@@ -12,6 +12,49 @@
 
 ---
 
+## SSE NOTIFICATIONS - HIỂN THỊ Ở ĐÂU
+
+### Frontend File: [wallet-panel.js](../customer-hub/js/modules/wallet-panel.js)
+
+### Flow SSE:
+
+```
+[Backend: processWalletEvent()]
+         │
+         ▼
+[walletEvents.emit('wallet:update', eventData)]
+[walletEvents.emit(`wallet:${phone}`, eventData)]
+         │
+         ▼
+[/api/realtime/sse endpoint]
+         │
+         ▼
+[Frontend: EventSource subscribes to wallet:${phone}]
+         │
+         ▼
+[handleWalletUpdate(data)]
+         │
+         ├──────────────────────────┐
+         ▼                          ▼
+[renderWallet(wallet)]    [showUpdateNotification(transaction)]
+(Cập nhật số dư panel)    (Toast popup góc phải dưới màn hình)
+```
+
+### 2 Cách Hiển Thị:
+
+**1. Cập nhật Wallet Panel (realtime)**
+- Method: `renderWallet()`
+- Hiển thị: Panel ví được cập nhật ngay lập tức với số dư mới
+- Nội dung: "Số dư khả dụng", "Tiền nạp CK", "Công nợ ảo"
+
+**2. Toast Notification (popup)**
+- Method: `showUpdateNotification()`
+- Hiển thị: Toast popup ở góc phải dưới màn hình
+- Nội dung: "Nạp tiền thành công!" hoặc "Cập nhật ví" + số tiền
+- Tự động ẩn sau 5 giây
+
+---
+
 ## CÁC FILE ĐÃ SỬA
 
 ### 1. render.com/services/wallet-event-processor.js
