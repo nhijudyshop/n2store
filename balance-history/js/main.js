@@ -1668,8 +1668,23 @@ copyInlineQRBtn?.addEventListener('click', async () => {
     // Check if already copied this QR
     const alreadyCopied = hasCopiedCurrentQR;
 
+    // Helper function to show success feedback
+    const showSuccessFeedback = () => {
+        const originalHTML = copyInlineQRBtn.innerHTML;
+        copyInlineQRBtn.innerHTML = '<i data-lucide="check"></i>';
+        copyInlineQRBtn.classList.remove('btn-primary');
+        copyInlineQRBtn.classList.add('btn-success');
+        if (window.lucide) lucide.createIcons();
+        setTimeout(() => {
+            copyInlineQRBtn.innerHTML = originalHTML;
+            copyInlineQRBtn.classList.remove('btn-success');
+            copyInlineQRBtn.classList.add('btn-primary');
+            if (window.lucide) lucide.createIcons();
+        }, 1500);
+    };
+
     try {
-        // Create custom image with Canvas (without account number, with customer info)
+        // Method 1: Try creating custom image with Canvas
         const customImageBlob = await createCustomQRImage(currentInlineQRUrl, currentCustomerInfo);
 
         // Copy to clipboard
@@ -1679,54 +1694,101 @@ copyInlineQRBtn?.addEventListener('click', async () => {
             })
         ]);
 
-        // Visual feedback
-        const originalHTML = copyInlineQRBtn.innerHTML;
-        copyInlineQRBtn.innerHTML = '<i data-lucide="check"></i>';
-        copyInlineQRBtn.classList.remove('btn-primary');
-        copyInlineQRBtn.classList.add('btn-success');
-
-        if (window.lucide) lucide.createIcons();
-
-        setTimeout(() => {
-            copyInlineQRBtn.innerHTML = originalHTML;
-            copyInlineQRBtn.classList.remove('btn-success');
-            copyInlineQRBtn.classList.add('btn-primary');
-            if (window.lucide) lucide.createIcons();
-        }, 1500);
+        showSuccessFeedback();
 
         // Show appropriate notification
         if (window.NotificationManager) {
             if (alreadyCopied) {
-                // Warning: already copied once
                 window.NotificationManager.showNotification('⚠️ Đã copy lần 2! Có thể bạn cần tạo QR mới cho khách khác?', 'warning');
             } else {
                 window.NotificationManager.showNotification('Đã copy hình QR!', 'success');
             }
         }
-
-        // Mark as copied
         hasCopiedCurrentQR = true;
 
     } catch (error) {
-        console.error('Failed to copy QR image:', error);
-        // Fallback: copy URL
+        console.error('Failed to copy QR with canvas method:', error);
+
+        // Method 2: Fallback - fetch image as blob directly and copy
         try {
-            await navigator.clipboard.writeText(currentInlineQRUrl);
+            const response = await fetch(currentInlineQRUrl);
+            const blob = await response.blob();
+
+            // Convert to PNG if needed
+            const pngBlob = blob.type === 'image/png' ? blob : await convertToPngBlob(blob);
+
+            await navigator.clipboard.write([
+                new ClipboardItem({
+                    'image/png': pngBlob
+                })
+            ]);
+
+            showSuccessFeedback();
+
             if (window.NotificationManager) {
                 if (alreadyCopied) {
-                    window.NotificationManager.showNotification('⚠️ Đã copy URL lần 2! Có thể bạn cần tạo QR mới?', 'warning');
+                    window.NotificationManager.showNotification('⚠️ Đã copy lần 2! Có thể bạn cần tạo QR mới cho khách khác?', 'warning');
                 } else {
-                    window.NotificationManager.showNotification('Đã copy URL QR!', 'success');
+                    window.NotificationManager.showNotification('Đã copy hình QR!', 'success');
                 }
             }
             hasCopiedCurrentQR = true;
-        } catch (e) {
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Không thể copy', 'error');
+
+        } catch (fetchError) {
+            console.error('Failed to copy QR with fetch method:', fetchError);
+
+            // Method 3: Last resort - copy URL
+            try {
+                await navigator.clipboard.writeText(currentInlineQRUrl);
+                showSuccessFeedback();
+                if (window.NotificationManager) {
+                    window.NotificationManager.showNotification('Không thể copy ảnh, đã copy link thay thế', 'warning');
+                }
+                hasCopiedCurrentQR = true;
+            } catch (e) {
+                if (window.NotificationManager) {
+                    window.NotificationManager.showNotification('Không thể copy', 'error');
+                }
             }
         }
     }
 });
+
+/**
+ * Convert image blob to PNG format
+ * @param {Blob} blob - Original image blob
+ * @returns {Promise<Blob>} - PNG blob
+ */
+async function convertToPngBlob(blob) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
+
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+
+            canvas.toBlob((pngBlob) => {
+                if (pngBlob) {
+                    resolve(pngBlob);
+                } else {
+                    reject(new Error('Failed to convert to PNG'));
+                }
+            }, 'image/png');
+        };
+
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load image for conversion'));
+        };
+
+        img.src = url;
+    });
+}
 
 /**
  * Create custom QR image with bank info but WITHOUT account number
