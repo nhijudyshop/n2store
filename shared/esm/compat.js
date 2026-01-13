@@ -221,6 +221,21 @@ if (typeof window !== 'undefined') {
     // Logger instance
     window.logger = logger;
 
+    // Auto-initialize authManager if not already defined
+    if (!window.authManager && AuthManager) {
+        try {
+            const authManager = new AuthManager({
+                redirectUrl: '../index.html',
+                sessionDuration: 8 * 60 * 60 * 1000,  // 8 hours
+                rememberDuration: 30 * 24 * 60 * 60 * 1000  // 30 days
+            });
+            window.authManager = authManager;
+            console.log('[ESM Compat] AuthManager auto-initialized');
+        } catch (e) {
+            console.warn('[ESM Compat] Failed to auto-init AuthManager:', e);
+        }
+    }
+
     // Dispatch event to signal modules are loaded
     window.dispatchEvent(new CustomEvent('sharedModulesLoaded'));
 
