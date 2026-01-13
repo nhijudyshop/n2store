@@ -516,16 +516,11 @@ export class CustomerProfileModule {
 
     /**
      * Show order detail popup (like issue-tracking)
+     * Uses Cloudflare Worker proxy to fetch TPOS order data
      */
     async _showOrderDetailPopup(orderId) {
         if (!orderId) {
             alert('Không có ID đơn hàng');
-            return;
-        }
-
-        // Check if tokenManager is available (required for TPOS API)
-        if (!window.tokenManager || !window.tokenManager.authenticatedFetch) {
-            alert('Không thể tải chi tiết đơn hàng. Vui lòng đăng nhập TPOS trước.');
             return;
         }
 
@@ -535,6 +530,36 @@ export class CustomerProfileModule {
         if (orderId.includes('/')) {
             const parts = orderId.split('/');
             tposId = parts[parts.length - 1];
+        }
+
+        // Get auth token from localStorage (same as orders-report)
+        const getAuthToken = () => {
+            try {
+                // Priority 1: bearer_token_data (main TPOS key)
+                const bearerData = localStorage.getItem('bearer_token_data');
+                if (bearerData) {
+                    const parsed = JSON.parse(bearerData);
+                    if (parsed.access_token) return parsed.access_token;
+                }
+                // Priority 2: auth
+                const auth = localStorage.getItem('auth');
+                if (auth) {
+                    const parsed = JSON.parse(auth);
+                    if (parsed.access_token) return parsed.access_token;
+                }
+                // Priority 3: tpos_token
+                const tposToken = localStorage.getItem('tpos_token');
+                if (tposToken) return tposToken;
+            } catch (e) {
+                console.error('[OrderDetail] Error reading token:', e);
+            }
+            return null;
+        };
+
+        const token = getAuthToken();
+        if (!token) {
+            alert('Không thể tải chi tiết đơn hàng. Vui lòng đăng nhập TPOS trước.');
+            return;
         }
 
         try {
@@ -552,14 +577,58 @@ export class CustomerProfileModule {
             `;
             document.body.appendChild(loadingPopup);
 
-            // Call API to get order details
-            const details = await apiService.getOrderDetails(tposId);
+            // Call TPOS API via Cloudflare Worker proxy
+            const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const expand = 'Partner,User,Carrier,OrderLines($expand=Product,ProductUOM)';
+            const url = `${PROXY_URL}/api/odata/FastSaleOrder(${tposId})?$expand=${encodeURIComponent(expand)}`;
+
+            console.log('[OrderDetail] Fetching:', url);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
             loadingPopup.remove();
 
-            if (!details) {
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[OrderDetail] API error:', response.status, errorText);
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('[OrderDetail] Loaded, products:', data.OrderLines?.length || 0);
+
+            if (!data || !data.Id) {
                 alert('Không tìm thấy đơn hàng');
                 return;
             }
+
+            // Map to display format
+            const details = {
+                id: data.Id,
+                tposCode: data.Number,
+                customer: data.PartnerDisplayName || data.Ship_Receiver_Name || 'N/A',
+                phone: data.Phone,
+                address: data.FullAddress || data.Address || '',
+                cod: data.CashOnDelivery || 0,
+                amountTotal: data.AmountTotal || 0,
+                decreaseAmount: data.DecreaseAmount || 0,
+                deliveryPrice: data.DeliveryPrice || 0,
+                paymentAmount: data.PaymentAmount || 0,
+                products: (data.OrderLines || []).map(line => ({
+                    code: line.ProductBarcode || line.ProductDefaultCode || '',
+                    name: line.ProductName || '',
+                    quantity: line.ProductUOMQty || 1,
+                    price: line.PriceUnit || 0,
+                    note: line.Note || ''
+                }))
+            };
 
             // Format currency
             const formatCurrency = (val) => {
