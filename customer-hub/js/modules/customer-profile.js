@@ -375,8 +375,11 @@ export class CustomerProfileModule {
                             // order_id = Mã đơn hàng hiển thị (e.g., "45068" or "NJD/2026/45068")
                             // tpos_order_id = ID đơn hàng thực để fetch API (e.g., "412249") - MUST be numeric
                             const orderIdDisplay = ticket.order_id ? ticket.order_id.replace(/^NJD\/\d+\//, '') : '-';
-                            // Only use tpos_order_id if it's a valid number
-                            const tposOrderId = ticket.tpos_order_id && /^\d+$/.test(String(ticket.tpos_order_id)) ? ticket.tpos_order_id : null;
+                            // Only use tpos_order_id if it's a valid positive number
+                            // Check: not null/undefined, convert to number, must be > 0
+                            const rawTposId = ticket.tpos_order_id;
+                            const tposOrderId = (rawTposId !== null && rawTposId !== undefined && Number(rawTposId) > 0) ? String(rawTposId) : null;
+                            console.log('[DEBUG] Ticket:', ticket.ticket_code, 'rawTposId:', rawTposId, 'typeof:', typeof rawTposId, 'tposOrderId:', tposOrderId);
                             const type = typeMap[ticket.type] || ticket.type;
                             const note = ticket.internal_note && ticket.internal_note.trim()
                                 ? `<span class="text-slate-700 dark:text-slate-300">${ticket.internal_note}</span>`

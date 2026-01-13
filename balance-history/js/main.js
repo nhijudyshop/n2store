@@ -1665,106 +1665,34 @@ inlineCustomerPhone?.addEventListener('keypress', (e) => {
 copyInlineQRBtn?.addEventListener('click', async () => {
     if (!currentInlineQRUrl) return;
 
-    // Check if already copied this QR
     const alreadyCopied = hasCopiedCurrentQR;
 
-    // Helper function to show success feedback
-    const showSuccessFeedback = () => {
-        const originalHTML = copyInlineQRBtn.innerHTML;
-        copyInlineQRBtn.innerHTML = '<i data-lucide="check"></i>';
-        copyInlineQRBtn.classList.remove('btn-primary');
-        copyInlineQRBtn.classList.add('btn-success');
-        if (window.lucide) lucide.createIcons();
-        setTimeout(() => {
-            copyInlineQRBtn.innerHTML = originalHTML;
-            copyInlineQRBtn.classList.remove('btn-success');
-            copyInlineQRBtn.classList.add('btn-primary');
-            if (window.lucide) lucide.createIcons();
-        }, 1500);
-    };
-
     try {
-        // Fetch image via proxy to get blob (bypass CORS)
+        // Fetch image via proxy to bypass CORS
         const WORKER_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const proxyUrl = `${WORKER_URL}/api/proxy?url=${encodeURIComponent(currentInlineQRUrl)}`;
         const response = await fetch(proxyUrl);
 
-        if (!response.ok) {
-            throw new Error(`Fetch failed: ${response.status}`);
-        }
+        if (!response.ok) throw new Error('Fetch failed');
 
-        const imageBlob = await response.blob();
+        const blob = await response.blob();
 
-        // Create image from fetched blob (no CORS issue since it's from our proxy)
-        const img = new Image();
-        const blobUrl = URL.createObjectURL(imageBlob);
-
-        await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = blobUrl;
-        });
-
-        // Create canvas with bank info
-        const canvas = document.createElement('canvas');
-        const padding = 30;
-        const hasCustomer = currentCustomerInfo && currentCustomerInfo.trim();
-        const textAreaHeight = hasCustomer ? 105 : 80;
-
-        canvas.width = img.naturalWidth + padding * 2;
-        canvas.height = img.naturalHeight + padding * 2 + textAreaHeight;
-        const ctx = canvas.getContext('2d');
-
-        // White background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw QR code (centered)
-        const qrX = (canvas.width - img.naturalWidth) / 2;
-        ctx.drawImage(img, qrX, padding, img.naturalWidth, img.naturalHeight);
-
-        // Clean up blob URL
-        URL.revokeObjectURL(blobUrl);
-
-        // Text area background (light gray)
-        const textAreaY = img.naturalHeight + padding * 1.5;
-        ctx.fillStyle = '#f8f9fa';
-        ctx.fillRect(padding / 2, textAreaY, canvas.width - padding, textAreaHeight);
-
-        // Draw text - WITHOUT account number
-        ctx.fillStyle = '#333333';
-        ctx.textAlign = 'center';
-        const centerX = canvas.width / 2;
-
-        // Bank name
-        ctx.font = 'bold 16px Arial, sans-serif';
-        ctx.fillText('Ngân hàng: ACB', centerX, textAreaY + 28);
-
-        // Account holder name
-        ctx.font = '15px Arial, sans-serif';
-        ctx.fillText('Chủ tài khoản: LAI THUY YEN NHI', centerX, textAreaY + 55);
-
-        // Customer info (if provided)
-        if (hasCustomer) {
-            ctx.font = 'bold 14px Arial, sans-serif';
-            ctx.fillStyle = '#10b981';
-            ctx.fillText('Khách hàng: ' + currentCustomerInfo, centerX, textAreaY + 82);
-        }
-
-        // Convert canvas to blob and copy
-        const finalBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-
+        // Copy image blob directly to clipboard
         await navigator.clipboard.write([
-            new ClipboardItem({
-                'image/png': finalBlob
-            })
+            new ClipboardItem({ 'image/png': blob })
         ]);
 
-        showSuccessFeedback();
+        // Visual feedback
+        copyInlineQRBtn.classList.remove('btn-primary');
+        copyInlineQRBtn.classList.add('btn-success');
+        setTimeout(() => {
+            copyInlineQRBtn.classList.remove('btn-success');
+            copyInlineQRBtn.classList.add('btn-primary');
+        }, 1500);
 
         if (window.NotificationManager) {
             if (alreadyCopied) {
-                window.NotificationManager.showNotification('⚠️ Đã copy lần 2! Có thể bạn cần tạo QR mới cho khách khác?', 'warning');
+                window.NotificationManager.showNotification('⚠️ Đã copy lần 2!', 'warning');
             } else {
                 window.NotificationManager.showNotification('Đã copy hình QR!', 'success');
             }
@@ -1772,158 +1700,12 @@ copyInlineQRBtn?.addEventListener('click', async () => {
         hasCopiedCurrentQR = true;
 
     } catch (error) {
-        console.error('Failed to copy QR image:', error);
-
-        // Fallback: copy URL
-        try {
-            await navigator.clipboard.writeText(currentInlineQRUrl);
-            showSuccessFeedback();
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Không thể copy ảnh, đã copy link thay thế', 'warning');
-            }
-            hasCopiedCurrentQR = true;
-        } catch (e) {
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Không thể copy', 'error');
-            }
+        console.error('Copy QR failed:', error);
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Không thể copy ảnh', 'error');
         }
     }
 });
-
-/**
- * Convert image blob to PNG format
- * @param {Blob} blob - Original image blob
- * @returns {Promise<Blob>} - PNG blob
- */
-async function convertToPngBlob(blob) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        const url = URL.createObjectURL(blob);
-
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            URL.revokeObjectURL(url);
-
-            canvas.toBlob((pngBlob) => {
-                if (pngBlob) {
-                    resolve(pngBlob);
-                } else {
-                    reject(new Error('Failed to convert to PNG'));
-                }
-            }, 'image/png');
-        };
-
-        img.onerror = () => {
-            URL.revokeObjectURL(url);
-            reject(new Error('Failed to load image for conversion'));
-        };
-
-        img.src = url;
-    });
-}
-
-/**
- * Create custom QR image with bank info but WITHOUT account number
- * Uses Cloudflare Worker proxy to bypass CORS
- * @param {string} qrUrl - Original QR URL
- * @param {string} customerInfo - Customer name or phone to display
- * @returns {Promise<Blob>} - PNG image blob
- */
-async function createCustomQRImage(qrUrl, customerInfo = '') {
-    // Cloudflare Worker proxy URL
-    const WORKER_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-
-    return new Promise(async (resolve, reject) => {
-        try {
-            // Fetch image via proxy to bypass CORS
-            const proxyUrl = `${WORKER_URL}/api/proxy?url=${encodeURIComponent(qrUrl)}`;
-            const response = await fetch(proxyUrl);
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch QR image: ${response.status}`);
-            }
-
-            const imageBlob = await response.blob();
-
-            // Create image from blob
-            const img = new Image();
-            const blobUrl = URL.createObjectURL(imageBlob);
-
-            img.onload = () => {
-                // Canvas dimensions
-                const padding = 30;
-                const hasCustomer = customerInfo && customerInfo.trim();
-                const textAreaHeight = hasCustomer ? 105 : 80;
-                const canvasWidth = img.width + padding * 2;
-                const canvasHeight = img.height + padding * 2 + textAreaHeight;
-
-                // Create canvas
-                const canvas = document.createElement('canvas');
-                canvas.width = canvasWidth;
-                canvas.height = canvasHeight;
-                const ctx = canvas.getContext('2d');
-
-                // White background
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-                // Draw QR code (centered)
-                const qrX = (canvasWidth - img.width) / 2;
-                ctx.drawImage(img, qrX, padding, img.width, img.height);
-
-                // Text area background (light gray)
-                const textAreaY = img.height + padding * 1.5;
-                ctx.fillStyle = '#f8f9fa';
-                ctx.fillRect(padding / 2, textAreaY, canvasWidth - padding, textAreaHeight);
-
-                // Draw text - WITHOUT account number
-                ctx.fillStyle = '#333333';
-                ctx.textAlign = 'center';
-                const centerX = canvasWidth / 2;
-
-                // Bank name
-                ctx.font = 'bold 16px Arial, sans-serif';
-                ctx.fillText('Ngân hàng: ACB', centerX, textAreaY + 28);
-
-                // Account holder name (NO account number!)
-                ctx.font = '15px Arial, sans-serif';
-                ctx.fillText('Chủ tài khoản: LAI THUY YEN NHI', centerX, textAreaY + 55);
-
-                // Customer info (if provided)
-                if (hasCustomer) {
-                    ctx.font = 'bold 14px Arial, sans-serif';
-                    ctx.fillStyle = '#10b981'; // Green color
-                    ctx.fillText('Khách hàng: ' + customerInfo, centerX, textAreaY + 82);
-                }
-
-                // Clean up blob URL
-                URL.revokeObjectURL(blobUrl);
-
-                // Convert to blob
-                canvas.toBlob((blob) => {
-                    if (blob) {
-                        resolve(blob);
-                    } else {
-                        reject(new Error('Failed to create blob'));
-                    }
-                }, 'image/png');
-            };
-
-            img.onerror = () => {
-                URL.revokeObjectURL(blobUrl);
-                reject(new Error('Failed to load QR image'));
-            };
-
-            img.src = blobUrl;
-        } catch (error) {
-            reject(error);
-        }
-    });
-}
 
 // Close inline QR display
 closeInlineQRBtn?.addEventListener('click', () => {
