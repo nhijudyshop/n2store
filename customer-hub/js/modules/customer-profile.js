@@ -372,8 +372,10 @@ export class CustomerProfileModule {
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                         ${tickets.slice(0, 10).map(ticket => {
+                            // order_id = Mã đơn hàng hiển thị (e.g., "45068" or "NJD/2026/45068")
+                            // tpos_order_id = ID đơn hàng thực để fetch API (e.g., "412249")
                             const orderIdDisplay = ticket.order_id ? ticket.order_id.replace(/^NJD\/\d+\//, '') : '-';
-                            const orderIdRaw = ticket.order_id || '';
+                            const tposOrderId = ticket.tpos_order_id || ''; // Use tpos_order_id for API calls
                             const type = typeMap[ticket.type] || ticket.type;
                             const note = ticket.internal_note && ticket.internal_note.trim()
                                 ? `<span class="text-slate-700 dark:text-slate-300">${ticket.internal_note}</span>`
@@ -385,10 +387,10 @@ export class CustomerProfileModule {
                             return `
                                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                     <td class="px-3 py-2 font-medium">
-                                        ${orderIdRaw ?
-                                            `<a href="#" onclick="showOrderDetailPopup('${orderIdRaw}'); return false;"
+                                        ${tposOrderId ?
+                                            `<a href="#" onclick="showOrderDetailPopup('${tposOrderId}'); return false;"
                                                 class="text-blue-600 hover:text-blue-800 hover:underline">${orderIdDisplay}</a>`
-                                            : '<span class="text-slate-400">-</span>'}
+                                            : (orderIdDisplay !== '-' ? `<span class="text-slate-700">${orderIdDisplay}</span>` : '<span class="text-slate-400">-</span>')}
                                     </td>
                                     <td class="px-3 py-2">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${this._getTypeColor(ticket.type)}">${type}</span>
@@ -517,20 +519,16 @@ export class CustomerProfileModule {
     /**
      * Show order detail popup (like issue-tracking)
      * Uses Cloudflare Worker proxy to fetch TPOS order data
+     * @param {string} tposOrderId - The TPOS order ID (numeric ID like "412249", NOT the order number like "45068")
      */
-    async _showOrderDetailPopup(orderId) {
-        if (!orderId) {
+    async _showOrderDetailPopup(tposOrderId) {
+        if (!tposOrderId) {
             alert('Không có ID đơn hàng');
             return;
         }
 
-        // Extract numeric ID if full format (e.g., "NJD/2026/42912" -> extract number or use as-is)
-        let tposId = orderId;
-        // If order_id contains slash, it might be in format "NJD/YEAR/NUMBER" - extract last number
-        if (orderId.includes('/')) {
-            const parts = orderId.split('/');
-            tposId = parts[parts.length - 1];
-        }
+        // tposOrderId is now the actual TPOS ID (e.g., "412249"), not the display number
+        const tposId = tposOrderId;
 
         // Get auth token from localStorage (same as orders-report)
         const getAuthToken = () => {
