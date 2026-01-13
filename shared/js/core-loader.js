@@ -21,6 +21,8 @@
     const coreUtilities = [
         'logger.js',                    // Load logger first (needed by others)
         'firebase-config.js',           // Firebase config
+        'date-utils.js',                // Date formatting utilities
+        'form-utils.js',                // Form/input utilities
         'dom-utils.js',                 // DOM utilities
         'event-manager.js',             // Event management
         'shared-cache-manager.js',      // Cache manager

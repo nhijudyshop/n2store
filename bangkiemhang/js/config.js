@@ -25,8 +25,8 @@ let globalState = {
     },
 };
 
-// Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
+// Initialize Firebase (using global firebaseConfig from shared)
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 const db = firebase.firestore();
 const collectionRef = db.collection("dathang");
 const historyCollectionRef = db.collection("edit_history");

@@ -22,8 +22,8 @@ var newMetadata = {
     cacheControl: "public,max-age=31536000",
 };
 
-// Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
+// Initialize Firebase (using global firebaseConfig from shared)
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 const db = firebase.firestore();
 const storageRef = firebase.storage().ref();
 const collectionRef = db.collection("hangrotxa");
