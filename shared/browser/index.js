@@ -112,6 +112,36 @@ export {
 } from './common-utils.js';
 
 // =====================================================
+// FIREBASE
+// =====================================================
+export {
+    FIREBASE_CONFIG,
+    firebaseConfig,
+    initializeFirebaseApp,
+    initializeFirestore,
+    initializeRealtimeDB,
+    getFirestore,
+    getRealtimeDB,
+    isFirebaseInitialized,
+    isFirestoreInitialized,
+    isRealtimeDBInitialized,
+    getRef,
+    createPathHelper,
+    FIRESTORE_COLLECTIONS,
+    RTDB_PATHS,
+} from './firebase-config.js';
+
+// =====================================================
+// NOTIFICATION SYSTEM
+// =====================================================
+export {
+    NotificationManager,
+    NOTIFICATION_CONFIG,
+    getNotificationManager,
+    createNotificationManager,
+} from './notification-system.js';
+
+// =====================================================
 // RE-EXPORT UNIVERSAL MODULES
 // =====================================================
 export * from '../universal/index.js';

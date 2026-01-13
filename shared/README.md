@@ -25,6 +25,8 @@ Thư viện dùng chung cho tất cả các module trong n2store project.
 │   ├── logger.js               # Production-safe logger
 │   ├── dom-utils.js            # XSS-safe DOM utilities
 │   ├── common-utils.js         # UI utilities (notifications, loading)
+│   ├── firebase-config.js      # Firebase config + init (Firestore & RTDB)
+│   ├── notification-system.js  # Toast notifications + confirm dialogs
 │   └── index.js
 │
 ├── js/                 # Legacy Script-Tag Compatible (window.*)
@@ -539,6 +541,82 @@ DOMUtils.unescapeHTML('&lt;'); // '<'
 await DOMUtils.waitFor('.my-element', 5000);
 ```
 
+### browser/firebase-config.js
+
+Firebase configuration and initialization for Firestore and Realtime Database.
+
+```javascript
+import {
+    FIREBASE_CONFIG,
+    initializeFirestore,
+    initializeRealtimeDB,
+    getFirestore,
+    getRealtimeDB,
+    getRef,
+    createPathHelper,
+    RTDB_PATHS
+} from '/shared/browser/index.js';
+
+// Initialize Firestore (with offline persistence)
+const db = initializeFirestore();
+const docs = await db.collection('inventory').get();
+
+// Initialize Realtime Database
+const rtdb = initializeRealtimeDB();
+const snapshot = await rtdb.ref('soluongProducts').once('value');
+
+// Get reference to a path
+const productsRef = getRef(RTDB_PATHS.SOLUONG_PRODUCTS);
+
+// Create path helper for module-specific operations
+const helper = createPathHelper('soluongProducts');
+const productRef = helper.ref('product_123');
+const metaRef = helper.metaRef('sortedIds');
+
+// Constants
+console.log(RTDB_PATHS.SOLUONG_PRODUCTS); // 'soluongProducts'
+console.log(RTDB_PATHS.ORDER_PRODUCTS);   // 'orderProducts'
+```
+
+### browser/notification-system.js
+
+Toast notifications with Lucide icons and custom confirm dialogs.
+
+```javascript
+import { getNotificationManager, NotificationManager } from '/shared/browser/index.js';
+
+// Get singleton instance
+const notify = getNotificationManager();
+
+// Basic notifications
+notify.success('Saved successfully!');
+notify.error('Something went wrong');
+notify.warning('Please check your input');
+notify.info('FYI: New feature available');
+
+// Loading with overlay (blocks page)
+const loadingId = notify.loading('Processing...');
+// ... do async work
+notify.remove(loadingId);
+
+// Action-specific notifications
+notify.uploading(1, 5);    // "Đang tải lên 1/5 ảnh"
+notify.deleting();         // "Đang xóa..."
+notify.saving();           // "Đang lưu..."
+notify.loadingData();      // "Đang tải dữ liệu..."
+notify.processing();       // "Đang xử lý..."
+
+// Custom confirm dialog (replaces native confirm)
+const confirmed = await notify.confirm('Delete this item?', 'Confirm');
+if (confirmed) {
+    // User clicked OK
+}
+
+// Control methods
+notify.clearAll();         // Remove all notifications
+notify.forceHideOverlay(); // Force hide loading overlay
+```
+
 ### browser/common-utils.js
 
 Common UI utilities for notifications, loading states, and page interactions.
@@ -655,6 +733,8 @@ Các file trong `/shared/js/` folder là legacy script-tag compatible versions:
 | `/shared/browser/logger.js` | `/shared/js/logger.js` |
 | `/shared/browser/dom-utils.js` | `/shared/js/dom-utils.js` |
 | `/shared/browser/common-utils.js` | `/shared/js/common-utils.js` |
+| `/shared/browser/firebase-config.js` | `/shared/js/firebase-config.js` |
+| `/shared/browser/notification-system.js` | `/shared/js/notification-system.js` |
 | `/shared/universal/tpos-client.js` | `/shared/js/tpos-config.js` |
 
 **Sử dụng trong HTML:**

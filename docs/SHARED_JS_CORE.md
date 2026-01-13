@@ -27,7 +27,8 @@ grep -r '../js/' . --include="*.html"
 | **`core-loader.js`** | 2.5KB | 12+ folders |
 | `shared-auth-manager.js` | 9.8KB | 3 folders |
 | `shared-cache-manager.js` | 8.1KB | 3 folders |
-| `firebase-config.js` | 773B | 2 folders |
+| `firebase-config.js` | 5.2KB | Many folders (Firestore + RTDB) |
+| `notification-system.js` | 12KB | Many folders (toasts + confirm) |
 | `permissions-helper.js` | 19KB | Via core-loader |
 | `ai-chat-widget.js` | 36KB | Dynamic inject |
 
@@ -172,6 +173,8 @@ if (hasGlobalPermission('orders', 'edit')) {
 | `logger.js` | `logger.js` |
 | `dom-utils.js` | `dom-utils.js` |
 | `common-utils.js` | `common-utils.js` |
+| `firebase-config.js` | `firebase-config.js` |
+| `notification-system.js` | `notification-system.js` |
 
 ---
 
