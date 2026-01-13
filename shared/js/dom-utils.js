@@ -1,7 +1,15 @@
 /**
  * SAFE DOM MANIPULATION UTILITIES
  * File: dom-utils.js
- * Purpose: Prevent XSS attacks bằng cách sanitize input trước khi inject vào DOM
+ *
+ * WRAPPER FILE - Backward compatibility layer
+ * SOURCE OF TRUTH: /shared/browser/dom-utils.js
+ *
+ * This file is kept for backward compatibility with existing code using:
+ *   <script src="../shared/js/dom-utils.js"></script>
+ *
+ * For new ES Module code, import directly from:
+ *   import { DOMUtils } from '/shared/browser/dom-utils.js';
  */
 
 const DOMUtils = {

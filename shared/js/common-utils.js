@@ -1,7 +1,15 @@
 /**
  * Common UI Utilities - Các tiện ích giao diện chung
  * File: common-utils.js
- * Sử dụng: Include vào navigation.js hoặc sử dụng độc lập
+ *
+ * WRAPPER FILE - Backward compatibility layer
+ * SOURCE OF TRUTH: /shared/browser/common-utils.js
+ *
+ * This file is kept for backward compatibility with existing code using:
+ *   <script src="../shared/js/common-utils.js"></script>
+ *
+ * For new ES Module code, import directly from:
+ *   import { CommonUtils } from '/shared/browser/common-utils.js';
  */
 
 /**

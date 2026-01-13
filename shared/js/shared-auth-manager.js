@@ -1,7 +1,15 @@
 /**
  * SHARED AUTHENTICATION MANAGER
  * File: shared-auth-manager.js
- * Purpose: Centralized auth logic để tránh duplication
+ *
+ * WRAPPER FILE - Backward compatibility layer
+ * SOURCE OF TRUTH: /shared/browser/auth-manager.js
+ *
+ * This file is kept for backward compatibility with existing code using:
+ *   <script src="../shared/js/shared-auth-manager.js"></script>
+ *
+ * For new ES Module code, import directly from:
+ *   import { AuthManager } from '/shared/browser/auth-manager.js';
  */
 
 // Prevent redeclaration if already loaded

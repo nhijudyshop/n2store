@@ -4,7 +4,7 @@
  * Purpose: Load tất cả các core utilities theo đúng thứ tự
  *
  * USAGE: Add vào HTML trước tất cả các script khác:
- * <script src="/js/core-loader.js"></script>
+ * <script src="/shared/js/core-loader.js"></script>
  */
 
 (function () {

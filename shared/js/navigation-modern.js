@@ -3440,7 +3440,7 @@ setTimeout(() => {
 
     // Determine script path based on current page location
     const currentPath = window.location.pathname;
-    let basePath = '../js/';
+    let basePath = '../shared/js/';
 
     // Handle different directory depths
     if (currentPath.includes('/n2store/') && !currentPath.includes('/n2store/js/')) {

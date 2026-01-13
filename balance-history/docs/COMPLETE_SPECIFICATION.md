@@ -810,7 +810,7 @@ TPOS_TOKEN=xxx              # For TPOS API calls
 
 ### 9.3 Firebase Config
 ```javascript
-// File: ../js/firebase-config.js
+// File: ../shared/js/firebase-config.js
 window.FIREBASE_CONFIG = {
     apiKey: "xxx",
     authDomain: "xxx.firebaseapp.com",

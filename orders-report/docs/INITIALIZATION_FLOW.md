@@ -52,10 +52,10 @@ flowchart TD
 
 ```html
 <!-- Head Scripts -->
-<script src="../js/core-loader.js"></script>     <!-- Core utilities -->
+<script src="../shared/js/core-loader.js"></script>     <!-- Core utilities -->
 <script src="auth.js"></script>                  <!-- Authentication - MUST load before navigation -->
-<script src="../js/navigation-modern.js"></script>
-<script src="../js/common-utils.js"></script>
+<script src="../shared/js/navigation-modern.js"></script>
+<script src="../shared/js/common-utils.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script> <!-- Icons -->
 ```
 

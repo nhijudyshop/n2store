@@ -2,6 +2,28 @@
 
 > Module quản lý authentication với session management, dùng chung cho nhiều sub-apps.
 
+## File Locations
+
+| Type | Path | Description |
+|------|------|-------------|
+| **ES Module (SOURCE OF TRUTH)** | `/shared/browser/auth-manager.js` | Modern ES module |
+| Script-Tag Compatible | `/shared/js/shared-auth-manager.js` | Legacy window.* export |
+
+## Troubleshooting - Import Errors
+
+Nếu gặp lỗi khi load AuthManager:
+
+```bash
+# Kiểm tra path trong HTML
+grep -r '../js/' . --include="*.html"
+
+# Path đúng:
+<script src="../shared/js/shared-auth-manager.js"></script>
+
+# Hoặc dùng ES Module:
+import { AuthManager } from '/shared/browser/auth-manager.js';
+```
+
 ## Tổng Quan
 
 | File | Folders sử dụng (giống 100%) |
@@ -72,11 +94,12 @@
 
 ## Sử Dụng
 
-```javascript
-// Trong HTML
-<script src="auth.js"></script>
+### Script Tag (Legacy)
 
-// Sử dụng
+```html
+<script src="../shared/js/shared-auth-manager.js"></script>
+
+<script>
 if (authManager.isAuthenticated()) {
   console.log("User:", authManager.getUserInfo());
 }
@@ -85,10 +108,25 @@ if (authManager.isAuthenticated()) {
 if (authManager.hasPermission(1)) {
   showAdminFeatures();
 }
+</script>
+```
+
+### ES Module (Modern)
+
+```javascript
+import { AuthManager, getAuthManager, isAuthenticated } from '/shared/browser/auth-manager.js';
+
+// Quick check
+if (isAuthenticated()) {
+  const auth = getAuthManager();
+  console.log("User:", auth.getUserInfo());
+}
 ```
 
 ---
 
 ## Xem thêm
 
-- [js/shared-auth-manager.js](file:///Users/mac/Downloads/n2store/js/shared-auth-manager.js) - Phiên bản wrapper dùng cho core-loader
+- [/shared/browser/auth-manager.js](../shared/browser/auth-manager.js) - ES Module (SOURCE OF TRUTH)
+- [/shared/js/shared-auth-manager.js](../shared/js/shared-auth-manager.js) - Script-tag version
+- [/shared/README.md](../shared/README.md) - Full shared library documentation

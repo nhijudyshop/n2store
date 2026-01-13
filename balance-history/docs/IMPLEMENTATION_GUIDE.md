@@ -113,7 +113,7 @@ balance-history/
 ├── ADD_EXTRACTION_COLUMNS.sql      # Script bổ sung cột extraction
 └── DEBUG_SCRIPT.sql        # Script debug
 
-../js/
+../shared/js/
 ├── firebase-config.js      # Cấu hình Firebase (shared)
 └── navigation-modern.js    # Navigation (shared)
 ```
@@ -525,8 +525,8 @@ export default {
     <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    <script src="../js/firebase-config.js"></script>
-    <script src="../js/navigation-modern.js"></script>
+    <script src="../shared/js/firebase-config.js"></script>
+    <script src="../shared/js/navigation-modern.js"></script>
     <script src="auth.js"></script>
     <script src="cache.js"></script>
     <script src="config.js"></script>

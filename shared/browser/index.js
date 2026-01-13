@@ -1,15 +1,19 @@
 /**
  * Shared Browser Modules
- * Browser-only utilities (localStorage, Firebase, DOM)
+ * Browser-only utilities (localStorage, Firebase, DOM, Auth, Cache)
  *
  * @module shared/browser
  */
 
-// Token managers
+// =====================================================
+// TOKEN MANAGERS
+// =====================================================
 export { TokenManager, default as TposTokenManager } from './token-manager.js';
 export { PancakeTokenManager } from './pancake-token-manager.js';
 
-// Storage utilities
+// =====================================================
+// STORAGE UTILITIES
+// =====================================================
 export {
     IndexedDBStorage,
     createIndexedDBStorage,
@@ -21,5 +25,93 @@ export {
     createCacheManager,
 } from './cache-manager.js';
 
-// Re-export universal modules for convenience
+// =====================================================
+// AUTHENTICATION
+// =====================================================
+export {
+    AuthManager,
+    AUTH_CONFIG,
+    createAuthManager,
+    getAuthManager,
+    isAuthenticated,
+    getRoleInfo,
+} from './auth-manager.js';
+
+// =====================================================
+// PERSISTENT CACHE (localStorage-based)
+// =====================================================
+export {
+    PersistentCacheManager,
+    CACHE_CONFIG,
+    createPersistentCache,
+    getPersistentCache,
+} from './persistent-cache.js';
+
+// =====================================================
+// LOGGER
+// =====================================================
+export {
+    Logger,
+    logger,
+    isProduction,
+    createLogger,
+    overrideConsoleInProduction,
+} from './logger.js';
+
+// =====================================================
+// DOM UTILITIES
+// =====================================================
+export {
+    DOMUtils,
+    setText,
+    setHTML,
+    sanitizeHTML,
+    createElement,
+    appendChild,
+    clearChildren,
+    escapeHTML,
+    unescapeHTML,
+    $,
+    $$,
+    on,
+    once,
+    toggleClass,
+    hasClass,
+    show,
+    hide,
+    data,
+    waitFor,
+} from './dom-utils.js';
+
+// =====================================================
+// COMMON UI UTILITIES
+// =====================================================
+export {
+    CommonUtils,
+    showStatusMessage,
+    showFloatingAlert,
+    hideFloatingAlert,
+    showLoading,
+    showSuccess,
+    showError,
+    isPageBlocked,
+    forceUnblockPage,
+    blockPageInteractions,
+    unblockPageInteractions,
+    updateTitleWithRole,
+    initializePageTitle,
+    displayUserInfo,
+    setupClipboardContainers,
+    setupFormMonitoring,
+    setupSecurityIndicators,
+    setupPerformanceMonitoring,
+    setupErrorHandling,
+    setupCommonEventHandlers,
+    initializeCommonUtils,
+    injectStyles,
+} from './common-utils.js';
+
+// =====================================================
+// RE-EXPORT UNIVERSAL MODULES
+// =====================================================
 export * from '../universal/index.js';

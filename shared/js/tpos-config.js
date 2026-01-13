@@ -1,8 +1,14 @@
 // =====================================================
 // TPOS CONFIG - Centralized Configuration
 // =====================================================
-// Single source of truth for TPOS API configuration.
-// All files should import from here instead of hardcoding values.
+// WRAPPER FILE - Backward compatibility layer
+// SOURCE OF TRUTH: /shared/universal/tpos-client.js
+//
+// This file is kept for backward compatibility with existing code using:
+//   <script src="../shared/js/tpos-config.js"></script>
+//
+// For new ES Module code, import directly from:
+//   import { TPOSClient, TPOS_CONFIG } from '/shared/universal/tpos-client.js';
 
 (function (global) {
     'use strict';

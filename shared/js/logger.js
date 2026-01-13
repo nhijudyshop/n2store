@@ -1,7 +1,15 @@
 /**
  * PRODUCTION-SAFE LOGGER
  * File: logger.js
- * Purpose: Wrapper cho console.log để disable trong production
+ *
+ * WRAPPER FILE - Backward compatibility layer
+ * SOURCE OF TRUTH: /shared/browser/logger.js
+ *
+ * This file is kept for backward compatibility with existing code using:
+ *   <script src="../shared/js/logger.js"></script>
+ *
+ * For new ES Module code, import directly from:
+ *   import { Logger, logger } from '/shared/browser/logger.js';
  */
 
 // Detect environment

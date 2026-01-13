@@ -1,7 +1,15 @@
 /**
  * SHARED PERSISTENT CACHE MANAGER
  * File: shared-cache-manager.js
- * Purpose: Single cache manager class để tránh duplication across modules
+ *
+ * WRAPPER FILE - Backward compatibility layer
+ * SOURCE OF TRUTH: /shared/browser/persistent-cache.js
+ *
+ * This file is kept for backward compatibility with existing code using:
+ *   <script src="../shared/js/shared-cache-manager.js"></script>
+ *
+ * For new ES Module code, import directly from:
+ *   import { PersistentCacheManager } from '/shared/browser/persistent-cache.js';
  */
 
 class PersistentCacheManager {

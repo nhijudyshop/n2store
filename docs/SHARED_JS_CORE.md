@@ -1,6 +1,22 @@
-# SHARED_JS_CORE - Core Utilities trong /js
+# SHARED_JS_CORE - Core Utilities trong /shared/js
 
 > Các modules core dùng chung cho toàn bộ dự án, load qua `core-loader.js`.
+>
+> **Location**: `/shared/js/` (moved from `/js/`)
+
+## Troubleshooting - Import Path Errors
+
+Nếu gặp lỗi `404 Not Found` khi load scripts:
+
+```bash
+# Kiểm tra còn path cũ không
+grep -r '../js/' . --include="*.html"
+
+# Path đúng phải là:
+../shared/js/core-loader.js
+../shared/js/navigation-modern.js
+../shared/js/common-utils.js
+```
 
 ## Tổng Quan Sử Dụng
 
@@ -25,7 +41,7 @@ Loader tự động load các core utilities theo đúng thứ tự.
 ### Usage
 
 ```html
-<script src="../js/core-loader.js"></script>
+<script src="../shared/js/core-loader.js"></script>
 ```
 
 ### Load Order
@@ -60,6 +76,9 @@ if (window.CORE_UTILITIES_LOADED) { ... }
 
 ### Purpose
 Các tiện ích giao diện chung: alerts, loading, blocking.
+
+### SOURCE OF TRUTH
+ES Module version: `/shared/browser/common-utils.js`
 
 ### Functions
 
@@ -133,19 +152,31 @@ if (hasGlobalPermission('orders', 'edit')) {
 
 ## Các Files Hỗ Trợ
 
-| File | Mô tả |
-|------|-------|
-| `logger.js` | Console logging với levels |
-| `dom-utils.js` | DOM manipulation utilities |
-| `event-manager.js` | Event pub/sub |
-| `optimization-helper.js` | Performance utilities |
-| `service-worker-register.js` | PWA service worker |
-| `ai-chat-widget.js` | Gemini AI chat widget |
+| File | Mô tả | ES Module Source |
+|------|-------|------------------|
+| `logger.js` | Console logging với levels | `/shared/browser/logger.js` |
+| `dom-utils.js` | DOM manipulation utilities | `/shared/browser/dom-utils.js` |
+| `event-manager.js` | Event pub/sub | - |
+| `optimization-helper.js` | Performance utilities | - |
+| `service-worker-register.js` | PWA service worker | - |
+| `ai-chat-widget.js` | Gemini AI chat widget | - |
+
+---
+
+## Source of Truth Mapping
+
+| Script-Tag Version (`/shared/js/`) | ES Module (`/shared/browser/`) |
+|------------------------------------|-------------------------------|
+| `shared-auth-manager.js` | `auth-manager.js` |
+| `shared-cache-manager.js` | `persistent-cache.js` |
+| `logger.js` | `logger.js` |
+| `dom-utils.js` | `dom-utils.js` |
+| `common-utils.js` | `common-utils.js` |
 
 ---
 
 ## Xem thêm
 
-- [core-loader.js](file:///Users/mac/Downloads/n2store/js/core-loader.js) - Source code
-- [common-utils.js](file:///Users/mac/Downloads/n2store/js/common-utils.js) - Source code
-- [navigation-modern.js](file:///Users/mac/Downloads/n2store/js/navigation-modern.js) - Source code
+- [/shared/js/](../shared/js/) - Script-tag compatible files
+- [/shared/browser/](../shared/browser/) - ES Module source of truth
+- [/shared/README.md](../shared/README.md) - Full documentation

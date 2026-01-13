@@ -1,7 +1,7 @@
 # 📁 N2Store - Tài Liệu Chức Năng Các Thư Mục
 
-> **Dự án:** N2Store - Hệ thống quản lý bán hàng online tích hợp TPOS & Pancake  
-> **Cập nhật:** 2025-01-02
+> **Dự án:** N2Store - Hệ thống quản lý bán hàng online tích hợp TPOS & Pancake
+> **Cập nhật:** 2025-01-13
 
 ---
 
@@ -23,7 +23,7 @@
 14. [index](#14-index)
 15. [inventory-tracking](#15-inventory-tracking)
 16. [invoice-compare](#16-invoice-compare)
-17. [js](#17-js)
+17. [shared (formerly js)](#17-shared-formerly-js)
 18. [lichsuchinhsua](#18-lichsuchinhsua)
 19. [live](#19-live)
 20. [livestream](#20-livestream)
@@ -328,11 +328,24 @@ cloudflare-worker/
 
 ---
 
-## 17. js
+## 17. shared (formerly js)
 
-**Mục đích:** Shared JavaScript modules cho toàn hệ thống
+**Mục đích:** Shared library cho toàn hệ thống
 
-### Core Modules
+> **UPDATED**: Folder `/js/` đã được di chuyển vào `/shared/js/`
+> Đường dẫn mới: `../shared/js/...` thay vì `../js/...`
+
+### Cấu Trúc
+```
+/shared/
+├── universal/      # ES Modules - Works in Browser + Node.js
+├── browser/        # ES Modules - Browser only (SOURCE OF TRUTH)
+├── js/             # Legacy Script-Tag Compatible (window.*)
+├── node/           # ES Modules - Node.js only
+└── README.md       # Full documentation
+```
+
+### Core Modules (`/shared/js/`)
 | File | Mô tả |
 |------|-------|
 | `core-loader.js` | Dynamic script loader |
@@ -343,6 +356,25 @@ cloudflare-worker/
 | `shared-auth-manager.js` | Authentication manager |
 | `shared-cache-manager.js` | Cache manager |
 | `ai-chat-widget.js` | AI chat widget (Gemini) |
+
+### ES Modules (`/shared/browser/`)
+| File | Mô tả |
+|------|-------|
+| `auth-manager.js` | Authentication (SOURCE OF TRUTH) |
+| `persistent-cache.js` | Cache manager (SOURCE OF TRUTH) |
+| `logger.js` | Logger (SOURCE OF TRUTH) |
+| `dom-utils.js` | DOM utilities (SOURCE OF TRUTH) |
+| `common-utils.js` | UI utilities (SOURCE OF TRUTH) |
+
+### Troubleshooting
+Nếu gặp lỗi `404 Not Found`:
+```bash
+# Kiểm tra path cũ
+grep -r '../js/' . --include="*.html"
+
+# Path đúng
+<script src="../shared/js/core-loader.js"></script>
+```
 
 ### Features
 - AI chat widget với page context
