@@ -187,6 +187,7 @@ const ApiService = {
                     body: JSON.stringify({
                         phone: ticketData.phone,
                         customer_name: ticketData.customer,
+                        customer_address: ticketData.address,  // NEW: Sync address to customer
                         order_id: ticketData.orderId,
                         tpos_order_id: ticketData.tposId,  // TPOS internal ID (số)
                         tracking_code: ticketData.trackingCode,
