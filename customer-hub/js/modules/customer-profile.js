@@ -10,6 +10,9 @@ export class CustomerProfileModule {
         this.customerPhone = null;
         this.walletPanelModule = null;
         this.customerData = null;
+
+        // Expose showOrderDetailPopup to window for onclick handlers
+        window.showOrderDetailPopup = this._showOrderDetailPopup.bind(this);
     }
 
     initUI() {
@@ -362,28 +365,36 @@ export class CustomerProfileModule {
                         <tr>
                             <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Mã ĐH</th>
                             <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Loại</th>
-                            <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Ghi chú/Sản phẩm</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Ghi chú</th>
                             <th class="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Hoàn</th>
                             <th class="px-3 py-2 text-center text-xs font-semibold text-slate-500 uppercase">Trạng thái</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                         ${tickets.slice(0, 10).map(ticket => {
-                            const orderId = ticket.order_id ? ticket.order_id.replace(/^NJD\/\d+\//, '') : '-';
+                            const orderIdDisplay = ticket.order_id ? ticket.order_id.replace(/^NJD\/\d+\//, '') : '-';
+                            const orderIdRaw = ticket.order_id || '';
                             const type = typeMap[ticket.type] || ticket.type;
-                            const noteAndProducts = this._formatNoteAndProducts(ticket.internal_note, ticket.products);
+                            const note = ticket.internal_note && ticket.internal_note.trim()
+                                ? `<span class="text-slate-700 dark:text-slate-300">${ticket.internal_note}</span>`
+                                : '<span class="text-slate-400">-</span>';
                             // Only show refund if > 0, otherwise leave empty
                             const refund = ticket.refund_amount && ticket.refund_amount > 0 ? this._formatCurrencyShort(ticket.refund_amount) : '';
                             const statusInfo = statusMap[ticket.status] || { label: ticket.status, color: 'bg-slate-100 text-slate-500' };
 
                             return `
                                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                    <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">${orderId}</td>
+                                    <td class="px-3 py-2 font-medium">
+                                        ${orderIdRaw ?
+                                            `<a href="#" onclick="showOrderDetailPopup('${orderIdRaw}'); return false;"
+                                                class="text-blue-600 hover:text-blue-800 hover:underline">${orderIdDisplay}</a>`
+                                            : '<span class="text-slate-400">-</span>'}
+                                    </td>
                                     <td class="px-3 py-2">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${this._getTypeColor(ticket.type)}">${type}</span>
                                     </td>
                                     <td class="px-3 py-2 text-slate-600 dark:text-slate-400 max-w-[400px]">
-                                        <div class="space-y-0.5">${noteAndProducts}</div>
+                                        <div class="text-xs truncate">${note}</div>
                                     </td>
                                     <td class="px-3 py-2 text-right font-medium text-emerald-600">${refund}</td>
                                     <td class="px-3 py-2 text-center">
@@ -501,6 +512,152 @@ export class CustomerProfileModule {
             return Math.round(amount / 1000) + 'K';
         }
         return amount.toLocaleString('vi-VN');
+    }
+
+    /**
+     * Show order detail popup (like issue-tracking)
+     */
+    async _showOrderDetailPopup(orderId) {
+        if (!orderId) {
+            alert('Không có ID đơn hàng');
+            return;
+        }
+
+        // Extract numeric ID if full format (e.g., "NJD/2026/42912" -> extract number or use as-is)
+        let tposId = orderId;
+        // If order_id contains slash, it might be in format "NJD/YEAR/NUMBER" - extract last number
+        if (orderId.includes('/')) {
+            const parts = orderId.split('/');
+            tposId = parts[parts.length - 1];
+        }
+
+        try {
+            // Show loading indicator
+            const loadingPopup = document.createElement('div');
+            loadingPopup.id = 'order-detail-loading';
+            loadingPopup.innerHTML = `
+                <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+                    <div style="background: white; padding: 24px; border-radius: 12px; text-align: center;">
+                        <div style="width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px;"></div>
+                        <p style="color: #374151; font-size: 14px;">Đang tải thông tin đơn hàng...</p>
+                    </div>
+                </div>
+                <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+            `;
+            document.body.appendChild(loadingPopup);
+
+            // Call API to get order details
+            const details = await apiService.getOrderDetails(tposId);
+            loadingPopup.remove();
+
+            if (!details) {
+                alert('Không tìm thấy đơn hàng');
+                return;
+            }
+
+            // Format currency
+            const formatCurrency = (val) => {
+                if (!val || val === 0) return '0 đ';
+                return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
+            };
+
+            // Products table HTML
+            const productsHtml = details.products.map(p => {
+                const noteDisplay = p.note ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">(${p.note})</div>` : '';
+                return `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:6px 8px;">
+                            <div><strong>[${p.code || 'N/A'}]</strong> ${p.name || ''}</div>
+                            ${noteDisplay}
+                        </td>
+                        <td style="padding:6px 8px;text-align:center;">${p.quantity || 1}</td>
+                        <td style="padding:6px 8px;text-align:right;">${formatCurrency(p.price)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const totalQty = details.products.reduce((sum, p) => sum + (p.quantity || 1), 0);
+            const finalTotal = (details.amountTotal || 0) - (details.decreaseAmount || 0) + (details.deliveryPrice || 0);
+
+            // Create popup
+            const popup = document.createElement('div');
+            popup.id = 'order-detail-popup';
+            popup.innerHTML = `
+                <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px;">
+                    <div style="background: white; border-radius: 16px; max-width: 600px; width: 100%; max-height: 90vh; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                        <!-- Header -->
+                        <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Chi tiết đơn hàng</h3>
+                                <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.8;">Mã ĐH: ${details.tposCode || orderId}</p>
+                            </div>
+                            <button onclick="document.getElementById('order-detail-popup').remove()"
+                                    style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;">
+                                ✕
+                            </button>
+                        </div>
+
+                        <!-- Content -->
+                        <div style="padding: 20px; overflow-y: auto; max-height: calc(90vh - 120px);">
+                            <!-- Customer Info -->
+                            <div style="background: #f8fafc; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px;">
+                                <p style="margin: 0 0 4px; font-size: 13px;"><strong>Khách:</strong> ${details.customer || 'N/A'} &nbsp;|&nbsp; <strong>Mã ĐH:</strong> ${details.tposCode || orderId}</p>
+                                <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>Địa chỉ:</strong> ${details.address || 'Chưa có địa chỉ'}</p>
+                            </div>
+
+                            <!-- Products Label -->
+                            <p style="margin: 0 0 8px; font-weight: 600; font-size: 14px;">Sản phẩm:</p>
+
+                            <!-- Products Table -->
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px;">
+                                <thead style="background: #f1f5f9;">
+                                    <tr>
+                                        <th style="padding: 8px; text-align: left;">Sản phẩm</th>
+                                        <th style="padding: 8px; text-align: center; width: 60px;">Số lượng</th>
+                                        <th style="padding: 8px; text-align: right; width: 100px;">Đơn giá</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${productsHtml}
+                                </tbody>
+                            </table>
+
+                            <!-- Summary -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f8fafc; border-radius: 12px; padding: 16px;">
+                                <div>
+                                    <p style="margin: 0 0 8px; font-size: 13px;"><strong>Tổng số lượng:</strong> ${totalQty}</p>
+                                    <p style="margin: 0 0 8px; font-size: 13px;"><strong>Giảm giá:</strong> ${formatCurrency(details.decreaseAmount)}</p>
+                                    <p style="margin: 0; font-size: 13px; color: #dc2626;"><strong>Tổng tiền:</strong> ${formatCurrency(finalTotal)}</p>
+                                </div>
+                                <div>
+                                    <p style="margin: 0 0 8px; font-size: 13px;"><strong>Tổng:</strong> ${formatCurrency(details.amountTotal)}</p>
+                                    <p style="margin: 0 0 8px; font-size: 13px;"><strong>Ship:</strong> ${formatCurrency(details.deliveryPrice)}</p>
+                                    <p style="margin: 0; font-size: 13px;"><strong>Công nợ:</strong> ${formatCurrency(details.paymentAmount)}</p>
+                                </div>
+                            </div>
+
+                            <!-- COD -->
+                            <div style="margin-top: 16px; padding: 12px 16px; background: #fef3c7; border-radius: 8px; text-align: center;">
+                                <strong style="color: #d97706; font-size: 14px;">COD: ${formatCurrency(details.cod)}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(popup);
+
+            // Click outside to close
+            popup.addEventListener('click', (e) => {
+                if (e.target === popup.firstElementChild) {
+                    popup.remove();
+                }
+            });
+
+        } catch (err) {
+            console.error('Failed to load order details:', err);
+            document.getElementById('order-detail-loading')?.remove();
+            alert('Lỗi khi tải thông tin đơn hàng: ' + err.message);
+        }
     }
 
     _renderNotesSection(notes) {
