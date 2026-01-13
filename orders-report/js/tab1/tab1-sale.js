@@ -1146,8 +1146,13 @@ window.confirmAndPrintSale = confirmAndPrintSale;
 window.confirmDebtUpdate = confirmDebtUpdate;
 // Note: openPrintPopup is now exported from bill-service.js
 window.toggleChatRightPanel = toggleChatRightPanel;
-window.removeChatProduct = removeChatProduct;
-window.updateChatProductQuantity = updateChatProductQuantity;
+// Note: removeChatProduct and updateChatProductQuantity are defined in tab1-chat-products.js
+if (typeof removeChatProduct !== 'undefined') {
+    window.removeChatProduct = removeChatProduct;
+}
+if (typeof updateChatProductQuantity !== 'undefined') {
+    window.updateChatProductQuantity = updateChatProductQuantity;
+}
 
 // Chat Product Manager - For Orders tab in right panel
 window.chatProductManager = {
