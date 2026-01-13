@@ -35,7 +35,9 @@ function updateTotalSummaryTitle(newTitle) {
 }
 
 function calculateTotalAmounts() {
-    if (!arrayData || arrayData.length === 0) {
+    // Use window.arrayData to handle load order
+    const data = window.arrayData || [];
+    if (!data || data.length === 0) {
         return {
             all: { amount: 0, count: 0 },
             today: { amount: 0, count: 0 },
@@ -94,7 +96,7 @@ function calculateTotalAmounts() {
     console.log("Start of week:", startOfWeek.toLocaleDateString("vi-VN"));
     console.log("End of week:", endOfWeek.toLocaleDateString("vi-VN"));
 
-    arrayData.forEach((item) => {
+    data.forEach((item) => {
         let amount = 0;
         if (item.tienQC) {
             const cleanAmount = item.tienQC.toString().replace(/[,\.]/g, "");
@@ -150,7 +152,8 @@ function calculateTotalAmounts() {
 }
 
 function getFilteredDataForTotal() {
-    if (!arrayData || arrayData.length === 0) return [];
+    const data = window.arrayData || [];
+    if (!data || data.length === 0) return [];
 
     if (
         currentFilters &&
@@ -160,19 +163,19 @@ function getFilteredDataForTotal() {
         const endDate = currentFilters.endDate;
 
         if (!startDate || !endDate) {
-            return arrayData;
+            return data;
         }
 
         const startTime = new Date(startDate + "T00:00:00").getTime();
         const endTime = new Date(endDate + "T23:59:59").getTime();
 
-        return arrayData.filter((item) => {
+        return data.filter((item) => {
             const itemTime = parseInt(item.dateCell);
             return itemTime >= startTime && itemTime <= endTime;
         });
     }
 
-    return arrayData;
+    return data;
 }
 
 function formatCurrency(amount) {

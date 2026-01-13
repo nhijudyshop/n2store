@@ -175,17 +175,30 @@ function initializeApplication() {
     console.log("Livestream Report Management System initialized successfully");
 }
 
-// Document ready handler
+// Document ready handler - wait for core utilities
 document.addEventListener("DOMContentLoaded", function () {
-    // Wait for all scripts to load before initializing
-    setTimeout(() => {
+    function tryInitialize() {
+        // Check if core utilities are loaded
+        if (typeof getAuthState !== 'function' || typeof isAuthenticated !== 'function') {
+            console.log('[Main] Waiting for core utilities...');
+            return false;
+        }
+
         // Enhance functions with totals integration
         enhanceFilterFunctions();
         enhanceTableFunctions();
 
         // Initialize the application
         initializeApplication();
-    }, 300);
+        return true;
+    }
+
+    // Try immediately, or wait for coreUtilitiesLoaded event
+    if (!tryInitialize()) {
+        document.addEventListener('coreUtilitiesLoaded', function() {
+            setTimeout(tryInitialize, 100);
+        });
+    }
 });
 
 // Window load handler for final enhancements and modal setup

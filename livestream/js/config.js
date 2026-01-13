@@ -1,7 +1,5 @@
 // js/config.js - Configuration & Firebase Setup
 
-// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
-
 // Application Configuration
 const APP_CONFIG = {
     CACHE_EXPIRY: 24 * 60 * 60 * 1000,
@@ -11,12 +9,12 @@ const APP_CONFIG = {
     AUTH_STORAGE_KEY: "loginindex_auth",
 };
 
-// Initialize Firebase (using global firebaseConfig)
-const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
-const db = firebase.firestore();
-const storageRef = firebase.storage().ref();
-const collectionRef = db.collection("livestream_reports");
-const historyCollectionRef = db.collection("edit_history");
+// Firebase references (initialized after core utilities load)
+let app = null;
+let db = null;
+let storageRef = null;
+let collectionRef = null;
+let historyCollectionRef = null;
 
 // DOM Elements
 const livestreamForm = document.getElementById("livestreamForm");
@@ -39,8 +37,41 @@ let filterTimeout = null;
 let isFilteringInProgress = false;
 let filteredDataForTotal = [];
 
+// Initialize Firebase when ready
+function initializeFirebase() {
+    if (typeof firebase === 'undefined' || typeof firebaseConfig === 'undefined') {
+        console.warn('[Config] Waiting for Firebase and config...');
+        return false;
+    }
+
+    try {
+        app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
+        db = firebase.firestore();
+        storageRef = firebase.storage().ref();
+        collectionRef = db.collection("livestream_reports");
+        historyCollectionRef = db.collection("edit_history");
+
+        // Export for global access
+        window.db = db;
+        window.collectionRef = collectionRef;
+        window.historyCollectionRef = historyCollectionRef;
+        window.arrayData = arrayData;
+
+        console.log('[Config] Firebase initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('[Config] Firebase init error:', error);
+        return false;
+    }
+}
+
+// Try to initialize immediately or wait for core utilities
+if (!initializeFirebase()) {
+    document.addEventListener('coreUtilitiesLoaded', function() {
+        initializeFirebase();
+    });
+}
+
 // Export for global access
 window.APP_CONFIG = APP_CONFIG;
-window.db = db;
-window.collectionRef = collectionRef;
-window.historyCollectionRef = historyCollectionRef;
+window.arrayData = arrayData;
