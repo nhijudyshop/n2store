@@ -15,8 +15,8 @@
  * </script>
  */
 
-// Firebase Configuration
-const FIREBASE_CONFIG = {
+// Firebase Configuration - Use var to allow redeclaration
+var FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
     apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
     authDomain: "n2shop-69e37.firebaseapp.com",
     databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -27,8 +27,8 @@ const FIREBASE_CONFIG = {
     measurementId: "G-TEJH3S2T1D",
 };
 
-// Alias for backward compatibility
-const firebaseConfig = FIREBASE_CONFIG;
+// Alias for backward compatibility - Use var to allow redeclaration
+var firebaseConfig = window.firebaseConfig || FIREBASE_CONFIG;
 
 // State tracking
 let _firestoreDB = null;

@@ -3,15 +3,7 @@
 // File 1/6: hangrotxa-config.js
 // =====================================================
 
-const firebaseConfig = {
-    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com",
-    projectId: "n2shop-69e37",
-    storageBucket: "n2shop-69e37-ne0q1",
-    messagingSenderId: "598906493303",
-    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-    measurementId: "G-TEJH3S2T1D",
-};
+// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
 
 // Cache configuration
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000;

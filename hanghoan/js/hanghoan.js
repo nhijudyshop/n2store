@@ -5,15 +5,7 @@
 // CONFIGURATION & INITIALIZATION
 // =====================================================
 
-const firebaseConfig = {
-    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com",
-    projectId: "n2shop-69e37",
-    storageBucket: "n2shop-69e37-ne0q1",
-    messagingSenderId: "598906493303",
-    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-    measurementId: "G-TEJH3S2T1D",
-};
+// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
 
 // Cache configuration
 const CACHE_CONFIG = {
@@ -25,8 +17,8 @@ const BATCH_SIZE = 50;
 const MAX_VISIBLE_ROWS = 500;
 const FILTER_DEBOUNCE_DELAY = 300;
 
-// Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
+// Initialize Firebase (using global firebaseConfig)
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 const db = firebase.firestore();
 const collectionRef = db.collection("hanghoan");
 const historyCollectionRef = db.collection("edit_history");
