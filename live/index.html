@@ -26,22 +26,38 @@
             }
         </script>
 
-        <!-- ES Module: Ensure authManager is ready before defer scripts -->
+        <!-- Legacy wrapper functions for live module -->
         <script type="module">
-            // This runs AFTER compat.js (ES modules execute in order)
-            // Set a flag to signal that ES modules have finished loading
-            window._esmLoaded = true;
-            if (window.authManager) {
-                window._authReady = true;
-                console.log('[ESM] Auth ready before defer scripts');
-            }
             window.addEventListener('sharedModulesLoaded', () => {
-                window._authReady = true;
+                if (window.authManager) {
+                    window.getAuthState = () => window.authManager.getAuthData();
+                    window.setAuthState = (isLoggedIn, userType, checkLogin) => {
+                        window.authManager.saveAuthData({ isLoggedIn, userType, checkLogin, timestamp: Date.now() }, false);
+                    };
+                    window.clearAuthState = () => {
+                        sessionStorage.removeItem('loginindex_auth');
+                        localStorage.removeItem('loginindex_auth');
+                    };
+                    window.isAuthenticated = () => window.authManager.isAuthenticated();
+                    window.hasPermission = (level) => window.authManager.hasPermission(level);
+                    window.getUserName = () => {
+                        const auth = window.authManager.getAuthData();
+                        return auth?.userType ? auth.userType.split('-')[0] : 'Admin';
+                    };
+                    window.handleLogout = () => {
+                        if (confirm('Bạn có chắc muốn đăng xuất?')) {
+                            window.clearAuthState();
+                            window.location.href = '../index.html';
+                        }
+                    };
+                    console.log('[AUTH] Legacy wrapper functions ready');
+                }
             });
         </script>
 
         <!-- Navigation Manager -->
         <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="../shared/js/common-utils.js"></script>
 
         <!-- Lucide Icons CDN -->
         <script src="https://unpkg.com/lucide@latest"></script>
