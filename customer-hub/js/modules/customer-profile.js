@@ -589,8 +589,9 @@ export class CustomerProfileModule {
 
                 console.log('[OrderDetail] Searching by order number:', orderNumber);
 
-                // Search for order by Number
-                const searchUrl = `${PROXY_URL}/api/odata/FastSaleOrder?$filter=contains(Number,'${orderNumber}')&$top=1&$orderby=DateInvoice desc`;
+                // Search for order by Number using endswith filter (e.g., Number ends with "/45194")
+                // OData filter: endswith(Number, '/45194') or just search with the full number
+                const searchUrl = `${PROXY_URL}/api/odata/FastSaleOrder?$filter=endswith(Number,'/${orderNumber}')&$top=1&$orderby=DateInvoice desc&$select=Id,Number`;
                 const searchResponse = await fetch(searchUrl, {
                     method: 'GET',
                     headers: {

@@ -22,6 +22,7 @@
 const express = require('express');
 const router = express.Router();
 const { normalizePhone } = require('../../utils/customer-helpers');
+const { processManualDeposit, issueVirtualCredit } = require('../../services/wallet-event-processor');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -120,32 +121,20 @@ router.post('/:customerId/deposit', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Customer not found' });
         }
 
-        await db.query('BEGIN');
+        // Get customer ID if available
+        const customerResult = await db.query('SELECT id FROM customers WHERE phone = $1', [phone]);
+        const customerIdNum = customerResult.rows[0]?.id || null;
 
-        // Get or create wallet
-        let walletResult = await db.query(`
-            INSERT INTO customer_wallets (phone, balance)
-            VALUES ($1, 0)
-            ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
-            RETURNING *
-        `, [phone]);
-
-        const wallet = walletResult.rows[0];
-        const newBalance = parseFloat(wallet.balance) + parseFloat(amount);
-
-        // Update balance
-        await db.query(`
-            UPDATE customer_wallets
-            SET balance = $2, total_deposited = total_deposited + $3, updated_at = NOW()
-            WHERE id = $1
-        `, [wallet.id, newBalance, amount]);
-
-        // Log transaction
-        await db.query(`
-            INSERT INTO wallet_transactions
-            (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note, created_by)
-            VALUES ($1, $2, 'DEPOSIT', $3, $4, $5, $6, $7, $8, $9)
-        `, [phone, wallet.id, amount, wallet.balance, newBalance, source || 'MANUAL_ADJUSTMENT', reference_id, note, created_by]);
+        // Use centralized wallet-event-processor for consistency and SSE
+        const result = await processManualDeposit(
+            db,
+            phone,
+            amount,
+            source || 'MANUAL_ADJUSTMENT',
+            reference_id || created_by || 'admin',
+            note || 'Nạp tiền thủ công',
+            customerIdNum
+        );
 
         // Log activity
         await db.query(`
@@ -153,19 +142,17 @@ router.post('/:customerId/deposit', async (req, res) => {
             VALUES ($1, 'WALLET_DEPOSIT', $2, $3, 'dollar-sign', 'green')
         `, [phone, `Nạp tiền: ${parseFloat(amount).toLocaleString()}đ`, note || '']);
 
-        await db.query('COMMIT');
-
         res.json({
             success: true,
             data: {
                 phone,
                 deposited: parseFloat(amount),
-                previousBalance: parseFloat(wallet.balance),
-                newBalance
+                previousBalance: result.wallet.balance - parseFloat(amount),
+                newBalance: result.wallet.balance,
+                transactionId: result.transactionId
             }
         });
     } catch (error) {
-        await db.query('ROLLBACK');
         handleError(res, error, 'Failed to deposit to wallet');
     }
 });
@@ -189,44 +176,19 @@ router.post('/:customerId/credit', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Customer not found' });
         }
 
-        await db.query('BEGIN');
+        // Use centralized wallet-event-processor for consistency and SSE
+        const result = await issueVirtualCredit(
+            db,
+            phone,
+            amount,
+            source_id || created_by || 'admin',
+            note || `Cấp công nợ ảo (${source_type || 'ADMIN'})`,
+            expiry_days
+        );
 
-        // Get or create wallet
-        let walletResult = await db.query(`
-            INSERT INTO customer_wallets (phone, virtual_balance)
-            VALUES ($1, 0)
-            ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
-            RETURNING *
-        `, [phone]);
-
-        const wallet = walletResult.rows[0];
-
-        // Calculate expiry
+        // Calculate expiry for response
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + expiry_days);
-
-        // Create virtual credit
-        const vcResult = await db.query(`
-            INSERT INTO virtual_credits
-            (phone, wallet_id, original_amount, remaining_amount, expires_at, source_type, source_id, note, created_by)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            RETURNING *
-        `, [phone, wallet.id, amount, amount, expiresAt.toISOString(), source_type || 'COMPENSATION', source_id, note, created_by]);
-
-        // Update wallet virtual balance
-        const newVirtualBalance = parseFloat(wallet.virtual_balance) + parseFloat(amount);
-        await db.query(`
-            UPDATE customer_wallets
-            SET virtual_balance = $2, total_virtual_issued = total_virtual_issued + $3, updated_at = NOW()
-            WHERE id = $1
-        `, [wallet.id, newVirtualBalance, amount]);
-
-        // Log transaction
-        await db.query(`
-            INSERT INTO wallet_transactions
-            (phone, wallet_id, type, amount, virtual_balance_before, virtual_balance_after, source, reference_id, note, created_by)
-            VALUES ($1, $2, 'VIRTUAL_CREDIT', $3, $4, $5, 'VIRTUAL_CREDIT_ISSUE', $6, $7, $8)
-        `, [phone, wallet.id, amount, wallet.virtual_balance, newVirtualBalance, vcResult.rows[0].id, note, created_by]);
 
         // Log activity
         await db.query(`
@@ -234,19 +196,17 @@ router.post('/:customerId/credit', async (req, res) => {
             VALUES ($1, 'WALLET_VIRTUAL_CREDIT', $2, $3, 'gift', 'purple')
         `, [phone, `Cấp công nợ ảo: ${parseFloat(amount).toLocaleString()}đ`, `Hết hạn: ${expiresAt.toLocaleDateString('vi-VN')}`]);
 
-        await db.query('COMMIT');
-
         res.json({
             success: true,
             data: {
-                virtualCredit: vcResult.rows[0],
-                previousVirtualBalance: parseFloat(wallet.virtual_balance),
-                newVirtualBalance,
-                expiresAt: expiresAt.toISOString()
+                phone,
+                amount: parseFloat(amount),
+                newVirtualBalance: result.wallet.virtual_balance,
+                expiresAt: expiresAt.toISOString(),
+                transactionId: result.transactionId
             }
         });
     } catch (error) {
-        await db.query('ROLLBACK');
         handleError(res, error, 'Failed to issue virtual credit');
     }
 });

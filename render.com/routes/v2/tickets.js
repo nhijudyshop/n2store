@@ -22,6 +22,7 @@
 const express = require('express');
 const router = express.Router();
 const { normalizePhone, getOrCreateCustomer } = require('../../utils/customer-helpers');
+const { processDeposit, issueVirtualCredit } = require('../../services/wallet-event-processor');
 
 // Try to import SSE router for notifications
 let sseRouter;
@@ -391,39 +392,29 @@ router.post('/:id/resolve', async (req, res) => {
         // Issue compensation if requested
         if (compensation_amount && compensation_amount > 0) {
             if (compensation_type === 'virtual_credit') {
-                // Issue virtual credit
-                const vcResult = await db.query(`
-                    INSERT INTO virtual_credits
-                    (phone, original_amount, remaining_amount, expires_at, source_type, source_id, note)
-                    VALUES ($1, $2, $2, NOW() + INTERVAL '15 days', 'COMPENSATION', $3, $4)
-                    RETURNING id
-                `, [ticket.phone, compensation_amount, ticket.ticket_code, note || `Bồi thường ticket ${ticket.ticket_code}`]);
+                // Use centralized wallet-event-processor for virtual credit
+                const vcResult = await issueVirtualCredit(
+                    db,
+                    ticket.phone,
+                    compensation_amount,
+                    ticket.ticket_code,
+                    note || `Bồi thường ticket ${ticket.ticket_code}`,
+                    15 // expires in 15 days
+                );
 
-                // Update wallet virtual balance
-                await db.query(`
-                    UPDATE customer_wallets
-                    SET virtual_balance = virtual_balance + $2, total_virtual_issued = total_virtual_issued + $2
-                    WHERE phone = $1
-                `, [ticket.phone, compensation_amount]);
-
-                updates.virtual_credit_id = vcResult.rows[0].id;
                 updates.virtual_credit_amount = compensation_amount;
                 updates.wallet_credited = true;
 
             } else if (compensation_type === 'deposit') {
-                // Direct deposit to real balance
-                await db.query(`
-                    UPDATE customer_wallets
-                    SET balance = balance + $2, total_deposited = total_deposited + $2
-                    WHERE phone = $1
-                `, [ticket.phone, compensation_amount]);
-
-                // Log transaction
-                await db.query(`
-                    INSERT INTO wallet_transactions
-                    (phone, type, amount, source, reference_id, note)
-                    VALUES ($1, 'DEPOSIT', $2, 'RETURN_GOODS', $3, $4)
-                `, [ticket.phone, compensation_amount, ticket.ticket_code, note || `Hoàn tiền ticket ${ticket.ticket_code}`]);
+                // Use centralized wallet-event-processor for deposit
+                await processDeposit(
+                    db,
+                    ticket.phone,
+                    compensation_amount,
+                    ticket.id, // use ticket id as reference
+                    note || `Hoàn tiền ticket ${ticket.ticket_code}`,
+                    ticket.customer_id
+                );
 
                 updates.refund_amount = compensation_amount;
                 updates.wallet_credited = true;

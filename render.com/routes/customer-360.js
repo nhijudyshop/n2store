@@ -18,6 +18,7 @@ const express = require('express');
 const router = express.Router();
 const sseRouter = require('./realtime-sse');
 const { normalizePhone, getOrCreateCustomer } = require('../utils/customer-helpers');
+const { processDeposit } = require('../services/wallet-event-processor');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -1306,7 +1307,7 @@ router.get('/balance-history/unlinked', async (req, res) => {
  */
 router.post('/balance-history/link-customer', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { transaction_id, phone, auto_deposit = false } = req.body;
+    const { transaction_id, phone, auto_deposit = true } = req.body;
 
     if (!transaction_id || !phone) {
         return res.status(400).json({ success: false, error: 'Transaction ID and phone are required' });
@@ -1339,35 +1340,17 @@ router.post('/balance-history/link-customer', async (req, res) => {
             WHERE id = $3
         `, [phone, customerId, transaction_id]);
 
-        // 4. Optional: Auto deposit to wallet
+        // 4. Optional: Auto deposit to wallet using standard processDeposit
         if (auto_deposit && tx.transfer_amount > 0) {
-            // Get or create wallet (should exist after customer creation, but ensure)
-            let walletResult = await db.query(`
-                INSERT INTO customer_wallets (phone, balance)
-                VALUES ($1, 0)
-                ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
-                RETURNING *
-            `, [phone]);
-            const wallet = walletResult.rows[0];
-
-            // Update wallet balance
-            const newBalance = parseFloat(wallet.balance) + parseFloat(tx.transfer_amount);
-            await db.query(`
-                UPDATE customer_wallets
-                SET balance = $2, total_deposited = total_deposited + $3, updated_at = NOW()
-                WHERE id = $1
-            `, [wallet.id, newBalance, tx.transfer_amount]);
-
-            // Log wallet transaction
-            await db.query(`
-                INSERT INTO wallet_transactions (
-                    phone, wallet_id, type, amount, balance_before, balance_after, source,
-                    reference_type, reference_id, note
-                )
-                SELECT $1, id, 'DEPOSIT', $2, $3, $4, 'BANK_TRANSFER',
-                       'balance_history', $5::text, $6
-                FROM customer_wallets WHERE phone = $1
-            `, [phone, tx.transfer_amount, wallet.balance, newBalance, transaction_id, `Nạp từ CK ${tx.code || tx.reference_code}`]);
+            // Use centralized wallet-event-processor for consistency
+            await processDeposit(
+                db,
+                phone,
+                tx.transfer_amount,
+                transaction_id,
+                `Nạp từ CK ${tx.code || tx.reference_code} (manual link)`,
+                customerId
+            );
 
             // Mark balance_history transaction as wallet processed
             await db.query(`
@@ -1380,7 +1363,7 @@ router.post('/balance-history/link-customer', async (req, res) => {
             await db.query(`
                 INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
                 VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
-            `, [phone, customerId, `Nạp tiền: ${tx.transfer_amount.toLocaleString()}đ`, `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`, transaction_id]);
+            `, [phone, customerId, `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`, `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`, transaction_id]);
         }
 
         await db.query('COMMIT');

@@ -1172,10 +1172,11 @@ const ApiService = {
             return { success: false, count: 0 };
         }
     },
-    linkBankTransaction: async (transaction_id, phone, auto_deposit) => {
-        return fetchJson(`${ApiService.RENDER_API_URL}/balance-history/link-customer`, {
+    linkBankTransaction: async (transaction_id, phone, auto_deposit = true) => {
+        // Use v2 API for centralized wallet processing with SSE notifications
+        return fetchJson(`${ApiService.RENDER_API_URL}/v2/balance-history/${transaction_id}/link`, {
             method: 'POST',
-            body: JSON.stringify({ transaction_id, phone, auto_deposit })
+            body: JSON.stringify({ phone, auto_deposit })
         });
     },
     getConsolidatedTransactions: async (page = 1, limit = 10, filters = {}) => {

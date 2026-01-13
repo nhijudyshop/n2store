@@ -366,6 +366,23 @@ async function processDeposit(db, phone, amount, balanceHistoryId, note, custome
 }
 
 /**
+ * Process manual deposit (admin/accounting - no balance_history)
+ * Use this for deposits NOT from bank transfers
+ */
+async function processManualDeposit(db, phone, amount, source, referenceId, note, customerId = null) {
+    return processWalletEvent(db, {
+        type: WALLET_EVENT_TYPES.DEPOSIT,
+        phone,
+        amount,
+        source: source || WALLET_SOURCES.MANUAL_ADJUSTMENT,
+        referenceType: 'manual',
+        referenceId: referenceId || 'admin',
+        note: note || 'Nạp tiền thủ công',
+        customerId
+    });
+}
+
+/**
  * Process withdrawal / payment
  */
 async function processWithdrawal(db, phone, amount, referenceType, referenceId, note) {
@@ -502,6 +519,7 @@ module.exports = {
 
     // Specialized functions
     processDeposit,
+    processManualDeposit,
     processWithdrawal,
     issueVirtualCredit,
     useVirtualCredit,
