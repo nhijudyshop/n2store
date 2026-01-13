@@ -21,42 +21,76 @@ const FIREBASE_CONFIG_FALLBACK = {
     measurementId: "G-TEJH3S2T1D",
 };
 
-// Use global firebaseConfig if available, otherwise use fallback
-const _firebaseConfig = (typeof firebaseConfig !== 'undefined') ? firebaseConfig : FIREBASE_CONFIG_FALLBACK;
+// Global Firebase references
+let app = null;
+let db = null;
+let storageRef = null;
+let collectionRef = null;
+let historyCollectionRef = null;
 
-// Initialize Firebase
-if (!firebase.apps.length) {
-    firebase.initializeApp(_firebaseConfig);
-}
-const app = firebase.app(); // Get the default app
+// Initialize Firebase function
+function initializeFirebase() {
+    if (typeof firebase === 'undefined') {
+        console.warn('[Config] Firebase SDK not loaded yet');
+        return false;
+    }
 
-// Safely initialize services
-const db = (function () {
+    // Get config from various sources
+    const config = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG
+        : (typeof firebaseConfig !== 'undefined') ? firebaseConfig
+        : FIREBASE_CONFIG_FALLBACK;
+
     try {
+        // Initialize Firebase app
+        app = !firebase.apps.length ? firebase.initializeApp(config) : firebase.app();
+
+        // Safely initialize Firestore
         if (firebase.firestore) {
-            return firebase.firestore();
+            try {
+                db = firebase.firestore();
+                collectionRef = db.collection("livestream_reports");
+                historyCollectionRef = db.collection("edit_history");
+            } catch (e) {
+                console.warn("[Config] Error initializing Firestore:", e);
+            }
         }
-        console.warn("Firestore SDK not loaded");
-        return null;
-    } catch (e) {
-        console.warn("Error initializing Firestore:", e);
-        return null;
-    }
-})();
 
-const storageRef = (function () {
-    try {
+        // Safely initialize Storage
         if (firebase.storage) {
-            return firebase.storage().ref();
+            try {
+                storageRef = firebase.storage().ref();
+            } catch (e) {
+                console.warn("[Config] Error initializing Storage:", e);
+            }
         }
-        return null;
-    } catch (e) {
-        return null;
-    }
-})();
 
-const collectionRef = db ? db.collection("livestream_reports") : null;
-const historyCollectionRef = db ? db.collection("edit_history") : null;
+        // Export to window
+        window.db = db;
+        window.collectionRef = collectionRef;
+        window.historyCollectionRef = historyCollectionRef;
+        window.storageRef = storageRef;
+
+        console.log('[Config] Firebase initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('[Config] Firebase init error:', error);
+        return false;
+    }
+}
+
+// Try to initialize immediately if Firebase is available
+if (typeof firebase !== 'undefined') {
+    initializeFirebase();
+} else {
+    // Wait for Firebase SDK to load
+    console.log('[Config] Waiting for Firebase SDK...');
+    window.addEventListener('DOMContentLoaded', () => {
+        if (!initializeFirebase()) {
+            // Retry after a short delay
+            setTimeout(initializeFirebase, 500);
+        }
+    });
+}
 
 // DOM Elements - Safely get elements if they exist
 const livestreamForm = document.getElementById("livestreamForm");
