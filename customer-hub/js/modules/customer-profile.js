@@ -373,10 +373,10 @@ export class CustomerProfileModule {
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                         ${tickets.slice(0, 10).map(ticket => {
                             // order_id = Mã đơn hàng hiển thị (e.g., "45068" or "NJD/2026/45068")
-                            // tpos_order_id = ID đơn hàng thực để fetch API (e.g., "412249")
+                            // tpos_order_id = ID đơn hàng thực để fetch API (e.g., "412249") - MUST be numeric
                             const orderIdDisplay = ticket.order_id ? ticket.order_id.replace(/^NJD\/\d+\//, '') : '-';
-                            // Prefer tpos_order_id, fallback to order_id for older tickets
-                            const orderIdForApi = ticket.tpos_order_id || ticket.order_id || '';
+                            // Only use tpos_order_id if it's a valid number
+                            const tposOrderId = ticket.tpos_order_id && /^\d+$/.test(String(ticket.tpos_order_id)) ? ticket.tpos_order_id : null;
                             const type = typeMap[ticket.type] || ticket.type;
                             const note = ticket.internal_note && ticket.internal_note.trim()
                                 ? `<span class="text-slate-700 dark:text-slate-300">${ticket.internal_note}</span>`
@@ -388,10 +388,10 @@ export class CustomerProfileModule {
                             return `
                                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                     <td class="px-3 py-2 font-medium">
-                                        ${orderIdForApi ?
-                                            `<a href="#" onclick="showOrderDetailPopup('${orderIdForApi}'); return false;"
+                                        ${tposOrderId ?
+                                            `<a href="#" onclick="showOrderDetailPopup('${tposOrderId}'); return false;"
                                                 class="text-blue-600 hover:text-blue-800 hover:underline">${orderIdDisplay}</a>`
-                                            : '<span class="text-slate-400">-</span>'}
+                                            : `<span class="text-slate-600">${orderIdDisplay}</span>`}
                                     </td>
                                     <td class="px-3 py-2">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${this._getTypeColor(ticket.type)}">${type}</span>
@@ -558,10 +558,13 @@ export class CustomerProfileModule {
             return;
         }
 
-        // Determine if this is a numeric ID or order number
-        // If it contains "/" or letters, it's an order number that needs to be searched
-        const isNumericId = /^\d+$/.test(orderIdOrNumber);
-        let tposId = orderIdOrNumber;
+        // Must be numeric ID to fetch order details
+        if (!/^\d+$/.test(orderIdOrNumber)) {
+            alert('Không thể xem chi tiết. Ticket này chưa có ID đơn hàng TPOS.');
+            return;
+        }
+
+        const tposId = orderIdOrNumber;
 
         try {
             // Show loading indicator
@@ -578,47 +581,8 @@ export class CustomerProfileModule {
             `;
             document.body.appendChild(loadingPopup);
 
+            // Fetch order details by ID - exact same format as working fetch
             const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-
-            // If not numeric ID, search by order number first
-            if (!isNumericId) {
-                // Extract the number part from order_id like "NJD/2026/45194" -> "45194"
-                const orderNumber = orderIdOrNumber.includes('/')
-                    ? orderIdOrNumber.split('/').pop()
-                    : orderIdOrNumber;
-
-                console.log('[OrderDetail] Searching by order number:', orderNumber);
-
-                // Search for order by Number using endswith filter (e.g., Number ends with "/45194")
-                // OData filter: endswith(Number, '/45194') or just search with the full number
-                const searchUrl = `${PROXY_URL}/api/odata/FastSaleOrder?$filter=endswith(Number,'/${orderNumber}')&$top=1&$orderby=DateInvoice desc&$select=Id,Number`;
-                const searchResponse = await fetch(searchUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (searchResponse.ok) {
-                    const searchData = await searchResponse.json();
-                    if (searchData.value && searchData.value.length > 0) {
-                        tposId = searchData.value[0].Id;
-                        console.log('[OrderDetail] Found order ID:', tposId);
-                    } else {
-                        loadingPopup.remove();
-                        alert('Không tìm thấy đơn hàng với mã: ' + orderNumber);
-                        return;
-                    }
-                } else {
-                    loadingPopup.remove();
-                    alert('Lỗi khi tìm đơn hàng');
-                    return;
-                }
-            }
-
-            // Now fetch order details by ID
             const expand = 'Partner,User,Carrier,OrderLines($expand=Product,ProductUOM)';
             const url = `${PROXY_URL}/api/odata/FastSaleOrder(${tposId})?$expand=${encodeURIComponent(expand)}`;
 
