@@ -2,8 +2,6 @@
 // CONFIGURATION & CONSTANTS
 // =====================================================
 
-// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
-
 // Application Constants
 const APP_CONFIG = {
     CACHE_EXPIRY: 24 * 60 * 60 * 1000,
@@ -25,10 +23,62 @@ let globalState = {
     },
 };
 
-// Initialize Firebase (using global firebaseConfig from shared)
-const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
-const db = firebase.firestore();
-const collectionRef = db.collection("dathang");
-const historyCollectionRef = db.collection("edit_history");
+// Firebase references (initialized later)
+let app = null;
+let db = null;
+let collectionRef = null;
+let historyCollectionRef = null;
 
-console.log("Configuration loaded successfully");
+// Firebase config fallback
+const FIREBASE_CONFIG_FALLBACK = {
+    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+    authDomain: "n2shop-69e37.firebaseapp.com",
+    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "n2shop-69e37",
+    storageBucket: "n2shop-69e37-ne0q1",
+    messagingSenderId: "598906493303",
+    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+    measurementId: "G-TEJH3S2T1D",
+};
+
+// Initialize Firebase
+function initializeFirebase() {
+    if (typeof firebase === 'undefined') {
+        console.warn('[Config] Firebase SDK not loaded');
+        return false;
+    }
+
+    const config = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG
+        : (typeof firebaseConfig !== 'undefined') ? firebaseConfig
+        : FIREBASE_CONFIG_FALLBACK;
+
+    try {
+        app = !firebase.apps.length ? firebase.initializeApp(config) : firebase.app();
+        db = firebase.firestore();
+        collectionRef = db.collection("dathang");
+        historyCollectionRef = db.collection("edit_history");
+
+        // Export to window
+        window.db = db;
+        window.collectionRef = collectionRef;
+        window.historyCollectionRef = historyCollectionRef;
+
+        console.log('[Config] Firebase initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('[Config] Firebase init error:', error);
+        return false;
+    }
+}
+
+// Try initialize immediately
+if (!initializeFirebase()) {
+    // Wait for shared modules to load
+    window.addEventListener('sharedModulesLoaded', initializeFirebase);
+}
+
+// Export to window
+window.APP_CONFIG = APP_CONFIG;
+window.globalState = globalState;
+
+console.log("[Config] Configuration loaded");
