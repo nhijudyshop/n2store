@@ -308,7 +308,8 @@ export class WalletPanelModule {
         this.closeSSE();
 
         // Use RENDER_SSE_URL (direct to Render.com) to bypass Cloudflare Worker proxy which doesn't support SSE
-        const sseUrl = `${apiService.RENDER_SSE_URL}/realtime/sse?keys=wallet:${this.customerPhone}`;
+        // Route is /api/realtime/sse (note: /api prefix required)
+        const sseUrl = `${apiService.RENDER_SSE_URL}/api/realtime/sse?keys=wallet:${this.customerPhone}`;
         console.log(`[WalletPanel] Subscribing to SSE: ${sseUrl}`);
 
         try {
