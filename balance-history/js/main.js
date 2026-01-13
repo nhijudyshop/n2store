@@ -1709,9 +1709,11 @@ copyInlineQRBtn?.addEventListener('click', async () => {
     } catch (error) {
         console.error('Failed to copy QR with canvas method:', error);
 
-        // Method 2: Fallback - fetch image as blob directly and copy
+        // Method 2: Fallback - fetch image as blob via proxy and copy
         try {
-            const response = await fetch(currentInlineQRUrl);
+            const WORKER_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const proxyUrl = `${WORKER_URL}/api/proxy?url=${encodeURIComponent(currentInlineQRUrl)}`;
+            const response = await fetch(proxyUrl);
             const blob = await response.blob();
 
             // Convert to PNG if needed
@@ -1792,16 +1794,30 @@ async function convertToPngBlob(blob) {
 
 /**
  * Create custom QR image with bank info but WITHOUT account number
+ * Uses Cloudflare Worker proxy to bypass CORS
  * @param {string} qrUrl - Original QR URL
  * @param {string} customerInfo - Customer name or phone to display
  * @returns {Promise<Blob>} - PNG image blob
  */
 async function createCustomQRImage(qrUrl, customerInfo = '') {
+    // Cloudflare Worker proxy URL
+    const WORKER_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
     return new Promise(async (resolve, reject) => {
         try {
-            // Load the QR image
+            // Fetch image via proxy to bypass CORS
+            const proxyUrl = `${WORKER_URL}/api/proxy?url=${encodeURIComponent(qrUrl)}`;
+            const response = await fetch(proxyUrl);
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch QR image: ${response.status}`);
+            }
+
+            const imageBlob = await response.blob();
+
+            // Create image from blob
             const img = new Image();
-            img.crossOrigin = 'anonymous';
+            const blobUrl = URL.createObjectURL(imageBlob);
 
             img.onload = () => {
                 // Canvas dimensions
@@ -1850,6 +1866,9 @@ async function createCustomQRImage(qrUrl, customerInfo = '') {
                     ctx.fillText('Khách hàng: ' + customerInfo, centerX, textAreaY + 82);
                 }
 
+                // Clean up blob URL
+                URL.revokeObjectURL(blobUrl);
+
                 // Convert to blob
                 canvas.toBlob((blob) => {
                     if (blob) {
@@ -1861,10 +1880,11 @@ async function createCustomQRImage(qrUrl, customerInfo = '') {
             };
 
             img.onerror = () => {
+                URL.revokeObjectURL(blobUrl);
                 reject(new Error('Failed to load QR image'));
             };
 
-            img.src = qrUrl;
+            img.src = blobUrl;
         } catch (error) {
             reject(error);
         }
