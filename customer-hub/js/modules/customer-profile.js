@@ -380,8 +380,6 @@ export class CustomerProfileModule {
                             const rawId = ticket.tpos_order_id;
                             const numericId = rawId ? parseInt(rawId, 10) : 0;
                             const tposOrderId = (numericId > 0) ? numericId : null;
-                            // Debug log to check data
-                            console.log('[Ticket Debug]', ticket.ticket_code, '| raw tpos_order_id:', rawId, '| typeof:', typeof rawId, '| numericId:', numericId, '| tposOrderId:', tposOrderId);
                             const type = typeMap[ticket.type] || ticket.type;
                             const note = ticket.internal_note && ticket.internal_note.trim()
                                 ? `<span class="text-slate-700 dark:text-slate-300">${ticket.internal_note}</span>`
@@ -528,7 +526,6 @@ export class CustomerProfileModule {
      * @param {string} orderIdOrNumber - Either TPOS ID (numeric like "412249") or order number (like "45194" or "NJD/2026/45194")
      */
     async _showOrderDetailPopup(orderIdOrNumber) {
-        console.log('[OrderDetail] Called with:', orderIdOrNumber, 'typeof:', typeof orderIdOrNumber);
         if (!orderIdOrNumber) {
             alert('Không có ID đơn hàng');
             return;

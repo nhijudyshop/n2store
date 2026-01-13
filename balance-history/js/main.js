@@ -1676,10 +1676,36 @@ copyInlineQRBtn?.addEventListener('click', async () => {
         if (!response.ok) throw new Error('Fetch failed');
 
         const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
 
-        // Copy image blob directly to clipboard
+        // Load image and draw to canvas for proper PNG format
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = blobUrl;
+        });
+
+        // Create canvas and draw image
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        // Clean up blob URL
+        URL.revokeObjectURL(blobUrl);
+
+        // Get PNG blob from canvas
+        const pngBlob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/png');
+        });
+
+        // Copy to clipboard
         await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob })
+            new ClipboardItem({ 'image/png': pngBlob })
         ]);
 
         // Visual feedback
@@ -1692,7 +1718,7 @@ copyInlineQRBtn?.addEventListener('click', async () => {
 
         if (window.NotificationManager) {
             if (alreadyCopied) {
-                window.NotificationManager.showNotification('⚠️ Đã copy lần 2!', 'warning');
+                window.NotificationManager.showNotification('Đã copy lần 2!', 'warning');
             } else {
                 window.NotificationManager.showNotification('Đã copy hình QR!', 'success');
             }
