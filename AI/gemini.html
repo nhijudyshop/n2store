@@ -643,7 +643,13 @@
     </main>
 
     <!-- Auth Script -->
-    <script src="../hanghoan/auth.js"></script>
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script>
+        const authManager = new AuthManager({ redirectUrl: '../index.html' });
+        window.authManager = authManager;
+        function getAuthState() { return authManager.getAuthData(); }
+        function isAuthenticated() { return authManager.isAuthenticated(); }
+    </script>
 
     <script>
         // ============================================================

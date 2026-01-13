@@ -8,8 +8,9 @@ let realtimeUnsubscribe = null;
 document.addEventListener("DOMContentLoaded", async function () {
     console.log("Initializing Inventory Management System with Firebase...");
 
-    // Initialize Firebase first
-    const firebaseReady = initializeFirebase();
+    // Initialize Firebase first (using shared firebase-config.js)
+    const db = initializeFirestore();
+    const firebaseReady = !!db;
 
     if (firebaseReady) {
         // Wait a bit for Firebase to fully initialize

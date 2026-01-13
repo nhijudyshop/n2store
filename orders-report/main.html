@@ -65,7 +65,46 @@
     <script src="../shared/js/core-loader.js"></script>
 
     <!-- Auth must load BEFORE navigation -->
-    <script src="js/core/auth.js"></script>
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script>
+        // Initialize authManager with orders-report config
+        const authManager = new AuthManager({
+            redirectUrl: '../index.html',
+            sessionDuration: 8 * 60 * 60 * 1000,  // 8 hours
+            rememberDuration: 30 * 24 * 60 * 60 * 1000  // 30 days
+        });
+        window.authManager = authManager;
+
+        // Legacy wrapper functions for backward compatibility
+        function getAuthState() { return authManager.getAuthData(); }
+        function setAuthState(isLoggedIn, userType, checkLogin) {
+            authManager.saveAuthData({ isLoggedIn, userType, checkLogin, timestamp: Date.now() }, false);
+        }
+        function clearAuthState() {
+            sessionStorage.removeItem('loginindex_auth');
+            localStorage.removeItem('loginindex_auth');
+        }
+        function isAuthenticated() { return authManager.isAuthenticated(); }
+        function hasPermission(level) { return authManager.hasPermission(level); }
+        function getUserName() {
+            const auth = getAuthState();
+            return auth && auth.userType ? auth.userType.split('-')[0] : 'Admin';
+        }
+        function handleLogout() {
+            if (confirm('Bạn có chắc muốn đăng xuất?')) {
+                clearAuthState();
+                window.location.href = '../index.html';
+            }
+        }
+
+        // Auto-redirect if not authenticated
+        if (!authManager.isAuthenticated()) {
+            console.warn('[AUTH] User not authenticated, redirecting to login...');
+            authManager.logout('Not authenticated');
+        }
+
+        console.log('[AUTH] AuthManager initialized:', authManager.isAuthenticated());
+    </script>
 
     <!-- Navigation Manager - Load sau khi load auth -->
     <script src="../shared/js/navigation-modern.js"></script>

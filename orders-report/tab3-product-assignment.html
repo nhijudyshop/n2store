@@ -698,9 +698,32 @@
     <!-- IndexedDB Storage for large data (replaces localStorage for caches) -->
     <script src="js/core/indexeddb-storage.js"></script>
     <script src="js/core/cache.js"></script>
-    <script src="js/core/auth.js"></script>
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script>
+        // Initialize authManager for backward compatibility
+        const authManager = new AuthManager({
+            redirectUrl: '../index.html',
+            sessionDuration: 8 * 60 * 60 * 1000,
+            rememberDuration: 30 * 24 * 60 * 60 * 1000
+        });
+        window.authManager = authManager;
+        function getAuthState() { return authManager.getAuthData(); }
+        function isAuthenticated() { return authManager.isAuthenticated(); }
+        function hasPermission(level) { return authManager.hasPermission(level); }
+        function getUserName() {
+            const auth = getAuthState();
+            return auth?.userType ? auth.userType.split('-')[0] : 'Admin';
+        }
+        function handleLogout() {
+            if (confirm('Bạn có chắc muốn đăng xuất?')) {
+                sessionStorage.removeItem('loginindex_auth');
+                localStorage.removeItem('loginindex_auth');
+                window.location.href = '../index.html';
+            }
+        }
+    </script>
     <script src="js/core/user-storage-manager.js"></script>
-    <script src="js/core/notification-system.js"></script>
+    <script src="../shared/js/notification-system.js"></script>
     <!-- Version checker is now in navigation-modern.js (loaded in main.html) -->
     <!-- Note: TPOS token caching is now handled server-side (Cloudflare Worker & Render.com) -->
 
