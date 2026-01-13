@@ -402,10 +402,20 @@
     <!-- Scripts -->
     <!-- Scripts (v=20241219 for cache busting - ensures timezone fix is loaded) -->
     <script src="../shared/js/shared-auth-manager.js?v=20241219"></script>
+    <script>
+        // Initialize authManager immediately after AuthManager class is loaded
+        if (typeof AuthManager !== 'undefined' && !window.authManager) {
+            window.authManager = new AuthManager({
+                redirectUrl: '../index.html',
+                sessionDuration: 8 * 60 * 60 * 1000,
+                rememberDuration: 30 * 24 * 60 * 60 * 1000
+            });
+        }
+    </script>
     <script src="js/config.js?v=20241219"></script>
     <script src="../shared/js/shared-cache-manager.js?v=20241219"></script>
     <script src="js/script.js?v=20241219"></script>
-    <script src="../shared/js/navigation-modern.js?v=20241219"></script>
+    <script defer src="../shared/js/navigation-modern.js?v=20241219"></script>
     <script src="../shared/js/notification-system.js?v=20241219"></script>
 
     <!-- API Config & Pancake Managers (v=20241219 for cache busting) -->
