@@ -330,10 +330,10 @@ cloudflare-worker/
 
 ## 17. shared (formerly js)
 
-**Mục đích:** Shared library cho toàn hệ thống
+**Mục đích:** Shared library cho toàn hệ thống - **CENTRALIZED AUTH, CACHE, NOTIFICATION**
 
-> **UPDATED**: Folder `/js/` đã được di chuyển vào `/shared/js/`
-> Đường dẫn mới: `../shared/js/...` thay vì `../js/...`
+> **UPDATED**: Tất cả auth.js, cache.js, notification-system.js đã được consolidate vào shared library
+> **KHÔNG TẠO** các file này trong folder riêng - dùng shared versions
 
 ### Cấu Trúc
 ```
@@ -346,34 +346,49 @@ cloudflare-worker/
 ```
 
 ### Core Modules (`/shared/js/`)
-| File | Mô tả |
-|------|-------|
-| `core-loader.js` | Dynamic script loader |
-| `common-utils.js` | Shared utilities (33KB) |
-| `firebase-config.js` | Firebase configuration |
-| `navigation-modern.js` | Navigation system (120KB) |
-| `permissions-helper.js` | Permission checking |
-| `shared-auth-manager.js` | Authentication manager |
-| `shared-cache-manager.js` | Cache manager |
-| `ai-chat-widget.js` | AI chat widget (Gemini) |
+| File | Mô tả | Thay thế |
+|------|-------|----------|
+| `shared-auth-manager.js` | Authentication manager | Thay cho local `auth.js` |
+| `shared-cache-manager.js` | Cache manager | Thay cho local `cache.js` |
+| `notification-system.js` | Toast notifications + confirm | Thay cho local `notification-system.js` |
+| `firebase-config.js` | Firebase configuration + init | Thay cho local `firebase-config.js` |
+| `core-loader.js` | Dynamic script loader | - |
+| `common-utils.js` | Shared utilities (33KB) | - |
+| `navigation-modern.js` | Navigation system (120KB) | - |
+| `permissions-helper.js` | Permission checking | - |
+| `ai-chat-widget.js` | AI chat widget (Gemini) | - |
 
 ### ES Modules (`/shared/browser/`)
 | File | Mô tả |
 |------|-------|
 | `auth-manager.js` | Authentication (SOURCE OF TRUTH) |
 | `persistent-cache.js` | Cache manager (SOURCE OF TRUTH) |
+| `notification-system.js` | Notifications (SOURCE OF TRUTH) |
+| `firebase-config.js` | Firebase config (SOURCE OF TRUTH) |
 | `logger.js` | Logger (SOURCE OF TRUTH) |
 | `dom-utils.js` | DOM utilities (SOURCE OF TRUTH) |
 | `common-utils.js` | UI utilities (SOURCE OF TRUTH) |
 
+### Sử Dụng (Script Tags)
+```html
+<!-- Auth, Cache, Notification - ALWAYS use shared versions -->
+<script src="../shared/js/shared-auth-manager.js"></script>
+<script src="../shared/js/shared-cache-manager.js"></script>
+<script src="../shared/js/notification-system.js"></script>
+<script src="../shared/js/firebase-config.js"></script>
+```
+
 ### Troubleshooting
-Nếu gặp lỗi `404 Not Found`:
+Nếu gặp lỗi `404 Not Found` hoặc `AuthManager is not defined`:
 ```bash
-# Kiểm tra path cũ
-grep -r '../js/' . --include="*.html"
+# Tìm local auth.js references (không nên có)
+grep -r 'src="auth.js"' . --include="*.html"
+
+# Tìm local notification-system.js (không nên có)
+grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
 
 # Path đúng
-<script src="../shared/js/core-loader.js"></script>
+<script src="../shared/js/shared-auth-manager.js"></script>
 ```
 
 ### Features
