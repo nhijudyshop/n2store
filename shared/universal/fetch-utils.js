@@ -125,3 +125,149 @@ export async function safeFetch(url, options = {}, config = {}) {
         return { success: false, error: error.message };
     }
 }
+
+// =====================================================
+// SMART FETCH WITH FALLBACK SERVER SUPPORT
+// =====================================================
+
+/**
+ * Smart Fetch Manager
+ * Auto-fallback to backup server on failure
+ */
+class SmartFetchManager {
+    constructor(primaryUrl, backupUrl, options = {}) {
+        this.primaryUrl = primaryUrl;
+        this.backupUrl = backupUrl;
+        this.currentUrl = primaryUrl;
+        this.isUsingBackup = false;
+        this.lastFailureTime = null;
+        this.retryPrimaryAfter = options.retryPrimaryAfter || 5 * 60 * 1000; // 5 minutes
+    }
+
+    /**
+     * Get current active server URL
+     */
+    getCurrentUrl() {
+        // Check if we should retry primary
+        if (this.isUsingBackup && this.lastFailureTime) {
+            const timeSinceFailure = Date.now() - this.lastFailureTime;
+            if (timeSinceFailure > this.retryPrimaryAfter) {
+                console.log('[SMART-FETCH] Attempting to switch back to primary server...');
+                this.currentUrl = this.primaryUrl;
+                this.isUsingBackup = false;
+            }
+        }
+        return this.currentUrl;
+    }
+
+    /**
+     * Switch to backup server
+     */
+    switchToBackup() {
+        if (!this.isUsingBackup) {
+            console.warn('[SMART-FETCH] Switching to BACKUP server:', this.backupUrl);
+            this.currentUrl = this.backupUrl;
+            this.isUsingBackup = true;
+            this.lastFailureTime = Date.now();
+        }
+    }
+
+    /**
+     * Replace server URL in a given URL
+     */
+    replaceServerInUrl(url) {
+        const serverUrl = this.getCurrentUrl();
+        if (url.startsWith(this.primaryUrl)) {
+            return url.replace(this.primaryUrl, serverUrl);
+        }
+        if (url.startsWith(this.backupUrl)) {
+            return url.replace(this.backupUrl, serverUrl);
+        }
+        return url;
+    }
+
+    /**
+     * Smart fetch with auto-fallback
+     */
+    async fetch(url, options = {}) {
+        const activeUrl = this.replaceServerInUrl(url);
+
+        try {
+            const response = await fetch(activeUrl, options);
+
+            // Check for server errors (500+)
+            if (response.status >= 500) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+
+            return response;
+        } catch (error) {
+            // If using primary and it failed, try backup
+            if (!this.isUsingBackup) {
+                console.error('[SMART-FETCH] Primary server failed:', error.message);
+                this.switchToBackup();
+
+                // Retry with backup server
+                const backupUrl = url.replace(this.primaryUrl, this.backupUrl);
+                console.log('[SMART-FETCH] Retrying with backup:', backupUrl);
+
+                try {
+                    const backupResponse = await fetch(backupUrl, options);
+                    console.log('[SMART-FETCH] Backup server responded:', backupResponse.status);
+                    return backupResponse;
+                } catch (backupError) {
+                    console.error('[SMART-FETCH] Backup server also failed:', backupError.message);
+                    throw backupError;
+                }
+            }
+
+            // Already using backup and it failed
+            throw error;
+        }
+    }
+
+    /**
+     * Get current status
+     */
+    getStatus() {
+        return {
+            primary: this.primaryUrl,
+            backup: this.backupUrl,
+            current: this.getCurrentUrl(),
+            isUsingBackup: this.isUsingBackup,
+            lastFailureTime: this.lastFailureTime ? new Date(this.lastFailureTime).toISOString() : null
+        };
+    }
+
+    /**
+     * Force switch to backup
+     */
+    forceBackup() {
+        this.switchToBackup();
+        console.log('[SMART-FETCH] Force switched to backup server');
+    }
+
+    /**
+     * Force switch to primary
+     */
+    forcePrimary() {
+        this.currentUrl = this.primaryUrl;
+        this.isUsingBackup = false;
+        this.lastFailureTime = null;
+        console.log('[SMART-FETCH] Force switched to primary server');
+    }
+}
+
+/**
+ * Create a smart fetch manager instance
+ * @param {string} primaryUrl - Primary server URL
+ * @param {string} backupUrl - Backup server URL
+ * @param {object} options - Options
+ * @returns {SmartFetchManager}
+ */
+export function createSmartFetch(primaryUrl, backupUrl, options = {}) {
+    return new SmartFetchManager(primaryUrl, backupUrl, options);
+}
+
+// Export the class for advanced usage
+export { SmartFetchManager };

@@ -2,13 +2,9 @@
 // INDEXEDDB STORAGE UTILITY
 // Universal IndexedDB wrapper for large data storage
 // Replaces localStorage for items exceeding 5MB limit
-//
-// SOURCE OF TRUTH: /shared/browser/indexeddb-storage.js
-// This file is a script-tag compatible version.
-// For ES module usage, import from '/shared/browser/indexeddb-storage.js'
 // =====================================================
 
-class IndexedDBStorage {
+export class IndexedDBStorage {
     constructor(dbName = 'N2StoreDB', version = 1) {
         this.dbName = dbName;
         this.version = version;
@@ -22,10 +18,10 @@ class IndexedDBStorage {
         try {
             this.db = await this.openDatabase();
             this.isReady = true;
-            console.log(`[IndexedDB] ✅ Database "${this.dbName}" initialized`);
+            console.log(`[IndexedDB] Database "${this.dbName}" initialized`);
             return true;
         } catch (error) {
-            console.error('[IndexedDB] ❌ Failed to initialize:', error);
+            console.error('[IndexedDB] Failed to initialize:', error);
             return false;
         }
     }
@@ -88,12 +84,12 @@ class IndexedDBStorage {
                 const request = store.put(data);
 
                 request.onsuccess = () => {
-                    console.log(`[IndexedDB] ✅ Saved: ${key}`);
+                    console.log(`[IndexedDB] Saved: ${key}`);
                     resolve(true);
                 };
 
                 request.onerror = (event) => {
-                    console.error(`[IndexedDB] ❌ Error saving ${key}:`, event.target.error);
+                    console.error(`[IndexedDB] Error saving ${key}:`, event.target.error);
                     reject(event.target.error);
                 };
             } catch (error) {
@@ -127,7 +123,7 @@ class IndexedDBStorage {
                 };
 
                 request.onerror = (event) => {
-                    console.error(`[IndexedDB] ❌ Error reading ${key}:`, event.target.error);
+                    console.error(`[IndexedDB] Error reading ${key}:`, event.target.error);
                     reject(event.target.error);
                 };
             } catch (error) {
@@ -152,12 +148,12 @@ class IndexedDBStorage {
                 const request = store.delete(key);
 
                 request.onsuccess = () => {
-                    console.log(`[IndexedDB] 🗑️ Removed: ${key}`);
+                    console.log(`[IndexedDB] Removed: ${key}`);
                     resolve(true);
                 };
 
                 request.onerror = (event) => {
-                    console.error(`[IndexedDB] ❌ Error removing ${key}:`, event.target.error);
+                    console.error(`[IndexedDB] Error removing ${key}:`, event.target.error);
                     reject(event.target.error);
                 };
             } catch (error) {
@@ -194,7 +190,7 @@ class IndexedDBStorage {
                 };
 
                 request.onerror = (event) => {
-                    console.error('[IndexedDB] ❌ Error getting keys:', event.target.error);
+                    console.error('[IndexedDB] Error getting keys:', event.target.error);
                     reject(event.target.error);
                 };
             } catch (error) {
@@ -218,12 +214,12 @@ class IndexedDBStorage {
                 const request = store.clear();
 
                 request.onsuccess = () => {
-                    console.log('[IndexedDB] 🗑️ Cleared all data');
+                    console.log('[IndexedDB] Cleared all data');
                     resolve(true);
                 };
 
                 request.onerror = (event) => {
-                    console.error('[IndexedDB] ❌ Error clearing:', event.target.error);
+                    console.error('[IndexedDB] Error clearing:', event.target.error);
                     reject(event.target.error);
                 };
             } catch (error) {
@@ -248,7 +244,6 @@ class IndexedDBStorage {
                 const allRequest = store.getAll();
 
                 let count = 0;
-                let totalSize = 0;
 
                 countRequest.onsuccess = () => {
                     count = countRequest.result;
@@ -256,7 +251,7 @@ class IndexedDBStorage {
 
                 allRequest.onsuccess = () => {
                     const items = allRequest.result;
-                    totalSize = new Blob([JSON.stringify(items)]).size;
+                    const totalSize = new Blob([JSON.stringify(items)]).size;
 
                     resolve({
                         itemCount: count,
@@ -317,9 +312,9 @@ class IndexedDBStorage {
                 localStorage.removeItem(key);
 
                 results.success.push(key);
-                console.log(`[IndexedDB] ✅ Migrated: ${key}`);
+                console.log(`[IndexedDB] Migrated: ${key}`);
             } catch (error) {
-                console.error(`[IndexedDB] ❌ Failed to migrate ${key}:`, error);
+                console.error(`[IndexedDB] Failed to migrate ${key}:`, error);
                 results.failed.push({ key, error: error.message });
             }
         }
@@ -329,15 +324,23 @@ class IndexedDBStorage {
     }
 }
 
-// Create singleton instance
-const indexedDBStorage = new IndexedDBStorage('N2StoreDB', 1);
+/**
+ * Create a singleton instance for a given database
+ * @param {string} dbName - Database name
+ * @param {number} version - Database version
+ * @returns {IndexedDBStorage}
+ */
+export function createIndexedDBStorage(dbName = 'N2StoreDB', version = 1) {
+    return new IndexedDBStorage(dbName, version);
+}
 
-// Export for global access
-window.indexedDBStorage = indexedDBStorage;
+/**
+ * Check if IndexedDB is supported
+ * @returns {boolean}
+ */
+export function isIndexedDBSupported() {
+    return typeof indexedDB !== 'undefined';
+}
 
-// Utility function to check if IndexedDB is supported
-window.isIndexedDBSupported = () => {
-    return !!window.indexedDB;
-};
-
-console.log('[IndexedDB] 📦 IndexedDB Storage Utility loaded');
+// Default export for convenience
+export default IndexedDBStorage;

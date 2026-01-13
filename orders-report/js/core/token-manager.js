@@ -1,5 +1,9 @@
 // =====================================================
 // BEARER TOKEN MANAGER - Auto Refresh & Storage
+//
+// SOURCE OF TRUTH: /shared/browser/token-manager.js
+// This file is a script-tag compatible version.
+// For ES module usage, import from '/shared/browser/token-manager.js'
 // =====================================================
 
 class TokenManager {

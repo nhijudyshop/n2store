@@ -9,5 +9,17 @@
 export { TokenManager, default as TposTokenManager } from './token-manager.js';
 export { PancakeTokenManager } from './pancake-token-manager.js';
 
+// Storage utilities
+export {
+    IndexedDBStorage,
+    createIndexedDBStorage,
+    isIndexedDBSupported,
+} from './indexeddb-storage.js';
+
+export {
+    CacheManager,
+    createCacheManager,
+} from './cache-manager.js';
+
 // Re-export universal modules for convenience
 export * from '../universal/index.js';

@@ -1,5 +1,9 @@
 // =====================================================
 // PANCAKE TOKEN MANAGER - Quản lý JWT token với localStorage + Firebase
+//
+// SOURCE OF TRUTH: /shared/browser/pancake-token-manager.js
+// This file is a script-tag compatible version.
+// For ES module usage, import from '/shared/browser/pancake-token-manager.js'
 // =====================================================
 // Priority order for token retrieval:
 // 1. In-memory cache (fastest)

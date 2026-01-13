@@ -12,6 +12,8 @@ export {
     fetchWithRetry,
     simpleFetch,
     safeFetch,
+    SmartFetchManager,
+    createSmartFetch,
 } from './fetch-utils.js';
 
 // API endpoints configuration
