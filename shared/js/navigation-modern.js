@@ -394,8 +394,12 @@ class UnifiedNavigationManager {
     async init() {
         console.log("[Unified Nav] Starting initialization...");
 
-        // Check authentication
-        if (!authManager || !authManager.isAuthenticated()) {
+        // Check authentication - use window.authManager explicitly
+        const auth = window.authManager;
+        const authData = auth ? auth.getAuthData() : null;
+        console.log("[Unified Nav] Auth check - authManager exists:", !!auth, "| authData:", authData);
+
+        if (!auth || !auth.isAuthenticated()) {
             console.log("[Unified Nav] User not authenticated, redirecting...");
             localStorage.clear();
             sessionStorage.clear();
