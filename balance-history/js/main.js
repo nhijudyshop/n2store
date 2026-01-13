@@ -1684,123 +1684,107 @@ copyInlineQRBtn?.addEventListener('click', async () => {
     };
 
     try {
-        // Method 1: Copy directly from the displayed <img> element
-        const imgElement = document.getElementById('inlineQRImage');
+        // Fetch image via proxy to get blob (bypass CORS)
+        const WORKER_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const proxyUrl = `${WORKER_URL}/api/proxy?url=${encodeURIComponent(currentInlineQRUrl)}`;
+        const response = await fetch(proxyUrl);
 
-        if (imgElement && imgElement.complete && imgElement.naturalWidth > 0) {
-            // Create canvas from the already-loaded image
-            const canvas = document.createElement('canvas');
-            const padding = 30;
-            const hasCustomer = currentCustomerInfo && currentCustomerInfo.trim();
-            const textAreaHeight = hasCustomer ? 105 : 80;
-
-            canvas.width = imgElement.naturalWidth + padding * 2;
-            canvas.height = imgElement.naturalHeight + padding * 2 + textAreaHeight;
-            const ctx = canvas.getContext('2d');
-
-            // White background
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw QR code (centered)
-            const qrX = (canvas.width - imgElement.naturalWidth) / 2;
-            ctx.drawImage(imgElement, qrX, padding, imgElement.naturalWidth, imgElement.naturalHeight);
-
-            // Text area background (light gray)
-            const textAreaY = imgElement.naturalHeight + padding * 1.5;
-            ctx.fillStyle = '#f8f9fa';
-            ctx.fillRect(padding / 2, textAreaY, canvas.width - padding, textAreaHeight);
-
-            // Draw text - WITHOUT account number
-            ctx.fillStyle = '#333333';
-            ctx.textAlign = 'center';
-            const centerX = canvas.width / 2;
-
-            // Bank name
-            ctx.font = 'bold 16px Arial, sans-serif';
-            ctx.fillText('Ngân hàng: ACB', centerX, textAreaY + 28);
-
-            // Account holder name
-            ctx.font = '15px Arial, sans-serif';
-            ctx.fillText('Chủ tài khoản: LAI THUY YEN NHI', centerX, textAreaY + 55);
-
-            // Customer info (if provided)
-            if (hasCustomer) {
-                ctx.font = 'bold 14px Arial, sans-serif';
-                ctx.fillStyle = '#10b981';
-                ctx.fillText('Khách hàng: ' + currentCustomerInfo, centerX, textAreaY + 82);
-            }
-
-            // Convert canvas to blob and copy
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-
-            await navigator.clipboard.write([
-                new ClipboardItem({
-                    'image/png': blob
-                })
-            ]);
-
-            showSuccessFeedback();
-
-            if (window.NotificationManager) {
-                if (alreadyCopied) {
-                    window.NotificationManager.showNotification('⚠️ Đã copy lần 2! Có thể bạn cần tạo QR mới cho khách khác?', 'warning');
-                } else {
-                    window.NotificationManager.showNotification('Đã copy hình QR!', 'success');
-                }
-            }
-            hasCopiedCurrentQR = true;
-            return; // Success, exit early
+        if (!response.ok) {
+            throw new Error(`Fetch failed: ${response.status}`);
         }
 
-        // If img element not ready, throw to try fallback
-        throw new Error('Image element not ready');
+        const imageBlob = await response.blob();
+
+        // Create image from fetched blob (no CORS issue since it's from our proxy)
+        const img = new Image();
+        const blobUrl = URL.createObjectURL(imageBlob);
+
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = blobUrl;
+        });
+
+        // Create canvas with bank info
+        const canvas = document.createElement('canvas');
+        const padding = 30;
+        const hasCustomer = currentCustomerInfo && currentCustomerInfo.trim();
+        const textAreaHeight = hasCustomer ? 105 : 80;
+
+        canvas.width = img.naturalWidth + padding * 2;
+        canvas.height = img.naturalHeight + padding * 2 + textAreaHeight;
+        const ctx = canvas.getContext('2d');
+
+        // White background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw QR code (centered)
+        const qrX = (canvas.width - img.naturalWidth) / 2;
+        ctx.drawImage(img, qrX, padding, img.naturalWidth, img.naturalHeight);
+
+        // Clean up blob URL
+        URL.revokeObjectURL(blobUrl);
+
+        // Text area background (light gray)
+        const textAreaY = img.naturalHeight + padding * 1.5;
+        ctx.fillStyle = '#f8f9fa';
+        ctx.fillRect(padding / 2, textAreaY, canvas.width - padding, textAreaHeight);
+
+        // Draw text - WITHOUT account number
+        ctx.fillStyle = '#333333';
+        ctx.textAlign = 'center';
+        const centerX = canvas.width / 2;
+
+        // Bank name
+        ctx.font = 'bold 16px Arial, sans-serif';
+        ctx.fillText('Ngân hàng: ACB', centerX, textAreaY + 28);
+
+        // Account holder name
+        ctx.font = '15px Arial, sans-serif';
+        ctx.fillText('Chủ tài khoản: LAI THUY YEN NHI', centerX, textAreaY + 55);
+
+        // Customer info (if provided)
+        if (hasCustomer) {
+            ctx.font = 'bold 14px Arial, sans-serif';
+            ctx.fillStyle = '#10b981';
+            ctx.fillText('Khách hàng: ' + currentCustomerInfo, centerX, textAreaY + 82);
+        }
+
+        // Convert canvas to blob and copy
+        const finalBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'image/png': finalBlob
+            })
+        ]);
+
+        showSuccessFeedback();
+
+        if (window.NotificationManager) {
+            if (alreadyCopied) {
+                window.NotificationManager.showNotification('⚠️ Đã copy lần 2! Có thể bạn cần tạo QR mới cho khách khác?', 'warning');
+            } else {
+                window.NotificationManager.showNotification('Đã copy hình QR!', 'success');
+            }
+        }
+        hasCopiedCurrentQR = true;
 
     } catch (error) {
-        console.error('Failed to copy QR with direct method:', error);
+        console.error('Failed to copy QR image:', error);
 
-        // Method 2: Fallback - fetch image as blob via proxy and copy
+        // Fallback: copy URL
         try {
-            const WORKER_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-            const proxyUrl = `${WORKER_URL}/api/proxy?url=${encodeURIComponent(currentInlineQRUrl)}`;
-            const response = await fetch(proxyUrl);
-            const blob = await response.blob();
-
-            // Convert to PNG if needed
-            const pngBlob = blob.type === 'image/png' ? blob : await convertToPngBlob(blob);
-
-            await navigator.clipboard.write([
-                new ClipboardItem({
-                    'image/png': pngBlob
-                })
-            ]);
-
+            await navigator.clipboard.writeText(currentInlineQRUrl);
             showSuccessFeedback();
-
             if (window.NotificationManager) {
-                if (alreadyCopied) {
-                    window.NotificationManager.showNotification('⚠️ Đã copy lần 2! Có thể bạn cần tạo QR mới cho khách khác?', 'warning');
-                } else {
-                    window.NotificationManager.showNotification('Đã copy hình QR!', 'success');
-                }
+                window.NotificationManager.showNotification('Không thể copy ảnh, đã copy link thay thế', 'warning');
             }
             hasCopiedCurrentQR = true;
-
-        } catch (fetchError) {
-            console.error('Failed to copy QR with fetch method:', fetchError);
-
-            // Method 3: Last resort - copy URL
-            try {
-                await navigator.clipboard.writeText(currentInlineQRUrl);
-                showSuccessFeedback();
-                if (window.NotificationManager) {
-                    window.NotificationManager.showNotification('Không thể copy ảnh, đã copy link thay thế', 'warning');
-                }
-                hasCopiedCurrentQR = true;
-            } catch (e) {
-                if (window.NotificationManager) {
-                    window.NotificationManager.showNotification('Không thể copy', 'error');
-                }
+        } catch (e) {
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification('Không thể copy', 'error');
             }
         }
     }
