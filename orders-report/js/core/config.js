@@ -1,7 +1,5 @@
 // js/config.js - Configuration & Firebase Setup
 
-// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
-
 // Application Configuration
 const APP_CONFIG = {
     CACHE_EXPIRY: 24 * 60 * 60 * 1000,
@@ -11,9 +9,24 @@ const APP_CONFIG = {
     AUTH_STORAGE_KEY: "loginindex_auth",
 };
 
+// Firebase config fallback (if not loaded from shared/js/firebase-config.js)
+const FIREBASE_CONFIG_FALLBACK = {
+    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+    authDomain: "n2shop-69e37.firebaseapp.com",
+    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "n2shop-69e37",
+    storageBucket: "n2shop-69e37-ne0q1",
+    messagingSenderId: "598906493303",
+    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+    measurementId: "G-TEJH3S2T1D",
+};
+
+// Use global firebaseConfig if available, otherwise use fallback
+const _firebaseConfig = (typeof firebaseConfig !== 'undefined') ? firebaseConfig : FIREBASE_CONFIG_FALLBACK;
+
 // Initialize Firebase
 if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(_firebaseConfig);
 }
 const app = firebase.app(); // Get the default app
 
