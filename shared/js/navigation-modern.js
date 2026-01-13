@@ -3177,13 +3177,35 @@ Liên hệ Administrator nếu cần thêm quyền truy cập.
 
 function waitForDependencies(callback, maxRetries = 15, delay = 300) {
     let retries = 0;
+    let resolved = false;
+
+    const resolve = () => {
+        if (resolved) return;
+        resolved = true;
+        console.log("[Unified Nav] Dependencies ready!");
+        callback();
+    };
+
+    // Listen for sharedModulesLoaded event from compat.js
+    window.addEventListener('sharedModulesLoaded', () => {
+        if (window.authManager) {
+            resolve();
+        }
+    }, { once: true });
 
     const check = () => {
-        if (typeof authManager !== "undefined" && authManager) {
-            console.log("[Unified Nav] Dependencies ready!");
-            callback();
+        if (resolved) return;
+
+        // Explicitly check window.authManager (not bare authManager)
+        if (window.authManager) {
+            resolve();
         } else if (retries < maxRetries) {
             retries++;
+            // Debug: show what's available
+            if (retries === 1) {
+                console.log('[Unified Nav] Debug - window.AuthManager:', typeof window.AuthManager);
+                console.log('[Unified Nav] Debug - window.authManager:', typeof window.authManager);
+            }
             console.log(`[Unified Nav] Waiting... (${retries}/${maxRetries})`);
             setTimeout(check, delay);
         } else {
