@@ -46,6 +46,9 @@ export class TransactionActivityModule {
                             <option value="DEPOSIT">Nạp tiền</option>
                             <option value="WITHDRAW">Rút tiền</option>
                             <option value="VIRTUAL_CREDIT">Tín dụng ảo</option>
+                            <option value="RETURN_SHIPPER">Hoàn shipper</option>
+                            <option value="RETURN_CLIENT">Hoàn khách</option>
+                            <option value="BOOM">BOOM</option>
                             <option value="OTHER">Khác</option>
                         </select>
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
@@ -325,10 +328,14 @@ export class TransactionActivityModule {
             'RETURN_SHIPPER': { text: 'Refund', icon: 'local_shipping' },
             'COD_ADJUSTMENT': { text: 'Adjustment', icon: 'tune' },
             'OTHER': { text: 'System Event', icon: 'dns' },
+            'BOOM': { text: 'BOOM', icon: 'help_outline' },
             'TICKET_CREATED': { text: 'Ticket Created', icon: 'confirmation_number' },
             'TICKET_UPDATED': { text: 'Ticket Updated', icon: 'edit_note' },
+            'TICKET_DELETED': { text: 'Ticket Deleted', icon: 'delete' },
             'NOTE_ADDED': { text: 'Note Added', icon: 'sticky_note_2' },
             'CUSTOMER_CREATED': { text: 'Customer Created', icon: 'person_add' },
+            'WALLET_DEPOSIT': { text: 'Wire Transfer', icon: 'account_balance' },
+            'WALLET_VIRTUAL_CREDIT': { text: 'Virtual Credit', icon: 'card_giftcard' },
             'customer_ticket': { text: 'Subscription', icon: 'credit_card' },
         };
 
@@ -366,7 +373,15 @@ export class TransactionActivityModule {
     formatTimestamp(dateStr) {
         if (!dateStr) return 'N/A';
         const date = new Date(dateStr);
-        return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+        // Use UTC+7 timezone (Asia/Ho_Chi_Minh)
+        return date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: 'Asia/Ho_Chi_Minh'
+        });
     }
 
     updatePagination(total) {

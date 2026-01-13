@@ -1499,9 +1499,11 @@ router.get('/transactions/consolidated', async (req, res) => {
         paramIndex++;
     }
     if (endDate) {
-        walletWhereConditions.push(`wt.created_at <= $${paramIndex}`);
-        activityWhereConditions.push(`ca.created_at <= $${paramIndex}`);
-        ticketWhereConditions.push(`ct.created_at <= $${paramIndex}`);
+        // Add 1 day to endDate to include the entire last day
+        // e.g., endDate = '2026-01-13' becomes '2026-01-14 00:00:00' for < comparison
+        walletWhereConditions.push(`wt.created_at < ($${paramIndex}::date + interval '1 day')`);
+        activityWhereConditions.push(`ca.created_at < ($${paramIndex}::date + interval '1 day')`);
+        ticketWhereConditions.push(`ct.created_at < ($${paramIndex}::date + interval '1 day')`);
         params.push(endDate);
         paramIndex++;
     }
@@ -1581,7 +1583,7 @@ router.get('/transactions/consolidated', async (req, res) => {
     // Apply type filter - only include relevant sources
     if (type && type !== 'all' && type !== '') {
         const walletTypes = ['DEPOSIT', 'WITHDRAW', 'VIRTUAL_CREDIT', 'VIRTUAL_DEBIT'];
-        const ticketTypes = ['RETURN_CLIENT', 'RETURN_SHIPPER', 'OTHER', 'COD_ADJUSTMENT'];
+        const ticketTypes = ['RETURN_CLIENT', 'RETURN_SHIPPER', 'OTHER', 'COD_ADJUSTMENT', 'BOOM'];
 
         if (walletTypes.includes(type)) {
             walletQuery += ` AND wt.type = '${type}'`;

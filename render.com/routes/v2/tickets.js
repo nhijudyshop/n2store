@@ -207,13 +207,13 @@ router.post('/', async (req, res) => {
         // Get or create customer
         const customerId = await getOrCreateCustomer(db, normalizedPhone, customer_name);
 
-        // NEW: Update customer address if provided and customer has no address
+        // Sync customer address from order if provided and customer has no address
         if (customer_address && customerId) {
             await db.query(`
                 UPDATE customers
-                SET address = COALESCE(NULLIF(address, ''), $1),
+                SET address = $1,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE id = $2 AND (address IS NULL OR address = '')
+                WHERE id = $2 AND (address IS NULL OR TRIM(address) = '')
             `, [customer_address, customerId]);
         }
 
