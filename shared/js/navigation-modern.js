@@ -3201,15 +3201,17 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
             resolve();
         } else if (retries < maxRetries) {
             retries++;
-            // Debug: show what's available
+            // Debug: show what's available on first retry
             if (retries === 1) {
-                console.log('[Unified Nav] Debug - window.AuthManager:', typeof window.AuthManager);
+                console.log('[Unified Nav] Debug - _esmLoaded:', window._esmLoaded);
+                console.log('[Unified Nav] Debug - _authReady:', window._authReady);
                 console.log('[Unified Nav] Debug - window.authManager:', typeof window.authManager);
             }
             console.log(`[Unified Nav] Waiting... (${retries}/${maxRetries})`);
             setTimeout(check, delay);
         } else {
             console.error("[Unified Nav] Dependencies failed, redirecting...");
+            console.error("[Unified Nav] Final state - _esmLoaded:", window._esmLoaded, "_authReady:", window._authReady, "authManager:", typeof window.authManager);
             localStorage.clear();
             sessionStorage.clear();
             window.location.href = "../index.html";

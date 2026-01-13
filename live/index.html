@@ -26,6 +26,20 @@
             }
         </script>
 
+        <!-- ES Module: Ensure authManager is ready before defer scripts -->
+        <script type="module">
+            // This runs AFTER compat.js (ES modules execute in order)
+            // Set a flag to signal that ES modules have finished loading
+            window._esmLoaded = true;
+            if (window.authManager) {
+                window._authReady = true;
+                console.log('[ESM] Auth ready before defer scripts');
+            }
+            window.addEventListener('sharedModulesLoaded', () => {
+                window._authReady = true;
+            });
+        </script>
+
         <!-- Navigation Manager -->
         <script defer src="../shared/js/navigation-modern.js"></script>
 
