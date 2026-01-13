@@ -1684,30 +1684,80 @@ copyInlineQRBtn?.addEventListener('click', async () => {
     };
 
     try {
-        // Method 1: Try creating custom image with Canvas
-        const customImageBlob = await createCustomQRImage(currentInlineQRUrl, currentCustomerInfo);
+        // Method 1: Copy directly from the displayed <img> element
+        const imgElement = document.getElementById('inlineQRImage');
 
-        // Copy to clipboard
-        await navigator.clipboard.write([
-            new ClipboardItem({
-                'image/png': customImageBlob
-            })
-        ]);
+        if (imgElement && imgElement.complete && imgElement.naturalWidth > 0) {
+            // Create canvas from the already-loaded image
+            const canvas = document.createElement('canvas');
+            const padding = 30;
+            const hasCustomer = currentCustomerInfo && currentCustomerInfo.trim();
+            const textAreaHeight = hasCustomer ? 105 : 80;
 
-        showSuccessFeedback();
+            canvas.width = imgElement.naturalWidth + padding * 2;
+            canvas.height = imgElement.naturalHeight + padding * 2 + textAreaHeight;
+            const ctx = canvas.getContext('2d');
 
-        // Show appropriate notification
-        if (window.NotificationManager) {
-            if (alreadyCopied) {
-                window.NotificationManager.showNotification('⚠️ Đã copy lần 2! Có thể bạn cần tạo QR mới cho khách khác?', 'warning');
-            } else {
-                window.NotificationManager.showNotification('Đã copy hình QR!', 'success');
+            // White background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw QR code (centered)
+            const qrX = (canvas.width - imgElement.naturalWidth) / 2;
+            ctx.drawImage(imgElement, qrX, padding, imgElement.naturalWidth, imgElement.naturalHeight);
+
+            // Text area background (light gray)
+            const textAreaY = imgElement.naturalHeight + padding * 1.5;
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fillRect(padding / 2, textAreaY, canvas.width - padding, textAreaHeight);
+
+            // Draw text - WITHOUT account number
+            ctx.fillStyle = '#333333';
+            ctx.textAlign = 'center';
+            const centerX = canvas.width / 2;
+
+            // Bank name
+            ctx.font = 'bold 16px Arial, sans-serif';
+            ctx.fillText('Ngân hàng: ACB', centerX, textAreaY + 28);
+
+            // Account holder name
+            ctx.font = '15px Arial, sans-serif';
+            ctx.fillText('Chủ tài khoản: LAI THUY YEN NHI', centerX, textAreaY + 55);
+
+            // Customer info (if provided)
+            if (hasCustomer) {
+                ctx.font = 'bold 14px Arial, sans-serif';
+                ctx.fillStyle = '#10b981';
+                ctx.fillText('Khách hàng: ' + currentCustomerInfo, centerX, textAreaY + 82);
             }
+
+            // Convert canvas to blob and copy
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+            await navigator.clipboard.write([
+                new ClipboardItem({
+                    'image/png': blob
+                })
+            ]);
+
+            showSuccessFeedback();
+
+            if (window.NotificationManager) {
+                if (alreadyCopied) {
+                    window.NotificationManager.showNotification('⚠️ Đã copy lần 2! Có thể bạn cần tạo QR mới cho khách khác?', 'warning');
+                } else {
+                    window.NotificationManager.showNotification('Đã copy hình QR!', 'success');
+                }
+            }
+            hasCopiedCurrentQR = true;
+            return; // Success, exit early
         }
-        hasCopiedCurrentQR = true;
+
+        // If img element not ready, throw to try fallback
+        throw new Error('Image element not ready');
 
     } catch (error) {
-        console.error('Failed to copy QR with canvas method:', error);
+        console.error('Failed to copy QR with direct method:', error);
 
         // Method 2: Fallback - fetch image as blob via proxy and copy
         try {
