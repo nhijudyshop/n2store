@@ -523,6 +523,12 @@ export class CustomerProfileModule {
             return;
         }
 
+        // Check if tokenManager is available (required for TPOS API)
+        if (!window.tokenManager || !window.tokenManager.authenticatedFetch) {
+            alert('Không thể tải chi tiết đơn hàng. Vui lòng đăng nhập TPOS trước.');
+            return;
+        }
+
         // Extract numeric ID if full format (e.g., "NJD/2026/42912" -> extract number or use as-is)
         let tposId = orderId;
         // If order_id contains slash, it might be in format "NJD/YEAR/NUMBER" - extract last number
