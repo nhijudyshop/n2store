@@ -1,49 +1,29 @@
 // =====================================================
 // UTILITY FUNCTIONS WITH AGGRESSIVE COMPRESSION
+// Common utils (sanitizeInput, formatDate, debounce, etc.)
+// are now in shared/js/date-utils.js and shared/js/form-utils.js
 // =====================================================
 
 class Utils {
-    // Format date to Vietnamese format
+    // Format date - delegates to shared function
     static formatDate(date) {
-        if (!date || !(date instanceof Date)) return "";
-        const day = String(date.getDate()).padStart(2, "0");
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return window.formatDate ? window.formatDate(date) : "";
     }
 
-    // Generate unique filename
+    // Generate unique filename - delegates to shared function
     static generateUniqueFileName() {
-        return (
-            Date.now() + "_" + Math.random().toString(36).substr(2, 9) + ".jpg"
-        );
+        return window.generateUniqueFileName ? window.generateUniqueFileName("jpg") :
+            Date.now() + "_" + Math.random().toString(36).substr(2, 9) + ".jpg";
     }
 
-    // Debounce function
+    // Debounce - delegates to shared function
     static debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
+        return window.debounce ? window.debounce(func, wait) : func;
     }
 
-    // Throttle function
+    // Throttle - delegates to shared function
     static throttle(func, limit) {
-        let inThrottle;
-        return function () {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => (inThrottle = false), limit);
-            }
-        };
+        return window.throttle ? window.throttle(func, limit) : func;
     }
 
     // Check WebP support
@@ -293,130 +273,12 @@ class UploadQueueManager {
 }
 
 // =====================================================
-// STANDALONE UTILITY FUNCTIONS
+// PAGE-SPECIFIC FUNCTIONS
 // =====================================================
 
-function sanitizeInput(input) {
-    if (typeof input !== "string") return "";
-    return input.replace(/[<>"'&]/g, "").trim();
-}
-
-function formatDate(date) {
-    if (!date || !(date instanceof Date)) return "";
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const day = date.getDate().toString().padStart(2, "0");
-    return `${day}/${month}/${year}`;
-}
-
-function parseVietnameseDate(dateString) {
-    if (!dateString) return null;
-
-    try {
-        const cleanDateString = dateString.trim();
-
-        const pattern1 =
-            /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4}),?\s*(\d{1,2}):(\d{2})/;
-        const match1 = cleanDateString.match(pattern1);
-        if (match1) {
-            const [, day, month, year, hour, minute] = match1;
-            return new Date(
-                parseInt(year),
-                parseInt(month) - 1,
-                parseInt(day),
-                parseInt(hour),
-                parseInt(minute),
-                0,
-                0,
-            );
-        }
-
-        const pattern2 = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/;
-        const match2 = cleanDateString.match(pattern2);
-        if (match2) {
-            const [, day, month, year] = match2;
-            return new Date(
-                parseInt(year),
-                parseInt(month) - 1,
-                parseInt(day),
-                0,
-                0,
-                0,
-                0,
-            );
-        }
-
-        const pattern3 = /^(\d{4})-(\d{2})-(\d{2})$/;
-        const match3 = cleanDateString.match(pattern3);
-        if (match3) {
-            const [, year, month, day] = match3;
-            return new Date(
-                parseInt(year),
-                parseInt(month) - 1,
-                parseInt(day),
-                0,
-                0,
-                0,
-                0,
-            );
-        }
-
-        const pattern4 = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/;
-        const match4 = cleanDateString.match(pattern4);
-        if (match4) {
-            const [, year, month, day, hour, minute, second] = match4;
-            return new Date(
-                parseInt(year),
-                parseInt(month) - 1,
-                parseInt(day),
-                parseInt(hour),
-                parseInt(minute),
-                parseInt(second),
-                0,
-            );
-        }
-
-        const date = new Date(dateString);
-        if (!isNaN(date.getTime())) {
-            return date;
-        }
-
-        console.warn("Could not parse date:", dateString);
-        return null;
-    } catch (error) {
-        console.warn("Error parsing date:", dateString, error);
-        return null;
-    }
-}
-
-function getFormattedDateTime() {
-    const now = new Date();
-    const day = now.getDate().toString().padStart(2, "0");
-    const month = (now.getMonth() + 1).toString().padStart(2, "0");
-    const year = now.getFullYear();
-    const hour = now.getHours().toString().padStart(2, "0");
-    const minute = now.getMinutes().toString().padStart(2, "0");
-    return `${day}/${month}/${year}, ${hour}:${minute}`;
-}
-
-function getCurrentDateForInput() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = (now.getMonth() + 1).toString().padStart(2, "0");
-    const day = now.getDate().toString().padStart(2, "0");
-    return `${year}-${month}-${day}`;
-}
-
-function generateUniqueID() {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substr(2, 9);
-    return `inv_${timestamp}_${random}`;
-}
-
-function debounce(func, wait) {
-    return Utils.debounce(func, wait);
-}
-
+/**
+ * Log action to edit history (page-specific)
+ */
 function logAction(
     action,
     description,
@@ -432,7 +294,7 @@ function logAction(
         description: description,
         oldData: oldData,
         newData: newData,
-        id: Date.now() + "_" + Math.random().toString(36).substr(2, 9),
+        id: generateUniqueID("log"),
     };
 
     historyCollectionRef
@@ -443,7 +305,5 @@ function logAction(
 
 window.Utils = Utils;
 window.UploadQueueManager = UploadQueueManager;
-window.getCurrentDateForInput = getCurrentDateForInput;
-window.parseVietnameseDate = parseVietnameseDate;
 
-console.log("✅ Utility functions loaded with aggressive compression");
+console.log("✅ Utility functions loaded (using shared utils)");

@@ -1,50 +1,29 @@
 // =====================================================
 // UTILITY FUNCTIONS
+// Common utils (formatDate, debounce, etc.) are now in
+// shared/js/date-utils.js and shared/js/form-utils.js
 // =====================================================
 
 class Utils {
-    // Format date to Vietnamese format
+    // Format date - delegates to shared function
     static formatDate(date) {
-        if (!date || !(date instanceof Date)) return "";
-
-        const day = String(date.getDate()).padStart(2, "0");
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return window.formatDate ? window.formatDate(date) : "";
     }
 
-    // Generate unique filename
+    // Generate unique filename - delegates to shared function
     static generateUniqueFileName() {
-        return (
-            Date.now() + "_" + Math.random().toString(36).substr(2, 9) + ".png"
-        );
+        return window.generateUniqueFileName ? window.generateUniqueFileName("png") :
+            Date.now() + "_" + Math.random().toString(36).substr(2, 9) + ".png";
     }
 
-    // Debounce function for performance
+    // Debounce - delegates to shared function
     static debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
+        return window.debounce ? window.debounce(func, wait) : func;
     }
 
-    // Throttle function for performance
+    // Throttle - delegates to shared function
     static throttle(func, limit) {
-        let inThrottle;
-        return function () {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => (inThrottle = false), limit);
-            }
-        };
+        return window.throttle ? window.throttle(func, limit) : func;
     }
 
     // Compress image for better performance
@@ -202,3 +181,5 @@ class Utils {
 
 // Export Utils globally
 window.Utils = Utils;
+
+console.log("✅ Utils loaded (using shared utils)");

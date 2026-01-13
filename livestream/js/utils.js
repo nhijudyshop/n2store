@@ -1,25 +1,10 @@
 // js/utils.js - Utility Functions
+// Common utils (sanitizeInput, numberWithCommas, etc.) are now in
+// shared/js/date-utils.js and shared/js/form-utils.js
 
-// Utility Functions
-function sanitizeInput(input) {
-    if (typeof input !== "string") return "";
-    return input.replace(/[<>\"']/g, "").trim();
-}
-
-function numberWithCommas(x) {
-    if (x === 0 || x === "0") return "0";
-    if (!x && x !== 0) return "0";
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
-function formatDate(date) {
-    if (!date || !(date instanceof Date)) return "";
-
-    const year = date.getFullYear() % 100;
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const day = date.getDate().toString().padStart(2, "0");
-    return `${day}-${month}-${year}`;
-}
+// =====================================================
+// PAGE-SPECIFIC DATE FUNCTIONS
+// =====================================================
 
 function formatDateWithPeriod(date, startTime = null) {
     if (!date || !(date instanceof Date)) return "";
@@ -74,34 +59,6 @@ function parseDisplayDate(dateStr) {
     return isNaN(result.getTime()) ? null : result;
 }
 
-function convertToTimestamp(dateString) {
-    const tempTimeStamp = new Date();
-    const parts = dateString.split("-");
-
-    if (parts.length !== 3) {
-        throw new Error("Invalid date format. Expected DD-MM-YY");
-    }
-
-    const day = parseInt(parts[0]);
-    const month = parseInt(parts[1]);
-    let year = parseInt(parts[2]);
-
-    if (year < 100) {
-        year = 2000 + year;
-    }
-
-    const dateObj = new Date(year, month - 1, day);
-    const timestamp =
-        dateObj.getTime() +
-        (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
-
-    return timestamp.toString();
-}
-
-function generateUniqueId() {
-    return Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-}
-
 function formatTimeRange(startTime, endTime) {
     if (!startTime || !endTime) return null;
 
@@ -139,13 +96,17 @@ function formatTimeRange(startTime, endTime) {
     return `Từ ${startFormatted} đến ${endFormatted} - ${duration}`;
 }
 
-// UI Utility Functions
+// =====================================================
+// PAGE-SPECIFIC UI FUNCTIONS (uses floatingAlert element)
+// =====================================================
+
 function showLoading(message = "Đang tải...") {
     const alert = document.getElementById("floatingAlert");
+    if (!alert) return;
     const spinner = alert.querySelector(".loading-spinner");
     const text = alert.querySelector(".alert-text");
 
-    if (alert && spinner && text) {
+    if (spinner && text) {
         alert.className = "loading";
         text.textContent = message;
         spinner.style.display = "block";
@@ -155,10 +116,11 @@ function showLoading(message = "Đang tải...") {
 
 function showSuccess(message) {
     const alert = document.getElementById("floatingAlert");
+    if (!alert) return;
     const spinner = alert.querySelector(".loading-spinner");
     const text = alert.querySelector(".alert-text");
 
-    if (alert && spinner && text) {
+    if (spinner && text) {
         alert.className = "success";
         text.textContent = message;
         spinner.style.display = "none";
@@ -172,10 +134,11 @@ function showSuccess(message) {
 
 function showError(message) {
     const alert = document.getElementById("floatingAlert");
+    if (!alert) return;
     const spinner = alert.querySelector(".loading-spinner");
     const text = alert.querySelector(".alert-text");
 
-    if (alert && spinner && text) {
+    if (spinner && text) {
         alert.className = "error";
         text.textContent = message;
         spinner.style.display = "none";
@@ -194,21 +157,10 @@ function hideFloatingAlert() {
     }
 }
 
-// Export functions
-window.sanitizeInput = sanitizeInput;
-window.numberWithCommas = numberWithCommas;
-window.formatDate = formatDate;
-window.formatDateWithPeriod = formatDateWithPeriod;
-window.parseDisplayDate = parseDisplayDate;
-window.convertToTimestamp = convertToTimestamp;
-window.generateUniqueId = generateUniqueId;
-window.formatTimeRange = formatTimeRange;
-window.showLoading = showLoading;
-window.showSuccess = showSuccess;
-window.showError = showError;
-window.hideFloatingAlert = hideFloatingAlert;
+// =====================================================
+// ACTION LOGGING (page-specific)
+// =====================================================
 
-// Action Logging System
 function logAction(action, description, oldValue = null, newValue = null) {
     try {
         const auth = getAuthState();
@@ -221,36 +173,36 @@ function logAction(action, description, oldValue = null, newValue = null) {
         const logEntry = {
             timestamp: new Date().toISOString(),
             user: userName,
-            action: action, // 'add', 'edit', 'delete'
+            action: action,
             description: description,
             oldValue: oldValue,
             newValue: newValue,
         };
 
-        // Log to console
         console.log(`[ACTION LOG] ${action.toUpperCase()}:`, logEntry);
 
-        // Optionally save to Firebase history collection
-        if (
-            typeof historyCollectionRef !== "undefined" &&
-            historyCollectionRef
-        ) {
+        if (typeof historyCollectionRef !== "undefined" && historyCollectionRef) {
             historyCollectionRef
                 .add(logEntry)
-                .then(() => {
-                    console.log("[ACTION LOG] Saved to Firebase");
-                })
-                .catch((error) => {
-                    console.warn(
-                        "[ACTION LOG] Could not save to Firebase:",
-                        error,
-                    );
-                });
+                .then(() => console.log("[ACTION LOG] Saved to Firebase"))
+                .catch((error) => console.warn("[ACTION LOG] Could not save:", error));
         }
     } catch (error) {
-        console.error("[ACTION LOG] Error logging action:", error);
+        console.error("[ACTION LOG] Error:", error);
     }
 }
 
-// Export function
+// =====================================================
+// EXPORTS
+// =====================================================
+
+window.formatDateWithPeriod = formatDateWithPeriod;
+window.parseDisplayDate = parseDisplayDate;
+window.formatTimeRange = formatTimeRange;
+window.showLoading = showLoading;
+window.showSuccess = showSuccess;
+window.showError = showError;
+window.hideFloatingAlert = hideFloatingAlert;
 window.logAction = logAction;
+
+console.log("✅ Utils loaded (using shared utils for common functions)");
