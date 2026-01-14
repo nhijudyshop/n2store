@@ -7,9 +7,6 @@
     <title>Quản lý Sự vụ & Điều phối sau bán hàng</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <!-- Core Loader -->
-    <!-- ES Module: Shared utilities -->
-        <script type="module" src="../shared/esm/compat.js"></script>
     <!-- Mermaid.js for Flow Diagrams -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <!-- Lucide Icons for Notifications -->
@@ -385,7 +382,12 @@ Ví dụ:
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
-    <!-- Shared Auth -->
+    <!-- Shared utilities -->
+    <script src="../shared/js/firebase-config.js"></script>
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});</script>
+    <script src="../shared/js/notification-system.js"></script>
+    <script>if(typeof NotificationManager!=="undefined"&&!window.notificationManager)window.notificationManager=new NotificationManager();</script>
 
     <!-- Shared API Utils -->
     <script src="../orders-report/js/core/api-config.js"></script>
