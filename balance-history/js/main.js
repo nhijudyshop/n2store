@@ -978,7 +978,7 @@ function renderTable(data, skipGapDetection = false) {
     if (!data || data.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="11" style="text-align: center; padding: 40px;">
+                <td colspan="8" style="text-align: center; padding: 40px;">
                     <i class="fas fa-inbox" style="font-size: 48px; color: #bdc3c7;"></i>
                     <p style="margin-top: 15px; color: #7f8c8d;">Không có dữ liệu</p>
                 </td>
@@ -1285,17 +1285,9 @@ function renderTransactionRow(row) {
     return `
     <tr class="${rowClass}" data-transaction-id="${row.id}">
         <td>${formatDateTime(row.transaction_date)}</td>
-        <td>${row.gateway}</td>
-        <td>
-            <span class="badge ${row.transfer_type === 'in' ? 'badge-success' : 'badge-danger'}">
-                <i class="fas fa-arrow-${row.transfer_type === 'in' ? 'down' : 'up'}"></i>
-                ${row.transfer_type === 'in' ? 'Tiền vào' : 'Tiền ra'}
-            </span>
-        </td>
         <td class="${row.transfer_type === 'in' ? 'amount-in' : 'amount-out'}">
-            ${row.transfer_type === 'in' ? '+' : '-'}${formatCurrency(row.transfer_amount)}
+            ${formatCurrency(row.transfer_amount)}
         </td>
-        <td>${formatCurrency(row.accumulated)}</td>
         <td style="word-wrap: break-word; max-width: 300px;">${content || 'N/A'}</td>
         <td>${row.reference_code || 'N/A'}</td>
         <td class="customer-info-cell ${hasPendingMatch ? 'pending-match' : (customerDisplay.hasInfo ? '' : 'no-info')}">
@@ -1334,7 +1326,7 @@ function renderGapRow(missingRef, prevRef, nextRef, prevDate, nextDate) {
         <td style="text-align: center; color: #92400e; font-style: italic;">
             <i data-lucide="alert-triangle" style="width: 16px; height: 16px; color: #d97706;"></i>
         </td>
-        <td colspan="5" style="color: #92400e; font-weight: 500;">
+        <td colspan="2" style="color: #92400e; font-weight: 500;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <i data-lucide="alert-circle" style="width: 18px; height: 18px; color: #d97706;"></i>
                 <span>Giao dịch bị thiếu - Webhook không nhận được</span>
@@ -1343,7 +1335,7 @@ function renderGapRow(missingRef, prevRef, nextRef, prevDate, nextDate) {
         <td style="font-family: monospace; font-weight: bold; color: #d97706; font-size: 1.1em; text-align: center;">
             ${missingRef}
         </td>
-        <td colspan="4" style="text-align: center;">
+        <td colspan="3" style="text-align: center;">
             <button class="btn btn-sm" onclick="fetchMissingTransaction('${missingRef}')" title="Lấy lại giao dịch từ Sepay" style="background: #3b82f6; color: white; border: none; padding: 4px 10px; margin-right: 4px;">
                 <i data-lucide="download" style="width: 14px; height: 14px;"></i> Lấy lại
             </button>
@@ -1507,7 +1499,7 @@ function hideLoading() {
 function showError(message) {
     tableBody.innerHTML = `
         <tr>
-            <td colspan="9" style="text-align: center; padding: 40px; color: #e74c3c;">
+            <td colspan="8" style="text-align: center; padding: 40px; color: #e74c3c;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 48px;"></i>
                 <p style="margin-top: 15px;">${message}</p>
             </td>
